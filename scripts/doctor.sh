@@ -30,7 +30,7 @@ want edge docker "docker --version"
 want server psql "psql --version"
 want edge cargo "cargo --version"
 want edge rustc "rustc --version"
-want android java "java -version"
+want android java "java -version 2>&1"
 want media ffmpeg "ffmpeg -version"
 want media ffprobe "ffprobe -version"
 

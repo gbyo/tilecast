@@ -5,7 +5,7 @@
 set -eu
 cd "$(dirname "$0")/.."
 make generate
-git diff --exit-code -- \
+set -- \
   docs/openapi.yaml \
   plugins/registry_gen.go \
   .github/CODEOWNERS \
@@ -19,3 +19,11 @@ git diff --exit-code -- \
   packages/player-runtime/src/widgets/capabilities.gen.ts \
   packages/api-client/internal/generated \
   packages/api-schema/generated
+
+git diff --exit-code -- "$@"
+untracked="$(git ls-files --others --exclude-standard -- "$@")"
+if [ -n "$untracked" ]; then
+  echo "generated-check: untracked generated files:" >&2
+  printf '%s\n' "$untracked" >&2
+  exit 1
+fi

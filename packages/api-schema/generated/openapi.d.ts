@@ -3960,7 +3960,7 @@ export interface paths {
     put?: never;
     /**
      * Activate a Takeover
-     * @description Requires an authenticated dashboard user.
+     * @description Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
      */
     post: operations["createTakeover"];
     delete?: never;
@@ -5417,6 +5417,137 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read. */
+    Takeover: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** Format: uuid */
+      playlistId: string;
+      playlistName: string;
+      /** @enum {string} */
+      status: "active" | "expired" | "cancelled";
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      cancelledAt?: string | null;
+      cancellationReason?: string;
+      affectedCount: number;
+      activeCount: number;
+      preparingCount: number;
+      failedCount: number;
+    };
+    TakeoverList: {
+      items: components["schemas"]["Takeover"][];
+      total: number;
+    };
+    TakeoverScreenState: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: int64 */
+      manifestVersion: number;
+      state: string;
+      /** Format: date-time */
+      lastUpdatedAt: string;
+      failureCode?: string | null;
+      failureMessage?: string | null;
+      /** Format: date-time */
+      preparedAt?: string | null;
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      restoredAt?: string | null;
+    };
+    /** @description Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts. */
+    TakeoverDetail: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      /** @enum {string} */
+      status: "active" | "expired" | "cancelled";
+      /** Format: uuid */
+      playlistId: string;
+      playlistName: string;
+      /** Format: date-time */
+      activatedAt?: string | null;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      cancelledAt?: string | null;
+      cancellationReason?: string;
+      screens: components["schemas"]["TakeoverScreenState"][];
+    };
+    TakeoverActivation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "active";
+      affectedCount: number;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    TakeoverCancellation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "cancelled";
+    };
+    NotificationStatus: {
+      emailConfigured: boolean;
+      emailUnavailableReason: string;
+      pendingCount: number;
+      recentFailureCount: number;
+      hasDeliveryHistory: boolean;
+    };
+    /** @enum {string} */
+    NotificationCategory: "incident" | "content_health" | "backup" | "update";
+    NotificationDelivery: {
+      /** Format: uuid */
+      id: string;
+      eventKey: string;
+      category: components["schemas"]["NotificationCategory"];
+      /** @enum {string} */
+      severity: "info" | "warning" | "error" | "critical";
+      /** @enum {string} */
+      channel: "email" | "webhook";
+      target: string;
+      subject: string;
+      /** @enum {string} */
+      status: "pending" | "sent" | "failed" | "cancelled";
+      attempts: number;
+      lastError?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      sentAt?: string;
+    };
+    NotificationWebhook: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** Format: uri */
+      url: string;
+      enabled: boolean;
+      categories: components["schemas"]["NotificationCategory"][];
+      /** Format: date-time */
+      lastAttemptAt?: string;
+      /** Format: date-time */
+      lastSuccessAt?: string;
+      lastError?: string;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    /** @description The signing secret is returned exactly once. There is no endpoint that reads it back. */
+    NotificationWebhookCreated: {
+      webhook: components["schemas"]["NotificationWebhook"];
+      signingSecret: string;
+      secretNotice: string;
+    };
     PluginRequirement: {
       /** @enum {string} */
       kind:
@@ -7791,7 +7922,7 @@ export interface components {
       | "retention-cleanup"
       | "reconcile-config"
       | "validate-media";
-    /** @description Cookie-backed browser requests only. Bearer grants never send it. */
+    /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
     CSRFToken: string;
   };
   requestBodies: never;
@@ -8659,9 +8790,9 @@ export interface operations {
   approveOAuthRequest: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -8705,9 +8836,9 @@ export interface operations {
   denyOAuthRequest: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -8850,9 +8981,9 @@ export interface operations {
   revokeOAuthGrant: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -8921,9 +9052,9 @@ export interface operations {
   createPersonalAccessToken: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -8972,9 +9103,9 @@ export interface operations {
   deleteContentFolder: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9009,9 +9140,9 @@ export interface operations {
   updateContentFolder: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9066,9 +9197,9 @@ export interface operations {
   deleteContentCollection: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9103,9 +9234,9 @@ export interface operations {
   updateContentCollection: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9158,9 +9289,9 @@ export interface operations {
   deleteContentTag: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9195,9 +9326,9 @@ export interface operations {
   updateContentTag: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9250,9 +9381,9 @@ export interface operations {
   duplicatePlaylist: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9322,9 +9453,9 @@ export interface operations {
   restorePlaylistRevision: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9371,9 +9502,9 @@ export interface operations {
   cancelPlayerCommand: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9477,9 +9608,9 @@ export interface operations {
   resetSettings: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -9590,9 +9721,9 @@ export interface operations {
   applyBulkOperation: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -9693,9 +9824,9 @@ export interface operations {
   undoBulkOperation: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -9948,9 +10079,9 @@ export interface operations {
   createBackup: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -10063,9 +10194,9 @@ export interface operations {
   verifyBackup: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10155,9 +10286,9 @@ export interface operations {
   restoreBackup: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10253,9 +10384,9 @@ export interface operations {
   deleteBackup: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10322,7 +10453,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationStatus"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10336,9 +10471,9 @@ export interface operations {
   sendTestNotification: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -10350,7 +10485,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** Format: email */
+              sentTo: string;
+            };
+          };
+        };
       };
       /** @description No address or address invalid */
       400: {
@@ -10384,7 +10526,9 @@ export interface operations {
   };
   listNotificationDeliveries: {
     parameters: {
-      query?: never;
+      query?: {
+        limit?: number;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -10396,7 +10540,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationDelivery"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10428,7 +10576,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhook"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -10449,9 +10601,9 @@ export interface operations {
   createNotificationWebhook: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -10462,8 +10614,7 @@ export interface operations {
           name: string;
           /** Format: uri */
           url: string;
-          enabled?: boolean;
-          categories?: string[];
+          categories?: components["schemas"]["NotificationCategory"][];
         };
       };
     };
@@ -10473,7 +10624,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhookCreated"];
+          };
+        };
       };
       /** @description Invalid webhook */
       400: {
@@ -10501,9 +10656,9 @@ export interface operations {
   updateNotificationWebhook: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10517,7 +10672,7 @@ export interface operations {
           /** Format: uri */
           url?: string;
           enabled?: boolean;
-          categories?: string[];
+          categories?: components["schemas"]["NotificationCategory"][];
         };
       };
     };
@@ -10527,7 +10682,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["NotificationWebhook"];
+          };
+        };
       };
       /** @description Invalid webhook id or body */
       400: {
@@ -10562,9 +10721,9 @@ export interface operations {
   deleteNotificationWebhook: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10613,9 +10772,9 @@ export interface operations {
   testNotificationWebhook: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10629,7 +10788,14 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: {
+              /** @enum {boolean} */
+              delivered: true;
+            };
+          };
+        };
       };
       /** @description Webhook id invalid */
       400: {
@@ -10703,9 +10869,9 @@ export interface operations {
   createIntegrationToken: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -10762,9 +10928,9 @@ export interface operations {
   revokeIntegrationToken: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -10969,9 +11135,9 @@ export interface operations {
   decideContentReview: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         type: "playlist" | "layout";
@@ -11592,9 +11758,9 @@ export interface operations {
   updateActivityRetention: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -11652,9 +11818,9 @@ export interface operations {
   deletePlayerRelease: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -11707,9 +11873,9 @@ export interface operations {
   configureGitHubReleases: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -13501,9 +13667,9 @@ export interface operations {
   updateIncident: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -13979,9 +14145,9 @@ export interface operations {
   installPlugin: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         /** @description Registry identifier such as countdown_bar. */
@@ -14035,9 +14201,9 @@ export interface operations {
   removePlugin: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         /** @description Registry identifier such as countdown_bar. */
@@ -14256,9 +14422,9 @@ export interface operations {
   createUploadSession: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -14295,9 +14461,9 @@ export interface operations {
   cancelUpload: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14343,8 +14509,8 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
         "Upload-Offset": number;
       };
       path: {
@@ -14377,9 +14543,9 @@ export interface operations {
   completeUpload: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14445,9 +14611,9 @@ export interface operations {
   archiveAssets: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -14483,9 +14649,9 @@ export interface operations {
   restoreAssets: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -14538,9 +14704,9 @@ export interface operations {
   deleteAsset: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14561,9 +14727,9 @@ export interface operations {
   updateAsset: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14607,9 +14773,9 @@ export interface operations {
   retryAssetProcessing: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14808,9 +14974,9 @@ export interface operations {
   createPlaylist: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -14876,9 +15042,9 @@ export interface operations {
   deletePlaylist: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14906,9 +15072,9 @@ export interface operations {
   updatePlaylist: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -14989,9 +15155,9 @@ export interface operations {
   addPlaylistItem: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15027,9 +15193,9 @@ export interface operations {
   reorderPlaylistItems: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15054,9 +15220,9 @@ export interface operations {
   bulkUpdatePlaylistItems: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15099,9 +15265,9 @@ export interface operations {
   setPlaylistTagRule: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15137,9 +15303,9 @@ export interface operations {
   deletePlaylistItem: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15165,9 +15331,9 @@ export interface operations {
   updatePlaylistItem: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15213,9 +15379,9 @@ export interface operations {
   assignPresentation: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15247,9 +15413,9 @@ export interface operations {
   removePlaylistAssignment: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -15519,9 +15685,9 @@ export interface operations {
   updateSpanGeometry: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16017,9 +16183,9 @@ export interface operations {
   updateWebsiteAsset: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16627,9 +16793,9 @@ export interface operations {
   createLayout: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -16701,9 +16867,9 @@ export interface operations {
   deleteLayout: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16731,9 +16897,9 @@ export interface operations {
   updateLayout: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16772,9 +16938,9 @@ export interface operations {
   saveLayoutDraft: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16890,9 +17056,9 @@ export interface operations {
   publishLayout: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -16935,9 +17101,9 @@ export interface operations {
   duplicateLayout: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17003,9 +17169,9 @@ export interface operations {
   restoreLayoutRevision: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17106,9 +17272,9 @@ export interface operations {
   submitContentDraft: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         type: "playlist" | "layout" | "campaign";
@@ -17148,9 +17314,9 @@ export interface operations {
   approveContentSubmission: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17189,9 +17355,9 @@ export interface operations {
   requestContentChanges: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17223,9 +17389,9 @@ export interface operations {
   publishContentSubmission: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17260,9 +17426,9 @@ export interface operations {
   scheduleContentPublication: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17294,9 +17460,9 @@ export interface operations {
   cancelContentPublicationSchedule: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17386,9 +17552,9 @@ export interface operations {
   restorePublicationAsDraft: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         type: "playlist" | "layout" | "campaign";
@@ -17418,9 +17584,9 @@ export interface operations {
   rollbackPublication: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         type: "playlist" | "layout" | "campaign";
@@ -17488,9 +17654,9 @@ export interface operations {
   createCampaign: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -17541,9 +17707,9 @@ export interface operations {
   archiveCampaign: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17564,9 +17730,9 @@ export interface operations {
   updateCampaignDraft: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17659,9 +17825,9 @@ export interface operations {
   restoreCampaignRelease: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17687,9 +17853,9 @@ export interface operations {
   publishCampaign: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17749,6 +17915,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -17756,14 +17933,43 @@ export interface operations {
   createTakeover: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** Format: uuid */
+          playlistId: string;
+          screenIds?: string[];
+          groupIds?: string[];
+          /** Format: date-time */
+          expiresAt: string;
+          /** @description Current account password, only when the organization requires reauthentication for takeovers. */
+          password?: string;
+        };
+      };
+    };
     responses: {
       /** @description Takeover activated */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverActivation"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -17794,6 +18000,24 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverDetail"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Takeover not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
         content?: never;
       };
     };
@@ -17801,16 +18025,36 @@ export interface operations {
   cancelTakeover: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path: {
         id: string;
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Takeover cancelled */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["TakeoverCancellation"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -17855,9 +18099,9 @@ export interface operations {
   createPresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -17939,9 +18183,9 @@ export interface operations {
   deletePresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -17978,9 +18222,9 @@ export interface operations {
   updatePresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -18035,9 +18279,9 @@ export interface operations {
   replacePresentationNetworkAssignments: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -18085,9 +18329,9 @@ export interface operations {
   testPresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -18178,9 +18422,9 @@ export interface operations {
   assignScreenPresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -18228,9 +18472,9 @@ export interface operations {
   unassignScreenPresentationNetwork: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -18539,9 +18783,9 @@ export interface operations {
   updateSettings: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -18625,9 +18869,9 @@ export interface operations {
   updatePreferences: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -19711,9 +19955,9 @@ export interface operations {
   createCountdownBarInstance: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path?: never;
       cookie?: never;
@@ -19777,9 +20021,9 @@ export interface operations {
   updateCountdownBarInstance: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];
@@ -19825,9 +20069,9 @@ export interface operations {
   deleteCountdownBarInstance: {
     parameters: {
       query?: never;
-      header: {
-        /** @description Cookie-backed browser requests only. Bearer grants never send it. */
-        "X-CSRF-Token": components["parameters"]["CSRFToken"];
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
       };
       path: {
         id: components["parameters"]["ResourceID"];

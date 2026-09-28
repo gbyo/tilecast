@@ -161,16 +161,16 @@ func (e CampaignDestinationType) Valid() bool {
 
 // Defines values for CampaignPreflightIssuesSeverity.
 const (
-	Error   CampaignPreflightIssuesSeverity = "error"
-	Warning CampaignPreflightIssuesSeverity = "warning"
+	CampaignPreflightIssuesSeverityError   CampaignPreflightIssuesSeverity = "error"
+	CampaignPreflightIssuesSeverityWarning CampaignPreflightIssuesSeverity = "warning"
 )
 
 // Valid indicates whether the value is a known member of the CampaignPreflightIssuesSeverity enum.
 func (e CampaignPreflightIssuesSeverity) Valid() bool {
 	switch e {
-	case Error:
+	case CampaignPreflightIssuesSeverityError:
 		return true
-	case Warning:
+	case CampaignPreflightIssuesSeverityWarning:
 		return true
 	default:
 		return false
@@ -1059,6 +1059,96 @@ func (e ManifestScheduleType) Valid() bool {
 	case ManifestScheduleTypeOneTime:
 		return true
 	case ManifestScheduleTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationCategory.
+const (
+	Backup        NotificationCategory = "backup"
+	ContentHealth NotificationCategory = "content_health"
+	Incident      NotificationCategory = "incident"
+	Update        NotificationCategory = "update"
+)
+
+// Valid indicates whether the value is a known member of the NotificationCategory enum.
+func (e NotificationCategory) Valid() bool {
+	switch e {
+	case Backup:
+		return true
+	case ContentHealth:
+		return true
+	case Incident:
+		return true
+	case Update:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliveryChannel.
+const (
+	Email   NotificationDeliveryChannel = "email"
+	Webhook NotificationDeliveryChannel = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliveryChannel enum.
+func (e NotificationDeliveryChannel) Valid() bool {
+	switch e {
+	case Email:
+		return true
+	case Webhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliverySeverity.
+const (
+	NotificationDeliverySeverityCritical NotificationDeliverySeverity = "critical"
+	NotificationDeliverySeverityError    NotificationDeliverySeverity = "error"
+	NotificationDeliverySeverityInfo     NotificationDeliverySeverity = "info"
+	NotificationDeliverySeverityWarning  NotificationDeliverySeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliverySeverity enum.
+func (e NotificationDeliverySeverity) Valid() bool {
+	switch e {
+	case NotificationDeliverySeverityCritical:
+		return true
+	case NotificationDeliverySeverityError:
+		return true
+	case NotificationDeliverySeverityInfo:
+		return true
+	case NotificationDeliverySeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationDeliveryStatus.
+const (
+	NotificationDeliveryStatusCancelled NotificationDeliveryStatus = "cancelled"
+	NotificationDeliveryStatusFailed    NotificationDeliveryStatus = "failed"
+	NotificationDeliveryStatusPending   NotificationDeliveryStatus = "pending"
+	NotificationDeliveryStatusSent      NotificationDeliveryStatus = "sent"
+)
+
+// Valid indicates whether the value is a known member of the NotificationDeliveryStatus enum.
+func (e NotificationDeliveryStatus) Valid() bool {
+	switch e {
+	case NotificationDeliveryStatusCancelled:
+		return true
+	case NotificationDeliveryStatusFailed:
+		return true
+	case NotificationDeliveryStatusPending:
+		return true
+	case NotificationDeliveryStatusSent:
 		return true
 	default:
 		return false
@@ -2139,6 +2229,78 @@ func (e SpanStatusDisplayMode) Valid() bool {
 	}
 }
 
+// Defines values for TakeoverStatus.
+const (
+	TakeoverStatusActive    TakeoverStatus = "active"
+	TakeoverStatusCancelled TakeoverStatus = "cancelled"
+	TakeoverStatusExpired   TakeoverStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverStatus enum.
+func (e TakeoverStatus) Valid() bool {
+	switch e {
+	case TakeoverStatusActive:
+		return true
+	case TakeoverStatusCancelled:
+		return true
+	case TakeoverStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverActivationStatus.
+const (
+	TakeoverActivationStatusActive TakeoverActivationStatus = "active"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverActivationStatus enum.
+func (e TakeoverActivationStatus) Valid() bool {
+	switch e {
+	case TakeoverActivationStatusActive:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverCancellationStatus.
+const (
+	TakeoverCancellationStatusCancelled TakeoverCancellationStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverCancellationStatus enum.
+func (e TakeoverCancellationStatus) Valid() bool {
+	switch e {
+	case TakeoverCancellationStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TakeoverDetailStatus.
+const (
+	TakeoverDetailStatusActive    TakeoverDetailStatus = "active"
+	TakeoverDetailStatusCancelled TakeoverDetailStatus = "cancelled"
+	TakeoverDetailStatusExpired   TakeoverDetailStatus = "expired"
+)
+
+// Valid indicates whether the value is a known member of the TakeoverDetailStatus enum.
+func (e TakeoverDetailStatus) Valid() bool {
+	switch e {
+	case TakeoverDetailStatusActive:
+		return true
+	case TakeoverDetailStatusCancelled:
+		return true
+	case TakeoverDetailStatusExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UploadStatus.
 const (
 	UploadStatusCancelled  UploadStatus = "cancelled"
@@ -2817,6 +2979,21 @@ func (e CreatePersonalAccessTokenJSONBodyScopes) Valid() bool {
 	case CreatePersonalAccessTokenJSONBodyScopesRead:
 		return true
 	case CreatePersonalAccessTokenJSONBodyScopesWrite:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TestNotificationWebhook200JSONResponseBodyDataDelivered.
+const (
+	True TestNotificationWebhook200JSONResponseBodyDataDelivered = true
+)
+
+// Valid indicates whether the value is a known member of the TestNotificationWebhook200JSONResponseBodyDataDelivered enum.
+func (e TestNotificationWebhook200JSONResponseBodyDataDelivered) Valid() bool {
+	switch e {
+	case True:
 		return true
 	default:
 		return false
@@ -4056,6 +4233,63 @@ type MultiFactorVerifyRequest struct {
 	Code string `json:"code"`
 }
 
+// NotificationCategory defines model for NotificationCategory.
+type NotificationCategory string
+
+// NotificationDelivery defines model for NotificationDelivery.
+type NotificationDelivery struct {
+	Attempts  int                          `json:"attempts"`
+	Category  NotificationCategory         `json:"category"`
+	Channel   NotificationDeliveryChannel  `json:"channel"`
+	CreatedAt time.Time                    `json:"createdAt"`
+	EventKey  string                       `json:"eventKey"`
+	Id        openapi_types.UUID           `json:"id"`
+	LastError *string                      `json:"lastError,omitempty"`
+	SentAt    *time.Time                   `json:"sentAt,omitempty"`
+	Severity  NotificationDeliverySeverity `json:"severity"`
+	Status    NotificationDeliveryStatus   `json:"status"`
+	Subject   string                       `json:"subject"`
+	Target    string                       `json:"target"`
+}
+
+// NotificationDeliveryChannel defines model for NotificationDelivery.Channel.
+type NotificationDeliveryChannel string
+
+// NotificationDeliverySeverity defines model for NotificationDelivery.Severity.
+type NotificationDeliverySeverity string
+
+// NotificationDeliveryStatus defines model for NotificationDelivery.Status.
+type NotificationDeliveryStatus string
+
+// NotificationStatus defines model for NotificationStatus.
+type NotificationStatus struct {
+	EmailConfigured        bool   `json:"emailConfigured"`
+	EmailUnavailableReason string `json:"emailUnavailableReason"`
+	HasDeliveryHistory     bool   `json:"hasDeliveryHistory"`
+	PendingCount           int    `json:"pendingCount"`
+	RecentFailureCount     int    `json:"recentFailureCount"`
+}
+
+// NotificationWebhook defines model for NotificationWebhook.
+type NotificationWebhook struct {
+	Categories    []NotificationCategory `json:"categories"`
+	CreatedAt     time.Time              `json:"createdAt"`
+	Enabled       bool                   `json:"enabled"`
+	Id            openapi_types.UUID     `json:"id"`
+	LastAttemptAt *time.Time             `json:"lastAttemptAt,omitempty"`
+	LastError     *string                `json:"lastError,omitempty"`
+	LastSuccessAt *time.Time             `json:"lastSuccessAt,omitempty"`
+	Name          string                 `json:"name"`
+	Url           string                 `json:"url"`
+}
+
+// NotificationWebhookCreated The signing secret is returned exactly once. There is no endpoint that reads it back.
+type NotificationWebhookCreated struct {
+	SecretNotice  string              `json:"secretNotice"`
+	SigningSecret string              `json:"signingSecret"`
+	Webhook       NotificationWebhook `json:"webhook"`
+}
+
 // OAuthDecision defines model for OAuthDecision.
 type OAuthDecision struct {
 	Challenge   string               `json:"challenge"`
@@ -5285,6 +5519,85 @@ type TOTPEnrollment struct {
 	Secret          string `json:"secret"`
 }
 
+// Takeover Compact takeover row returned by the takeover list, with live per-state screen counts. The per-screen breakdown requires the detail read.
+type Takeover struct {
+	ActivatedAt        *time.Time         `json:"activatedAt,omitempty"`
+	ActiveCount        int                `json:"activeCount"`
+	AffectedCount      int                `json:"affectedCount"`
+	CancellationReason *string            `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time         `json:"cancelledAt,omitempty"`
+	Description        string             `json:"description"`
+	ExpiresAt          time.Time          `json:"expiresAt"`
+	FailedCount        int                `json:"failedCount"`
+	Id                 openapi_types.UUID `json:"id"`
+	Name               string             `json:"name"`
+	PlaylistId         openapi_types.UUID `json:"playlistId"`
+	PlaylistName       string             `json:"playlistName"`
+	PreparingCount     int                `json:"preparingCount"`
+	Status             TakeoverStatus     `json:"status"`
+}
+
+// TakeoverStatus defines model for Takeover.Status.
+type TakeoverStatus string
+
+// TakeoverActivation defines model for TakeoverActivation.
+type TakeoverActivation struct {
+	AffectedCount int                      `json:"affectedCount"`
+	ExpiresAt     time.Time                `json:"expiresAt"`
+	Id            openapi_types.UUID       `json:"id"`
+	Status        TakeoverActivationStatus `json:"status"`
+}
+
+// TakeoverActivationStatus defines model for TakeoverActivation.Status.
+type TakeoverActivationStatus string
+
+// TakeoverCancellation defines model for TakeoverCancellation.
+type TakeoverCancellation struct {
+	Id     openapi_types.UUID         `json:"id"`
+	Status TakeoverCancellationStatus `json:"status"`
+}
+
+// TakeoverCancellationStatus defines model for TakeoverCancellation.Status.
+type TakeoverCancellationStatus string
+
+// TakeoverDetail Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+type TakeoverDetail struct {
+	ActivatedAt        *time.Time            `json:"activatedAt,omitempty"`
+	CancellationReason *string               `json:"cancellationReason,omitempty"`
+	CancelledAt        *time.Time            `json:"cancelledAt,omitempty"`
+	Description        string                `json:"description"`
+	ExpiresAt          time.Time             `json:"expiresAt"`
+	Id                 openapi_types.UUID    `json:"id"`
+	Name               string                `json:"name"`
+	PlaylistId         openapi_types.UUID    `json:"playlistId"`
+	PlaylistName       string                `json:"playlistName"`
+	Screens            []TakeoverScreenState `json:"screens"`
+	Status             TakeoverDetailStatus  `json:"status"`
+}
+
+// TakeoverDetailStatus defines model for TakeoverDetail.Status.
+type TakeoverDetailStatus string
+
+// TakeoverList defines model for TakeoverList.
+type TakeoverList struct {
+	Items []Takeover `json:"items"`
+	Total int        `json:"total"`
+}
+
+// TakeoverScreenState defines model for TakeoverScreenState.
+type TakeoverScreenState struct {
+	ActivatedAt     *time.Time         `json:"activatedAt,omitempty"`
+	FailureCode     *string            `json:"failureCode,omitempty"`
+	FailureMessage  *string            `json:"failureMessage,omitempty"`
+	LastUpdatedAt   time.Time          `json:"lastUpdatedAt"`
+	ManifestVersion int64              `json:"manifestVersion"`
+	PreparedAt      *time.Time         `json:"preparedAt,omitempty"`
+	RestoredAt      *time.Time         `json:"restoredAt,omitempty"`
+	ScreenId        openapi_types.UUID `json:"screenId"`
+	ScreenName      string             `json:"screenName"`
+	State           string             `json:"state"`
+}
+
 // UploadStatus defines model for UploadStatus.
 type UploadStatus string
 
@@ -5488,8 +5801,8 @@ type UpdateIncidentJSONBody struct {
 
 // UpdateIncidentParams defines parameters for UpdateIncident.
 type UpdateIncidentParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // GetActivityOverviewParams defines parameters for GetActivityOverview.
@@ -5530,8 +5843,8 @@ type UpdateActivityRetentionJSONBody struct {
 
 // UpdateActivityRetentionParams defines parameters for UpdateActivityRetention.
 type UpdateActivityRetentionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListScreenEventsParams defines parameters for ListScreenEvents.
@@ -5638,8 +5951,8 @@ type ArchiveAssetsJSONBody struct {
 
 // ArchiveAssetsParams defines parameters for ArchiveAssets.
 type ArchiveAssetsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // BulkOrganizeAssetsJSONBody defines parameters for BulkOrganizeAssets.
@@ -5660,8 +5973,8 @@ type RestoreAssetsJSONBody struct {
 
 // RestoreAssetsParams defines parameters for RestoreAssets.
 type RestoreAssetsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateWebsiteAssetParams defines parameters for CreateWebsiteAsset.
@@ -5672,8 +5985,8 @@ type CreateWebsiteAssetParams struct {
 
 // DeleteAssetParams defines parameters for DeleteAsset.
 type DeleteAssetParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateAssetJSONBody defines parameters for UpdateAsset.
@@ -5687,20 +6000,20 @@ type UpdateAssetJSONBody struct {
 
 // UpdateAssetParams defines parameters for UpdateAsset.
 type UpdateAssetParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RetryAssetProcessingParams defines parameters for RetryAssetProcessing.
 type RetryAssetProcessingParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateWebsiteAssetParams defines parameters for UpdateWebsiteAsset.
 type UpdateWebsiteAssetParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // LogoutParams defines parameters for Logout.
@@ -5722,20 +6035,20 @@ type ListCampaignsParams struct {
 
 // CreateCampaignParams defines parameters for CreateCampaign.
 type CreateCampaignParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ArchiveCampaignParams defines parameters for ArchiveCampaign.
 type ArchiveCampaignParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateCampaignDraftParams defines parameters for UpdateCampaignDraft.
 type UpdateCampaignDraftParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // PublishCampaignJSONBody defines parameters for PublishCampaign.
@@ -5745,20 +6058,20 @@ type PublishCampaignJSONBody struct {
 
 // PublishCampaignParams defines parameters for PublishCampaign.
 type PublishCampaignParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RestoreCampaignReleaseParams defines parameters for RestoreCampaignRelease.
 type RestoreCampaignReleaseParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteContentCollectionParams defines parameters for DeleteContentCollection.
 type DeleteContentCollectionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateContentCollectionJSONBody defines parameters for UpdateContentCollection.
@@ -5769,14 +6082,14 @@ type UpdateContentCollectionJSONBody struct {
 
 // UpdateContentCollectionParams defines parameters for UpdateContentCollection.
 type UpdateContentCollectionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteContentFolderParams defines parameters for DeleteContentFolder.
 type DeleteContentFolderParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateContentFolderJSONBody defines parameters for UpdateContentFolder.
@@ -5788,8 +6101,8 @@ type UpdateContentFolderJSONBody struct {
 
 // UpdateContentFolderParams defines parameters for UpdateContentFolder.
 type UpdateContentFolderParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ComparePublicationsParams defines parameters for ComparePublications.
@@ -5800,14 +6113,14 @@ type ComparePublicationsParams struct {
 
 // RestorePublicationAsDraftParams defines parameters for RestorePublicationAsDraft.
 type RestorePublicationAsDraftParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RollbackPublicationParams defines parameters for RollbackPublication.
 type RollbackPublicationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListContentReviewsParams defines parameters for ListContentReviews.
@@ -5824,8 +6137,8 @@ type DecideContentReviewJSONBody struct {
 
 // DecideContentReviewParams defines parameters for DecideContentReview.
 type DecideContentReviewParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DecideContentReviewParamsType defines parameters for DecideContentReview.
@@ -5841,44 +6154,44 @@ type ListContentSubmissionsParamsState string
 
 // ApproveContentSubmissionParams defines parameters for ApproveContentSubmission.
 type ApproveContentSubmissionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CancelContentPublicationScheduleParams defines parameters for CancelContentPublicationSchedule.
 type CancelContentPublicationScheduleParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // PublishContentSubmissionParams defines parameters for PublishContentSubmission.
 type PublishContentSubmissionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RequestContentChangesParams defines parameters for RequestContentChanges.
 type RequestContentChangesParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ScheduleContentPublicationParams defines parameters for ScheduleContentPublication.
 type ScheduleContentPublicationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // SubmitContentDraftParams defines parameters for SubmitContentDraft.
 type SubmitContentDraftParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteContentTagParams defines parameters for DeleteContentTag.
 type DeleteContentTagParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateContentTagJSONBody defines parameters for UpdateContentTag.
@@ -5889,8 +6202,8 @@ type UpdateContentTagJSONBody struct {
 
 // UpdateContentTagParams defines parameters for UpdateContentTag.
 type UpdateContentTagParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ReplaceFormGrantsJSONBody defines parameters for ReplaceFormGrants.
@@ -6013,14 +6326,14 @@ type CreateIntegrationTokenJSONBody struct {
 
 // CreateIntegrationTokenParams defines parameters for CreateIntegrationToken.
 type CreateIntegrationTokenParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RevokeIntegrationTokenParams defines parameters for RevokeIntegrationToken.
 type RevokeIntegrationTokenParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ReplaceDataSourceRowsJSONBody defines parameters for ReplaceDataSourceRows.
@@ -6048,8 +6361,8 @@ type CreateLayoutJSONBody struct {
 
 // CreateLayoutParams defines parameters for CreateLayout.
 type CreateLayoutParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateLayoutJSONBodyOrientation defines parameters for CreateLayout.
@@ -6057,8 +6370,8 @@ type CreateLayoutJSONBodyOrientation string
 
 // DeleteLayoutParams defines parameters for DeleteLayout.
 type DeleteLayoutParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateLayoutJSONBody defines parameters for UpdateLayout.
@@ -6069,8 +6382,8 @@ type UpdateLayoutJSONBody struct {
 
 // UpdateLayoutParams defines parameters for UpdateLayout.
 type UpdateLayoutParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // SaveLayoutDraftJSONBody defines parameters for SaveLayoutDraft.
@@ -6081,14 +6394,14 @@ type SaveLayoutDraftJSONBody struct {
 
 // SaveLayoutDraftParams defines parameters for SaveLayoutDraft.
 type SaveLayoutDraftParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DuplicateLayoutParams defines parameters for DuplicateLayout.
 type DuplicateLayoutParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateLayoutPreviewImageParams defines parameters for UpdateLayoutPreviewImage.
@@ -6103,8 +6416,8 @@ type PublishLayoutJSONBody struct {
 
 // PublishLayoutParams defines parameters for PublishLayout.
 type PublishLayoutParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListLayoutRevisionsParams defines parameters for ListLayoutRevisions.
@@ -6120,20 +6433,20 @@ type RestoreLayoutRevisionJSONBody struct {
 
 // RestoreLayoutRevisionParams defines parameters for RestoreLayoutRevision.
 type RestoreLayoutRevisionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdatePreferencesParams defines parameters for UpdatePreferences.
 type UpdatePreferencesParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RevokeOAuthGrantParams defines parameters for RevokeOAuthGrant.
 type RevokeOAuthGrantParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RegisterPasskeyParams defines parameters for RegisterPasskey.
@@ -6171,8 +6484,8 @@ type CreatePersonalAccessTokenJSONBody struct {
 
 // CreatePersonalAccessTokenParams defines parameters for CreatePersonalAccessToken.
 type CreatePersonalAccessTokenParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreatePersonalAccessTokenJSONBodyExpiresInDays defines parameters for CreatePersonalAccessToken.
@@ -6201,56 +6514,63 @@ type RemoveAuthenticatorParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// ListNotificationDeliveriesParams defines parameters for ListNotificationDeliveries.
+type ListNotificationDeliveriesParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // SendTestNotificationParams defines parameters for SendTestNotification.
 type SendTestNotificationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateNotificationWebhookJSONBody defines parameters for CreateNotificationWebhook.
 type CreateNotificationWebhookJSONBody struct {
-	Categories *[]string `json:"categories,omitempty"`
-	Enabled    *bool     `json:"enabled,omitempty"`
-	Name       string    `json:"name"`
-	Url        string    `json:"url"`
+	Categories *[]NotificationCategory `json:"categories,omitempty"`
+	Name       string                  `json:"name"`
+	Url        string                  `json:"url"`
 }
 
 // CreateNotificationWebhookParams defines parameters for CreateNotificationWebhook.
 type CreateNotificationWebhookParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteNotificationWebhookParams defines parameters for DeleteNotificationWebhook.
 type DeleteNotificationWebhookParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateNotificationWebhookJSONBody defines parameters for UpdateNotificationWebhook.
 type UpdateNotificationWebhookJSONBody struct {
-	Categories *[]string `json:"categories,omitempty"`
-	Enabled    *bool     `json:"enabled,omitempty"`
-	Name       *string   `json:"name,omitempty"`
-	Url        *string   `json:"url,omitempty"`
+	Categories *[]NotificationCategory `json:"categories,omitempty"`
+	Enabled    *bool                   `json:"enabled,omitempty"`
+	Name       *string                 `json:"name,omitempty"`
+	Url        *string                 `json:"url,omitempty"`
 }
 
 // UpdateNotificationWebhookParams defines parameters for UpdateNotificationWebhook.
 type UpdateNotificationWebhookParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // TestNotificationWebhookParams defines parameters for TestNotificationWebhook.
 type TestNotificationWebhookParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
+
+// TestNotificationWebhook200JSONResponseBodyDataDelivered defines parameters for TestNotificationWebhook.
+type TestNotificationWebhook200JSONResponseBodyDataDelivered bool
 
 // ApproveOAuthRequestParams defines parameters for ApproveOAuthRequest.
 type ApproveOAuthRequestParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DescribeOAuthApprovalParams defines parameters for DescribeOAuthApproval.
@@ -6268,8 +6588,8 @@ type DescribeOAuthApprovalParamsCodeChallengeMethod string
 
 // DenyOAuthRequestParams defines parameters for DenyOAuthRequest.
 type DenyOAuthRequestParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RevokeOAuthCredentialJSONBody defines parameters for RevokeOAuthCredential.
@@ -6284,8 +6604,8 @@ type ConfigureGitHubReleasesJSONBody struct {
 
 // ConfigureGitHubReleasesParams defines parameters for ConfigureGitHubReleases.
 type ConfigureGitHubReleasesParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UploadPlayerReleaseMultipartBody defines parameters for UploadPlayerRelease.
@@ -6295,8 +6615,8 @@ type UploadPlayerReleaseMultipartBody struct {
 
 // DeletePlayerReleaseParams defines parameters for DeletePlayerRelease.
 type DeletePlayerReleaseParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // IngestPlayerActivityEventsJSONBody defines parameters for IngestPlayerActivityEvents.
@@ -6401,8 +6721,8 @@ type CreatePlaylistJSONBody struct {
 
 // CreatePlaylistParams defines parameters for CreatePlaylist.
 type CreatePlaylistParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreatePlaylistJSONBodySourceType defines parameters for CreatePlaylist.
@@ -6410,50 +6730,50 @@ type CreatePlaylistJSONBodySourceType string
 
 // DeletePlaylistParams defines parameters for DeletePlaylist.
 type DeletePlaylistParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdatePlaylistParams defines parameters for UpdatePlaylist.
 type UpdatePlaylistParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DuplicatePlaylistParams defines parameters for DuplicatePlaylist.
 type DuplicatePlaylistParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // AddPlaylistItemParams defines parameters for AddPlaylistItem.
 type AddPlaylistItemParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // BulkUpdatePlaylistItemsParams defines parameters for BulkUpdatePlaylistItems.
 type BulkUpdatePlaylistItemsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ReorderPlaylistItemsParams defines parameters for ReorderPlaylistItems.
 type ReorderPlaylistItemsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeletePlaylistItemParams defines parameters for DeletePlaylistItem.
 type DeletePlaylistItemParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdatePlaylistItemParams defines parameters for UpdatePlaylistItem.
 type UpdatePlaylistItemParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // PublishPlaylistJSONBody defines parameters for PublishPlaylist.
@@ -6463,74 +6783,74 @@ type PublishPlaylistJSONBody struct {
 
 // RestorePlaylistRevisionParams defines parameters for RestorePlaylistRevision.
 type RestorePlaylistRevisionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // SetPlaylistTagRuleParams defines parameters for SetPlaylistTagRule.
 type SetPlaylistTagRuleParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateCountdownBarInstanceParams defines parameters for CreateCountdownBarInstance.
 type CreateCountdownBarInstanceParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteCountdownBarInstanceParams defines parameters for DeleteCountdownBarInstance.
 type DeleteCountdownBarInstanceParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdateCountdownBarInstanceParams defines parameters for UpdateCountdownBarInstance.
 type UpdateCountdownBarInstanceParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // InstallPluginParams defines parameters for InstallPlugin.
 type InstallPluginParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RemovePluginParams defines parameters for RemovePlugin.
 type RemovePluginParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreatePresentationNetworkParams defines parameters for CreatePresentationNetwork.
 type CreatePresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeletePresentationNetworkParams defines parameters for DeletePresentationNetwork.
 type DeletePresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UpdatePresentationNetworkParams defines parameters for UpdatePresentationNetwork.
 type UpdatePresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ReplacePresentationNetworkAssignmentsParams defines parameters for ReplacePresentationNetworkAssignments.
 type ReplacePresentationNetworkAssignmentsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // TestPresentationNetworkParams defines parameters for TestPresentationNetwork.
 type TestPresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ListSchedulesParams defines parameters for ListSchedules.
@@ -6569,8 +6889,8 @@ type PreviewDisplayGroupControlParamsCommandType string
 
 // UpdateSpanGeometryParams defines parameters for UpdateSpanGeometry.
 type UpdateSpanGeometryParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // ApplyBulkOperationJSONBody defines parameters for ApplyBulkOperation.
@@ -6587,14 +6907,14 @@ type ApplyBulkOperationJSONBody struct {
 
 // ApplyBulkOperationParams defines parameters for ApplyBulkOperation.
 type ApplyBulkOperationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UndoBulkOperationParams defines parameters for UndoBulkOperation.
 type UndoBulkOperationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // PreviewBulkOperationJSONBody defines parameters for PreviewBulkOperation.
@@ -6647,8 +6967,8 @@ type UpdateScreenJSONBody struct {
 
 // CancelPlayerCommandParams defines parameters for CancelPlayerCommand.
 type CancelPlayerCommandParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // StartLiveStreamParams defines parameters for StartLiveStream.
@@ -6668,26 +6988,26 @@ type RenewLiveStreamParams struct {
 
 // RemovePlaylistAssignmentParams defines parameters for RemovePlaylistAssignment.
 type RemovePlaylistAssignmentParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // AssignPresentationParams defines parameters for AssignPresentation.
 type AssignPresentationParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // UnassignScreenPresentationNetworkParams defines parameters for UnassignScreenPresentationNetwork.
 type UnassignScreenPresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // AssignScreenPresentationNetworkParams defines parameters for AssignScreenPresentationNetwork.
 type AssignScreenPresentationNetworkParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RenewScreenPreviewJSONBody defines parameters for RenewScreenPreview.
@@ -6707,8 +7027,8 @@ type RevokeScreenCredentialJSONBody struct {
 
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteLoginBackgroundParams defines parameters for DeleteLoginBackground.
@@ -6734,20 +7054,20 @@ type ResetSettingsJSONBody struct {
 
 // ResetSettingsParams defines parameters for ResetSettings.
 type ResetSettingsParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateBackupParams defines parameters for CreateBackup.
 type CreateBackupParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // DeleteBackupParams defines parameters for DeleteBackup.
 type DeleteBackupParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RestoreBackupJSONBody defines parameters for RestoreBackup.
@@ -6757,42 +7077,72 @@ type RestoreBackupJSONBody struct {
 
 // RestoreBackupParams defines parameters for RestoreBackup.
 type RestoreBackupParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // VerifyBackupParams defines parameters for VerifyBackup.
 type VerifyBackupParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // RunSystemMaintenanceParamsAction defines parameters for RunSystemMaintenance.
 type RunSystemMaintenanceParamsAction string
 
+// CreateTakeoverJSONBody defines parameters for CreateTakeover.
+type CreateTakeoverJSONBody struct {
+	Description *string               `json:"description,omitempty"`
+	ExpiresAt   time.Time             `json:"expiresAt"`
+	GroupIds    *[]openapi_types.UUID `json:"groupIds,omitempty"`
+	Name        string                `json:"name"`
+
+	// Password Current account password, only when the organization requires reauthentication for takeovers.
+	Password   *string               `json:"password,omitempty"`
+	PlaylistId openapi_types.UUID    `json:"playlistId"`
+	ScreenIds  *[]openapi_types.UUID `json:"screenIds,omitempty"`
+}
+
+// CreateTakeoverParams defines parameters for CreateTakeover.
+type CreateTakeoverParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CancelTakeoverJSONBody defines parameters for CancelTakeover.
+type CancelTakeoverJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// CancelTakeoverParams defines parameters for CancelTakeover.
+type CancelTakeoverParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // CreateUploadSessionParams defines parameters for CreateUploadSession.
 type CreateUploadSessionParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CancelUploadParams defines parameters for CancelUpload.
 type CancelUploadParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // AppendUploadBytesParams defines parameters for AppendUploadBytes.
 type AppendUploadBytesParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken   CSRFToken `json:"X-CSRF-Token"`
-	UploadOffset int64     `json:"Upload-Offset"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken   *CSRFToken `json:"X-CSRF-Token,omitempty"`
+	UploadOffset int64      `json:"Upload-Offset"`
 }
 
 // CompleteUploadParams defines parameters for CompleteUpload.
 type CompleteUploadParams struct {
-	// XCSRFToken Cookie-backed browser requests only. Bearer grants never send it.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
 // CreateUserJSONBody defines parameters for CreateUser.
@@ -7125,6 +7475,12 @@ type ResetSettingsJSONRequestBody ResetSettingsJSONBody
 
 // RestoreBackupJSONRequestBody defines body for RestoreBackup for application/json ContentType.
 type RestoreBackupJSONRequestBody RestoreBackupJSONBody
+
+// CreateTakeoverJSONRequestBody defines body for CreateTakeover for application/json ContentType.
+type CreateTakeoverJSONRequestBody CreateTakeoverJSONBody
+
+// CancelTakeoverJSONRequestBody defines body for CancelTakeover for application/json ContentType.
+type CancelTakeoverJSONRequestBody CancelTakeoverJSONBody
 
 // CreateUploadSessionJSONRequestBody defines body for CreateUploadSession for application/json ContentType.
 type CreateUploadSessionJSONRequestBody = CreateUploadRequest
@@ -8880,7 +9236,7 @@ type ClientInterface interface {
 	// ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 	//
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
-	ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNotificationStatus performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -10152,12 +10508,23 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeovers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CreateTakeover Activate a Takeover
+	// CreateTakeoverWithBody Activate a Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateTakeoverWithBody(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateTakeover Activate a Takeover
+	//
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+	CreateTakeover(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTakeover Read Takeover and per-screen state
 	//
@@ -10166,12 +10533,23 @@ type ClientInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CancelTakeoverWithBody Cancel an active Takeover
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+	CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CancelTakeover Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CancelTakeover(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListUpdateDeployments List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -13868,8 +14246,8 @@ func (c *Client) RemoveAuthenticator(ctx context.Context, params *RemoveAuthenti
 // ListNotificationDeliveries performs a GET /api/v1/notifications/deliveries (the `ListNotificationDeliveries` operationId) request.
 //
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
-func (c *Client) ListNotificationDeliveries(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNotificationDeliveriesRequest(c.Server)
+func (c *Client) ListNotificationDeliveries(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNotificationDeliveriesRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17300,13 +17678,34 @@ func (c *Client) ListTakeovers(ctx context.Context, reqEditors ...RequestEditorF
 	return c.Client.Do(req)
 }
 
-// CreateTakeover Activate a Takeover
+// CreateTakeoverWithBody Activate a Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *Client) CreateTakeover(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateTakeoverRequest(c.Server)
+func (c *Client) CreateTakeoverWithBody(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTakeoverRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateTakeover Activate a Takeover
+//
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+func (c *Client) CreateTakeover(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTakeoverRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17334,13 +17733,34 @@ func (c *Client) GetTakeover(ctx context.Context, id openapi_types.UUID, reqEdit
 	return c.Client.Do(req)
 }
 
+// CancelTakeoverWithBody Cancel an active Takeover
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+func (c *Client) CancelTakeoverWithBody(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelTakeoverRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // CancelTakeover Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCancelTakeoverRequest(c.Server, id)
+func (c *Client) CancelTakeover(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelTakeoverRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18290,14 +18710,16 @@ func NewUpdateIncidentRequestWithBody(server string, id ResourceID, params *Upda
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -18658,14 +19080,16 @@ func NewUpdateActivityRetentionRequestWithBody(server string, params *UpdateActi
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -19639,14 +20063,16 @@ func NewArchiveAssetsRequestWithBody(server string, params *ArchiveAssetsParams,
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -19732,14 +20158,16 @@ func NewRestoreAssetsRequestWithBody(server string, params *RestoreAssetsParams,
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -19821,14 +20249,16 @@ func NewDeleteAssetRequest(server string, id ResourceID, params *DeleteAssetPara
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -19915,14 +20345,16 @@ func NewUpdateAssetRequestWithBody(server string, id ResourceID, params *UpdateA
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20030,14 +20462,16 @@ func NewRetryAssetProcessingRequest(server string, id ResourceID, params *RetryA
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20111,14 +20545,16 @@ func NewUpdateWebsiteAssetRequest(server string, id ResourceID, params *UpdateWe
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20624,14 +21060,16 @@ func NewCreateCampaignRequestWithBody(server string, params *CreateCampaignParam
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20671,14 +21109,16 @@ func NewArchiveCampaignRequest(server string, id ResourceID, params *ArchiveCamp
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20765,14 +21205,16 @@ func NewUpdateCampaignDraftRequestWithBody(server string, id ResourceID, params 
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20859,14 +21301,16 @@ func NewPublishCampaignRequestWithBody(server string, id ResourceID, params *Pub
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -20947,14 +21391,16 @@ func NewRestoreCampaignReleaseRequest(server string, id ResourceID, releaseId op
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21048,14 +21494,16 @@ func NewDeleteContentCollectionRequest(server string, id ResourceID, params *Del
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21108,14 +21556,16 @@ func NewUpdateContentCollectionRequestWithBody(server string, id ResourceID, par
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21236,14 +21686,16 @@ func NewDeleteContentFolderRequest(server string, id ResourceID, params *DeleteC
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21296,14 +21748,16 @@ func NewUpdateContentFolderRequestWithBody(server string, id ResourceID, params 
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21497,14 +21951,16 @@ func NewRestorePublicationAsDraftRequest(server string, pType string, id Resourc
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21558,14 +22014,16 @@ func NewRollbackPublicationRequest(server string, pType string, id ResourceID, p
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21679,14 +22137,16 @@ func NewDecideContentReviewRequestWithBody(server string, pType DecideContentRev
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21827,14 +22287,16 @@ func NewApproveContentSubmissionRequestWithBody(server string, id ResourceID, pa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21874,14 +22336,16 @@ func NewCancelContentPublicationScheduleRequest(server string, id ResourceID, pa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21921,14 +22385,16 @@ func NewPublishContentSubmissionRequest(server string, id ResourceID, params *Pu
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -21981,14 +22447,16 @@ func NewRequestContentChangesRequestWithBody(server string, id ResourceID, param
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -22041,14 +22509,16 @@ func NewScheduleContentPublicationRequestWithBody(server string, id ResourceID, 
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -22108,14 +22578,16 @@ func NewSubmitContentDraftRequestWithBody(server string, pType string, id Resour
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -22209,14 +22681,16 @@ func NewDeleteContentTagRequest(server string, id ResourceID, params *DeleteCont
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -22269,14 +22743,16 @@ func NewUpdateContentTagRequestWithBody(server string, id ResourceID, params *Up
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24401,14 +24877,16 @@ func NewCreateIntegrationTokenRequestWithBody(server string, params *CreateInteg
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24448,14 +24926,16 @@ func NewRevokeIntegrationTokenRequest(server string, id ResourceID, params *Revo
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24680,14 +25160,16 @@ func NewCreateLayoutRequestWithBody(server string, params *CreateLayoutParams, c
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24727,14 +25209,16 @@ func NewDeleteLayoutRequest(server string, id ResourceID, params *DeleteLayoutPa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24821,14 +25305,16 @@ func NewUpdateLayoutRequestWithBody(server string, id ResourceID, params *Update
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24881,14 +25367,16 @@ func NewSaveLayoutDraftRequestWithBody(server string, id ResourceID, params *Sav
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -24928,14 +25416,16 @@ func NewDuplicateLayoutRequest(server string, id ResourceID, params *DuplicateLa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -25079,14 +25569,16 @@ func NewPublishLayoutRequestWithBody(server string, id ResourceID, params *Publi
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -25219,14 +25711,16 @@ func NewRestoreLayoutRevisionRequestWithBody(server string, id ResourceID, revis
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -25421,14 +25915,16 @@ func NewUpdatePreferencesRequestWithBody(server string, params *UpdatePreference
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -25522,14 +26018,16 @@ func NewRevokeOAuthGrantRequest(server string, id ResourceID, params *RevokeOAut
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -25851,14 +26349,16 @@ func NewCreatePersonalAccessTokenRequestWithBody(server string, params *CreatePe
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26065,7 +26565,7 @@ func NewRemoveAuthenticatorRequestWithBody(server string, params *RemoveAuthenti
 }
 
 // NewListNotificationDeliveriesRequest constructs an http.Request for the ListNotificationDeliveries method
-func NewListNotificationDeliveriesRequest(server string) (*http.Request, error) {
+func NewListNotificationDeliveriesRequest(server string, params *ListNotificationDeliveriesParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -26081,6 +26581,33 @@ func NewListNotificationDeliveriesRequest(server string) (*http.Request, error) 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -26144,14 +26671,16 @@ func NewSendTestNotificationRequest(server string, params *SendTestNotificationP
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26224,14 +26753,16 @@ func NewCreateNotificationWebhookRequestWithBody(server string, params *CreateNo
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26271,14 +26802,16 @@ func NewDeleteNotificationWebhookRequest(server string, id ResourceID, params *D
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26331,14 +26864,16 @@ func NewUpdateNotificationWebhookRequestWithBody(server string, id ResourceID, p
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26378,14 +26913,16 @@ func NewTestNotificationWebhookRequest(server string, id ResourceID, params *Tes
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26431,14 +26968,16 @@ func NewApproveOAuthRequestRequestWithBody(server string, params *ApproveOAuthRe
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26582,14 +27121,16 @@ func NewDenyOAuthRequestRequestWithBody(server string, params *DenyOAuthRequestP
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26796,14 +27337,16 @@ func NewConfigureGitHubReleasesRequestWithBody(server string, params *ConfigureG
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -26926,14 +27469,16 @@ func NewDeletePlayerReleaseRequest(server string, id ResourceID, params *DeleteP
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28057,14 +28602,16 @@ func NewCreatePlaylistRequestWithBody(server string, params *CreatePlaylistParam
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28104,14 +28651,16 @@ func NewDeletePlaylistRequest(server string, id ResourceID, params *DeletePlayli
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28185,14 +28734,16 @@ func NewUpdatePlaylistRequest(server string, id ResourceID, params *UpdatePlayli
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28232,14 +28783,16 @@ func NewDuplicatePlaylistRequest(server string, id ResourceID, params *Duplicate
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28292,14 +28845,16 @@ func NewAddPlaylistItemRequestWithBody(server string, id ResourceID, params *Add
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28352,14 +28907,16 @@ func NewBulkUpdatePlaylistItemsRequestWithBody(server string, id ResourceID, par
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28399,14 +28956,16 @@ func NewReorderPlaylistItemsRequest(server string, id ResourceID, params *Reorde
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28453,14 +29012,16 @@ func NewDeletePlaylistItemRequest(server string, id ResourceID, itemId openapi_t
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28507,14 +29068,16 @@ func NewUpdatePlaylistItemRequest(server string, id ResourceID, itemId openapi_t
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28642,14 +29205,16 @@ func NewRestorePlaylistRevisionRequest(server string, id ResourceID, revision st
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28702,14 +29267,16 @@ func NewSetPlaylistTagRuleRequestWithBody(server string, id ResourceID, params *
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28809,14 +29376,16 @@ func NewCreateCountdownBarInstanceRequestWithBody(server string, params *CreateC
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28856,14 +29425,16 @@ func NewDeleteCountdownBarInstanceRequest(server string, id ResourceID, params *
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -28950,14 +29521,16 @@ func NewUpdateCountdownBarInstanceRequestWithBody(server string, id ResourceID, 
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29058,14 +29631,16 @@ func NewInstallPluginRequest(server string, pluginId PluginID, params *InstallPl
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29105,14 +29680,16 @@ func NewRemovePluginRequest(server string, pluginId PluginID, params *RemovePlug
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29185,14 +29762,16 @@ func NewCreatePresentationNetworkRequestWithBody(server string, params *CreatePr
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29232,14 +29811,16 @@ func NewDeletePresentationNetworkRequest(server string, id ResourceID, params *D
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29326,14 +29907,16 @@ func NewUpdatePresentationNetworkRequestWithBody(server string, id ResourceID, p
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29386,14 +29969,16 @@ func NewReplacePresentationNetworkAssignmentsRequestWithBody(server string, id R
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -29446,14 +30031,16 @@ func NewTestPresentationNetworkRequestWithBody(server string, id ResourceID, par
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -30527,14 +31114,16 @@ func NewUpdateSpanGeometryRequestWithBody(server string, id ResourceID, params *
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -30634,14 +31223,16 @@ func NewApplyBulkOperationRequestWithBody(server string, params *ApplyBulkOperat
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -30708,14 +31299,16 @@ func NewUndoBulkOperationRequest(server string, id ResourceID, params *UndoBulkO
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -31112,14 +31705,16 @@ func NewCancelPlayerCommandRequest(server string, id ResourceID, commandId opena
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -31491,14 +32086,16 @@ func NewRemovePlaylistAssignmentRequest(server string, id ResourceID, params *Re
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -31585,14 +32182,16 @@ func NewAssignPresentationRequestWithBody(server string, id ResourceID, params *
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -31768,14 +32367,16 @@ func NewUnassignScreenPresentationNetworkRequest(server string, id ResourceID, p
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -31862,14 +32463,16 @@ func NewAssignScreenPresentationNetworkRequestWithBody(server string, id Resourc
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32226,14 +32829,16 @@ func NewUpdateSettingsRequestWithBody(server string, params *UpdateSettingsParam
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32399,14 +33004,16 @@ func NewResetSettingsRequestWithBody(server string, params *ResetSettingsParams,
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32466,14 +33073,16 @@ func NewCreateBackupRequest(server string, params *CreateBackupParams) (*http.Re
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32574,14 +33183,16 @@ func NewDeleteBackupRequest(server string, id ResourceID, params *DeleteBackupPa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32702,14 +33313,16 @@ func NewRestoreBackupRequestWithBody(server string, id ResourceID, params *Resto
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -32749,14 +33362,16 @@ func NewVerifyBackupRequest(server string, id ResourceID, params *VerifyBackupPa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -33040,8 +33655,19 @@ func NewListTakeoversRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewCreateTakeoverRequest constructs an http.Request for the CreateTakeover method
-func NewCreateTakeoverRequest(server string) (*http.Request, error) {
+// NewCreateTakeoverRequest calls the generic CreateTakeover builder with application/json body
+func NewCreateTakeoverRequest(server string, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTakeoverRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateTakeoverRequestWithBody constructs an http.Request for the CreateTakeover method, with any body, and a specified content type
+func NewCreateTakeoverRequestWithBody(server string, params *CreateTakeoverParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -33059,9 +33685,26 @@ func NewCreateTakeoverRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -33101,8 +33744,19 @@ func NewGetTakeoverRequest(server string, id openapi_types.UUID) (*http.Request,
 	return req, nil
 }
 
-// NewCancelTakeoverRequest constructs an http.Request for the CancelTakeover method
-func NewCancelTakeoverRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+// NewCancelTakeoverRequest calls the generic CancelTakeover builder with application/json body
+func NewCancelTakeoverRequest(server string, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCancelTakeoverRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewCancelTakeoverRequestWithBody constructs an http.Request for the CancelTakeover method, with any body, and a specified content type
+func NewCancelTakeoverRequestWithBody(server string, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -33127,9 +33781,26 @@ func NewCancelTakeoverRequest(server string, id openapi_types.UUID) (*http.Reque
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -33337,14 +34008,16 @@ func NewCreateUploadSessionRequestWithBody(server string, params *CreateUploadSe
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -33384,14 +34057,16 @@ func NewCancelUploadRequest(server string, id ResourceID, params *CancelUploadPa
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -33467,14 +34142,16 @@ func NewAppendUploadBytesRequestWithBody(server string, id ResourceID, params *A
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 		var headerParam1 string
 
@@ -33523,14 +34200,16 @@ func NewCompleteUploadRequest(server string, id ResourceID, params *CompleteUplo
 
 	if params != nil {
 
-		var headerParam0 string
+		if params.XCSRFToken != nil {
+			var headerParam0 string
 
-		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-		if err != nil {
-			return nil, err
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
-
-		req.Header.Set("X-CSRF-Token", headerParam0)
 
 	}
 
@@ -35782,7 +36461,7 @@ type ClientWithResponsesInterface interface {
 	// List notification deliveries. Requires an Owner or Administrator with the admin scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
+	ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error)
 
 	// GetNotificationStatusWithResponse performs a GET /api/v1/notifications/status (the `GetNotificationStatus` operationId) request.
 	//
@@ -37384,14 +38063,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers (the `ListTakeovers` operationId).
 	ListTakeoversWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListTakeoversResponse, error)
 
-	// CreateTakeoverWithResponse Activate a Takeover
+	// CreateTakeoverWithBodyWithResponse Activate a Takeover
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-	CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
+	CreateTakeoverWithBodyWithResponse(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
+
+	// CreateTakeoverWithResponse Activate a Takeover
+	//
+	// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+	CreateTakeoverWithResponse(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error)
 
 	// GetTakeoverWithResponse Read Takeover and per-screen state
 	//
@@ -37402,14 +38090,23 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with GET /api/v1/takeovers/{id} (the `GetTakeover` operationId).
 	GetTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetTakeoverResponse, error)
 
+	// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+	CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
+
 	// CancelTakeoverWithResponse Cancel an active Takeover
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
+	CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error)
 
 	// ListUpdateDeploymentsWithResponse List Player update deployments, narrowed to the caller's screen scope
 	//
@@ -44358,6 +45055,17 @@ func (r RemoveAuthenticatorResponse) ContentType() string {
 type ListNotificationDeliveriesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []NotificationDelivery `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListNotificationDeliveriesResponse) GetJSON200() *struct {
+	Data []NotificationDelivery `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44392,6 +45100,17 @@ func (r ListNotificationDeliveriesResponse) ContentType() string {
 type GetNotificationStatusResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data NotificationStatus `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetNotificationStatusResponse) GetJSON200() *struct {
+	Data NotificationStatus `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44426,6 +45145,21 @@ func (r GetNotificationStatusResponse) ContentType() string {
 type SendTestNotificationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			SentTo openapi_types.Email `json:"sentTo"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SendTestNotificationResponse) GetJSON200() *struct {
+	Data struct {
+		SentTo openapi_types.Email `json:"sentTo"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44460,6 +45194,17 @@ func (r SendTestNotificationResponse) ContentType() string {
 type ListNotificationWebhooksResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []NotificationWebhook `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListNotificationWebhooksResponse) GetJSON200() *struct {
+	Data []NotificationWebhook `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44494,6 +45239,19 @@ func (r ListNotificationWebhooksResponse) ContentType() string {
 type CreateNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+		Data NotificationWebhookCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateNotificationWebhookResponse) GetJSON201() *struct {
+	// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+	Data NotificationWebhookCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44562,6 +45320,17 @@ func (r DeleteNotificationWebhookResponse) ContentType() string {
 type UpdateNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data NotificationWebhook `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateNotificationWebhookResponse) GetJSON200() *struct {
+	Data NotificationWebhook `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44596,6 +45365,21 @@ func (r UpdateNotificationWebhookResponse) ContentType() string {
 type TestNotificationWebhookResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r TestNotificationWebhookResponse) GetJSON200() *struct {
+	Data struct {
+		Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51028,6 +51812,17 @@ func (r SystemStatusResponse) ContentType() string {
 type ListTakeoversResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data TakeoverList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListTakeoversResponse) GetJSON200() *struct {
+	Data TakeoverList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51062,6 +51857,17 @@ func (r ListTakeoversResponse) ContentType() string {
 type CreateTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data TakeoverActivation `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateTakeoverResponse) GetJSON201() *struct {
+	Data TakeoverActivation `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -51096,6 +51902,19 @@ func (r CreateTakeoverResponse) ContentType() string {
 type GetTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+		Data TakeoverDetail `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetTakeoverResponse) GetJSON200() *struct {
+	// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+	Data TakeoverDetail `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51130,6 +51949,17 @@ func (r GetTakeoverResponse) ContentType() string {
 type CancelTakeoverResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data TakeoverCancellation `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CancelTakeoverResponse) GetJSON200() *struct {
+	Data TakeoverCancellation `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55057,8 +55887,8 @@ func (c *ClientWithResponses) RemoveAuthenticatorWithResponse(ctx context.Contex
 // List notification deliveries. Requires an Owner or Administrator with the admin scope.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
-	rsp, err := c.ListNotificationDeliveries(ctx, reqEditors...)
+func (c *ClientWithResponses) ListNotificationDeliveriesWithResponse(ctx context.Context, params *ListNotificationDeliveriesParams, reqEditors ...RequestEditorFn) (*ListNotificationDeliveriesResponse, error) {
+	rsp, err := c.ListNotificationDeliveries(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57955,15 +58785,30 @@ func (c *ClientWithResponses) ListTakeoversWithResponse(ctx context.Context, req
 	return ParseListTakeoversResponse(rsp)
 }
 
-// CreateTakeoverWithResponse Activate a Takeover
+// CreateTakeoverWithBodyWithResponse Activate a Takeover
 //
-// Requires an authenticated dashboard user.
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
-func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
-	rsp, err := c.CreateTakeover(ctx, reqEditors...)
+func (c *ClientWithResponses) CreateTakeoverWithBodyWithResponse(ctx context.Context, params *CreateTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
+	rsp, err := c.CreateTakeoverWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTakeoverResponse(rsp)
+}
+
+// CreateTakeoverWithResponse Activate a Takeover
+//
+// Requires an authenticated dashboard user. Activating a takeover is immediate and disruptive; when the organization requires reauthentication, the current account password travels in the body and a wrong one answers 401.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/takeovers (the `CreateTakeover` operationId).
+func (c *ClientWithResponses) CreateTakeoverWithResponse(ctx context.Context, params *CreateTakeoverParams, body CreateTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTakeoverResponse, error) {
+	rsp, err := c.CreateTakeover(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -57985,15 +58830,30 @@ func (c *ClientWithResponses) GetTakeoverWithResponse(ctx context.Context, id op
 	return ParseGetTakeoverResponse(rsp)
 }
 
+// CancelTakeoverWithBodyWithResponse Cancel an active Takeover
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
+func (c *ClientWithResponses) CancelTakeoverWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
+	rsp, err := c.CancelTakeoverWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelTakeoverResponse(rsp)
+}
+
 // CancelTakeoverWithResponse Cancel an active Takeover
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/takeovers/{id}/cancel (the `CancelTakeover` operationId).
-func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
-	rsp, err := c.CancelTakeover(ctx, id, reqEditors...)
+func (c *ClientWithResponses) CancelTakeoverWithResponse(ctx context.Context, id openapi_types.UUID, params *CancelTakeoverParams, body CancelTakeoverJSONRequestBody, reqEditors ...RequestEditorFn) (*CancelTakeoverResponse, error) {
+	rsp, err := c.CancelTakeover(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -62140,6 +63000,24 @@ func ParseListNotificationDeliveriesResponse(rsp *http.Response) (*ListNotificat
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []NotificationDelivery `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62154,6 +63032,21 @@ func ParseGetNotificationStatusResponse(rsp *http.Response) (*GetNotificationSta
 	response := &GetNotificationStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data NotificationStatus `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62172,6 +63065,32 @@ func ParseSendTestNotificationResponse(rsp *http.Response) (*SendTestNotificatio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				SentTo openapi_types.Email `json:"sentTo"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62188,6 +63107,24 @@ func ParseListNotificationWebhooksResponse(rsp *http.Response) (*ListNotificatio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []NotificationWebhook `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62202,6 +63139,28 @@ func ParseCreateNotificationWebhookResponse(rsp *http.Response) (*CreateNotifica
 	response := &CreateNotificationWebhookResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data The signing secret is returned exactly once. There is no endpoint that reads it back.
+			Data NotificationWebhookCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62236,6 +63195,30 @@ func ParseUpdateNotificationWebhookResponse(rsp *http.Response) (*UpdateNotifica
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data NotificationWebhook `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62250,6 +63233,35 @@ func ParseTestNotificationWebhookResponse(rsp *http.Response) (*TestNotification
 	response := &TestNotificationWebhookResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Delivered TestNotificationWebhook200JSONResponseBodyDataDelivered `json:"delivered"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66128,6 +67140,21 @@ func ParseListTakeoversResponse(rsp *http.Response) (*ListTakeoversResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data TakeoverList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66142,6 +67169,24 @@ func ParseCreateTakeoverResponse(rsp *http.Response) (*CreateTakeoverResponse, e
 	response := &CreateTakeoverResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data TakeoverActivation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66160,6 +67205,25 @@ func ParseGetTakeoverResponse(rsp *http.Response) (*GetTakeoverResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Takeover detail with the per-screen rollout states. Unlike the list row, the detail carries no aggregate counts.
+			Data TakeoverDetail `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66174,6 +67238,24 @@ func ParseCancelTakeoverResponse(rsp *http.Response) (*CancelTakeoverResponse, e
 	response := &CancelTakeoverResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data TakeoverCancellation `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil

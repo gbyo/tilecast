@@ -118,6 +118,20 @@ responses:
     expect(problems).toEqual([]);
   });
 
+  it("falls back to summary when description is whitespace", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: "   "
+summary: List things from the dashboard.
+responses:
+  "200": { description: ok }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
   it("rejects placeholder descriptions", () => {
     const problems = checkDerivedConformance(
       doc(
@@ -303,6 +317,17 @@ describe("fragment operationIds", () => {
       "operationId dup is also used by b GET /api/v1/b",
       "GET /api/v1/c needs a useful description",
     ]);
+  });
+
+  it("falls back to summary when a fragment description is whitespace", () => {
+    const problems = checkFragmentOperationIds([
+      {
+        plugin: "a",
+        file: "plugins/a/api/openapi.yaml",
+        text: "openapi: 3.1.0\ninfo: {title: A, version: 1.0.0}\npaths:\n  /api/v1/a:\n    get:\n      operationId: listA\n      description: '   '\n      summary: List plugin resources.\n      responses:\n        '200': {description: ok}\n",
+      },
+    ]);
+    expect(problems).toEqual([]);
   });
 });
 
