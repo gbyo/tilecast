@@ -1,10 +1,10 @@
 /**
  * Fleet domain helpers over the typed transport: locations,
  * presentation networks, plugins, AirPlay sessions, presentation
- * overrides, and screen groups. Location success bodies are
- * contract-typed and inferred from the generated OpenAPI schemas;
- * other areas still state their local Studio response type
- * explicitly until the contract gains schemas.
+ * overrides, and screen groups. Location and presentation-network
+ * success bodies are contract-typed and inferred from the generated
+ * OpenAPI schemas; other areas still state their local Studio
+ * response type explicitly until the contract gains schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type {
@@ -17,13 +17,7 @@ import type {
   PluginCatalog,
   PluginSummary,
   PolicyDocument,
-  PresentationNetwork,
-  PresentationNetworkAssignment,
-  PresentationNetworkDetail,
   PresentationNetworkInput,
-  PresentationNetworkList,
-  PresentationNetworkReadiness,
-  PresentationNetworkTestResult,
   PresentationOverride,
   ScreenGroup,
   ScreenGroupList,
@@ -60,74 +54,59 @@ export function deleteLocation(id: string, csrfToken: string): Promise<void> {
   });
 }
 
-export function listPresentationNetworks(): Promise<PresentationNetworkList> {
-  return apiGet<"/api/v1/presentation-networks", PresentationNetworkList>(
-    "/api/v1/presentation-networks",
-  );
+export function listPresentationNetworks() {
+  return apiGet("/api/v1/presentation-networks");
 }
 
-export function getPresentationNetwork(
-  id: string,
-): Promise<PresentationNetworkDetail> {
-  return apiGet<
-    "/api/v1/presentation-networks/{id}",
-    PresentationNetworkDetail
-  >("/api/v1/presentation-networks/{id}", { params: { path: { id } } });
+export function getPresentationNetwork(id: string) {
+  return apiGet("/api/v1/presentation-networks/{id}", {
+    params: { path: { id } },
+  });
 }
 
 export function createPresentationNetwork(
   input: PresentationNetworkInput,
   csrfToken: string,
-): Promise<PresentationNetwork> {
-  return apiPost<"/api/v1/presentation-networks", PresentationNetwork>(
-    "/api/v1/presentation-networks",
-    { body: input, csrfToken },
-  );
+) {
+  return apiPost("/api/v1/presentation-networks", {
+    body: input,
+    csrfToken,
+  });
 }
 
 export function updatePresentationNetwork(
   id: string,
   input: PresentationNetworkInput,
   csrfToken: string,
-): Promise<PresentationNetwork> {
-  return apiPatch<"/api/v1/presentation-networks/{id}", PresentationNetwork>(
-    "/api/v1/presentation-networks/{id}",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+) {
+  return apiPatch("/api/v1/presentation-networks/{id}", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
-export function deletePresentationNetwork(
-  id: string,
-  csrfToken: string,
-): Promise<PresentationNetwork> {
-  return apiDelete<"/api/v1/presentation-networks/{id}", PresentationNetwork>(
-    "/api/v1/presentation-networks/{id}",
-    { params: { path: { id } }, csrfToken },
-  );
+export function deletePresentationNetwork(id: string, csrfToken: string) {
+  return apiDelete("/api/v1/presentation-networks/{id}", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function replacePresentationNetworkAssignments(
   id: string,
   screenIds: string[],
   csrfToken: string,
-): Promise<{ assignments: PresentationNetworkAssignment[] }> {
-  return apiPut<
-    "/api/v1/presentation-networks/{id}/screens",
-    { assignments: PresentationNetworkAssignment[] }
-  >("/api/v1/presentation-networks/{id}/screens", {
+) {
+  return apiPut("/api/v1/presentation-networks/{id}/screens", {
     params: { path: { id } },
     body: { screenIds },
     csrfToken,
   });
 }
 
-export function getScreenPresentationNetwork(
-  id: string,
-): Promise<PresentationNetworkReadiness> {
-  return apiGet<
-    "/api/v1/screens/{id}/presentation-network",
-    PresentationNetworkReadiness
-  >("/api/v1/screens/{id}/presentation-network", {
+export function getScreenPresentationNetwork(id: string) {
+  return apiGet("/api/v1/screens/{id}/presentation-network", {
     params: { path: { id } },
   });
 }
@@ -136,11 +115,8 @@ export function assignScreenPresentationNetwork(
   screenId: string,
   presentationNetworkId: string,
   csrfToken: string,
-): Promise<PresentationNetworkAssignment> {
-  return apiPut<
-    "/api/v1/screens/{id}/presentation-network",
-    PresentationNetworkAssignment
-  >("/api/v1/screens/{id}/presentation-network", {
+) {
+  return apiPut("/api/v1/screens/{id}/presentation-network", {
     params: { path: { id: screenId } },
     body: { presentationNetworkId },
     csrfToken,
@@ -150,11 +126,8 @@ export function assignScreenPresentationNetwork(
 export function unassignScreenPresentationNetwork(
   screenId: string,
   csrfToken: string,
-): Promise<PresentationNetworkAssignment> {
-  return apiDelete<
-    "/api/v1/screens/{id}/presentation-network",
-    PresentationNetworkAssignment
-  >("/api/v1/screens/{id}/presentation-network", {
+) {
+  return apiDelete("/api/v1/screens/{id}/presentation-network", {
     params: { path: { id: screenId } },
     csrfToken,
   });
@@ -164,11 +137,8 @@ export function testPresentationNetwork(
   id: string,
   screenId: string,
   csrfToken: string,
-): Promise<PresentationNetworkTestResult> {
-  return apiPost<
-    "/api/v1/presentation-networks/{id}/test",
-    PresentationNetworkTestResult
-  >("/api/v1/presentation-networks/{id}/test", {
+) {
+  return apiPost("/api/v1/presentation-networks/{id}/test", {
     params: { path: { id } },
     body: { screenId },
     csrfToken,
