@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import {
-  playlistPreviewShortcutTargetIsInteractive,
-} from "./PlaylistPreviewPage";
+import { playlistPreviewShortcutTargetIsInteractive } from "./PlaylistPreviewPage";
 
 describe("playlist preview keyboard shortcuts", () => {
   it("defers to native keyboard behavior for interactive controls", () => {
@@ -22,7 +20,9 @@ describe("playlist preview keyboard shortcuts", () => {
 
     const customControl = document.createElement("div");
     customControl.setAttribute("role", "slider");
-    expect(playlistPreviewShortcutTargetIsInteractive(customControl)).toBe(true);
+    expect(playlistPreviewShortcutTargetIsInteractive(customControl)).toBe(
+      true,
+    );
   });
 
   it("keeps global shortcuts available on non-interactive preview content", () => {

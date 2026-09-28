@@ -40,20 +40,18 @@ export function useNavigationWarning(
       }
 
       event.preventDefault();
-      void confirm({ title: message, action: "Discard changes" }).then(
-        (ok) => {
-          if (!ok) return;
-          const url = new URL(link.href, window.location.href);
-          if (
-            url.origin === window.location.origin &&
-            (url.protocol === "http:" || url.protocol === "https:")
-          ) {
-            void navigate(`${url.pathname}${url.search}${url.hash}`);
-          } else {
-            window.location.assign(link.href);
-          }
-        },
-      );
+      void confirm({ title: message, action: "Discard changes" }).then((ok) => {
+        if (!ok) return;
+        const url = new URL(link.href, window.location.href);
+        if (
+          url.origin === window.location.origin &&
+          (url.protocol === "http:" || url.protocol === "https:")
+        ) {
+          void navigate(`${url.pathname}${url.search}${url.hash}`);
+        } else {
+          window.location.assign(link.href);
+        }
+      });
     };
     addEventListener("beforeunload", unload);
     document.addEventListener("click", click, true);
