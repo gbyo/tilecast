@@ -2,10 +2,11 @@
  * System administration domain helpers over the typed transport: player
  * releases, update deployments, takeovers, settings, users, preferences,
  * integration tokens, notifications, backups, and maintenance. Player
- * release, GitHub device-flow, settings, and preference success bodies
- * are contract-typed and inferred from the generated schemas; the
- * remaining areas still state their local Studio response type
- * explicitly until the contract gains schemas. Binary release uploads
+ * release, GitHub device-flow, settings, preference, takeover, and
+ * notification success bodies are contract-typed and inferred from the
+ * generated schemas; the remaining areas still state their local Studio
+ * response type explicitly until the contract gains schemas. Takeover
+ * list rows normalize wire nulls to absent optionals. Binary release uploads
  * stay on XHR in ../client.ts: upload progress is an explicitly
  * exceptional transport.
  */
@@ -150,13 +151,24 @@ export function retryUpdateScreen(
   });
 }
 
+export type WireTakeover = components["schemas"]["Takeover"];
+
+export function normalizeTakeover(wire: WireTakeover): Takeover {
+  return {
+    ...wire,
+    activatedAt: wire.activatedAt ?? undefined,
+    cancelledAt: wire.cancelledAt ?? undefined,
+  };
+}
+
 export function listTakeovers(): Promise<{
   items: Takeover[];
   total: number;
 }> {
-  return apiGet<"/api/v1/takeovers", { items: Takeover[]; total: number }>(
-    "/api/v1/takeovers",
-  );
+  return apiGet("/api/v1/takeovers").then((result) => ({
+    ...result,
+    items: result.items.map(normalizeTakeover),
+  }));
 }
 
 export function activateTakeover(
@@ -176,10 +188,7 @@ export function activateTakeover(
   affectedCount: number;
   expiresAt: string;
 }> {
-  return apiPost<
-    "/api/v1/takeovers",
-    { id: string; status: string; affectedCount: number; expiresAt: string }
-  >("/api/v1/takeovers", { body: input, csrfToken });
+  return apiPost("/api/v1/takeovers", { body: input, csrfToken });
 }
 
 export function cancelTakeover(
@@ -187,10 +196,7 @@ export function cancelTakeover(
   reason: string,
   csrfToken: string,
 ): Promise<{ id: string; status: string }> {
-  return apiPost<
-    "/api/v1/takeovers/{id}/cancel",
-    { id: string; status: string }
-  >("/api/v1/takeovers/{id}/cancel", {
+  return apiPost("/api/v1/takeovers/{id}/cancel", {
     params: { path: { id } },
     body: { reason },
     csrfToken,
@@ -363,33 +369,25 @@ export function undoBulkOperation(
 }
 
 export function getNotificationStatus(): Promise<NotificationStatus> {
-  return apiGet<"/api/v1/notifications/status", NotificationStatus>(
-    "/api/v1/notifications/status",
-  );
+  return apiGet("/api/v1/notifications/status");
 }
 
 export function listNotificationDeliveries(
   limit = 50,
 ): Promise<NotificationDelivery[]> {
-  return apiGet<"/api/v1/notifications/deliveries", NotificationDelivery[]>(
-    "/api/v1/notifications/deliveries",
-    { params: { query: { limit } } },
-  );
+  return apiGet("/api/v1/notifications/deliveries", {
+    params: { query: { limit } },
+  });
 }
 
 export function sendTestNotification(
   csrfToken: string,
 ): Promise<{ sentTo: string }> {
-  return apiPost<"/api/v1/notifications/test", { sentTo: string }>(
-    "/api/v1/notifications/test",
-    { csrfToken },
-  );
+  return apiPost("/api/v1/notifications/test", { csrfToken });
 }
 
 export function listNotificationWebhooks(): Promise<NotificationWebhook[]> {
-  return apiGet<"/api/v1/notifications/webhooks", NotificationWebhook[]>(
-    "/api/v1/notifications/webhooks",
-  );
+  return apiGet("/api/v1/notifications/webhooks");
 }
 
 export function createNotificationWebhook(
@@ -400,10 +398,7 @@ export function createNotificationWebhook(
   },
   csrfToken: string,
 ): Promise<NotificationWebhookCreated> {
-  return apiPost<"/api/v1/notifications/webhooks", NotificationWebhookCreated>(
-    "/api/v1/notifications/webhooks",
-    { body, csrfToken },
-  );
+  return apiPost("/api/v1/notifications/webhooks", { body, csrfToken });
 }
 
 export function updateNotificationWebhook(
@@ -416,10 +411,11 @@ export function updateNotificationWebhook(
   },
   csrfToken: string,
 ): Promise<NotificationWebhook> {
-  return apiPut<"/api/v1/notifications/webhooks/{id}", NotificationWebhook>(
-    "/api/v1/notifications/webhooks/{id}",
-    { params: { path: { id } }, body, csrfToken },
-  );
+  return apiPut("/api/v1/notifications/webhooks/{id}", {
+    params: { path: { id } },
+    body,
+    csrfToken,
+  });
 }
 
 export function deleteNotificationWebhook(
@@ -436,10 +432,7 @@ export function testNotificationWebhook(
   id: string,
   csrfToken: string,
 ): Promise<{ delivered: boolean }> {
-  return apiPost<
-    "/api/v1/notifications/webhooks/{id}/test",
-    { delivered: boolean }
-  >("/api/v1/notifications/webhooks/{id}/test", {
+  return apiPost("/api/v1/notifications/webhooks/{id}/test", {
     params: { path: { id } },
     csrfToken,
   });
