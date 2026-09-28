@@ -1,0 +1,213 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "progress",
+  "version": 1,
+  "name": "Progress",
+  "description": "Show progress toward a numeric target as a bar, ring, or thermometer.",
+  "category": "Data display",
+  "icon": "progress",
+  "keywords": ["progress", "goal", "bar", "ring", "thermometer", "fundraising"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records or single-object source holding the current value.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records", "object"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "valueField",
+        "label": "Value field",
+        "description": "The current numeric value.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+        "default": "",
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "targetField",
+        "label": "Target field",
+        "description": "Optional. Reads the goal from another field when present.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "dataSourceFieldTypes": ["number", "integer", "percent", "currency"],
+        "default": "",
+        "ui": { "section": "data", "order": 3 }
+      },
+      {
+        "key": "staticTarget",
+        "label": "Fixed target",
+        "description": "Used when no target field is set. Must be positive.",
+        "control": "number",
+        "minimum": 0,
+        "ui": { "section": "data", "order": 4 }
+      },
+      {
+        "key": "label",
+        "label": "Label",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "labelField",
+        "label": "Label field",
+        "description": "Optional. Reads the label from another field.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "dataSourceFieldTypes": ["text", "number", "integer", "currency", "percent", "boolean", "date", "datetime"],
+        "default": "",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "format",
+        "label": "Format",
+        "control": "select",
+        "default": "number",
+        "options": [
+          { "value": "number", "label": "Number" },
+          { "value": "integer", "label": "Whole number" },
+          { "value": "percent", "label": "Percent" },
+          { "value": "currency", "label": "Currency" }
+        ],
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "precision",
+        "label": "Decimals",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 6,
+        "default": 1,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "showPercent",
+        "label": "Show percentage",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "completionText",
+        "label": "Completion text",
+        "description": "Shown when the value reaches the target.",
+        "control": "text",
+        "maxLength": 160,
+        "default": "",
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "style",
+        "label": "Style",
+        "description": "Bar fills horizontally. Ring centers the value. Thermometer rises vertically. Screens whose Player predates these styles show a bar.",
+        "control": "select",
+        "default": "bar",
+        "options": [
+          { "value": "bar", "label": "Bar" },
+          { "value": "ring", "label": "Ring" },
+          { "value": "thermometer", "label": "Thermometer" }
+        ],
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 7 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Accent color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "valueField": "",
+    "targetField": "",
+    "label": "",
+    "labelField": "",
+    "format": "number",
+    "precision": 1,
+    "showPercent": true,
+    "completionText": "",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "content.progress": 2,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.progress",
+    "version": 1,
+    "tagName": "tc-widget-progress",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "valueField": { "$config": "valueField", "default": "" },
+      "targetField": { "$config": "targetField", "default": "" },
+      "staticTarget": { "$config": "staticTarget", "default": null },
+      "label": { "$config": "label", "default": "" },
+      "labelField": { "$config": "labelField", "default": "" },
+      "format": { "$config": "format", "default": "number" },
+      "precision": { "$config": "precision", "default": 1 },
+      "showPercent": { "$config": "showPercent", "default": true },
+      "completionText": { "$config": "completionText", "default": "" },
+      "style": { "$config": "style", "default": "bar" },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": { "fallback": "legacy" }
+}

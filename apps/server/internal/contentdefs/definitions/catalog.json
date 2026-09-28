@@ -691,28 +691,6 @@
       "deprecation": {}
     },
     {
-      "id": "progress",
-      "version": 1,
-      "name": "Progress",
-      "description": "Show progress toward a numeric target.",
-      "category": "Data Display",
-      "icon": "progress",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.progress": 2,
-        "content.text": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
       "id": "timeline",
       "version": 1,
       "name": "Timeline",

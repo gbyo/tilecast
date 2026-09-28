@@ -18,6 +18,7 @@ export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
     "widget.tilecast.menu-board": 1,
     "widget.tilecast.metrics": 1,
     "widget.tilecast.news": 1,
+    "widget.tilecast.progress": 1,
     "widget.tilecast.qr-code": 1,
     "widget.tilecast.table": 1,
     "widget.tilecast.text": 1,

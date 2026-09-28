@@ -1,0 +1,41 @@
+{
+  "name": "Below target",
+  "description": "A value below zero shows its sign instead of clamping to nothing.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "valueField": "balance",
+    "targetField": "",
+    "staticTarget": 1000,
+    "label": "Balance",
+    "labelField": "",
+    "format": "number",
+    "precision": 0,
+    "showPercent": false,
+    "completionText": "",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [{ "key": "balance", "label": "Balance", "type": "number" }],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "balance": { "kind": "number", "number": -120 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

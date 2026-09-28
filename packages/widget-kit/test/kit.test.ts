@@ -11,6 +11,7 @@ import {
   ClockController,
   fieldForRole,
   formatDate,
+  formatDisplayNumber,
   formatNumber,
   formatTime,
   formatWidgetValue,
@@ -20,6 +21,7 @@ import {
   MotionController,
   suggestFieldMapping,
   themeProperties,
+  toFiniteNumber,
   TilecastWidgetElement,
   timeParts,
   zoneCity,
@@ -217,6 +219,49 @@ describe("format", () => {
         { locale: "en-US" },
       ),
     ).toBe("62%");
+  });
+
+  it("formats author-chosen numeric styles without format strings", () => {
+    expect(
+      formatDisplayNumber(118.25, {
+        locale: "en-US",
+        style: "number",
+        precision: 1,
+      }),
+    ).toBe("118.3");
+    expect(
+      formatDisplayNumber(1284.6, {
+        locale: "en-US",
+        style: "integer",
+        precision: 3,
+      }),
+    ).toBe("1,285");
+    expect(
+      formatDisplayNumber(118, {
+        locale: "en-US",
+        style: "percent",
+        precision: 0,
+      }),
+    ).toBe("118%");
+    expect(
+      formatDisplayNumber(1200, {
+        locale: "en-US",
+        style: "currency",
+        currency: "USD",
+        precision: 0,
+      }),
+    ).toBe("$1,200");
+    // A currency without a valid code formats as a plain number.
+    expect(
+      formatDisplayNumber(1200, {
+        locale: "en-US",
+        style: "currency",
+        precision: 0,
+      }),
+    ).toBe("1,200");
+    expect(toFiniteNumber({ kind: "number", number: Number.NaN })).toBeNull();
+    expect(toFiniteNumber({ kind: "number", integer: 7 })).toBe(7);
+    expect(toFiniteNumber(undefined)).toBeNull();
   });
 
   it("formats wall time in the configured zone and hour cycle", () => {

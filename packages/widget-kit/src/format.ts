@@ -295,18 +295,20 @@ export function formatDisplayNumber(
     Number.isInteger(options.precision) && options.precision >= 0
       ? Math.min(options.precision, 6)
       : 1;
+  // Intl knows decimal, percent, and currency. The author-facing number
+  // and integer styles both render decimal digits; integer fixes none.
   const style =
-    options.style === "currency" && !/^[A-Z]{3}$/.test(options.currency ?? "")
-      ? "decimal"
-      : options.style === "integer"
-        ? "decimal"
-        : options.style;
+    options.style === "percent"
+      ? "percent"
+      : options.style === "currency" &&
+          /^[A-Z]{3}$/.test(options.currency ?? "")
+        ? "currency"
+        : "decimal";
   return formatNumber(value, {
     locale: options.locale,
-    style: style === "decimal" ? "decimal" : style,
+    style,
     currency: options.currency,
-    maximumFractionDigits:
-      options.style === "integer" ? 0 : precision,
+    maximumFractionDigits: options.style === "integer" ? 0 : precision,
   });
 }
 
