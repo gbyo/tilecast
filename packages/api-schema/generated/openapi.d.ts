@@ -8009,6 +8009,85 @@ export interface components {
       organizationName: string;
       pairingEnabled: boolean;
     };
+    DeviceMetadata: {
+      /** Format: uuid */
+      playerInstallationId: string;
+      platform: string;
+      manufacturer: string;
+      model: string;
+      androidVersion: string;
+      playerVersion: string;
+      screenWidth: number;
+      screenHeight: number;
+      density: number;
+      locale: string;
+      timezone: string;
+      approximateAddress?: string;
+    };
+    PairingSessionCreated: {
+      /** Format: uuid */
+      id: string;
+      /** @description Visible six-character pairing code shown to the installer. */
+      code: string;
+      /** @description Private poll secret for Authorization Pairing polling. Never use the visible code to poll. */
+      pollSecret: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: date-time */
+      serverTime: string;
+      pollingIntervalSeconds: number;
+      approvalUrl: string;
+      organizationName: string;
+    };
+    PairingSessionPoll: {
+      /** @enum {string} */
+      status: "pending" | "claimed" | "expired" | "rejected";
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: uuid */
+      screenId?: string;
+      /** @description One-time enrollment token, present only on the first approved poll. */
+      enrollmentToken?: string;
+      failureReason?: string;
+    };
+    EnrollmentResult: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** @description Permanent device credential, returned exactly once. */
+      deviceCredential: string;
+    };
+    HeartbeatAccepted: {
+      accepted: boolean;
+      /** @description Optional playback identifiers that were malformed and therefore dropped. */
+      ignoredFields?: string[];
+    };
+    LivenessAccepted: {
+      accepted: boolean;
+    };
+    PairingRequest: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "pending" | "approved" | "rejected";
+      metadata: components["schemas"]["DeviceMetadata"];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+      previouslyPaired: boolean;
+      /** Format: uuid */
+      existingScreenId?: string;
+      existingScreenName?: string;
+      hasActiveCredential: boolean;
+      credentialReplacementAuthorized: boolean;
+      /** @enum {string} */
+      pairingMode: "new_screen" | "hardware_replacement" | "credential_repair";
+    };
+    PendingPairingList: {
+      items: components["schemas"]["PairingRequest"][];
+      total: number;
+    };
     /** @enum {string} */
     ScreenStatus:
       "online" | "recent" | "stale" | "offline" | "disabled" | "revoked";
@@ -13808,7 +13887,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PairingSessionCreated"];
+          };
+        };
       };
       /** @description Installation identity mismatch */
       409: {
@@ -13844,7 +13927,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PairingSessionPoll"];
+          };
+        };
       };
       /** @description Poll secret missing or invalid */
       401: {
@@ -13869,7 +13956,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["EnrollmentResult"];
+          };
+        };
       };
       /** @description Enrollment token already used */
       409: {
@@ -13898,7 +13989,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["HeartbeatAccepted"];
+          };
+        };
       };
       /** @description Heartbeat body rejected */
       400: {
@@ -13941,7 +14036,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LivenessAccepted"];
+          };
+        };
       };
       /** @description Credential invalid or revoked */
       401: {
@@ -14390,7 +14489,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PendingPairingList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14428,7 +14531,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PairingRequest"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -14488,7 +14595,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Screen"];
+          };
+        };
       };
       /** @description Pairing recovery confirmation required, hardware replacement conflict, or pairing state conflict */
       409: {

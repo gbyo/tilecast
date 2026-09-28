@@ -1449,6 +1449,72 @@ func (e OAuthTokenRequestGrantType) Valid() bool {
 	}
 }
 
+// Defines values for PairingRequestPairingMode.
+const (
+	CredentialRepair    PairingRequestPairingMode = "credential_repair"
+	HardwareReplacement PairingRequestPairingMode = "hardware_replacement"
+	NewScreen           PairingRequestPairingMode = "new_screen"
+)
+
+// Valid indicates whether the value is a known member of the PairingRequestPairingMode enum.
+func (e PairingRequestPairingMode) Valid() bool {
+	switch e {
+	case CredentialRepair:
+		return true
+	case HardwareReplacement:
+		return true
+	case NewScreen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingRequestStatus.
+const (
+	PairingRequestStatusApproved PairingRequestStatus = "approved"
+	PairingRequestStatusPending  PairingRequestStatus = "pending"
+	PairingRequestStatusRejected PairingRequestStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the PairingRequestStatus enum.
+func (e PairingRequestStatus) Valid() bool {
+	switch e {
+	case PairingRequestStatusApproved:
+		return true
+	case PairingRequestStatusPending:
+		return true
+	case PairingRequestStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PairingSessionPollStatus.
+const (
+	PairingSessionPollStatusClaimed  PairingSessionPollStatus = "claimed"
+	PairingSessionPollStatusExpired  PairingSessionPollStatus = "expired"
+	PairingSessionPollStatusPending  PairingSessionPollStatus = "pending"
+	PairingSessionPollStatusRejected PairingSessionPollStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the PairingSessionPollStatus enum.
+func (e PairingSessionPollStatus) Valid() bool {
+	switch e {
+	case PairingSessionPollStatusClaimed:
+		return true
+	case PairingSessionPollStatusExpired:
+		return true
+	case PairingSessionPollStatusPending:
+		return true
+	case PairingSessionPollStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlayerManifestMode.
 const (
 	PlayerManifestModePresentation PlayerManifestMode = "presentation"
@@ -4397,6 +4463,22 @@ type DependencyNode struct {
 // DependencyNodeType defines model for DependencyNodeType.
 type DependencyNodeType string
 
+// DeviceMetadata defines model for DeviceMetadata.
+type DeviceMetadata struct {
+	AndroidVersion       string             `json:"androidVersion"`
+	ApproximateAddress   *string            `json:"approximateAddress,omitempty"`
+	Density              float32            `json:"density"`
+	Locale               string             `json:"locale"`
+	Manufacturer         string             `json:"manufacturer"`
+	Model                string             `json:"model"`
+	Platform             string             `json:"platform"`
+	PlayerInstallationId openapi_types.UUID `json:"playerInstallationId"`
+	PlayerVersion        string             `json:"playerVersion"`
+	ScreenHeight         int                `json:"screenHeight"`
+	ScreenWidth          int                `json:"screenWidth"`
+	Timezone             string             `json:"timezone"`
+}
+
 // DisplayControlAction A bounded Display Control action. A schedule may contain one action instead of a playlist or Layout. The server validates that only the field belonging to the selected type is present.
 type DisplayControlAction struct {
 	Brightness *int                     `json:"brightness,omitempty"`
@@ -4492,6 +4574,14 @@ type EffectivePolicyValue struct {
 	Value    interface{}         `json:"value"`
 }
 
+// EnrollmentResult defines model for EnrollmentResult.
+type EnrollmentResult struct {
+	// DeviceCredential Permanent device credential, returned exactly once.
+	DeviceCredential string             `json:"deviceCredential"`
+	ScreenId         openapi_types.UUID `json:"screenId"`
+	ScreenName       string             `json:"screenName"`
+}
+
 // FleetHealth Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
 type FleetHealth struct {
 	Content struct {
@@ -4547,6 +4637,14 @@ type GitHubDeviceStart struct {
 	PollIntervalSeconds int                `json:"pollIntervalSeconds"`
 	UserCode            string             `json:"userCode"`
 	VerificationUri     string             `json:"verificationUri"`
+}
+
+// HeartbeatAccepted defines model for HeartbeatAccepted.
+type HeartbeatAccepted struct {
+	Accepted bool `json:"accepted"`
+
+	// IgnoredFields Optional playback identifiers that were malformed and therefore dropped.
+	IgnoredFields *[]string `json:"ignoredFields,omitempty"`
 }
 
 // InstallationIdentity defines model for InstallationIdentity.
@@ -4833,6 +4931,11 @@ type LayoutUsageItem struct {
 	Name string             `json:"name"`
 }
 
+// LivenessAccepted defines model for LivenessAccepted.
+type LivenessAccepted struct {
+	Accepted bool `json:"accepted"`
+}
+
 // Location defines model for Location.
 type Location struct {
 	AddressLine1 string             `json:"addressLine1"`
@@ -5021,6 +5124,56 @@ type OAuthTokenRequest struct {
 // OAuthTokenRequestGrantType defines model for OAuthTokenRequest.GrantType.
 type OAuthTokenRequestGrantType string
 
+// PairingRequest defines model for PairingRequest.
+type PairingRequest struct {
+	CreatedAt                       time.Time                 `json:"createdAt"`
+	CredentialReplacementAuthorized bool                      `json:"credentialReplacementAuthorized"`
+	ExistingScreenId                *openapi_types.UUID       `json:"existingScreenId,omitempty"`
+	ExistingScreenName              *string                   `json:"existingScreenName,omitempty"`
+	ExpiresAt                       time.Time                 `json:"expiresAt"`
+	HasActiveCredential             bool                      `json:"hasActiveCredential"`
+	Id                              openapi_types.UUID        `json:"id"`
+	Metadata                        DeviceMetadata            `json:"metadata"`
+	PairingMode                     PairingRequestPairingMode `json:"pairingMode"`
+	PreviouslyPaired                bool                      `json:"previouslyPaired"`
+	Status                          PairingRequestStatus      `json:"status"`
+}
+
+// PairingRequestPairingMode defines model for PairingRequest.PairingMode.
+type PairingRequestPairingMode string
+
+// PairingRequestStatus defines model for PairingRequest.Status.
+type PairingRequestStatus string
+
+// PairingSessionCreated defines model for PairingSessionCreated.
+type PairingSessionCreated struct {
+	ApprovalUrl string `json:"approvalUrl"`
+
+	// Code Visible six-character pairing code shown to the installer.
+	Code             string             `json:"code"`
+	ExpiresAt        time.Time          `json:"expiresAt"`
+	Id               openapi_types.UUID `json:"id"`
+	OrganizationName string             `json:"organizationName"`
+
+	// PollSecret Private poll secret for Authorization Pairing polling. Never use the visible code to poll.
+	PollSecret             string    `json:"pollSecret"`
+	PollingIntervalSeconds int       `json:"pollingIntervalSeconds"`
+	ServerTime             time.Time `json:"serverTime"`
+}
+
+// PairingSessionPoll defines model for PairingSessionPoll.
+type PairingSessionPoll struct {
+	// EnrollmentToken One-time enrollment token, present only on the first approved poll.
+	EnrollmentToken *string                  `json:"enrollmentToken,omitempty"`
+	ExpiresAt       time.Time                `json:"expiresAt"`
+	FailureReason   *string                  `json:"failureReason,omitempty"`
+	ScreenId        *openapi_types.UUID      `json:"screenId,omitempty"`
+	Status          PairingSessionPollStatus `json:"status"`
+}
+
+// PairingSessionPollStatus defines model for PairingSessionPoll.Status.
+type PairingSessionPollStatus string
+
 // PasskeyRenameRequest defines model for PasskeyRenameRequest.
 type PasskeyRenameRequest struct {
 	Name string `json:"name"`
@@ -5039,6 +5192,12 @@ type PasskeySummary struct {
 type PasswordConfirmation struct {
 	// Password The account password, reverified so a borrowed session cannot weaken sign-in security on its own.
 	Password string `json:"password"`
+}
+
+// PendingPairingList defines model for PendingPairingList.
+type PendingPairingList struct {
+	Items []PairingRequest `json:"items"`
+	Total int              `json:"total"`
 }
 
 // PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
@@ -47648,6 +47807,17 @@ func (r GetPlayerConfigResponse) ContentType() string {
 type EnrollPlayerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data EnrollmentResult `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r EnrollPlayerResponse) GetJSON201() *struct {
+	Data EnrollmentResult `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -47682,6 +47852,17 @@ func (r EnrollPlayerResponse) ContentType() string {
 type PlayerHeartbeatResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data HeartbeatAccepted `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PlayerHeartbeatResponse) GetJSON200() *struct {
+	Data HeartbeatAccepted `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47750,6 +47931,17 @@ func (r GetPlayerLiveStreamSessionResponse) ContentType() string {
 type PlayerLivenessResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LivenessAccepted `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PlayerLivenessResponse) GetJSON200() *struct {
+	Data LivenessAccepted `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -47825,6 +48017,17 @@ func (r GetPlayerManifestResponse) ContentType() string {
 type CreatePairingSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data PairingSessionCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePairingSessionResponse) GetJSON201() *struct {
+	Data PairingSessionCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -47859,6 +48062,17 @@ func (r CreatePairingSessionResponse) ContentType() string {
 type PollPairingSessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PairingSessionPoll `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PollPairingSessionResponse) GetJSON200() *struct {
+	Data PairingSessionPoll `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51177,6 +51391,17 @@ func (r PreviewBulkOperationResponse) ContentType() string {
 type ListPendingPairingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PendingPairingList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPendingPairingsResponse) GetJSON200() *struct {
+	Data PendingPairingList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51211,6 +51436,17 @@ func (r ListPendingPairingsResponse) ContentType() string {
 type ResolvePairingCodeResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PairingRequest `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResolvePairingCodeResponse) GetJSON200() *struct {
+	Data PairingRequest `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -51245,6 +51481,17 @@ func (r ResolvePairingCodeResponse) ContentType() string {
 type ApprovePairingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Screen `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApprovePairingResponse) GetJSON200() *struct {
+	Data Screen `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -65922,6 +66169,21 @@ func ParseEnrollPlayerResponse(rsp *http.Response) (*EnrollPlayerResponse, error
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data EnrollmentResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65936,6 +66198,27 @@ func ParsePlayerHeartbeatResponse(rsp *http.Response) (*PlayerHeartbeatResponse,
 	response := &PlayerHeartbeatResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data HeartbeatAccepted `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -65968,6 +66251,24 @@ func ParsePlayerLivenessResponse(rsp *http.Response) (*PlayerLivenessResponse, e
 	response := &PlayerLivenessResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LivenessAccepted `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -66021,6 +66322,24 @@ func ParseCreatePairingSessionResponse(rsp *http.Response) (*CreatePairingSessio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data PairingSessionCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66035,6 +66354,21 @@ func ParsePollPairingSessionResponse(rsp *http.Response) (*PollPairingSessionRes
 	response := &PollPairingSessionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PairingSessionPoll `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -68257,6 +68591,24 @@ func ParseListPendingPairingsResponse(rsp *http.Response) (*ListPendingPairingsR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PendingPairingList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -68273,6 +68625,24 @@ func ParseResolvePairingCodeResponse(rsp *http.Response) (*ResolvePairingCodeRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PairingRequest `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -68287,6 +68657,21 @@ func ParseApprovePairingResponse(rsp *http.Response) (*ApprovePairingResponse, e
 	response := &ApprovePairingResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Screen `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
