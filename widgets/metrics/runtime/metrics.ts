@@ -50,7 +50,10 @@ export const METRIC_FORMATS = [
 ] as const;
 export type MetricFormat = (typeof METRIC_FORMATS)[number];
 
-export const MAX_METRICS = 6;
+// The shared component renders both Metrics (up to six) and the deprecated
+// Stat Grid alias (up to twelve). The runtime accepts twelve so saved grids
+// keep rendering; authoring schemas still bound new rows per provider.
+export const MAX_METRICS = 12;
 
 export interface MetricItem {
   readonly valueField: string;
@@ -139,7 +142,7 @@ export function parseMetricsConfig(
   }
   const items = raw["metrics"] ?? [];
   if (!Array.isArray(items) || items.length > MAX_METRICS) {
-    return { ok: false, problem: "metrics must list up to six metrics" };
+    return { ok: false, problem: "metrics must list up to twelve metrics" };
   }
   const metrics: MetricItem[] = [];
   for (const item of items) {
@@ -325,11 +328,16 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
     return super.renderEmpty(reason);
   }
 
-  private renderMetric(entry: MetricEntry, locale: string): TemplateResult {
+  private renderMetric(
+    entry: MetricEntry,
+    locale: string,
+    timeZone: string,
+  ): TemplateResult {
     let label = entry.item.label;
     if (entry.labelValue) {
       const mapped = formatWidgetValue(entry.labelValue, entry.labelField, {
         locale,
+        timeZone,
       }).trim();
       if (mapped !== "") label = mapped;
     }
@@ -337,6 +345,7 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
     const detail = entry.detailValue
       ? formatWidgetValue(entry.detailValue, entry.detailField, {
           locale,
+          timeZone,
         }).trim()
       : "";
     return html`<div class="metric">
@@ -351,9 +360,10 @@ export class TilecastMetricsWidget extends TilecastWidgetElement<
   protected override renderContent(data: MetricsData | null): TemplateResult {
     if (!data) return html``;
     const locale = this.context.locale;
+    const timeZone = this.context.timeZone;
     return html`<div class="metrics-wrap">
       <div class="metrics-grid" ?data-single=${data.single}>
-        ${data.metrics.map((entry) => this.renderMetric(entry, locale))}
+        ${data.metrics.map((entry) => this.renderMetric(entry, locale, timeZone))}
       </div>
     </div>`;
   }

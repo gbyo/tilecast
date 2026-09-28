@@ -67,6 +67,18 @@ func TestLegacyPresentationKeepsResavedMetricsWorking(t *testing.T) {
 	if legacyGrid.Type != "grid" || legacyGrid.Props["columns"] != 3 || len(legacyGrid.Children) != 1 {
 		t.Fatalf("a Stat Grid compiled %+v", legacyGrid)
 	}
+	// A V2 metric remaps without a columns key: size to the metric count
+	// instead of the old two-column default.
+	if grid.Props["columns"] != 2 {
+		t.Fatalf("a two-metric resave compiled columns %v, want 2", grid.Props["columns"])
+	}
+	single, err := service.compileWidgetPresentation("metric", json.RawMessage(`{"dataSourceId":"`+source+`","metrics":[{"valueField":"score","label":"Score"}]}`))
+	if err != nil || single == nil || single.Native == nil {
+		t.Fatalf("single metric presentation: %v", err)
+	}
+	if columns := single.Native.Root.Children[0].Props["columns"]; columns != 1 {
+		t.Fatalf("a single KPI compiled columns %v, want 1", columns)
+	}
 	if fallback := legacyGrid.Children[0].Children[1].Binding.Fallback; fallback != "Empty" {
 		t.Fatalf("a Stat Grid fallback compiled %q", fallback)
 	}

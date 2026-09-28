@@ -333,26 +333,28 @@ export function resolveChartData(
   });
 }
 
-/** Format one raw x label in the Widget locale, or number the point. */
+/** Format one raw x label in the Widget locale and screen zone, or number it. */
 export function formatChartLabel(
   raw: WidgetValue | string | null,
   field: WidgetField | undefined,
   locale: string,
   index: number,
+  timeZone?: string,
 ): string {
+  const options = timeZone !== undefined ? { locale, timeZone } : { locale };
   if (typeof raw === "string") {
     if (raw !== "" && !Number.isNaN(Date.parse(raw))) {
       const date = formatWidgetValue(
         { kind: "datetime", datetime: raw },
         undefined,
-        { locale },
+        options,
       ).trim();
       if (date !== "") return date;
     }
     return raw === "" ? String(index + 1) : raw;
   }
   if (raw) {
-    const text = formatWidgetValue(raw, field, { locale }).trim();
+    const text = formatWidgetValue(raw, field, options).trim();
     if (text !== "") return text;
   }
   return String(index + 1);
@@ -435,8 +437,9 @@ export class TilecastChartWidget extends TilecastWidgetElement<
   protected override renderContent(data: ChartData | null): TemplateResult {
     if (!data || !this.config) return html``;
     const locale = this.context.locale;
+    const timeZone = this.context.timeZone;
     const labels = data.rawLabels.map((raw, index) =>
-      formatChartLabel(raw, data.rawLabelField, locale, index),
+      formatChartLabel(raw, data.rawLabelField, locale, index, timeZone),
     );
     const described =
       `${data.style} chart with ${data.series.length} series and ` +

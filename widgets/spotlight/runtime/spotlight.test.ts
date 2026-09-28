@@ -166,6 +166,22 @@ describe("Spotlight data resolution", () => {
     });
   });
 
+  it("skips a leading record without a title for the first usable one", () => {
+    const resolved = resolveSpotlightData(
+      base,
+      fixtureResources({
+        documents: recordsDocument([
+          { id: "r1", values: { ...values, title: { kind: "text", text: "  " } } },
+          { id: "r2", values },
+        ]),
+      }),
+    );
+    expect(resolved).toMatchObject({
+      state: "ready",
+      data: { values },
+    });
+  });
+
   it("reads artwork only through the media grant", () => {
     const config = { ...base, assetId: asset, variantId: variant };
     const documents = recordsDocument([{ id: "r1", values }]);

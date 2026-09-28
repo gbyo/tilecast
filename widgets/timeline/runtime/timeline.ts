@@ -317,11 +317,12 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
   protected override renderContent(data: TimelineData | null): TemplateResult {
     if (!data) return html``;
     const locale = this.context.locale;
+    const timeZone = this.context.timeZone;
     const text = (
       value: WidgetValue | null,
       field: WidgetField | undefined,
     ): string =>
-      value ? formatWidgetValue(value, field, { locale }).trim() : "";
+      value ? formatWidgetValue(value, field, { locale, timeZone }).trim() : "";
     return html`<div class="timeline-wrap">
       <div
         class="timeline"

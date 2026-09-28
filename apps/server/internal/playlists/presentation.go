@@ -835,7 +835,20 @@ func compileNativeRoot(provider string, c map[string]any) (PresentationNode, map
 				text(PresentationBinding{Source: "dataset", Dataset: data, Path: stringValue(metric, "valueField", ""), Format: stringValue(metric, "format", "number"), Prefix: stringValue(metric, "prefix", ""), Suffix: stringValue(metric, "suffix", ""), Fallback: emptyFallback}, "metric"),
 			}})
 		}
-		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": intValue(c["columns"], 2)}, Children: children}}
+		// A V2 metric remaps here without a columns key. Defaulting to two
+		// would give a single KPI a two-column grid; size to the metric
+		// count instead. Saved grids keep their explicit column count.
+		columns := intValue(c["columns"], 0)
+		if columns == 0 {
+			columns = len(metrics)
+			if columns < 1 {
+				columns = 1
+			}
+			if columns > 4 {
+				columns = 4
+			}
+		}
+		surface.Children = []PresentationNode{{Type: "grid", Props: map[string]any{"columns": columns}, Children: children}}
 		caps["layout.grid"] = 1
 	case "chart":
 		series, _ := c["series"].([]any)

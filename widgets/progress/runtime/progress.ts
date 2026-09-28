@@ -176,14 +176,13 @@ export function resolveProgressData(
   if (!usable) return empty("no_records");
   const current = toFiniteNumber(usable.values[config.valueField]);
   if (current === null) return empty("no_value");
-  // A valid target field wins over the fixed target. Neither may be
-  // missing, non-finite, or non-positive: there is no honest percentage
-  // without one, so this is a configuration failure, not an empty state.
+  // The fixed target applies only when no target field is configured. When
+  // a target field is set but the record lacks it, the Widget fails instead
+  // of showing a plausible but incorrect percentage from the fixed target.
   let target: number | null = null;
   if (config.targetField !== "") {
     target = toFiniteNumber(usable.values[config.targetField]);
-  }
-  if (target === null && config.staticTarget !== null) {
+  } else if (config.staticTarget !== null) {
     target = Number.isFinite(config.staticTarget) ? config.staticTarget : null;
   }
   if (target === null || target <= 0) return failure("invalid_target");
@@ -217,6 +216,7 @@ export function progressDisplay(
     labelField: WidgetField | undefined;
   },
   locale: string,
+  timeZone?: string,
 ): { label: string; valueText: string; percentText: string } {
   const style: NumericDisplayStyle = config.format;
   const valueText = formatDisplayNumber(values.current, {
@@ -229,6 +229,7 @@ export function progressDisplay(
   if (values.labelValue) {
     const mapped = formatWidgetValue(values.labelValue, values.labelField, {
       locale,
+      ...(timeZone !== undefined ? { timeZone } : {}),
     }).trim();
     if (mapped !== "") label = mapped;
   }
@@ -393,6 +394,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
         labelField: data.labelField,
       },
       this.context.locale,
+      this.context.timeZone,
     );
     const view = {
       label: display.label,

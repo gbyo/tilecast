@@ -146,6 +146,18 @@ describe("Progress data resolution", () => {
     });
   });
 
+  it("fails when a configured target field is missing instead of using the fixed target", () => {
+    const resolved = resolveProgressData(
+      { ...base, targetField: "goal", staticTarget: 50000 },
+      fixtureResources({
+        documents: recordsDocument([
+          { id: "r1", values: { raised: { kind: "number", number: 10 } } },
+        ]),
+      }),
+    );
+    expect(resolved).toMatchObject({ state: "error", code: "invalid_target" });
+  });
+
   it("reports over one hundred percent honestly", () => {
     const resolved = resolveProgressData(
       { ...base, targetField: "", staticTarget: 100 },

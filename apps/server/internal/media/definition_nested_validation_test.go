@@ -161,4 +161,22 @@ func TestNestedDataSourceFieldValidation(t *testing.T) {
 	if _, err := service.CreateWidget(ctx, userID, WidgetInput{Provider: "table", Name: "Bad column", Configuration: tableRaw}); err == nil || !strings.Contains(err.Error(), "columns[0].") {
 		t.Fatalf("expected table to reject a nested missing field with an indexed path, got %v", err)
 	}
+
+	// An explicit key into an unrelated group is unreachable from this
+	// field's scope: a populated selection fails instead of skipping.
+	unreachable := contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+		{Key: "dataSourceId", Label: "Data Source", Control: "data_source"},
+		{Key: "group", Label: "Group", Control: "repeating_group", MaximumItems: 2, ItemFields: []contentdefs.FieldDefinition{
+			{Key: "innerSource", Label: "Inner", Control: "data_source"},
+		}},
+		{Key: "metrics", Label: "Metrics", Control: "repeating_group", MaximumItems: 6, ItemFields: []contentdefs.FieldDefinition{
+			{Key: "valueField", Label: "Value field", Control: "data_source_field", DataSourceKey: "innerSource", DataSourceFieldTypes: []string{"text"}},
+		}},
+	}}
+	if err := normalize(unreachable, `{"dataSourceId":"`+scoresID+`","group":[{"innerSource":"`+placesID+`"}],"metrics":[{"valueField":"city"}]}`); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected an unreachable source reference to fail, got %v", err)
+	}
+	if err := normalize(unreachable, `{"dataSourceId":"`+scoresID+`","group":[{"innerSource":"`+placesID+`"}],"metrics":[{"valueField":""}]}`); err != nil {
+		t.Fatalf("expected an empty unreachable selection to skip, got %v", err)
+	}
 }

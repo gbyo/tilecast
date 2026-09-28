@@ -186,6 +186,7 @@ func (validator *dataSourceSelectionValidator) checkField(ctx context.Context, f
 	label := path + field.Label
 	selected, _ := current[field.Key].(string)
 	key := field.DataSourceKey
+	explicit := key != ""
 	if key == "" {
 		if len(siblings) == 1 {
 			key = siblings[0]
@@ -206,6 +207,16 @@ func (validator *dataSourceSelectionValidator) checkField(ctx context.Context, f
 		rawID, _ = validator.root[key].(string)
 	}
 	if rawID == "" {
+		// The source ID lives in neither the current item nor the root:
+		// an explicit key pointing into an unrelated group is unreachable
+		// from this field's scope. An empty selection skips; a populated
+		// one fails closed instead of skipping validation.
+		if selected == "" && !field.Required {
+			return nil
+		}
+		if explicit {
+			return fmt.Errorf("%s references a Data Source that is not available to it", label)
+		}
 		return nil
 	}
 	types, err := validator.fieldTypes(ctx, rawID)

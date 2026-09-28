@@ -132,11 +132,18 @@ describe("Metrics configuration", () => {
     [
       {
         dataSourceId: SOURCE,
-        metrics: new Array(7).fill({ ...item }),
+        metrics: new Array(13).fill({ ...item }),
       },
     ],
   ])("rejects %j", (value) => {
     expect(parseMetricsConfig(value).ok).toBe(false);
+  });
+
+  it("accepts up to twelve metrics so saved Stat Grids keep rendering", () => {
+    const metrics = new Array(12).fill({ ...item });
+    expect(
+      parseMetricsConfig({ dataSourceId: SOURCE, metrics }),
+    ).toMatchObject({ ok: true, config: { metrics } });
   });
 });
 

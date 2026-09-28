@@ -122,6 +122,22 @@ export function parseSpotlightConfig(
   };
 }
 
+/** Whether a raw value can render as a non-blank title. */
+function hasDisplayValue(value: WidgetValue | null | undefined): boolean {
+  if (!value) return false;
+  if (typeof value.text === "string") return value.text.trim() !== "";
+  if (typeof value.url === "string") return value.url.trim() !== "";
+  return (
+    typeof value.number === "number" ||
+    typeof value.integer === "number" ||
+    typeof value.boolean === "boolean" ||
+    typeof value.date === "string" ||
+    typeof value.datetime === "string" ||
+    typeof value.durationSeconds === "number" ||
+    typeof value.assetId === "string"
+  );
+}
+
 export function resolveSpotlightData(
   config: SpotlightConfig,
   resources: WidgetResources,
@@ -133,8 +149,16 @@ export function resolveSpotlightData(
   if (!dataset) return failure("incompatible_source");
   const records = dataset.records ?? [];
   if (records.length === 0) return empty("no_records");
-  // The first usable prepared record: Spotlight is not a query engine.
-  const values = records[0]!.values;
+  // The first record with a usable title: a leading record without one
+  // must not blank the Widget when a later record has one. Spotlight is
+  // still not a query engine: no sorting or filtering beyond this.
+  const featured =
+    config.titleField !== ""
+      ? (records.find((record) =>
+          hasDisplayValue(record.values[config.titleField]),
+        ) ?? records[0]!)
+      : records[0]!;
+  const values = featured.values;
   const fields: Record<string, WidgetField> = {};
   for (const field of dataset.fields ?? []) fields[field.key] = field;
   if (config.assetId === "") return ready({ values, fields, src: null });
@@ -270,10 +294,12 @@ export class TilecastSpotlightWidget extends TilecastWidgetElement<
   protected override renderContent(data: SpotlightData | null): TemplateResult {
     if (!data || !this.config) return html``;
     const locale = this.context.locale;
+    const timeZone = this.context.timeZone;
     const slot = (key: string) =>
       key
         ? formatWidgetValue(data.values[key], data.fields[key], {
             locale,
+            timeZone,
           }).trim()
         : "";
     const title = slot(this.config.titleField);
