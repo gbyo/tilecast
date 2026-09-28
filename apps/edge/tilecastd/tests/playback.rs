@@ -155,6 +155,7 @@ struct FakeServer {
 }
 
 /// One binary TCLS frame the fake socket received.
+#[derive(Debug)]
 struct LiveFrameRecord {
     session_id: String,
     width: u32,
