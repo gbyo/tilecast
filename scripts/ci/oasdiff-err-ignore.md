@@ -3,9 +3,11 @@
 Read by `scripts/ci/openapi-compat.sh` through `oasdiff breaking
 --err-ignore`. oasdiff matches each exemption line on its `METHOD /path`
 plus the change description text. Every entry below is a spec correction,
-not a runtime break: the named handler rejects a missing body through the
-strict JSON decoder (`decodeJSON` answers 400 `invalid_request` on an empty
-body), so no client that works against the running server can break. A new
+not a runtime break. A body entry names a handler that rejects a missing body
+through the strict JSON decoder (`decodeJSON` answers 400 `invalid_request` on
+an empty body), so no client that works against the running server can break.
+An enum entry names a request property that the contract now describes as an
+open string: every earlier value stays accepted. A new
 finding that is not listed here describes a real behavior change and must
 be fixed, not appended.
 
@@ -23,3 +25,46 @@ PUT /api/v1/screens/{id}/power-assist added required request body: confirmPowerA
 POST /api/v1/schedules/preview added required request body: previewSchedule always decoded a screen and timestamp body.
 POST /api/v1/widgets/compile-preview added required request body: compileWidgetPreview always decoded a provider plus configuration body.
 POST /api/v1/playlists/{id}/publish removed the success response with the status `200`: publishPlaylist answers 201 on publish and 202 on review submission, never 200.
+POST /api/v1/locations added required request body: createLocation always decoded a location body.
+PATCH /api/v1/locations/{id} added required request body: updateLocation always decoded a location body.
+POST /api/v1/auth/login added required request body: login always decoded a username and password body.
+POST /api/v1/content-folders added required request body: createContentFolder always decoded a folder body.
+POST /api/v1/content-collections added required request body: createContentCollection always decoded a collection body.
+POST /api/v1/content-tags added required request body: createContentTag always decoded a tag body.
+PATCH /api/v1/playlists/{id} added required request body: updatePlaylist always decoded a details body.
+PATCH /api/v1/playlists/{id}/items/{itemId} added required request body: updatePlaylistItem always decoded an item body.
+PUT /api/v1/playlists/{id}/items/order added required request body: reorderPlaylistItems always decoded an itemIds body.
+PATCH /api/v1/schedules/{id} added required request body: updateSchedule always decoded a schedule body.
+POST /api/v1/screen-groups added required request body: createScreenGroup always decoded a group body.
+PATCH /api/v1/screen-groups/{id} added required request body: updateScreenGroup always decoded a group body.
+POST /api/v1/screen-groups/{id}/screens added required request body: addScreenGroupMember always decoded a screenId body.
+PUT /api/v1/screen-groups/{id}/policy added required request body: putGroupPolicy always decoded a policy body.
+PUT /api/v1/screens/{id}/policy added required request body: putScreenPolicy always decoded a policy body.
+POST /api/v1/assets/websites added required request body: createWebsite always decoded a website body.
+PATCH /api/v1/assets/{id}/website added required request body: updateWebsite always decoded a website body.
+POST /api/v1/player-releases/github/device/poll added required request body: pollGitHubDeviceAuthorization always decoded a flowId body.
+POST /api/v1/player/commands/{id}/result added required request body: resultPlayerCommand always decoded a command result body.
+POST /api/v1/player/enroll added required request body: enrollPlayer always decoded an enrollment body.
+POST /api/v1/player/pairing-sessions added required request body: createPairingSession always decoded a pairing body.
+POST /api/v1/screens/{id}/commands added required request body: createPlayerCommand always decoded a command body.
+POST /api/v1/update-deployments added required request body: createUpdateDeployment always decoded a deployment body.
+POST /api/v1/data-sources removed the enum value `air_quality` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `atom` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `calendar` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `cap_alerts` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `csv` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `json` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `manual` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `rss` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `transit` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+POST /api/v1/data-sources removed the enum value `weather` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `air_quality` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `atom` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `calendar` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `cap_alerts` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `csv` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `json` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `manual` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `rss` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `transit` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.
+PATCH /api/v1/data-sources/{id} removed the enum value `weather` of the request property `provider`: the request property is now an open string, so the value is still accepted; the Server resolves provider against its live registry, which includes definition and plugin providers.

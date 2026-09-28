@@ -14197,7 +14197,6 @@ components:
       properties:
         provider:
           type: string
-          minLength: 1
           description: >-
             Built-in provider, definition provider, or an installed plugin's
             provider. The Server resolves it against the live registry.
