@@ -73,3 +73,13 @@ export {
   sourceProblem,
   type ExtensionSource,
 } from "./source.ts";
+export {
+  AUTHORING_SECTIONS,
+  authoringUiOf,
+  groupAuthoringFields,
+  visibleAuthoringFields,
+  type AuthoringField,
+  type WidgetAuthoringSection,
+  type WidgetAuthoringUi,
+  type WidgetVisibleWhen,
+} from "./authoring.ts";

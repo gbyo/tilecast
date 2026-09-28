@@ -126,6 +126,72 @@ function directoryOf(path: string): string {
   return match[1];
 }
 
+const PLUGIN_MANIFEST_PATTERN =
+  /(^|\/)plugins\/([^/]+)\/widgets\/[^/]+\/tilecast\.widget\.json$/;
+const PLUGIN_MODULE_PATTERN =
+  /(^|\/)plugins\/([^/]+)\/widgets\/[^/]+\/runtime\/index\.ts$/;
+
+/** The explicit source a manifest path structurally belongs to. */
+export function sourceForWidgetManifestPath(path: string): ExtensionSource {
+  const plugin = PLUGIN_MANIFEST_PATTERN.exec(path);
+  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
+  return { kind: "core" };
+}
+
+/** The explicit source a runtime module path structurally belongs to. */
+export function sourceForWidgetModulePath(path: string): ExtensionSource {
+  const plugin = PLUGIN_MODULE_PATTERN.exec(path);
+  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
+  return { kind: "core" };
+}
+
+/**
+ * Pair `import.meta.glob` manifest and module records into source entries.
+ * Ownership comes from each path's structure; callers pass one trusted glob
+ * pair at a time (core, then each plugin root) and concatenate the results.
+ */
+export function pairSourcedEntries(
+  manifests: Record<string, WidgetManifestInput | undefined>,
+  modules: Record<string, { default?: unknown }>,
+): WidgetSourceEntry[] {
+  const leafOf = (path: string) =>
+    path.split("/widgets/")[1]?.split("/")[0] ?? path;
+  const keyOf = (path: string, source: ExtensionSource) =>
+    source.kind === "plugin"
+      ? `plugin:${source.pluginId}:${leafOf(path)}`
+      : `core:${leafOf(path)}`;
+  const byKey = new Map<string, WidgetSourceEntry>();
+  for (const [path, manifest] of Object.entries(manifests)) {
+    if (manifest === undefined) continue;
+    const source = sourceForWidgetManifestPath(path);
+    byKey.set(keyOf(path, source), {
+      manifestPath: path,
+      manifest,
+      source,
+    });
+  }
+  for (const [path, module] of Object.entries(modules)) {
+    const source = sourceForWidgetModulePath(path);
+    const manifestPath = path.replace(
+      /\/runtime\/index\.ts$/,
+      "/tilecast.widget.json",
+    );
+    const key = keyOf(manifestPath, source);
+    const existing = byKey.get(key);
+    if (existing) {
+      byKey.set(key, { ...existing, modulePath: path, module });
+    } else {
+      byKey.set(key, {
+        manifestPath,
+        modulePath: path,
+        module,
+        source,
+      });
+    }
+  }
+  return [...byKey.values()];
+}
+
 /**
  * Discover Widgets from explicit source entries. Validates cross-source
  * collisions for provider identity, component type, custom-element tag,

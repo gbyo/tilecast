@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
+import { V2ZonePreview } from "./V2ZonePreview";
 import { api } from "../../api/client";
 import type {
   Asset,
@@ -827,26 +828,17 @@ export function WidgetLivePreview({
   );
   switch (provider) {
     case "clock":
+      // Migrated V2 Widgets render the real Web Component through the
+      // shared preview host. Each migration deletes its hand-written branch
+      // here; zone-specific renderers are never added.
       return (
-        <CenteredWidget
-          background={bg}
-          item={item}
-          scale={scale}
-          contentPadding={(cfg as unknown as ClockWidgetConfig).contentPadding}
-        >
-          <FittedText
-            text={clockText(
-              cfg as unknown as ClockWidgetConfig,
-              regionalLocale,
-              regionalTimezone,
-              regionalSetting(regional, "organization.time_format", "locale"),
-            )}
-            color={fg}
-            fontPx={Math.max(item.width, item.height) * scale}
-            weight={600}
-            textScale={(cfg as unknown as ClockWidgetConfig).textScale}
-          />
-        </CenteredWidget>
+        <V2ZonePreview
+          provider={provider}
+          asset={asset}
+          width={item.width * scale}
+          height={item.height * scale}
+          overrides={item.overrides}
+        />
       );
     case "date":
       return (

@@ -15,7 +15,6 @@
 import {
   createWidgetResources,
   TILECAST_DISPLAY_THEME,
-  type ExtensionSource,
   type WidgetClock,
   type WidgetContext,
   type WidgetDataDocument,
@@ -23,73 +22,16 @@ import {
 } from "@tilecast/widget-sdk";
 import {
   discoverSourcedWidgets,
+  pairSourcedEntries,
   type WidgetDiscovery,
-  type WidgetSourceEntry,
 } from "@tilecast/widget-sdk/discovery";
 import type { WidgetManifestInput } from "@tilecast/widget-sdk/manifest";
 import { WidgetMount, type WidgetMountState } from "@tilecast/widget-sdk/mount";
 import type { RuntimeClock } from "../clock/scheduler";
 import type { RuntimeWidgetComponentPayload } from "../host/contract";
 
-function sourceForManifestPath(path: string): ExtensionSource {
-  const plugin =
-    /(^|\/)plugins\/([^/]+)\/widgets\/[^/]+\/tilecast\.widget\.json$/.exec(
-      path,
-    );
-  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
-  return { kind: "core" };
-}
-
-function sourceForModulePath(path: string): ExtensionSource {
-  const plugin =
-    /(^|\/)plugins\/([^/]+)\/widgets\/[^/]+\/runtime\/index\.ts$/.exec(path);
-  if (plugin?.[2]) return { kind: "plugin", pluginId: plugin[2] };
-  return { kind: "core" };
-}
-
-function sourcedEntries(
-  manifests: Record<string, WidgetManifestInput>,
-  modules: Record<string, { default?: unknown }>,
-): WidgetSourceEntry[] {
-  const leafOf = (path: string) =>
-    path.split("/widgets/")[1]?.split("/")[0] ?? path;
-  const keyOf = (path: string, source: ExtensionSource) =>
-    source.kind === "plugin"
-      ? `plugin:${source.pluginId}:${leafOf(path)}`
-      : `core:${leafOf(path)}`;
-  const byKey = new Map<string, WidgetSourceEntry>();
-  for (const [path, manifest] of Object.entries(manifests)) {
-    const source = sourceForManifestPath(path);
-    byKey.set(keyOf(path, source), {
-      manifestPath: path,
-      manifest,
-      source,
-    });
-  }
-  for (const [path, module] of Object.entries(modules)) {
-    const source = sourceForModulePath(path);
-    const manifestPath = path.replace(
-      /\/runtime\/index\.ts$/,
-      "/tilecast.widget.json",
-    );
-    const key = keyOf(manifestPath, source);
-    const existing = byKey.get(key);
-    if (existing) {
-      byKey.set(key, { ...existing, modulePath: path, module });
-    } else {
-      byKey.set(keyOf(manifestPath, source), {
-        manifestPath,
-        modulePath: path,
-        module,
-        source,
-      });
-    }
-  }
-  return [...byKey.values()];
-}
-
 export const widgetDiscovery: WidgetDiscovery = discoverSourcedWidgets(
-  sourcedEntries(
+  pairSourcedEntries(
     import.meta.glob<WidgetManifestInput>(
       "../../../../widgets/*/tilecast.widget.json",
       { eager: true, import: "default" },
@@ -99,7 +41,7 @@ export const widgetDiscovery: WidgetDiscovery = discoverSourcedWidgets(
       { eager: true },
     ),
   ).concat(
-    sourcedEntries(
+    pairSourcedEntries(
       import.meta.glob<WidgetManifestInput>(
         "../../../../plugins/*/widgets/*/tilecast.widget.json",
         { eager: true, import: "default" },

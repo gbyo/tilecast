@@ -393,23 +393,8 @@ type NativeConfig =
   | ProgressWidgetConfig
   | TimelineWidgetConfig
   | WorldClockWidgetConfig;
-// Clock V2 styles (widgets/clock). The Minimal style never shows a date.
-const clockStyles = ["standard", "minimal", "analog"] as const;
-const clockStyleLabel = {
-  standard: "widgets.editors.clock.styleStandard",
-  minimal: "widgets.editors.clock.styleMinimal",
-  analog: "widgets.editors.clock.styleAnalog",
-} as const;
-
 const nativeDefault = (provider: NativeProvider, t: WidgetsT): NativeConfig => {
   const colors = { foregroundColor: "#F5F7FA", backgroundColor: "#0E141B" };
-  if (provider === "clock")
-    return {
-      timezone: "",
-      format: "locale",
-      showSeconds: false,
-      ...colors,
-    };
   if (provider === "date")
     return {
       timezone: "",
@@ -958,132 +943,6 @@ export function NativeAppEditor({
                     {t("widgets.editors.clock.timezoneHint")}
                   </FieldDescription>
                 </Field>
-              )}
-              {provider === "clock" && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="widget-time-format">
-                      {t("widgets.editors.shared.timeFormat")}
-                    </FieldLabel>
-                    <Select
-                      items={[
-                        {
-                          value: "locale",
-                          label: t(
-                            "widgets.editors.options.organizationFormat",
-                          ),
-                        },
-                        {
-                          value: "12",
-                          label: t("widgets.editors.options.hour12"),
-                        },
-                        {
-                          value: "24",
-                          label: t("widgets.editors.options.hour24"),
-                        },
-                      ]}
-                      value={(configuration as ClockWidgetConfig).format}
-                      disabled={readOnly}
-                      onValueChange={(next) =>
-                        setConfiguration((current) => ({
-                          ...(current as ClockWidgetConfig),
-                          format: next as ClockWidgetConfig["format"],
-                        }))
-                      }
-                    >
-                      <SelectTrigger
-                        id="widget-time-format"
-                        aria-label={t("widgets.editors.shared.timeFormat")}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="locale">
-                          {t("widgets.editors.options.organizationFormat")}
-                        </SelectItem>
-                        <SelectItem value="12">
-                          {t("widgets.editors.options.hour12")}
-                        </SelectItem>
-                        <SelectItem value="24">
-                          {t("widgets.editors.options.hour24")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                    <Switch
-                      checked={(configuration as ClockWidgetConfig).showSeconds}
-                      disabled={readOnly}
-                      onCheckedChange={(checked) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          showSeconds: checked === true,
-                        }))
-                      }
-                      aria-label={t("widgets.editors.clock.showSeconds")}
-                    />
-                    <span>{t("widgets.editors.clock.showSeconds")}</span>
-                  </label>
-                  <Field>
-                    <FieldLabel htmlFor="widget-clock-style">
-                      {t("widgets.editors.clock.style")}
-                    </FieldLabel>
-                    <Select
-                      items={clockStyles.map((value) => ({
-                        value,
-                        label: t(clockStyleLabel[value]),
-                      }))}
-                      value={
-                        (configuration as ClockWidgetConfig).style ?? "standard"
-                      }
-                      disabled={readOnly}
-                      onValueChange={(next) =>
-                        setConfiguration((current) => ({
-                          ...(current as ClockWidgetConfig),
-                          style: next as NonNullable<
-                            ClockWidgetConfig["style"]
-                          >,
-                        }))
-                      }
-                    >
-                      <SelectTrigger
-                        id="widget-clock-style"
-                        aria-label={t("widgets.editors.clock.style")}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clockStyles.map((value) => (
-                          <SelectItem key={value} value={value}>
-                            {t(clockStyleLabel[value])}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FieldDescription>
-                      {t("widgets.editors.clock.styleHint")}
-                    </FieldDescription>
-                  </Field>
-                  <label className="flex items-center gap-2 self-end pb-2 text-sm">
-                    <Switch
-                      checked={
-                        (configuration as ClockWidgetConfig).showDate === true
-                      }
-                      disabled={
-                        readOnly ||
-                        (configuration as ClockWidgetConfig).style === "minimal"
-                      }
-                      onCheckedChange={(checked) =>
-                        setConfiguration((current) => ({
-                          ...current,
-                          showDate: checked === true,
-                        }))
-                      }
-                      aria-label={t("widgets.editors.clock.showDate")}
-                    />
-                    <span>{t("widgets.editors.clock.showDate")}</span>
-                  </label>
-                </div>
               )}
               {provider === "date" && (
                 <Field>
