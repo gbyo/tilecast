@@ -14,6 +14,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // pluginWidgetCatalog builds a synthetic catalog with one plugin-owned
@@ -52,11 +53,17 @@ func pluginWidgetCatalog(t *testing.T) *contentdefs.Catalog {
 // import): it allows creation only for plugins in its installed set.
 type fakePluginGate struct {
 	installed map[string]bool
+	// failure, when set, is returned for every lock, standing in for a
+	// database error inside the installation lookup.
+	failure error
 }
 
 func (g fakePluginGate) LockPluginSource(ctx context.Context, tx pgx.Tx, pluginID string) error {
+	if g.failure != nil {
+		return g.failure
+	}
 	if !g.installed[pluginID] {
-		return errors.New("plugin is not installed")
+		return plugin.ErrNotInstalled
 	}
 	return nil
 }
@@ -121,6 +128,19 @@ func TestCreatePluginWidgetRefusedWhenPluginMissing(t *testing.T) {
 		var count int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM widgets WHERE provider='emergency_alerts_siren'`).Scan(&count); err != nil || count != 0 {
 			t.Fatalf("refused creation left %d rows (%v)", count, err)
+		}
+	})
+}
+
+func TestCreatePluginWidgetGateFailureIsNotReportedAsMissingPlugin(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(pluginWidgetCatalog(t))
+		lookupFailed := errors.New("installation lookup failed")
+		service.SetPluginSourceGate(fakePluginGate{failure: lookupFailed})
+		_, err := service.CreateWidget(ctx, userID, pluginWidgetInput())
+		var unavailable *PluginUnavailableError
+		if errors.As(err, &unavailable) || !errors.Is(err, lookupFailed) {
+			t.Fatalf("gate failure = %#v, want the lookup error, not PluginUnavailableError", err)
 		}
 	})
 }
