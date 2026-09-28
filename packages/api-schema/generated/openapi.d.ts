@@ -18433,14 +18433,22 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmissionPublication"];
+          };
+        };
       };
       /** @description Campaign release submitted for review */
       202: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentSubmission"];
+          };
+        };
       };
       /** @description Root revision or draft conflict */
       409: {
