@@ -2662,6 +2662,25 @@ type LocationList struct {
 // MFAPolicy defines model for MFAPolicy.
 type MFAPolicy string
 
+// ManagedUser defines model for ManagedUser.
+type ManagedUser struct {
+	Active      bool               `json:"active"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	Id          openapi_types.UUID `json:"id"`
+	LastLoginAt *time.Time         `json:"lastLoginAt,omitempty"`
+	MfaEnrolled bool               `json:"mfaEnrolled"`
+	MfaRequired bool               `json:"mfaRequired"`
+	Name        string             `json:"name"`
+	Role        UserRole           `json:"role"`
+	Username    string             `json:"username"`
+}
+
+// ManagedUserList defines model for ManagedUserList.
+type ManagedUserList struct {
+	Items []ManagedUser `json:"items"`
+	Total int           `json:"total"`
+}
+
 // ManifestResponse defines model for ManifestResponse.
 type ManifestResponse struct {
 	Data PlayerManifest `json:"data"`
@@ -3626,7 +3645,7 @@ type User struct {
 	Username    string             `json:"username"`
 }
 
-// UserRole defines model for User.Role.
+// UserRole defines model for UserRole.
 type UserRole string
 
 // VariantKind defines model for VariantKind.
@@ -48627,6 +48646,17 @@ func (r CompleteUploadResponse) ContentType() string {
 type ListUsersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ManagedUserList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListUsersResponse) GetJSON200() *struct {
+	Data ManagedUserList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48661,6 +48691,17 @@ func (r ListUsersResponse) ContentType() string {
 type CreateUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data User `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateUserResponse) GetJSON201() *struct {
+	Data User `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -48729,6 +48770,17 @@ func (r DeleteUserResponse) ContentType() string {
 type UpdateUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data User `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateUserResponse) GetJSON200() *struct {
+	Data User `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -62424,6 +62476,24 @@ func ParseListUsersResponse(rsp *http.Response) (*ListUsersResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ManagedUserList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62438,6 +62508,33 @@ func ParseCreateUserResponse(rsp *http.Response) (*CreateUserResponse, error) {
 	response := &CreateUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data User `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62470,6 +62567,36 @@ func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
 	response := &UpdateUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data User `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
