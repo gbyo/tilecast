@@ -753,6 +753,24 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for IntegrationScope.
+const (
+	ActivityRead    IntegrationScope = "activity:read"
+	DataSourceWrite IntegrationScope = "data_source:write"
+)
+
+// Valid indicates whether the value is a known member of the IntegrationScope enum.
+func (e IntegrationScope) Valid() bool {
+	switch e {
+	case ActivityRead:
+		return true
+	case DataSourceWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LayoutOrientation.
 const (
 	LayoutOrientationCustom    LayoutOrientation = "custom"
@@ -4312,6 +4330,27 @@ type EffectivePolicyValue struct {
 	Value    interface{}         `json:"value"`
 }
 
+// FleetHealth Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
+type FleetHealth struct {
+	Content struct {
+		EmptyPlaylists   int `json:"emptyPlaylists"`
+		StaleDataSources int `json:"staleDataSources"`
+	} `json:"content"`
+	GeneratedAt time.Time `json:"generatedAt"`
+	Incidents   struct {
+		Acknowledged int            `json:"acknowledged"`
+		BySeverity   map[string]int `json:"bySeverity"`
+		Open         int            `json:"open"`
+	} `json:"incidents"`
+	Screens struct {
+		Disabled int `json:"disabled"`
+		Offline  int `json:"offline"`
+		Recent   int `json:"recent"`
+		Stale    int `json:"stale"`
+		Total    int `json:"total"`
+	} `json:"screens"`
+}
+
 // GitHubAuthSource defines model for GitHubAuthSource.
 type GitHubAuthSource string
 
@@ -4355,6 +4394,38 @@ type InstallationIdentity struct {
 	OrganizationName string             `json:"organizationName"`
 	PairingEnabled   bool               `json:"pairingEnabled"`
 	Product          string             `json:"product"`
+}
+
+// IntegrationRowsResult defines model for IntegrationRowsResult.
+type IntegrationRowsResult struct {
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	RowCount  int                `json:"rowCount"`
+	UpdatedAt time.Time          `json:"updatedAt"`
+}
+
+// IntegrationScope defines model for IntegrationScope.
+type IntegrationScope string
+
+// IntegrationToken defines model for IntegrationToken.
+type IntegrationToken struct {
+	CreatedAt     time.Time            `json:"createdAt"`
+	CreatedBy     *openapi_types.UUID  `json:"createdBy,omitempty"`
+	DataSourceIds []openapi_types.UUID `json:"dataSourceIds"`
+	ExpiresAt     *time.Time           `json:"expiresAt,omitempty"`
+	Id            openapi_types.UUID   `json:"id"`
+	LastUsedAt    *time.Time           `json:"lastUsedAt,omitempty"`
+	Name          string               `json:"name"`
+	PublicId      string               `json:"publicId"`
+	RevokedAt     *time.Time           `json:"revokedAt,omitempty"`
+	Scopes        []IntegrationScope   `json:"scopes"`
+}
+
+// IntegrationTokenCreated The secret is returned exactly once. There is no endpoint that reads it back.
+type IntegrationTokenCreated struct {
+	Notice string           `json:"notice"`
+	Secret string           `json:"secret"`
+	Token  IntegrationToken `json:"token"`
 }
 
 // Layout defines model for Layout.
@@ -6887,7 +6958,7 @@ type CreateIntegrationTokenJSONBody struct {
 	DataSourceIds *[]openapi_types.UUID `json:"dataSourceIds,omitempty"`
 	ExpiresAt     *time.Time            `json:"expiresAt,omitempty"`
 	Name          string                `json:"name"`
-	Scopes        []string              `json:"scopes"`
+	Scopes        []IntegrationScope    `json:"scopes"`
 }
 
 // CreateIntegrationTokenParams defines parameters for CreateIntegrationToken.
@@ -44636,6 +44707,17 @@ func (r GetPresentationNetworkHelperChecksumResponse) ContentType() string {
 type ListIntegrationTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []IntegrationToken `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListIntegrationTokensResponse) GetJSON200() *struct {
+	Data []IntegrationToken `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44670,6 +44752,19 @@ func (r ListIntegrationTokensResponse) ContentType() string {
 type CreateIntegrationTokenResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data The secret is returned exactly once. There is no endpoint that reads it back.
+		Data IntegrationTokenCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateIntegrationTokenResponse) GetJSON201() *struct {
+	// Data The secret is returned exactly once. There is no endpoint that reads it back.
+	Data IntegrationTokenCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -44738,6 +44833,19 @@ func (r RevokeIntegrationTokenResponse) ContentType() string {
 type GetIntegrationFleetHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
+		Data FleetHealth `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetIntegrationFleetHealthResponse) GetJSON200() *struct {
+	// Data Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
+	Data FleetHealth `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -44772,6 +44880,17 @@ func (r GetIntegrationFleetHealthResponse) ContentType() string {
 type ReplaceDataSourceRowsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data IntegrationRowsResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ReplaceDataSourceRowsResponse) GetJSON200() *struct {
+	Data IntegrationRowsResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63701,6 +63820,24 @@ func ParseListIntegrationTokensResponse(rsp *http.Response) (*ListIntegrationTok
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []IntegrationToken `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -63715,6 +63852,31 @@ func ParseCreateIntegrationTokenResponse(rsp *http.Response) (*CreateIntegration
 	response := &CreateIntegrationTokenResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data The secret is returned exactly once. There is no endpoint that reads it back.
+			Data IntegrationTokenCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -63749,6 +63911,25 @@ func ParseGetIntegrationFleetHealthResponse(rsp *http.Response) (*GetIntegration
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
+			Data FleetHealth `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -63763,6 +63944,33 @@ func ParseReplaceDataSourceRowsResponse(rsp *http.Response) (*ReplaceDataSourceR
 	response := &ReplaceDataSourceRowsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data IntegrationRowsResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

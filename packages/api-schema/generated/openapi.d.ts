@@ -5417,6 +5417,63 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @enum {string} */
+    IntegrationScope: "data_source:write" | "activity:read";
+    IntegrationToken: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      publicId: string;
+      scopes: components["schemas"]["IntegrationScope"][];
+      dataSourceIds: string[];
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      createdBy?: string;
+      /** Format: date-time */
+      expiresAt?: string;
+      /** Format: date-time */
+      lastUsedAt?: string;
+      /** Format: date-time */
+      revokedAt?: string;
+    };
+    /** @description The secret is returned exactly once. There is no endpoint that reads it back. */
+    IntegrationTokenCreated: {
+      token: components["schemas"]["IntegrationToken"];
+      secret: string;
+      notice: string;
+    };
+    IntegrationRowsResult: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      rowCount: number;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    /** @description Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see. */
+    FleetHealth: {
+      /** Format: date-time */
+      generatedAt: string;
+      screens: {
+        total: number;
+        recent: number;
+        stale: number;
+        offline: number;
+        disabled: number;
+      };
+      incidents: {
+        open: number;
+        acknowledged: number;
+        bySeverity: {
+          [key: string]: number;
+        };
+      };
+      content: {
+        staleDataSources: number;
+        emptyPlaylists: number;
+      };
+    };
     /** @description Working draft after copying a historical snapshot into it. The document is the native playlist, Layout, or campaign draft, so its keys differ by content type. */
     EditorialSnapshot: {
       /** Format: int64 */
@@ -11194,7 +11251,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IntegrationToken"][];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -11226,7 +11287,7 @@ export interface operations {
       content: {
         "application/json": {
           name: string;
-          scopes: string[];
+          scopes: components["schemas"]["IntegrationScope"][];
           dataSourceIds?: string[];
           /** Format: date-time */
           expiresAt?: string;
@@ -11239,7 +11300,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IntegrationTokenCreated"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -11341,7 +11406,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IntegrationRowsResult"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -11394,7 +11463,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["FleetHealth"];
+          };
+        };
       };
       /** @description Integration authentication required */
       401: {

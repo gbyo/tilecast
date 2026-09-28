@@ -1428,7 +1428,17 @@ paths:
       description: >-
         List integration tokens. Requires an Owner with the admin scope.
       responses:
-        "200": { description: Integration tokens }
+        "200":
+          description: Integration tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/IntegrationToken" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
     post:
@@ -1445,16 +1455,24 @@ paths:
               type: object
               required: [name, scopes]
               properties:
-                name: { type: string }
+                name: { type: string, minLength: 1 }
                 scopes:
                   type: array
-                  items: { type: string }
+                  items: { $ref: "#/components/schemas/IntegrationScope" }
                 dataSourceIds:
                   type: array
                   items: { type: string, format: uuid }
                 expiresAt: { type: string, format: date-time }
       responses:
-        "201": { description: Integration token created with one-time secret }
+        "201":
+          description: Integration token created with one-time secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IntegrationTokenCreated" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -1498,7 +1516,15 @@ paths:
                         type: object
                         additionalProperties: { type: string }
       responses:
-        "200": { description: Rows replaced }
+        "200":
+          description: Rows replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IntegrationRowsResult" }
         "400": { description: Invalid request body }
         "401": { description: Integration authentication required }
         "403": { description: Insufficient scope }
@@ -1510,7 +1536,15 @@ paths:
       description: >-
         Read fleet health for integrations. An integration token authenticates this call with the activity read scope.
       responses:
-        "200": { description: Fleet health }
+        "200":
+          description: Fleet health
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FleetHealth" }
         "401": { description: Integration authentication required }
         "403": { description: Insufficient scope }
   /api/v1/integration/metrics:
@@ -7492,6 +7526,82 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    IntegrationScope:
+      type: string
+      enum: [data_source:write, activity:read]
+    IntegrationToken:
+      type: object
+      additionalProperties: false
+      required: [id, name, publicId, scopes, dataSourceIds, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        publicId: { type: string }
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/IntegrationScope" }
+        dataSourceIds:
+          type: array
+          items: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        createdBy: { type: string, format: uuid }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        revokedAt: { type: string, format: date-time }
+    IntegrationTokenCreated:
+      type: object
+      additionalProperties: false
+      description: >-
+        The secret is returned exactly once. There is no endpoint that reads it back.
+      required: [token, secret, notice]
+      properties:
+        token: { $ref: "#/components/schemas/IntegrationToken" }
+        secret: { type: string }
+        notice: { type: string }
+    IntegrationRowsResult:
+      type: object
+      additionalProperties: false
+      required: [id, name, rowCount, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        rowCount: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+    FleetHealth:
+      type: object
+      additionalProperties: false
+      description: >-
+        Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see.
+      required: [generatedAt, screens, incidents, content]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        screens:
+          type: object
+          additionalProperties: false
+          required: [total, recent, stale, offline, disabled]
+          properties:
+            total: { type: integer, minimum: 0 }
+            recent: { type: integer, minimum: 0 }
+            stale: { type: integer, minimum: 0 }
+            offline: { type: integer, minimum: 0 }
+            disabled: { type: integer, minimum: 0 }
+        incidents:
+          type: object
+          additionalProperties: false
+          required: [open, acknowledged, bySeverity]
+          properties:
+            open: { type: integer, minimum: 0 }
+            acknowledged: { type: integer, minimum: 0 }
+            bySeverity:
+              type: object
+              additionalProperties: { type: integer, minimum: 0 }
+        content:
+          type: object
+          additionalProperties: false
+          required: [staleDataSources, emptyPlaylists]
+          properties:
+            staleDataSources: { type: integer, minimum: 0 }
+            emptyPlaylists: { type: integer, minimum: 0 }
     EditorialSnapshot:
       type: object
       additionalProperties: false
