@@ -1,0 +1,54 @@
+{
+  "name": "Default",
+  "description": "Campaign progress toward a field goal as a horizontal bar.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "valueField": "raised",
+    "targetField": "goal",
+    "label": "Spring campaign",
+    "labelField": "",
+    "format": "currency",
+    "precision": 0,
+    "showPercent": true,
+    "completionText": "",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "raised",
+              "label": "Raised",
+              "type": "currency",
+              "currency": "USD"
+            },
+            {
+              "key": "goal",
+              "label": "Goal",
+              "type": "currency",
+              "currency": "USD"
+            }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "raised": { "kind": "number", "number": 48250 },
+                "goal": { "kind": "number", "number": 100000 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

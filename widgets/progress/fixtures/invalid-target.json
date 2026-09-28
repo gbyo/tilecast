@@ -1,0 +1,41 @@
+{
+  "name": "Invalid target",
+  "description": "A zero fixed target is a configuration failure, never a division by zero.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "valueField": "raised",
+    "targetField": "",
+    "staticTarget": 0,
+    "label": "",
+    "labelField": "",
+    "format": "number",
+    "precision": 1,
+    "showPercent": true,
+    "completionText": "",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [{ "key": "raised", "label": "Raised", "type": "number" }],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "raised": { "kind": "number", "number": 50 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "error"
+}

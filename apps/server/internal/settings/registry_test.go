@@ -103,8 +103,16 @@ func TestRegionalLocaleAndWeekdaySettings(t *testing.T) {
 			t.Errorf("invalid locale %q accepted", locale)
 		}
 	}
-	if defaults := Defaults(ScopeOrganization); defaults["organization.first_day_of_week"] != "sunday" {
-		t.Fatalf("legacy first-weekday default changed: %#v", defaults["organization.first_day_of_week"])
+	defaults := Defaults(ScopeOrganization)
+	if defaults["organization.first_day_of_week"] != "locale" {
+		t.Fatalf("new-install first-weekday default = %#v, want locale", defaults["organization.first_day_of_week"])
+	}
+	if profile := regionalFormatting(defaults); profile.FirstDayOfWeek != "sunday" {
+		t.Fatalf("default en-US locale resolved first weekday to %q, want sunday", profile.FirstDayOfWeek)
+	}
+	defaults["organization.locale"] = "de-DE"
+	if profile := regionalFormatting(defaults); profile.FirstDayOfWeek != "monday" {
+		t.Fatalf("default locale choice for de-DE resolved first weekday to %q, want monday", profile.FirstDayOfWeek)
 	}
 }
 
@@ -118,6 +126,7 @@ func TestRegionalFormattingResolvesLocaleWeekDefaultsAndOverrides(t *testing.T) 
 		{name: "UK locale-derived", input: map[string]any{"organization.locale": "en-GB", "organization.first_day_of_week": "locale"}, day: "monday"},
 		{name: "German locale-derived", input: map[string]any{"organization.locale": "de-DE", "organization.first_day_of_week": "locale"}, day: "monday"},
 		{name: "Maldives locale-derived", input: map[string]any{"organization.locale": "dv-MV", "organization.first_day_of_week": "locale"}, day: "friday"},
+		{name: "omitted choice uses locale default", input: map[string]any{"organization.locale": "dv-MV"}, day: "friday"},
 		{name: "explicit override", input: map[string]any{"organization.locale": "de-DE", "organization.first_day_of_week": "saturday"}, day: "saturday"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

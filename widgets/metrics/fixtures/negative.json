@@ -1,0 +1,57 @@
+{
+  "name": "Negative and over target",
+  "description": "A negative value and a percentage above one hundred both display honestly.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "metrics": [
+      {
+        "valueField": "change",
+        "label": "Change",
+        "labelField": "",
+        "detailField": "",
+        "format": "number",
+        "precision": 1,
+        "prefix": "",
+        "suffix": " pts"
+      },
+      {
+        "valueField": "progress",
+        "label": "Of goal",
+        "labelField": "",
+        "detailField": "",
+        "format": "percent",
+        "precision": 0,
+        "prefix": "",
+        "suffix": ""
+      }
+    ],
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "change", "label": "Change", "type": "number" },
+            { "key": "progress", "label": "Progress", "type": "number" }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "change": { "kind": "number", "number": -1.2 },
+                "progress": { "kind": "number", "number": 118 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

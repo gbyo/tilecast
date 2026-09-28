@@ -7,7 +7,7 @@ import {
 
 export default defineWidget<ClockConfig, null>({
   type: "tilecast.clock",
-  version: 1,
+  version: 2,
   tagName: "tc-widget-clock",
   parseConfig: parseClockConfig,
   // A Clock is standalone: it reads no Data Source and is never empty.

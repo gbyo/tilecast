@@ -67,7 +67,7 @@ func ResolveWebAuthnConfig(displayName, publicURL, overrideRPID, overrideOrigins
 	if !secure {
 		return WebAuthnConfig{}, "Passkeys require HTTPS. Serve Tilecast over HTTPS and set TILECAST_PUBLIC_URL to the HTTPS address."
 	}
-	if isIPHost(host) && host != "127.0.0.1" && host != "::1" {
+	if isIPHost(host) {
 		return WebAuthnConfig{}, "Passkeys require a hostname. Browsers reject an IP address as a relying party identifier."
 	}
 	if config.RPID == "" {
@@ -117,7 +117,11 @@ func (s *Service) ConfigurePasskeys(config WebAuthnConfig, unavailableReason str
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("configure passkeys: %w", err)
+		// The WebAuthn library validates the relying party more strictly with
+		// each release. A rejected configuration must disable passkeys, not
+		// stop signage from starting.
+		s.passkeyUnavailable = "Passkeys are unavailable: " + err.Error()
+		return nil
 	}
 	s.webauthn = instance
 	s.passkeyUnavailable = ""

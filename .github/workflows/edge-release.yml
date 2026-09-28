@@ -78,7 +78,7 @@ jobs:
       - name: Build the release builder image
         run: docker build -t tilecast-edge-release-builder -f apps/edge/release/Dockerfile.builder apps/edge/release
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/edge-release-cache/wpe-*.tar
           key: edge-wpe-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
@@ -114,13 +114,13 @@ jobs:
         if: always()
         run: rm -rf "$RUNNER_TEMP/tilecast-signing"
 
-      - uses: actions/attest-build-provenance@v3
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             ${{ runner.temp }}/edge-release/tilecast-edge-*.tar.zst
             ${{ runner.temp }}/edge-release/tilecast-edge-*.json
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: tilecast-edge-release
           path: |

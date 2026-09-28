@@ -21,7 +21,7 @@ const CompilerVersion = "definition-compiler-v2"
 var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
-	"datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
+	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
 	"data_source_field": true, "media_asset": true, "repeating_group": true,
 }
 
@@ -139,24 +139,29 @@ type ConfigurationSchema struct {
 }
 
 type FieldDefinition struct {
-	Key                     string                 `json:"key"`
-	Label                   string                 `json:"label"`
-	Description             string                 `json:"description,omitempty"`
-	Control                 string                 `json:"control"`
-	Required                bool                   `json:"required,omitempty"`
-	Default                 any                    `json:"default,omitempty"`
-	Minimum                 *float64               `json:"minimum,omitempty"`
-	Maximum                 *float64               `json:"maximum,omitempty"`
-	MinLength               int                    `json:"minLength,omitempty"`
-	MaxLength               int                    `json:"maxLength,omitempty"`
-	Options                 []SelectOption         `json:"options,omitempty"`
-	AcceptedDataSourceKinds []string               `json:"acceptedDataSourceKinds,omitempty"`
-	RequiredFields          map[string]string      `json:"requiredFields,omitempty"`
-	DataSourceFieldTypes    []string               `json:"dataSourceFieldTypes,omitempty"`
-	MediaTypes              []string               `json:"mediaTypes,omitempty"`
-	MaximumItems            int                    `json:"maximumItems,omitempty"`
-	ItemFields              []FieldDefinition      `json:"itemFields,omitempty"`
-	UI                      map[string]interface{} `json:"ui,omitempty"`
+	Key                     string            `json:"key"`
+	Label                   string            `json:"label"`
+	Description             string            `json:"description,omitempty"`
+	Control                 string            `json:"control"`
+	Required                bool              `json:"required,omitempty"`
+	Default                 any               `json:"default,omitempty"`
+	Minimum                 *float64          `json:"minimum,omitempty"`
+	Maximum                 *float64          `json:"maximum,omitempty"`
+	MinLength               int               `json:"minLength,omitempty"`
+	MaxLength               int               `json:"maxLength,omitempty"`
+	Options                 []SelectOption    `json:"options,omitempty"`
+	AcceptedDataSourceKinds []string          `json:"acceptedDataSourceKinds,omitempty"`
+	RequiredFields          map[string]string `json:"requiredFields,omitempty"`
+	DataSourceFieldTypes    []string          `json:"dataSourceFieldTypes,omitempty"`
+	// DataSourceKey names the data_source control whose selected source
+	// supplies the field list for a data_source_field control. An explicit
+	// key wins; a definition with exactly one data_source control may omit
+	// it. Nested repeating-group controls may point at a root source.
+	DataSourceKey string                 `json:"dataSourceKey,omitempty"`
+	MediaTypes    []string               `json:"mediaTypes,omitempty"`
+	MaximumItems  int                    `json:"maximumItems,omitempty"`
+	ItemFields    []FieldDefinition      `json:"itemFields,omitempty"`
+	UI            map[string]interface{} `json:"ui,omitempty"`
 }
 
 type SelectOption struct {
@@ -908,8 +913,15 @@ func validateIdentity(id string, version int, name, category string) error {
 }
 
 func validateSchema(schema ConfigurationSchema) error {
+	if err := validateSchemaFields(schema.Fields); err != nil {
+		return err
+	}
+	return validateDataSourceKeys(schema)
+}
+
+func validateSchemaFields(fields []FieldDefinition) error {
 	seen := map[string]bool{}
-	for _, field := range schema.Fields {
+	for _, field := range fields {
 		if field.Key == "" || seen[field.Key] {
 			return errors.New("configuration schema contains a missing or duplicate field key")
 		}
@@ -940,12 +952,51 @@ func validateSchema(schema ConfigurationSchema) error {
 			if len(field.ItemFields) == 0 {
 				return fmt.Errorf("repeating group %q declares no item fields", field.Key)
 			}
-			if err := validateSchema(ConfigurationSchema{Fields: field.ItemFields}); err != nil {
+			if err := validateSchemaFields(field.ItemFields); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// validateDataSourceKeys rejects a data_source_field whose explicit
+// dataSourceKey does not name a data_source control in the same
+// definition. A bad manifest must fail at load rather than silently
+// validate a nested selection against the wrong source. Nested
+// repeating-group controls may point at a root source, so keys are
+// collected at every level before any reference is checked.
+func validateDataSourceKeys(schema ConfigurationSchema) error {
+	sources := map[string]bool{}
+	var collect func(fields []FieldDefinition)
+	collect = func(fields []FieldDefinition) {
+		for _, field := range fields {
+			if field.Control == "data_source" {
+				sources[field.Key] = true
+			}
+			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
+				collect(field.ItemFields)
+			}
+		}
+	}
+	collect(schema.Fields)
+	var walk func(fields []FieldDefinition) error
+	walk = func(fields []FieldDefinition) error {
+		for _, field := range fields {
+			if field.Control == "data_source_field" && field.DataSourceKey != "" {
+				if !sources[field.DataSourceKey] {
+					return fmt.Errorf("field %q refers to unknown Data Source %q", field.Key, field.DataSourceKey)
+				}
+			}
+			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
+				if err := walk(field.ItemFields); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return walk(schema.Fields)
 }
 
 // validateFieldBounds rejects contradictory numeric and string bounds.

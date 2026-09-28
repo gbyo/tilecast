@@ -1,11 +1,19 @@
 /**
- * Clock V2: live time as the focal point of the Widget.
+ * Clock V2: live time or date as the focal point of the Widget.
  *
- * Three styles:
- * - standard: large hours and minutes, the day period and seconds set as a
- *   quiet column beside them, optional zone caption and date below;
- * - minimal: the time alone, as large as the box allows;
- * - analog: a restrained dial with the date and digital time beside it.
+ * Three modes, one component:
+ * - time: the local time. Three faces:
+ *   - standard: large hours and minutes, the day period and seconds set
+ *     as a quiet column beside them, optional zone caption and date below;
+ *   - minimal: the time alone, as large as the box allows;
+ *   - analog: a restrained dial with the date and digital time beside it;
+ * - date: the local date alone, as large as the box allows;
+ * - world: the time in up to eight zones, each with its city and whether
+ *   that zone is already on another day.
+ *
+ * The retired Date and World Clock Widgets are these modes
+ * (docs/widgets-v2-catalog.md). Component version 2 added the modes; a
+ * version 1 configuration has no mode and is the time mode.
  *
  * Layout is container queries only. The same element becomes a single row
  * in a wide strip, stacks hours over minutes in a tall sidebar, and drops
@@ -18,10 +26,15 @@ import {
   type ConfigResult,
 } from "@tilecast/widget-sdk";
 import {
+  boundText,
   ClockController,
   formatDate,
+  localDayDifference,
+  localDayKey,
+  relativeDayLabel,
   TilecastWidgetElement,
   timeParts,
+  zoneAbbreviation,
   zoneCity,
   type HourCycle,
 } from "@tilecast/widget-kit";
@@ -29,7 +42,30 @@ import {
 export const CLOCK_STYLES = ["standard", "minimal", "analog"] as const;
 export type ClockStyle = (typeof CLOCK_STYLES)[number];
 
+export const CLOCK_MODES = ["time", "date", "world"] as const;
+export type ClockMode = (typeof CLOCK_MODES)[number];
+
+/** "locale" follows the organization: the full date with the weekday. */
+export const DATE_FORMATS = [
+  "locale",
+  "full",
+  "long",
+  "medium",
+  "short",
+] as const;
+export type ClockDateFormat = (typeof DATE_FORMATS)[number];
+
+export const MAX_WORLD_ZONES = 8;
+
+export interface WorldZone {
+  /** The author label, or "" for the zone's city name. */
+  readonly label: string;
+  /** An explicit zone, or null for the screen's organization zone. */
+  readonly timeZone: string | null;
+}
+
 export interface ClockConfig {
+  readonly mode: ClockMode;
   /** An explicit zone, or null for the screen's organization zone. */
   readonly timeZone: string | null;
   /** "locale" follows the organization's regional time format. */
@@ -37,6 +73,8 @@ export interface ClockConfig {
   readonly showSeconds: boolean;
   readonly style: ClockStyle;
   readonly showDate: boolean;
+  readonly dateFormat: ClockDateFormat;
+  readonly zones: readonly WorldZone[];
   readonly background: string | null;
   readonly foreground: string | null;
 }
@@ -46,6 +84,27 @@ const FORMATS = ["locale", "12", "24"] as const;
 function optionalBoolean(value: unknown): boolean | null {
   if (value === undefined) return false;
   return typeof value === "boolean" ? value : null;
+}
+
+function parseZones(value: unknown): WorldZone[] | null {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || value.length > MAX_WORLD_ZONES) return null;
+  const zones: WorldZone[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    const raw = item as Record<string, unknown>;
+    const label = raw["label"] ?? "";
+    if (typeof label !== "string" || label.length > 80) return null;
+    // Saved World Clock zones name the key "timezone".
+    const zone = raw["timeZone"] ?? raw["timezone"] ?? "";
+    let timeZone: string | null = null;
+    if (zone !== "") {
+      timeZone = validTimeZone(zone);
+      if (!timeZone) return null;
+    }
+    zones.push({ label: boundText(label.trim(), 80), timeZone });
+  }
+  return zones;
 }
 
 export function parseClockConfig(value: unknown): ConfigResult<ClockConfig> {
@@ -72,14 +131,29 @@ export function parseClockConfig(value: unknown): ConfigResult<ClockConfig> {
   if (showSeconds === null || showDate === null) {
     return { ok: false, problem: "showSeconds and showDate must be booleans" };
   }
+  const mode = raw["mode"] ?? "time";
+  if (!CLOCK_MODES.includes(mode as never)) {
+    return { ok: false, problem: "mode is not a Clock mode" };
+  }
+  const dateFormat = raw["dateFormat"] ?? "locale";
+  if (!DATE_FORMATS.includes(dateFormat as never)) {
+    return { ok: false, problem: "dateFormat is not a date format" };
+  }
+  const zones = parseZones(raw["zones"]);
+  if (zones === null) {
+    return { ok: false, problem: "zones must be up to eight labeled zones" };
+  }
   return {
     ok: true,
     config: {
+      mode: mode as ClockMode,
       timeZone,
       format: format as ClockConfig["format"],
       showSeconds,
       style: style as ClockStyle,
       showDate,
+      dateFormat: dateFormat as ClockDateFormat,
+      zones,
       // Author colors are optional; an invalid one is ignored, not fatal.
       background: parseHexColor(raw["background"]),
       foreground: parseHexColor(raw["foreground"]),
@@ -381,10 +455,227 @@ export class TilecastClockWidget extends TilecastWidgetElement<
         }
       }
     `,
+    css`
+      /* Date mode: the date as the focal point. */
+      .date-face {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: min(2.4cqh, 1.8cqw);
+        max-width: 100%;
+        text-align: center;
+      }
+      .date-weekday {
+        font-size: clamp(12px, min(9cqh, 5.4cqw), 170px);
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--tc-color-accent);
+      }
+      .date-main {
+        font-size: clamp(20px, min(26cqh, 12.5cqw), 520px);
+        font-weight: 650;
+        line-height: 0.98;
+        letter-spacing: -0.035em;
+        white-space: nowrap;
+      }
+      .date-year {
+        font-size: clamp(12px, min(9cqh, 5cqw), 160px);
+        font-weight: 500;
+        color: var(--tc-color-fg-muted);
+      }
+      .date-face[data-single] .date-main {
+        font-size: clamp(20px, min(24cqh, 10.5cqw), 480px);
+      }
+
+      /* World mode: one card for each zone. */
+      .world {
+        --cols: 1;
+        --rows: 1;
+        display: grid;
+        grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+        gap: min(3cqh, 2cqw);
+        width: 100%;
+        height: 100%;
+        align-content: stretch;
+      }
+      .world[data-count="2"] {
+        --cols: 2;
+      }
+      .world[data-count="3"] {
+        --cols: 3;
+      }
+      .world[data-count="4"] {
+        --cols: 2;
+        --rows: 2;
+      }
+      .world[data-count="5"],
+      .world[data-count="6"] {
+        --cols: 3;
+        --rows: 2;
+      }
+      .world[data-count="7"],
+      .world[data-count="8"] {
+        --cols: 4;
+        --rows: 2;
+      }
+      .zone-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: min(1.2cqh, 0.8cqw);
+        min-width: 0;
+        padding: min(3.6cqh, 2.4cqw);
+        border-radius: var(--tc-radius-l);
+        background: var(--tc-color-surface);
+      }
+      .zone-name {
+        max-width: 100%;
+        font-size: clamp(11px, calc(min(6.4cqh, 4cqw) / var(--rows)), 96px);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--tc-color-accent);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .zone-time {
+        display: flex;
+        align-items: baseline;
+        gap: 0.18em;
+        font-size: clamp(
+          16px,
+          min(calc(40cqh / var(--rows)), calc(20cqw / var(--cols))),
+          420px
+        );
+        font-weight: 600;
+        line-height: 1;
+        letter-spacing: -0.035em;
+        white-space: nowrap;
+      }
+      .zone-time .period,
+      .zone-time .zone-seconds {
+        font-size: 0.34em;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        color: var(--tc-color-fg-muted);
+      }
+      .zone-meta {
+        max-width: 100%;
+        font-size: clamp(11px, calc(min(7cqh, 4cqw) / var(--rows)), 80px);
+        font-weight: 500;
+        color: var(--tc-color-fg-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .zone-meta .day {
+        color: var(--tc-color-fg);
+        font-weight: 600;
+      }
+
+      /* Wide strip: every zone on one line. */
+      @container tc-widget (aspect-ratio > 2.4) {
+        .world {
+          grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+          grid-auto-flow: column;
+          --rows: 1;
+          --cols: 4;
+        }
+        .zone-card {
+          flex-direction: row;
+          align-items: baseline;
+          justify-content: center;
+          gap: 3cqh;
+          padding: 4cqh 3cqh;
+          background: transparent;
+        }
+        .zone-time {
+          font-size: clamp(14px, min(46cqh, 7cqw), 200px);
+        }
+        .zone-name,
+        .zone-meta {
+          font-size: clamp(11px, min(18cqh, 2.2cqw), 72px);
+        }
+        .date-face {
+          flex-direction: row;
+          align-items: baseline;
+          gap: 5cqh;
+        }
+        .date-main,
+        .date-face[data-single] .date-main {
+          font-size: clamp(16px, min(60cqh, 9cqw), 300px);
+        }
+        .date-weekday,
+        .date-year {
+          font-size: clamp(12px, min(26cqh, 3.6cqw), 120px);
+        }
+      }
+
+      /* Tall sidebar or portrait screen: one zone per row. */
+      @container tc-widget (aspect-ratio < 0.75) {
+        .world {
+          grid-template-columns: minmax(0, 1fr);
+          --cols: 1;
+          --rows: 4;
+        }
+        .world[data-count="1"] {
+          --rows: 1.6;
+        }
+        .world[data-count="2"] {
+          --rows: 2;
+        }
+        .world[data-count="3"] {
+          --rows: 3;
+        }
+        .world[data-count="7"],
+        .world[data-count="8"] {
+          --rows: 6;
+        }
+        .date-main,
+        .date-face[data-single] .date-main {
+          font-size: clamp(20px, 17cqw, 400px);
+          white-space: normal;
+        }
+        .date-weekday,
+        .date-year {
+          font-size: clamp(12px, 8cqw, 150px);
+        }
+      }
+
+      /* Small Layout zone: the first two zones, time only. */
+      @container tc-widget (max-height: 150px) or (max-width: 200px) {
+        .zone-card:nth-child(n + 3),
+        .zone-meta {
+          display: none;
+        }
+        .world {
+          --cols: 2;
+          --rows: 1;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .zone-card {
+          padding: 4cqmin;
+        }
+        .date-weekday,
+        .date-year {
+          display: none;
+        }
+      }
+    `,
   ];
 
   private readonly ticks = new ClockController(this, {
-    granularity: () => (this.config?.showSeconds ? "second" : "minute"),
+    granularity: () =>
+      this.config?.mode !== "date" && this.config?.showSeconds
+        ? "second"
+        : "minute",
+    // A date changes only at local midnight; everything else follows the
+    // ticks it asked for.
+    key: (now) =>
+      this.config?.mode === "date" ? localDayKey(now, this.zone) : String(now),
   });
 
   protected override themeOverrides(config: ClockConfig) {
@@ -427,6 +718,8 @@ export class TilecastClockWidget extends TilecastWidgetElement<
 
   protected override renderContent(): TemplateResult {
     const now = this.ticks.now;
+    if (this.config.mode === "date") return this.renderDateMode(now);
+    if (this.config.mode === "world") return this.renderWorld(now);
     const parts = timeParts(now, {
       locale: this.context.locale,
       timeZone: this.zone,
@@ -460,6 +753,89 @@ export class TilecastClockWidget extends TilecastWidgetElement<
           }
         </div>
         ${style === "standard" ? this.dateLine(now) : nothing}
+      </div>
+    </div>`;
+  }
+
+  private renderDateMode(now: number): TemplateResult {
+    const options = { locale: this.context.locale, timeZone: this.zone };
+    const format = this.config.dateFormat;
+    if (format === "medium" || format === "short") {
+      const text = formatDate(now, {
+        ...options,
+        style: format === "medium" ? "medium-year" : "numeric",
+      });
+      return html`<div class="clock" data-mode="date">
+        <div class="date-face" data-single>
+          <div class="date-main tc-numeric">${text}</div>
+        </div>
+      </div>`;
+    }
+    return html`<div class="clock" data-mode="date">
+      <div class="date-face">
+        ${
+          format === "long"
+            ? nothing
+            : html`<div class="date-weekday">
+                ${formatDate(now, { ...options, style: "weekday" })}
+              </div>`
+        }
+        <div class="date-main">
+          ${formatDate(now, { ...options, style: "day-month" })}
+        </div>
+        <div class="date-year tc-numeric">
+          ${formatDate(now, { ...options, style: "year" })}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  private renderWorld(now: number): TemplateResult {
+    const zones: readonly WorldZone[] =
+      this.config.zones.length > 0
+        ? this.config.zones
+        : [{ label: "", timeZone: null }];
+    const screen = this.context.timeZone;
+    const { locale } = this.context;
+    return html`<div class="clock" data-mode="world">
+      <div class="world" data-count=${String(zones.length)}>
+        ${zones.map((zone) => {
+          const timeZone = zone.timeZone ?? screen;
+          const parts = timeParts(now, {
+            locale,
+            timeZone,
+            hourCycle: this.hourCycle,
+          });
+          const day = relativeDayLabel(
+            localDayDifference(now, timeZone, screen),
+            locale,
+          );
+          const meta = [
+            this.config.showDate
+              ? formatDate(now, { locale, timeZone, style: "medium" })
+              : "",
+            zoneAbbreviation(now, { locale, timeZone }),
+          ].filter((part) => part !== "");
+          return html`<section class="zone-card">
+            <div class="zone-name">${zone.label || zoneCity(timeZone)}</div>
+            <div class="zone-time tc-numeric">
+              <span>${parts.hour}${parts.separator}${parts.minute}</span>${
+                parts.dayPeriod
+                  ? html`<span class="period">${parts.dayPeriod}</span>`
+                  : nothing
+              }${
+                this.config.showSeconds
+                  ? html`<span class="zone-seconds">${parts.second}</span>`
+                  : nothing
+              }
+            </div>
+            <div class="zone-meta">
+              ${day ? html`<span class="day">${day}</span> · ` : nothing}${meta.join(
+                " · ",
+              )}
+            </div>
+          </section>`;
+        })}
       </div>
     </div>`;
   }

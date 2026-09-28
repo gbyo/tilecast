@@ -1,0 +1,13 @@
+{
+  "name": "Callout",
+  "description": "A start-aligned notice marked with an accent rule.",
+  "configuration": {
+    "heading": "Parking lot B is closed",
+    "body": "Resurfacing work runs through Thursday. Use lot C on Elm Street and enter by the east doors.",
+    "style": "callout",
+    "align": "center",
+    "backgroundColor": "#f5f7fa",
+    "foregroundColor": "#101418"
+  },
+  "expect": "ready"
+}

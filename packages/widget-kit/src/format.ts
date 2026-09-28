@@ -93,7 +93,15 @@ export function timeParts(
   };
 }
 
-export type DateStyle = "full" | "long" | "medium" | "weekday" | "day-month";
+export type DateStyle =
+  | "full"
+  | "long"
+  | "medium"
+  | "weekday"
+  | "day-month"
+  | "year"
+  | "medium-year"
+  | "numeric";
 
 const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   full: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
@@ -101,6 +109,9 @@ const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   medium: { weekday: "short", month: "short", day: "numeric" },
   weekday: { weekday: "long" },
   "day-month": { month: "long", day: "numeric" },
+  year: { year: "numeric" },
+  "medium-year": { month: "short", day: "numeric", year: "numeric" },
+  numeric: { month: "numeric", day: "numeric", year: "2-digit" },
 };
 
 export function formatDate(
@@ -138,6 +149,39 @@ export function localDayKey(epochMs: number, timeZone: string): string {
     month: "2-digit",
     day: "2-digit",
   }).format(epochMs);
+}
+
+/**
+ * Whole local calendar days from `referenceZone`'s date to `timeZone`'s
+ * date at one instant: 1 when the other zone is already on the next day.
+ */
+export function localDayDifference(
+  epochMs: number,
+  timeZone: string,
+  referenceZone: string,
+): number {
+  const day = (zone: string) =>
+    Date.parse(`${localDayKey(epochMs, zone)}T00:00:00Z`);
+  return Math.round((day(timeZone) - day(referenceZone)) / 86_400_000);
+}
+
+/**
+ * A relative day in the screen locale ("tomorrow", "yesterday",
+ * "mañana"), or "" for the same day. Never a hard-coded English word.
+ */
+export function relativeDayLabel(days: number, locale: string): string {
+  if (days === 0 || !Number.isFinite(days)) return "";
+  try {
+    return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(
+      days,
+      "day",
+    );
+  } catch {
+    return new Intl.RelativeTimeFormat("en-US", { numeric: "auto" }).format(
+      days,
+      "day",
+    );
+  }
 }
 
 /** "America/New_York" → "New York"; "Etc/UTC" → "UTC". */
@@ -205,6 +249,67 @@ export function formatNumber(value: number, options: NumberOptions): string {
     },
   );
   return format.format(value);
+}
+
+/**
+ * Read a finite number from a prepared value. Non-finite numbers are
+ * display data, never signage output: callers drop the value instead of
+ * rendering NaN or Infinity.
+ */
+export function toFiniteNumber(
+  value: WidgetValue | null | undefined,
+): number | null {
+  if (!value) return null;
+  const numeric =
+    typeof value.number === "number"
+      ? value.number
+      : typeof value.integer === "number"
+        ? value.integer
+        : null;
+  return numeric !== null && Number.isFinite(numeric) ? numeric : null;
+}
+
+/** Bounded numeric styles a Widget author may choose. No format strings. */
+export type NumericDisplayStyle = "number" | "integer" | "percent" | "currency";
+
+export interface NumericDisplayOptions {
+  readonly locale: string;
+  readonly style: NumericDisplayStyle;
+  /** ISO 4217 code from the field metadata; without one currency is plain. */
+  readonly currency?: string;
+  /** Digits after the decimal point, from none to six. */
+  readonly precision: number;
+}
+
+/**
+ * Format one finite number with an author-chosen style and precision in
+ * the Widget locale. Percent values arrive as whole units, matching the
+ * record convention the legacy renderer uses. A currency without a valid
+ * ISO code formats as a plain number, like legacy rows without metadata.
+ */
+export function formatDisplayNumber(
+  value: number,
+  options: NumericDisplayOptions,
+): string {
+  const precision =
+    Number.isInteger(options.precision) && options.precision >= 0
+      ? Math.min(options.precision, 6)
+      : 1;
+  // Intl knows decimal, percent, and currency. The author-facing number
+  // and integer styles both render decimal digits; integer fixes none.
+  const style =
+    options.style === "percent"
+      ? "percent"
+      : options.style === "currency" &&
+          /^[A-Z]{3}$/.test(options.currency ?? "")
+        ? "currency"
+        : "decimal";
+  return formatNumber(value, {
+    locale: options.locale,
+    style,
+    currency: options.currency,
+    maximumFractionDigits: options.style === "integer" ? 0 : precision,
+  });
 }
 
 /**

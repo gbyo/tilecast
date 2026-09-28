@@ -42,16 +42,35 @@ function fieldText(value: unknown) {
 // `data_source_field` control. An explicit `dataSourceKey` wins; otherwise a definition with
 // exactly one Data Source control is unambiguous. When a definition declares several and the
 // field does not say which, there is no correct answer, so no fields are offered rather than
-// silently listing another source's schema.
+// silently listing another source's schema. Nested repeating-group items carry no
+// `data_source` sibling, so a keyless nested field falls back to the root's single source.
 export function resolveDataSourceKey(
   field: ContentDefinitionField,
   fields: ContentDefinitionField[],
+  rootFields?: ContentDefinitionField[],
 ): string | undefined {
   if (field.dataSourceKey) return field.dataSourceKey;
   const sourceFields = fields.filter(
     (candidate) => candidate.control === "data_source",
   );
-  return sourceFields.length === 1 ? sourceFields[0]?.key : undefined;
+  if (sourceFields.length === 1) return sourceFields[0]?.key;
+  if (sourceFields.length === 0 && rootFields) {
+    // Collect nested sources too: a group may itself declare the source.
+    const collectNested = (
+      list: ContentDefinitionField[],
+    ): ContentDefinitionField[] => {
+      const found: ContentDefinitionField[] = [];
+      for (const candidate of list) {
+        if (candidate.control === "data_source") found.push(candidate);
+        if (candidate.itemFields?.length)
+          found.push(...collectNested(candidate.itemFields));
+      }
+      return found;
+    };
+    const allRoot = collectNested(rootFields);
+    if (allRoot.length === 1) return allRoot[0]?.key;
+  }
+  return undefined;
 }
 
 // dataSourceKeysIn lists every Data Source referenced by a configuration, so callers can
@@ -89,6 +108,7 @@ export function DefinitionForm({
   readOnly = false,
   csrf,
   rootValues,
+  rootFields,
 }: {
   fields: ContentDefinitionField[];
   value: Values;
@@ -101,8 +121,11 @@ export function DefinitionForm({
    * inside a group resolve against these root values instead.
    */
   rootValues?: Values;
+  /** The outermost schema; nested keyless fields fall back to its single source. */
+  rootFields?: ContentDefinitionField[];
 }) {
   const root = rootValues ?? value;
+  const rootSchema = rootFields ?? fields;
   const needsDataSources = fields.some(
     (field) =>
       field.control === "data_source" || field.control === "data_source_field",
@@ -144,6 +167,7 @@ export function DefinitionForm({
           fields={fields}
           values={value}
           rootValues={root}
+          rootFields={rootSchema}
           value={value[field.key]}
           setValue={(next) => set(field.key, next)}
           readOnly={readOnly}
@@ -232,20 +256,58 @@ function preferredExampleType(key: string, types: string[]) {
 
 type WidgetsT = TFunction<["content", "common"], undefined>;
 
+// collectSelectableFields lists every data_source_field control that reads
+// from the named source, including controls nested inside repeating groups.
+// An explicit dataSourceKey wins; otherwise the level with exactly one Data
+// Source control is unambiguous, mirroring resolveDataSourceKey. A keyless
+// nested field with no local source falls back to the root single source.
+function collectSelectableFields(
+  fields: ContentDefinitionField[],
+  sourceKey: string,
+  rootFields: ContentDefinitionField[] = fields,
+): ContentDefinitionField[] {
+  const sourceFields = fields.filter(
+    (candidate) => candidate.control === "data_source",
+  );
+  const rootSources: ContentDefinitionField[] = [];
+  const collectSources = (list: ContentDefinitionField[]): void => {
+    for (const candidate of list) {
+      if (candidate.control === "data_source") rootSources.push(candidate);
+      if (candidate.itemFields?.length) collectSources(candidate.itemFields);
+    }
+  };
+  collectSources(rootFields);
+  const rootSingle =
+    rootSources.length === 1 && rootSources[0]?.key === sourceKey;
+  const selectable: ContentDefinitionField[] = [];
+  for (const candidate of fields) {
+    if (
+      candidate.control === "data_source_field" &&
+      (candidate.dataSourceKey === sourceKey ||
+        (!candidate.dataSourceKey &&
+          (sourceFields.length === 1 ||
+            (sourceFields.length === 0 && rootSingle))))
+    ) {
+      selectable.push(candidate);
+    }
+    if (
+      candidate.control === "repeating_group" &&
+      candidate.itemFields?.length
+    ) {
+      selectable.push(
+        ...collectSelectableFields(candidate.itemFields, sourceKey, rootFields),
+      );
+    }
+  }
+  return selectable;
+}
+
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
   fields: ContentDefinitionField[],
   t?: WidgetsT,
 ): DataFormatGuide {
-  const sourceFields = fields.filter(
-    (candidate) => candidate.control === "data_source",
-  );
-  const selectableFields = fields.filter(
-    (candidate) =>
-      candidate.control === "data_source_field" &&
-      (candidate.dataSourceKey === sourceField.key ||
-        (!candidate.dataSourceKey && sourceFields.length === 1)),
-  );
+  const selectableFields = collectSelectableFields(fields, sourceField.key);
   const requirements: DataFormatGuide["fields"] = Object.entries(
     sourceField.requiredFields ?? {},
   ).map(([key, type]) => ({
@@ -325,6 +387,7 @@ function DefinitionControl({
   fields,
   values,
   rootValues,
+  rootFields,
   value,
   setValue,
   readOnly,
@@ -338,6 +401,7 @@ function DefinitionControl({
   values: Values;
   /** The outermost configuration; nested items resolve pickers against it. */
   rootValues: Values;
+  rootFields: ContentDefinitionField[];
   value: unknown;
   setValue: (value: unknown) => void;
   readOnly: boolean;
@@ -349,9 +413,11 @@ function DefinitionControl({
   const { t } = useTranslation(["content", "common"]);
   // A field picker resolves against the source chosen by its own `data_source` control, not a
   // hardcoded `dataSourceId`, so a definition may reference several Data Sources.
+  // Nested items pass their itemFields as `fields` with the root schema as
+  // `rootFields`, so a keyless nested picker falls back to the root source.
   const fieldSourceKey =
     field.control === "data_source_field"
-      ? resolveDataSourceKey(field, fields)
+      ? resolveDataSourceKey(field, fields, rootFields)
       : undefined;
   const fieldSourceID = fieldSourceKey
     ? fieldText(values[fieldSourceKey]) || fieldText(rootValues[fieldSourceKey])
@@ -553,6 +619,7 @@ function DefinitionControl({
               readOnly={readOnly}
               csrf={csrf}
               rootValues={rootValues}
+              rootFields={rootFields}
               onChange={(next) =>
                 setValue(
                   items.map((current, currentIndex) =>
@@ -617,6 +684,26 @@ function DefinitionControl({
           aria-label={labelText}
           value={rfc3339ToLocalDateTime(fieldText(value))}
           onChange={(next) => setValue(localDateTimeToRfc3339(next))}
+        />
+        {field.description && (
+          <FieldDescription>{field.description}</FieldDescription>
+        )}
+      </Field>
+    );
+  if (field.control === "local_datetime")
+    // A wall-clock time that a sibling timezone field interprets: it is
+    // shown and saved exactly as entered, never converted to an instant.
+    // A saved RFC 3339 instant from an older release shows as its own
+    // wall time until it is edited.
+    return (
+      <Field>
+        <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+        <DateTimeInput
+          id={`definition-${field.key}`}
+          {...common}
+          aria-label={labelText}
+          value={fieldText(value).slice(0, 16)}
+          onChange={setValue}
         />
         {field.description && (
           <FieldDescription>{field.description}</FieldDescription>

@@ -167,6 +167,7 @@
     {
       "id": "fundraising-thermometer",
       "version": 1,
+      "apiVersion": 1,
       "name": "Fundraising Thermometer",
       "description": "Show progress toward a fundraising or campaign goal.",
       "category": "Information",
@@ -353,7 +354,35 @@
           "Update the raised amount as the campaign progresses."
         ]
       },
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "progress",
+        "message": "Create Progress with the thermometer style instead. Saved Fundraising Thermometer content keeps working."
+      },
+      "component": {
+        "type": "tilecast.progress",
+        "version": 1,
+        "tagName": "tc-widget-progress",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "valueField": { "$config": "currentField", "default": "current" },
+          "targetField": { "$config": "targetField", "default": "target" },
+          "label": { "$config": "heading", "default": "" },
+          "labelField": { "$config": "labelField", "default": "" },
+          "format": { "$config": "valueFormat", "default": "currency" },
+          "precision": { "$config": "precision", "default": 1 },
+          "showPercent": { "$config": "showPercent", "default": true },
+          "completionText": { "$config": "completionText", "default": "" },
+          "style": "thermometer",
+          "emptyText": { "$config": "emptyText", "default": "" },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "template" }
     },
     {
       "id": "now-and-next",
