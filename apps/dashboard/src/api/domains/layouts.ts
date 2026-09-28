@@ -10,6 +10,7 @@ import type {
   Layout,
   LayoutDocument,
   LayoutList,
+  LayoutOrientation,
   LayoutRevision,
   LayoutRevisionList,
 } from "../types";
@@ -102,7 +103,7 @@ export async function createLayout(
   input: {
     name: string;
     description: string;
-    orientation: string;
+    orientation: LayoutOrientation;
     canvasWidth: number;
     canvasHeight: number;
   },
@@ -177,10 +178,9 @@ export function deleteLayout(id: string, csrfToken: string): Promise<void> {
 }
 
 export function listLayoutRevisions(id: string): Promise<LayoutRevisionList> {
-  return apiGet<"/api/v1/layouts/{id}/revisions", LayoutRevisionList>(
-    "/api/v1/layouts/{id}/revisions",
-    { params: { path: { id }, query: { page: 1, pageSize: PAGE_SIZE } } },
-  );
+  return apiGet("/api/v1/layouts/{id}/revisions", {
+    params: { path: { id }, query: { page: 1, pageSize: PAGE_SIZE } },
+  });
 }
 
 export async function restoreLayoutRevision(
