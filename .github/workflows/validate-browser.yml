@@ -47,7 +47,7 @@ jobs:
         run: docker compose -f deploy/docker/compose.demo.yml logs --no-color --timestamps > demo-stack.log || true
       - name: Keep failure artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: studio-browser-visual-failure
           path: |

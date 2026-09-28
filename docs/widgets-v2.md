@@ -356,3 +356,9 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 3. Continue the remaining catalog migration only after the first wave proves
    the authoring/runtime contracts.
 4. Separate project: Android shared-runtime convergence.
+5. The final catalog and the fate of every legacy provider are in
+   [Widgets V2 final catalog](widgets-v2-catalog.md). Clock component
+   version 2 adds the date and world clocks modes. Text, Countdown, and
+   the hidden Image Notice compatibility component are Widgets V2
+   components. Every provider with a component validates writes through
+   its manifest schema (§8 of that document).

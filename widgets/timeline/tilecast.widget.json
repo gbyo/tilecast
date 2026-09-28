@@ -1,0 +1,166 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "timeline",
+  "version": 1,
+  "name": "Timeline",
+  "description": "Show ordered milestones with dates, titles, and statuses.",
+  "category": "Schedules",
+  "icon": "timeline",
+  "keywords": ["timeline", "milestones", "history", "dates"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records source holding the milestones in display order.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "dateField",
+        "label": "Date field",
+        "control": "data_source_field",
+        "required": true,
+        "dataSourceKey": "dataSourceId",
+        "dataSourceFieldTypes": ["date", "datetime"],
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "control": "data_source_field",
+        "required": true,
+        "dataSourceKey": "dataSourceId",
+        "ui": { "section": "data", "order": 3 }
+      },
+      {
+        "key": "bodyField",
+        "label": "Body field",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "default": "",
+        "ui": { "section": "data", "order": 4 }
+      },
+      {
+        "key": "statusField",
+        "label": "Status field",
+        "description": "Optional. A short status shown as a badge.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "default": "",
+        "ui": { "section": "data", "order": 5 }
+      },
+      {
+        "key": "orientation",
+        "label": "Orientation",
+        "control": "select",
+        "default": "vertical",
+        "options": [
+          { "value": "vertical", "label": "Vertical" },
+          { "value": "horizontal", "label": "Horizontal" }
+        ],
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Maximum items",
+        "description": "Milestones shown, from one to twenty.",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 20,
+        "default": 8,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "dateField": "",
+    "titleField": "",
+    "bodyField": "",
+    "statusField": "",
+    "orientation": "vertical",
+    "maximumItems": 8,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "layout.row": 1,
+    "content.text": 1,
+    "content.badge": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.timeline",
+    "version": 1,
+    "tagName": "tc-widget-timeline",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "dateField": { "$config": "dateField", "default": "" },
+      "titleField": { "$config": "titleField", "default": "" },
+      "bodyField": { "$config": "bodyField", "default": "" },
+      "statusField": { "$config": "statusField", "default": "" },
+      "orientation": { "$config": "orientation", "default": "vertical" },
+      "maximumItems": { "$config": "maximumItems", "default": 8 },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": { "fallback": "legacy" }
+}

@@ -1626,6 +1626,7 @@ export type ContentDefinitionField = {
     | "color"
     | "date"
     | "datetime"
+    | "local_datetime"
     | "timezone"
     | "currency_code"
     | "url"
@@ -1655,7 +1656,10 @@ export type ContentDefinitionField = {
   ui?: {
     section?: "data" | "content" | "appearance" | "behavior";
     order?: number;
-    visibleWhen?: { key: string; equals?: unknown; notEquals?: unknown };
+    visibleWhen?:
+      | { key: string; equals?: unknown; notEquals?: unknown }
+      | { key: string; equals?: unknown; notEquals?: unknown }[];
+    hidden?: boolean;
     styleCard?: boolean;
     semanticRole?: string;
     legacyKeys?: string[];
@@ -1863,14 +1867,8 @@ export type Widget = {
     | CountdownWidgetConfig
     | TickerWidgetConfig
     | DisplayWidgetConfig
-    | MetricWidgetConfig
     | CardsWidgetConfig
     | WeatherWidgetConfig
-    | SpotlightWidgetConfig
-    | StatGridWidgetConfig
-    | ChartWidgetConfig
-    | ProgressWidgetConfig
-    | TimelineWidgetConfig
     | WorldClockWidgetConfig
     | Record<string, unknown>;
 };
@@ -1895,14 +1893,8 @@ export type WidgetInput = {
     | CountdownWidgetConfig
     | TickerWidgetConfig
     | DisplayWidgetConfig
-    | MetricWidgetConfig
     | CardsWidgetConfig
     | WeatherWidgetConfig
-    | SpotlightWidgetConfig
-    | StatGridWidgetConfig
-    | ChartWidgetConfig
-    | ProgressWidgetConfig
-    | TimelineWidgetConfig
     | WorldClockWidgetConfig
     | Record<string, unknown>;
 };
@@ -2256,23 +2248,6 @@ export type FieldFormat = {
   alignment?: "left" | "center" | "right";
   width?: number;
 };
-export type MetricWidgetConfig = {
-  dataSourceId: string;
-  valueField: string;
-  label?: string;
-  labelField?: string;
-  secondaryField?: string;
-  format: "number" | "integer" | "percent" | "currency";
-  precision: number;
-  prefix?: string;
-  suffix?: string;
-  alignment: "left" | "center" | "right";
-  emptyState: string;
-  foregroundColor: string;
-  backgroundColor: string;
-  textScale?: number;
-  contentPadding?: number;
-};
 export type CardsWidgetConfig = {
   dataSourceId: string;
   titleField: string;
@@ -2307,59 +2282,6 @@ export type WidgetVisualConfig = {
   textScale?: number;
   contentPadding?: number;
   emptyState?: string;
-};
-export type SpotlightWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  titleField: string;
-  subtitleField?: string;
-  bodyField?: string;
-  badgeField?: string;
-  dateField?: string;
-  imageAssetId?: string;
-};
-export type StatGridWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  metrics: {
-    label?: string;
-    labelField?: string;
-    valueField: string;
-    format?: "number" | "integer" | "percent" | "currency";
-    precision?: number;
-    prefix?: string;
-    suffix?: string;
-  }[];
-  columns: number;
-};
-export type ChartWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  dataset?: string;
-  chartType: "line" | "bar" | "donut";
-  categoryField?: string;
-  timeField?: string;
-  series: { field: string; label?: string; color?: string }[];
-  showLegend: boolean;
-  showAxes: boolean;
-  minimum?: number;
-  maximum?: number;
-};
-export type ProgressWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  valueField: string;
-  targetField?: string;
-  staticTarget?: number;
-  label?: string;
-  labelField?: string;
-  showPercent: boolean;
-  completionText?: string;
-};
-export type TimelineWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  dateField: string;
-  titleField: string;
-  bodyField?: string;
-  statusField?: string;
-  orientation: "vertical" | "horizontal";
-  maximumItems: number;
 };
 export type WorldClockWidgetConfig = WidgetVisualConfig & {
   zones: { label: string; timezone: string }[];

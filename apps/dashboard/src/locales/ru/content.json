@@ -524,14 +524,10 @@
       "categoriesLabel": "Категории виджетов",
       "categories": {
         "all": "Все",
-        "news": "Новости",
-        "google": "Google",
-        "designDocuments": "Дизайн и документы",
-        "dashboards": "Дашборды",
-        "feeds": "Ленты",
-        "video": "Видео",
-        "social": "Соцсети",
-        "buildingBlocks": "Блоки / Продвинутые"
+        "essentials": "Основное",
+        "information": "Информация",
+        "dataDisplay": "Отображение данных",
+        "integrations": "Интеграции"
       },
       "featured": "Рекомендуемые",
       "featuredHint": "Рекомендуемые интеграции для типовых задач цифровых вывесок.",
@@ -565,13 +561,10 @@
         "widgetName": "Название виджета",
         "description": "Описание",
         "descriptionHint": "Необязательные заметки для других, кто управляет этой установкой.",
-        "timezone": "Часовой пояс",
-        "timeFormat": "Формат времени",
         "label": "Подпись",
         "format": "Формат",
         "alignment": "Выравнивание",
         "columns": "Столбцы",
-        "maximumItems": "Максимум элементов",
         "none": "Нет",
         "remove": "Удалить",
         "valueField": "Поле значения",
@@ -589,129 +582,13 @@
         "saveWidget": "Сохранить виджет"
       },
       "options": {
-        "organizationFormat": "Использовать настройки организации",
-        "hour12": "12-часовой",
-        "hour24": "24-часовой",
-        "dateFull": "Полный",
-        "dateLong": "Длинный",
-        "dateMedium": "Средний",
-        "dateShort": "Краткий",
         "alignLeft": "Слева",
         "alignCenter": "По центру",
         "alignRight": "Справа",
-        "formatText": "Текст",
         "formatNumber": "Число",
         "formatInteger": "Целое число",
         "formatPercent": "Процент",
-        "formatCurrency": "Валюта",
-        "formatDateShort": "Краткая дата",
-        "formatDateLong": "Полная дата",
-        "speedSlow": "Медленная",
-        "speedNormal": "Обычная",
-        "speedFast": "Быстрая"
-      },
-      "native": {
-        "editTitle": "Изменить виджет {{provider}}",
-        "createTitle": "Создать виджет {{provider}}",
-        "guidanceData": "Подключите данные для показа, настройте оформление и проверьте предпросмотр.",
-        "guidanceSimple": "Настройте содержимое экрана и проверяйте предпросмотр в процессе.",
-        "contentGuidanceData": "Сначала выберите данные для виджета, затем настройте поля.",
-        "contentGuidanceCountdown": "Укажите целевое время, действие по его достижении и видимые единицы.",
-        "contentGuidanceWorldClock": "Добавьте каждое место с его часовым поясом IANA, например America/New_York или Europe/London.",
-        "contentGuidanceClock": "Выберите часовой пояс и формат для экрана.",
-        "contentGuidanceText": "Введите текст для экрана и настройте его поведение.",
-        "presetNotice": "Готовый пресет: <strong>{{preset}}</strong>. Сохраняется как многоразовый виджет {{provider}}; воспроизведение от пресета не зависит.",
-        "contentTitle": "Контент и поведение",
-        "nameHint": "Используется для поиска виджета в контенте и плейлистах.",
-        "completeFields": "Заполните обязательные поля, чтобы увидеть предпросмотр."
-      },
-      "clock": {
-        "timezoneHint": "Оставьте поле пустым, чтобы использовать часовой пояс организации, или введите любой действительный идентификатор IANA.",
-        "showSeconds": "Показывать секунды",
-        "style": "Стиль",
-        "styleStandard": "Стандартный",
-        "styleMinimal": "Минимальный",
-        "styleAnalog": "Аналоговый",
-        "styleHint": "Стандартный показывает время и, при желании, дату. Минимальный показывает только время, как можно крупнее. Аналоговый показывает циферблат с цифровым временем рядом. Экраны с Player, выпущенным до этих стилей, показывают только время.",
-        "showDate": "Показывать дату"
-      },
-      "date": {
-        "dateFormat": "Формат даты"
-      },
-      "countdown": {
-        "target": "Целевая дата и время",
-        "targetTime": "Целевое время",
-        "mode": "Режим",
-        "modeDown": "Обратный отсчёт",
-        "modeUp": "Прямой отсчёт",
-        "repeat": "Повтор",
-        "repeatNone": "Не повторяется",
-        "repeatDaily": "Ежедневно",
-        "repeatWeekly": "Еженедельно",
-        "repeatMonthly": "Ежемесячно",
-        "repeatYearly": "Ежегодно",
-        "layout": "Макет",
-        "layoutStacked": "Заголовок над отсчётом",
-        "layoutHorizontal": "Заголовок рядом с отсчётом",
-        "layoutOnly": "Только обратный отсчёт",
-        "completion": "Действие по завершении",
-        "completionText": "Показать текст завершения",
-        "hide": "Скрыть",
-        "completionCountUp": "Продолжить прямой отсчёт",
-        "title": "Заголовок",
-        "completionLabel": "Текст завершения",
-        "units": "Единицы времени",
-        "unitsDays": "Дни",
-        "unitsHours": "Часы",
-        "unitsMinutes": "Минуты",
-        "unitsSeconds": "Секунды"
-      },
-      "ticker": {
-        "fields": "Поля (до трёх)",
-        "separator": "Разделитель",
-        "fieldSeparator": "Разделитель полей"
-      },
-      "metric": {
-        "staticLabel": "Статическая подпись",
-        "precision": "Знаков после запятой",
-        "prefix": "Префикс",
-        "suffix": "Суффикс",
-        "emptyState": "Пустое состояние"
-      },
-      "spotlight": {
-        "image": "Загруженное изображение",
-        "noImage": "Нет изображения"
-      },
-      "statGrid": {
-        "metrics": "Показатели",
-        "formatFor": "Формат показателя {{index}}",
-        "addMetric": "Добавить показатель"
-      },
-      "chart": {
-        "chartType": "Тип диаграммы",
-        "chartLine": "Линия",
-        "chartBar": "Столбцы",
-        "chartDonut": "Кольцевая",
-        "dataset": "Набор данных",
-        "series": "Ряды",
-        "numericField": "Числовое поле",
-        "seriesColor": "Цвет",
-        "addSeries": "Добавить ряд"
-      },
-      "progress": {
-        "targetField": "Целевое поле",
-        "staticTarget": "Статическая цель"
-      },
-      "timeline": {
-        "orientation": "Ориентация",
-        "orientationVertical": "Вертикальная",
-        "orientationHorizontal": "Горизонтальная",
-        "statusField": "Поле статуса"
-      },
-      "worldClock": {
-        "locations": "Места",
-        "ianaLabel": "Часовой пояс IANA",
-        "addLocation": "Добавить местоположение"
+        "formatCurrency": "Валюта"
       },
       "appearance": {
         "title": "Оформление",
@@ -828,21 +705,6 @@
       },
       "dataSourceDescription": "Выберите данные для виджета. Новый источник можно подключить, не выходя из редактора.",
       "fieldDescription": "Выберите поле подключённых данных, которое предоставляет это значение."
-    },
-    "defaults": {
-      "eventStarted": "Событие началось",
-      "noValue": "Нет доступного значения",
-      "noItems": "Нет доступных элементов",
-      "noInformation": "Нет доступной информации",
-      "noChartData": "Нет данных для диаграммы",
-      "noMilestones": "Нет доступных этапов",
-      "complete": "Завершено",
-      "metricLabel": "Значение",
-      "seriesFirst": "Ряд 1",
-      "seriesAdded": "Ряд",
-      "progressLabel": "Прогресс",
-      "zoneLocal": "Местное",
-      "zoneAdded": "Место"
     },
     "errors": {
       "previewWait": "Дождитесь предпросмотра виджета перед сохранением.",

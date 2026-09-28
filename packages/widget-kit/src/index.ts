@@ -11,6 +11,7 @@ export {
   type ClockControllerOptions,
   type ClockGranularity,
 } from "./controllers/clock.ts";
+export { FitController, type FitControllerOptions } from "./controllers/fit.ts";
 export { GeometryController, type WidgetSize } from "./controllers/geometry.ts";
 export {
   MOTION_DURATIONS,
@@ -20,11 +21,17 @@ export {
 export {
   boundText,
   formatDate,
+  formatDisplayNumber,
   formatNumber,
   formatTime,
   formatWidgetValue,
+  toFiniteNumber,
   type DisplayValueOptions,
+  type NumericDisplayOptions,
+  type NumericDisplayStyle,
+  localDayDifference,
   localDayKey,
+  relativeDayLabel,
   timeParts,
   zoneAbbreviation,
   zoneCity,
@@ -57,3 +64,12 @@ export {
   surfaceStyles,
   themeProperties,
 } from "./tokens.ts";
+export {
+  MAX_CONFIG_FIELD_LENGTH,
+  fieldRef,
+  fieldsByKey,
+  firstObjectValues,
+  optionalBoolean,
+  optionalFinite,
+  pickDataset,
+} from "./widget-data.ts";

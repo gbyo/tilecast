@@ -20,6 +20,7 @@ import {
   type WidgetContext,
 } from "@tilecast/widget-sdk";
 import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
+import { upgradeAuthorConfiguration } from "@tilecast/widget-sdk/upgrade";
 import type {
   WidgetComponentRef,
   WidgetMountState,
@@ -52,6 +53,7 @@ import { captureWidgetPreview } from "./widgetPreviewCapture";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewMedia,
 } from "./widgetPreviewSources";
 import { widgetSaveErrorMessage } from "./SourceEditors";
 import type { ContentDefinitionCatalog } from "../api/types";
@@ -118,10 +120,40 @@ export function V2WidgetEditor({
   const [description, setDescription] = useState(
     asset?.description ?? definition.description,
   );
+  // A saved Widget opens upgraded to the provider's current schema: legacy
+  // keys fill the fields their configTemplate maps them to, and keys the
+  // provider no longer accepts are left out of the next save
+  // (docs/widgets-v2-catalog.md §8). A saved legacy chartType still maps to
+  // its new style when the row predates it, so a resaved bar or donut does
+  // not silently become lines.
   const [configuration, setConfiguration] = useState<Record<string, unknown>>(
-    asset?.widget?.authorConfiguration ??
-      asset?.widget?.configuration ??
-      definition.defaultConfiguration,
+    () => {
+      const saved =
+        asset?.widget?.authorConfiguration ??
+        asset?.widget?.configuration ??
+        definition.defaultConfiguration;
+      if (!asset || !component) return saved;
+      const upgraded = upgradeAuthorConfiguration(
+        definition.configurationSchema.fields,
+        component.configTemplate,
+        saved,
+        { dropUnknown: true },
+      ).configuration;
+      if (
+        definition.id === "chart" &&
+        !Object.hasOwn(saved, "style") &&
+        !Object.hasOwn(upgraded, "style")
+      ) {
+        const chartType =
+          (upgraded["chartType"] as string | undefined) ??
+          (saved["chartType"] as string | undefined);
+        if (chartType === "bar" || chartType === "donut")
+          upgraded["style"] = "bar";
+        else if (chartType === "line") upgraded["style"] = "line";
+        else if (chartType === "area") upgraded["style"] = "area";
+      }
+      return upgraded;
+    },
   );
   const touched = useRef(Boolean(asset));
   const markTouched = (next: Record<string, unknown>) => {
@@ -163,10 +195,11 @@ export function V2WidgetEditor({
   }, [clock, previewTime]);
 
   const managedDataSourceId = asset?.widget?.managedDataSourceId;
-  const previewConfiguration = widgetPreviewConfiguration(
-    configuration,
-    managedDataSourceId,
+  const previewMedia = widgetPreviewMedia(
+    definition.configurationSchema.fields,
+    widgetPreviewConfiguration(configuration, managedDataSourceId),
   );
+  const previewConfiguration = previewMedia.configuration;
   const dataSourceIds = widgetPreviewDataSourceIds(
     definition.configurationSchema.fields,
     previewConfiguration,
@@ -175,6 +208,7 @@ export function V2WidgetEditor({
   const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
     dataSourceIds,
     dataSourceIds,
+    previewMedia.media,
   );
 
   // Ordinary form edits compile the component config locally and update the

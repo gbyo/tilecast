@@ -1,0 +1,90 @@
+{
+  "name": "Equal values",
+  "description": "A flat line still scales to a readable band.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "dataset": "",
+    "series": [
+      {
+        "field": "sales",
+        "label": "Sales",
+        "color": ""
+      }
+    ],
+    "categoryField": "month",
+    "timeField": "",
+    "style": "line",
+    "showLegend": true,
+    "showAxes": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "minimum": null,
+    "maximum": null
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            {
+              "key": "month",
+              "label": "Month",
+              "type": "text"
+            },
+            {
+              "key": "sales",
+              "label": "Sales",
+              "type": "integer"
+            }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "month": {
+                  "kind": "text",
+                  "text": "Jan"
+                },
+                "sales": {
+                  "kind": "number",
+                  "integer": 25
+                }
+              }
+            },
+            {
+              "id": "r2",
+              "values": {
+                "month": {
+                  "kind": "text",
+                  "text": "Feb"
+                },
+                "sales": {
+                  "kind": "number",
+                  "integer": 25
+                }
+              }
+            },
+            {
+              "id": "r3",
+              "values": {
+                "month": {
+                  "kind": "text",
+                  "text": "Mar"
+                },
+                "sales": {
+                  "kind": "number",
+                  "integer": 25
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

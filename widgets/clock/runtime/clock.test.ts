@@ -46,11 +46,14 @@ describe("Clock configuration", () => {
     ).toEqual({
       ok: true,
       config: {
+        mode: "time",
         timeZone: null,
         format: "locale",
         showSeconds: false,
         style: "standard",
         showDate: false,
+        dateFormat: "locale",
+        zones: [],
         background: "#0e141b",
         foreground: null,
       },

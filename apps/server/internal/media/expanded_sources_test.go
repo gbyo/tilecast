@@ -123,38 +123,6 @@ func TestNormalizeWeatherForecastProducesCurrentAndDailyRecords(t *testing.T) {
 	}
 }
 
-func TestCountdownWidgetDefaultsVisibleUnits(t *testing.T) {
-	raw := json.RawMessage(`{"target":"2026-12-01T09:00","timezone":"America/New_York","mode":"countdown","completionAction":"completed_text","foregroundColor":"#ffffff","backgroundColor":"#000000"}`)
-	normalized, err := (countdownWidgetProvider{}).Normalize(context.Background(), raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := normalized.(CountdownWidgetConfig)
-	if !config.ShowDays || !config.ShowHours || !config.ShowMinutes {
-		t.Fatalf("expected default countdown units: %#v", config)
-	}
-	if config.Recurrence != "none" || config.Layout != "stacked" {
-		t.Fatalf("expected non-recurring stacked defaults: %#v", config)
-	}
-}
-
-func TestCountdownWidgetValidatesRecurrenceAndLayout(t *testing.T) {
-	valid := json.RawMessage(`{"target":"2026-12-01T09:00","timezone":"UTC","mode":"countdown","recurrence":"weekly","layout":"horizontal","completionAction":"completed_text","foregroundColor":"#ffffff","backgroundColor":"#000000"}`)
-	normalized, err := (countdownWidgetProvider{}).Normalize(context.Background(), valid)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config := normalized.(CountdownWidgetConfig)
-	if config.Recurrence != "weekly" || config.Layout != "horizontal" {
-		t.Fatalf("unexpected normalized countdown: %#v", config)
-	}
-
-	invalid := json.RawMessage(`{"target":"2026-12-01T09:00","timezone":"UTC","mode":"count_up","recurrence":"daily","layout":"stacked","completionAction":"completed_text","foregroundColor":"#ffffff","backgroundColor":"#000000"}`)
-	if _, err = (countdownWidgetProvider{}).Normalize(context.Background(), invalid); err == nil {
-		t.Fatal("expected recurring count-up configuration to be rejected")
-	}
-}
-
 func TestParseHTTPExpiryPrefersCacheControl(t *testing.T) {
 	date := time.Date(2026, time.July, 16, 12, 0, 0, 0, time.UTC)
 	header := http.Header{

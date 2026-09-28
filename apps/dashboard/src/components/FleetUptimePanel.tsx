@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { translateKnown } from "../i18n";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   ChevronDown,
   CircleAlert,
@@ -205,8 +205,18 @@ function UptimeBody({ report }: { report: UptimeReport }) {
   } satisfies ChartConfig;
   const chartData = report.buckets.map((bucket) => ({
     ...bucket,
-    tick: bucket.start,
+    tick: Date.parse(bucket.start),
   }));
+  const lastBucket = chartData.at(-1);
+  if (lastBucket) {
+    // Area charts plot points rather than bucket widths. Repeat the newest
+    // bucket at the report boundary so the final stepped segment spans the
+    // interval it represents instead of ending at its start timestamp.
+    chartData.push({
+      ...lastBucket,
+      tick: Date.parse(report.range.to),
+    });
+  }
   const hasChartData = chartData.length > 0;
   return (
     <>
@@ -248,15 +258,18 @@ function UptimeBody({ report }: { report: UptimeReport }) {
             role="img"
             aria-label={chartDescription(report, t)}
           >
-            <BarChart data={chartData} accessibilityLayer>
+            <AreaChart data={chartData} accessibilityLayer>
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="tick"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 interval="preserveStartEnd"
-                tickFormatter={(value: string) =>
+                tickFormatter={(value: number) =>
                   formatAxis(value, report.window)
                 }
               />
@@ -299,32 +312,44 @@ function UptimeBody({ report }: { report: UptimeReport }) {
                   />
                 }
               />
-              <Bar
-                dataKey="upPercent"
-                name="up"
-                stackId="health"
-                fill="var(--color-up)"
-              />
-              <Bar
-                dataKey="impairedPercent"
-                name="impaired"
-                stackId="health"
-                fill="var(--color-impaired)"
-              />
-              <Bar
+              <Area
                 dataKey="downPercent"
                 name="down"
+                type="stepAfter"
                 stackId="health"
                 fill="var(--color-down)"
+                fillOpacity={0.55}
+                stroke="var(--color-down)"
               />
-              <Bar
+              <Area
+                dataKey="impairedPercent"
+                name="impaired"
+                type="stepAfter"
+                stackId="health"
+                fill="var(--color-impaired)"
+                fillOpacity={0.45}
+                stroke="var(--color-impaired)"
+              />
+              <Area
                 dataKey="unknownPercent"
                 name="unknown"
+                type="stepAfter"
                 stackId="health"
                 fill="var(--color-unknown)"
+                fillOpacity={0.3}
+                stroke="var(--color-unknown)"
+              />
+              <Area
+                dataKey="upPercent"
+                name="up"
+                type="stepAfter"
+                stackId="health"
+                fill="var(--color-up)"
+                fillOpacity={0.28}
+                stroke="var(--color-up)"
               />
               <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-            </BarChart>
+            </AreaChart>
           </ChartContainer>
         </>
       ) : (
@@ -521,7 +546,7 @@ function formatRange(start: string | undefined, bucketSeconds: number) {
   })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
 }
 
-function formatAxis(start: string, window: UptimeWindow) {
+function formatAxis(start: string | number, window: UptimeWindow) {
   const value = new Date(start);
   return window === "24h"
     ? value.toLocaleTimeString([], { hour: "numeric" })

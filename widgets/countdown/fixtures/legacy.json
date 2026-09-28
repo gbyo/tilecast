@@ -1,0 +1,39 @@
+{
+  "name": "Legacy countdown",
+  "description": "A Countdown saved before Widgets V2 compiles to the same component.",
+  "configuration": {
+    "target": "2026-12-01T09:00",
+    "timezone": "America/New_York",
+    "mode": "countdown",
+    "recurrence": "weekly",
+    "layout": "horizontal",
+    "label": "Board meeting",
+    "completionText": "Started",
+    "completionAction": "hide",
+    "showDays": false,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#000000",
+    "textScale": 120,
+    "contentPadding": 12
+  },
+  "expectConfig": {
+    "target": "2026-12-01T09:00",
+    "timeZone": "America/New_York",
+    "mode": "countdown",
+    "recurrence": "weekly",
+    "style": "horizontal",
+    "label": "Board meeting",
+    "completionText": "Started",
+    "completionAction": "hide",
+    "showDays": false,
+    "showHours": true,
+    "showMinutes": true,
+    "showSeconds": false,
+    "background": "#000000",
+    "foreground": "#ffffff"
+  },
+  "expect": "ready"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "Legacy World Clock",
+  "description": "A saved World Clock maps into the Clock world clocks mode.",
+  "provider": "world_clock",
+  "configuration": {
+    "zones": [{ "label": "Tokyo", "timezone": "Asia/Tokyo" }],
+    "format": "24",
+    "showSeconds": false,
+    "showDate": true,
+    "columns": 1,
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#000000"
+  },
+  "expectConfig": {
+    "mode": "world",
+    "timeZone": "",
+    "format": "24",
+    "showSeconds": false,
+    "style": "standard",
+    "showDate": true,
+    "dateFormat": "locale",
+    "zones": [{ "label": "Tokyo", "timezone": "Asia/Tokyo" }],
+    "background": "#000000",
+    "foreground": "#ffffff"
+  },
+  "expect": "ready"
+}

@@ -38,13 +38,74 @@
     {
       "id": "date",
       "version": 1,
+      "apiVersion": 1,
       "name": "Date",
       "description": "Show a localized calendar date.",
       "category": "Essentials",
       "icon": "calendar",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "timezone",
+            "label": "Timezone",
+            "description": "Leave blank to use the organization timezone.",
+            "control": "timezone",
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "format",
+            "label": "Date format",
+            "control": "select",
+            "default": "locale",
+            "options": [
+              { "value": "locale", "label": "Weekday and date" },
+              { "value": "full", "label": "Weekday and date" },
+              { "value": "long", "label": "Date" },
+              { "value": "medium", "label": "Short date" },
+              { "value": "short", "label": "Numeric date" }
+            ],
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "#0E141B",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text and accent color",
+            "control": "color",
+            "default": "#F5F7FA",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "timezone": "",
+        "format": "locale",
+        "backgroundColor": "#0E141B",
+        "foregroundColor": "#F5F7FA"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -53,7 +114,31 @@
       },
       "emptyStateBehavior": "text",
       "legacyEditor": true,
-      "deprecation": {}
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "clock",
+        "message": "Create a Clock and choose Date instead. Saved Date content keeps working."
+      },
+      "component": {
+        "type": "tilecast.clock",
+        "version": 2,
+        "tagName": "tc-widget-clock",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "mode": "date",
+          "timeZone": { "$config": "timezone", "default": "" },
+          "format": "locale",
+          "showSeconds": false,
+          "style": "standard",
+          "showDate": false,
+          "dateFormat": { "$config": "format", "default": "locale" },
+          "zones": [],
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "render"
+      },
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "qrcode",
@@ -140,6 +225,34 @@
             "control": "color",
             "default": "#101418",
             "ui": { "section": "appearance", "order": 3 }
+          },
+          {
+            "key": "errorCorrection",
+            "label": "Error correction",
+            "control": "select",
+            "options": [
+              { "value": "low", "label": "Low" },
+              { "value": "medium", "label": "Medium" },
+              { "value": "quartile", "label": "Quartile" },
+              { "value": "high", "label": "High" }
+            ],
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
           }
         ]
       },
@@ -190,38 +303,121 @@
       }
     },
     {
-      "id": "countdown",
-      "version": 1,
-      "name": "Countdown",
-      "description": "Count down to or up from a date and time.",
-      "category": "Essentials",
-      "icon": "timer",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.row": 1,
-        "layout.column": 1,
-        "content.text": 1,
-        "binding.core": 1,
-        "format.typed": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
       "id": "world_clock",
       "version": 1,
+      "apiVersion": 1,
       "name": "World Clock",
       "description": "Show live time in multiple configured timezones.",
       "category": "Essentials",
       "icon": "clock",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "zones",
+            "label": "Zones",
+            "description": "Up to eight zones. Leave a label blank to show the city name.",
+            "control": "repeating_group",
+            "maximumItems": 8,
+            "itemFields": [
+              {
+                "key": "label",
+                "label": "Label",
+                "control": "text",
+                "default": "",
+                "maxLength": 80
+              },
+              {
+                "key": "timezone",
+                "label": "Timezone",
+                "control": "timezone",
+                "default": ""
+              }
+            ],
+            "default": [],
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "format",
+            "label": "Time format",
+            "control": "select",
+            "default": "locale",
+            "options": [
+              { "value": "locale", "label": "Use organization setting" },
+              { "value": "12", "label": "12-hour" },
+              { "value": "24", "label": "24-hour" }
+            ],
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "showSeconds",
+            "label": "Show seconds",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "content", "order": 3 }
+          },
+          {
+            "key": "showDate",
+            "label": "Show date",
+            "control": "boolean",
+            "default": true,
+            "ui": { "section": "content", "order": 4 }
+          },
+          {
+            "key": "columns",
+            "label": "Columns",
+            "control": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "emptyState",
+            "label": "Empty state",
+            "control": "multiline_text",
+            "maxLength": 240,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "#0E141B",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text and accent color",
+            "control": "color",
+            "default": "#F5F7FA",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "zones": [],
+        "format": "locale",
+        "showSeconds": false,
+        "showDate": true,
+        "backgroundColor": "#0E141B",
+        "foregroundColor": "#F5F7FA"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -233,61 +429,208 @@
       "emptyStateBehavior": "text",
       "legacyEditor": true,
       "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
-      "id": "metric",
-      "version": 1,
-      "name": "Metric",
-      "description": "Highlight a numeric value and supporting label.",
-      "category": "Data-driven",
-      "icon": "gauge",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.text": 1,
-        "binding.core": 2
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "clock",
+        "message": "Create a Clock and choose World clocks instead. Saved World Clock content keeps working."
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "deprecation": {}
-    },
-    {
-      "id": "spotlight",
-      "version": 1,
-      "name": "Spotlight",
-      "description": "Feature one record with optional uploaded artwork.",
-      "category": "Data Display",
-      "icon": "spotlight",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "content.text": 1,
-        "content.badge": 1,
-        "binding.core": 2
+      "component": {
+        "type": "tilecast.clock",
+        "version": 2,
+        "tagName": "tc-widget-clock",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "mode": "world",
+          "timeZone": "",
+          "format": { "$config": "format", "default": "locale" },
+          "showSeconds": { "$config": "showSeconds", "default": false },
+          "style": "standard",
+          "showDate": { "$config": "showDate", "default": false },
+          "dateFormat": "locale",
+          "zones": { "$config": "zones", "default": [] },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "empty": "render"
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "stat_grid",
       "version": 1,
+      "apiVersion": 1,
       "name": "Stat Grid",
       "description": "Display a responsive grid of numeric values.",
       "category": "Data Display",
       "icon": "grid",
       "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "dataSourceId",
+            "label": "Data Source",
+            "description": "The records or single-object source these metrics read.",
+            "control": "data_source",
+            "acceptedDataSourceKinds": ["records", "object"],
+            "default": "",
+            "ui": { "section": "data", "order": 1 }
+          },
+          {
+            "key": "metrics",
+            "label": "Metrics",
+            "description": "Up to twelve numeric values. Each names its own field.",
+            "control": "repeating_group",
+            "maximumItems": 12,
+            "default": [],
+            "itemFields": [
+              {
+                "key": "valueField",
+                "label": "Value field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": [
+                  "number",
+                  "integer",
+                  "percent",
+                  "currency"
+                ],
+                "default": ""
+              },
+              {
+                "key": "label",
+                "label": "Label",
+                "control": "text",
+                "maxLength": 80,
+                "default": ""
+              },
+              {
+                "key": "labelField",
+                "label": "Label field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": [
+                  "text",
+                  "number",
+                  "integer",
+                  "currency",
+                  "percent",
+                  "boolean",
+                  "date",
+                  "datetime"
+                ],
+                "default": ""
+              },
+              {
+                "key": "detailField",
+                "label": "Detail field",
+                "control": "data_source_field",
+                "dataSourceKey": "dataSourceId",
+                "dataSourceFieldTypes": [
+                  "text",
+                  "number",
+                  "integer",
+                  "currency",
+                  "percent",
+                  "boolean",
+                  "date",
+                  "datetime"
+                ],
+                "default": ""
+              },
+              {
+                "key": "format",
+                "label": "Format",
+                "control": "select",
+                "default": "number",
+                "options": [
+                  { "value": "number", "label": "Number" },
+                  { "value": "integer", "label": "Whole number" },
+                  { "value": "percent", "label": "Percent" },
+                  { "value": "currency", "label": "Currency" }
+                ]
+              },
+              {
+                "key": "precision",
+                "label": "Decimals",
+                "control": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "default": 1
+              },
+              {
+                "key": "prefix",
+                "label": "Prefix",
+                "control": "text",
+                "maxLength": 20,
+                "default": ""
+              },
+              {
+                "key": "suffix",
+                "label": "Suffix",
+                "control": "text",
+                "maxLength": 20,
+                "default": ""
+              }
+            ],
+            "ui": { "section": "data", "order": 2 }
+          },
+          {
+            "key": "columns",
+            "label": "Columns",
+            "description": "Legacy grid width. Old Players still read it; the component lays itself out.",
+            "control": "integer",
+            "minimum": 1,
+            "maximum": 4,
+            "default": 2,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "emptyText",
+            "label": "Empty message",
+            "control": "text",
+            "maxLength": 200,
+            "default": "",
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "control": "color",
+            "default": "",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "foregroundColor",
+            "label": "Text color",
+            "control": "color",
+            "default": "",
+            "ui": { "section": "appearance", "order": 2 }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "dataSourceId": "",
+        "metrics": [],
+        "emptyText": "",
+        "backgroundColor": "",
+        "foregroundColor": ""
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": {
         "layout.surface": 1,
@@ -299,76 +642,30 @@
       "emptyStateBehavior": "text",
       "legacyEditor": true,
       "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
-      "id": "chart",
-      "version": 1,
-      "name": "Chart",
-      "description": "Plot record or time-series values.",
-      "category": "Data Display",
-      "icon": "chart",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.line_chart": 2,
-        "content.bar_chart": 2,
-        "content.donut_chart": 2,
-        "binding.core": 2
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "metric",
+        "message": "Create Metrics instead. Saved Stat Grid content keeps working."
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
-      "id": "progress",
-      "version": 1,
-      "name": "Progress",
-      "description": "Show progress toward a numeric target.",
-      "category": "Data Display",
-      "icon": "progress",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "content.progress": 2,
-        "content.text": 1,
-        "binding.core": 2
+      "component": {
+        "type": "tilecast.metrics",
+        "version": 1,
+        "tagName": "tc-widget-metrics",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "metrics": { "$config": "metrics", "default": [] },
+          "emptyText": {
+            "$config": "emptyText",
+            "default": { "$config": "emptyState", "default": "" }
+          },
+          "background": { "$config": "backgroundColor", "default": "" },
+          "foreground": { "$config": "foregroundColor", "default": "" }
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
       },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
-    },
-    {
-      "id": "timeline",
-      "version": 1,
-      "name": "Timeline",
-      "description": "Display ordered dated milestones and statuses.",
-      "category": "Schedules",
-      "icon": "timeline",
-      "runtime": "native",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
-      "presentationSchemaVersion": 1,
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.column": 1,
-        "collection.repeat": 2,
-        "content.text": 1,
-        "content.badge": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "text",
-      "legacyEditor": true,
-      "requiresManifestV13": true,
-      "deprecation": {}
+      "compatibility": { "fallback": "legacy" }
     },
     {
       "id": "school-status-banner",

@@ -96,48 +96,173 @@ func (normalizer definitionConfigNormalizer) normalizeObject(ctx context.Context
 }
 
 func (normalizer definitionConfigNormalizer) validateDataSourceFieldSelections(ctx context.Context, fields []contentdefs.FieldDefinition, values map[string]any) error {
-	rawID, _ := values["dataSourceId"].(string)
-	if rawID == "" {
-		return nil
+	validator := dataSourceSelectionValidator{normalizer: normalizer, root: values, cache: map[string]map[string]string{}, rootSources: rootDataSources(fields)}
+	return validator.walk(ctx, fields, values, "")
+}
+
+func rootDataSources(fields []contentdefs.FieldDefinition) []string {
+	var sources []string
+	var collect func(list []contentdefs.FieldDefinition)
+	collect = func(list []contentdefs.FieldDefinition) {
+		for _, field := range list {
+			if field.Control == "data_source" {
+				sources = append(sources, field.Key)
+			}
+			if len(field.ItemFields) > 0 {
+				collect(field.ItemFields)
+			}
+		}
 	}
-	id, err := uuid.Parse(rawID)
-	if err != nil {
-		return errors.New("Data Source is invalid")
-	}
-	var provider string
-	var configuration json.RawMessage
-	if err = normalizer.service.db.QueryRow(ctx, `SELECT provider,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &configuration); err != nil {
-		return errors.New("Data Source is unavailable")
-	}
-	if _, ok := normalizer.service.definitions.DataSource(provider); !ok {
-		return errors.New("Data Source provider is unknown")
-	}
-	types := map[string]string{}
-	for _, output := range normalizer.service.availableDataSourceFields(provider, configuration) {
-		types[output.Key] = output.Type
+	collect(fields)
+	return sources
+}
+
+// dataSourceSelectionValidator checks every populated data_source_field in a
+// normalized configuration, including controls nested inside repeating
+// groups, against the output schema of the Data Source it reads. An
+// explicit dataSourceKey wins; otherwise a definition with exactly one
+// data_source control is unambiguous. When several sources make the
+// relationship ambiguous the check fails closed rather than validating
+// against the wrong source. Field schemas resolve once per Data Source ID.
+type dataSourceSelectionValidator struct {
+	normalizer  definitionConfigNormalizer
+	root        map[string]any
+	cache       map[string]map[string]string
+	rootSources []string
+}
+
+func (validator *dataSourceSelectionValidator) walk(ctx context.Context, fields []contentdefs.FieldDefinition, current map[string]any, path string) error {
+	siblings := make([]string, 0, 1)
+	for _, field := range fields {
+		if field.Control == "data_source" {
+			siblings = append(siblings, field.Key)
+		}
 	}
 	for _, field := range fields {
-		if field.Control != "data_source_field" {
-			continue
-		}
-		selected, _ := values[field.Key].(string)
-		if selected == "" && !field.Required {
-			continue
-		}
-		selectedType, exists := types[selected]
-		if !exists {
-			return fmt.Errorf("%s references a field the Data Source does not expose", field.Label)
-		}
-		if len(field.DataSourceFieldTypes) > 0 && !containsString(field.DataSourceFieldTypes, selectedType) {
-			return fmt.Errorf("%s requires a field of type %s", field.Label, strings.Join(field.DataSourceFieldTypes, " or "))
+		switch field.Control {
+		case "data_source_field":
+			if err := validator.checkField(ctx, field, current, siblings, path); err != nil {
+				return err
+			}
+		case "repeating_group":
+			items, ok := groupItems(current[field.Key])
+			if !ok {
+				return fmt.Errorf("%s is invalid", field.Label)
+			}
+			for index, item := range items {
+				if err := validator.walk(ctx, field.ItemFields, item, fmt.Sprintf("%s%s[%d].", path, field.Key, index)); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
 }
 
+// groupItems reads normalized repeating-group items, which normalizeObject
+// stores as []map[string]any, tolerating the generic []any form.
+func groupItems(value any) ([]map[string]any, bool) {
+	switch items := value.(type) {
+	case nil:
+		return nil, true
+	case []map[string]any:
+		return items, true
+	case []any:
+		out := make([]map[string]any, 0, len(items))
+		for _, entry := range items {
+			item, ok := entry.(map[string]any)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, item)
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func (validator *dataSourceSelectionValidator) checkField(ctx context.Context, field contentdefs.FieldDefinition, current map[string]any, siblings []string, path string) error {
+	label := path + field.Label
+	selected, _ := current[field.Key].(string)
+	key := field.DataSourceKey
+	explicit := key != ""
+	if key == "" {
+		if len(siblings) == 1 {
+			key = siblings[0]
+		} else if len(validator.rootSources) == 1 {
+			// A nested field with no dataSourceKey reads the definition's
+			// single root source. Load-time validation accepts this, so
+			// save-time must too; only multiple root sources stay ambiguous.
+			key = validator.rootSources[0]
+		} else {
+			if selected == "" && !field.Required {
+				return nil
+			}
+			return fmt.Errorf("%s does not identify which Data Source supplies its fields", label)
+		}
+	}
+	rawID, _ := current[key].(string)
+	if rawID == "" {
+		rawID, _ = validator.root[key].(string)
+	}
+	if rawID == "" {
+		// The source ID lives in neither the current item nor the root:
+		// an explicit key pointing into an unrelated group is unreachable
+		// from this field's scope. An empty selection skips; a populated
+		// one fails closed instead of skipping validation.
+		if selected == "" && !field.Required {
+			return nil
+		}
+		if explicit {
+			return fmt.Errorf("%s references a Data Source that is not available to it", label)
+		}
+		return nil
+	}
+	types, err := validator.fieldTypes(ctx, rawID)
+	if err != nil {
+		return err
+	}
+	if selected == "" && !field.Required {
+		return nil
+	}
+	selectedType, exists := types[selected]
+	if !exists {
+		return fmt.Errorf("%s references a field the Data Source does not expose", label)
+	}
+	if len(field.DataSourceFieldTypes) > 0 && !containsString(field.DataSourceFieldTypes, selectedType) {
+		return fmt.Errorf("%s requires a field of type %s", label, strings.Join(field.DataSourceFieldTypes, " or "))
+	}
+	return nil
+}
+
+func (validator *dataSourceSelectionValidator) fieldTypes(ctx context.Context, rawID string) (map[string]string, error) {
+	if cached, ok := validator.cache[rawID]; ok {
+		return cached, nil
+	}
+	id, err := uuid.Parse(rawID)
+	if err != nil {
+		return nil, errors.New("Data Source is invalid")
+	}
+	var provider string
+	var configuration json.RawMessage
+	if err = validator.normalizer.service.db.QueryRow(ctx, `SELECT provider,configuration FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &configuration); err != nil {
+		return nil, errors.New("Data Source is unavailable")
+	}
+	if _, ok := validator.normalizer.service.definitions.DataSource(provider); !ok {
+		return nil, errors.New("Data Source provider is unknown")
+	}
+	types := map[string]string{}
+	for _, output := range validator.normalizer.service.availableDataSourceFields(provider, configuration) {
+		types[output.Key] = output.Type
+	}
+	validator.cache[rawID] = types
+	return types, nil
+}
+
 func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context, field contentdefs.FieldDefinition, value any, path string) (any, error) {
 	switch field.Control {
-	case "text", "multiline_text", "color", "date", "datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
+	case "text", "multiline_text", "color", "date", "datetime", "local_datetime", "timezone", "currency_code", "url", "data_source", "data_source_field", "media_asset":
 		text, ok := value.(string)
 		if !ok {
 			return nil, fmt.Errorf("%s must be text", field.Label)
@@ -157,6 +282,10 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 				text = currency.String()
 			}
 		case "color":
+			// An optional color left empty follows the display theme.
+			if text == "" && !field.Required {
+				break
+			}
 			if !definitionColorPattern.MatchString(text) {
 				return nil, fmt.Errorf("%s must be a hexadecimal color", field.Label)
 			}
@@ -174,6 +303,18 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 					return nil, fmt.Errorf("%s must be an RFC 3339 datetime", field.Label)
 				}
 				text = parsed.UTC().Format(time.RFC3339)
+			}
+		case "local_datetime":
+			// A wall-clock time that a sibling timezone field interprets.
+			// Saved RFC 3339 instants from older releases stay valid.
+			if text != "" {
+				if _, err := time.Parse("2006-01-02T15:04", text); err != nil {
+					if _, err = time.Parse("2006-01-02T15:04:05", text); err != nil {
+						if _, err = time.Parse(time.RFC3339, text); err != nil {
+							return nil, fmt.Errorf("%s must be a local date and time", field.Label)
+						}
+					}
+				}
 			}
 		case "timezone":
 			if _, err := time.LoadLocation(text); err != nil {
@@ -194,6 +335,9 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 			}
 			text = id.String()
 		case "media_asset":
+			if text == "" && !field.Required {
+				break
+			}
 			id, err := uuid.Parse(text)
 			if err != nil {
 				return nil, fmt.Errorf("%s must identify a media asset", field.Label)
