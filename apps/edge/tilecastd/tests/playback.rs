@@ -2734,13 +2734,17 @@ fn live_frames_for(fake: &FakeServer, session: &str) -> usize {
     fake.live_frames.lock().unwrap().iter().filter(|f| f.session_id == session).count()
 }
 
-fn open_live_session(fake: &FakeServer) -> String {
+fn open_live_session_with_expiry(fake: &FakeServer, expires_in_secs: i64) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     *fake.live_id.lock().unwrap() = id.clone();
-    fake.live_expires_in_secs.store(15, Ordering::SeqCst);
+    fake.live_expires_in_secs.store(expires_in_secs, Ordering::SeqCst);
     fake.live_active.store(true, Ordering::SeqCst);
     fake.live_push_generation.fetch_add(1, Ordering::SeqCst);
     id
+}
+
+fn open_live_session(fake: &FakeServer) -> String {
+    open_live_session_with_expiry(fake, 15)
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -2811,6 +2815,37 @@ async fn watch_live_replacement_discards_the_old_session_and_expiry_stops_captur
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_same_id_renewal_restarts_a_finished_capture_task() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-renew", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+
+    // The first observed lease expires before the normal five-second active
+    // reconciliation. The capture worker exits while the reconciler still
+    // remembers this session ID.
+    let session = open_live_session_with_expiry(&harness.fake, 1);
+    wait_long("a frame before the short lease expires", 30, async || {
+        live_frames_for(&harness.fake, &session) >= 1
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let before = live_frames_for(&harness.fake, &session);
+
+    // Studio renewed the same server session. A finished worker must restart
+    // even though the UUID did not change.
+    harness.fake.live_expires_in_secs.store(15, Ordering::SeqCst);
+    harness.fake.live_push_generation.fetch_add(1, Ordering::SeqCst);
+    wait_long("frames after the same-ID renewal", 30, async || {
+        live_frames_for(&harness.fake, &session) > before
+    })
+    .await;
+
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn watch_live_push_wakes_reconciliation() {
     let harness = Harness::new().await;
     harness.fake.socket_enabled.store(true, Ordering::SeqCst);
@@ -2863,6 +2898,69 @@ async fn watch_live_renderer_outage_drops_frames_without_suspending_preview() {
         harness.fake.previews.lock().unwrap().iter().any(|form| form.contains("filename=\"preview.jpg\""))
     })
     .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-protected-reconnect", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let session = open_live_session(&harness.fake);
+    wait_long("live frames before disconnect", 60, async || live_frames_for(&harness.fake, &session) >= 2).await;
+
+    // Drop the socket and refuse reconnects while the producer keeps running,
+    // so a latest frame can remain pending in the watch slot.
+    let connections = harness.fake.socket_connections.load(Ordering::SeqCst);
+    harness.fake.socket_enabled.store(false, Ordering::SeqCst);
+    harness.fake.socket_generation.fetch_add(1, Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // Enter safe mode while disconnected. The producer must remove any frame
+    // captured before the privacy boundary became active.
+    let mut at = now_ms() + 10 * 60_000;
+    for _ in 0..40 {
+        let mut engine = player.context.presentation.lock().await;
+        engine.tick(at);
+        if engine.is_safe_mode() {
+            break;
+        }
+        drop(engine);
+        at += 100_000;
+    }
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    let queued = player.context.live_frames.subscribe();
+    wait_long("the pending live frame to be cleared", 10, async || queued.borrow().is_none()).await;
+    let before_reconnect = live_frames_for(&harness.fake, &session);
+
+    // Reconnect while still protected. The socket owner checks the current
+    // presentation again at the send boundary, so no old frame may leak.
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    player.context.server_wake.notify_one();
+    wait_long("the player socket to reconnect", 30, async || {
+        harness.fake.socket_connections.load(Ordering::SeqCst) > connections
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert_eq!(
+        live_frames_for(&harness.fake, &session),
+        before_reconnect,
+        "reconnecting in a protected state must not flush an older queued frame"
+    );
+
+    let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
+    wait_long("live frames after leaving safe mode", 60, async || {
+        live_frames_for(&harness.fake, &session) > before_reconnect
+    })
+    .await;
+
     renderer.stop();
     player.stop().await;
 }

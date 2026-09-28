@@ -53,9 +53,23 @@ fn should_send(captured_id: uuid::Uuid, current: Option<&LiveStreamSession>, now
 /// Whether the presentation is in a protected state right now. Checked again
 /// after each capture: entering setup, pairing, or safe mode while a frame
 /// is produced discards the result.
-async fn presentation_protected(context: &DaemonContext) -> bool {
+pub(crate) async fn presentation_protected(context: &DaemonContext) -> bool {
     let engine = context.presentation.lock().await;
     engine.current().is_some_and(|active| crate::capture::protected(active.source, &active.document))
+}
+
+/// Removes a queued frame only if it still belongs to this session. This is
+/// safe across replacement: an old capture can never clear a newer session's
+/// pending frame.
+pub(crate) fn clear_pending_frame(context: &DaemonContext, session_id: uuid::Uuid) {
+    context.live_frames.send_if_modified(|pending| {
+        if pending.as_ref().is_some_and(|frame| frame.session_id == session_id) {
+            *pending = None;
+            true
+        } else {
+            false
+        }
+    });
 }
 
 async fn capture_loop(context: Arc<DaemonContext>, current: Arc<tokio::sync::Mutex<Option<LiveStreamSession>>>) {
@@ -64,6 +78,7 @@ async fn capture_loop(context: Arc<DaemonContext>, current: Arc<tokio::sync::Mut
         let Some(session) = snapshot else { return };
         let Some(id) = session.id else { return };
         if !session.is_active_at(context.now().unix_millis()) {
+            clear_pending_frame(&context, id);
             return;
         }
         let interval = Duration::from_millis(session.frame_interval_millis);
@@ -76,20 +91,26 @@ async fn capture_loop(context: Arc<DaemonContext>, current: Arc<tokio::sync::Mut
             Ok((jpeg, width, height)) => {
                 let fresh = current.lock().await.clone();
                 let now = context.now().unix_millis();
-                if should_send(id, fresh.as_ref(), now)
-                    && !presentation_protected(&context).await
-                    && edge_server::live_stream::is_complete_jpeg(&jpeg)
-                    && let Some(frame) =
-                        edge_server::live_stream::encode_live_stream_frame(&id, now, width, height, &jpeg)
-                {
-                    context.live_frames.send_replace(Some(LiveFrame { session_id: id, frame }));
+                if should_send(id, fresh.as_ref(), now) {
+                    if presentation_protected(&context).await {
+                        clear_pending_frame(&context, id);
+                    } else if edge_server::live_stream::is_complete_jpeg(&jpeg)
+                        && let Some(frame) =
+                            edge_server::live_stream::encode_live_stream_frame(&id, now, width, height, &jpeg)
+                    {
+                        context.live_frames.send_replace(Some(LiveFrame { session_id: id, frame }));
+                    }
                 }
             }
             Err(reason) => {
+                if reason == "protected_state" {
+                    clear_pending_frame(&context, id);
+                }
                 tracing::debug!(component = "live_stream", event = "capture_dropped", reason);
             }
         }
         if !current.lock().await.clone().is_some_and(|session| session.id == Some(id)) {
+            clear_pending_frame(&context, id);
             return;
         }
         let delay = capture_delay(interval, started.elapsed());
@@ -120,12 +141,13 @@ fn reconcile_action(
     existing: Option<&LiveStreamSession>,
     next: &LiveStreamSession,
     now_unix_millis: i64,
+    capture_running: bool,
 ) -> ReconcileAction {
     if !next.is_active_at(now_unix_millis) {
         return ReconcileAction::Stop;
     }
     match existing {
-        Some(session) if session.id == next.id => ReconcileAction::Keep,
+        Some(session) if session.id == next.id && capture_running => ReconcileAction::Keep,
         _ => ReconcileAction::Restart,
     }
 }
@@ -163,7 +185,13 @@ pub async fn run(context: Arc<DaemonContext>) {
             delay = IDLE_RECONCILE;
             continue;
         };
-        match reconcile_action(current.lock().await.clone().as_ref(), &session, context.now().unix_millis()) {
+        let capture_running = capture_task.as_ref().is_some_and(|task| !task.is_finished());
+        match reconcile_action(
+            current.lock().await.clone().as_ref(),
+            &session,
+            context.now().unix_millis(),
+            capture_running,
+        ) {
             ReconcileAction::Stop => {
                 abort(&mut capture_task);
                 *current.lock().await = None;
@@ -225,18 +253,23 @@ mod tests {
     }
 
     #[test]
-    fn reconcile_updates_limits_without_restarting_and_restarts_on_replacement() {
+    fn reconcile_updates_limits_while_running_and_restarts_a_finished_worker() {
         let expiry = edge_protocol::Timestamp::parse("2026-07-30T12:00:15Z").unwrap().unix_millis();
         let first = session("bffef4b1-f9b5-4b25-9d4f-864fba88d86d", true);
         let same_id = session("bffef4b1-f9b5-4b25-9d4f-864fba88d86d", true);
         let other_id = session("0f6b2f0e-1111-4c55-9a53-27f2f0b2f0aa", true);
         let inactive = session("bffef4b1-f9b5-4b25-9d4f-864fba88d86d", false);
-        assert_eq!(reconcile_action(None, &first, expiry - 1_000), ReconcileAction::Restart);
-        assert_eq!(reconcile_action(Some(&first), &same_id, expiry - 1_000), ReconcileAction::Keep);
-        assert_eq!(reconcile_action(Some(&first), &other_id, expiry - 1_000), ReconcileAction::Restart);
-        assert_eq!(reconcile_action(Some(&first), &inactive, expiry - 1_000), ReconcileAction::Stop);
-        assert_eq!(reconcile_action(Some(&first), &first, expiry), ReconcileAction::Stop);
-        assert_eq!(reconcile_action(None, &inactive, expiry - 1_000), ReconcileAction::Stop);
+        assert_eq!(reconcile_action(None, &first, expiry - 1_000, false), ReconcileAction::Restart);
+        assert_eq!(reconcile_action(Some(&first), &same_id, expiry - 1_000, true), ReconcileAction::Keep);
+        assert_eq!(
+            reconcile_action(Some(&first), &same_id, expiry - 1_000, false),
+            ReconcileAction::Restart,
+            "a same-ID renewal must restart a capture task that already exited"
+        );
+        assert_eq!(reconcile_action(Some(&first), &other_id, expiry - 1_000, true), ReconcileAction::Restart);
+        assert_eq!(reconcile_action(Some(&first), &inactive, expiry - 1_000, true), ReconcileAction::Stop);
+        assert_eq!(reconcile_action(Some(&first), &first, expiry, true), ReconcileAction::Stop);
+        assert_eq!(reconcile_action(None, &inactive, expiry - 1_000, false), ReconcileAction::Stop);
     }
 
     #[test]

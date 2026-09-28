@@ -13,6 +13,7 @@
 //! `device_credential_invalid` or `device_credential_revoked`, never on
 //! network errors, 5xx or `screen_disabled`, matching the Linux player.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -30,6 +31,7 @@ use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
+const LIVE_STREAM_FRAME_SEND_TIMEOUT: Duration = Duration::from_secs(1);
 
 // Response body bounds (docs/tilecast-edge.md §17.5: every network read is
 // bounded). Each is far above what its endpoint legitimately returns and far
@@ -331,6 +333,17 @@ fn classify_socket_text(text: &str) -> Result<PlayerSocketEvent, ServerError> {
     })
 }
 
+async fn bounded_live_stream_send<F>(remaining: Duration, send: F) -> Result<(), ServerError>
+where
+    F: Future<Output = Result<(), tokio_tungstenite::tungstenite::Error>>,
+{
+    let timeout = remaining.min(LIVE_STREAM_FRAME_SEND_TIMEOUT);
+    tokio::time::timeout(timeout, send)
+        .await
+        .map_err(|_| ServerError::Network)?
+        .map_err(|_| ServerError::Network)
+}
+
 impl PlayerSocket {
     pub async fn next_event(&mut self) -> Result<PlayerSocketEvent, ServerError> {
         let Some(message) = self.stream.next().await else { return Ok(PlayerSocketEvent::Closed) };
@@ -367,11 +380,7 @@ impl PlayerSocket {
             return Err(ServerError::Decode);
         }
         let remaining = PLAYER_SOCKET_ACTIVITY_TIMEOUT.saturating_sub(self.last_activity.elapsed());
-        tokio::time::timeout(remaining, self.stream.send(Message::Binary(frame.into())))
-            .await
-            .map_err(|_| ServerError::Network)?
-            .map_err(|_| ServerError::Network)?;
-        Ok(())
+        bounded_live_stream_send(remaining, self.stream.send(Message::Binary(frame.into()))).await
     }
 
     async fn send_json(&mut self, value: serde_json::Value) -> Result<(), ServerError> {
@@ -723,6 +732,19 @@ impl AuthenticatedServer {
 #[cfg(test)]
 mod socket_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn a_blocked_live_stream_write_is_dropped_quickly() {
+        assert_eq!(LIVE_STREAM_FRAME_SEND_TIMEOUT, Duration::from_secs(1));
+        let blocked = std::future::pending::<Result<(), tokio_tungstenite::tungstenite::Error>>();
+        let result = tokio::time::timeout(
+            Duration::from_millis(250),
+            bounded_live_stream_send(Duration::from_millis(5), blocked),
+        )
+        .await
+        .expect("the dedicated live-frame deadline must finish before the outer test bound");
+        assert_eq!(result, Err(ServerError::Network));
+    }
 
     #[test]
     fn a_live_stream_lease_change_is_a_wake_up_not_a_session() {

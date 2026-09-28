@@ -278,11 +278,19 @@ pub async fn run(context: Arc<DaemonContext>) {
                     }
                     let frame: Option<crate::live_stream::LiveFrame> =
                         live_frames.borrow_and_update().as_ref().cloned();
-                    if let Some(frame) = frame
-                        && socket.send_live_stream_frame(frame.frame).await.is_err()
-                    {
-                        link.socket_lost();
-                        break;
+                    if let Some(frame) = frame {
+                        // Re-check the privacy boundary at the actual send
+                        // point. A frame may have been queued before setup,
+                        // pairing, or safe mode became active while the
+                        // socket was disconnected or backpressured.
+                        if crate::live_stream::presentation_protected(&context).await {
+                            crate::live_stream::clear_pending_frame(&context, frame.session_id);
+                            continue;
+                        }
+                        if socket.send_live_stream_frame(frame.frame).await.is_err() {
+                            link.socket_lost();
+                            break;
+                        }
                     }
                 }
                 received = tokio::time::timeout(remaining, socket.next_event()) => {
