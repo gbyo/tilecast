@@ -20,12 +20,27 @@ import (
 //  4. every other key is rejected.
 //
 // It replaces the hand-written legacy normalizer of each migrated provider.
+// ConfigurationError reports a Widget configuration that its provider's
+// schema refuses. The HTTP layer maps it to 422 validation_failed.
+type ConfigurationError struct{ Err error }
+
+func (e *ConfigurationError) Error() string { return e.Err.Error() }
+func (e *ConfigurationError) Unwrap() error { return e.Err }
+
 type componentConfigNormalizer struct {
 	service    *Service
 	definition contentdefs.WidgetDefinition
 }
 
 func (normalizer componentConfigNormalizer) Normalize(ctx context.Context, raw json.RawMessage) (any, error) {
+	normalized, err := normalizer.normalize(ctx, raw)
+	if err != nil {
+		return nil, &ConfigurationError{Err: err}
+	}
+	return normalized, nil
+}
+
+func (normalizer componentConfigNormalizer) normalize(ctx context.Context, raw json.RawMessage) (any, error) {
 	var input map[string]any
 	if err := decodeConfig(raw, &input); err != nil {
 		return nil, err

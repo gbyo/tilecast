@@ -9,6 +9,9 @@
  * [minimum, 1] at which the measured element does not overflow, with a
  * short binary search, and sets it through the CSSOM.
  *
+ * Text metrics change when a web font finishes loading, so the controller
+ * also fits again when the document's fonts finish loading.
+ *
  * Setting a custom property does not rerender the Lit host, so a fit
  * never loops. Content that still overflows at the minimum scale stays
  * at the minimum: legibility wins over completeness, and the element
@@ -39,15 +42,27 @@ export class FitController implements ReactiveController {
     host.addController(this);
   }
 
+  private readonly refit = () => this.fit();
+
   hostConnected(): void {
+    const fonts = this.fonts();
+    fonts?.addEventListener("loadingdone", this.refit);
+    void fonts?.ready.then(this.refit);
     if (typeof ResizeObserver === "undefined") return;
-    this.observer = new ResizeObserver(() => this.fit());
+    this.observer = new ResizeObserver(this.refit);
     this.observer.observe(this.host);
   }
 
   hostDisconnected(): void {
+    this.fonts()?.removeEventListener("loadingdone", this.refit);
     this.observer?.disconnect();
     this.observer = null;
+  }
+
+  private fonts(): FontFaceSet | null {
+    return typeof document !== "undefined" && document.fonts
+      ? document.fonts
+      : null;
   }
 
   hostUpdated(): void {

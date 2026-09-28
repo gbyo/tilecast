@@ -67,11 +67,7 @@
         "control": "data_source_field",
         "dataSourceFieldTypes": ["text"],
         "default": "",
-        "ui": {
-          "section": "data",
-          "order": 5,
-          "semanticRole": "location"
-        }
+        "ui": { "section": "data", "order": 5, "semanticRole": "location" }
       },
       {
         "key": "descriptionField",
@@ -155,6 +151,22 @@
         "control": "color",
         "default": "",
         "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
       }
     ]
   },
@@ -216,10 +228,7 @@
       "categoryField": { "$config": "categoryField", "default": "" },
       "heading": { "$config": "heading", "default": "" },
       "maximumItems": { "$config": "maximumItems", "default": 20 },
-      "groupByDay": {
-        "$config": "groupByDay",
-        "default": true
-      },
+      "groupByDay": { "$config": "groupByDay", "default": true },
       "hideEnded": { "$config": "hideEnded", "default": true },
       "emptyText": {
         "$config": "emptyText",

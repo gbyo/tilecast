@@ -885,7 +885,10 @@ func (s *server) mediaDiagnostics(w http.ResponseWriter, r *http.Request) {
 func (s *server) writeMediaError(w http.ResponseWriter, r *http.Request, err error) {
 	var dependency *media.DependencyError
 	var unavailable *media.PluginUnavailableError
+	var configuration *media.ConfigurationError
 	switch {
+	case errors.As(err, &configuration):
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", configuration.Error())
 	case errors.As(err, &dependency):
 		writeError(w, http.StatusConflict, "resource_in_use", dependency.Error())
 	case errors.As(err, &unavailable):

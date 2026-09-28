@@ -18,6 +18,10 @@
  * The Server applies the same rules before it validates a write
  * (contentdefs.UpgradeAuthorConfiguration). Studio applies them when the
  * editor opens a saved Widget, so the inspector shows the upgraded values.
+ *
+ * This module is a separate entry (`@tilecast/widget-sdk/upgrade`): it
+ * reaches the manifest compiler, whose schema library must never load in
+ * the Player Runtime under its CSP.
  */
 import { compileComponentConfig } from "./manifest.ts";
 

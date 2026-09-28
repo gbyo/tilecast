@@ -225,6 +225,34 @@
             "control": "color",
             "default": "#101418",
             "ui": { "section": "appearance", "order": 3 }
+          },
+          {
+            "key": "errorCorrection",
+            "label": "Error correction",
+            "control": "select",
+            "options": [
+              { "value": "low", "label": "Low" },
+              { "value": "medium", "label": "Medium" },
+              { "value": "quartile", "label": "Quartile" },
+              { "value": "high", "label": "High" }
+            ],
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "textScale",
+            "label": "Text scale",
+            "control": "integer",
+            "minimum": 25,
+            "maximum": 500,
+            "ui": { "hidden": true }
+          },
+          {
+            "key": "contentPadding",
+            "label": "Content padding",
+            "control": "integer",
+            "minimum": 0,
+            "maximum": 40,
+            "ui": { "hidden": true }
           }
         ]
       },

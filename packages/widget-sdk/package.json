@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./manifest": "./src/manifest.ts",
+    "./upgrade": "./src/upgrade.ts",
     "./mount": "./src/mount.ts",
     "./discovery": "./src/discovery.ts",
     "./fixtures": "./src/fixtures.ts",

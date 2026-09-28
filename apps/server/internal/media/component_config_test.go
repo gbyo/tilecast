@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -102,5 +103,28 @@ func TestComponentConfigNormalizerAllowsThemeColors(t *testing.T) {
 	}
 	if _, err = normalizeComponent(t, "text", `{"body":"Hi","backgroundColor":"red"}`); err == nil {
 		t.Fatal("a non-hexadecimal color was accepted")
+	}
+}
+
+func TestComponentConfigNormalizerAcceptsRetainedLegacyKeys(t *testing.T) {
+	// The payload older API clients send for a QR Code (the real-server
+	// end-to-end test sends exactly this).
+	qr, err := normalizeComponent(t, "qrcode", `{"value":"https://tilecast.example/visit","label":"Visit us","errorCorrection":"medium","foregroundColor":"#ffffff","backgroundColor":"#111111"}`)
+	if err != nil {
+		t.Fatalf("a legacy QR Code payload was refused: %v", err)
+	}
+	if qr["errorCorrection"] != "medium" || qr["payload"] != "https://tilecast.example/visit" {
+		t.Fatalf("QR = %v", qr)
+	}
+	if _, err = normalizeComponent(t, "qrcode", `{"value":"x","errorCorrection":"extreme"}`); err == nil {
+		t.Fatal("an invalid retained value was accepted")
+	}
+}
+
+func TestComponentConfigErrorsAreTyped(t *testing.T) {
+	_, err := normalizeComponent(t, "text", `{"body":"Hi","script":"x"}`)
+	var configuration *ConfigurationError
+	if !errors.As(err, &configuration) {
+		t.Fatalf("error %T is not a ConfigurationError", err)
 	}
 }

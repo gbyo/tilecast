@@ -16,11 +16,11 @@ import { useTranslation } from "react-i18next";
 import {
   groupAuthoringFields,
   resolveTheme,
-  upgradeAuthorConfiguration,
   visibleAuthoringFields,
   type WidgetContext,
 } from "@tilecast/widget-sdk";
 import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
+import { upgradeAuthorConfiguration } from "@tilecast/widget-sdk/upgrade";
 import type {
   WidgetComponentRef,
   WidgetMountState,
