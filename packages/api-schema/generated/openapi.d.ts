@@ -13855,8 +13855,7 @@ export interface operations {
         group?: string;
         result?: string;
         sessionType?: components["schemas"]["ProofSessionType"];
-        terminalReason?:
-          components["schemas"]["ProofTerminalReason"] | "unexpected";
+        terminalReason?: components["schemas"]["ProofTerminalReason"];
         media?: string;
         widget?: string;
         content?: string;
@@ -13909,8 +13908,7 @@ export interface operations {
         group?: string;
         result?: string;
         sessionType?: components["schemas"]["ProofSessionType"];
-        terminalReason?:
-          components["schemas"]["ProofTerminalReason"] | "unexpected";
+        terminalReason?: components["schemas"]["ProofTerminalReason"];
         media?: string;
         widget?: string;
         content?: string;

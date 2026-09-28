@@ -2133,10 +2133,7 @@ paths:
         - in: query
           name: terminalReason
           required: false
-          schema:
-            anyOf:
-              - { $ref: "#/components/schemas/ProofTerminalReason" }
-              - { type: string, enum: [unexpected] }
+          schema: { $ref: "#/components/schemas/ProofTerminalReason" }
         - in: query
           name: media
           required: false
@@ -2222,10 +2219,7 @@ paths:
         - in: query
           name: terminalReason
           required: false
-          schema:
-            anyOf:
-              - { $ref: "#/components/schemas/ProofTerminalReason" }
-              - { type: string, enum: [unexpected] }
+          schema: { $ref: "#/components/schemas/ProofTerminalReason" }
         - in: query
           name: media
           required: false

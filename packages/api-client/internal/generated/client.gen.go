@@ -4539,36 +4539,6 @@ func (e ListIncidentsParamsDateBasis) Valid() bool {
 	}
 }
 
-// Defines values for ListProofOfPlayParamsTerminalReason1.
-const (
-	ListProofOfPlayParamsTerminalReason1Unexpected ListProofOfPlayParamsTerminalReason1 = "unexpected"
-)
-
-// Valid indicates whether the value is a known member of the ListProofOfPlayParamsTerminalReason1 enum.
-func (e ListProofOfPlayParamsTerminalReason1) Valid() bool {
-	switch e {
-	case ListProofOfPlayParamsTerminalReason1Unexpected:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for GetProofOfPlaySummaryParamsTerminalReason1.
-const (
-	GetProofOfPlaySummaryParamsTerminalReason1Unexpected GetProofOfPlaySummaryParamsTerminalReason1 = "unexpected"
-)
-
-// Valid indicates whether the value is a known member of the GetProofOfPlaySummaryParamsTerminalReason1 enum.
-func (e GetProofOfPlaySummaryParamsTerminalReason1) Valid() bool {
-	switch e {
-	case GetProofOfPlaySummaryParamsTerminalReason1Unexpected:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for GetActivityUptimeParamsWindow.
 const (
 	GetActivityUptimeParamsWindowN24h GetActivityUptimeParamsWindow = "24h"
@@ -10104,30 +10074,25 @@ type GetActivityOverviewParams struct {
 
 // ListProofOfPlayParams defines parameters for ListProofOfPlay.
 type ListProofOfPlayParams struct {
-	From           *time.Time          `form:"from,omitempty" json:"from,omitempty"`
-	To             *time.Time          `form:"to,omitempty" json:"to,omitempty"`
-	Page           *int                `form:"page,omitempty" json:"page,omitempty"`
-	PageSize       *int                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
-	Cursor         *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
-	Screen         *openapi_types.UUID `form:"screen,omitempty" json:"screen,omitempty"`
-	Group          *openapi_types.UUID `form:"group,omitempty" json:"group,omitempty"`
-	Result         *string             `form:"result,omitempty" json:"result,omitempty"`
-	SessionType    *ProofSessionType   `form:"sessionType,omitempty" json:"sessionType,omitempty"`
-	TerminalReason *struct {
-		union json.RawMessage
-	} `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
-	Media    *string `form:"media,omitempty" json:"media,omitempty"`
-	Widget   *string `form:"widget,omitempty" json:"widget,omitempty"`
-	Content  *string `form:"content,omitempty" json:"content,omitempty"`
-	Playlist *string `form:"playlist,omitempty" json:"playlist,omitempty"`
-	Layout   *string `form:"layout,omitempty" json:"layout,omitempty"`
-	Schedule *string `form:"schedule,omitempty" json:"schedule,omitempty"`
-	Takeover *string `form:"takeover,omitempty" json:"takeover,omitempty"`
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
+	From           *time.Time           `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time           `form:"to,omitempty" json:"to,omitempty"`
+	Page           *int                 `form:"page,omitempty" json:"page,omitempty"`
+	PageSize       *int                 `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Cursor         *string              `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Screen         *openapi_types.UUID  `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID  `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string              `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType    `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *ProofTerminalReason `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media          *string              `form:"media,omitempty" json:"media,omitempty"`
+	Widget         *string              `form:"widget,omitempty" json:"widget,omitempty"`
+	Content        *string              `form:"content,omitempty" json:"content,omitempty"`
+	Playlist       *string              `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout         *string              `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule       *string              `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover       *string              `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search         *string              `form:"search,omitempty" json:"search,omitempty"`
 }
-
-// ListProofOfPlayParamsTerminalReason1 defines parameters for ListProofOfPlay.
-type ListProofOfPlayParamsTerminalReason1 string
 
 // ExportProofOfPlayParams defines parameters for ExportProofOfPlay.
 type ExportProofOfPlayParams struct {
@@ -10137,28 +10102,23 @@ type ExportProofOfPlayParams struct {
 
 // GetProofOfPlaySummaryParams defines parameters for GetProofOfPlaySummary.
 type GetProofOfPlaySummaryParams struct {
-	From           *time.Time          `form:"from,omitempty" json:"from,omitempty"`
-	To             *time.Time          `form:"to,omitempty" json:"to,omitempty"`
-	Dimension      *string             `form:"dimension,omitempty" json:"dimension,omitempty"`
-	Screen         *openapi_types.UUID `form:"screen,omitempty" json:"screen,omitempty"`
-	Group          *openapi_types.UUID `form:"group,omitempty" json:"group,omitempty"`
-	Result         *string             `form:"result,omitempty" json:"result,omitempty"`
-	SessionType    *ProofSessionType   `form:"sessionType,omitempty" json:"sessionType,omitempty"`
-	TerminalReason *struct {
-		union json.RawMessage
-	} `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
-	Media    *string `form:"media,omitempty" json:"media,omitempty"`
-	Widget   *string `form:"widget,omitempty" json:"widget,omitempty"`
-	Content  *string `form:"content,omitempty" json:"content,omitempty"`
-	Playlist *string `form:"playlist,omitempty" json:"playlist,omitempty"`
-	Layout   *string `form:"layout,omitempty" json:"layout,omitempty"`
-	Schedule *string `form:"schedule,omitempty" json:"schedule,omitempty"`
-	Takeover *string `form:"takeover,omitempty" json:"takeover,omitempty"`
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
+	From           *time.Time           `form:"from,omitempty" json:"from,omitempty"`
+	To             *time.Time           `form:"to,omitempty" json:"to,omitempty"`
+	Dimension      *string              `form:"dimension,omitempty" json:"dimension,omitempty"`
+	Screen         *openapi_types.UUID  `form:"screen,omitempty" json:"screen,omitempty"`
+	Group          *openapi_types.UUID  `form:"group,omitempty" json:"group,omitempty"`
+	Result         *string              `form:"result,omitempty" json:"result,omitempty"`
+	SessionType    *ProofSessionType    `form:"sessionType,omitempty" json:"sessionType,omitempty"`
+	TerminalReason *ProofTerminalReason `form:"terminalReason,omitempty" json:"terminalReason,omitempty"`
+	Media          *string              `form:"media,omitempty" json:"media,omitempty"`
+	Widget         *string              `form:"widget,omitempty" json:"widget,omitempty"`
+	Content        *string              `form:"content,omitempty" json:"content,omitempty"`
+	Playlist       *string              `form:"playlist,omitempty" json:"playlist,omitempty"`
+	Layout         *string              `form:"layout,omitempty" json:"layout,omitempty"`
+	Schedule       *string              `form:"schedule,omitempty" json:"schedule,omitempty"`
+	Takeover       *string              `form:"takeover,omitempty" json:"takeover,omitempty"`
+	Search         *string              `form:"search,omitempty" json:"search,omitempty"`
 }
-
-// GetProofOfPlaySummaryParamsTerminalReason1 defines parameters for GetProofOfPlaySummary.
-type GetProofOfPlaySummaryParamsTerminalReason1 string
 
 // UpdateActivityRetentionJSONBody defines parameters for UpdateActivityRetention.
 type UpdateActivityRetentionJSONBody struct {
@@ -24022,7 +23982,7 @@ func NewListProofOfPlayRequest(server string, params *ListProofOfPlayParams) (*h
 
 		if params.TerminalReason != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -24322,7 +24282,7 @@ func NewGetProofOfPlaySummaryRequest(server string, params *GetProofOfPlaySummar
 
 		if params.TerminalReason != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "terminalReason", *params.TerminalReason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
