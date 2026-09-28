@@ -19,7 +19,11 @@ describe("TelemetryReporter flush serialization", () => {
     });
     const client = { postTelemetry } as unknown as ApiClient;
     let clock = 1_000_000;
-    const subject = new TelemetryReporter(client, () => ({}), () => clock);
+    const subject = new TelemetryReporter(
+      client,
+      () => ({}),
+      () => clock,
+    );
 
     subject.addCount("droppedFrames", 1);
     clock += 60_000;
