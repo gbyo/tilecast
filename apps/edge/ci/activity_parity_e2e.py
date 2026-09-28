@@ -158,13 +158,15 @@ def compare(electron, edge, outage):
     # The same items under the same trigger. The players are not
     # phase-locked: when one is an item ahead, a different item is on screen
     # when the takeover interrupts and when the run ends, which moves two
-    # per-item counts by one each. Per trigger, the plays agree within one.
+    # per-item counts by one each. A takeover can also cut one player's item
+    # off inside BOUNDARY_STUB_MS, which drops that play from its count only.
+    # Per trigger, the plays agree within two.
     assert set(e_items) == set(d_items), f"item sessions differ: {set(e_items) ^ set(d_items)}"
     for key in e_items:
         assert abs(e_items[key] - d_items[key]) <= 2, f"{key}: electron {e_items[key]}, edge {d_items[key]}"
     for trigger in {key[0] for key in e_items}:
         plays = [sum(count for key, count in counter.items() if key[0] == trigger) for counter in (e_items, d_items)]
-        assert abs(plays[0] - plays[1]) <= 1, f"{trigger}: electron {plays[0]} plays, edge {plays[1]}"
+        assert abs(plays[0] - plays[1]) <= 2, f"{trigger}: electron {plays[0]} plays, edge {plays[1]}"
     # The same ways an item ended, per trigger.
     assert e_reasons == d_reasons, f"item endings differ: {e_reasons ^ d_reasons}"
     assert ("direct", "takeover") in d_reasons, "the takeover interrupted the loop on both"
