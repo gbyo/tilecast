@@ -35,3 +35,6 @@ e2e/visual/playwright-report/
 widgets/storybook-static/
 widgets/visual/test-results/
 widgets/visual/playwright-report/
+
+# ESLint cache
+apps/dashboard/.cache/
