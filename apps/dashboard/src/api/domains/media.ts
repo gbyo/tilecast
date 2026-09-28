@@ -1,16 +1,17 @@
 /**
  * Media, widgets, and data-source domain helpers over the typed
  * transport. Path, query, and body shapes come from the generated
- * OpenAPI contract. Success bodies in this area are not contract-typed
- * yet, so each call states its local Studio response type explicitly
- * until the contract gains schemas. Blob/streaming upload paths stay on
- * raw fetch in ../client.ts: genuinely exceptional transports.
+ * OpenAPI contract. Asset library success bodies are contract-typed
+ * and inferred from the generated schemas; widgets, uploads,
+ * data sources, and organization helpers still state their local
+ * Studio response type explicitly until the contract gains schemas.
+ * Blob/streaming upload paths stay on raw fetch in ../client.ts:
+ * genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
 import type {
   AirQualitySourceConfig,
   Asset,
-  AssetList,
   BulkOrganizeInput,
   CalendarConfig,
   CalendarPreview,
@@ -94,8 +95,8 @@ export async function getContentDefinitions(): Promise<ContentDefinitionCatalog>
   );
 }
 
-export function listAssets(params: URLSearchParams): Promise<AssetList> {
-  return apiGet<"/api/v1/assets", AssetList>("/api/v1/assets", {
+export function listAssets(params: URLSearchParams) {
+  return apiGet("/api/v1/assets", {
     params: { query: fromSearchParams(params) },
   });
 }
@@ -206,38 +207,26 @@ export function deleteContentTag(id: string, csrfToken: string): Promise<void> {
   });
 }
 
-export function bulkOrganize(
-  input: BulkOrganizeInput,
-  csrfToken: string,
-): Promise<{ updated: number }> {
-  return apiPost<"/api/v1/assets/bulk-organize", { updated: number }>(
-    "/api/v1/assets/bulk-organize",
-    { body: input, csrfToken },
-  );
+export function bulkOrganize(input: BulkOrganizeInput, csrfToken: string) {
+  return apiPost("/api/v1/assets/bulk-organize", { body: input, csrfToken });
 }
 
-export function archiveAssets(
-  assetIds: string[],
-  csrfToken: string,
-): Promise<{ updated: number }> {
-  return apiPost<"/api/v1/assets/archive", { updated: number }>(
-    "/api/v1/assets/archive",
-    { body: { assetIds }, csrfToken },
-  );
+export function archiveAssets(assetIds: string[], csrfToken: string) {
+  return apiPost("/api/v1/assets/archive", {
+    body: { assetIds },
+    csrfToken,
+  });
 }
 
-export function restoreAssets(
-  assetIds: string[],
-  csrfToken: string,
-): Promise<{ updated: number }> {
-  return apiPost<"/api/v1/assets/restore", { updated: number }>(
-    "/api/v1/assets/restore",
-    { body: { assetIds }, csrfToken },
-  );
+export function restoreAssets(assetIds: string[], csrfToken: string) {
+  return apiPost("/api/v1/assets/restore", {
+    body: { assetIds },
+    csrfToken,
+  });
 }
 
-export function getAsset(id: string): Promise<Asset> {
-  return apiGet<"/api/v1/assets/{id}", Asset>("/api/v1/assets/{id}", {
+export function getAsset(id: string) {
+  return apiGet("/api/v1/assets/{id}", {
     params: { path: { id } },
   });
 }
@@ -252,19 +241,19 @@ export function updateAsset(
     expiresAt?: string;
   },
   csrfToken: string,
-): Promise<Asset> {
-  return apiPatch<"/api/v1/assets/{id}", Asset>("/api/v1/assets/{id}", {
+) {
+  return apiPatch("/api/v1/assets/{id}", {
     params: { path: { id } },
     body: input,
     csrfToken,
   });
 }
 
-export function retryAsset(id: string, csrfToken: string): Promise<Asset> {
-  return apiPost<"/api/v1/assets/{id}/retry", Asset>(
-    "/api/v1/assets/{id}/retry",
-    { params: { path: { id } }, csrfToken },
-  );
+export function retryAsset(id: string, csrfToken: string) {
+  return apiPost("/api/v1/assets/{id}/retry", {
+    params: { path: { id } },
+    csrfToken,
+  });
 }
 
 export function deleteAsset(id: string, csrfToken: string): Promise<void> {
@@ -274,11 +263,8 @@ export function deleteAsset(id: string, csrfToken: string): Promise<void> {
   });
 }
 
-export function createWebsite(
-  input: WebsiteInput,
-  csrfToken: string,
-): Promise<Asset> {
-  return apiPost<"/api/v1/assets/websites", Asset>("/api/v1/assets/websites", {
+export function createWebsite(input: WebsiteInput, csrfToken: string) {
+  return apiPost("/api/v1/assets/websites", {
     body: input,
     csrfToken,
   });
@@ -288,11 +274,12 @@ export function updateWebsite(
   id: string,
   input: WebsiteInput,
   csrfToken: string,
-): Promise<Asset> {
-  return apiPatch<"/api/v1/assets/{id}/website", Asset>(
-    "/api/v1/assets/{id}/website",
-    { params: { path: { id } }, body: input, csrfToken },
-  );
+) {
+  return apiPatch("/api/v1/assets/{id}/website", {
+    params: { path: { id } },
+    body: input,
+    csrfToken,
+  });
 }
 
 export function getWebsiteDiagnostics(id: string): Promise<WebsiteDiagnostics> {
