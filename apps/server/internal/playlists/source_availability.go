@@ -27,3 +27,25 @@ func (s *Service) requireWidgetSourceUsable(installed map[string]bool, name, pro
 	}
 	return fmt.Errorf("Widget %q uses provider %q: %s", name, provider, reason)
 }
+
+// requireDataSourceSourceUsable refuses a Data Source whose provider comes
+// from a plugin that is not installed. It shares the widget rule's shape:
+// assignment validation and manifest generation both apply it, so a
+// preserved plugin-owned row can never be projected as a valid live
+// source while its plugin is missing. Core providers and unknown provider
+// IDs pass through.
+func (s *Service) requireDataSourceSourceUsable(installed map[string]bool, name, provider string) error {
+	definition, ok := s.definitions.DataSource(provider)
+	if !ok {
+		return nil
+	}
+	usable, reason := definition.Source.Usable(installed)
+	if usable {
+		return nil
+	}
+	plugin := definition.Source.Normalized().PluginID
+	if definition, known := plugins.Lookup(plugin); known {
+		return fmt.Errorf("Data Source %q uses provider %q from plugin %q, which is not installed", name, provider, definition.Name)
+	}
+	return fmt.Errorf("Data Source %q uses provider %q: %s", name, provider, reason)
+}

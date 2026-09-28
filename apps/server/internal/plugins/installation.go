@@ -333,37 +333,56 @@ func (s *Service) removalBlockers(ctx context.Context, tx pgx.Tx, id string) ([]
 }
 
 // staticContributionBlockers counts persisted content using the plugin's
-// static Widget contributions. Removal deletes only the installation
-// record, never the content itself, so any remaining row blocks.
+// static Widget and Data Source contributions. Removal deletes only the
+// installation record, never the content itself, so any remaining row
+// blocks. Widget blockers come first for a deterministic order.
 func (s *Service) staticContributionBlockers(ctx context.Context, tx pgx.Tx, id string) ([]InUseResource, error) {
-	providers := s.catalog().PluginWidgetProviders(id)
-	if len(providers) == 0 {
+	resources := []InUseResource{}
+	widgetProviders := s.catalog().PluginWidgetProviders(id)
+	if len(widgetProviders) > 0 {
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM widgets widget
+			JOIN assets asset ON asset.id=widget.asset_id AND asset.deleted_at IS NULL
+			WHERE widget.provider=ANY($1)`, widgetProviders).Scan(&count); err != nil {
+			return nil, fmt.Errorf("plugin %s: contributed Widget usage: %w", id, err)
+		}
+		if count > 0 {
+			blocker := plugin.Blocker{Kind: "widget", Count: count, Singular: "Widget", Plural: "Widgets", Resolution: plugin.ResolveDelete}
+			resources = append(resources, InUseResource{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(blocker.Resolution)})
+		}
+	}
+	sourceProviders := s.catalog().PluginDataSourceProviders(id)
+	if len(sourceProviders) > 0 {
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider=ANY($1) AND deleted_at IS NULL`, sourceProviders).Scan(&count); err != nil {
+			return nil, fmt.Errorf("plugin %s: contributed Data Source usage: %w", id, err)
+		}
+		if count > 0 {
+			blocker := plugin.Blocker{Kind: "data_source", Count: count, Singular: "Data Source", Plural: "Data Sources", Resolution: plugin.ResolveDelete}
+			resources = append(resources, InUseResource{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(blocker.Resolution)})
+		}
+	}
+	if len(resources) == 0 {
 		return nil, nil
 	}
-	var count int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM widgets widget
-		JOIN assets asset ON asset.id=widget.asset_id AND asset.deleted_at IS NULL
-		WHERE widget.provider=ANY($1)`, providers).Scan(&count); err != nil {
-		return nil, fmt.Errorf("plugin %s: contributed Widget usage: %w", id, err)
-	}
-	if count == 0 {
-		return nil, nil
-	}
-	blocker := plugin.Blocker{Kind: "widget", Count: count, Singular: "Widget", Plural: "Widgets", Resolution: plugin.ResolveDelete}
-	return []InUseResource{{Kind: blocker.Kind, Count: blocker.Count, Label: blocker.Label(), Resolution: string(blocker.Resolution)}}, nil
+	return resources, nil
 }
 
 // affectsPlayerContent reports whether installing or removing the plugin
 // can change what a screen receives. Plugins with Plugin API runtime
 // manifest entries do by definition; so does any plugin with static
-// Widget contributions, because installing it can make preserved
-// plugin-owned content usable again. (Declarative Data Source
-// contributions join the same check when they land.)
+// Widget or Data Source contributions, because installing it can make
+// preserved plugin-owned content usable again.
 func (s *Service) affectsPlayerContent(definition Definition) bool {
 	if definition.PlayerFacing {
 		return true
 	}
 	for _, contributor := range s.catalog().StaticWidgetContributors() {
+		if contributor == definition.ID {
+			return true
+		}
+	}
+	for _, contributor := range s.catalog().StaticDataSourceContributors() {
 		if contributor == definition.ID {
 			return true
 		}

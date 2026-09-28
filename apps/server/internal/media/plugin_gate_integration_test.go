@@ -148,3 +148,74 @@ func TestCreatePluginWidgetAllowedWhenPluginInstalled(t *testing.T) {
 		}
 	})
 }
+
+// pluginDataSourceCatalog builds a synthetic catalog with one plugin-owned
+// Data Source definition: provider emergency_alerts_intake from the stable
+// emergency_alerts identity (directory plugins/emergency-alerts/).
+func pluginDataSourceCatalog(t *testing.T) *contentdefs.Catalog {
+	t.Helper()
+	definition := contentdefs.DataSourceDefinition{
+		ID: "emergency_alerts_intake", Version: 1,
+		Source: contentdefs.PluginSource("emergency_alerts"),
+		Name:   "Intake", Description: "Intake.", Category: "Essentials", Icon: "layout",
+		ConfigurationSchema:  contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{}},
+		DefaultConfiguration: map[string]any{},
+		OutputSchema: contentdefs.OutputSchema{Kind: "records", Fields: []contentdefs.OutputField{
+			{Key: "title", Label: "Title", Type: "text"},
+		}},
+		AdapterID:       "manual_records",
+		RefreshBehavior: "manual",
+	}
+	catalog, err := contentdefs.New(nil, []contentdefs.DataSourceDefinition{definition})
+	if err != nil {
+		t.Fatalf("build plugin Data Source catalog: %v", err)
+	}
+	return catalog
+}
+
+func pluginDataSourceInput() DataSourceInput {
+	return DataSourceInput{Provider: "emergency_alerts_intake", Name: "Intake", Description: "Intake.", Configuration: json.RawMessage(`{}`)}
+}
+
+func TestCreatePluginDataSourceRefusedWhenPluginMissing(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(pluginDataSourceCatalog(t))
+		service.SetPluginSourceGate(fakePluginGate{installed: map[string]bool{}})
+		if _, err := service.CreateDataSource(ctx, userID, pluginDataSourceInput()); err == nil {
+			t.Fatal("created a plugin-owned Data Source while its plugin is missing")
+		} else {
+			var unavailable *PluginUnavailableError
+			if !errors.As(err, &unavailable) || unavailable.PluginID != "emergency_alerts" {
+				t.Fatalf("wrong error for missing plugin: %#v", err)
+			}
+		}
+		var count int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM data_sources WHERE provider='emergency_alerts_intake'`).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("refused creation left %d rows (%v)", count, err)
+		}
+	})
+}
+
+func TestCreatePluginDataSourceFailsClosedWithoutAGate(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(pluginDataSourceCatalog(t))
+		var unavailable *PluginUnavailableError
+		if _, err := service.CreateDataSource(ctx, userID, pluginDataSourceInput()); !errors.As(err, &unavailable) {
+			t.Fatalf("unwired gate allowed plugin-owned creation: %#v", err)
+		}
+	})
+}
+
+func TestCreatePluginDataSourceAllowedWhenPluginInstalled(t *testing.T) {
+	withPluginGateDatabase(t, func(ctx context.Context, pool *pgxpool.Pool, service *Service, userID uuid.UUID) {
+		service.SetContentDefinitions(pluginDataSourceCatalog(t))
+		service.SetPluginSourceGate(fakePluginGate{installed: map[string]bool{"emergency_alerts": true}})
+		source, err := service.CreateDataSource(ctx, userID, pluginDataSourceInput())
+		if err != nil {
+			t.Fatalf("installed plugin-owned creation refused: %v", err)
+		}
+		if source.Provider != "emergency_alerts_intake" {
+			t.Fatalf("unexpected created Data Source: %+v", source)
+		}
+	})
+}

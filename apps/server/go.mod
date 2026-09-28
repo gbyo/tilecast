@@ -18,6 +18,7 @@ require (
 	github.com/tilecast/tilecast/packages/plugin-sdk/go v0.0.0
 	github.com/tilecast/tilecast/plugins v0.0.0
 	github.com/tilecast/tilecast/widgets v0.0.0
+	github.com/tilecast/tilecast/data-sources v0.0.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/image v0.44.0
 	golang.org/x/text v0.40.0
@@ -55,4 +56,5 @@ replace (
 	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../../packages/plugin-sdk/go
 	github.com/tilecast/tilecast/plugins => ../../plugins
 	github.com/tilecast/tilecast/widgets => ../../widgets
+	github.com/tilecast/tilecast/data-sources => ../../data-sources
 )

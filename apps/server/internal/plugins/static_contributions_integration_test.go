@@ -13,9 +13,22 @@ import (
 )
 
 // pluginWidgetCatalog builds a synthetic catalog with one Widget
-// definition owned by the stable emergency_alerts identity.
+// definition and one Data Source definition owned by the stable
+// emergency_alerts identity.
 func pluginWidgetCatalog(t *testing.T) *contentdefs.Catalog {
 	t.Helper()
+	source := contentdefs.DataSourceDefinition{
+		ID: "emergency_alerts_intake", Version: 1,
+		Source: contentdefs.PluginSource("emergency_alerts"),
+		Name:   "Intake", Description: "Intake.", Category: "Essentials", Icon: "layout",
+		ConfigurationSchema:  contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{}},
+		DefaultConfiguration: map[string]any{},
+		OutputSchema: contentdefs.OutputSchema{Kind: "records", Fields: []contentdefs.OutputField{
+			{Key: "title", Label: "Title", Type: "text"},
+		}},
+		AdapterID:       "manual_records",
+		RefreshBehavior: "manual",
+	}
 	definition := contentdefs.WidgetDefinition{
 		ID: "emergency_alerts_siren", Version: 1, APIVersion: 1,
 		Source: contentdefs.PluginSource("emergency_alerts"),
@@ -36,11 +49,31 @@ func pluginWidgetCatalog(t *testing.T) *contentdefs.Catalog {
 			Empty:          "render",
 		},
 	}
-	catalog, err := contentdefs.New([]contentdefs.WidgetDefinition{definition}, nil)
+	catalog, err := contentdefs.New([]contentdefs.WidgetDefinition{definition}, []contentdefs.DataSourceDefinition{source})
 	if err != nil {
 		t.Fatalf("build plugin Widget catalog: %v", err)
 	}
 	return catalog
+}
+
+func createIntakeSource(t *testing.T, env staticContributionEnvironment, name string) uuid.UUID {
+	t.Helper()
+	source, err := env.media.CreateDataSource(env.ctx, env.userID, media.DataSourceInput{
+		Provider: "emergency_alerts_intake", Name: name, Configuration: json.RawMessage(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("create plugin-owned Data Source: %v", err)
+	}
+	return source.ID
+}
+
+func dataSourceRowCount(t *testing.T, env staticContributionEnvironment) int {
+	t.Helper()
+	var count int
+	if err := env.service.db.QueryRow(env.ctx, `SELECT count(*) FROM data_sources WHERE provider='emergency_alerts_intake' AND deleted_at IS NULL`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	return count
 }
 
 type staticContributionEnvironment struct {
@@ -242,6 +275,118 @@ func TestCreateAndRemoveSerializeThroughTheInstallationRow(t *testing.T) {
 					t.Fatal(err)
 				}
 				if _, err := env.service.db.Exec(env.ctx, `DELETE FROM assets WHERE type='widget' AND deleted_at IS NULL AND id NOT IN (SELECT asset_id FROM widgets)`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if !installed {
+				if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			_ = removeErr
+		}
+	})
+}
+
+func TestStaticDataSourceUsageBlocksRemoval(t *testing.T) {
+	withStaticContributionServices(t, func(env staticContributionEnvironment) {
+		if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
+			t.Fatal(err)
+		}
+		first := createIntakeSource(t, env, "Intake one")
+		second := createIntakeSource(t, env, "Intake two")
+		err := env.service.Remove(env.ctx, "emergency_alerts", env.userID)
+		var inUse *InUseError
+		if !errors.As(err, &inUse) {
+			t.Fatalf("remove with contributed content err = %#v", err)
+		}
+		if len(inUse.Resources) != 1 {
+			t.Fatalf("resources = %+v, want one generic Data Source blocker", inUse.Resources)
+		}
+		blocker := inUse.Resources[0]
+		if blocker.Kind != "data_source" || blocker.Count != 2 || blocker.Label != "Data Sources" || blocker.Resolution != "delete" {
+			t.Fatalf("blocker = %+v, want two Data Sources with delete resolution", blocker)
+		}
+		// Removal deletes the installation, never the contributed content.
+		if dataSourceRowCount(t, env) != 2 || !installationPresent(t, env) {
+			t.Fatal("blocked removal changed rows or the installation")
+		}
+		// Deleting the Data Sources through the library clears the blocker.
+		if err := env.media.DeleteDataSource(env.ctx, first, env.userID); err != nil {
+			t.Fatalf("delete Data Source: %v", err)
+		}
+		if err := env.media.DeleteDataSource(env.ctx, second, env.userID); err != nil {
+			t.Fatalf("delete Data Source: %v", err)
+		}
+		if err := env.service.Remove(env.ctx, "emergency_alerts", env.userID); err != nil {
+			t.Fatalf("remove after cleanup: %v", err)
+		}
+		if installationPresent(t, env) {
+			t.Fatal("installation remains after remove")
+		}
+	})
+}
+
+func TestStaticBlockersCombineWidgetAndDataSourceUsage(t *testing.T) {
+	withStaticContributionServices(t, func(env staticContributionEnvironment) {
+		if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
+			t.Fatal(err)
+		}
+		createSirenWidget(t, env)
+		createIntakeSource(t, env, "Intake")
+		err := env.service.Remove(env.ctx, "emergency_alerts", env.userID)
+		var inUse *InUseError
+		if !errors.As(err, &inUse) {
+			t.Fatalf("remove with contributed content err = %#v", err)
+		}
+		// Generic Widget blockers come first, then Data Source blockers,
+		// both ahead of any plugin-specific RemovalGuard results.
+		if len(inUse.Resources) != 2 {
+			t.Fatalf("resources = %+v, want Widget and Data Source blockers", inUse.Resources)
+		}
+		if inUse.Resources[0].Kind != "widget" || inUse.Resources[1].Kind != "data_source" {
+			t.Fatalf("blockers out of order: %+v", inUse.Resources)
+		}
+	})
+}
+
+func TestCreateDataSourceAndRemoveSerializeThroughTheInstallationRow(t *testing.T) {
+	withStaticContributionServices(t, func(env staticContributionEnvironment) {
+		// Create Data Source and Remove Plugin race freely; exactly one
+		// may win, and the installation state must always agree with the
+		// committed rows: never an uninstalled plugin with a newly
+		// committed Data Source caused by the race.
+		for round := 0; round < 5; round++ {
+			if _, _, err := env.service.Install(env.ctx, "emergency_alerts", env.userID); err != nil {
+				t.Fatal(err)
+			}
+			start := make(chan struct{})
+			var group sync.WaitGroup
+			group.Add(2)
+			var createErr, removeErr error
+			go func() {
+				defer group.Done()
+				<-start
+				_, createErr = env.media.CreateDataSource(env.ctx, env.userID, media.DataSourceInput{
+					Provider: "emergency_alerts_intake", Name: "Race", Configuration: json.RawMessage(`{}`),
+				})
+			}()
+			go func() {
+				defer group.Done()
+				<-start
+				removeErr = env.service.Remove(env.ctx, "emergency_alerts", env.userID)
+			}()
+			close(start)
+			group.Wait()
+			sources := dataSourceRowCount(t, env)
+			installed := installationPresent(t, env)
+			if sources > 0 && !installed {
+				t.Fatalf("round %d: Data Source committed for an uninstalled plugin (create=%v remove=%v)", round, createErr, removeErr)
+			}
+			// Reset for the next round: delete the Data Source if one
+			// won, and reinstall when removal won.
+			if sources > 0 {
+				if _, err := env.service.db.Exec(env.ctx, `DELETE FROM data_sources WHERE provider='emergency_alerts_intake'`); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -7,4 +7,5 @@ use (
 	./packages/plugin-sdk/go
 	./plugins
 	./widgets
+	./data-sources
 )

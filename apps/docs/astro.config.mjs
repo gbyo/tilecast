@@ -395,6 +395,7 @@ export default defineConfig({
                 { slug: "developers/plugins/studio" },
                 { slug: "developers/plugins/player" },
                 { slug: "developers/plugins/data-sources" },
+                { slug: "developers/plugins/static-content" },
                 { slug: "developers/plugins/testing" },
               ],
             },

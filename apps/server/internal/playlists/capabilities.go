@@ -261,6 +261,12 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		}
 		bindingRows.Close()
 	}
+	// A preserved plugin-owned Data Source is never a usable assignment
+	// target while its plugin is missing, just like a plugin-owned
+	// Widget above.
+	if err = s.requireReachableSourcesUsable(ctx, q, installed, sourceIDs); err != nil {
+		return nil, "", err
+	}
 	if v13Blocker == "" {
 		blocker, blockerErr := s.reachableSourceRequiringV13(ctx, q, uniqueUUIDs(sourceIDs))
 		if blockerErr != nil {
@@ -269,6 +275,27 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		v13Blocker = blocker
 	}
 	return requirements, v13Blocker, nil
+}
+
+// requireReachableSourcesUsable refuses an assignment that reaches a
+// Data Source whose provider comes from a plugin that is not installed.
+// Unknown rows pass through: missing rows fail later with the existing
+// unavailable-source error.
+func (s *Service) requireReachableSourcesUsable(ctx context.Context, q presentationQuery, installed map[string]bool, sourceIDs []uuid.UUID) error {
+	for _, id := range uniqueUUIDs(sourceIDs) {
+		var provider, name string
+		err := q.QueryRow(ctx, `SELECT provider,name FROM data_sources WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&provider, &name)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if err := s.requireDataSourceSourceUsable(installed, name, provider); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reachableSourceRequiringV13 returns the name of the first Data Source among the

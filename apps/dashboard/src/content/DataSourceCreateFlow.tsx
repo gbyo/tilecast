@@ -67,6 +67,38 @@ export function DataSourceProviderGallery({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const definitions = useDataSourceDefinitions(providers, exclude);
+  const pluginCatalog = useQuery({
+    queryKey: ["plugins"],
+    queryFn: api.plugins,
+    staleTime: 5 * 60_000,
+  });
+  // Provenance for plugin-owned Data Sources, mirroring the Widget
+  // gallery: the gallery is built from the effective catalog, and
+  // installation state decides whether a plugin-owned provider can be
+  // created. An uninstalled plugin's provider stays visible but disabled
+  // with its owning plugin named, so the definition never looks
+  // silently broken. The Server enforces the same decision
+  // authoritatively; when the plugin catalog cannot be read the gallery
+  // degrades to the static catalog alone.
+  const installedPlugins = new Map(
+    (pluginCatalog.data?.items ?? []).map((plugin) => [plugin.id, plugin]),
+  );
+  const sourceInfo = (definition: DataSourceDefinition) => {
+    const source = definition.source;
+    if (!source || source.kind !== "plugin") return null;
+    const plugin = installedPlugins.get(source.pluginId);
+    const name = plugin?.name ?? source.pluginId;
+    if (plugin && !plugin.installed) {
+      return {
+        badge: t("dataSources.createFlow.sourcePlugin", { name }),
+        unavailable: t("dataSources.createFlow.requiresPlugin", { name }),
+      };
+    }
+    return {
+      badge: t("dataSources.createFlow.sourcePlugin", { name }),
+      unavailable: null as string | null,
+    };
+  };
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (page) return;
@@ -155,21 +187,44 @@ export function DataSourceProviderGallery({
           </Button>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {definitions.offered.map((definition) => (
-            <Button
-              type="button"
-              key={definition.id}
-              variant="outline"
-              className="h-auto flex-col items-start gap-1 p-4 text-left"
-              onClick={() => onChoose(definition.id)}
-            >
-              {sourceIcon(definition.id, definition, 30)}
-              <strong className="text-sm">{definition.name}</strong>
-              <span className="text-xs font-normal text-muted-foreground">
-                {galleryDescriptionText(definition)}
-              </span>
-            </Button>
-          ))}
+          {definitions.offered.map((definition) => {
+            const provenance = sourceInfo(definition);
+            const disabled = provenance?.unavailable != null;
+            return (
+              <Button
+                type="button"
+                key={definition.id}
+                variant="outline"
+                className="h-auto flex-col items-start gap-1 p-4 text-left"
+                disabled={disabled}
+                aria-describedby={
+                  disabled
+                    ? `data-source-availability-${definition.id}`
+                    : undefined
+                }
+                onClick={() => onChoose(definition.id)}
+              >
+                {sourceIcon(definition.id, definition, 30)}
+                <strong className="text-sm">{definition.name}</strong>
+                <span className="text-xs font-normal text-muted-foreground">
+                  {galleryDescriptionText(definition)}
+                </span>
+                {provenance?.badge && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {provenance.badge}
+                  </span>
+                )}
+                {disabled && provenance?.unavailable && (
+                  <small
+                    id={`data-source-availability-${definition.id}`}
+                    className="text-xs font-normal text-muted-foreground"
+                  >
+                    {provenance.unavailable}
+                  </small>
+                )}
+              </Button>
+            );
+          })}
         </div>
         {!definitions.isLoading && definitions.offered.length === 0 && (
           <p className="text-sm text-muted-foreground">

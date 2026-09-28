@@ -888,7 +888,9 @@
       "galleryTitle": "Crear fuente de datos",
       "goodToKnow": "Conviene saber",
       "noProviders": "No hay proveedores de fuentes de datos disponibles en esta instalación.",
-      "setupGuidance": "Guía de configuración de la fuente de datos"
+      "setupGuidance": "Guía de configuración de la fuente de datos",
+      "sourcePlugin": "Plugin · {{name}}",
+      "requiresPlugin": "Requiere {{name}}"
     },
     "detail": {
       "backButton": "Volver a las fuentes de datos",

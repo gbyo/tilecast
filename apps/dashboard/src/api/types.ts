@@ -1732,6 +1732,8 @@ export type ContentDefinitionSetup = {
 export type DataSourceDefinition = {
   id: DataSourceProvider;
   version: number;
+  /** Where the definition came from; absent means release-owned core. */
+  source?: ExtensionSource;
   name: string;
   description: string;
   category: string;

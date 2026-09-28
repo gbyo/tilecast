@@ -38,6 +38,27 @@ func (e *PluginUnavailableError) Error() string {
 // is refused when no gate is wired.
 func (s *Service) SetPluginSourceGate(gate PluginSourceGate) { s.pluginGate = gate }
 
+// lockDataSourceProvider locks the owning plugin's installation row when
+// the provider is a plugin-owned Data Source definition. It must run
+// inside the creation transaction before the insert.
+func (s *Service) lockDataSourceProvider(ctx context.Context, tx pgx.Tx, provider string) error {
+	definition, ok := s.definitions.DataSource(provider)
+	if !ok {
+		return nil
+	}
+	source := definition.Source.Normalized()
+	if source.Kind != contentdefs.SourceKindPlugin {
+		return nil
+	}
+	if s.pluginGate == nil {
+		return &PluginUnavailableError{Kind: "data source provider", Provider: provider, PluginID: source.PluginID}
+	}
+	if err := s.pluginGate.LockPluginSource(ctx, tx, source.PluginID); err != nil {
+		return &PluginUnavailableError{Kind: "data source provider", Provider: provider, PluginID: source.PluginID}
+	}
+	return nil
+}
+
 // lockWidgetSource locks the owning plugin's installation row when the
 // provider is a plugin-owned Widget definition. It must run inside the
 // creation transaction before the insert.

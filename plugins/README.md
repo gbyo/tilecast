@@ -8,7 +8,9 @@ code, the public documentation, and the tests.
 - Read [`docs/plugin-api.md`](../docs/plugin-api.md) for the contract.
 - Read [`docs/plugins.md`](../docs/plugins.md) for the behavior of each plugin.
 - Create a plugin with `npm run plugins:new -- <plugin_id>`.
-- Run `npm run plugins:check` before you commit.
+- Bundle a Widget with `npm run widgets:new -- <name> --plugin <plugin_id>`.
+- Bundle a declarative Data Source with `npm run data-sources:new -- <name> --adapter <adapter> --plugin <plugin_id>`.
+- Run `npm run extensions:check` before you commit.
 
 `registry_gen.go` is generated. Do not edit it. Run
 `npm run plugins:generate`.
