@@ -60,6 +60,28 @@ class RuntimeHostSessionTest {
         assertTrue(sink.progress == 0)
     }
 
+    @Test fun sharedCrashPolicyRejectsDeadRendererCallbacks() {
+        val sink = Sink()
+        val crashPolicy = RuntimeCrashPolicy()
+        val session = RuntimeHostSession(
+            "0.25.0", "webview/1", 1, items, "act1",
+            onBoundary = { id, asset -> sink.boundaries.add(id to asset) },
+            onError = { sink.errors.add(it) },
+            onProgress = { sink.progress++ },
+            crashPolicy = crashPolicy,
+        )
+        session.offer(presentationMessage())
+        crashPolicy.onRendererGone()
+        assertEquals(2L, crashPolicy.onRecreated())
+
+        session.handlePageMessage(
+            """{"type":"evidence","activationId":"act1","itemId":"i1","kind":"image-shown"}""",
+            1,
+            null,
+        )
+        assertEquals(0, sink.progress)
+    }
+
     @Test fun routesEvidenceToNativePipeline() {
         val sink = Sink()
         val session = session(sink)
