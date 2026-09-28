@@ -156,6 +156,33 @@ describe("FleetUptimePanel", () => {
     expect(fleetUptime).toHaveBeenCalledWith("7d");
   });
 
+  it("keeps the current chart visible while an uncached range loads", async () => {
+    let resolveSevenDay!: (value: UptimeReport) => void;
+    const sevenDayReport = new Promise<UptimeReport>((resolve) => {
+      resolveSevenDay = resolve;
+    });
+    vi.spyOn(api, "fleetUptime").mockImplementation((window: UptimeWindow) =>
+      window === "7d" ? sevenDayReport : Promise.resolve(report()),
+    );
+    renderPanel();
+    await screen.findByText("81.3%");
+
+    await userEvent.click(screen.getByRole("button", { name: "7 days" }));
+
+    expect(screen.getByText("81.3%")).toBeTruthy();
+    expect(screen.queryByLabelText("Loading fleet health")).toBeNull();
+
+    resolveSevenDay(
+      report({
+        window: "7d",
+        windowLabel: "Last 7 days",
+        bucketSeconds: 21_600,
+        uptimePercent: 91.5,
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("91.5%")).toBeTruthy());
+  });
+
   it("renders measured figures without NaN or an empty chart when buckets are sparse", async () => {
     vi.spyOn(api, "fleetUptime").mockResolvedValue(
       report({
