@@ -47,6 +47,22 @@ class RuntimeCrashPolicyTest {
         )
     }
 
+    @Test fun hostAcknowledgesCommandOnlyAfterDelivery() {
+        val host = AndroidRuntimeHost("0.25.0", "webview/1")
+        host.offer(
+            RuntimeBridgeProtocol.parseHostMessage(
+                """{"type":"command","command":"skip-item"}""",
+            ).getOrThrow(),
+        )
+
+        val pending = host.replayForReady()
+        assertTrue(pending.any { it is RuntimeBridgeProtocol.HostMessage.Command })
+        assertTrue(host.replayForReady().any { it is RuntimeBridgeProtocol.HostMessage.Command })
+
+        host.acknowledgeReplay(pending)
+        assertFalse(host.replayForReady().any { it is RuntimeBridgeProtocol.HostMessage.Command })
+    }
+
     @Test fun replaySurvivesRecreation() {
         val host = AndroidRuntimeHost("0.25.0", "webview/1")
         host.offer(
