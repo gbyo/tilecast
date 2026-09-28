@@ -646,7 +646,15 @@ paths:
                 description: { type: string }
                 parentId: { type: [string, "null"], format: uuid }
       responses:
-        "200": { description: Content folder updated }
+        "200":
+          description: Content folder updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentFolder" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -661,7 +669,7 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Content folder deleted }
+        "204": { description: Content folder deleted }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/content-collections/{id}:
@@ -684,7 +692,15 @@ paths:
                 name: { type: string }
                 description: { type: string }
       responses:
-        "200": { description: Content collection updated }
+        "200":
+          description: Content collection updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentCollection" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -698,7 +714,7 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Content collection deleted }
+        "204": { description: Content collection deleted }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/content-tags/{id}:
@@ -721,7 +737,15 @@ paths:
                 name: { type: string }
                 color: { type: string }
       responses:
-        "200": { description: Content tag updated }
+        "200":
+          description: Content tag updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentTag" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -736,7 +760,7 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        "200": { description: Content tag deleted }
+        "204": { description: Content tag deleted }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/playlists/{id}/duplicate:
@@ -1465,7 +1489,15 @@ paths:
         Read content health. Requires an authenticated dashboard user with
         the read scope.
       responses:
-        "200": { description: Content health report }
+        "200":
+          description: Content health report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentHealthReport" }
         "401": { description: Dashboard authentication required }
   /api/v1/player/telemetry:
     post:
@@ -2457,7 +2489,17 @@ paths:
       description: >-
         List content folders. Requires an authenticated dashboard user.
       responses:
-        "200": { description: Installation content folders with asset counts }
+        "200":
+          description: Installation content folders with asset counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContentFolder" }
     post:
       operationId: createContentFolder
       description: >-
@@ -2474,7 +2516,15 @@ paths:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: string, maxLength: 500 }
       responses:
-        "201": { description: Folder created }
+        "201":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentFolder" }
         "422": { description: Validation failed }
   /api/v1/content-collections:
     get:
@@ -2482,7 +2532,17 @@ paths:
       description: >-
         List content collections. Requires an authenticated dashboard user.
       responses:
-        "200": { description: Installation collections with asset counts }
+        "200":
+          description: Installation collections with asset counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContentCollection" }
     post:
       operationId: createContentCollection
       description: >-
@@ -2498,14 +2558,32 @@ paths:
                 name: { type: string, minLength: 1, maxLength: 120 }
                 description: { type: string, maxLength: 500 }
       responses:
-        "201": { description: Collection created }
+        "201":
+          description: Collection created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentCollection" }
   /api/v1/content-tags:
     get:
       operationId: listContentTags
       description: >-
         List content tags. Requires an authenticated dashboard user.
       responses:
-        "200": { description: Installation tags with asset counts }
+        "200":
+          description: Installation tags with asset counts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ContentTag" }
     post:
       operationId: createContentTag
       description: >-
@@ -2525,7 +2603,15 @@ paths:
                     description: "Six-digit hex color; empty defaults to slate.",
                   }
       responses:
-        "201": { description: Tag created }
+        "201":
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentTag" }
   /api/v1/assets/bulk-organize:
     post:
       operationId: bulkOrganizeAssets
@@ -8712,6 +8798,101 @@ components:
         name: { type: string }
         color: { type: string }
         assetCount: { type: integer, minimum: 0 }
+    ContentFolder:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, assetCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        parentId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        assetCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ContentCollection:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, assetCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        assetCount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ContentHealthStaleSource:
+      type: object
+      additionalProperties: false
+      required: [id, name, provider, usingCachedData]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        provider: { type: string }
+        lastSuccessAt: { type: string, format: date-time }
+        errorCode: { type: string }
+        usingCachedData: { type: boolean }
+    ContentHealthExpiringAsset:
+      type: object
+      additionalProperties: false
+      required: [id, name, expiresAt, inUse]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        expiresAt: { type: string, format: date-time }
+        inUse: { type: boolean }
+    ContentHealthEmptyPlaylist:
+      type: object
+      additionalProperties: false
+      required: [id, name, screenCount]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        screenCount: { type: integer, minimum: 0 }
+    ContentHealthUnassignedScreen:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    ContentHealthThresholds:
+      type: object
+      additionalProperties: false
+      description: >-
+        Untagged Go struct keys ride the wire verbatim: Studio reads
+        them through a normalizer into camelCase.
+      required: [StaleSourceHours, ExpiringMediaDays]
+      properties:
+        StaleSourceHours: { type: integer, minimum: 0 }
+        ExpiringMediaDays: { type: integer, minimum: 0 }
+    ContentHealthReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          staleSources,
+          expiringAssets,
+          emptyPlaylists,
+          unassignedScreens,
+          thresholds,
+          generatedAt,
+        ]
+      properties:
+        staleSources:
+          type: array
+          items: { $ref: "#/components/schemas/ContentHealthStaleSource" }
+        expiringAssets:
+          type: array
+          items: { $ref: "#/components/schemas/ContentHealthExpiringAsset" }
+        emptyPlaylists:
+          type: array
+          items: { $ref: "#/components/schemas/ContentHealthEmptyPlaylist" }
+        unassignedScreens:
+          type: array
+          items: { $ref: "#/components/schemas/ContentHealthUnassignedScreen" }
+        thresholds: { $ref: "#/components/schemas/ContentHealthThresholds" }
+        generatedAt: { type: string, format: date-time }
     WebsiteConfig:
       type: object
       additionalProperties: false

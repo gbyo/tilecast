@@ -6928,6 +6928,73 @@ export interface components {
       color: string;
       assetCount?: number;
     };
+    ContentFolder: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      parentId?: string;
+      name: string;
+      description: string;
+      assetCount: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    ContentCollection: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      description: string;
+      assetCount: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    ContentHealthStaleSource: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      provider: string;
+      /** Format: date-time */
+      lastSuccessAt?: string;
+      errorCode?: string;
+      usingCachedData: boolean;
+    };
+    ContentHealthExpiringAsset: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** Format: date-time */
+      expiresAt: string;
+      inUse: boolean;
+    };
+    ContentHealthEmptyPlaylist: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      screenCount: number;
+    };
+    ContentHealthUnassignedScreen: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    /** @description Untagged Go struct keys ride the wire verbatim: Studio reads them through a normalizer into camelCase. */
+    ContentHealthThresholds: {
+      StaleSourceHours: number;
+      ExpiringMediaDays: number;
+    };
+    ContentHealthReport: {
+      staleSources: components["schemas"]["ContentHealthStaleSource"][];
+      expiringAssets: components["schemas"]["ContentHealthExpiringAsset"][];
+      emptyPlaylists: components["schemas"]["ContentHealthEmptyPlaylist"][];
+      unassignedScreens: components["schemas"]["ContentHealthUnassignedScreen"][];
+      thresholds: components["schemas"]["ContentHealthThresholds"];
+      /** Format: date-time */
+      generatedAt: string;
+    };
     WebsiteConfig: {
       url: string;
       displayUrl: string;
@@ -8514,7 +8581,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Content folder deleted */
-      200: {
+      204: {
         headers: {
           [name: string]: unknown;
         };
@@ -8564,7 +8631,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentFolder"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -8604,7 +8675,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Content collection deleted */
-      200: {
+      204: {
         headers: {
           [name: string]: unknown;
         };
@@ -8652,7 +8723,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentCollection"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -8692,7 +8767,7 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Content tag deleted */
-      200: {
+      204: {
         headers: {
           [name: string]: unknown;
         };
@@ -8740,7 +8815,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentTag"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -10577,7 +10656,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentHealthReport"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12481,7 +12564,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentFolder"][];
+          };
+        };
       };
     };
   };
@@ -12508,7 +12595,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentFolder"];
+          };
+        };
       };
       /** @description Validation failed */
       422: {
@@ -12533,7 +12624,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentCollection"][];
+          };
+        };
       };
     };
   };
@@ -12558,7 +12653,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentCollection"];
+          };
+        };
       };
     };
   };
@@ -12576,7 +12675,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentTag"][];
+          };
+        };
       };
     };
   };
@@ -12602,7 +12705,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ContentTag"];
+          };
+        };
       };
     };
   };
