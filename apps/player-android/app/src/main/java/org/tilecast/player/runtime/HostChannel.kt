@@ -144,7 +144,14 @@ object HostChannel {
           }
           if(message.type==="host-call-result"){
             var resolve=callResolvers[message.id];
-            if(resolve){delete callResolvers[message.id];resolve(message);}
+            if(resolve){
+              delete callResolvers[message.id];
+              if(message.ok){
+                resolve({ok:true,target:message.result});
+              }else{
+                resolve({ok:false,code:String(message.code||"failed")});
+              }
+            }
             return;
           }
           if(message.type==="host-event"){
@@ -163,7 +170,10 @@ object HostChannel {
             }
           });
         }
-        function fire(call,payload){postToNative({type:"host-call",id:"",call:call,payload:payload||{}});}
+        function fire(call,payload){
+          var id="f"+(++callSeq)+"."+Date.now().toString(36);
+          postToNative({type:"host-call",id:id,call:call,payload:payload||{}});
+        }
         window.tilecastRuntimeHost={
           contractVersion:1,
           info:{host:"android",hostVersion:"HOSTVERSION",engine:"android-webview",engineVersion:"ENGINEVERSION"},
