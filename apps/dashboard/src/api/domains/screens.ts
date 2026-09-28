@@ -109,6 +109,66 @@ export function listScreenSnapshots(
   });
 }
 
+/**
+ * Wire shapes of screen preview and live-stream sessions from the
+ * generated contract.
+ */
+export type WirePreviewSession = components["schemas"]["PreviewSession"];
+export type WireScreenPreview = components["schemas"]["ScreenPreviewMetadata"];
+export type WireLiveStreamSession = components["schemas"]["LiveStreamSession"];
+
+export function renewScreenPreview(
+  id: string,
+  forceCapture: boolean,
+  csrfToken: string,
+): Promise<WirePreviewSession> {
+  return apiPost("/api/v1/screens/{id}/preview-session", {
+    params: { path: { id } },
+    body: { forceCapture },
+    csrfToken,
+  });
+}
+
+export function getScreenPreview(id: string): Promise<WireScreenPreview> {
+  return apiGet("/api/v1/screens/{id}/preview", {
+    params: { path: { id } },
+  });
+}
+
+/** Versioned preview image URL for `<img>` tags; not a fetch call. */
+export function screenPreviewImageUrl(id: string, version: string): string {
+  return `/api/v1/screens/${id}/preview/image?v=${encodeURIComponent(version)}`;
+}
+
+export function startLiveStream(
+  screenId: string,
+  csrfToken: string,
+): Promise<WireLiveStreamSession> {
+  return apiPost("/api/v1/screens/{id}/live-stream", {
+    params: { path: { id: screenId } },
+    csrfToken,
+  });
+}
+
+export function renewLiveStream(
+  screenId: string,
+  sessionId: string,
+  csrfToken: string,
+): Promise<WireLiveStreamSession> {
+  return apiPost("/api/v1/screens/{id}/live-stream/{sessionId}/renew", {
+    params: { path: { id: screenId, sessionId } },
+    csrfToken,
+  });
+}
+
+/** MJPEG relay URL for `<img>` tags; not a fetch call. */
+export function screenLiveStreamUrl(
+  screenId: string,
+  sessionId: string,
+): string {
+  return `/api/v1/screens/${screenId}/live-stream/${sessionId}/mjpeg`;
+}
+
 export function listPendingPairings(): Promise<{
   items: PairingRequest[];
   total: number;

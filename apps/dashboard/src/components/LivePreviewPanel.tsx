@@ -14,7 +14,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
-import { previewApi } from "../api/previews";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import { LiveStreamDialog } from "./LiveStreamDialog";
@@ -47,7 +46,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   });
   const preview = useQuery({
     queryKey: ["screen-preview", screenId],
-    queryFn: () => previewApi.metadata(screenId),
+    queryFn: () => api.screenPreview(screenId),
     refetchInterval: METADATA_REFRESH_MILLIS,
     retry: false,
   });
@@ -58,7 +57,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     let active = true;
     const renew = async (forceCapture: boolean) => {
       try {
-        await previewApi.renew(screenId, csrfToken, forceCapture);
+        await api.renewScreenPreview(screenId, forceCapture, csrfToken);
         if (active) setRenewalError(null);
       } catch (error) {
         if (active)
@@ -83,7 +82,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const manualRefresh = useMutation({
     mutationFn: async () => {
       if (!csrfToken) throw new Error("Your Studio session has expired.");
-      await previewApi.renew(screenId, csrfToken, true);
+      await api.renewScreenPreview(screenId, true, csrfToken);
     },
     onSuccess: async () => {
       setRenewalError(null);
@@ -94,7 +93,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const state = livePreviewState(screen.data, preview.data);
   const imageUrl = useMemo(() => {
     if (!preview.data?.imageAvailable) return null;
-    return previewApi.imageUrl(screenId, preview.data.updatedAt);
+    return api.screenPreviewImageUrl(screenId, preview.data.updatedAt);
   }, [preview.data?.imageAvailable, preview.data?.updatedAt, screenId]);
   const capturedAt = preview.data?.capturedAt
     ? new Date(preview.data.capturedAt)

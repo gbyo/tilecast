@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { translateKnown } from "../i18n";
+
 import { Pagination } from "../components/Pagination";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -160,25 +160,6 @@ export type AuditRecord = {
   metadata: Record<string, unknown>;
 };
 export type AuditPage = { items: AuditRecord[]; nextCursor?: string };
-
-export async function activityRequest<T>(path: string): Promise<T> {
-  const response = await fetch(`/api/v1/activity${path}`, {
-    credentials: "same-origin",
-  });
-  const body = (await response.json().catch(() => ({}))) as {
-    data?: T;
-    error?: { message?: string };
-  };
-  if (!response.ok || !body.data)
-    throw new Error(
-      body.error?.message ??
-        translateKnown(
-          "activity:shared.loadFailed",
-          "Activity data could not be loaded.",
-        ),
-    );
-  return body.data;
-}
 
 export function activityParams(
   range: { from: string; to: string },

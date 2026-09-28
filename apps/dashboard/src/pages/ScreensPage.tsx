@@ -64,7 +64,7 @@ import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAd
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
-import { previewApi } from "../api/previews";
+
 import { previewAge } from "../components/livePreviewState";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
@@ -2357,7 +2357,7 @@ export function ScreenGridCard({
     let active = true;
     const renew = async (forceCapture: boolean) => {
       try {
-        await previewApi.renew(screen.id, csrfToken, forceCapture);
+        await api.renewScreenPreview(screen.id, forceCapture, csrfToken);
       } catch {
         // The metadata query below keeps the card's honest unavailable state.
         // A transient lease failure is retried at the next renewal.
@@ -2375,13 +2375,13 @@ export function ScreenGridCard({
   }, [canRequestPreview, csrfToken, screen.id]);
   const preview = useQuery({
     queryKey: ["screen-preview-card", screen.id],
-    queryFn: () => previewApi.metadata(screen.id),
+    queryFn: () => api.screenPreview(screen.id),
     enabled: visible,
     refetchInterval: visible ? GRID_PREVIEW_METADATA_REFRESH_MILLIS : false,
   });
   const image =
     preview.data?.imageAvailable && preview.data.updatedAt
-      ? previewApi.imageUrl(screen.id, preview.data.updatedAt)
+      ? api.screenPreviewImageUrl(screen.id, preview.data.updatedAt)
       : undefined;
   const age = preview.data?.capturedAt
     ? previewAge(preview.data.capturedAt, now, t)

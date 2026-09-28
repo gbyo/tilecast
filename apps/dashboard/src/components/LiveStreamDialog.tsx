@@ -1,7 +1,9 @@
 import { Radio, Video, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { liveStreamApi, type LiveStreamSession } from "../api/liveStreams";
+import { api } from "../api/client";
+import type { WireLiveStreamSession } from "../api/domains/screens";
+import { endLiveStreamSession } from "../api/liveStreams";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -28,33 +30,33 @@ export function LiveStreamDialog({
   onClose: () => void;
 }) {
   const { t } = useTranslation(["alerts", "common"]);
-  const [session, setSession] = useState<LiveStreamSession | null>(null);
+  const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    let started: LiveStreamSession | null = null;
+    let started: WireLiveStreamSession | null = null;
     let renewal: number | undefined;
 
     setSession(null);
     setPlaying(false);
     setError(null);
-    void liveStreamApi
-      .start(screenId, csrfToken)
+    void api
+      .startLiveStream(screenId, csrfToken)
       .then((next) => {
         if (!active) {
-          void liveStreamApi
-            .end(screenId, next.id, csrfToken, true)
-            .catch(() => undefined);
+          void endLiveStreamSession(screenId, next.id, csrfToken).catch(
+            () => undefined,
+          );
           return;
         }
         started = next;
         setSession(next);
         renewal = window.setInterval(() => {
-          void liveStreamApi
-            .renew(screenId, next.id, csrfToken)
+          void api
+            .renewLiveStream(screenId, next.id, csrfToken)
             .then((renewed) => {
               if (active) setSession(renewed);
             })
@@ -83,9 +85,9 @@ export function LiveStreamDialog({
       active = false;
       if (renewal !== undefined) window.clearInterval(renewal);
       if (started) {
-        void liveStreamApi
-          .end(screenId, started.id, csrfToken, true)
-          .catch(() => undefined);
+        void endLiveStreamSession(screenId, started.id, csrfToken).catch(
+          () => undefined,
+        );
       }
     };
     // `t` is a dependency so a language change restarts this ephemeral
@@ -110,7 +112,7 @@ export function LiveStreamDialog({
           {session ? (
             <img
               className="block size-full object-contain"
-              src={liveStreamApi.mjpegUrl(screenId, session.id)}
+              src={api.screenLiveStreamUrl(screenId, session.id)}
               alt={t("liveStream.imageAlt", { name: screenName })}
               onLoad={() => setPlaying(true)}
               onError={() => setError(t("liveStream.connectionEnded"))}
