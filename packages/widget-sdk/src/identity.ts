@@ -28,6 +28,13 @@ export const TILECAST_TAG_PREFIX = "tc-widget-";
  */
 export const MAX_COMPONENT_CAPABILITY_LENGTH = 80;
 
+/**
+ * Component types may be at most this long, so the full `widget.<type>`
+ * capability fits within MAX_COMPONENT_CAPABILITY_LENGTH.
+ */
+export const MAX_COMPONENT_TYPE_LENGTH =
+  MAX_COMPONENT_CAPABILITY_LENGTH - "widget.".length;
+
 /** Component versions share the capability version bounds of the heartbeat. */
 export const MAX_COMPONENT_VERSION = 100;
 

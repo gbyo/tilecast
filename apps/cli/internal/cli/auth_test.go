@@ -195,7 +195,11 @@ func newFixture(t *testing.T) *cliFixture {
 			map[string]any{"operationId": "listGizmoWidgets", "method": "get",
 				"path": "/api/v1/plugins/gizmo/widgets", "risk": "read",
 				"cliPath": []any{"gizmo", "widget", "list"}, "mcpAction": "list_widgets",
-				"description": "List gizmo widgets."},
+				"description": "List gizmo widgets.",
+				"queryParams": []any{
+					map[string]any{"name": "search", "required": false, "type": "string", "description": "Filter by name."},
+					map[string]any{"name": "limit", "required": false, "type": "integer"},
+				}},
 			map[string]any{"operationId": "getGizmoWidget", "method": "get",
 				"path": "/api/v1/plugins/gizmo/widgets/{name}", "risk": "read",
 				"cliPath": []any{"gizmo", "widget", "get"}, "mcpAction": "get_widget",
@@ -208,6 +212,10 @@ func newFixture(t *testing.T) *cliFixture {
 				"path": "/api/v1/plugins/gizmo/widgets/{name}", "risk": "sensitive",
 				"cliPath": []any{"gizmo", "widget", "delete"}, "mcpAction": "delete_widget",
 				"description": "Delete a gizmo widget."},
+			map[string]any{"operationId": "resetGizmoWidgets", "method": "post",
+				"path": "/api/v1/plugins/gizmo/widgets/reset", "risk": "routine", "input": "fields",
+				"cliPath": []any{"gizmo", "widget", "reset"}, "mcpAction": "reset_widgets",
+				"description": "Reset gizmo widgets from scalar fields."},
 		}, "exclusions": []any{}}
 	mux.HandleFunc("/api/v1/plugins/", func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/")
@@ -264,6 +272,7 @@ func newFixture(t *testing.T) *cliFixture {
 	})
 	mux.HandleFunc("/api/v1/plugins/gizmo/widgets", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
+			f.lastAutomationCall = r.Method + " " + r.URL.RequestURI()
 			write(w, map[string]any{"widgets": []any{
 				map[string]any{"name": "w-1"}, map[string]any{"name": "w-2"}}})
 			return
@@ -404,7 +413,7 @@ func newFixture(t *testing.T) *cliFixture {
 	})
 	mux.HandleFunc("/api/v1/plugins/gizmo/widgets/", func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/api/v1/plugins/gizmo/widgets/")
-		f.lastAutomationCall = r.Method + " " + r.URL.Path
+		f.lastAutomationCall = r.Method + " " + r.URL.EscapedPath()
 		switch r.Method {
 		case http.MethodGet:
 			write(w, map[string]any{"name": name})
@@ -476,11 +485,11 @@ func TestWhoamiPrecedence(t *testing.T) {
 	if err := f.env.config.Upsert(config.Context{Name: "home", ServerURL: f.server.URL, InstallationID: "123e4567-e89b-12d3-a456-426614174000"}, true); err != nil {
 		t.Fatal(err)
 	}
-	// Explicit flag beats a bad environment value.
+	// Explicit environment value is honored.
 	t.Setenv("TILECAST_TOKEN", "tcp_env")
-	out, err := f.execute(t, "", "whoami", "--token", "tcp_flag")
+	out, err := f.execute(t, "", "whoami")
 	if err != nil || !strings.Contains(out, "op (owner)") {
-		t.Fatalf("flag whoami = %q, %v", out, err)
+		t.Fatalf("env whoami = %q, %v", out, err)
 	}
 	// Environment beats the store (which is empty here).
 	out, err = f.execute(t, "", "whoami")

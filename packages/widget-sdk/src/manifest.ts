@@ -17,6 +17,7 @@ import {
   componentCapability,
   COMPONENT_TYPE_PATTERN,
   MAX_COMPONENT_CAPABILITY_LENGTH,
+  MAX_COMPONENT_TYPE_LENGTH,
   MAX_COMPONENT_VERSION,
   TAG_NAME_PATTERN,
 } from "./identity.ts";
@@ -99,6 +100,10 @@ const componentSchema = z
   .object({
     type: z
       .string()
+      .max(
+        MAX_COMPONENT_TYPE_LENGTH,
+        `must fit widget.<type> within ${MAX_COMPONENT_CAPABILITY_LENGTH} characters`,
+      )
       .regex(COMPONENT_TYPE_PATTERN, "must be a qualified identity")
       .refine(
         (type) =>

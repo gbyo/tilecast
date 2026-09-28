@@ -286,7 +286,7 @@ func newAuthStatusCommand(env *environment) *cobra.Command {
 			if resolved.Context.InstallationID != "" {
 				cmd.Printf("Installation:\t%s\n", resolved.Context.InstallationID)
 			}
-			if cmd.Flags().Changed("token") || os.Getenv("TILECAST_TOKEN") != "" {
+			if os.Getenv("TILECAST_TOKEN") != "" {
 				cmd.Printf("Credential:\texplicit bearer (not stored)\n")
 				return nil
 			}

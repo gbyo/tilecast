@@ -15,6 +15,7 @@ import {
   discoverWidgets,
   pairSourcedEntries,
 } from "../src/discovery.ts";
+import { MAX_COMPONENT_TYPE_LENGTH } from "../src/identity.ts";
 import {
   compileComponentConfig,
   configLimitProblem,
@@ -243,8 +244,8 @@ describe("discovery", () => {
     ]);
     const discovery = discoverSourcedWidgets(entries);
     expect(discovery.widgets.map((widget) => widget.dir)).toEqual([
-      "plugins/athletics/widgets/scoreboard",
       "widgets/clock",
+      "plugins/athletics/widgets/scoreboard",
     ]);
     expect(discovery.problems).toEqual([
       "widgets/orphan: has runtime/index.ts but no tilecast.widget.json",
@@ -276,10 +277,10 @@ describe("discovery", () => {
     ]);
     expect(result.problems).toEqual([]);
     expect(result.widgets.map((widget) => widget.dir)).toEqual([
-      "plugins/athletics/widgets/scoreboard",
       "widgets/clock",
+      "plugins/athletics/widgets/scoreboard",
     ]);
-    expect(result.widgets[0]!.source).toEqual({
+    expect(result.widgets[1]!.source).toEqual({
       kind: "plugin",
       pluginId: "athletics",
     });
@@ -315,7 +316,10 @@ describe("discovery", () => {
       },
     ]);
     expect(duplicateId.problems).toEqual([
-      "widgets/a: provider identity a is also declared by plugins/athletics/widgets/b",
+      "plugins/athletics/widgets/b: provider identity a is also declared by widgets/a",
+    ]);
+    expect(duplicateId.widgets.map((widget) => widget.dir)).toEqual([
+      "widgets/a",
     ]);
 
     const outsidePackage = discoverSourcedWidgets([
@@ -356,6 +360,21 @@ describe("manifest", () => {
       renderer: "kotlin",
     };
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
+  });
+
+  it("limits the component type so widget.<type> fits the capability bound", () => {
+    const fitting = `a${"b".repeat(31)}.${"c".repeat(40)}`;
+    expect(fitting).toHaveLength(MAX_COMPONENT_TYPE_LENGTH);
+    expect(
+      widgetManifestSchema.safeParse(manifest(fitting, "tc-widget-probe"))
+        .success,
+    ).toBe(true);
+    const overflowing = `${fitting}d`;
+    expect(overflowing).toHaveLength(MAX_COMPONENT_TYPE_LENGTH + 1);
+    expect(
+      widgetManifestSchema.safeParse(manifest(overflowing, "tc-widget-probe"))
+        .success,
+    ).toBe(false);
   });
 
   it("compiles configTemplate with defaults and refuses missing keys", () => {

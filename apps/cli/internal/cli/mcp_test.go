@@ -268,3 +268,184 @@ func TestMCPStdioProtocol(t *testing.T) {
 		cancel()
 	}
 }
+
+func TestMCPPluginSchemasAreTyped(t *testing.T) {
+	_, backend := mcpFixture(t)
+	ctx := context.Background()
+	documents, err := fetchAutomation(ctx, backend.transport)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := buildMCPTools(backend, documents, false)
+	// Query parameters appear with their OpenAPI types and required
+	// marks; the fixture list op declares an optional string search and
+	// an optional integer limit.
+	defs := pluginMCPTools(documents)
+	var listDef *mcpToolDef
+	for _, def := range defs {
+		def := def
+		if def.name == "gizmo_plugin_list_widgets" {
+			listDef = &def
+		}
+	}
+	if listDef == nil {
+		t.Fatal("missing gizmo_plugin_list_widgets")
+	}
+	seen := map[string]mcpParam{}
+	for _, param := range listDef.params {
+		seen[param.name] = param
+	}
+	search, ok := seen["search"]
+	if !ok || search.schemaType != "string" || search.required {
+		t.Fatalf("search param = %+v, present %v", search, ok)
+	}
+	limit, ok := seen["limit"]
+	if !ok || limit.schemaType != "integer" {
+		t.Fatalf("limit param = %+v, present %v", limit, ok)
+	}
+	// The built input schema carries those types through.
+	var listTool *mcp.ServerTool
+	for _, tool := range tools {
+		if tool.Tool.Name == "gizmo_plugin_list_widgets" {
+			listTool = tool
+		}
+	}
+	if listTool == nil {
+		t.Fatal("missing built list tool")
+	}
+	searchSchema := listTool.Tool.InputSchema.Properties["search"]
+	if searchSchema == nil || searchSchema.Type != "string" {
+		t.Fatalf("search schema = %+v", searchSchema)
+	}
+	// The create op has no body metadata in this fixture document, so its
+	// document parameter stays a free-form JSON value, still required.
+	var createDef *mcpToolDef
+	for _, def := range defs {
+		def := def
+		if def.name == "gizmo_plugin_create_widget" {
+			createDef = &def
+		}
+	}
+	if createDef == nil {
+		t.Fatal("missing gizmo_plugin_create_widget")
+	}
+	foundDocument := false
+	for _, param := range createDef.params {
+		if param.name == "document" && param.required && param.schema == nil {
+			foundDocument = true
+		}
+	}
+	if !foundDocument {
+		t.Fatalf("create params = %+v", createDef.params)
+	}
+}
+
+func TestMCPPluginBodySchema(t *testing.T) {
+	documents := []automationDoc{{
+		APIVersion: 1,
+		Plugin:     "example",
+		Operations: []automationOp{{
+			OperationID: "createThing", Method: "post", Path: "/api/v1/plugins/example/things",
+			Risk: "routine", CLIPath: []string{"example", "thing", "create"}, MCPAction: "create_thing",
+			Input: "document",
+			RequestBody: &automationBody{Required: true, Schema: map[string]any{
+				"type":     "object",
+				"required": []any{"name"},
+				"properties": map[string]any{
+					"name":   map[string]any{"type": "string"},
+					"count":  map[string]any{"type": "integer", "minimum": 1.0},
+					"mode":   map[string]any{"type": "string", "enum": []any{"a", "b"}},
+					"nested": map[string]any{"type": "object", "properties": map[string]any{"flag": map[string]any{"type": "boolean"}}},
+				},
+			}},
+		}},
+	}}
+	defs := pluginMCPTools(documents)
+	if len(defs) != 1 {
+		t.Fatalf("defs = %+v", defs)
+	}
+	var document mcpParam
+	for _, param := range defs[0].params {
+		if param.name == "document" {
+			document = param
+		}
+	}
+	if document.schema == nil {
+		t.Fatal("document schema missing")
+	}
+	properties := document.schema.Properties
+	if properties["name"] == nil || properties["name"].Type != "string" {
+		t.Fatalf("name schema = %+v", properties["name"])
+	}
+	if properties["count"] == nil || properties["count"].Type != "integer" || properties["count"].Minimum == nil {
+		t.Fatalf("count schema = %+v", properties["count"])
+	}
+	if len(properties["mode"].Enum) != 2 {
+		t.Fatalf("mode schema = %+v", properties["mode"])
+	}
+	if properties["nested"] == nil || properties["nested"].Properties["flag"] == nil || properties["nested"].Properties["flag"].Type != "boolean" {
+		t.Fatalf("nested schema = %+v", properties["nested"])
+	}
+	if len(document.schema.Required) != 1 || document.schema.Required[0] != "name" {
+		t.Fatalf("required = %v", document.schema.Required)
+	}
+}
+
+func TestMCPPluginQueryAndEscaping(t *testing.T) {
+	f, backend := mcpFixture(t)
+	ctx := context.Background()
+	documents, err := fetchAutomation(ctx, backend.transport)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defs := pluginMCPTools(documents)
+	byName := map[string]mcpToolDef{}
+	for _, def := range defs {
+		byName[def.name] = def
+	}
+	listed, err := byName["gizmo_plugin_list_widgets"].run(backend, ctx, map[string]any{"search": "lounge", "limit": float64(5)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(jsonString(listed), "w-1") {
+		t.Fatalf("plugin list = %v", listed)
+	}
+	if !strings.Contains(f.lastAutomationCall, "search=lounge") || !strings.Contains(f.lastAutomationCall, "limit=5") {
+		t.Fatalf("query not sent: %q", f.lastAutomationCall)
+	}
+	got, err := byName["gizmo_plugin_get_widget"].run(backend, ctx, map[string]any{"name": "a/b c?d#e%f"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = got
+	if f.lastAutomationCall != "GET /api/v1/plugins/gizmo/widgets/a%2Fb%20c%3Fd%23e%25f" {
+		t.Fatalf("escaped call = %q", f.lastAutomationCall)
+	}
+}
+
+// TestSyntheticPluginParity proves the architectural invariant in one
+// place: a conforming plugin with an API and automation mapping gains
+// CLI participation through the real binary path and MCP participation
+// through tool listing, without handwritten source naming it.
+func TestSyntheticPluginParity(t *testing.T) {
+	f := pluginFixture(t)
+	out, err := f.execute(t, "", "plugin", "gizmo", "widget", "list")
+	if err != nil || !strings.Contains(out, "w-1") {
+		t.Fatalf("CLI parity = %q, %v", out, err)
+	}
+	_, backend := mcpFixture(t)
+	documents, err := fetchAutomation(context.Background(), backend.transport)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := buildMCPTools(backend, documents, false)
+	found := false
+	for _, tool := range tools {
+		if tool.Tool.Name == "gizmo_plugin_list_widgets" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("MCP parity: gizmo family missing from tool listing")
+	}
+}

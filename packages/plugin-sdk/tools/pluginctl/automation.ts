@@ -25,6 +25,13 @@ import {
   parseAutomationDocument,
   type AutomationDocument,
 } from "../../src/automation.ts";
+import {
+  PLUGIN_LIFECYCLE_WORDS,
+  extractOperationMetadata,
+  type BodyMeta,
+  type OperationMetadata,
+  type ParamMeta,
+} from "./automation-params.ts";
 import type { Problem, Repo } from "./repo.ts";
 import { collectOperations } from "./supported.ts";
 
@@ -96,6 +103,15 @@ export function checkAutomationFile(
       add(`${at} CLI path "${path}" is also used by ${pathOwner}`);
     } else {
       seenPaths.set(path, at);
+    }
+    // Automation paths mount below `tilecast plugin`, so they can never
+    // compete with handwritten top-level commands. The one reservation
+    // inside the namespace is the lifecycle family itself: no automated
+    // root may shadow `tilecast plugin list|get|install|remove`.
+    if (PLUGIN_LIFECYCLE_WORDS.includes(operation.cli.path[0]!)) {
+      add(
+        `${at} CLI path "${path}" collides with the handwritten plugin lifecycle commands (list, get, install, remove)`,
+      );
     }
     const actionOwner = seenActions.get(operation.mcp.action);
     if (actionOwner !== undefined) {
@@ -241,6 +257,12 @@ export interface ResolvedAutomationOperation {
   mcpAction: string;
   input?: string;
   description?: string;
+  /** Path placeholders with their OpenAPI types, in template order. */
+  pathParams: ParamMeta[];
+  /** Query parameters as generic CLI flags / MCP inputs. */
+  queryParams: ParamMeta[];
+  /** JSON request-body contract for MCP schema construction. */
+  requestBody?: BodyMeta;
 }
 
 export interface ResolvedAutomation {
@@ -260,6 +282,7 @@ export function resolveAutomation(
   plugin: string,
   automationText: string | null,
   fragmentText: string | null,
+  coreText: string | null = null,
 ): { problems: Problem[]; resolved?: ResolvedAutomation } {
   const problems: Problem[] = [];
   if (automationText === null) return { problems };
@@ -289,27 +312,63 @@ export function resolveAutomation(
   });
   problems.push(...checked.problems);
   if (!checked.document) return { problems };
+  // Derive the mechanical HTTP shape from OpenAPI. automation.yaml stays
+  // small; whatever cannot be represented generically fails here with a
+  // clear problem instead of generating broken CLI/MCP surface.
+  const derived = extractOperationMetadata(
+    plugin,
+    automationFileFor(plugin),
+    fragmentText,
+    coreText,
+  );
+  problems.push(...derived.problems);
+  const resolvedOperations: ResolvedAutomationOperation[] = [];
+  for (const operation of checked.document.operations) {
+    const at = `operations (${operation.operationId})`;
+    if (operation.input === "fields") {
+      problems.push({
+        plugin,
+        file: automationFileFor(plugin),
+        message: `${at} uses input "fields", which generic automation does not support; use "document" for structured bodies`,
+      });
+      continue;
+    }
+    const binding = operations.get(operation.operationId);
+    const meta: OperationMetadata | undefined = derived.metadata.get(
+      operation.operationId,
+    );
+    if (binding === undefined || meta === undefined) {
+      problems.push({
+        plugin,
+        file: automationFileFor(plugin),
+        message: `${at} has no resolvable OpenAPI binding or metadata; automation maps existing operations only`,
+      });
+      continue;
+    }
+    const resolved: ResolvedAutomationOperation = {
+      operationId: operation.operationId,
+      method: binding.method,
+      path: binding.path,
+      risk: operation.risk,
+      cliPath: operation.cli.path,
+      mcpAction: operation.mcp.action,
+      pathParams: meta.pathParams,
+      queryParams: meta.queryParams,
+    };
+    if (operation.input !== undefined) resolved.input = operation.input;
+    if (operation.description !== undefined) {
+      resolved.description = operation.description;
+    }
+    if (meta.requestBody !== undefined) resolved.requestBody = meta.requestBody;
+    resolvedOperations.push(resolved);
+  }
+  if (problems.length > 0) return { problems };
   return {
     problems,
     resolved: {
       apiVersion: 1,
       plugin,
-      operations: checked.document.operations.map((operation) => {
-        const binding = operations.get(operation.operationId);
-        const resolved: ResolvedAutomationOperation = {
-          operationId: operation.operationId,
-          method: binding?.method ?? "get",
-          path: binding?.path ?? "",
-          risk: operation.risk,
-          cliPath: operation.cli.path,
-          mcpAction: operation.mcp.action,
-        };
-        if (operation.input !== undefined) resolved.input = operation.input;
-        if (operation.description !== undefined) {
-          resolved.description = operation.description;
-        }
-        return resolved;
-      }),
+      operations: resolvedOperations,
       exclusions: checked.document.exclusions.map((exclusion) => ({
         operationId: exclusion.operationId,
         reason: exclusion.reason,
