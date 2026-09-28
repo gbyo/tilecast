@@ -205,7 +205,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
   } satisfies ChartConfig;
   const chartData = report.buckets.map((bucket) => ({
     ...bucket,
-    tick: bucket.start,
+    tick: Date.parse(bucket.start),
   }));
   const lastBucket = chartData.at(-1);
   if (lastBucket) {
@@ -214,7 +214,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
     // interval it represents instead of ending at its start timestamp.
     chartData.push({
       ...lastBucket,
-      tick: report.range.to,
+      tick: Date.parse(report.range.to),
     });
   }
   const hasChartData = chartData.length > 0;
@@ -262,11 +262,14 @@ function UptimeBody({ report }: { report: UptimeReport }) {
               <CartesianGrid vertical={false} />
               <XAxis
                 dataKey="tick"
+                type="number"
+                scale="time"
+                domain={["dataMin", "dataMax"]}
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 interval="preserveStartEnd"
-                tickFormatter={(value: string) =>
+                tickFormatter={(value: number) =>
                   formatAxis(value, report.window)
                 }
               />
@@ -543,7 +546,7 @@ function formatRange(start: string | undefined, bucketSeconds: number) {
   })}–${to.toLocaleTimeString([], { hour: "numeric" })}`;
 }
 
-function formatAxis(start: string, window: UptimeWindow) {
+function formatAxis(start: string | number, window: UptimeWindow) {
   const value = new Date(start);
   return window === "24h"
     ? value.toLocaleTimeString([], { hour: "numeric" })
