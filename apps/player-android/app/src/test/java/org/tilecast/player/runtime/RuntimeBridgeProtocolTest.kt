@@ -74,6 +74,21 @@ class RuntimeBridgeProtocolTest {
         assertEquals(false, caps["discovery"])
     }
 
+    @Test fun defaultBootstrapPublishesRequiredHostContract() {
+        val script = RuntimeBridgeProtocol.bootstrapScript()
+        assertTrue(script.contains(RuntimeBridgeProtocol.HOST_GLOBAL))
+        assertTrue(script.contains(RuntimeBridgeProtocol.BRIDGE_NAME))
+        assertTrue(script.contains("contractVersion:" + RuntimeBridgeProtocol.CONTRACT_VERSION))
+        listOf(
+            "subscribe:function",
+            "ready:function",
+            "presentationResult:function",
+            "reportEvidence:function",
+            "reportPlaybackError:function",
+            "__tilecastHostNudge",
+        ).forEach { member -> assertTrue("missing " + member, script.contains(member)) }
+    }
+
     @Test fun jsonLibrarySanity() {
         assertEquals("presentation", Json.parseToJsonElement("""{"type":"presentation"}""").jsonObject["type"].toString().trim('"'))
     }
