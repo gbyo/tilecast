@@ -214,49 +214,54 @@ async function call<P extends keyof paths, M extends HttpMethod>(
 }
 
 /**
- * The explicit response type covers endpoints whose success body the
- * contract does not type yet. Path, query, and body stay contract-typed;
- * the response falls back to a local Studio type until the contract
- * gains a schema, at which point the override is removed.
+ * Path, query, body, and response are all contract-typed: the response
+ * type is the operation's described success body, unwrapped from the
+ * `{ data }` envelope. There is deliberately no response-type parameter.
+ * A wire shape that differs from a Studio view model gets a named
+ * normalizer in its domain module, not a substituted response type here.
  */
-export function apiGet<
-  P extends ClientPathsWithMethod<StudioClient, "get">,
-  T = SuccessData<P, "get">,
->(path: P, options?: TypedFetchOptions<P, "get">): Promise<T> {
-  return call("get", path, options) as Promise<T>;
+export function apiGet<P extends ClientPathsWithMethod<StudioClient, "get">>(
+  path: P,
+  options?: TypedFetchOptions<P, "get">,
+): Promise<SuccessData<P, "get">> {
+  return call("get", path, options);
 }
 
-export function apiPost<
-  P extends ClientPathsWithMethod<StudioClient, "post">,
-  T = SuccessData<P, "post">,
->(path: P, options?: TypedFetchOptions<P, "post">): Promise<T> {
-  return call("post", path, options) as Promise<T>;
+export function apiPost<P extends ClientPathsWithMethod<StudioClient, "post">>(
+  path: P,
+  options?: TypedFetchOptions<P, "post">,
+): Promise<SuccessData<P, "post">> {
+  return call("post", path, options);
 }
 
-export function apiPut<
-  P extends ClientPathsWithMethod<StudioClient, "put">,
-  T = SuccessData<P, "put">,
->(path: P, options?: TypedFetchOptions<P, "put">): Promise<T> {
-  return call("put", path, options) as Promise<T>;
+export function apiPut<P extends ClientPathsWithMethod<StudioClient, "put">>(
+  path: P,
+  options?: TypedFetchOptions<P, "put">,
+): Promise<SuccessData<P, "put">> {
+  return call("put", path, options);
 }
 
 export function apiPatch<
   P extends ClientPathsWithMethod<StudioClient, "patch">,
-  T = SuccessData<P, "patch">,
->(path: P, options?: TypedFetchOptions<P, "patch">): Promise<T> {
-  return call("patch", path, options) as Promise<T>;
+>(
+  path: P,
+  options?: TypedFetchOptions<P, "patch">,
+): Promise<SuccessData<P, "patch">> {
+  return call("patch", path, options);
 }
 
 export function apiDelete<
   P extends ClientPathsWithMethod<StudioClient, "delete">,
-  T = SuccessData<P, "delete">,
->(path: P, options?: TypedFetchOptions<P, "delete">): Promise<T> {
-  return call("delete", path, options) as Promise<T>;
+>(
+  path: P,
+  options?: TypedFetchOptions<P, "delete">,
+): Promise<SuccessData<P, "delete">> {
+  return call("delete", path, options);
 }
 
-export function apiHead<
-  P extends ClientPathsWithMethod<StudioClient, "head">,
-  T = SuccessData<P, "head">,
->(path: P, options?: TypedFetchOptions<P, "head">): Promise<T> {
-  return call("head", path, options) as Promise<T>;
+export function apiHead<P extends ClientPathsWithMethod<StudioClient, "head">>(
+  path: P,
+  options?: TypedFetchOptions<P, "head">,
+): Promise<SuccessData<P, "head">> {
+  return call("head", path, options);
 }
