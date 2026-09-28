@@ -16252,7 +16252,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description Provider unknown, Data Source incompatible, or a selected field does not exist */
       422: {
@@ -16344,7 +16348,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description Provider configuration rejected */
       422: {
@@ -16413,6 +16421,17 @@ export interface operations {
     responses: {
       /** @description Widget duplicated */
       201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };

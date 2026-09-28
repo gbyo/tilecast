@@ -4483,13 +4483,22 @@ paths:
     post:
       operationId: createWidget
       description: Requires an authenticated dashboard session. Creates a reusable Widget or catalog App. An App recipe may atomically provision one hidden managed Data Source while preserving normal dependency and manifest behavior.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/WidgetInput" }
       responses:
-        "201": { description: Widget created }
+        "201":
+          description: Widget created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
         "422": { description: "Provider unknown, Data Source incompatible, or a
               selected field does not exist" }
   /api/v1/provider-catalog:
@@ -4523,6 +4532,7 @@ paths:
       operationId: updateWidget
       description: >-
         Update widget. Requires an authenticated dashboard user.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       requestBody:
@@ -4531,7 +4541,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/WidgetInput" }
       responses:
-        "200": { description: Widget updated and affected manifests revised }
+        "200":
+          description: Widget updated and affected manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
         "422": { description: Provider configuration rejected }
   /api/v1/widgets/{id}/preview-image:
     put:
@@ -4554,10 +4572,20 @@ paths:
       operationId: duplicateWidget
       description: >-
         Duplicate widget. Requires an authenticated dashboard user.
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
       responses:
-        "201": { description: Widget duplicated }
+        "201":
+          description: Widget duplicated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
+        "401": { description: Dashboard authentication required }
   /api/v1/data-sources:
     get:
       operationId: listDataSources
