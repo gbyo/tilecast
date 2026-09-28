@@ -146,7 +146,7 @@ export function V2WidgetEditor({
       ) {
         const chartType =
           (upgraded["chartType"] as string | undefined) ??
-          (saved["chartType"] as string | undefined);
+          ((saved as Record<string, unknown>)["chartType"] as string | undefined);
         if (chartType === "bar" || chartType === "donut")
           upgraded["style"] = "bar";
         else if (chartType === "line") upgraded["style"] = "line";
