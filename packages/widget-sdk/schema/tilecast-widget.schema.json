@@ -93,7 +93,7 @@
           "type": "object",
           "propertyNames": { "type": "string" },
           "additionalProperties": { "$ref": "#/$defs/__schema0" },
-          "description": "Compiles the persisted Widget configuration into the component config. Values may be {\"$config\": key, \"default\": value}."
+          "description": "Compiles the persisted Widget configuration into the component config. Values may be {\"$config\": key, \"default\": value, \"when\": flag}."
         },
         "dataSourceFields": {
           "description": "Configuration keys that hold Data Source IDs the component may read.",

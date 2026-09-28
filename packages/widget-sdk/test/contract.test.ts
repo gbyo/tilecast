@@ -395,6 +395,22 @@ describe("manifest", () => {
     ).toThrow(/missing configuration/);
   });
 
+  it("honors a when gate so legacy toggles survive projection", () => {
+    const template = {
+      instruction: { $config: "body", default: "", when: "showBody" },
+    };
+    expect(
+      compileComponentConfig(template, { body: "Point it.", showBody: true }),
+    ).toEqual({ instruction: "Point it." });
+    expect(
+      compileComponentConfig(template, { body: "Point it.", showBody: false }),
+    ).toEqual({ instruction: "" });
+    // A persisted record that predates the flag keeps the mapped value.
+    expect(compileComponentConfig(template, { body: "Point it." })).toEqual({
+      instruction: "Point it.",
+    });
+  });
+
   it("resolves chained defaults onto superseded configuration keys", () => {
     const template = {
       payload: {

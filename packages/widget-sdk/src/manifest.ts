@@ -125,7 +125,7 @@ const componentSchema = z
     configTemplate: z
       .record(z.string(), jsonValue)
       .describe(
-        'Compiles the persisted Widget configuration into the component config. Values may be {"$config": key, "default": value}.',
+        'Compiles the persisted Widget configuration into the component config. Values may be {"$config": key, "default": value, "when": flag}.',
       ),
     dataSourceFields: z
       .array(z.string().min(1).max(80))
@@ -269,6 +269,14 @@ export type WidgetFixture = z.output<typeof widgetFixtureSchema>;
  * Server implements the same closed rules (playlists/component.go); the
  * fixtures in widgets/<name>/fixtures keep the two in agreement.
  */
+function isConfigFlagOn(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value !== "";
+  if (typeof value === "number") return value !== 0;
+  return true;
+}
+
 export function compileComponentConfig(
   template: Readonly<Record<string, unknown>>,
   configuration: Readonly<Record<string, unknown>>,
@@ -279,6 +287,18 @@ export function compileComponentConfig(
       const node = value as Record<string, unknown>;
       if (typeof node["$config"] === "string") {
         const key = node["$config"];
+        // A "when" gate keeps legacy toggles meaningful in projections: a
+        // falsy gate resolves the default instead of the mapped value.
+        if (typeof node["when"] === "string" && node["when"] !== "") {
+          const flag = node["when"];
+          if (
+            Object.hasOwn(configuration, flag) &&
+            !isConfigFlagOn(configuration[flag])
+          ) {
+            if (Object.hasOwn(node, "default")) return resolve(node["default"]);
+            return "";
+          }
+        }
         if (Object.hasOwn(configuration, key)) return configuration[key];
         if (Object.hasOwn(node, "default")) {
           // A default may itself reference configuration, so a

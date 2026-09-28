@@ -414,7 +414,11 @@
         "configTemplate": {
           "payload": { "$config": "url", "default": "" },
           "heading": { "$config": "heading", "default": "" },
-          "instruction": { "$config": "body", "default": "" },
+          "instruction": {
+            "$config": "body",
+            "default": "",
+            "when": "showBody"
+          },
           "shortLabel": { "$config": "shortLabel", "default": "" },
           "style": { "$config": "style", "default": "standard" },
           "background": { "$config": "backgroundColor", "default": "#FFFFFF" },
