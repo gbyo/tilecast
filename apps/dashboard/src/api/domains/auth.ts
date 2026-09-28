@@ -155,42 +155,33 @@ export function describeOAuthApproval(
   params: URLSearchParams,
 ): Promise<OAuthApproval> {
   const get = (key: string): string => params.get(key) ?? "";
-  return apiGet<"/api/v1/oauth/authorize", OAuthApproval>(
-    "/api/v1/oauth/authorize",
-    {
-      params: {
-        query: {
-          client_id: get("client_id"),
-          redirect_uri: get("redirect_uri"),
-          scope: get("scope"),
-          state: params.get("state") ?? undefined,
-          code_challenge: get("code_challenge"),
-          code_challenge_method:
-            params.get("code_challenge_method") === "S256" ? "S256" : undefined,
-        },
+  return apiGet("/api/v1/oauth/authorize", {
+    params: {
+      query: {
+        client_id: get("client_id"),
+        redirect_uri: get("redirect_uri"),
+        scope: get("scope"),
+        state: params.get("state") ?? undefined,
+        code_challenge: get("code_challenge"),
+        code_challenge_method:
+          params.get("code_challenge_method") === "S256" ? "S256" : undefined,
       },
     },
-  );
+  });
 }
 
 export function approveOAuth(
   decision: OAuthDecision,
   csrfToken: string,
 ): Promise<{ redirectUri: string }> {
-  return apiPost<"/api/v1/oauth/approve", { redirectUri: string }>(
-    "/api/v1/oauth/approve",
-    { body: decision, csrfToken },
-  );
+  return apiPost("/api/v1/oauth/approve", { body: decision, csrfToken });
 }
 
 export function denyOAuth(
   decision: OAuthDecision,
   csrfToken: string,
 ): Promise<{ redirectUri: string }> {
-  return apiPost<"/api/v1/oauth/deny", { redirectUri: string }>(
-    "/api/v1/oauth/deny",
-    { body: decision, csrfToken },
-  );
+  return apiPost("/api/v1/oauth/deny", { body: decision, csrfToken });
 }
 
 export function listOAuthGrants(): Promise<{ grants: OAuthGrant[] }> {
