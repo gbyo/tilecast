@@ -81,9 +81,6 @@ export async function snapshot(
     await expect(page).toHaveScreenshot(`${name}.png`, {
       mask: [...volatileRegions(modal ? dialog : page), ...extraMasks],
       maskColor: "#808080",
-      // Masked relative times must not resize the surrounding table when
-      // server time crosses the fixed browser clock used by these fixtures.
-      style: `table time { display: inline-block; width: 6rem; } ${modal ? "[data-visual-volatile] { visibility: hidden !important; }" : ""}`,
     });
   } finally {
     if (modal) {
