@@ -2892,7 +2892,15 @@ paths:
       description: >-
         Public. Start a pairing session and return the visible code with its private poll secret.
       responses:
-        "201": { description: Pairing session created }
+        "201":
+          description: Pairing session created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PairingSessionCreated" }
         "409": { description: Installation identity mismatch }
         "429": { description: Pairing requests are rate limited }
   /api/v1/player/pairing-sessions/{id}:
@@ -2914,7 +2922,15 @@ paths:
             schema: { type: string, pattern: "^Pairing " },
           }
       responses:
-        "200": { description: Pairing state or one-time enrollment result }
+        "200":
+          description: Pairing state or one-time enrollment result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PairingSessionPoll" }
         "401": { description: Poll secret missing or invalid }
   /api/v1/player/enroll:
     post:
@@ -2922,7 +2938,15 @@ paths:
       description: >-
         Redeem a one-time enrollment token for the permanent device credential, returned exactly once. The enrollment token authenticates this call.
       responses:
-        "201": { description: Device credential returned exactly once }
+        "201":
+          description: Device credential returned exactly once
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/EnrollmentResult" }
         "409": { description: Enrollment token already used }
   /api/v1/player/heartbeat:
     post:
@@ -2948,6 +2972,13 @@ paths:
           description:
             Heartbeat accepted. `data.ignoredFields` names optional playback
             identifiers that were malformed and therefore dropped.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/HeartbeatAccepted" }
         "400": { description: Heartbeat body rejected }
         "401": { description: Credential invalid or revoked }
         "403": { description: Screen disabled }
@@ -2968,7 +2999,15 @@ paths:
               type: object
               additionalProperties: false
       responses:
-        "200": { description: Liveness contact accepted }
+        "200":
+          description: Liveness contact accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/LivenessAccepted" }
         "401": { description: Credential invalid or revoked }
         "403": { description: Screen disabled }
   /api/v1/player/socket:
@@ -3251,7 +3290,15 @@ paths:
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: Requires the Owner or Administrator role and the read scope. Pending pairing sessions awaiting approval or rejection.
       responses:
-        "200": { description: Pending pairing sessions }
+        "200":
+          description: Pending pairing sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PendingPairingList" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator required }
   /api/v1/screens/pairing/resolve:
@@ -3273,7 +3320,15 @@ paths:
               properties:
                 code: { type: string, minLength: 6, maxLength: 6 }
       responses:
-        "200": { description: Pending player metadata }
+        "200":
+          description: Pending player metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PairingRequest" }
         "401": { description: Dashboard authentication required }
         "404": { description: "Code invalid, missing, or expired" }
   /api/v1/screens/pairing/{id}/approve:
@@ -3320,7 +3375,15 @@ paths:
                     description: Required when replaceHardware is true.,
                   }
       responses:
-        "200": { description: Screen approved }
+        "200":
+          description: Screen approved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Screen" }
         "409": { description: "Pairing recovery confirmation required, hardware
               replacement conflict, or pairing state conflict" }
   /api/v1/locations:
@@ -10852,6 +10915,142 @@ components:
         installationId: { type: string, format: uuid }
         organizationName: { type: string }
         pairingEnabled: { type: boolean }
+    DeviceMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          playerInstallationId,
+          platform,
+          manufacturer,
+          model,
+          androidVersion,
+          playerVersion,
+          screenWidth,
+          screenHeight,
+          density,
+          locale,
+          timezone,
+        ]
+      properties:
+        playerInstallationId: { type: string, format: uuid }
+        platform: { type: string, minLength: 1, maxLength: 120 }
+        manufacturer: { type: string, minLength: 1, maxLength: 120 }
+        model: { type: string, minLength: 1, maxLength: 120 }
+        androidVersion: { type: string, minLength: 1, maxLength: 120 }
+        playerVersion: { type: string, minLength: 1, maxLength: 120 }
+        screenWidth: { type: integer, minimum: 1, maximum: 16384 }
+        screenHeight: { type: integer, minimum: 1, maximum: 16384 }
+        density: { type: number, minimum: 0.5, maximum: 10 }
+        locale: { type: string, minLength: 1, maxLength: 120 }
+        timezone: { type: string, minLength: 1, maxLength: 120 }
+        approximateAddress: { type: string }
+    PairingSessionCreated:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          code,
+          pollSecret,
+          expiresAt,
+          serverTime,
+          pollingIntervalSeconds,
+          approvalUrl,
+          organizationName,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          pattern: "^[2-9A-HJ-KM-NP-Z]{6}$"
+          description: Visible six-character pairing code shown to the installer.
+        pollSecret:
+          type: string
+          description: Private poll secret for Authorization Pairing polling. Never use the visible code to poll.
+        expiresAt: { type: string, format: date-time }
+        serverTime: { type: string, format: date-time }
+        pollingIntervalSeconds: { type: integer, minimum: 1 }
+        approvalUrl: { type: string }
+        organizationName: { type: string }
+    PairingSessionPoll:
+      type: object
+      additionalProperties: false
+      required: [status, expiresAt]
+      properties:
+        status: { type: string, enum: [pending, claimed, expired, rejected] }
+        expiresAt: { type: string, format: date-time }
+        screenId: { type: string, format: uuid }
+        enrollmentToken:
+          type: string
+          description: One-time enrollment token, present only on the first approved poll.
+        failureReason: { type: string }
+    EnrollmentResult:
+      type: object
+      additionalProperties: false
+      required: [screenId, screenName, deviceCredential]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        deviceCredential:
+          type: string
+          description: Permanent device credential, returned exactly once.
+    HeartbeatAccepted:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted: { type: boolean }
+        ignoredFields:
+          type: array
+          items: { type: string }
+          description: Optional playback identifiers that were malformed and therefore dropped.
+    LivenessAccepted:
+      type: object
+      additionalProperties: false
+      required: [accepted]
+      properties:
+        accepted: { type: boolean }
+    PairingRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          status,
+          metadata,
+          createdAt,
+          expiresAt,
+          previouslyPaired,
+          hasActiveCredential,
+          credentialReplacementAuthorized,
+          pairingMode,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, approved, rejected] }
+        metadata: { $ref: "#/components/schemas/DeviceMetadata" }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        previouslyPaired: { type: boolean }
+        existingScreenId: { type: string, format: uuid }
+        existingScreenName: { type: string }
+        hasActiveCredential: { type: boolean }
+        credentialReplacementAuthorized: { type: boolean }
+        pairingMode:
+          type: string
+          enum: [new_screen, hardware_replacement, credential_repair]
+    PendingPairingList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/PairingRequest" }
+        total: { type: integer, minimum: 0 }
     ScreenStatus:
       type: string
       enum: [online, recent, stale, offline, disabled, revoked]
