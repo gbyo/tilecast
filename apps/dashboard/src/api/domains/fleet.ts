@@ -18,7 +18,6 @@ import type {
   LocationInput,
   PluginCatalog,
   PolicyDocument,
-  PresentationNetworkInput,
   PresentationOverride,
   ScreenGroup,
   ScreenGroupList,
@@ -65,8 +64,14 @@ export function getPresentationNetwork(id: string) {
   });
 }
 
+/** Creating a network requires its secret; updating may omit it to keep it. */
+export type PresentationNetworkCreateInput =
+  components["schemas"]["PresentationNetworkCreateInput"];
+export type PresentationNetworkUpdateInput =
+  components["schemas"]["PresentationNetworkUpdateInput"];
+
 export function createPresentationNetwork(
-  input: PresentationNetworkInput,
+  input: PresentationNetworkCreateInput,
   csrfToken: string,
 ) {
   return apiPost("/api/v1/presentation-networks", {
@@ -77,7 +82,7 @@ export function createPresentationNetwork(
 
 export function updatePresentationNetwork(
   id: string,
-  input: PresentationNetworkInput,
+  input: PresentationNetworkUpdateInput,
   csrfToken: string,
 ) {
   return apiPatch("/api/v1/presentation-networks/{id}", {

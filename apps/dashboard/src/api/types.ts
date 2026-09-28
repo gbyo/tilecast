@@ -19,7 +19,8 @@ export type AuthStatus = {
   authenticated: boolean;
   user?: User;
   csrfToken?: string;
-  authMethod?: AuthMethod;
+  /** A session sign-in factor, or the bearer kind when the caller used a grant. */
+  authMethod?: AuthMethod | "pat" | "oauth";
   /** The organization requires a second factor this account has not enrolled. */
   mfaEnrollmentRequired?: boolean;
   /**

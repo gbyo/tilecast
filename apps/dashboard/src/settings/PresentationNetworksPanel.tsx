@@ -140,14 +140,16 @@ export function PresentationNetworksPanel({
 
   const save = useMutation({
     mutationFn: async () => {
-      const input: PresentationNetworkInput = {
-        ...draft,
-        ...(secret.length > 0 ? { secret } : {}),
-      };
+      // The Server validates the secret on create; an empty one is refused
+      // there. An update omits it to keep the stored credential.
       const network =
         editing === "new"
-          ? await api.createPresentationNetwork(input, csrf)
-          : await api.updatePresentationNetwork(editing ?? "", input, csrf);
+          ? await api.createPresentationNetwork({ ...draft, secret }, csrf)
+          : await api.updatePresentationNetwork(
+              editing ?? "",
+              { ...draft, ...(secret.length > 0 ? { secret } : {}) },
+              csrf,
+            );
       await api.replacePresentationNetworkAssignments(
         network.id,
         assignmentIds,
