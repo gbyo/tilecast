@@ -223,7 +223,15 @@ paths:
       description: >-
         Security status. Requires an enrolled dashboard session.
       responses:
-        "200": { description: "Enrolled factors, passkeys, and policy state" }
+        "200":
+          description: "Enrolled factors, passkeys, and policy state"
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SecurityStatus" }
         "401": { description: Authentication required }
   /api/v1/me/security/totp:
     post:
@@ -236,7 +244,15 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        "200": { description: Provisioning URI and typed secret }
+        "200":
+          description: Provisioning URI and typed secret
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TOTPEnrollment" }
         "409": { description: An authenticator is already enrolled }
   /api/v1/me/security/totp/confirm:
     post:
@@ -255,7 +271,15 @@ paths:
             schema:
               $ref: "#/components/schemas/AuthenticatorCodeRequest"
       responses:
-        "200": { description: Updated security state }
+        "200":
+          description: Updated security state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SecurityStatus" }
         "401": { description: Incorrect code }
         "404": { description: No pending enrollment }
   /api/v1/me/security/totp/remove:
@@ -295,7 +319,15 @@ paths:
             schema:
               $ref: "#/components/schemas/PasswordConfirmation"
       responses:
-        "201": { description: Ten new recovery codes }
+        "201":
+          description: Ten new recovery codes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/RecoveryCodes" }
         "403": { description: The password was not correct }
   /api/v1/me/security/passkeys/options:
     post:
@@ -332,7 +364,15 @@ paths:
             schema:
               $ref: "#/components/schemas/WebAuthnCredential"
       responses:
-        "201": { description: Passkey enrolled }
+        "201":
+          description: Passkey enrolled
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PasskeySummary" }
         "401": { description: The passkey could not be verified }
   /api/v1/me/security/passkeys/{id}:
     patch:
@@ -6987,6 +7027,71 @@ components:
       required: [name]
       properties:
         name: { type: string, maxLength: 60 }
+    AuthMethod:
+      type: string
+      enum: [password, totp, passkey, recovery_code, demo]
+    MFAPolicy:
+      type: string
+      enum: [none, administrators, all]
+    PasskeySummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, credentialId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        credentialId: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+    SecurityStatus:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          relyingPartyId,
+          userHandle,
+          totpEnrolled,
+          passkeys,
+          recoveryCodesRemaining,
+          enrolled,
+          passkeysAvailable,
+          passkeysUnavailableReason,
+          required,
+          policy,
+          authMethod,
+        ]
+      properties:
+        relyingPartyId: { type: string }
+        userHandle: { type: string }
+        totpEnrolled: { type: boolean }
+        totpConfirmedAt: { type: string, format: date-time }
+        passkeys:
+          type: array
+          items: { $ref: "#/components/schemas/PasskeySummary" }
+        recoveryCodesRemaining: { type: integer, minimum: 0 }
+        enrolled: { type: boolean }
+        passkeysAvailable: { type: boolean }
+        passkeysUnavailableReason: { type: string }
+        required: { type: boolean }
+        policy: { $ref: "#/components/schemas/MFAPolicy" }
+        authMethod: { $ref: "#/components/schemas/AuthMethod" }
+    TOTPEnrollment:
+      type: object
+      additionalProperties: false
+      required: [provisioningUri, secret]
+      properties:
+        provisioningUri: { type: string }
+        secret: { type: string }
+    RecoveryCodes:
+      type: object
+      additionalProperties: false
+      required: [codes]
+      properties:
+        codes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: string }
     WebAuthnCredential:
       type: object
       description: >-
