@@ -101,6 +101,7 @@ import {
   WidgetLivePreview,
   assetPreviewStyle,
 } from "../components/layout-editor/WidgetLivePreview";
+import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1139,23 +1140,14 @@ export function LayoutEditorPage() {
           }
           if ("datasets" in preview) {
             // Live and record adapters answer named datasets rather than a
-            // flat record list; flatten them so bound widgets preview the
-            // same rows the Player resolves.
-            const records = preview.datasets.flatMap(
-              (dataset) => dataset.records ?? [],
-            );
+            // flat record list. A dataset is records, an object of values,
+            // or time-series points; each becomes rows so bound widgets
+            // preview what the Player resolves.
             return [
               dataSourceId,
               {
                 provider: "json" as const,
-                records: records.map((record) => ({
-                  id: record.id,
-                  title:
-                    record.values.title ??
-                    Object.values(record.values).find(Boolean) ??
-                    "",
-                  values: record.values,
-                })),
+                records: previewRecordsFromDatasets(preview.datasets),
                 emptyState: "No items available",
               },
             ] as const;

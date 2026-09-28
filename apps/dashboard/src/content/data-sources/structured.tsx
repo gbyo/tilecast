@@ -26,6 +26,7 @@ import {
 import { Switch } from "../../components/ui/switch";
 import type {
   DataSourceDetail,
+  SavedDataSource,
   StructuredField,
   StructuredInspection,
   StructuredValueType,
@@ -489,7 +490,7 @@ export function StructuredDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);

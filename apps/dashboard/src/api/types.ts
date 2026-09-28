@@ -853,6 +853,12 @@ export type UptimeReport = {
   screens: UptimeScreen[];
 };
 
+/**
+ * A Data Source as create and update return it: the stored record without
+ * refresh status, diagnostics, or usage.
+ */
+export type SavedDataSource = components["schemas"]["DataSource"];
+
 /** Command types the Server queues; the contract owns the vocabulary. */
 export type PlayerCommandType = components["schemas"]["PlayerCommandType"];
 

@@ -21,6 +21,7 @@ import type {
   CalendarConfig,
   CalendarPreview,
   DataSourceDetail,
+  SavedDataSource,
 } from "../../api/types";
 import { formatRegionalDateTimeValue } from "../../settings/regionalFormatting";
 import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
@@ -90,7 +91,7 @@ export function CalendarDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);

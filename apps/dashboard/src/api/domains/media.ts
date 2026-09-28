@@ -24,7 +24,6 @@ import type {
   DataSourceDetail,
   DataSourceInput,
   DataSourceListResult,
-  DataSourceProvider,
   ManualSourceConfig,
   ProviderCatalog,
   SourceRefreshDiagnostics,
@@ -452,8 +451,14 @@ export async function getDataSourceDiagnostics(
 export type WireDataSourcePreviewResult =
   components["schemas"]["DataSourcePreviewResult"];
 
+/** Providers the contract accepts on the preview and inspect routes. */
+export type PreviewProvider =
+  paths["/api/v1/data-sources/{provider}/preview"]["post"]["parameters"]["path"]["provider"];
+export type InspectProvider =
+  paths["/api/v1/data-sources/{provider}/inspect"]["post"]["parameters"]["path"]["provider"];
+
 export function previewDataSource(
-  provider: DataSourceProvider,
+  provider: PreviewProvider,
   configuration:
     | CalendarConfig
     | StructuredSourceConfig
@@ -473,7 +478,7 @@ export function previewDataSource(
 }
 
 export function inspectDataSource(
-  provider: DataSourceProvider,
+  provider: InspectProvider,
   configuration: StructuredSourceConfig,
   csrfToken: string,
 ): Promise<StructuredInspection> {
