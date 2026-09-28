@@ -5562,6 +5562,28 @@ export interface components {
     IncidentList: {
       items: components["schemas"]["Incident"][];
     };
+    IncidentTimelineEntry: {
+      /** Format: uuid */
+      id: string;
+      role: string;
+      /** Format: date-time */
+      occurredAt: string;
+      actorName?: string;
+      summary: string;
+    };
+    IncidentScreenRef: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+    };
+    IncidentDetail: components["schemas"]["Incident"] & {
+      timeline: components["schemas"]["IncidentTimelineEntry"][];
+      screens: components["schemas"]["IncidentScreenRef"][];
+      relatedEvents: components["schemas"]["ScreenEventRecord"][];
+      proofSessions: components["schemas"]["ProofOfPlayRecord"][];
+      auditChanges: components["schemas"]["AuditActivityRecord"][];
+      recoveryPath: string;
+    };
     /** @enum {string} */
     ProofResult:
       | "playing"
@@ -14776,7 +14798,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["IncidentDetail"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
