@@ -4953,51 +4953,6 @@ func (e InspectDataSourceParamsProvider) Valid() bool {
 	}
 }
 
-// Defines values for PreviewDataSourceParamsProvider.
-const (
-	PreviewDataSourceParamsProviderAirQuality PreviewDataSourceParamsProvider = "air_quality"
-	PreviewDataSourceParamsProviderAtom       PreviewDataSourceParamsProvider = "atom"
-	PreviewDataSourceParamsProviderCalendar   PreviewDataSourceParamsProvider = "calendar"
-	PreviewDataSourceParamsProviderCapAlerts  PreviewDataSourceParamsProvider = "cap_alerts"
-	PreviewDataSourceParamsProviderCsv        PreviewDataSourceParamsProvider = "csv"
-	PreviewDataSourceParamsProviderFeed       PreviewDataSourceParamsProvider = "feed"
-	PreviewDataSourceParamsProviderJson       PreviewDataSourceParamsProvider = "json"
-	PreviewDataSourceParamsProviderManual     PreviewDataSourceParamsProvider = "manual"
-	PreviewDataSourceParamsProviderRss        PreviewDataSourceParamsProvider = "rss"
-	PreviewDataSourceParamsProviderTransit    PreviewDataSourceParamsProvider = "transit"
-	PreviewDataSourceParamsProviderWeather    PreviewDataSourceParamsProvider = "weather"
-)
-
-// Valid indicates whether the value is a known member of the PreviewDataSourceParamsProvider enum.
-func (e PreviewDataSourceParamsProvider) Valid() bool {
-	switch e {
-	case PreviewDataSourceParamsProviderAirQuality:
-		return true
-	case PreviewDataSourceParamsProviderAtom:
-		return true
-	case PreviewDataSourceParamsProviderCalendar:
-		return true
-	case PreviewDataSourceParamsProviderCapAlerts:
-		return true
-	case PreviewDataSourceParamsProviderCsv:
-		return true
-	case PreviewDataSourceParamsProviderFeed:
-		return true
-	case PreviewDataSourceParamsProviderJson:
-		return true
-	case PreviewDataSourceParamsProviderManual:
-		return true
-	case PreviewDataSourceParamsProviderRss:
-		return true
-	case PreviewDataSourceParamsProviderTransit:
-		return true
-	case PreviewDataSourceParamsProviderWeather:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ResetDemoJSONBodyScenario.
 const (
 	ResetDemoJSONBodyScenarioBasic       ResetDemoJSONBodyScenario = "basic"
@@ -10985,9 +10940,6 @@ type PreviewDataSourceJSONBody struct {
 	PreviewDate   *openapi_types.Date    `json:"previewDate,omitempty"`
 }
 
-// PreviewDataSourceParamsProvider defines parameters for PreviewDataSource.
-type PreviewDataSourceParamsProvider string
-
 // ResetDemoJSONBody defines parameters for ResetDemo.
 type ResetDemoJSONBody struct {
 	Scenario *ResetDemoJSONBodyScenario `json:"scenario,omitempty"`
@@ -14142,14 +14094,14 @@ type ClientInterface interface {
 	// PreviewDataSourceWithBody performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSourceWithBody(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+	PreviewDataSourceWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewDataSource performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSource(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+	PreviewDataSource(ctx context.Context, provider string, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DemoState performs a GET /api/v1/demo (the `DemoState` operationId) request.
 	//
@@ -18765,8 +18717,8 @@ func (c *Client) InspectDataSource(ctx context.Context, provider InspectDataSour
 // PreviewDataSourceWithBody performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewDataSourceRequestWithBody(c.Server, provider, contentType, body)
 	if err != nil {
 		return nil, err
@@ -18781,8 +18733,8 @@ func (c *Client) PreviewDataSourceWithBody(ctx context.Context, provider Preview
 // PreviewDataSource performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *Client) PreviewDataSource(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+func (c *Client) PreviewDataSource(ctx context.Context, provider string, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPreviewDataSourceRequest(c.Server, provider, body)
 	if err != nil {
 		return nil, err
@@ -31226,7 +31178,7 @@ func NewInspectDataSourceRequestWithBody(server string, provider InspectDataSour
 }
 
 // NewPreviewDataSourceRequest calls the generic PreviewDataSource builder with application/json body
-func NewPreviewDataSourceRequest(server string, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody) (*http.Request, error) {
+func NewPreviewDataSourceRequest(server string, provider string, body PreviewDataSourceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
@@ -31237,7 +31189,7 @@ func NewPreviewDataSourceRequest(server string, provider PreviewDataSourceParams
 }
 
 // NewPreviewDataSourceRequestWithBody constructs an http.Request for the PreviewDataSource method, with any body, and a specified content type
-func NewPreviewDataSourceRequestWithBody(server string, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader) (*http.Request, error) {
+func NewPreviewDataSourceRequestWithBody(server string, provider string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -43332,16 +43284,16 @@ type ClientWithResponsesInterface interface {
 	// PreviewDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
+	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
+	PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
 
 	// PreviewDataSourceWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-	PreviewDataSourceWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
+	// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+	PreviewDataSourceWithResponse(ctx context.Context, provider string, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error)
 
 	// DemoStateWithResponse performs a GET /api/v1/demo (the `DemoState` operationId) request.
 	//
@@ -64098,10 +64050,10 @@ func (c *ClientWithResponses) InspectDataSourceWithResponse(ctx context.Context,
 // PreviewDataSourceWithBodyWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
+// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
+func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.Context, provider string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
 	rsp, err := c.PreviewDataSourceWithBody(ctx, provider, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
@@ -64112,8 +64064,8 @@ func (c *ClientWithResponses) PreviewDataSourceWithBodyWithResponse(ctx context.
 // PreviewDataSourceWithResponse performs a POST /api/v1/data-sources/{provider}/preview (the `PreviewDataSource` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection.
-func (c *ClientWithResponses) PreviewDataSourceWithResponse(ctx context.Context, provider PreviewDataSourceParamsProvider, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
+// Requires an authenticated dashboard session. Fetches and parses a candidate Data Source configuration under the safe fetch policy without saving raw data. A previewDate exercises date-aware selection. The provider is a built-in provider or a definition-backed one, and the response shape depends on it.
+func (c *ClientWithResponses) PreviewDataSourceWithResponse(ctx context.Context, provider string, body PreviewDataSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewDataSourceResponse, error) {
 	rsp, err := c.PreviewDataSource(ctx, provider, body, reqEditors...)
 	if err != nil {
 		return nil, err
