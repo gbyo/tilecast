@@ -6572,6 +6572,73 @@ export interface components {
       variants: components["schemas"]["AssetVariant"][];
       widget?: components["schemas"]["Widget"];
       playlistUsage?: number;
+      creator?: components["schemas"]["AssetCreator"];
+      playlistsUsing?: components["schemas"]["AssetPlaylistUsage"][];
+      layoutUsage?: components["schemas"]["AssetLayoutUsage"][];
+      /** Format: uuid */
+      folderId?: string;
+      tags?: components["schemas"]["ContentTag"][];
+      collectionIds?: string[];
+      website?: components["schemas"]["WebsiteConfig"];
+    };
+    AssetCreator: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    AssetPlaylistUsage: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+    };
+    AssetLayoutUsage: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      published: boolean;
+    };
+    ContentTag: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      color: string;
+      assetCount?: number;
+    };
+    WebsiteConfig: {
+      url: string;
+      displayUrl: string;
+      allowedHosts: string[];
+      javascriptEnabled: boolean;
+      domStorageEnabled: boolean;
+      /** @enum {string} */
+      cookiePolicy: "disabled" | "first_party" | "first_and_third_party";
+      /** @enum {string} */
+      reloadPolicy: "load_once" | "on_each_activation" | "interval";
+      refreshIntervalSeconds?: number;
+      loadTimeoutSeconds: number;
+      zoomPercent: number;
+      scrollX: number;
+      scrollY: number;
+      customUserAgent: string;
+      backgroundColor: string;
+      /** @enum {string} */
+      failureBehavior:
+        "last_success" | "placeholder" | "fallback_image" | "skip";
+      /** Format: uuid */
+      fallbackImageAssetId?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    AssetList: {
+      items: components["schemas"]["Asset"][];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+    BulkAssetResult: {
+      updated: number;
     };
     SetupRequest: {
       organizationName: string;
@@ -13357,7 +13424,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["AssetList"];
+          };
+        };
       };
     };
   };
@@ -13384,7 +13455,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkAssetResult"];
+          };
+        };
       };
       /** @description At least one asset is still in use */
       409: {
@@ -13418,7 +13493,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["BulkAssetResult"];
+          };
+        };
       };
     };
   };
@@ -13438,7 +13517,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
     };
   };
@@ -13496,7 +13579,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description Viewer is read-only */
       403: {
@@ -13526,7 +13613,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
     };
   };
@@ -14814,7 +14905,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description URL or website settings rejected */
       422: {
@@ -14844,7 +14939,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["Asset"];
+          };
+        };
       };
       /** @description Website validation failed */
       422: {

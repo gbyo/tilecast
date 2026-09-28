@@ -2939,7 +2939,16 @@ paths:
             schema: { type: boolean, default: false },
             description: Return manually archived and automatically expired library content instead of active content,
           }
-      responses: { "200": { description: Stable paginated media library } }
+      responses:
+        "200":
+          description: Stable paginated media library
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/AssetList" }
   /api/v1/assets/archive:
     post:
       operationId: archiveAssets
@@ -2962,10 +2971,16 @@ paths:
                   uniqueItems: true
                   items: { type: string, format: uuid }
       responses:
-        {
-          "200": { description: Selected unused assets archived atomically },
-          "409": { description: At least one asset is still in use },
-        }
+        "200":
+          description: Selected unused assets archived atomically
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkAssetResult" }
+        "409": { description: At least one asset is still in use }
   /api/v1/assets/restore:
     post:
       operationId: restoreAssets
@@ -2987,14 +3002,32 @@ paths:
                   maxItems: 100
                   uniqueItems: true
                   items: { type: string, format: uuid }
-      responses: { "200": { description: Selected assets restored atomically } }
+      responses:
+        "200":
+          description: Selected assets restored atomically
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BulkAssetResult" }
   /api/v1/assets/{id}:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
       operationId: getAsset
       description: >-
         Get asset. Requires an authenticated dashboard user.
-      responses: { "200": { description: Trusted metadata and variants } }
+      responses:
+        "200":
+          description: Trusted metadata and variants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
     patch:
       operationId: updateAsset
       description: >-
@@ -3013,10 +3046,16 @@ paths:
                 availableFrom: { type: string, format: date-time }
                 expiresAt: { type: string, format: date-time }
       responses:
-        {
-          "200": { description: Asset metadata updated },
-          "403": { description: Viewer is read-only },
-        }
+        "200":
+          description: Asset metadata updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
+        "403": { description: Viewer is read-only }
     delete:
       operationId: deleteAsset
       description: >-
@@ -3036,9 +3075,15 @@ paths:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
       responses:
-        {
-          "200": { description: Failed asset returned to the persistent queue },
-        }
+        "200":
+          description: Failed asset returned to the persistent queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
   /api/v1/assets/{id}/thumbnail:
     get:
       operationId: getAssetThumbnail
@@ -3736,10 +3781,16 @@ paths:
           schema: { type: string }
           description: Required when authenticating with sessionCookie; omit for userBearer.
       responses:
-        {
-          "201": { description: Website asset created },
-          "422": { description: URL or website settings rejected },
-        }
+        "201":
+          description: Website asset created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
+        "422": { description: URL or website settings rejected }
   /api/v1/assets/{id}/website:
     patch:
       operationId: updateWebsiteAsset
@@ -3749,13 +3800,16 @@ paths:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
-        {
-          "200":
-            {
-              description: Website configuration updated and affected manifests revised,
-            },
-          "422": { description: Website validation failed },
-        }
+        "200":
+          description: Website configuration updated and affected manifests revised
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Asset" }
+        "422": { description: Website validation failed }
   /api/v1/assets/{id}/website/diagnostics:
     get:
       operationId: websiteDiagnostics
@@ -7824,6 +7878,118 @@ components:
           items: { $ref: "#/components/schemas/AssetVariant" }
         widget: { $ref: "#/components/schemas/Widget" }
         playlistUsage: { type: integer, minimum: 0 }
+        creator: { $ref: "#/components/schemas/AssetCreator" }
+        playlistsUsing:
+          type: array
+          items: { $ref: "#/components/schemas/AssetPlaylistUsage" }
+        layoutUsage:
+          type: array
+          items: { $ref: "#/components/schemas/AssetLayoutUsage" }
+        folderId: { type: string, format: uuid }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/ContentTag" }
+        collectionIds:
+          type: array
+          items: { type: string, format: uuid }
+        website: { $ref: "#/components/schemas/WebsiteConfig" }
+    AssetCreator:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    AssetPlaylistUsage:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    AssetLayoutUsage:
+      type: object
+      additionalProperties: false
+      required: [id, name, published]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        published: { type: boolean }
+    ContentTag:
+      type: object
+      additionalProperties: false
+      required: [id, name, color]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        color: { type: string }
+        assetCount: { type: integer, minimum: 0 }
+    WebsiteConfig:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          url,
+          displayUrl,
+          allowedHosts,
+          javascriptEnabled,
+          domStorageEnabled,
+          cookiePolicy,
+          reloadPolicy,
+          loadTimeoutSeconds,
+          zoomPercent,
+          scrollX,
+          scrollY,
+          customUserAgent,
+          backgroundColor,
+          failureBehavior,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        url: { type: string }
+        displayUrl: { type: string }
+        allowedHosts:
+          type: array
+          items: { type: string }
+        javascriptEnabled: { type: boolean }
+        domStorageEnabled: { type: boolean }
+        cookiePolicy:
+          { type: string, enum: [disabled, first_party, first_and_third_party] }
+        reloadPolicy:
+          { type: string, enum: [load_once, on_each_activation, interval] }
+        refreshIntervalSeconds: { type: integer, minimum: 1 }
+        loadTimeoutSeconds: { type: integer }
+        zoomPercent: { type: integer }
+        scrollX: { type: integer }
+        scrollY: { type: integer }
+        customUserAgent: { type: string }
+        backgroundColor: { type: string }
+        failureBehavior:
+          {
+            type: string,
+            enum: [last_success, placeholder, fallback_image, skip],
+          }
+        fallbackImageAssetId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AssetList:
+      type: object
+      additionalProperties: false
+      required: [items, total, page, pageSize]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Asset" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+    BulkAssetResult:
+      type: object
+      additionalProperties: false
+      required: [updated]
+      properties:
+        updated: { type: integer, minimum: 0 }
     SetupRequest:
       type: object
       additionalProperties: false

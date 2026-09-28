@@ -1076,28 +1076,28 @@ func (e ScheduleTargetType) Valid() bool {
 
 // Defines values for ScreenStatus.
 const (
-	Disabled ScreenStatus = "disabled"
-	Offline  ScreenStatus = "offline"
-	Online   ScreenStatus = "online"
-	Recent   ScreenStatus = "recent"
-	Revoked  ScreenStatus = "revoked"
-	Stale    ScreenStatus = "stale"
+	ScreenStatusDisabled ScreenStatus = "disabled"
+	ScreenStatusOffline  ScreenStatus = "offline"
+	ScreenStatusOnline   ScreenStatus = "online"
+	ScreenStatusRecent   ScreenStatus = "recent"
+	ScreenStatusRevoked  ScreenStatus = "revoked"
+	ScreenStatusStale    ScreenStatus = "stale"
 )
 
 // Valid indicates whether the value is a known member of the ScreenStatus enum.
 func (e ScreenStatus) Valid() bool {
 	switch e {
-	case Disabled:
+	case ScreenStatusDisabled:
 		return true
-	case Offline:
+	case ScreenStatusOffline:
 		return true
-	case Online:
+	case ScreenStatusOnline:
 		return true
-	case Recent:
+	case ScreenStatusRecent:
 		return true
-	case Revoked:
+	case ScreenStatusRevoked:
 		return true
-	case Stale:
+	case ScreenStatusStale:
 		return true
 	default:
 		return false
@@ -1206,6 +1206,30 @@ func (e UserRole) Valid() bool {
 	}
 }
 
+// Defines values for VariantKind.
+const (
+	Original  VariantKind = "original"
+	Playback  VariantKind = "playback"
+	Poster    VariantKind = "poster"
+	Thumbnail VariantKind = "thumbnail"
+)
+
+// Valid indicates whether the value is a known member of the VariantKind enum.
+func (e VariantKind) Valid() bool {
+	switch e {
+	case Original:
+		return true
+	case Playback:
+		return true
+	case Poster:
+		return true
+	case Thumbnail:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WebAuthnAssertionAuthenticatorAttachment.
 const (
 	WebAuthnAssertionAuthenticatorAttachmentCrossPlatform WebAuthnAssertionAuthenticatorAttachment = "cross-platform"
@@ -1272,30 +1296,126 @@ func (e WebAuthnCredentialType) Valid() bool {
 	}
 }
 
+// Defines values for WebsiteConfigCookiePolicy.
+const (
+	WebsiteConfigCookiePolicyDisabled           WebsiteConfigCookiePolicy = "disabled"
+	WebsiteConfigCookiePolicyFirstAndThirdParty WebsiteConfigCookiePolicy = "first_and_third_party"
+	WebsiteConfigCookiePolicyFirstParty         WebsiteConfigCookiePolicy = "first_party"
+)
+
+// Valid indicates whether the value is a known member of the WebsiteConfigCookiePolicy enum.
+func (e WebsiteConfigCookiePolicy) Valid() bool {
+	switch e {
+	case WebsiteConfigCookiePolicyDisabled:
+		return true
+	case WebsiteConfigCookiePolicyFirstAndThirdParty:
+		return true
+	case WebsiteConfigCookiePolicyFirstParty:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebsiteConfigFailureBehavior.
+const (
+	FallbackImage WebsiteConfigFailureBehavior = "fallback_image"
+	LastSuccess   WebsiteConfigFailureBehavior = "last_success"
+	Placeholder   WebsiteConfigFailureBehavior = "placeholder"
+	Skip          WebsiteConfigFailureBehavior = "skip"
+)
+
+// Valid indicates whether the value is a known member of the WebsiteConfigFailureBehavior enum.
+func (e WebsiteConfigFailureBehavior) Valid() bool {
+	switch e {
+	case FallbackImage:
+		return true
+	case LastSuccess:
+		return true
+	case Placeholder:
+		return true
+	case Skip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WebsiteConfigReloadPolicy.
+const (
+	Interval         WebsiteConfigReloadPolicy = "interval"
+	LoadOnce         WebsiteConfigReloadPolicy = "load_once"
+	OnEachActivation WebsiteConfigReloadPolicy = "on_each_activation"
+)
+
+// Valid indicates whether the value is a known member of the WebsiteConfigReloadPolicy enum.
+func (e WebsiteConfigReloadPolicy) Valid() bool {
+	switch e {
+	case Interval:
+		return true
+	case LoadOnce:
+		return true
+	case OnEachActivation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WidgetPresetId.
+const (
+	WidgetPresetIdDirectory          WidgetPresetId = "directory"
+	WidgetPresetIdLeaderboard        WidgetPresetId = "leaderboard"
+	WidgetPresetIdOpeningHours       WidgetPresetId = "opening_hours"
+	WidgetPresetIdQueueBoard         WidgetPresetId = "queue_board"
+	WidgetPresetIdScheduleDepartures WidgetPresetId = "schedule_departures"
+	WidgetPresetIdStatusBoard        WidgetPresetId = "status_board"
+)
+
+// Valid indicates whether the value is a known member of the WidgetPresetId enum.
+func (e WidgetPresetId) Valid() bool {
+	switch e {
+	case WidgetPresetIdDirectory:
+		return true
+	case WidgetPresetIdLeaderboard:
+		return true
+	case WidgetPresetIdOpeningHours:
+		return true
+	case WidgetPresetIdQueueBoard:
+		return true
+	case WidgetPresetIdScheduleDepartures:
+		return true
+	case WidgetPresetIdStatusBoard:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WidgetInputPresetId.
 const (
-	Directory          WidgetInputPresetId = "directory"
-	Leaderboard        WidgetInputPresetId = "leaderboard"
-	OpeningHours       WidgetInputPresetId = "opening_hours"
-	QueueBoard         WidgetInputPresetId = "queue_board"
-	ScheduleDepartures WidgetInputPresetId = "schedule_departures"
-	StatusBoard        WidgetInputPresetId = "status_board"
+	WidgetInputPresetIdDirectory          WidgetInputPresetId = "directory"
+	WidgetInputPresetIdLeaderboard        WidgetInputPresetId = "leaderboard"
+	WidgetInputPresetIdOpeningHours       WidgetInputPresetId = "opening_hours"
+	WidgetInputPresetIdQueueBoard         WidgetInputPresetId = "queue_board"
+	WidgetInputPresetIdScheduleDepartures WidgetInputPresetId = "schedule_departures"
+	WidgetInputPresetIdStatusBoard        WidgetInputPresetId = "status_board"
 )
 
 // Valid indicates whether the value is a known member of the WidgetInputPresetId enum.
 func (e WidgetInputPresetId) Valid() bool {
 	switch e {
-	case Directory:
+	case WidgetInputPresetIdDirectory:
 		return true
-	case Leaderboard:
+	case WidgetInputPresetIdLeaderboard:
 		return true
-	case OpeningHours:
+	case WidgetInputPresetIdOpeningHours:
 		return true
-	case QueueBoard:
+	case WidgetInputPresetIdQueueBoard:
 		return true
-	case ScheduleDepartures:
+	case WidgetInputPresetIdScheduleDepartures:
 		return true
-	case StatusBoard:
+	case WidgetInputPresetIdStatusBoard:
 		return true
 	default:
 		return false
@@ -1851,11 +1971,96 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 	}
 }
 
+// Asset defines model for Asset.
+type Asset struct {
+	ArchivedAt         *time.Time             `json:"archivedAt,omitempty"`
+	AudioChannels      *int                   `json:"audioChannels,omitempty"`
+	AudioCodec         *string                `json:"audioCodec,omitempty"`
+	AvailableFrom      *time.Time             `json:"availableFrom,omitempty"`
+	CollectionIds      *[]openapi_types.UUID  `json:"collectionIds,omitempty"`
+	CreatedAt          time.Time              `json:"createdAt"`
+	Creator            *AssetCreator          `json:"creator,omitempty"`
+	DeclaredMimeType   *string                `json:"declaredMimeType,omitempty"`
+	Description        string                 `json:"description"`
+	DetectedMimeType   string                 `json:"detectedMimeType"`
+	DurationSeconds    *float32               `json:"durationSeconds,omitempty"`
+	ErrorCode          *string                `json:"errorCode,omitempty"`
+	ErrorMessage       *string                `json:"errorMessage,omitempty"`
+	ExpiresAt          *time.Time             `json:"expiresAt,omitempty"`
+	FolderId           *openapi_types.UUID    `json:"folderId,omitempty"`
+	FrameRate          *float32               `json:"frameRate,omitempty"`
+	Height             *int                   `json:"height,omitempty"`
+	Id                 openapi_types.UUID     `json:"id"`
+	LayoutUsage        *[]AssetLayoutUsage    `json:"layoutUsage,omitempty"`
+	Metadata           map[string]interface{} `json:"metadata"`
+	Name               string                 `json:"name"`
+	OriginalFilename   string                 `json:"originalFilename"`
+	OriginalSize       int64                  `json:"originalSize"`
+	PlaylistUsage      *int                   `json:"playlistUsage,omitempty"`
+	PlaylistsUsing     *[]AssetPlaylistUsage  `json:"playlistsUsing,omitempty"`
+	ProcessingProgress *float32               `json:"processingProgress,omitempty"`
+	ProcessingStatus   AssetStatus            `json:"processingStatus"`
+	Sha256             string                 `json:"sha256"`
+	Tags               *[]ContentTag          `json:"tags,omitempty"`
+	ThumbnailUrl       *string                `json:"thumbnailUrl,omitempty"`
+	Type               AssetType              `json:"type"`
+	UpdatedAt          time.Time              `json:"updatedAt"`
+	Variants           []AssetVariant         `json:"variants"`
+	VideoCodec         *string                `json:"videoCodec,omitempty"`
+	Website            *WebsiteConfig         `json:"website,omitempty"`
+	Widget             *Widget                `json:"widget,omitempty"`
+	Width              *int                   `json:"width,omitempty"`
+}
+
+// AssetCreator defines model for AssetCreator.
+type AssetCreator struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
+// AssetLayoutUsage defines model for AssetLayoutUsage.
+type AssetLayoutUsage struct {
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+	Published bool               `json:"published"`
+}
+
+// AssetList defines model for AssetList.
+type AssetList struct {
+	Items    []Asset `json:"items"`
+	Page     int     `json:"page"`
+	PageSize int     `json:"pageSize"`
+	Total    int     `json:"total"`
+}
+
+// AssetPlaylistUsage defines model for AssetPlaylistUsage.
+type AssetPlaylistUsage struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
 // AssetStatus defines model for AssetStatus.
 type AssetStatus string
 
 // AssetType defines model for AssetType.
 type AssetType string
+
+// AssetVariant defines model for AssetVariant.
+type AssetVariant struct {
+	AudioCodec       *string            `json:"audioCodec,omitempty"`
+	CreatedAt        time.Time          `json:"createdAt"`
+	DurationSeconds  *float32           `json:"durationSeconds,omitempty"`
+	FileSize         int64              `json:"fileSize"`
+	FrameRate        *float32           `json:"frameRate,omitempty"`
+	Height           *int               `json:"height,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	Kind             VariantKind        `json:"kind"`
+	MimeType         string             `json:"mimeType"`
+	PlayerCompatible bool               `json:"playerCompatible"`
+	Sha256           string             `json:"sha256"`
+	VideoCodec       *string            `json:"videoCodec,omitempty"`
+	Width            *int               `json:"width,omitempty"`
+}
 
 // AuthStatus defines model for AuthStatus.
 type AuthStatus struct {
@@ -1874,6 +2079,11 @@ type AuthStatus struct {
 type AuthenticatorCodeRequest struct {
 	// Code The six-digit authenticator code.
 	Code string `json:"code"`
+}
+
+// BulkAssetResult defines model for BulkAssetResult.
+type BulkAssetResult struct {
+	Updated int `json:"updated"`
 }
 
 // Campaign defines model for Campaign.
@@ -2082,6 +2292,14 @@ type ContentSubmissionList struct {
 
 // ContentSubmissionListPolicy defines model for ContentSubmissionList.Policy.
 type ContentSubmissionListPolicy string
+
+// ContentTag defines model for ContentTag.
+type ContentTag struct {
+	AssetCount *int               `json:"assetCount,omitempty"`
+	Color      string             `json:"color"`
+	Id         openapi_types.UUID `json:"id"`
+	Name       string             `json:"name"`
+}
 
 // CountdownBarInput defines model for CountdownBarInput.
 type CountdownBarInput struct {
@@ -3071,6 +3289,9 @@ type User struct {
 // UserRole defines model for User.Role.
 type UserRole string
 
+// VariantKind defines model for VariantKind.
+type VariantKind string
+
 // WebAuthnAssertion A PublicKeyCredential from navigator.credentials.get(), serialized with base64url binary fields.
 type WebAuthnAssertion struct {
 	AuthenticatorAttachment *WebAuthnAssertionAuthenticatorAttachment `json:"authenticatorAttachment,omitempty"`
@@ -3125,6 +3346,57 @@ type WebAuthnCredentialAuthenticatorAttachment string
 
 // WebAuthnCredentialType defines model for WebAuthnCredential.Type.
 type WebAuthnCredentialType string
+
+// WebsiteConfig defines model for WebsiteConfig.
+type WebsiteConfig struct {
+	AllowedHosts           []string                     `json:"allowedHosts"`
+	BackgroundColor        string                       `json:"backgroundColor"`
+	CookiePolicy           WebsiteConfigCookiePolicy    `json:"cookiePolicy"`
+	CreatedAt              time.Time                    `json:"createdAt"`
+	CustomUserAgent        string                       `json:"customUserAgent"`
+	DisplayUrl             string                       `json:"displayUrl"`
+	DomStorageEnabled      bool                         `json:"domStorageEnabled"`
+	FailureBehavior        WebsiteConfigFailureBehavior `json:"failureBehavior"`
+	FallbackImageAssetId   *openapi_types.UUID          `json:"fallbackImageAssetId,omitempty"`
+	JavascriptEnabled      bool                         `json:"javascriptEnabled"`
+	LoadTimeoutSeconds     int                          `json:"loadTimeoutSeconds"`
+	RefreshIntervalSeconds *int                         `json:"refreshIntervalSeconds,omitempty"`
+	ReloadPolicy           WebsiteConfigReloadPolicy    `json:"reloadPolicy"`
+	ScrollX                int                          `json:"scrollX"`
+	ScrollY                int                          `json:"scrollY"`
+	UpdatedAt              time.Time                    `json:"updatedAt"`
+	Url                    string                       `json:"url"`
+	ZoomPercent            int                          `json:"zoomPercent"`
+}
+
+// WebsiteConfigCookiePolicy defines model for WebsiteConfig.CookiePolicy.
+type WebsiteConfigCookiePolicy string
+
+// WebsiteConfigFailureBehavior defines model for WebsiteConfig.FailureBehavior.
+type WebsiteConfigFailureBehavior string
+
+// WebsiteConfigReloadPolicy defines model for WebsiteConfig.ReloadPolicy.
+type WebsiteConfigReloadPolicy string
+
+// Widget defines model for Widget.
+type Widget struct {
+	// AuthorConfiguration Author-facing App settings before managed-resource IDs are injected.
+	AuthorConfiguration *map[string]interface{} `json:"authorConfiguration,omitempty"`
+	ConfigVersion       int                     `json:"configVersion"`
+
+	// Configuration Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.
+	Configuration map[string]interface{} `json:"configuration"`
+
+	// ManagedDataSourceId Explicit ownership link for a catalog App's hidden managed Data Source.
+	ManagedDataSourceId *openapi_types.UUID `json:"managedDataSourceId,omitempty"`
+	PresetId            *WidgetPresetId     `json:"presetId,omitempty"`
+
+	// Provider Closed renderable Widget or App identifier from the release-owned content-definition catalog.
+	Provider WidgetProvider `json:"provider"`
+}
+
+// WidgetPresetId defines model for Widget.PresetId.
+type WidgetPresetId string
 
 // WidgetInput defines model for WidgetInput.
 type WidgetInput struct {
@@ -35834,6 +36106,17 @@ func (r ListApprovalsResponse) ContentType() string {
 type ListAssetsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data AssetList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAssetsResponse) GetJSON200() *struct {
+	Data AssetList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -35868,6 +36151,17 @@ func (r ListAssetsResponse) ContentType() string {
 type ArchiveAssetsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BulkAssetResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ArchiveAssetsResponse) GetJSON200() *struct {
+	Data BulkAssetResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -35936,6 +36230,17 @@ func (r BulkOrganizeAssetsResponse) ContentType() string {
 type RestoreAssetsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BulkAssetResult `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RestoreAssetsResponse) GetJSON200() *struct {
+	Data BulkAssetResult `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -35970,6 +36275,17 @@ func (r RestoreAssetsResponse) ContentType() string {
 type CreateWebsiteAssetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateWebsiteAssetResponse) GetJSON201() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -36038,6 +36354,17 @@ func (r DeleteAssetResponse) ContentType() string {
 type GetAssetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetAssetResponse) GetJSON200() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -36072,6 +36399,17 @@ func (r GetAssetResponse) ContentType() string {
 type UpdateAssetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateAssetResponse) GetJSON200() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -36174,6 +36512,17 @@ func (r HeadAssetPlaybackPreviewResponse) ContentType() string {
 type RetryAssetProcessingResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RetryAssetProcessingResponse) GetJSON200() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -36242,6 +36591,17 @@ func (r GetAssetThumbnailResponse) ContentType() string {
 type UpdateWebsiteAssetResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Asset `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateWebsiteAssetResponse) GetJSON200() *struct {
+	Data Asset `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -55045,6 +55405,18 @@ func ParseListAssetsResponse(rsp *http.Response) (*ListAssetsResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data AssetList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -55059,6 +55431,21 @@ func ParseArchiveAssetsResponse(rsp *http.Response) (*ArchiveAssetsResponse, err
 	response := &ArchiveAssetsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BulkAssetResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -55093,6 +55480,18 @@ func ParseRestoreAssetsResponse(rsp *http.Response) (*RestoreAssetsResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BulkAssetResult `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -55107,6 +55506,21 @@ func ParseCreateWebsiteAssetResponse(rsp *http.Response) (*CreateWebsiteAssetRes
 	response := &CreateWebsiteAssetResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -55141,6 +55555,18 @@ func ParseGetAssetResponse(rsp *http.Response) (*GetAssetResponse, error) {
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -55155,6 +55581,21 @@ func ParseUpdateAssetResponse(rsp *http.Response) (*UpdateAssetResponse, error) 
 	response := &UpdateAssetResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -55205,6 +55646,18 @@ func ParseRetryAssetProcessingResponse(rsp *http.Response) (*RetryAssetProcessin
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -55235,6 +55688,21 @@ func ParseUpdateWebsiteAssetResponse(rsp *http.Response) (*UpdateWebsiteAssetRes
 	response := &UpdateWebsiteAssetResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Asset `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
