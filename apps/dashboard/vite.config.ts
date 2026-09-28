@@ -65,6 +65,16 @@ export default defineConfig({
   },
   build: { sourcemap: true },
   test: {
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json-summary", "lcov", "html"],
+      include: ["src/**/*.{ts,tsx}", "../../plugins/*/studio/**/*.{ts,tsx}"],
+      exclude: [
+        "**/*.{test,spec}.{ts,tsx}",
+        "src/testSetup.ts",
+        "src/locales/**",
+      ],
+    },
     setupFiles: ["./src/testSetup.ts"],
     // Plugin Studio tests run with Studio's, in the same environment.
     include: [

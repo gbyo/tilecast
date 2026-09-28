@@ -320,6 +320,11 @@ p {
 .layout-preview-toolbar .button {
   margin-left: auto;
 }
+
+.layout-preview-toolbar #layout-preview-date {
+  color: var(--foreground);
+}
+
 .layout-preview-status {
   color: var(--tc-text-secondary);
   font: var(--tc-text-supporting);

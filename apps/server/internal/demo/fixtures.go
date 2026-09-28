@@ -2,12 +2,14 @@ package demo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
@@ -74,6 +76,41 @@ func wipe(ctx context.Context, db *pgxpool.Pool, storage media.Storage) error {
 	if err != nil {
 		return err
 	}
+	if err = retryDemoDeadlock(ctx, func() error { return wipeDatabase(ctx, db) }); err != nil {
+		return err
+	}
+	if storage != nil {
+		for _, key := range keys {
+			_ = storage.Delete(key)
+		}
+	}
+	return nil
+}
+
+// A background worker can lock tables in another order. PostgreSQL aborts the
+// losing transaction on a deadlock; retry only that known rollback, never an
+// ambiguous commit or a different error. Media cleanup happens after success.
+func retryDemoDeadlock(ctx context.Context, operation func() error) error {
+	for attempt := 0; ; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := operation()
+		var pgErr *pgconn.PgError
+		if attempt == 2 || !errors.As(err, &pgErr) || pgErr.Code != "40P01" {
+			return err
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * 25 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func wipeDatabase(ctx context.Context, db *pgxpool.Pool) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
@@ -97,15 +134,7 @@ func wipe(ctx context.Context, db *pgxpool.Pool, storage media.Storage) error {
 			return fmt.Errorf("empty demo database: %w", err)
 		}
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return err
-	}
-	if storage != nil {
-		for _, key := range keys {
-			_ = storage.Delete(key)
-		}
-	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 func storedKeys(ctx context.Context, db *pgxpool.Pool) ([]string, error) {

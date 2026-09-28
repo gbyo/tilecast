@@ -402,6 +402,7 @@ export default defineConfig({
           items: [
             { slug: "developers" },
             { slug: "developers/demo-mode" },
+            { slug: "developers/testing" },
             {
               label: "Plugin development",
               collapsed: true,

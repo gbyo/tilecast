@@ -5,25 +5,10 @@ name: Edge CI
 # (Pull request validation also runs for pull requests against any base.)
 on:
   pull_request:
-    paths:
-      - "apps/edge/**"
-      - "packages/edge-protocol/**"
-      - "packages/player-runtime/**"
-      # The shared runtime bundles plugin runtime code and the SDK contract.
-      - "plugins/**"
-      - "packages/plugin-sdk/**"
-      - "packages/api-schema/activity/**"
-      - "apps/player-linux/**"
-      - "apps/server/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/ci-edge.yml"
   push:
     branches: [main]
-    paths:
-      - "apps/edge/**"
-      - "packages/edge-protocol/**"
-      - ".github/workflows/ci-edge.yml"
+  schedule:
+    - cron: "17 4 * * 1,4"
   workflow_dispatch:
 
 concurrency:
@@ -34,7 +19,42 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      edge_rust: ${{ steps.paths.outputs.edge_rust }}
+      edge_wpe: ${{ steps.paths.outputs.edge_wpe }}
+      edge_runtime: ${{ steps.paths.outputs.edge_runtime }}
+      edge_conformance: ${{ steps.paths.outputs.edge_conformance }}
+      edge_server: ${{ steps.paths.outputs.edge_server }}
+      edge_migration: ${{ steps.paths.outputs.edge_migration }}
+      edge_activity: ${{ steps.paths.outputs.edge_activity }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node --test scripts/ci/*.test.mjs
+      - name: Classify changed paths
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            node scripts/ci/affected.mjs --full --github-output
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            node scripts/ci/affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --edge-full --github-output
+          else
+            node scripts/ci/affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output
+          fi
+
   rust:
+    needs: changes
+    if: needs.changes.outputs.edge_rust == 'true'
     name: Rust workspace
     runs-on: ubuntu-latest
     defaults:
@@ -60,6 +80,8 @@ jobs:
         run: ci/run-kernel-cec.sh
 
   wpe:
+    needs: changes
+    if: needs.changes.outputs.edge_wpe == 'true'
     name: WPE headless end to end
     runs-on: ubuntu-latest
     steps:
@@ -70,11 +92,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build --workspace @tilecast/player-runtime
-      - name: Build the WPE development images
-        run: |
-          set -euo pipefail
-          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
+      - name: Build cached Edge images
+        uses: ./.github/actions/edge-images
+        with:
+          targets: |
+            wpe
+            edge
       - name: Record engine versions
         run: |
           docker run --rm tilecast-wpe-dev sh -c \
@@ -98,6 +121,8 @@ jobs:
           if-no-files-found: ignore
 
   runtime:
+    needs: changes
+    if: needs.changes.outputs.edge_runtime == 'true'
     name: Player Runtime and Electron host
     runs-on: ubuntu-latest
     steps:
@@ -120,6 +145,8 @@ jobs:
           test "$required" = 'require("electron")'
 
   conformance:
+    needs: changes
+    if: needs.changes.outputs.edge_conformance == 'true'
     name: Electron and WPE conformance
     runs-on: ubuntu-latest
     steps:
@@ -130,12 +157,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
-      - name: Build the engine images
-        run: |
-          set -euo pipefail
-          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
-          docker build -t tilecast-conformance-electron apps/player-linux/conformance
+      - name: Build cached Edge images
+        uses: ./.github/actions/edge-images
+        with:
+          targets: |
+            wpe
+            edge
+            electron
       - name: WPE WebKit headless
         run: |
           mkdir -p "$RUNNER_TEMP/conformance" "$RUNNER_TEMP/edge-target"
@@ -164,6 +192,8 @@ jobs:
           if-no-files-found: ignore
 
   server_e2e:
+    needs: changes
+    if: needs.changes.outputs.edge_server == 'true'
     name: Real server end to end
     runs-on: ubuntu-latest
     steps:
@@ -174,12 +204,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build --workspace @tilecast/player-runtime
-      - name: Build the real-server image
-        run: |
-          set -euo pipefail
-          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
+      - name: Build cached Edge images
+        uses: ./.github/actions/edge-images
+        with:
+          targets: server
       - name: Real server, tilecastd and the WPE renderer
         run: |
           mkdir -p "$RUNNER_TEMP/edge-target"
@@ -187,6 +215,8 @@ jobs:
             tilecast-edge-e2e /src/apps/edge/ci/run-e2e-server.sh
 
   migration:
+    needs: changes
+    if: needs.changes.outputs.edge_migration == 'true'
     name: Migration under systemd
     runs-on: ubuntu-latest
     steps:
@@ -197,19 +227,18 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build --workspace @tilecast/player-runtime
-      - name: Build the systemd migration image
-        run: |
-          set -euo pipefail
-          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
-          docker build -t tilecast-edge-migrate-e2e -f apps/edge/ci/Dockerfile.migrate apps/edge/ci
+      - name: Build cached Edge images
+        uses: ./.github/actions/edge-images
+        with:
+          targets: migration
       - name: Install, import failure, crash, power loss and acceptance
         run: |
           mkdir -p "$RUNNER_TEMP/edge-target"
           apps/edge/ci/run-migrate-e2e.sh "$RUNNER_TEMP/edge-target"
 
   activity_parity:
+    needs: changes
+    if: needs.changes.outputs.edge_activity == 'true'
     name: Proof of play, Electron and Edge side by side
     runs-on: ubuntu-latest
     steps:
@@ -221,13 +250,10 @@ jobs:
       - run: npm ci
       - run: npm run build --workspace @tilecast/player-runtime
       - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
-      - name: Build the parity image
-        run: |
-          set -euo pipefail
-          docker build -t tilecast-wpe-dev -f apps/edge/renderer-wpe/ci/Dockerfile apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-dev -f apps/edge/renderer-wpe/ci/Dockerfile.edge apps/edge/renderer-wpe/ci
-          docker build -t tilecast-edge-e2e -f apps/edge/ci/Dockerfile.e2e apps/edge/ci
-          docker build -t tilecast-edge-parity -f apps/edge/ci/Dockerfile.parity apps/edge/ci
+      - name: Build cached Edge images
+        uses: ./.github/actions/edge-images
+        with:
+          targets: activity
       - name: One real server, the Electron player and Edge
         run: |
           mkdir -p "$RUNNER_TEMP/edge-target"
@@ -244,15 +270,31 @@ jobs:
     name: Required Edge validation
     if: always()
     needs:
-      [rust, wpe, runtime, conformance, server_e2e, migration, activity_parity]
+      [
+        changes,
+        rust,
+        wpe,
+        runtime,
+        conformance,
+        server_e2e,
+        migration,
+        activity_parity,
+      ]
     runs-on: ubuntu-latest
-    env:
-      RESULTS: ${{ join(needs.*.result, ',') }}
     steps:
-      - name: Require every Edge job to pass
-        run: |
-          if [[ ",$RESULTS," == *,failure,* || ",$RESULTS," == *,cancelled,* || ",$RESULTS," == *,skipped,* ]]; then
-            echo "One or more Edge validation jobs did not pass: $RESULTS" >&2
-            exit 1
-          fi
-          echo "All Edge validation jobs passed: $RESULTS"
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Require every selected job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          SELECTIONS: >-
+            {"rust": ${{ needs.changes.outputs.edge_rust == 'true' }},
+             "wpe": ${{ needs.changes.outputs.edge_wpe == 'true' }},
+             "runtime": ${{ needs.changes.outputs.edge_runtime == 'true' }},
+             "conformance": ${{ needs.changes.outputs.edge_conformance == 'true' }},
+             "server_e2e": ${{ needs.changes.outputs.edge_server == 'true' }},
+             "migration": ${{ needs.changes.outputs.edge_migration == 'true' }},
+             "activity_parity": ${{ needs.changes.outputs.edge_activity == 'true' }}}
+        run: node scripts/ci/required.mjs

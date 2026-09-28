@@ -67,6 +67,8 @@ The request needs the Owner role and the session CSRF token. The endpoint exists
 
 A reset removes every session. The response contains the CSRF token of a new session. The response returns after the data is seeded and every simulated player has connected, so a test can continue immediately.
 
+Background workers can hold database locks during a reset. If PostgreSQL cancels the reset transaction because of a deadlock, Demo Mode starts a new transaction. It permits three attempts. Other errors stop the reset. Media cleanup starts only after the transaction succeeds.
+
 `GET /api/v1/demo` returns the scenario name and the state of each simulated player.
 
 ## Simulated players
@@ -80,7 +82,7 @@ Screens in the online state use the player socket. The Library screen uses the f
 - It sends `player.status` heartbeats and answers `server.ping`.
 - It claims, acknowledges, and completes queued commands with the result codes of the Android player. A command type that the Android player does not support fails with `command_unsupported`.
 
-The simulator does not download media, render content, or report proof of play.
+The simulator does not download media, render content, or report proof of play. For a preview capture request, it reports `capture_unsupported` through the player upload API. Studio shows a capture error. No image is generated.
 
 Stale, offline, and disabled screens have no simulator. Their last contact is set once at seed time, so they age from that moment. Reset the demo to restore them.
 
@@ -96,7 +98,7 @@ npm run test:e2e
 
 Set `TILECAST_E2E_BASE_URL` to test a different address. Before any test runs, the suite verifies that the server reports `demoMode`, and it stops if the server does not. Each test resets the demo first. Playwright keeps a trace and a screenshot for each failed test in `e2e/test-results`.
 
-The `E2E smoke (Demo Mode)` job in pull request validation runs this suite. On a failure, it keeps the Playwright output and the server logs as an artifact.
+The `Studio browser and visual (Demo Mode)` job runs this suite and the Studio screenshot comparisons. On a failure, it keeps the Playwright output and the server logs as an artifact. See [Testing and CI](testing.md) for the visual baseline procedure and the affected-area graph.
 
 ## Production safety
 
