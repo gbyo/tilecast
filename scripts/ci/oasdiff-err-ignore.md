@@ -16,3 +16,5 @@ POST /api/v1/layouts/{id}/publish added required request body: publishLayout alw
 POST /api/v1/layouts/{id}/revisions/{revisionId}/restore added required request body: restoreLayoutRevision always decoded expectedDraftRevision.
 POST /api/v1/takeovers added required request body: activateTakeover always decoded a takeover body.
 POST /api/v1/takeovers/{id}/cancel added required request body: cancelTakeover always decoded a reason body.
+POST /api/v1/system/settings/import/preview added required request body: previewSettingsImport always decoded a settings export body.
+POST /api/v1/system/settings/import/apply added required request body: applySettingsImport always decoded a settings export body.

@@ -6090,57 +6090,78 @@ paths:
         "403": { description: Owner or Administrator required }
   /api/v1/system/maintenance/{action}:
     post:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: runSystemMaintenance,
-
-        summary: Run a fixed safe maintenance action,
-        parameters: [{ $ref: "#/components/parameters/MaintenanceAction" }],
-        responses:
-          {
-            "202": { description: Action accepted },
-            "422": { description: Unsupported action },
-          },
-      }
+      description: Requires an authenticated dashboard user.
+      operationId: runSystemMaintenance
+      summary: Run a fixed safe maintenance action
+      parameters: [{ $ref: "#/components/parameters/MaintenanceAction" }]
+      responses:
+        "202":
+          description: Action accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/MaintenanceResult" }
+        "422": { description: Unsupported action }
   /api/v1/system/settings/export:
     get:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: exportSettings,
-
-        summary: Export non-secret settings,
-        responses: { "200": { description: Versioned settings export } },
-      }
+      description: Requires an authenticated dashboard user.
+      operationId: exportSettings
+      summary: Export non-secret settings
+      responses:
+        "200":
+          description: Versioned settings export
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsExport" }
   /api/v1/system/settings/import/preview:
     post:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: previewSettingsImport,
-
-        summary: Validate settings import without applying,
-        responses:
-          {
-            "200": { description: Import preview },
-            "422": { description: Invalid import },
-          },
-      }
+      description: Requires an authenticated dashboard user.
+      operationId: previewSettingsImport
+      summary: Validate settings import without applying
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsExport" }
+      responses:
+        "200":
+          description: Import preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsImportPreview" }
+        "422": { description: Invalid import }
   /api/v1/system/settings/import/apply:
     post:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: applySettingsImport,
-
-        summary: Apply confirmed settings import,
-        responses:
-          {
-            "200": { description: Import applied },
-            "409": { description: Revision conflict },
-          },
-      }
+      description: Requires an authenticated dashboard user.
+      operationId: applySettingsImport
+      summary: Apply confirmed settings import
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsExport" }
+      responses:
+        "200":
+          description: Import applied
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/SettingsDocument" }
+        "409": { description: Revision conflict }
   /api/v1/player-releases:
     get:
       description: >-
@@ -7284,6 +7305,67 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    SettingsExportOrganization:
+      type: object
+      additionalProperties: false
+      description: >-
+        Organization document as carried by settings exports. Definitions are stripped on export; the settings read carries them instead.
+      required: [schemaVersion, revision, values, updatedAt]
+      properties:
+        schemaVersion: { type: integer, minimum: 1 }
+        revision: { type: integer, format: int64, minimum: 0 }
+        values: { type: object }
+        updatedAt: { type: string, format: date-time }
+    SettingsExport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          exportedAt,
+          tilecastVersion,
+          organization,
+          groupPolicies,
+        ]
+      properties:
+        schemaVersion:
+          { type: integer, enum: [1], description: Only version 1 is accepted. }
+        exportedAt: { type: string, format: date-time }
+        tilecastVersion: { type: string }
+        organization:
+          { $ref: "#/components/schemas/SettingsExportOrganization" }
+        groupPolicies:
+          type: array
+          items: { type: object }
+        screenPolicies:
+          type: array
+          items: { type: object }
+    SettingsImportPreview:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          valid,
+          changedKeys,
+          groupPolicyCount,
+          screenPolicyCount,
+          requiresConfirmation,
+        ]
+      properties:
+        valid: { type: boolean, enum: [true] }
+        changedKeys:
+          type: array
+          items: { type: string }
+        groupPolicyCount: { type: integer, minimum: 0 }
+        screenPolicyCount: { type: integer, minimum: 0 }
+        requiresConfirmation: { type: boolean, enum: [true] }
+    MaintenanceResult:
+      type: object
+      additionalProperties: false
+      required: [action, status]
+      properties:
+        action: { type: string }
+        status: { type: string, enum: [accepted] }
     BackupComponent:
       type: object
       additionalProperties: false
