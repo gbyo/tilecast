@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { api } from "../api/client";
-import { PairScreenDialog, ScreensWorkspacePage } from "./ScreensPage";
+import { PairScreenDialog, ScreensPage, ScreensWorkspacePage } from "./ScreensPage";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -53,6 +53,28 @@ function renderWorkspace(pathname: string) {
             <Route index element={<p>Fleet view</p>} />
             <Route path="archive" element={<p>Archive view</p>} />
             <Route path="pair" element={<p>Pair route</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+
+function renderFleetWorkspace() {
+  vi.spyOn(api, "screens").mockResolvedValue({ items: [], total: 0 });
+  vi.spyOn(api, "pendingPairings").mockResolvedValue({ items: [], total: 0 });
+  vi.spyOn(api, "locations").mockResolvedValue({ items: [], total: 0 });
+  vi.spyOn(api, "takeovers").mockResolvedValue({ items: [], total: 0 });
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/screens"]}>
+        <Routes>
+          <Route path="/screens" element={<ScreensWorkspacePage />}>
+            <Route index element={<ScreensPage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -115,4 +137,22 @@ describe("Screens workspace tabs", () => {
       "true",
     );
   });
+
+  it("renders Fleet page actions only once", async () => {
+    renderFleetWorkspace();
+
+    expect(
+      await screen.findAllByRole("heading", { name: "Screens", level: 1 }),
+    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Takeover" })).toHaveLength(1);
+
+    const header = screen
+      .getByRole("heading", { name: "Screens", level: 1 })
+      .closest("header");
+    expect(header).not.toBeNull();
+    expect(
+      within(header as HTMLElement).getByRole("link", { name: "Pair screen" }),
+    ).toBeInTheDocument();
+  });
+
 });
