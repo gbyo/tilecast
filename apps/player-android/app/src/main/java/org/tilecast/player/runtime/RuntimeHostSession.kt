@@ -20,21 +20,27 @@ class RuntimeHostSession(
     engineVersion: String,
     private val rendererGeneration: Long,
     items: List<ManifestItem>,
-    private val activationId: String,
+    activationId: String,
     onBoundary: (itemId: String, assetId: String) -> Unit,
     onError: (String) -> Unit,
     onProgress: () -> Unit,
     onFirstFrame: (itemId: String) -> Unit = {},
+    onItemTransition: (itemId: String) -> Unit = {},
 ) {
     val host = AndroidRuntimeHost(hostVersion, engineVersion)
     val remoteWeb = RemoteWebHostManager.Tracker(rendererGeneration)
     private val router = RuntimeEvidenceRouter(
-        items, activationId, onBoundary, onError, onProgress, onFirstFrame,
+        items, activationId, onBoundary, onError, onProgress, onFirstFrame, onItemTransition,
     )
     private var stateGeneration = 0L
     private var lastActivationId: String? = null
 
     fun capabilities(): Map<String, Any?> = RemoteWebCallHandler.capabilities()
+
+    /** Rebind reports before offering a replacement presentation. */
+    fun updatePresentation(items: List<ManifestItem>, activationId: String) {
+        router.replace(items, activationId)
+    }
 
     /** Offers a host message. Returns the new state generation and any remote
      * surfaces dropped by an activation change. */
