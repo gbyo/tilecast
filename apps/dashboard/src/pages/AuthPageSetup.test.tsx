@@ -24,12 +24,21 @@ function renderSetup() {
   );
 }
 
+/**
+ * Realistic fetch stub body: the typed transport reads through
+ * openapi-fetch (headers and all), so doubles must be real Responses,
+ * not json-only fakes.
+ */
 function jsonResponse(data: unknown, ok = true, statusCode = 200) {
-  return {
-    ok,
+  return new Response(JSON.stringify(ok ? { data } : data), {
     status: statusCode,
-    json: () => Promise.resolve(ok ? { data } : data),
-  } as Response;
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** The transport calls fetch(urlString, init); tolerate a Request too. */
+function requestUrl(input: string | Request): string {
+  return typeof input === "string" ? input : input.url;
 }
 
 async function answerCurrentQuestion(label: string, value: string) {
@@ -47,8 +56,8 @@ describe("guided first-install setup", () => {
 
   it("walks Organization, Owner account, then Review before creating", async () => {
     const requests: { url: string; body?: unknown }[] = [];
-    const fetchMock = vi.fn((input: string, init?: RequestInit) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request, init?: RequestInit) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(
           jsonResponse({ setupRequired: true, authenticated: false }),
@@ -119,12 +128,12 @@ describe("guided first-install setup", () => {
   });
 
   it("refuses to advance with an invalid answer and keeps the schema message", async () => {
-    const fetchMock = vi.fn((input: string) => {
-      if (input.endsWith("/auth/status"))
+    const fetchMock = vi.fn((input: string | Request) => {
+      if (requestUrl(input).endsWith("/auth/status"))
         return Promise.resolve(
           jsonResponse({ setupRequired: true, authenticated: false }),
         );
-      throw new Error(`unexpected request: ${input}`);
+      throw new Error(`unexpected request: ${requestUrl(input)}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -146,12 +155,12 @@ describe("guided first-install setup", () => {
   });
 
   it("catches a mismatched confirmation on review submit", async () => {
-    const fetchMock = vi.fn((input: string) => {
-      if (input.endsWith("/auth/status"))
+    const fetchMock = vi.fn((input: string | Request) => {
+      if (requestUrl(input).endsWith("/auth/status"))
         return Promise.resolve(
           jsonResponse({ setupRequired: true, authenticated: false }),
         );
-      throw new Error(`unexpected request: ${input}`);
+      throw new Error(`unexpected request: ${requestUrl(input)}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 

@@ -31,12 +31,21 @@ function renderLogin() {
   );
 }
 
+/**
+ * Realistic fetch stub body: the typed transport reads through
+ * openapi-fetch (headers and all), so doubles must be real Responses,
+ * not json-only fakes.
+ */
 function jsonResponse(data: unknown, ok = true, statusCode = 200) {
-  return {
-    ok,
+  return new Response(JSON.stringify(ok ? { data } : data), {
     status: statusCode,
-    json: () => Promise.resolve(ok ? { data } : data),
-  } as Response;
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** The transport calls fetch(urlString, init); tolerate a Request too. */
+function requestUrl(input: string | Request): string {
+  return typeof input === "string" ? input : input.url;
 }
 
 async function signIn() {
@@ -55,8 +64,8 @@ describe("sign-in with a second factor", () => {
   afterEach(cleanup);
 
   it("asks for a code instead of signing in when the account is enrolled", async () => {
-    const fetchMock = vi.fn((input: string) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(jsonResponse(status));
       if (url.endsWith("/auth/login"))
@@ -83,8 +92,8 @@ describe("sign-in with a second factor", () => {
 
   it("sends the challenge token with the verification code", async () => {
     const verify = vi.fn();
-    const fetchMock = vi.fn((input: string, init?: RequestInit) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request, init?: RequestInit) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(jsonResponse(status));
       if (url.endsWith("/auth/login"))
@@ -136,8 +145,8 @@ describe("sign-in with a second factor", () => {
   // A wrong code must leave the attempt open rather than dropping the user
   // back to the password form, which would waste the challenge.
   it("keeps the challenge open after an incorrect code", async () => {
-    const fetchMock = vi.fn((input: string) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(jsonResponse(status));
       if (url.endsWith("/auth/login"))
@@ -207,8 +216,8 @@ describe("sign-in with a second factor", () => {
     );
     vi.stubGlobal("navigator", { credentials: { get: getCredential } });
 
-    const fetchMock = vi.fn((input: string) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(jsonResponse(status));
       if (url.endsWith("/auth/passkey/login/options"))
@@ -243,8 +252,8 @@ describe("sign-in with a second factor", () => {
   });
 
   it("offers a passwordless passkey button only when the server supports it", async () => {
-    const fetchMock = vi.fn((input: string) => {
-      const url = input;
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
       if (url.endsWith("/auth/status"))
         return Promise.resolve(
           jsonResponse({

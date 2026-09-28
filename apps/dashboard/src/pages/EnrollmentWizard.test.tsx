@@ -40,12 +40,21 @@ const security = {
   authMethod: "password",
 };
 
+/**
+ * Realistic fetch stub body: the typed transport reads through
+ * openapi-fetch (headers and all), so doubles must be real Responses,
+ * not json-only fakes.
+ */
 function jsonResponse(data: unknown, ok = true, statusCode = 200) {
-  return {
-    ok,
+  return new Response(JSON.stringify(ok ? { data } : data), {
     status: statusCode,
-    json: () => Promise.resolve(ok ? { data } : data),
-  } as Response;
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+/** The transport calls fetch(urlString, init); tolerate a Request too. */
+function requestUrl(input: string | Request): string {
+  return typeof input === "string" ? input : input.url;
 }
 
 /**
@@ -56,30 +65,30 @@ function jsonResponse(data: unknown, ok = true, statusCode = 200) {
 function stubServer(overrides: Partial<typeof security> = {}) {
   const state = { ...security, ...overrides };
   const calls: string[] = [];
-  const fetchMock = vi.fn((input: string) => {
-    calls.push(input);
-    if (input.endsWith("/auth/status"))
+  const fetchMock = vi.fn((input: string | Request) => {
+    calls.push(requestUrl(input));
+    if (requestUrl(input).endsWith("/auth/status"))
       return Promise.resolve(jsonResponse(authStatus));
-    if (input.endsWith("/me/security"))
+    if (requestUrl(input).endsWith("/me/security"))
       return Promise.resolve(jsonResponse(state));
-    if (input.endsWith("/me/security/totp"))
+    if (requestUrl(input).endsWith("/me/security/totp"))
       return Promise.resolve(
         jsonResponse({
           provisioningUri: "otpauth://totp/Tilecast:gibson?secret=ABCDEF",
           secret: "ABCDEF",
         }),
       );
-    if (input.endsWith("/me/security/totp/confirm")) {
+    if (requestUrl(input).endsWith("/me/security/totp/confirm")) {
       state.totpEnrolled = true;
       return Promise.resolve(jsonResponse(state));
     }
-    if (input.endsWith("/me/security/recovery-codes")) {
+    if (requestUrl(input).endsWith("/me/security/recovery-codes")) {
       state.recoveryCodesRemaining = 2;
       return Promise.resolve(
         jsonResponse({ codes: ["aaaa-bbbb", "cccc-dddd"] }),
       );
     }
-    throw new Error(`unexpected request: ${input}`);
+    throw new Error(`unexpected request: ${requestUrl(input)}`);
   });
   vi.stubGlobal("fetch", fetchMock);
   return { calls, state };

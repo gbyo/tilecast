@@ -11,7 +11,11 @@ import { Link } from "react-router";
 import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
-import type { ContentSubmission, SubmissionStatus } from "../api/types";
+import type {
+  ContentSubmission,
+  SubmissionFilter,
+  SubmissionStatus,
+} from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
 import { DateTimeInput } from "../components/date-picker";
@@ -96,7 +100,7 @@ export function ContentSubmissionInboxPage() {
   const canPublish = canReview;
   const canPublishCampaign = ["owner", "administrator"].includes(role);
   const client = useQueryClient();
-  const [filter, setFilter] = useState<"" | SubmissionStatus>("in_review");
+  const [filter, setFilter] = useState<SubmissionFilter>("in_review");
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -348,7 +352,7 @@ export function ContentSubmissionInboxPage() {
           // Pressing the active item would clear the group; keep one filter selected.
           const next = values[0];
           if (!next) return;
-          setFilter(next === "all" ? "" : (next as SubmissionStatus));
+          setFilter(next === "all" ? "" : (next as SubmissionFilter));
         }}
         variant="outline"
         size="sm"

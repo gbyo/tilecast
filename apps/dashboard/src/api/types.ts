@@ -126,8 +126,8 @@ export type PersonalAccessToken = {
 
 export type PersonalAccessTokenInput = {
   name: string;
-  scopes: string[];
-  expiresInDays: number;
+  scopes: ("read" | "write" | "admin")[];
+  expiresInDays: 7 | 30 | 90 | 365;
 };
 
 export type PersonalAccessTokenCreated = {
@@ -553,7 +553,7 @@ export type PlaylistItemInput = {
   videoStartOffsetMs?: number;
   videoEndOffsetMs?: number;
   deliveryPolicy: PlaylistItem["deliveryPolicy"];
-  usePlayerDefaults?: boolean;
+  usePlayerDefaults: boolean;
 };
 export type PlaylistBulkItemUpdateInput =
   | {
@@ -911,6 +911,15 @@ export type SettingsDocument = {
   definitions: SettingDefinition[];
   updatedAt: string;
 };
+/** Versioned settings export file: organization document plus group and screen policies. */
+export type SettingsExportDocument = {
+  schemaVersion: number;
+  exportedAt: string;
+  tilecastVersion: string;
+  organization: SettingsDocument;
+  groupPolicies: Record<string, unknown>[];
+  screenPolicies?: Record<string, unknown>[];
+};
 export type PolicyDocument = {
   schemaVersion: number;
   revision: number;
@@ -926,6 +935,14 @@ export type EffectivePolicy = {
   configRevision: number;
   hash: string;
 };
+/** Actions the system-maintenance endpoint accepts. The server rejects anything else. */
+export type MaintenanceAction =
+  | "expired-upload-cleanup"
+  | "completed-command-cleanup"
+  | "retention-cleanup"
+  | "reconcile-config"
+  | "validate-media";
+
 export type SystemStatus = {
   tilecastVersion: string;
   buildCommit: string;
@@ -1345,6 +1362,10 @@ export type GitHubDevicePoll = {
   login?: string;
   retryAfterSeconds?: number;
 };
+/** Deployment modes the update-deployments endpoint accepts. */
+export type UpdateDeploymentMode =
+  "download_only" | "install_now" | "maintenance_window";
+
 export type UpdateDeployment = {
   id: string;
   name: string;
@@ -2723,6 +2744,20 @@ export type SubmissionStatus =
   | "published"
   | "superseded"
   | "cancelled"
+  | "publication_failed";
+
+/**
+ * States the list-submissions filter accepts. The server rejects anything
+ * else with invalid_state; `cancelled` is a display-only detail state.
+ */
+export type SubmissionFilter =
+  | ""
+  | "in_review"
+  | "changes_requested"
+  | "approved"
+  | "scheduled"
+  | "published"
+  | "superseded"
   | "publication_failed";
 
 export type ContentSubmission = {

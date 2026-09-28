@@ -59,7 +59,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { api } from "../api/client";
+import { api, isSettingsExportDocument } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import {
   releaseUpdateTab,
@@ -68,8 +68,11 @@ import {
 } from "../playerPlatform";
 import type {
   GitHubDeviceStart,
+  MaintenanceAction,
   PlayerRelease,
+  SettingsExportDocument,
   UpdateDeployment,
+  UpdateDeploymentMode,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -94,7 +97,7 @@ type MaintenanceActionKey =
 // Action names hold translation keys, never rendered text. Labels resolve
 // with t() at render so the panel follows language changes.
 const maintenanceActions: {
-  id: string;
+  id: MaintenanceAction;
   labelKey: MaintenanceActionKey;
   descriptionKey: MaintenanceActionKey;
   confirm: boolean;
@@ -144,7 +147,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
     refetchInterval: 30_000,
   });
   const maintenance = useMutation({
-    mutationFn: (action: string) =>
+    mutationFn: (action: MaintenanceAction) =>
       api.runMaintenance(action, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
       toast.add({
@@ -304,20 +307,24 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const [document, setDocument] = useState<unknown>();
+  const [document, setDocument] = useState<SettingsExportDocument>();
   const [preview, setPreview] = useState<{
     changedKeys: string[];
     groupPolicyCount: number;
     screenPolicyCount: number;
   } | null>(null);
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewSettingsImport(document, auth.status?.csrfToken ?? ""),
+    mutationFn: () => {
+      if (!document) throw new Error(t("operations.importExport.noDocument"));
+      return api.previewSettingsImport(document, auth.status?.csrfToken ?? "");
+    },
     onSuccess: setPreview,
   });
   const apply = useMutation({
-    mutationFn: () =>
-      api.applySettingsImport(document, auth.status?.csrfToken ?? ""),
+    mutationFn: () => {
+      if (!document) throw new Error(t("operations.importExport.noDocument"));
+      return api.applySettingsImport(document, auth.status?.csrfToken ?? "");
+    },
     onSuccess: () => {
       toast.add({
         title: t("operations.importExport.imported"),
@@ -377,7 +384,15 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
                 void (async () => {
                   const file = event.target.files?.[0];
                   if (!file) return;
-                  setDocument(JSON.parse(await file.text()));
+                  const parsed: unknown = JSON.parse(await file.text());
+                  if (!isSettingsExportDocument(parsed)) {
+                    toast.add({
+                      title: t("operations.importExport.invalidDocument"),
+                      type: "error",
+                    });
+                    return;
+                  }
+                  setDocument(parsed);
                   setPreview(null);
                 })
               }
@@ -498,7 +513,7 @@ export function PlayerUpdatesPanel({
   const [releaseId, setReleaseId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
   const [groupIds, setGroupIds] = useState<string[]>([]);
-  const [mode, setMode] = useState("download_only");
+  const [mode, setMode] = useState<UpdateDeploymentMode>("download_only");
   const [canarySize, setCanarySize] = useState(0);
   const [windowStart, setWindowStart] = useState("");
   const [targetSearch, setTargetSearch] = useState("");

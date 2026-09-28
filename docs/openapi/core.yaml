@@ -154,6 +154,16 @@ paths:
       operationId: login
       description: >-
         Rate-limited. Exchange an enrolled account's credentials for a dashboard session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
       responses:
         "200":
           description: >-
@@ -872,6 +882,8 @@ paths:
       description: >-
         List recent fleet bulk operations. Requires an Owner or
         Administrator with the read scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResultLimit" }
       responses:
         "200": { description: Recent bulk operations }
         "401": { description: Dashboard authentication required }
@@ -930,6 +942,7 @@ paths:
         with the read scope.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+        - { $ref: "#/components/parameters/ResultLimit" }
       responses:
         "200": { description: Screen snapshots }
         "401": { description: Dashboard authentication required }
@@ -1070,6 +1083,13 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
+        - name: force
+          in: query
+          description: >-
+            Bypass the last-complete-backup protection. The server reads
+            `?force=true` on delete.
+          required: false
+          schema: { type: boolean }
       responses:
         "200": { description: Backup deleted }
         "401": { description: Dashboard authentication required }
@@ -1107,6 +1127,8 @@ paths:
       description: >-
         List notification deliveries. Requires an Owner or Administrator
         with the admin scope.
+      parameters:
+        - { $ref: "#/components/parameters/ResultLimit" }
       responses:
         "200": { description: Notification deliveries }
         "401": { description: Dashboard authentication required }
@@ -2056,7 +2078,12 @@ paths:
               properties:
                 targetType: { type: string, enum: [screen, group] }
                 targetId: { type: string, format: uuid }
-                durationMinutes: { type: integer, enum: [15, 30, 60] }
+                durationMinutes:
+                  {
+                    type: integer,
+                    enum: [0, 15, 30, 60],
+                    description: "Minutes, or 0 for until stopped.",
+                  }
                 transport: { type: string, enum: [auto, unicast, multicast] }
                 audioMode: { type: string, enum: [gateway_only, none] }
       responses:
@@ -2306,6 +2333,17 @@ paths:
       operationId: createContentFolder
       description: >-
         Create content folder. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                parentId: { type: string, format: uuid }
+                name: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 500 }
       responses:
         "201": { description: Folder created }
         "422": { description: Validation failed }
@@ -2320,6 +2358,16 @@ paths:
       operationId: createContentCollection
       description: >-
         Create content collection. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                description: { type: string, maxLength: 500 }
       responses:
         "201": { description: Collection created }
   /api/v1/content-tags:
@@ -2333,6 +2381,20 @@ paths:
       operationId: createContentTag
       description: >-
         Create content tag. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, color]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60 }
+                color:
+                  {
+                    type: string,
+                    description: "Six-digit hex color; empty defaults to slate.",
+                  }
       responses:
         "201": { description: Tag created }
   /api/v1/assets/bulk-organize:
@@ -2818,6 +2880,11 @@ paths:
       operationId: createLocation
       description: >-
         Create location. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
         "201": { description: Location created }
         "403": { description: Owner or Administrator required }
@@ -2835,6 +2902,11 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationInput" }
       responses:
         "200": { description: Location updated }
         "409":
@@ -3140,6 +3212,30 @@ paths:
             schema: { type: boolean, default: false },
             description: Return manually archived and automatically expired library content instead of active content,
           }
+        - {
+            in: query,
+            name: provider,
+            schema: { type: string },
+            description: Filter to assets produced by one widget provider,
+          }
+        - {
+            in: query,
+            name: folderId,
+            schema: { type: string, format: uuid },
+            description: Filter to one content folder,
+          }
+        - {
+            in: query,
+            name: collectionId,
+            schema: { type: string, format: uuid },
+            description: Filter to one content collection,
+          }
+        - {
+            in: query,
+            name: tagId,
+            schema: { type: string, format: uuid },
+            description: Filter to one content tag,
+          }
       responses: { "200": { description: Stable paginated media library } }
   /api/v1/assets/archive:
     post:
@@ -3365,6 +3461,16 @@ paths:
       description: >-
         Update playlist. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
       responses:
         { "200": { description: Playlist updated and revision incremented } }
     delete:
@@ -3439,6 +3545,17 @@ paths:
       parameters:
         - $ref: "#/components/parameters/ResourceID"
         - $ref: "#/components/parameters/CSRFToken"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itemIds]
+              properties:
+                itemIds:
+                  type: array
+                  items: { type: string, format: uuid }
       responses:
         { "200": { description: Complete item order replaced transactionally } }
   /api/v1/playlists/{id}/items/bulk:
@@ -3498,6 +3615,11 @@ paths:
       description: >-
         Update playlist item. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlaylistItemInput" }
       responses: { "200": { description: Playback settings updated } }
     delete:
       operationId: deletePlaylistItem
@@ -3585,6 +3707,19 @@ paths:
       operationId: listScreenGroups
       description: >-
         List screen groups. Requires an authenticated dashboard user.
+      parameters:
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
         {
           "200":
@@ -3605,6 +3740,16 @@ paths:
             schema: { type: string },
           },
         ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
       responses:
         {
           "201": { description: Display Group created in Mirror mode },
@@ -3629,6 +3774,18 @@ paths:
         Update screen group. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
+                presentationGatewayScreenId: { type: string, format: uuid }
+                clearPresentationGateway: { type: boolean }
       responses: { "200": { description: Display Group updated } }
     delete:
       operationId: deleteScreenGroup
@@ -3731,6 +3888,15 @@ paths:
         Add screen group member. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenId]
+              properties:
+                screenId: { type: string, format: uuid }
       responses:
         {
           "200": { description: Screen added and member manifests revised },
@@ -3842,6 +4008,11 @@ paths:
         Update schedule. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
         {
           "200":
@@ -3875,6 +4046,17 @@ paths:
       operationId: previewSchedule
       description: >-
         Preview schedule. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [screenId]
+              properties:
+                screenId: { type: string, format: uuid }
+                timestamp: { type: string, format: date-time }
+                proposedSchedule: { $ref: "#/components/schemas/ScheduleInput" }
       responses:
         {
           "200":
@@ -3897,6 +4079,11 @@ paths:
           required: false
           schema: { type: string }
           description: Required when authenticating with sessionCookie; omit for userBearer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebsiteInput" }
       responses:
         {
           "201": { description: Website asset created },
@@ -3910,6 +4097,11 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
         - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebsiteInput" }
       responses:
         {
           "200":
@@ -3961,6 +4153,17 @@ paths:
       operationId: compileWidgetPreview
       description: >-
         Compile widget preview. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [provider, configuration]
+              properties:
+                provider: { type: string }
+                configuration: { type: object, additionalProperties: true }
       responses:
         "200":
           description: Declarative presentation schema v1 document
@@ -4011,6 +4214,27 @@ paths:
       operationId: listDataSources
       description: >-
         List data sources. Requires an authenticated dashboard user.
+      parameters:
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
+        - in: query
+          name: provider
+          required: false
+          schema: { type: string }
+        - in: query
+          name: sort
+          required: false
+          schema: { type: string }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
         "200": { description: Paginated Data Source summaries }
     post:
@@ -4090,23 +4314,7 @@ paths:
         - in: path
           name: provider
           required: true
-          schema:
-            {
-              type: string,
-              enum:
-                [
-                  calendar,
-                  rss,
-                  atom,
-                  json,
-                  csv,
-                  manual,
-                  weather,
-                  transit,
-                  cap_alerts,
-                  air_quality,
-                ],
-            }
+          schema: { $ref: "#/components/schemas/DataSourceProvider" }
       requestBody:
         required: true
         content:
@@ -4115,7 +4323,7 @@ paths:
               type: object
               required: [configuration]
               properties:
-                configuration: { type: object }
+                configuration: { type: object, additionalProperties: true }
                 previewDate: { type: string, format: date }
       responses:
         "200":
@@ -4138,12 +4346,12 @@ paths:
   /api/v1/data-sources/{provider}/inspect:
     post:
       operationId: inspectDataSource
-      description: Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
+      description: Requires an authenticated dashboard session. Reports the fields a candidate RSS, Atom, Feed, JSON, or CSV connection contains, with a few sample values per field, a suggested field mapping, and which record fields the Source can fill. Runs under the same safe fetch policy as preview and deliberately does not require a mapping, because the mapping is what it exists to produce.
       parameters:
         - in: path
           name: provider
           required: true
-          schema: { type: string, enum: [rss, atom, json, csv] }
+          schema: { $ref: "#/components/schemas/DataSourceProvider" }
       requestBody:
         required: true
         content:
@@ -4152,7 +4360,7 @@ paths:
               type: object
               required: [configuration]
               properties:
-                configuration: { type: object }
+                configuration: { type: object, additionalProperties: true }
       responses:
         "200":
           {
@@ -4164,12 +4372,39 @@ paths:
     get:
       operationId: listLayouts
       description: Requires an authenticated dashboard session. Layout summaries include hasUnpublishedChanges, computed by comparing the current draft document with the published document rather than by comparing their independent revision counters.
+      parameters:
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
         "200": { description: Paginated Layout summaries }
     post:
       operationId: createLayout
       description: >-
         Create layout. Requires an authenticated dashboard user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [name, description, orientation, canvasWidth, canvasHeight]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
+                orientation: { type: string }
+                canvasWidth: { type: integer, minimum: 1 }
+                canvasHeight: { type: integer, minimum: 1 }
       responses:
         "201": { description: Layout and initial draft created }
         "422": { description: Layout details rejected }
@@ -4192,6 +4427,16 @@ paths:
         Update layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
       responses:
         "200": { description: Layout metadata updated }
     delete:
@@ -4209,6 +4454,22 @@ paths:
       description: Requires an authenticated dashboard session. Saves a validated draft using expectedDraftRevision optimistic concurrency.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedDraftRevision, document]
+              properties:
+                expectedDraftRevision:
+                  { type: integer, format: int64, minimum: 1 }
+                document:
+                  {
+                    type: object,
+                    additionalProperties: true,
+                    description: "Layout document, validated against the Layout schema server-side.",
+                  }
       responses:
         "200": { description: Draft saved with a new revision and ETag }
         "409": { description: Draft revision conflict }
@@ -4243,6 +4504,16 @@ paths:
         Publish layout. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedDraftRevision]
+              properties:
+                expectedDraftRevision:
+                  { type: integer, format: int64, minimum: 1 }
       responses:
         "201": { description: Immutable published revision created }
         "409": { description: Draft revision conflict }
@@ -4262,6 +4533,14 @@ paths:
         List layout revisions. Requires an authenticated dashboard user.
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: pageSize
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100 }
       responses:
         "200": { description: Paginated immutable revision history }
   /api/v1/layouts/{id}/revisions/{revisionId}/restore:
@@ -4275,6 +4554,16 @@ paths:
           name: revisionId
           required: true
           schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedDraftRevision]
+              properties:
+                expectedDraftRevision:
+                  { type: integer, format: int64, minimum: 1 }
       responses:
         "200": { description: Revision copied into a new draft revision }
         "409": { description: Draft revision conflict }
@@ -4720,6 +5009,27 @@ paths:
         Requires an authenticated dashboard user.
       operationId: createTakeover
       summary: Activate a Takeover
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [name, description, playlistId, screenIds, groupIds, expiresAt]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 180 }
+                description: { type: string, maxLength: 2000 }
+                playlistId: { type: string, format: uuid }
+                screenIds:
+                  { type: array, items: { type: string, format: uuid } }
+                groupIds: { type: array, items: { type: string, format: uuid } }
+                expiresAt: { type: string, format: date-time }
+                password:
+                  {
+                    type: string,
+                    description: "Current password when the reauthentication policy requires it.",
+                  }
       responses:
         "201": { description: Takeover activated }
         "422": { description: "Invalid targets, playlist, or expiration" }
@@ -4751,6 +5061,15 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1 }
       responses:
         "200": { description: Takeover cancelled }
         "409": { description: Takeover already ended }
@@ -5055,6 +5374,15 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason: { type: string }
       responses:
         "200": { description: Quick Present stopped }
         "404": { description: Quick Present is no longer active }
@@ -5078,6 +5406,22 @@ paths:
         display_probe. They are capability-gated by the target Player.
         Requires an Owner or Administrator with the write scope.
         Cookie-authenticated unsafe requests require X-CSRF-Token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, payload]
+              properties:
+                type: { type: string }
+                payload:
+                  {
+                    type: object,
+                    additionalProperties: true,
+                    description: "Command payload, validated per command type server-side.",
+                  }
+                idempotencyKey: { type: string, format: uuid }
       responses:
         "202": { description: Command queued }
         "429": { description: Pending command limit reached }
@@ -5185,19 +5529,20 @@ paths:
         responses: { "200": { description: Group policy } },
       }
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: putGroupPolicy,
-
-        summary: Replace typed group policy,
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses:
-          {
-            "200": { description: Updated policy },
-            "409": { description: Revision conflict },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: putGroupPolicy
+      summary: Replace typed group policy
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyUpdate" }
+      responses:
+        {
+          "200": { description: Updated policy },
+          "409": { description: Revision conflict },
+        }
     delete:
       {
         description: "Requires an authenticated dashboard user.",
@@ -5221,14 +5566,15 @@ paths:
         responses: { "200": { description: Screen policy } },
       }
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: putScreenPolicy,
-
-        summary: Replace typed screen policy,
-        responses: { "200": { description: Updated policy } },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: putScreenPolicy
+      summary: Replace typed screen policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PolicyUpdate" }
+      responses: { "200": { description: Updated policy } }
     delete:
       {
         description: "Requires an authenticated dashboard user.",
@@ -5269,19 +5615,20 @@ paths:
       }
   /api/v1/screens/{id}/power-assist:
     put:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: setScreenPowerAssist,
-        summary: "Store administrator-confirmed sleep, wake, CEC, input, and
-          startup test results",
-        parameters: [{ $ref: "#/components/parameters/ResourceID" }],
-        responses:
-          {
-            "200": { description: Confirmation stored },
-            "422": { description: Invalid result state },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: setScreenPowerAssist
+      summary: "Store administrator-confirmed sleep, wake, CEC, input, and startup test results"
+      parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PowerAssistConfirmation" }
+      responses:
+        {
+          "200": { description: Confirmation stored },
+          "422": { description: Invalid result state },
+        }
   /api/v1/player/config:
     get:
       {
@@ -5334,32 +5681,34 @@ paths:
       }
   /api/v1/system/settings/import/preview:
     post:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: previewSettingsImport,
-
-        summary: Validate settings import without applying,
-        responses:
-          {
-            "200": { description: Import preview },
-            "422": { description: Invalid import },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: previewSettingsImport
+      summary: Validate settings import without applying
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsExport" }
+      responses:
+        {
+          "200": { description: Import preview },
+          "422": { description: Invalid import },
+        }
   /api/v1/system/settings/import/apply:
     post:
-      {
-        description: "Requires an authenticated dashboard user.",
-
-        operationId: applySettingsImport,
-
-        summary: Apply confirmed settings import,
-        responses:
-          {
-            "200": { description: Import applied },
-            "409": { description: Revision conflict },
-          },
-      }
+      description: "Requires an authenticated dashboard user."
+      operationId: applySettingsImport
+      summary: Apply confirmed settings import
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SettingsExport" }
+      responses:
+        {
+          "200": { description: Import applied },
+          "409": { description: Revision conflict },
+        }
   /api/v1/player-releases:
     get:
       description: >-
@@ -5393,6 +5742,15 @@ paths:
         Requires an authenticated dashboard user.
       operationId: pollGitHubDeviceFlow
       summary: Poll an active GitHub OAuth device flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flowId]
+              properties:
+                flowId: { type: string, format: uuid }
       responses:
         "200": { description: "Pending, connected, denied, or expired state" }
         "410": { description: Device flow expired or was not found }
@@ -5488,6 +5846,26 @@ paths:
         Requires an authenticated dashboard user.
       operationId: createUpdateDeployment
       summary: Create a deduplicated screen and group deployment with an optional canary cohort
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [releaseId, name, mode, screenIds, groupIds]
+              properties:
+                releaseId: { type: string, format: uuid }
+                name: { type: string, minLength: 1, maxLength: 180 }
+                mode:
+                  {
+                    type: string,
+                    enum: [download_only, install_now, maintenance_window],
+                  }
+                screenIds:
+                  { type: array, items: { type: string, format: uuid } }
+                groupIds: { type: array, items: { type: string, format: uuid } }
+                canarySize: { type: integer, minimum: 0, maximum: 50 }
+                maintenanceWindowStart: { type: string, format: date-time }
       responses:
         {
           "201": { description: Deployment created },
@@ -5712,6 +6090,12 @@ components:
       name: id
       required: true
       schema: { type: string, format: uuid }
+    ResultLimit:
+      in: query
+      name: limit
+      required: false
+      schema: { type: integer }
+      description: Maximum items returned. The server applies its own default and cap.
     MaintenanceAction:
       in: path
       name: action
@@ -5977,7 +6361,7 @@ components:
     PresentationNetworkCreateInput:
       type: object
       additionalProperties: false
-      required: [name, ssid, hidden, security, secret]
+      required: [name, ssid, hidden, security]
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         ssid: { type: string, minLength: 1, maxLength: 32 }
@@ -6002,6 +6386,90 @@ components:
         anonymousIdentity: { type: string, maxLength: 253 }
         caCertificatePem: { type: string, maxLength: 32768 }
         domainSuffixMatch: { type: string, maxLength: 253 }
+    LocationInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        addressLine1: { type: string, maxLength: 240 }
+        addressLine2: { type: string, maxLength: 240 }
+        city: { type: string, maxLength: 120 }
+        state: { type: string, maxLength: 120 }
+        postalCode: { type: string, maxLength: 40 }
+        country: { type: string, maxLength: 120 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    WebsiteInput:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          name,
+          description,
+          url,
+          allowedHosts,
+          scrollX,
+          scrollY,
+          customUserAgent,
+          backgroundColor,
+        ]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 180 }
+        description: { type: string, maxLength: 2000 }
+        url: { type: string, format: uri, maxLength: 2048 }
+        allowedHosts: { type: array, items: { type: string } }
+        javascriptEnabled: { type: boolean }
+        domStorageEnabled: { type: boolean }
+        cookiePolicy:
+          { type: string, enum: [disabled, first_party, first_and_third_party] }
+        reloadPolicy:
+          { type: string, enum: [load_once, on_each_activation, interval] }
+        refreshIntervalSeconds: { type: integer, minimum: 0 }
+        loadTimeoutSeconds: { type: integer, minimum: 1 }
+        zoomPercent: { type: integer, minimum: 50, maximum: 200 }
+        scrollX: { type: integer, minimum: 0, maximum: 100000 }
+        scrollY: { type: integer, minimum: 0, maximum: 100000 }
+        customUserAgent: { type: string, maxLength: 512 }
+        backgroundColor: { type: string }
+        failureBehavior:
+          {
+            type: string,
+            enum: [last_success, placeholder, fallback_image, skip],
+          }
+        fallbackImageAssetId: { type: string, format: uuid }
+    PowerAssistConfirmation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          deviceSleep,
+          tvStandby,
+          deviceWake,
+          tvWake,
+          inputSelection,
+          tilecastStartup,
+        ]
+      properties:
+        deviceSleep: { type: string }
+        tvStandby: { type: string }
+        deviceWake: { type: string }
+        tvWake: { type: string }
+        inputSelection: { type: string }
+        tilecastStartup: { type: string }
+    PolicyUpdate:
+      type: object
+      additionalProperties: false
+      required: [revision]
+      properties:
+        revision: { type: integer, format: int64, minimum: 1 }
+        priority: { type: integer }
+        values:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Typed player-setting keys for this scope, validated against the settings registry server-side.",
+          }
     PresentationNetworkAssignment:
       type: object
       additionalProperties: false
@@ -6674,7 +7142,12 @@ components:
         type: { type: string, enum: [public-key] }
         authenticatorAttachment:
           { type: string, enum: [platform, cross-platform] }
-        clientExtensionResults: { type: object }
+        clientExtensionResults:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Authenticator extension outputs, parsed by the server WebAuthn library.",
+          }
         response:
           type: object
           required: [clientDataJSON, attestationObject]
@@ -6694,7 +7167,12 @@ components:
         type: { type: string, enum: [public-key] }
         authenticatorAttachment:
           { type: string, enum: [platform, cross-platform] }
-        clientExtensionResults: { type: object }
+        clientExtensionResults:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Authenticator extension outputs, parsed by the server WebAuthn library.",
+          }
         response:
           type: object
           required: [clientDataJSON, authenticatorData, signature]
@@ -7028,20 +7506,11 @@ components:
       description: Closed renderable Widget or App identifier from the release-owned content-definition catalog.
     DataSourceProvider:
       type: string
-      description: Non-visual Data Source providers.
-      enum:
-        [
-          calendar,
-          rss,
-          atom,
-          json,
-          csv,
-          manual,
-          weather,
-          transit,
-          cap_alerts,
-          air_quality,
-        ]
+      description: >-
+        Data Source provider identifier from the content-definition catalog:
+        calendar, rss, atom, feed, json, csv, manual, weather, transit,
+        cap_alerts, air_quality, or a plugin-contributed provider. The server
+        lowercases and trims the value and rejects unknown providers.
     Widget:
       type: object
       additionalProperties: false
@@ -7072,7 +7541,8 @@ components:
         configuration:
           {
             type: object,
-            description: "Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
+            additionalProperties: true,
+            description: "Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
           }
     WidgetInput:
       type: object
@@ -7098,7 +7568,8 @@ components:
         configuration:
           {
             type: object,
-            description: "Provider-specific configuration. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
+            additionalProperties: true,
+            description: "Provider-specific configuration, validated per provider server-side. Native text Widgets omit textScale for automatic bounds-first sizing or use 25–500 percent; contentPadding defaults to 10 percent per edge and accepts 0–40.",
           }
     DataSource:
       type: object
@@ -7110,7 +7581,12 @@ components:
         name: { type: string, minLength: 1, maxLength: 180 }
         description: { type: string, maxLength: 2000 }
         configVersion: { type: integer, minimum: 1 }
-        configuration: { type: object }
+        configuration:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Provider-specific configuration, validated per provider server-side.",
+          }
     DataSourceInput:
       type: object
       additionalProperties: false
@@ -7119,7 +7595,12 @@ components:
         provider: { $ref: "#/components/schemas/DataSourceProvider" }
         name: { type: string, minLength: 1, maxLength: 180 }
         description: { type: string, maxLength: 2000 }
-        configuration: { type: object }
+        configuration:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Provider-specific configuration, validated per provider server-side.",
+          }
     AssetStatus:
       type: string
       enum:
@@ -7262,7 +7743,7 @@ components:
         scope: { type: string }
         state: { type: string }
         challenge: { type: string }
-        method: { type: string, enum: [S256] }
+        method: { type: string }
     OAuthTokenRequest:
       type: object
       additionalProperties: false
@@ -7435,10 +7916,35 @@ components:
         csrfToken: { type: string }
         authMethod: { type: string }
         mfaEnrollmentRequired: { type: boolean }
+    SettingsExport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          schemaVersion,
+          exportedAt,
+          tilecastVersion,
+          organization,
+          groupPolicies,
+        ]
+      properties:
+        schemaVersion: { type: integer, minimum: 1, maximum: 1 }
+        exportedAt: { type: string, format: date-time }
+        tilecastVersion: { type: string }
+        organization: { type: object, additionalProperties: true }
+        groupPolicies:
+          { type: array, items: { type: object, additionalProperties: true } }
+        screenPolicies:
+          { type: array, items: { type: object, additionalProperties: true } }
     SettingsUpdate:
       type: object
       additionalProperties: false
       required: [revision, values]
       properties:
         revision: { type: integer, format: int64, minimum: 0 }
-        values: { type: object }
+        values:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Setting keys for this scope, validated against the registry server-side.",
+          }
