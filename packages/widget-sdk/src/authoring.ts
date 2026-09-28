@@ -12,10 +12,7 @@
  */
 
 export type WidgetAuthoringSection =
-  | "data"
-  | "content"
-  | "appearance"
-  | "behavior";
+  "data" | "content" | "appearance" | "behavior";
 
 /** The canonical inspector order. Sections without controls are hidden. */
 export const AUTHORING_SECTIONS: readonly WidgetAuthoringSection[] = [
@@ -131,7 +128,10 @@ export function visibleAuthoringFields<Field extends AuthoringField>(
 export function groupAuthoringFields<Field extends AuthoringField>(
   fields: readonly Field[],
 ): { section: WidgetAuthoringSection; fields: Field[] }[] {
-  const groups = new Map<WidgetAuthoringSection, { field: Field; index: number }[]>();
+  const groups = new Map<
+    WidgetAuthoringSection,
+    { field: Field; index: number }[]
+  >();
   fields.forEach((field, index) => {
     const section = authoringUiOf(field).section ?? "content";
     const group = groups.get(section);
@@ -149,7 +149,12 @@ export function groupAuthoringFields<Field extends AuthoringField>(
   return AUTHORING_SECTIONS.flatMap((section) => {
     const sectionFields = groups.get(section);
     return sectionFields
-      ? [{ section, fields: sectionFields.sort(byOrder).map((entry) => entry.field) }]
+      ? [
+          {
+            section,
+            fields: sectionFields.sort(byOrder).map((entry) => entry.field),
+          },
+        ]
       : [];
   });
 }

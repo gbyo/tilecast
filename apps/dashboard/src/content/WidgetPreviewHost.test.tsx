@@ -115,11 +115,11 @@ describe("WidgetPreviewHost", () => {
       />,
     );
     await waitFor(() =>
-      expect(
-        states.some((state) => state.state === "error"),
-      ).toBe(true),
+      expect(states.some((state) => state.state === "error")).toBe(true),
     );
-    expect(screen.queryByRole("img", { name: "Missing preview" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("img", { name: "Missing preview" }),
+    ).toBeInTheDocument();
   });
 
   it("disposes the element on unmount", async () => {

@@ -10,7 +10,10 @@ const fields = [
   { key: "format", ui: { section: "content", order: 2 } },
   {
     key: "showDate",
-    ui: { section: "appearance", visibleWhen: { key: "style", notEquals: "minimal" } },
+    ui: {
+      section: "appearance",
+      visibleWhen: { key: "style", notEquals: "minimal" },
+    },
   },
   { key: "style", ui: { section: "appearance", order: 1, styleCard: true } },
   { key: "dataSourceId", ui: { section: "data", order: 1 } },
@@ -21,9 +24,7 @@ describe("authoring metadata", () => {
   it("reads hints tolerantly", () => {
     expect(authoringUiOf({ key: "a" })).toEqual({});
     expect(authoringUiOf({ key: "a", ui: "content" })).toEqual({});
-    expect(authoringUiOf({ key: "a", ui: { section: "sidebar" } })).toEqual(
-      {},
-    );
+    expect(authoringUiOf({ key: "a", ui: { section: "sidebar" } })).toEqual({});
     expect(
       authoringUiOf({ key: "a", ui: { section: "data", order: 2 } }),
     ).toEqual({ section: "data", order: 2 });
@@ -71,9 +72,6 @@ describe("authoring metadata", () => {
       "format",
       "legacy",
     ]);
-    expect(groups[2]!.fields.map((f) => f.key)).toEqual([
-      "style",
-      "showDate",
-    ]);
+    expect(groups[2]!.fields.map((f) => f.key)).toEqual(["style", "showDate"]);
   });
 });
