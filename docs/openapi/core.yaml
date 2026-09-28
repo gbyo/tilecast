@@ -2337,7 +2337,15 @@ paths:
           required: false
           schema: { type: string, format: date-time }
       responses:
-        "200": { description: Incident analytics }
+        "200":
+          description: Incident analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IncidentAnalytics" }
         "401": { description: Dashboard authentication required }
         "422": { description: Range invalid }
   /api/v1/activity/retention:
@@ -3336,7 +3344,15 @@ paths:
             schema: { type: string, format: date-time },
           }
       responses:
-        "200": { description: Activity overview }
+        "200":
+          description: Activity overview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ActivityOverview" }
         "401": { description: Dashboard authentication required }
         "422": { description: activity_range_invalid }
   /api/v1/activity/uptime:
@@ -3356,7 +3372,15 @@ paths:
             schema: { type: string, enum: [24h, 7d, 30d] },
           }
       responses:
-        "200": { description: Uptime report }
+        "200":
+          description: Uptime report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UptimeReport" }
         "401": { description: Dashboard authentication required }
         "422": { description: uptime_window_invalid }
   /api/v1/activity/compliance:
@@ -3402,7 +3426,15 @@ paths:
               },
           }
       responses:
-        "200": { description: Playback compliance report }
+        "200":
+          description: Playback compliance report
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ComplianceReport" }
         "401": { description: Dashboard authentication required }
         "422": { description: activity_range_invalid }
   /api/v1/activity/incidents:
@@ -7724,6 +7756,303 @@ components:
         name: { type: string }
         rowCount: { type: integer, minimum: 0 }
         updatedAt: { type: string, format: date-time }
+    ActivityTimeRange:
+      type: object
+      additionalProperties: false
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+    ActivityOverview:
+      type: object
+      additionalProperties: false
+      required: [range, cards, timeline]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        cards:
+          type: object
+          additionalProperties: false
+          required:
+            [
+              screensWithReportingGaps,
+              confirmedScreenPlaybackMs,
+              contentExposureMs,
+              playbackFailures,
+              interruptedPlays,
+              takeoverActivations,
+              failedPlayerUpdates,
+              recentAdministrativeChanges,
+            ]
+          properties:
+            screensWithReportingGaps:
+              { type: integer, format: int64, minimum: 0 }
+            confirmedScreenPlaybackMs:
+              { type: integer, format: int64, minimum: 0 }
+            contentExposureMs: { type: integer, format: int64, minimum: 0 }
+            playbackFailures: { type: integer, format: int64, minimum: 0 }
+            interruptedPlays: { type: integer, format: int64, minimum: 0 }
+            takeoverActivations: { type: integer, format: int64, minimum: 0 }
+            failedPlayerUpdates: { type: integer, format: int64, minimum: 0 }
+            recentAdministrativeChanges:
+              { type: integer, format: int64, minimum: 0 }
+        fleet:
+          type: object
+          additionalProperties: false
+          required: [measured, online, healthy, impaired, offline, unmeasured]
+          properties:
+            measured: { type: integer, format: int64, minimum: 0 }
+            online: { type: integer, format: int64, minimum: 0 }
+            healthy: { type: integer, format: int64, minimum: 0 }
+            impaired: { type: integer, format: int64, minimum: 0 }
+            offline: { type: integer, format: int64, minimum: 0 }
+            unmeasured: { type: integer, format: int64, minimum: 0 }
+        timeline:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, timestamp, domain, severity, description]
+            properties:
+              id: { type: string }
+              timestamp: { type: string, format: date-time }
+              domain: { type: string }
+              severity: { type: string }
+              description: { type: string }
+              screenId: { type: string, format: uuid }
+              resourceId: { type: string }
+    UptimeBucket:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          start,
+          upPercent,
+          impairedPercent,
+          downPercent,
+          unknownPercent,
+          uptimePercent,
+          screensDown,
+        ]
+      properties:
+        start: { type: string, format: date-time }
+        upPercent: { type: number, minimum: 0, maximum: 100 }
+        impairedPercent: { type: number, minimum: 0, maximum: 100 }
+        downPercent: { type: number, minimum: 0, maximum: 100 }
+        unknownPercent: { type: number, minimum: 0, maximum: 100 }
+        uptimePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
+        screensDown: { type: integer, minimum: 0 }
+    UptimeScreenStrip:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          screenId,
+          screenName,
+          uptimePercent,
+          trackedSeconds,
+          upSeconds,
+          impairedSeconds,
+          downSeconds,
+          buckets,
+        ]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        uptimePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
+        trackedSeconds: { type: integer, format: int64, minimum: 0 }
+        upSeconds: { type: integer, format: int64, minimum: 0 }
+        impairedSeconds: { type: integer, format: int64, minimum: 0 }
+        downSeconds: { type: integer, format: int64, minimum: 0 }
+        buckets: { type: array, items: { type: string } }
+    UptimeReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          range,
+          window,
+          windowLabel,
+          bucketSeconds,
+          screensTracked,
+          screensWithDowntime,
+          screensUnmeasured,
+          trackedSeconds,
+          upSeconds,
+          impairedSeconds,
+          downSeconds,
+          uptimePercent,
+          previousUptimePercent,
+          buckets,
+          screens,
+        ]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        window: { type: string, enum: [24h, 7d, 30d] }
+        windowLabel: { type: string }
+        bucketSeconds: { type: integer, format: int64, minimum: 1 }
+        screensTracked: { type: integer, minimum: 0 }
+        screensWithDowntime: { type: integer, minimum: 0 }
+        screensUnmeasured: { type: integer, minimum: 0 }
+        trackedSeconds: { type: integer, format: int64, minimum: 0 }
+        upSeconds: { type: integer, format: int64, minimum: 0 }
+        impairedSeconds: { type: integer, format: int64, minimum: 0 }
+        downSeconds: { type: integer, format: int64, minimum: 0 }
+        uptimePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
+        previousUptimePercent:
+          { type: [number, "null"], minimum: 0, maximum: 100 }
+        buckets:
+          type: array
+          items: { $ref: "#/components/schemas/UptimeBucket" }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/UptimeScreenStrip" }
+    ComplianceBreakdown:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          key,
+          label,
+          measurableExpectedMs,
+          confirmedMs,
+          missedMs,
+          compliancePercent,
+          windows,
+          lateStarts,
+          earlyEndings,
+          neverStarted,
+          offlineMisses,
+        ]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        measurableExpectedMs: { type: integer, format: int64, minimum: 0 }
+        confirmedMs: { type: integer, format: int64, minimum: 0 }
+        missedMs: { type: integer, format: int64, minimum: 0 }
+        compliancePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
+        windows: { type: integer, format: int64, minimum: 0 }
+        lateStarts: { type: integer, format: int64, minimum: 0 }
+        earlyEndings: { type: integer, format: int64, minimum: 0 }
+        neverStarted: { type: integer, format: int64, minimum: 0 }
+        offlineMisses: { type: integer, format: int64, minimum: 0 }
+        topFailureReason: { type: string }
+    ComplianceReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          range,
+          measurableExpectedMs,
+          confirmedMs,
+          missedMs,
+          compliancePercent,
+          takeoverOverriddenMs,
+          cancelledMs,
+          notMeasurableMs,
+          windows,
+          lateStarts,
+          earlyEndings,
+          neverStarted,
+          offlineMisses,
+          failedWindows,
+          partialWindows,
+          breakdown,
+          dimension,
+        ]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        measurableExpectedMs: { type: integer, format: int64, minimum: 0 }
+        confirmedMs: { type: integer, format: int64, minimum: 0 }
+        missedMs: { type: integer, format: int64, minimum: 0 }
+        compliancePercent: { type: [number, "null"], minimum: 0, maximum: 100 }
+        takeoverOverriddenMs: { type: integer, format: int64, minimum: 0 }
+        cancelledMs: { type: integer, format: int64, minimum: 0 }
+        notMeasurableMs: { type: integer, format: int64, minimum: 0 }
+        windows: { type: integer, format: int64, minimum: 0 }
+        lateStarts: { type: integer, format: int64, minimum: 0 }
+        earlyEndings: { type: integer, format: int64, minimum: 0 }
+        neverStarted: { type: integer, format: int64, minimum: 0 }
+        offlineMisses: { type: integer, format: int64, minimum: 0 }
+        failedWindows: { type: integer, format: int64, minimum: 0 }
+        partialWindows: { type: integer, format: int64, minimum: 0 }
+        breakdown:
+          type: array
+          items: { $ref: "#/components/schemas/ComplianceBreakdown" }
+        dimension:
+          type: string
+          enum: [screen, location, group, presentation, schedule, date, reason]
+    IncidentBreakdown:
+      type: object
+      additionalProperties: false
+      required: [key, label, count]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        count: { type: integer, format: int64, minimum: 0 }
+    IncidentRecurrence:
+      type: object
+      additionalProperties: false
+      required: [screenName, incidentType, incidents, occurrences]
+      properties:
+        screenId: { type: string }
+        screenName: { type: string }
+        incidentType: { type: string }
+        incidents: { type: integer, format: int64, minimum: 0 }
+        occurrences: { type: integer, format: int64, minimum: 0 }
+    IncidentAnalytics:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          range,
+          activeIncidents,
+          incidentsOpened,
+          incidentsResolved,
+          meanTimeToRecoverSeconds,
+          medianTimeToRecoverSeconds,
+          longestIncidentSeconds,
+          automaticRecoveries,
+          manualRecoveries,
+          recurring,
+          byScreen,
+          byLocation,
+          byDeviceModel,
+          byPlayerVersion,
+          byFailureCode,
+          byType,
+        ]
+      properties:
+        range: { $ref: "#/components/schemas/ActivityTimeRange" }
+        activeIncidents: { type: integer, format: int64, minimum: 0 }
+        incidentsOpened: { type: integer, format: int64, minimum: 0 }
+        incidentsResolved: { type: integer, format: int64, minimum: 0 }
+        meanTimeToRecoverSeconds: { type: [number, "null"], minimum: 0 }
+        medianTimeToRecoverSeconds: { type: [number, "null"], minimum: 0 }
+        longestIncidentSeconds: { type: [number, "null"], minimum: 0 }
+        longestIncidentTitle: { type: string }
+        automaticRecoveries: { type: integer, format: int64, minimum: 0 }
+        manualRecoveries: { type: integer, format: int64, minimum: 0 }
+        recurring:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentRecurrence" }
+        byScreen:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
+        byLocation:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
+        byDeviceModel:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
+        byPlayerVersion:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
+        byFailureCode:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
+        byType:
+          type: array
+          items: { $ref: "#/components/schemas/IncidentBreakdown" }
     IncidentStatus:
       type: string
       enum: [open, acknowledged, recovered, resolved, ignored]
