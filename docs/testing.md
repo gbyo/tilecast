@@ -33,7 +33,7 @@ Unknown shared packages select all areas. Workflow, dependency, and classifier c
 
 Detection runs the dependency-free affected-area and aggregate tests with Node before any package installation. Workflow YAML tests run in `CI workflow contracts`, after installation of the root tool dependencies. CI infrastructure changes select this job. `Required PR validation` includes its result.
 
-HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration and manifest handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
+HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Other API schemas select server, Studio, and CLI contracts. Schema package README files select documentation only. Unknown shared packages still select all areas.
 

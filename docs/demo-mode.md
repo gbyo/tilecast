@@ -67,6 +67,8 @@ The request needs the Owner role and the session CSRF token. The endpoint exists
 
 A reset removes every session. The response contains the CSRF token of a new session. The response returns after the data is seeded and every simulated player has connected, so a test can continue immediately.
 
+Background workers can hold database locks during a reset. If PostgreSQL cancels the reset transaction because of a deadlock, Demo Mode starts a new transaction. It permits three attempts. Other errors stop the reset. Media cleanup starts only after the transaction succeeds.
+
 `GET /api/v1/demo` returns the scenario name and the state of each simulated player.
 
 ## Simulated players

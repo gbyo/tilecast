@@ -85,7 +85,7 @@ const rules = [
   // Files with authenticated Player endpoints, their decoders, or shared
   // routing/authentication. A contract test audits every Player handler.
   [
-    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|media|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
+    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
     ["protocol"],
   ],
   [
