@@ -26,11 +26,14 @@ class RuntimeHostSession(
     onProgress: () -> Unit,
     onFirstFrame: (itemId: String) -> Unit = {},
     onItemTransition: (itemId: String) -> Unit = {},
+    onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
+    crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
 ) {
-    val host = AndroidRuntimeHost(hostVersion, engineVersion)
+    val host = AndroidRuntimeHost(hostVersion, engineVersion, crashPolicy = crashPolicy)
     val remoteWeb = RemoteWebHostManager.Tracker(rendererGeneration)
     private val router = RuntimeEvidenceRouter(
         items, activationId, onBoundary, onError, onProgress, onFirstFrame, onItemTransition,
+        onPlaybackError,
     )
     private var stateGeneration = 0L
     private var lastActivationId: String? = null
