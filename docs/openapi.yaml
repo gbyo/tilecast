@@ -2074,8 +2074,40 @@ paths:
           name: pageSize
           required: false
           schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: cursor
+          required: false
+          schema: { type: string }
+        - in: query
+          name: actor
+          required: false
+          schema: { type: string, format: uuid }
+        - in: query
+          name: action
+          required: false
+          schema: { type: string }
+        - in: query
+          name: resourceType
+          required: false
+          schema: { type: string }
+        - in: query
+          name: result
+          required: false
+          schema: { type: string }
+        - in: query
+          name: search
+          required: false
+          schema: { type: string }
       responses:
-        "200": { description: Audit activity }
+        "200":
+          description: Audit activity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/AuditActivityPage" }
         "401": { description: Dashboard authentication required }
         "403": { description: Audit log access requires Editor or above }
         "422":
@@ -2185,7 +2217,15 @@ paths:
         Read the activity retention policy. Requires an Owner or Administrator with the read scope.
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       responses:
-        "200": { description: Activity retention policy }
+        "200":
+          description: Activity retention policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ActivityRetention" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
     patch:
@@ -2211,7 +2251,15 @@ paths:
                   { type: integer, minimum: 7, maximum: 180 }
                 telemetryRollupDays: { type: integer, minimum: 7, maximum: 400 }
       responses:
-        "200": { description: Activity retention policy updated }
+        "200":
+          description: Activity retention policy updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ActivityRetention" }
         "400": { description: Retention values invalid }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -8374,6 +8422,68 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ScreenEventRecord" }
         nextCursor: { type: string }
+    AuditActivityRecord:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          timestamp,
+          actorName,
+          action,
+          resourceType,
+          result,
+          summary,
+          metadata,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        timestamp: { type: string, format: date-time }
+        actorId: { type: string, format: uuid }
+        actorName: { type: string }
+        actorUsername: { type: string }
+        action: { type: string }
+        resourceType: { type: string }
+        resourceId: { type: string }
+        resourceName: { type: string }
+        result: { type: string }
+        ipAddress: { type: string }
+        requestId: { type: string }
+        summary: { type: string }
+        metadata:
+          type: object
+          description: >-
+            Allowlisted audit metadata, filtered for the caller's role. Sensitive values stay server-side.
+    AuditActivityPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AuditActivityRecord" }
+        nextCursor: { type: string }
+    ActivityRetention:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          rawEventDays,
+          playbackSessionDays,
+          screenStateDays,
+          auditLogDays,
+          diagnosticMetadataDays,
+          telemetryRollupDays,
+          updatedAt,
+        ]
+      properties:
+        rawEventDays: { type: integer, minimum: 7, maximum: 365 }
+        playbackSessionDays: { type: integer, minimum: 30, maximum: 2555 }
+        screenStateDays: { type: integer, minimum: 30, maximum: 2555 }
+        auditLogDays: { type: integer, minimum: 90, maximum: 3650 }
+        diagnosticMetadataDays: { type: integer, minimum: 7, maximum: 180 }
+        telemetryRollupDays: { type: integer, minimum: 7, maximum: 400 }
+        updatedAt: { type: string, format: date-time }
     FleetHealth:
       type: object
       additionalProperties: false

@@ -4209,6 +4209,17 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 // ActivityCategory defines model for ActivityCategory.
 type ActivityCategory string
 
+// ActivityRetention defines model for ActivityRetention.
+type ActivityRetention struct {
+	AuditLogDays           int       `json:"auditLogDays"`
+	DiagnosticMetadataDays int       `json:"diagnosticMetadataDays"`
+	PlaybackSessionDays    int       `json:"playbackSessionDays"`
+	RawEventDays           int       `json:"rawEventDays"`
+	ScreenStateDays        int       `json:"screenStateDays"`
+	TelemetryRollupDays    int       `json:"telemetryRollupDays"`
+	UpdatedAt              time.Time `json:"updatedAt"`
+}
+
 // ActivitySeverity defines model for ActivitySeverity.
 type ActivitySeverity string
 
@@ -4355,6 +4366,32 @@ type AssetVariant struct {
 	Sha256           string             `json:"sha256"`
 	VideoCodec       *string            `json:"videoCodec,omitempty"`
 	Width            *int               `json:"width,omitempty"`
+}
+
+// AuditActivityPage defines model for AuditActivityPage.
+type AuditActivityPage struct {
+	Items      []AuditActivityRecord `json:"items"`
+	NextCursor *string               `json:"nextCursor,omitempty"`
+}
+
+// AuditActivityRecord defines model for AuditActivityRecord.
+type AuditActivityRecord struct {
+	Action        string              `json:"action"`
+	ActorId       *openapi_types.UUID `json:"actorId,omitempty"`
+	ActorName     string              `json:"actorName"`
+	ActorUsername *string             `json:"actorUsername,omitempty"`
+	Id            openapi_types.UUID  `json:"id"`
+	IpAddress     *string             `json:"ipAddress,omitempty"`
+
+	// Metadata Allowlisted audit metadata, filtered for the caller's role. Sensitive values stay server-side.
+	Metadata     map[string]interface{} `json:"metadata"`
+	RequestId    *string                `json:"requestId,omitempty"`
+	ResourceId   *string                `json:"resourceId,omitempty"`
+	ResourceName *string                `json:"resourceName,omitempty"`
+	ResourceType string                 `json:"resourceType"`
+	Result       string                 `json:"result"`
+	Summary      string                 `json:"summary"`
+	Timestamp    time.Time              `json:"timestamp"`
 }
 
 // AuthMethod defines model for AuthMethod.
@@ -7638,10 +7675,16 @@ type ResourceID = openapi_types.UUID
 
 // ListAuditActivityParams defines parameters for ListAuditActivity.
 type ListAuditActivityParams struct {
-	From     *time.Time `form:"from,omitempty" json:"from,omitempty"`
-	To       *time.Time `form:"to,omitempty" json:"to,omitempty"`
-	Page     *int       `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int       `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	From         *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To           *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Page         *int                `form:"page,omitempty" json:"page,omitempty"`
+	PageSize     *int                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Cursor       *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Actor        *openapi_types.UUID `form:"actor,omitempty" json:"actor,omitempty"`
+	Action       *string             `form:"action,omitempty" json:"action,omitempty"`
+	ResourceType *string             `form:"resourceType,omitempty" json:"resourceType,omitempty"`
+	Result       *string             `form:"result,omitempty" json:"result,omitempty"`
+	Search       *string             `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // ExportAuditActivityParams defines parameters for ExportAuditActivity.
@@ -20463,6 +20506,78 @@ func NewListAuditActivityRequest(server string, params *ListAuditActivityParams)
 		if params.PageSize != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "pageSize", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Cursor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Actor != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "actor", *params.Actor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "uuid"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Action != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "action", *params.Action, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.ResourceType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "resourceType", *params.ResourceType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Result != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "result", *params.Result, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Search != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
 				for _, qp := range strings.Split(queryFrag, "&") {
@@ -41161,6 +41276,17 @@ type ClientWithResponsesInterface interface {
 type ListAuditActivityResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data AuditActivityPage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListAuditActivityResponse) GetJSON200() *struct {
+	Data AuditActivityPage `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -41579,6 +41705,17 @@ func (r GetProofOfPlaySummaryResponse) ContentType() string {
 type GetActivityRetentionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ActivityRetention `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetActivityRetentionResponse) GetJSON200() *struct {
+	Data ActivityRetention `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -41613,6 +41750,17 @@ func (r GetActivityRetentionResponse) ContentType() string {
 type UpdateActivityRetentionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ActivityRetention `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateActivityRetentionResponse) GetJSON200() *struct {
+	Data ActivityRetention `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -63029,6 +63177,27 @@ func ParseListAuditActivityResponse(rsp *http.Response) (*ListAuditActivityRespo
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data AuditActivityPage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -63286,6 +63455,24 @@ func ParseGetActivityRetentionResponse(rsp *http.Response) (*GetActivityRetentio
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ActivityRetention `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -63300,6 +63487,30 @@ func ParseUpdateActivityRetentionResponse(rsp *http.Response) (*UpdateActivityRe
 	response := &UpdateActivityRetentionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ActivityRetention `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
