@@ -1647,7 +1647,15 @@ paths:
           required: false
           schema: { type: string }
       responses:
-        "200": { description: Content reviews }
+        "200":
+          description: Content reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentReviewQueue" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/content-reviews/{type}/{id}:
@@ -1676,7 +1684,15 @@ paths:
                 note: { type: string }
                 revision: { type: integer }
       responses:
-        "200": { description: Content review decided }
+        "200":
+          description: Content review decided
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentReview" }
         "400": { description: Invalid type or request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -5289,7 +5305,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/SubmitContentRequest" }
       responses:
-        "201": { description: Immutable submission created }
+        "201":
+          description: Immutable submission created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "409": { description: Active submission or working-draft conflict }
         "422": { description: Snapshot/readiness validation failed }
   /api/v1/content-submissions/{id}/approve:
@@ -5304,7 +5328,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ReviewDecisionRequest" }
       responses:
-        "200": { description: Submission approved or automatically published }
+        "200":
+          description: Submission approved or automatically published
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "409": { description: Submission is no longer actionable }
         "422": { description: Self-approval or review validation failed }
   /api/v1/content-submissions/{id}/request-changes:
@@ -5320,7 +5352,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/ChangesRequest" }
       responses:
-        "200": { description: Submission returned for changes }
+        "200":
+          description: Submission returned for changes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "422": { description: A non-empty note is required }
   /api/v1/content-submissions/{id}/publish:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
@@ -5331,9 +5371,17 @@ paths:
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
         "201":
-          {
-            description: Exact submitted snapshot published and recorded in history,
-          }
+          description: Exact submitted snapshot published and recorded in history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
         "409": { description: Submission is not approved or is otherwise stale }
         "422": { description: Current readiness validation failed }
   /api/v1/content-submissions/{id}/schedule:
@@ -5349,7 +5397,15 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/SchedulePublicationRequest" }
       responses:
-        "200": { description: Approved submission scheduled in PostgreSQL }
+        "200":
+          description: Approved submission scheduled in PostgreSQL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
         "422":
           {
             description: Publication time is invalid or submission is not approved,
@@ -5362,7 +5418,15 @@ paths:
         Cancel content publication schedule. Requires an authenticated dashboard user.
       parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       responses:
-        "200": { description: Schedule cancelled; submission is approved again }
+        "200":
+          description: Schedule cancelled; submission is approved again
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ContentSubmission" }
   /api/v1/content-history/{type}/{id}/publications:
     parameters:
       - name: type
@@ -6955,6 +7019,73 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    ContentReviewItem:
+      type: object
+      additionalProperties: false
+      description: >-
+        One piece of content and where it stands. State is pending,
+        approved, or rejected, derived from whether a decision exists for
+        this exact revision.
+      required:
+        [
+          contentType,
+          contentId,
+          name,
+          revision,
+          state,
+          assignedScreens,
+          updatedAt,
+        ]
+      properties:
+        contentType: { type: string, enum: [playlist, layout] }
+        contentId: { type: string, format: uuid }
+        name: { type: string }
+        revision: { type: integer, format: int64 }
+        state: { type: string, enum: [pending, approved, rejected] }
+        assignedScreens: { type: integer, minimum: 0 }
+        updatedAt: { type: string, format: date-time }
+        authorName: { type: string }
+        lastNote: { type: string }
+        lastReviewedAt: { type: string, format: date-time }
+    ContentReviewQueue:
+      type: object
+      additionalProperties: false
+      description: >-
+        Legacy current-revision queue. New Studio actions use content
+        submissions; this compatibility route still reports the
+        server-side assignment gate.
+      required: [required, items]
+      properties:
+        required: { type: boolean }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ContentReviewItem" }
+    ContentReview:
+      type: object
+      additionalProperties: false
+      required: [id, contentType, contentId, revision, decision, reviewedAt]
+      properties:
+        id: { type: string, format: uuid }
+        contentType: { type: string, enum: [playlist, layout] }
+        contentId: { type: string, format: uuid }
+        revision: { type: integer, format: int64 }
+        decision: { type: string, enum: [approved, rejected] }
+        note: { type: string }
+        reviewedBy: { type: string, format: uuid }
+        reviewedAt: { type: string, format: date-time }
+    ContentSubmissionPublication:
+      type: object
+      additionalProperties: false
+      description: >-
+        Exact submitted snapshot published and recorded in history. The
+        published record carries untagged Go-cased keys from the
+        editorial package.
+      required: [submission, published]
+      properties:
+        submission: { $ref: "#/components/schemas/ContentSubmission" }
+        published:
+          type: object
+          description: Native published record with untagged Go-cased keys.
     BulkAction:
       type: string
       enum:
