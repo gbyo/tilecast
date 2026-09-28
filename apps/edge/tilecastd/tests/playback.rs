@@ -2764,9 +2764,16 @@ async fn watch_live_streams_bounded_frames_while_preview_still_captures() {
         harness.fake.previews.lock().unwrap().iter().any(|form| form.contains("filename=\"preview.jpg\""))
     })
     .await;
-    // Ending the lease stops captures: no frame buildup, no late video.
+    // Ending the lease stops captures: no frame buildup, no late video. The
+    // request counter proves the reconciler saw the end before stability is
+    // asserted, so a slow final poll cannot flake the comparison.
     harness.fake.live_active.store(false, Ordering::SeqCst);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    let reconciled = harness.fake.live_session_requests.load(Ordering::SeqCst);
+    wait_long("the end-of-lease reconcile", 15, async || {
+        harness.fake.live_session_requests.load(Ordering::SeqCst) > reconciled
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
     let frames = harness.fake.live_frames.lock().unwrap().len();
     tokio::time::sleep(Duration::from_secs(3)).await;
     assert_eq!(harness.fake.live_frames.lock().unwrap().len(), frames, "no frames after the session ended");
@@ -2790,7 +2797,12 @@ async fn watch_live_replacement_discards_the_old_session_and_expiry_stops_captur
     assert_eq!(live_frames_for(&harness.fake, &first), first_count, "the replaced session emits nothing more");
     // An expired lease fails closed to no streaming.
     harness.fake.live_expires_in_secs.store(-15, Ordering::SeqCst);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    let reconciled = harness.fake.live_session_requests.load(Ordering::SeqCst);
+    wait_long("the expiry reconcile", 15, async || {
+        harness.fake.live_session_requests.load(Ordering::SeqCst) > reconciled
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
     let total = harness.fake.live_frames.lock().unwrap().len();
     tokio::time::sleep(Duration::from_secs(3)).await;
     assert_eq!(harness.fake.live_frames.lock().unwrap().len(), total, "an expired lease emits nothing");
@@ -2804,6 +2816,9 @@ async fn watch_live_push_wakes_reconciliation() {
     harness.fake.socket_enabled.store(true, Ordering::SeqCst);
     let image = Asset::new("live-push", "image/png");
     let (player, renderer) = harness.committed(&image, 3).await;
+    // The push only arrives on an open socket; a new connection never replays
+    // an older generation.
+    wait_long("the player socket", 60, async || harness.fake.socket_connections.load(Ordering::SeqCst) >= 1).await;
     // Two idle reconciliations pass with no lease: the next natural poll is
     // then ~15 s out, so a quick follow-up proves the push woke the task.
     wait_long("idle live reconciliations", 60, async || harness.fake.live_session_requests.load(Ordering::SeqCst) >= 2)
