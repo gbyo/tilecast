@@ -2205,7 +2205,15 @@ paths:
         List dashboard user accounts. Requires an Owner or Administrator
         with the admin scope.
       responses:
-        "200": { description: User accounts with MFA enrollment state }
+        "200":
+          description: User accounts with MFA enrollment state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ManagedUserList" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
     post:
@@ -2236,7 +2244,15 @@ paths:
                   enum: [owner, administrator, editor, contributor, viewer]
                 active: { type: boolean }
       responses:
-        "201": { description: User account created }
+        "201":
+          description: User account created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -2275,7 +2291,15 @@ paths:
                   enum: [owner, administrator, editor, contributor, viewer]
                 active: { type: boolean }
       responses:
-        "200": { description: User account updated }
+        "200":
+          description: User account updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/User" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
@@ -8551,14 +8575,37 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         username: { type: string }
-        role:
-          {
-            type: string,
-            enum: [owner, administrator, editor, contributor, viewer],
-          }
+        role: { $ref: "#/components/schemas/UserRole" }
         active: { type: boolean }
         createdAt: { type: string, format: date-time }
         lastLoginAt: { type: string, format: date-time }
+    UserRole:
+      type: string
+      enum: [owner, administrator, editor, contributor, viewer]
+    ManagedUser:
+      type: object
+      additionalProperties: false
+      required:
+        [id, name, username, role, active, createdAt, mfaEnrolled, mfaRequired]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/UserRole" }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: [string, "null"], format: date-time }
+        mfaEnrolled: { type: boolean }
+        mfaRequired: { type: boolean }
+    ManagedUserList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ManagedUser" }
+        total: { type: integer, minimum: 0 }
     AuthStatus:
       type: object
       additionalProperties: false

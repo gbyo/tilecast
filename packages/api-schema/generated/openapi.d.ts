@@ -6973,13 +6973,32 @@ export interface components {
       id: string;
       name: string;
       username: string;
-      /** @enum {string} */
-      role: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+      role: components["schemas"]["UserRole"];
       active: boolean;
       /** Format: date-time */
       createdAt: string;
       /** Format: date-time */
       lastLoginAt?: string;
+    };
+    /** @enum {string} */
+    UserRole: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+    ManagedUser: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      username: string;
+      role: components["schemas"]["UserRole"];
+      active: boolean;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      lastLoginAt?: string | null;
+      mfaEnrolled: boolean;
+      mfaRequired: boolean;
+    };
+    ManagedUserList: {
+      items: components["schemas"]["ManagedUser"][];
+      total: number;
     };
     AuthStatus: {
       setupRequired: boolean;
@@ -11858,7 +11877,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ManagedUserList"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -11903,7 +11926,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["User"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -12022,7 +12049,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["User"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
