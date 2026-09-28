@@ -14,7 +14,7 @@ class TcMediaBridgeTest {
     private val videoBytes = ByteArray(1024) { it.toByte() }
 
     private fun setup(): Map<String, String> {
-        val file = files.newFile("v1.mp4")
+        val file = files.newFile()
         file.writeBytes(videoBytes)
         return mapOf("v1" to file.absolutePath)
     }
@@ -41,9 +41,11 @@ class TcMediaBridgeTest {
         assertEquals("video/mp4", headers["Content-Type"])
         assertEquals("bytes", headers["Accept-Ranges"])
         assertEquals("100", headers["Content-Length"])
+        // The stream is positioned at the range offset; the caller truncates to contentLength.
         val body = TcMediaBridge.openStream(resolved)!!.readBytes()
-        assertEquals(100, body.size)
+        assertEquals(1024 - 100, body.size)
         assertEquals(videoBytes[100], body[0])
+        assertContentEquals(videoBytes.copyOfRange(100, 200), body.copyOfRange(0, 100))
     }
 
     @Test fun servesSuffixAndOpenRanges() {

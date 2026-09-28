@@ -65,6 +65,12 @@ object TcMediaBridge {
         return headers
     }
 
+    /** Opens the file positioned at [ResolvedMedia.offset].
+     *
+     * The stream is not truncated: the caller must read at most
+     * [ResolvedMedia.contentLength] bytes (the framework adapter relies on the
+     * `Content-Length` response header for this).
+     */
     fun openStream(resolved: ResolvedMedia): FileInputStream? {
         val file = resolved.file ?: return null
         return runCatching {

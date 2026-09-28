@@ -11,6 +11,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.junit.Assert.*
 import org.junit.Test
+import org.tilecast.player.network.ManifestAsset
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.PlayerManifest
 
@@ -206,7 +207,10 @@ class RuntimeEvidenceRouterTest {
     }
 
     @Test fun cutoverStaysOffUntilValidated() {
-        val manifest = PlayerManifest(15, 1, "s", "t", "single-zone")
+        val manifest = PlayerManifest(
+            15, 1, "s", "t", "single-zone",
+            assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
+        )
         assertFalse(RuntimeCutover.enabled)
         assertFalse(RuntimeCutover.useSharedRuntime(manifest, items))
         RuntimeCutover.enabled = true
