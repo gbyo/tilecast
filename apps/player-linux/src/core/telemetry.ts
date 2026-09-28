@@ -398,7 +398,10 @@ export class TelemetryReporter {
           requestRetryCount: counters.requestRetryCount,
           socketReconnectCount: counters.socketReconnectCount,
           networkInterfaceChangeCount: counters.networkInterfaceChangeCount,
-          timeToFirstByteP95Ms: percentile(counters.timeToFirstByteSamples, 0.95),
+          timeToFirstByteP95Ms: percentile(
+            counters.timeToFirstByteSamples,
+            0.95,
+          ),
           averageThroughputBytesPerSecond: mean(counters.throughputSamples),
 
           frameTimeP95Ms: percentile(counters.frameTimeSamples, 0.95),
