@@ -5099,6 +5099,13 @@ paths:
       responses:
         "200":
           description: Closed Widget and Data Source provider metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ProviderCatalog" }
   /api/v1/content-definitions:
     get:
       operationId: contentDefinitions
@@ -5107,6 +5114,14 @@ paths:
       responses:
         "200":
           description: Authoritative release-owned Widget and Data Source definitions, schemas, templates, adapters, and capability requirements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    { $ref: "#/components/schemas/ContentDefinitionCatalog" }
   /api/v1/widgets/compile-preview:
     post:
       operationId: compileWidgetPreview
@@ -10641,6 +10656,342 @@ components:
         items:
           type: array
           items: { $ref: "#/components/schemas/ContentSubmission" }
+    ProviderCatalogEntry:
+      type: object
+      additionalProperties: false
+      required: [id, role, label, group, description, capabilities, uiHints]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [widget, data_source] }
+        label: { type: string }
+        group: { type: string }
+        description: { type: string }
+        presentationKind: { type: string, enum: [native, web] }
+        capabilities:
+          type: object
+          additionalProperties: { type: boolean }
+        requiredCapabilities:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+        uiHints:
+          type: object
+          additionalProperties: { type: string }
+    ProviderCatalog:
+      type: object
+      additionalProperties: false
+      required: [revision, providers]
+      properties:
+        revision: { type: integer, minimum: 1 }
+        providers:
+          type: array
+          items: { $ref: "#/components/schemas/ProviderCatalogEntry" }
+    ContentExtensionSource:
+      type: object
+      additionalProperties: false
+      description: >-
+        Where the definition came from; an absent source means release-owned core.
+      properties:
+        kind: { type: string, enum: [core, plugin, package] }
+        pluginId: { type: string }
+        packageId: { type: string }
+        packageVersion: { type: string }
+        digest: { type: string }
+    ContentDefinitionSetup:
+      type: object
+      additionalProperties: false
+      properties:
+        eyebrow: { type: string }
+        tip: { type: string }
+        steps: { type: array, items: { type: string } }
+        emptyState: { type: string }
+    ContentDefinitionDeprecation:
+      type: object
+      additionalProperties: false
+      required: [deprecated]
+      properties:
+        deprecated: { type: boolean }
+        replacement: { type: string }
+        message: { type: string }
+    ContentDefinitionAvailability:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        reason: { type: string }
+    ContentDefinitionSelectOption:
+      type: object
+      additionalProperties: false
+      required: [value, label]
+      properties:
+        value: { type: string }
+        label: { type: string }
+    ContentDefinitionField:
+      type: object
+      additionalProperties: false
+      required: [key, label, control]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        description: { type: string }
+        control:
+          {
+            type: string,
+            enum:
+              [
+                text,
+                multiline_text,
+                number,
+                integer,
+                boolean,
+                select,
+                color,
+                date,
+                datetime,
+                timezone,
+                currency_code,
+                url,
+                data_source,
+                data_source_field,
+                media_asset,
+                repeating_group,
+              ],
+          }
+        required: { type: boolean }
+        default: { description: Release-owned default value of any JSON type. }
+        minimum: { type: number }
+        maximum: { type: number }
+        minLength: { type: integer, minimum: 0 }
+        maxLength: { type: integer, minimum: 0 }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/ContentDefinitionSelectOption" }
+        acceptedDataSourceKinds: { type: array, items: { type: string } }
+        requiredFields:
+          type: object
+          additionalProperties: { type: string }
+        dataSourceFieldTypes: { type: array, items: { type: string } }
+        mediaTypes: { type: array, items: { type: string } }
+        maximumItems: { type: integer, minimum: 0 }
+        itemFields:
+          type: array
+          items: { $ref: "#/components/schemas/ContentDefinitionField" }
+        ui:
+          type: object
+          description: Release-owned authoring hints of any JSON shape.
+    ContentDefinitionConfigurationSchema:
+      type: object
+      additionalProperties: false
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/ContentDefinitionField" }
+    ContentDefinitionOutputField:
+      type: object
+      additionalProperties: false
+      required: [key, label, type]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string }
+        currency: { type: string }
+        currencyConfigKey: { type: string }
+        required: { type: boolean }
+    ContentDefinitionOutputSchema:
+      type: object
+      additionalProperties: false
+      required: [kind, fields]
+      properties:
+        kind:
+          { type: string, enum: [scalar, records, time_series, list, object] }
+        fields:
+          type: array
+          items: { $ref: "#/components/schemas/ContentDefinitionOutputField" }
+    ContentDefinitionFetchSpec:
+      type: object
+      additionalProperties: false
+      required: [urlTemplate, format, mapping]
+      properties:
+        urlTemplate: { type: string }
+        format: { type: string, enum: [json, csv] }
+        accept: { type: string }
+        recordsPath: { type: string }
+        mapping:
+          type: object
+          additionalProperties: { type: string }
+        maximumRecords: { type: integer, minimum: 0 }
+        refreshSeconds: { type: integer, minimum: 0 }
+    ContentDefinitionComponent:
+      type: object
+      additionalProperties: false
+      required: [type, version, tagName, entrypoint, configTemplate, empty]
+      properties:
+        type: { type: string }
+        version: { type: integer, minimum: 1 }
+        tagName: { type: string }
+        entrypoint: { type: string }
+        configTemplate:
+          type: object
+          description: Release-owned component configuration template.
+        dataSourceFields: { type: array, items: { type: string } }
+        empty: { type: string, enum: [render, skip-eligible] }
+    ContentDefinitionCompatibility:
+      type: object
+      additionalProperties: false
+      required: [fallback]
+      properties:
+        fallback: { type: string, enum: [legacy, template, none] }
+    ContentDefinitionAppRecipe:
+      type: object
+      additionalProperties: false
+      required: [dataSource]
+      properties:
+        dataSource:
+          type: object
+          additionalProperties: false
+          required: [provider, name, configurationTemplate]
+          properties:
+            provider: { type: string }
+            name: { type: string }
+            description: { type: string }
+            configurationTemplate:
+              type: object
+              description: Release-owned Data Source configuration template.
+    ContentDefinitionWebIntegration:
+      type: object
+      additionalProperties: false
+      required: [urlField, transform]
+      properties:
+        urlField: { type: string }
+        allowedHosts: { type: array, items: { type: string } }
+        allowAnyHttpsHost: { type: boolean }
+        requiredPathPrefix: { type: string }
+        transform: { type: string }
+        reloadIntervalField: { type: string }
+        loadTimeoutSeconds: { type: integer, minimum: 0 }
+        lifecycle: { type: string }
+        warmSeconds: { type: integer, minimum: 0 }
+        fallbackBehavior: { type: string }
+    ContentWidgetDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          version,
+          name,
+          description,
+          category,
+          icon,
+          runtime,
+          configurationSchema,
+          defaultConfiguration,
+          presentationSchemaVersion,
+          requiredCapabilities,
+          emptyStateBehavior,
+          deprecation,
+        ]
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        apiVersion: { type: integer, minimum: 1 }
+        source: { $ref: "#/components/schemas/ContentExtensionSource" }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        icon: { type: string }
+        thumbnail: { type: string }
+        kind: { type: string, enum: [widget, app] }
+        featured: { type: boolean }
+        keywords: { type: array, items: { type: string } }
+        availability:
+          { $ref: "#/components/schemas/ContentDefinitionAvailability" }
+        runtime: { type: string, enum: [native, web] }
+        configurationSchema:
+          { $ref: "#/components/schemas/ContentDefinitionConfigurationSchema" }
+        defaultConfiguration:
+          type: [object, "null"]
+          description: Release-owned default Widget configuration.
+        acceptedDataSourceKinds: { type: array, items: { type: string } }
+        requiredFieldTypes:
+          type: object
+          additionalProperties: { type: string }
+        presentationSchemaVersion: { type: integer, minimum: 1 }
+        presentationTemplate:
+          type: object
+          description: Release-owned presentation template.
+        presentationBase: { type: string }
+        requiredCapabilities:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+        emptyStateBehavior: { type: string }
+        legacyEditor: { type: boolean }
+        requiresManifestV13: { type: boolean }
+        setup: { $ref: "#/components/schemas/ContentDefinitionSetup" }
+        recipe: { $ref: "#/components/schemas/ContentDefinitionAppRecipe" }
+        webIntegration:
+          { $ref: "#/components/schemas/ContentDefinitionWebIntegration" }
+        deprecation:
+          { $ref: "#/components/schemas/ContentDefinitionDeprecation" }
+        component: { $ref: "#/components/schemas/ContentDefinitionComponent" }
+        compatibility:
+          { $ref: "#/components/schemas/ContentDefinitionCompatibility" }
+    ContentDataSourceDefinition:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          version,
+          name,
+          description,
+          category,
+          icon,
+          configurationSchema,
+          defaultConfiguration,
+          outputSchema,
+          adapterId,
+          refreshBehavior,
+          deprecation,
+        ]
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        source: { $ref: "#/components/schemas/ContentExtensionSource" }
+        name: { type: string }
+        description: { type: string }
+        category: { type: string }
+        icon: { type: string }
+        configurationSchema:
+          { $ref: "#/components/schemas/ContentDefinitionConfigurationSchema" }
+        defaultConfiguration:
+          type: [object, "null"]
+          description: Release-owned default Data Source configuration.
+        outputSchema:
+          { $ref: "#/components/schemas/ContentDefinitionOutputSchema" }
+        fetch: { $ref: "#/components/schemas/ContentDefinitionFetchSpec" }
+        adapterId: { type: string }
+        refreshBehavior: { type: string }
+        attribution: { type: string }
+        legacyEditor: { type: boolean }
+        requiresManifestV13: { type: boolean }
+        setup: { $ref: "#/components/schemas/ContentDefinitionSetup" }
+        deprecation:
+          { $ref: "#/components/schemas/ContentDefinitionDeprecation" }
+    ContentDefinitionCatalog:
+      type: object
+      additionalProperties: false
+      required: [revision, compilerVersion, widgets, dataSources, fingerprint]
+      properties:
+        revision: { type: string }
+        compilerVersion: { type: string }
+        widgets:
+          type: array
+          items: { $ref: "#/components/schemas/ContentWidgetDefinition" }
+        dataSources:
+          type: array
+          items: { $ref: "#/components/schemas/ContentDataSourceDefinition" }
+        fingerprint: { type: string }
     PublicationHistoryItem:
       type: object
       required: [id, revision, publishedAt, method, affectedScreenCount]
