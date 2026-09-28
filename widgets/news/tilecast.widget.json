@@ -5,7 +5,7 @@
   "version": 1,
   "name": "News",
   "description": "Present normalized feed and news records in a TV-ready typography-first layout. News ships without article images until managed remote feed images are safe and cached by Tilecast.",
-  "category": "Data display",
+  "category": "Information",
   "icon": "newspaper",
   "runtime": "native",
   "configurationSchema": {

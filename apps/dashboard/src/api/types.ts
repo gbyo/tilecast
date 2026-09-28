@@ -1626,6 +1626,7 @@ export type ContentDefinitionField = {
     | "color"
     | "date"
     | "datetime"
+    | "local_datetime"
     | "timezone"
     | "currency_code"
     | "url"
@@ -1655,7 +1656,10 @@ export type ContentDefinitionField = {
   ui?: {
     section?: "data" | "content" | "appearance" | "behavior";
     order?: number;
-    visibleWhen?: { key: string; equals?: unknown; notEquals?: unknown };
+    visibleWhen?:
+      | { key: string; equals?: unknown; notEquals?: unknown }
+      | { key: string; equals?: unknown; notEquals?: unknown }[];
+    hidden?: boolean;
     styleCard?: boolean;
     semanticRole?: string;
     legacyKeys?: string[];

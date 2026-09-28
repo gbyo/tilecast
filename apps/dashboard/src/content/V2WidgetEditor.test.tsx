@@ -49,7 +49,7 @@ function clockDefinition(): WidgetDefinition {
     defaultConfiguration: clockManifest.defaultConfiguration,
     component: {
       type: "tilecast.clock",
-      version: 1,
+      version: 2,
       tagName: "tc-widget-clock",
       entrypoint: "./runtime/index.ts",
       configTemplate: clockManifest.component.configTemplate,
@@ -261,6 +261,56 @@ describe("V2WidgetEditor", () => {
       ),
     );
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("switches Clock modes with their own controls", async () => {
+    editor();
+    await screen.findByRole("img", { name: "Live preview" });
+    await userEvent.click(screen.getByRole("radio", { name: "Date" }));
+    expect(screen.getByLabelText("Date format")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radiogroup", { name: "Style" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "World clocks" }));
+    expect(screen.getByText("Zones")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Date format")).not.toBeInTheDocument();
+  });
+
+  it("opens a saved legacy row upgraded and saves only accepted keys", async () => {
+    const asset = {
+      id: "asset-7",
+      name: "Front desk",
+      description: "",
+      type: "widget",
+      widget: {
+        provider: "clock",
+        configuration: {
+          timezone: "Europe/Berlin",
+          format: "12",
+          showSeconds: false,
+          foregroundColor: "#F5F7FA",
+          backgroundColor: "#0E141B",
+          textScale: 150,
+          retiredOption: true,
+        },
+      },
+    } as unknown as Asset;
+    vi.spyOn(api, "updateWidget").mockResolvedValue(asset);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue(undefined);
+    editor({ asset });
+    await screen.findByRole("img", { name: "Live preview" });
+    const save = screen.getByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+    await waitFor(() => expect(api.updateWidget).toHaveBeenCalled());
+    const [, input] = vi.mocked(api.updateWidget).mock.calls[0]!;
+    const configuration = (input as { configuration: Record<string, unknown> })
+      .configuration;
+    // A retained key the compatibility presentation reads survives; a key
+    // the provider no longer accepts is left out.
+    expect(configuration["textScale"]).toBe(150);
+    expect(configuration["timezone"]).toBe("Europe/Berlin");
+    expect(configuration).not.toHaveProperty("retiredOption");
   });
 
   it("marks unsaved changes", async () => {

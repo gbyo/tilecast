@@ -1,0 +1,21 @@
+{
+  "name": "Count up",
+  "description": "Days since a date, counting up.",
+  "configuration": {
+    "label": "Days without a lost-time incident",
+    "target": "2026-03-02T00:00",
+    "timezone": "",
+    "mode": "count_up",
+    "recurrence": "none",
+    "completionAction": "completed_text",
+    "completionText": "",
+    "showDays": true,
+    "showHours": false,
+    "showMinutes": false,
+    "showSeconds": false,
+    "layout": "stacked",
+    "backgroundColor": "#f5f7fa",
+    "foregroundColor": "#101418"
+  },
+  "expect": "ready"
+}

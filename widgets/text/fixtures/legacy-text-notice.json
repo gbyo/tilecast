@@ -1,0 +1,23 @@
+{
+  "name": "Legacy Text Notice",
+  "description": "A saved Text Notice maps into Text. A hidden heading does not render.",
+  "provider": "text-notice",
+  "configuration": {
+    "heading": "Board meeting",
+    "showHeading": false,
+    "body": "The board meets in the media center at 7 PM.",
+    "align": "left",
+    "bodyLines": 4,
+    "foregroundColor": "#ffffff",
+    "backgroundColor": "#12253a"
+  },
+  "expectConfig": {
+    "heading": "",
+    "body": "The board meets in the media center at 7 PM.",
+    "style": "standard",
+    "align": "left",
+    "background": "#12253a",
+    "foreground": "#ffffff"
+  },
+  "expect": "ready"
+}

@@ -35,7 +35,8 @@ export interface WidgetVisibleWhen {
 export interface WidgetAuthoringUi {
   readonly section?: WidgetAuthoringSection;
   readonly order?: number;
-  readonly visibleWhen?: WidgetVisibleWhen;
+  /** One rule, or a list of rules that must all match. */
+  readonly visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
   /** Render a select's options as visual cards instead of a dropdown. */
   readonly styleCard?: boolean;
   /** The semantic field role this control suggests, if any. */
@@ -45,6 +46,12 @@ export interface WidgetAuthoringUi {
    * case-insensitively after declared roles (§4.1 step 2).
    */
   readonly legacyKeys?: readonly string[];
+  /**
+   * A retained key: validated and kept on save, never shown in the
+   * inspector. Migrated providers use it for keys that compatibility
+   * presentations still read (docs/widgets-v2-catalog.md §8).
+   */
+  readonly hidden?: boolean;
 }
 
 /** A configuration-schema field with optional authoring hints. */
@@ -61,10 +68,11 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
   const out: {
     section?: WidgetAuthoringSection;
     order?: number;
-    visibleWhen?: WidgetVisibleWhen;
+    visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
     styleCard?: boolean;
     semanticRole?: string;
     legacyKeys?: readonly string[];
+    hidden?: boolean;
   } = {};
   if (
     record["section"] === "data" ||
@@ -78,15 +86,22 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     out.order = record["order"];
   }
   const visibleWhen = record["visibleWhen"];
-  if (
-    visibleWhen &&
-    typeof visibleWhen === "object" &&
-    !Array.isArray(visibleWhen) &&
-    typeof (visibleWhen as Record<string, unknown>)["key"] === "string"
+  const isRule = (value: unknown): value is WidgetVisibleWhen =>
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>)["key"] === "string";
+  if (isRule(visibleWhen)) {
+    out.visibleWhen = visibleWhen;
+  } else if (
+    Array.isArray(visibleWhen) &&
+    visibleWhen.length > 0 &&
+    visibleWhen.every(isRule)
   ) {
-    out.visibleWhen = visibleWhen as WidgetVisibleWhen;
+    out.visibleWhen = visibleWhen as WidgetVisibleWhen[];
   }
   if (record["styleCard"] === true) out.styleCard = true;
+  if (record["hidden"] === true) out.hidden = true;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];
   }
@@ -109,19 +124,25 @@ function isVisible(
   ui: WidgetAuthoringUi,
   configuration: Readonly<Record<string, unknown>>,
 ): boolean {
-  const rule = ui.visibleWhen;
-  if (!rule) return true;
-  const actual = configuration[rule.key];
-  if (rule.equals !== undefined && !matches(rule.equals, actual)) return false;
-  if (rule.notEquals !== undefined && matches(rule.notEquals, actual)) {
-    return false;
-  }
-  return true;
+  if (ui.hidden) return false;
+  const rules = ui.visibleWhen;
+  if (!rules) return true;
+  const list: readonly WidgetVisibleWhen[] = Array.isArray(rules)
+    ? rules
+    : [rules as WidgetVisibleWhen];
+  return list.every((rule) => {
+    const actual = configuration[rule.key];
+    if (rule.equals !== undefined && !matches(rule.equals, actual)) {
+      return false;
+    }
+    return !(rule.notEquals !== undefined && matches(rule.notEquals, actual));
+  });
 }
 
 /**
- * The fields an inspector shows for this configuration: hidden controls
- * removed, manifest order preserved. Ordering and section grouping happen
+ * The fields an inspector shows for this configuration: retained
+ * (`hidden`) fields and fields whose visibility rule fails are removed,
+ * manifest order preserved. Ordering and section grouping happen
  * in {@link groupAuthoringFields}.
  */
 export function visibleAuthoringFields<Field extends AuthoringField>(
