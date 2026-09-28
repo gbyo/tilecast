@@ -7104,6 +7104,73 @@ export interface components {
       revision: number;
       values: Record<string, never>;
     };
+    SettingDefinition: {
+      key: string;
+      category: string;
+      type: string;
+      title: string;
+      description?: string;
+      documentation?: string;
+      default: unknown;
+      min?: number;
+      max?: number;
+      allowed?: string[];
+      /** @enum {string} */
+      scope: "organization" | "policy" | "preference";
+      sensitive: boolean;
+      restartRequired: boolean;
+      immediate: boolean;
+      futureOnly: boolean;
+    };
+    /** @description Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles. */
+    SettingsDocument: {
+      schemaVersion: number;
+      /** Format: int64 */
+      revision: number;
+      values: Record<string, never>;
+      definitions: components["schemas"]["SettingDefinition"][];
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    PolicyDocument: {
+      schemaVersion: number;
+      /** Format: int64 */
+      revision: number;
+      priority?: number;
+      values: Record<string, never>;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    EffectivePolicyValue: {
+      value: unknown;
+      source: string;
+      /** Format: uuid */
+      sourceId?: string;
+    };
+    /** @description Effective player policy for one screen with inheritance sources. */
+    EffectivePolicy: {
+      values: {
+        [key: string]: components["schemas"]["EffectivePolicyValue"];
+      };
+      /** Format: int64 */
+      organizationRevision: number;
+      groupRevisions: {
+        [key: string]: number;
+      };
+      /** Format: int64 */
+      screenRevision: number;
+      /** Format: int64 */
+      configRevision: number;
+      hash: string;
+    };
+    LoginBackground: {
+      /**
+       * Format: uuid
+       * @description Chosen image asset, or null when no background is set and the login page falls back to its default artwork.
+       */
+      assetId?: string | null;
+      imageUrl: string;
+    };
     CountdownBarInput: {
       name: string;
       message: string;
@@ -8868,7 +8935,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -11449,7 +11520,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LoginBackground"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -11483,7 +11558,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["LoginBackground"];
+          };
+        };
       };
       /** @description Invalid request body */
       400: {
@@ -17641,7 +17720,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17673,7 +17756,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17719,7 +17806,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17751,7 +17842,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["SettingsDocument"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -17792,7 +17887,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PolicyDocument"];
+          };
+        };
       };
     };
   };
@@ -17812,7 +17911,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PolicyDocument"];
+          };
+        };
       };
       /** @description Revision conflict */
       409: {
@@ -17859,7 +17962,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PolicyDocument"];
+          };
+        };
       };
     };
   };
@@ -17879,7 +17986,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["PolicyDocument"];
+          };
+        };
       };
     };
   };
@@ -17919,7 +18030,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["EffectivePolicy"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
