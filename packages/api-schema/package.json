@@ -9,6 +9,6 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "generate": "openapi-typescript ../../docs/openapi.yaml -o generated/openapi.d.ts"
+    "generate": "openapi-typescript ../../docs/openapi.yaml -o generated/openapi.d.ts && prettier --write generated/openapi.d.ts"
   }
 }
