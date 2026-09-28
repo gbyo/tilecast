@@ -76,8 +76,13 @@ object TcMediaBridge {
         val file = resolved.file ?: return null
         return runCatching {
             val stream = FileInputStream(file)
-            stream.channel.position(resolved.offset)
-            BoundedInputStream(stream, resolved.contentLength)
+            try {
+                stream.channel.position(resolved.offset)
+                BoundedInputStream(stream, resolved.contentLength)
+            } catch (error: Throwable) {
+                runCatching { stream.close() }
+                throw error
+            }
         }.getOrNull()
     }
 
