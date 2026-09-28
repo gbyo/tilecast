@@ -2,7 +2,7 @@
 
 ## Before the change
 
-The extension PR at commit `7efc5dee` is not the measured run. The following successful runs belong to its preceding PR branch. Both runs started on 2026-09-28 at 06:17:26 UTC:
+The following successful runs validate the extension PR at commit `5b19d044e534efdc68e814bf3631c75c6d7e73a3`. Both runs started on 2026-09-28 at 06:17:26 UTC:
 
 - [PR validation run 36385719535](https://github.com/gbyo/tilecast/actions/runs/36385719535)
 - [Edge run 36385719698](https://github.com/gbyo/tilecast/actions/runs/36385719698)

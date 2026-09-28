@@ -40,6 +40,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - run: npm ci --ignore-scripts --workspaces=false
       - run: node --test scripts/ci/*.test.mjs
       - name: Classify changed paths
         id: paths
