@@ -1452,6 +1452,27 @@ func (e OAuthDecisionMethod) Valid() bool {
 	}
 }
 
+// Defines values for OAuthGrantScopes.
+const (
+	OAuthGrantScopesAdmin OAuthGrantScopes = "admin"
+	OAuthGrantScopesRead  OAuthGrantScopes = "read"
+	OAuthGrantScopesWrite OAuthGrantScopes = "write"
+)
+
+// Valid indicates whether the value is a known member of the OAuthGrantScopes enum.
+func (e OAuthGrantScopes) Valid() bool {
+	switch e {
+	case OAuthGrantScopesAdmin:
+		return true
+	case OAuthGrantScopesRead:
+		return true
+	case OAuthGrantScopesWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OAuthTokenRequestGrantType.
 const (
 	AuthorizationCode OAuthTokenRequestGrantType = "authorization_code"
@@ -1545,6 +1566,27 @@ func (e PairingSessionPollStatus) Valid() bool {
 	case PairingSessionPollStatusPending:
 		return true
 	case PairingSessionPollStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonalAccessTokenScopes.
+const (
+	PersonalAccessTokenScopesAdmin PersonalAccessTokenScopes = "admin"
+	PersonalAccessTokenScopesRead  PersonalAccessTokenScopes = "read"
+	PersonalAccessTokenScopesWrite PersonalAccessTokenScopes = "write"
+)
+
+// Valid indicates whether the value is a known member of the PersonalAccessTokenScopes enum.
+func (e PersonalAccessTokenScopes) Valid() bool {
+	switch e {
+	case PersonalAccessTokenScopesAdmin:
+		return true
+	case PersonalAccessTokenScopesRead:
+		return true
+	case PersonalAccessTokenScopesWrite:
 		return true
 	default:
 		return false
@@ -5170,6 +5212,24 @@ type OAuthDecision struct {
 // OAuthDecisionMethod defines model for OAuthDecision.Method.
 type OAuthDecisionMethod string
 
+// OAuthGrant defines model for OAuthGrant.
+type OAuthGrant struct {
+	Client     string             `json:"client"`
+	CreatedAt  time.Time          `json:"createdAt"`
+	Id         openapi_types.UUID `json:"id"`
+	LastUsedAt *time.Time         `json:"lastUsedAt"`
+	RevokedAt  *time.Time         `json:"revokedAt"`
+	Scopes     []OAuthGrantScopes `json:"scopes"`
+}
+
+// OAuthGrantScopes defines model for OAuthGrant.Scopes.
+type OAuthGrantScopes string
+
+// OAuthGrantList defines model for OAuthGrantList.
+type OAuthGrantList struct {
+	Grants []OAuthGrant `json:"grants"`
+}
+
 // OAuthRedirect defines model for OAuthRedirect.
 type OAuthRedirect struct {
 	RedirectUri string `json:"redirectUri"`
@@ -5249,6 +5309,14 @@ type PairingSessionPoll struct {
 // PairingSessionPollStatus defines model for PairingSessionPoll.Status.
 type PairingSessionPollStatus string
 
+// PasskeyRegistrationOptions defines model for PasskeyRegistrationOptions.
+type PasskeyRegistrationOptions struct {
+	ChallengeToken string `json:"challengeToken"`
+
+	// Options WebAuthn public-key credential creation options for navigator.credentials.create(), serialized with base64url binary fields. Consumed by the platform authenticator rather than field by field.
+	Options map[string]interface{} `json:"options"`
+}
+
 // PasskeyRenameRequest defines model for PasskeyRenameRequest.
 type PasskeyRenameRequest struct {
 	Name string `json:"name"`
@@ -5273,6 +5341,33 @@ type PasswordConfirmation struct {
 type PendingPairingList struct {
 	Items []PairingRequest `json:"items"`
 	Total int              `json:"total"`
+}
+
+// PersonalAccessToken defines model for PersonalAccessToken.
+type PersonalAccessToken struct {
+	CreatedAt  time.Time                   `json:"createdAt"`
+	ExpiresAt  time.Time                   `json:"expiresAt"`
+	Id         openapi_types.UUID          `json:"id"`
+	LastUsedAt *time.Time                  `json:"lastUsedAt"`
+	Name       string                      `json:"name"`
+	RevokedAt  *time.Time                  `json:"revokedAt"`
+	Scopes     []PersonalAccessTokenScopes `json:"scopes"`
+}
+
+// PersonalAccessTokenScopes defines model for PersonalAccessToken.Scopes.
+type PersonalAccessTokenScopes string
+
+// PersonalAccessTokenCreated defines model for PersonalAccessTokenCreated.
+type PersonalAccessTokenCreated struct {
+	Pat PersonalAccessToken `json:"pat"`
+
+	// Token Plaintext secret returned exactly once; never listed again.
+	Token string `json:"token"`
+}
+
+// PersonalAccessTokenList defines model for PersonalAccessTokenList.
+type PersonalAccessTokenList struct {
+	Pats []PersonalAccessToken `json:"pats"`
 }
 
 // PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
@@ -46251,6 +46346,17 @@ func (r SecurityStatusResponse) ContentType() string {
 type ListOAuthGrantsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data OAuthGrantList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListOAuthGrantsResponse) GetJSON200() *struct {
+	Data OAuthGrantList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -46364,6 +46470,17 @@ func (r RegisterPasskeyResponse) ContentType() string {
 type PasskeyRegistrationOptionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PasskeyRegistrationOptions `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PasskeyRegistrationOptionsResponse) GetJSON200() *struct {
+	Data PasskeyRegistrationOptions `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -46466,6 +46583,17 @@ func (r RemovePasskeyResponse) ContentType() string {
 type ListPersonalAccessTokensResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PersonalAccessTokenList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPersonalAccessTokensResponse) GetJSON200() *struct {
+	Data PersonalAccessTokenList `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -46500,6 +46628,17 @@ func (r ListPersonalAccessTokensResponse) ContentType() string {
 type CreatePersonalAccessTokenResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data PersonalAccessTokenCreated `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePersonalAccessTokenResponse) GetJSON201() *struct {
+	Data PersonalAccessTokenCreated `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -65287,6 +65426,21 @@ func ParseListOAuthGrantsResponse(rsp *http.Response) (*ListOAuthGrantsResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data OAuthGrantList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65350,6 +65504,21 @@ func ParsePasskeyRegistrationOptionsResponse(rsp *http.Response) (*PasskeyRegist
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PasskeyRegistrationOptions `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65398,6 +65567,21 @@ func ParseListPersonalAccessTokensResponse(rsp *http.Response) (*ListPersonalAcc
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PersonalAccessTokenList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65412,6 +65596,27 @@ func ParseCreatePersonalAccessTokenResponse(rsp *http.Response) (*CreatePersonal
 	response := &CreatePersonalAccessTokenResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data PersonalAccessTokenCreated `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
