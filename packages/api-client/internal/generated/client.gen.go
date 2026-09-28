@@ -2609,6 +2609,76 @@ type ChangesRequest struct {
 	Note string `json:"note"`
 }
 
+// ContentCollection defines model for ContentCollection.
+type ContentCollection struct {
+	AssetCount  int                `json:"assetCount"`
+	CreatedAt   time.Time          `json:"createdAt"`
+	Description string             `json:"description"`
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	UpdatedAt   time.Time          `json:"updatedAt"`
+}
+
+// ContentFolder defines model for ContentFolder.
+type ContentFolder struct {
+	AssetCount  int                 `json:"assetCount"`
+	CreatedAt   time.Time           `json:"createdAt"`
+	Description string              `json:"description"`
+	Id          openapi_types.UUID  `json:"id"`
+	Name        string              `json:"name"`
+	ParentId    *openapi_types.UUID `json:"parentId,omitempty"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
+}
+
+// ContentHealthEmptyPlaylist defines model for ContentHealthEmptyPlaylist.
+type ContentHealthEmptyPlaylist struct {
+	Id          openapi_types.UUID `json:"id"`
+	Name        string             `json:"name"`
+	ScreenCount int                `json:"screenCount"`
+}
+
+// ContentHealthExpiringAsset defines model for ContentHealthExpiringAsset.
+type ContentHealthExpiringAsset struct {
+	ExpiresAt time.Time          `json:"expiresAt"`
+	Id        openapi_types.UUID `json:"id"`
+	InUse     bool               `json:"inUse"`
+	Name      string             `json:"name"`
+}
+
+// ContentHealthReport defines model for ContentHealthReport.
+type ContentHealthReport struct {
+	EmptyPlaylists []ContentHealthEmptyPlaylist `json:"emptyPlaylists"`
+	ExpiringAssets []ContentHealthExpiringAsset `json:"expiringAssets"`
+	GeneratedAt    time.Time                    `json:"generatedAt"`
+	StaleSources   []ContentHealthStaleSource   `json:"staleSources"`
+
+	// Thresholds Untagged Go struct keys ride the wire verbatim: Studio reads them through a normalizer into camelCase.
+	Thresholds        ContentHealthThresholds         `json:"thresholds"`
+	UnassignedScreens []ContentHealthUnassignedScreen `json:"unassignedScreens"`
+}
+
+// ContentHealthStaleSource defines model for ContentHealthStaleSource.
+type ContentHealthStaleSource struct {
+	ErrorCode       *string            `json:"errorCode,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+	LastSuccessAt   *time.Time         `json:"lastSuccessAt,omitempty"`
+	Name            string             `json:"name"`
+	Provider        string             `json:"provider"`
+	UsingCachedData bool               `json:"usingCachedData"`
+}
+
+// ContentHealthThresholds Untagged Go struct keys ride the wire verbatim: Studio reads them through a normalizer into camelCase.
+type ContentHealthThresholds struct {
+	ExpiringMediaDays int `json:"ExpiringMediaDays"`
+	StaleSourceHours  int `json:"StaleSourceHours"`
+}
+
+// ContentHealthUnassignedScreen defines model for ContentHealthUnassignedScreen.
+type ContentHealthUnassignedScreen struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
+
 // ContentSubmission defines model for ContentSubmission.
 type ContentSubmission struct {
 	AffectedLocationCount    *int                         `json:"affectedLocationCount,omitempty"`
@@ -38169,6 +38239,17 @@ func (r RestoreCampaignReleaseResponse) ContentType() string {
 type ListContentCollectionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []ContentCollection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListContentCollectionsResponse) GetJSON200() *struct {
+	Data []ContentCollection `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -38203,6 +38284,17 @@ func (r ListContentCollectionsResponse) ContentType() string {
 type CreateContentCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data ContentCollection `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateContentCollectionResponse) GetJSON201() *struct {
+	Data ContentCollection `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -38271,6 +38363,17 @@ func (r DeleteContentCollectionResponse) ContentType() string {
 type UpdateContentCollectionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentCollection `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateContentCollectionResponse) GetJSON200() *struct {
+	Data ContentCollection `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -38339,6 +38442,17 @@ func (r ContentDefinitionsResponse) ContentType() string {
 type ListContentFoldersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []ContentFolder `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListContentFoldersResponse) GetJSON200() *struct {
+	Data []ContentFolder `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -38373,6 +38487,17 @@ func (r ListContentFoldersResponse) ContentType() string {
 type CreateContentFolderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data ContentFolder `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateContentFolderResponse) GetJSON201() *struct {
+	Data ContentFolder `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -38441,6 +38566,17 @@ func (r DeleteContentFolderResponse) ContentType() string {
 type UpdateContentFolderResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentFolder `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateContentFolderResponse) GetJSON200() *struct {
+	Data ContentFolder `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -38475,6 +38611,17 @@ func (r UpdateContentFolderResponse) ContentType() string {
 type GetContentHealthResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentHealthReport `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetContentHealthResponse) GetJSON200() *struct {
+	Data ContentHealthReport `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39043,6 +39190,17 @@ func (r SubmitContentDraftResponse) ContentType() string {
 type ListContentTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []ContentTag `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListContentTagsResponse) GetJSON200() *struct {
+	Data []ContentTag `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -39077,6 +39235,17 @@ func (r ListContentTagsResponse) ContentType() string {
 type CreateContentTagResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data ContentTag `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateContentTagResponse) GetJSON201() *struct {
+	Data ContentTag `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -39145,6 +39314,17 @@ func (r DeleteContentTagResponse) ContentType() string {
 type UpdateContentTagResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ContentTag `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateContentTagResponse) GetJSON200() *struct {
+	Data ContentTag `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -57388,6 +57568,18 @@ func ParseListContentCollectionsResponse(rsp *http.Response) (*ListContentCollec
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []ContentCollection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -57402,6 +57594,18 @@ func ParseCreateContentCollectionResponse(rsp *http.Response) (*CreateContentCol
 	response := &CreateContentCollectionResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ContentCollection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	}
 
 	return response, nil
@@ -57436,6 +57640,27 @@ func ParseUpdateContentCollectionResponse(rsp *http.Response) (*UpdateContentCol
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentCollection `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -57468,6 +57693,18 @@ func ParseListContentFoldersResponse(rsp *http.Response) (*ListContentFoldersRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []ContentFolder `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -57482,6 +57719,21 @@ func ParseCreateContentFolderResponse(rsp *http.Response) (*CreateContentFolderR
 	response := &CreateContentFolderResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ContentFolder `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -57516,6 +57768,27 @@ func ParseUpdateContentFolderResponse(rsp *http.Response) (*UpdateContentFolderR
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentFolder `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -57530,6 +57803,21 @@ func ParseGetContentHealthResponse(rsp *http.Response) (*GetContentHealthRespons
 	response := &GetContentHealthResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentHealthReport `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -57833,6 +58121,18 @@ func ParseListContentTagsResponse(rsp *http.Response) (*ListContentTagsResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []ContentTag `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -57847,6 +58147,18 @@ func ParseCreateContentTagResponse(rsp *http.Response) (*CreateContentTagRespons
 	response := &CreateContentTagResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data ContentTag `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	}
 
 	return response, nil
@@ -57879,6 +58191,27 @@ func ParseUpdateContentTagResponse(rsp *http.Response) (*UpdateContentTagRespons
 	response := &UpdateContentTagResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ContentTag `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
