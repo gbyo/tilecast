@@ -61,6 +61,8 @@ class RuntimeHostSession(
 
     private var eventsReply: androidx.webkit.JavaScriptReplyProxy? = null
 
+    private var pendingStateDelivery: Pair<String, List<HostMessage>>? = null
+
     fun currentStateGeneration(): Long = stateGeneration
 
     /** Arms remote-event pushes for one page subscription. */
@@ -88,8 +90,7 @@ class RuntimeHostSession(
         if (callerRendererGeneration != rendererGeneration) return null
         return when (val message = HostChannel.parsePageMessage(raw)) {
             null -> null
-            is HostChannel.PageMessage.StateWant ->
-                HostChannel.stateBundle(stateGeneration, bundle())
+            is HostChannel.PageMessage.StateWant -> stateResponse()
             is HostChannel.PageMessage.Call -> handleCall(message)
             is HostChannel.PageMessage.Report -> {
                 routeReport(message.raw)
@@ -102,7 +103,20 @@ class RuntimeHostSession(
         }
     }
 
-    private fun bundle(): List<JsonObject> = host.replayForReady().map(::bodyOf)
+    private fun stateResponse(): String {
+        val replay = host.replayForReady()
+        val response = HostChannel.stateBundle(stateGeneration, replay.map(::bodyOf))
+        pendingStateDelivery = response to replay
+        return response
+    }
+
+    /** Called only after the reply proxy accepted a state response. */
+    fun responseDelivered(response: String) {
+        val pending = pendingStateDelivery ?: return
+        if (pending.first != response) return
+        host.acknowledgeReplay(pending.second)
+        pendingStateDelivery = null
+    }
 
     private fun bodyOf(message: HostMessage): JsonObject = when (message) {
         is HostMessage.Presentation -> message.body
