@@ -81,6 +81,7 @@ test("overview", async ({ page }) => {
 test("layout-widget-preview", async ({ page }) => {
   await page.goto(`/layouts/${lobbyPortrait}`);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(page.locator("#layout-preview-date")).toHaveText("9/28/2026");
   await expect(
     page.locator(".layout-preview-frame [data-tilecast-widget]"),
   ).toHaveCount(1);

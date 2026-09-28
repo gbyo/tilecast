@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 async function settle(page: Page) {
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
@@ -28,40 +28,70 @@ async function settle(page: Page) {
   });
 }
 
-export async function snapshot(
-  page: Page,
-  name: string,
-  extraMasks: ReturnType<Page["locator"]>[] = [],
-) {
-  await settle(page);
+function volatileRegions(scope: Page | Locator) {
   // Server wall time and pairing expiry remain real. Mask only their labels,
   // never status badges, content, controls or the shared Widget renderer.
-  const masks = [
-    page.getByRole("button", { name: /^Notifications,/ }),
-    page.locator("p").filter({ hasText: /last contact|Paired \d/ }),
-    page.getByText(/^Updated \d/),
-    page.locator("p").filter({ hasText: /Last signed in/ }),
-    page
+  return [
+    scope.getByRole("button", { name: /^Notifications,/ }),
+    scope.locator("p").filter({ hasText: /last contact|Paired \d/ }),
+    scope.getByText(/^Updated \d/),
+    scope.locator("p").filter({ hasText: /Last signed in/ }),
+    scope
       .locator("dt")
       .filter({ hasText: /^Last contact$/ })
       .locator("+ dd"),
-    page.locator("table time"),
-    page.getByText(/^(just now|\d+ (min|hr) ago|\d{1,2}\/\d{1,2}\/\d{4})$/i),
-    page
+    scope.locator("table time"),
+    scope.getByText(/^(just now|\d+ (min|hr) ago)$/i),
+    scope
       .locator("dt")
       .filter({ hasText: /^Next schedule change$/ })
       .locator("+ dd"),
-    page
+    scope
       .locator("dt")
       .filter({ hasText: /^Now playing$/ })
       .locator("+ dd"),
-    page
+    scope
       .getByRole("region", { name: "Pending pairing requests" })
       .locator('[data-slot="item-description"]'),
-    ...extraMasks,
   ];
-  await expect(page).toHaveScreenshot(`${name}.png`, {
-    mask: masks,
-    maskColor: "#808080",
-  });
+}
+
+export async function snapshot(
+  page: Page,
+  name: string,
+  extraMasks: Locator[] = [],
+) {
+  await settle(page);
+  const dialog = page.getByRole("dialog").last();
+  const modal = (await dialog.count()) > 0;
+  if (modal) {
+    // Playwright paints masks above dialogs. Hide volatile background labels
+    // in their own paint layer instead, keeping the foreground unobscured.
+    for (const region of volatileRegions(page)) {
+      await region.evaluateAll((elements) => {
+        for (const element of elements) {
+          if (!element.closest('[role="dialog"]')) {
+            element.setAttribute("data-visual-volatile", "");
+          }
+        }
+      });
+    }
+  }
+  try {
+    await expect(page).toHaveScreenshot(`${name}.png`, {
+      mask: [...volatileRegions(modal ? dialog : page), ...extraMasks],
+      maskColor: "#808080",
+      style: modal
+        ? "[data-visual-volatile] { visibility: hidden !important; }"
+        : undefined,
+    });
+  } finally {
+    if (modal) {
+      await page.locator("[data-visual-volatile]").evaluateAll((elements) => {
+        for (const element of elements) {
+          element.removeAttribute("data-visual-volatile");
+        }
+      });
+    }
+  }
 }
