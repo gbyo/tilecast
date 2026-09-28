@@ -1386,6 +1386,27 @@ func (e ScreenStatus) Valid() bool {
 	}
 }
 
+// Defines values for SettingDefinitionScope.
+const (
+	Organization SettingDefinitionScope = "organization"
+	Policy       SettingDefinitionScope = "policy"
+	Preference   SettingDefinitionScope = "preference"
+)
+
+// Valid indicates whether the value is a known member of the SettingDefinitionScope enum.
+func (e SettingDefinitionScope) Valid() bool {
+	switch e {
+	case Organization:
+		return true
+	case Policy:
+		return true
+	case Preference:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SpanGeometryInputDisplayMode.
 const (
 	Mirror SpanGeometryInputDisplayMode = "mirror"
@@ -2640,6 +2661,23 @@ type DisplayControlAction struct {
 // DisplayControlActionType defines model for DisplayControlAction.Type.
 type DisplayControlActionType string
 
+// EffectivePolicy Effective player policy for one screen with inheritance sources.
+type EffectivePolicy struct {
+	ConfigRevision       int64                           `json:"configRevision"`
+	GroupRevisions       map[string]int64                `json:"groupRevisions"`
+	Hash                 string                          `json:"hash"`
+	OrganizationRevision int64                           `json:"organizationRevision"`
+	ScreenRevision       int64                           `json:"screenRevision"`
+	Values               map[string]EffectivePolicyValue `json:"values"`
+}
+
+// EffectivePolicyValue defines model for EffectivePolicyValue.
+type EffectivePolicyValue struct {
+	Source   string              `json:"source"`
+	SourceId *openapi_types.UUID `json:"sourceId,omitempty"`
+	Value    interface{}         `json:"value"`
+}
+
 // GitHubAuthSource defines model for GitHubAuthSource.
 type GitHubAuthSource string
 
@@ -2719,6 +2757,13 @@ type LocationInput struct {
 type LocationList struct {
 	Items []Location `json:"items"`
 	Total int        `json:"total"`
+}
+
+// LoginBackground defines model for LoginBackground.
+type LoginBackground struct {
+	// AssetId Chosen image asset, or null when no background is set and the login page falls back to its default artwork.
+	AssetId  *openapi_types.UUID `json:"assetId,omitempty"`
+	ImageUrl string              `json:"imageUrl"`
 }
 
 // MFAPolicy defines model for MFAPolicy.
@@ -3294,6 +3339,15 @@ type PluginRequirement struct {
 // PluginRequirementKind defines model for PluginRequirement.Kind.
 type PluginRequirementKind string
 
+// PolicyDocument defines model for PolicyDocument.
+type PolicyDocument struct {
+	Priority      *int                   `json:"priority,omitempty"`
+	Revision      int64                  `json:"revision"`
+	SchemaVersion int                    `json:"schemaVersion"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
+	Values        map[string]interface{} `json:"values"`
+}
+
 // PolicyUpdate defines model for PolicyUpdate.
 type PolicyUpdate struct {
 	Priority *int  `json:"priority,omitempty"`
@@ -3802,6 +3856,37 @@ type SemanticChange struct {
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
 	Path        string `json:"path"`
+}
+
+// SettingDefinition defines model for SettingDefinition.
+type SettingDefinition struct {
+	Allowed         *[]string              `json:"allowed,omitempty"`
+	Category        string                 `json:"category"`
+	Default         interface{}            `json:"default"`
+	Description     *string                `json:"description,omitempty"`
+	Documentation   *string                `json:"documentation,omitempty"`
+	FutureOnly      bool                   `json:"futureOnly"`
+	Immediate       bool                   `json:"immediate"`
+	Key             string                 `json:"key"`
+	Max             *float32               `json:"max,omitempty"`
+	Min             *float32               `json:"min,omitempty"`
+	RestartRequired bool                   `json:"restartRequired"`
+	Scope           SettingDefinitionScope `json:"scope"`
+	Sensitive       bool                   `json:"sensitive"`
+	Title           string                 `json:"title"`
+	Type            string                 `json:"type"`
+}
+
+// SettingDefinitionScope defines model for SettingDefinition.Scope.
+type SettingDefinitionScope string
+
+// SettingsDocument Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+type SettingsDocument struct {
+	Definitions   []SettingDefinition    `json:"definitions"`
+	Revision      int64                  `json:"revision"`
+	SchemaVersion int                    `json:"schemaVersion"`
+	UpdatedAt     time.Time              `json:"updatedAt"`
+	Values        map[string]interface{} `json:"values"`
 }
 
 // SettingsExport defines model for SettingsExport.
@@ -43823,6 +43908,19 @@ func (r UpdateLocationResponse) ContentType() string {
 type GetPreferencesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPreferencesResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -43857,6 +43955,19 @@ func (r GetPreferencesResponse) ContentType() string {
 type UpdatePreferencesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdatePreferencesResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48361,6 +48472,17 @@ func (r DeleteGroupPolicyResponse) ContentType() string {
 type GetGroupPolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PolicyDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetGroupPolicyResponse) GetJSON200() *struct {
+	Data PolicyDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48395,6 +48517,17 @@ func (r GetGroupPolicyResponse) ContentType() string {
 type PutGroupPolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PolicyDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutGroupPolicyResponse) GetJSON200() *struct {
+	Data PolicyDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -49142,6 +49275,19 @@ func (r DisableScreenResponse) ContentType() string {
 type GetEffectivePolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Effective player policy for one screen with inheritance sources.
+		Data EffectivePolicy `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetEffectivePolicyResponse) GetJSON200() *struct {
+	// Data Effective player policy for one screen with inheritance sources.
+	Data EffectivePolicy `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -49516,6 +49662,17 @@ func (r DeleteScreenPolicyResponse) ContentType() string {
 type GetScreenPolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PolicyDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPolicyResponse) GetJSON200() *struct {
+	Data PolicyDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -49550,6 +49707,17 @@ func (r GetScreenPolicyResponse) ContentType() string {
 type PutScreenPolicyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PolicyDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutScreenPolicyResponse) GetJSON200() *struct {
+	Data PolicyDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -49992,6 +50160,19 @@ func (r GetScreenSnapshotImageResponse) ContentType() string {
 type GetSettingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetSettingsResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50026,6 +50207,19 @@ func (r GetSettingsResponse) ContentType() string {
 type UpdateSettingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateSettingsResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50094,6 +50288,17 @@ func (r DeleteLoginBackgroundResponse) ContentType() string {
 type GetLoginBackgroundResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LoginBackground `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetLoginBackgroundResponse) GetJSON200() *struct {
+	Data LoginBackground `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50128,6 +50333,17 @@ func (r GetLoginBackgroundResponse) ContentType() string {
 type PutLoginBackgroundResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data LoginBackground `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutLoginBackgroundResponse) GetJSON200() *struct {
+	Data LoginBackground `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -50162,6 +50378,19 @@ func (r PutLoginBackgroundResponse) ContentType() string {
 type ResetSettingsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+		Data SettingsDocument `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResetSettingsResponse) GetJSON200() *struct {
+	// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+	Data SettingsDocument `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -61546,6 +61775,22 @@ func ParseGetPreferencesResponse(rsp *http.Response) (*GetPreferencesResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -61560,6 +61805,28 @@ func ParseUpdatePreferencesResponse(rsp *http.Response) (*UpdatePreferencesRespo
 	response := &UpdatePreferencesResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -64268,6 +64535,18 @@ func ParseGetGroupPolicyResponse(rsp *http.Response) (*GetGroupPolicyResponse, e
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PolicyDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -64282,6 +64561,21 @@ func ParsePutGroupPolicyResponse(rsp *http.Response) (*PutGroupPolicyResponse, e
 	response := &PutGroupPolicyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PolicyDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -64671,6 +64965,25 @@ func ParseGetEffectivePolicyResponse(rsp *http.Response) (*GetEffectivePolicyRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Effective player policy for one screen with inheritance sources.
+			Data EffectivePolicy `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -64847,6 +65160,18 @@ func ParseGetScreenPolicyResponse(rsp *http.Response) (*GetScreenPolicyResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PolicyDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -64861,6 +65186,18 @@ func ParsePutScreenPolicyResponse(rsp *http.Response) (*PutScreenPolicyResponse,
 	response := &PutScreenPolicyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PolicyDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -65122,6 +65459,22 @@ func ParseGetSettingsResponse(rsp *http.Response) (*GetSettingsResponse, error) 
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65136,6 +65489,31 @@ func ParseUpdateSettingsResponse(rsp *http.Response) (*UpdateSettingsResponse, e
 	response := &UpdateSettingsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -65170,6 +65548,21 @@ func ParseGetLoginBackgroundResponse(rsp *http.Response) (*GetLoginBackgroundRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LoginBackground `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65186,6 +65579,33 @@ func ParsePutLoginBackgroundResponse(rsp *http.Response) (*PutLoginBackgroundRes
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data LoginBackground `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -65200,6 +65620,28 @@ func ParseResetSettingsResponse(rsp *http.Response) (*ResetSettingsResponse, err
 	response := &ResetSettingsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Versioned organization or preference document. Definitions always ride along; callers never merge a second read to render titles.
+			Data SettingsDocument `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
 	}
 
 	return response, nil
