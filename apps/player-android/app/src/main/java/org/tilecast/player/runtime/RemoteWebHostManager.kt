@@ -84,7 +84,8 @@ object RemoteWebHostManager {
         val scheme = uri.scheme?.lowercase() ?: return false
         if (scheme != "https" && scheme != "http") return false
         val port = uri.port
-        if (port != -1 && port != 443 && port != 80) return false
+        val defaultPort = if (scheme == "https") 443 else 80
+        if (port != -1 && port != defaultPort) return false
         if (page.cookiePolicy !in setOf("disabled", "first_party", "first_and_third_party")) return false
         if (page.zoomPercent !in 25..400) return false
         return true
