@@ -1896,6 +1896,21 @@ func (e PresentationNetworkSecurity) Valid() bool {
 	}
 }
 
+// Defines values for PresentationOverrideAfterAction.
+const (
+	PresentationOverrideAfterActionResume PresentationOverrideAfterAction = "resume"
+)
+
+// Valid indicates whether the value is a known member of the PresentationOverrideAfterAction enum.
+func (e PresentationOverrideAfterAction) Valid() bool {
+	switch e {
+	case PresentationOverrideAfterActionResume:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PresentationOverrideContentType.
 const (
 	PresentationOverrideContentTypeAsset    PresentationOverrideContentType = "asset"
@@ -1917,15 +1932,33 @@ func (e PresentationOverrideContentType) Valid() bool {
 	}
 }
 
+// Defines values for PresentationOverrideTargetType.
+const (
+	PresentationOverrideTargetTypeGroup  PresentationOverrideTargetType = "group"
+	PresentationOverrideTargetTypeScreen PresentationOverrideTargetType = "screen"
+)
+
+// Valid indicates whether the value is a known member of the PresentationOverrideTargetType enum.
+func (e PresentationOverrideTargetType) Valid() bool {
+	switch e {
+	case PresentationOverrideTargetTypeGroup:
+		return true
+	case PresentationOverrideTargetTypeScreen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PresentationOverrideInputAfterAction.
 const (
-	Resume PresentationOverrideInputAfterAction = "resume"
+	PresentationOverrideInputAfterActionResume PresentationOverrideInputAfterAction = "resume"
 )
 
 // Valid indicates whether the value is a known member of the PresentationOverrideInputAfterAction enum.
 func (e PresentationOverrideInputAfterAction) Valid() bool {
 	switch e {
-	case Resume:
+	case PresentationOverrideInputAfterActionResume:
 		return true
 	default:
 		return false
@@ -5329,21 +5362,32 @@ type PresentationNetworkUpdateInput struct {
 	Ssid     string                      `json:"ssid"`
 }
 
-// PresentationOverride defines model for PresentationOverride.
+// PresentationOverride Active Quick Present session. The stopped timestamp and reason appear once the session ends.
 type PresentationOverride struct {
-	ContentId   openapi_types.UUID              `json:"contentId"`
-	ContentName string                          `json:"contentName"`
-	ContentType PresentationOverrideContentType `json:"contentType"`
-	ExpiresAt   *time.Time                      `json:"expiresAt,omitempty"`
-	Id          openapi_types.UUID              `json:"id"`
-	LayoutId    *openapi_types.UUID             `json:"layoutId,omitempty"`
-	PlaylistId  *openapi_types.UUID             `json:"playlistId,omitempty"`
-	StartedAt   time.Time                       `json:"startedAt"`
-	WakeDisplay bool                            `json:"wakeDisplay"`
+	AfterAction     PresentationOverrideAfterAction `json:"afterAction"`
+	ContentId       openapi_types.UUID              `json:"contentId"`
+	ContentName     string                          `json:"contentName"`
+	ContentType     PresentationOverrideContentType `json:"contentType"`
+	DurationSeconds int                             `json:"durationSeconds"`
+	ExpiresAt       *time.Time                      `json:"expiresAt,omitempty"`
+	Id              openapi_types.UUID              `json:"id"`
+	StartedAt       time.Time                       `json:"startedAt"`
+	StopReason      *string                         `json:"stopReason,omitempty"`
+	StoppedAt       *time.Time                      `json:"stoppedAt,omitempty"`
+	TargetId        openapi_types.UUID              `json:"targetId"`
+	TargetName      string                          `json:"targetName"`
+	TargetType      PresentationOverrideTargetType  `json:"targetType"`
+	WakeDisplay     bool                            `json:"wakeDisplay"`
 }
+
+// PresentationOverrideAfterAction defines model for PresentationOverride.AfterAction.
+type PresentationOverrideAfterAction string
 
 // PresentationOverrideContentType defines model for PresentationOverride.ContentType.
 type PresentationOverrideContentType string
+
+// PresentationOverrideTargetType defines model for PresentationOverride.TargetType.
+type PresentationOverrideTargetType string
 
 // PresentationOverrideInput defines model for PresentationOverrideInput.
 type PresentationOverrideInput struct {
@@ -7238,6 +7282,24 @@ type TestPresentationNetworkParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreatePresentationOverrideParams defines parameters for CreatePresentationOverride.
+type CreatePresentationOverrideParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// StopPresentationOverrideJSONBody defines parameters for StopPresentationOverride.
+type StopPresentationOverrideJSONBody struct {
+	// Reason Defaults to "Stopped from Studio" when empty.
+	Reason *string `json:"reason,omitempty"`
+}
+
+// StopPresentationOverrideParams defines parameters for StopPresentationOverride.
+type StopPresentationOverrideParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ListSchedulesParams defines parameters for ListSchedules.
 type ListSchedulesParams struct {
 	Search   *string `form:"search,omitempty" json:"search,omitempty"`
@@ -7822,6 +7884,9 @@ type TestPresentationNetworkJSONRequestBody = PresentationNetworkTestInput
 
 // CreatePresentationOverrideJSONRequestBody defines body for CreatePresentationOverride for application/json ContentType.
 type CreatePresentationOverrideJSONRequestBody = PresentationOverrideInput
+
+// StopPresentationOverrideJSONRequestBody defines body for StopPresentationOverride for application/json ContentType.
+type StopPresentationOverrideJSONRequestBody StopPresentationOverrideJSONBody
 
 // CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
 type CreateScheduleJSONRequestBody = ScheduleInput
@@ -10349,7 +10414,7 @@ type ClientInterface interface {
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-	CreatePresentationOverrideWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreatePresentationOverrideWithBody(ctx context.Context, params *CreatePresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreatePresentationOverride Start Quick Present
 	//
@@ -10358,14 +10423,25 @@ type ClientInterface interface {
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-	CreatePresentationOverride(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreatePresentationOverride(ctx context.Context, params *CreatePresentationOverrideParams, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StopPresentationOverrideWithBody Stop Quick Present
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
+	StopPresentationOverrideWithBody(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StopPresentationOverride Stop Quick Present
 	//
 	// Requires an authenticated dashboard user.
 	//
+	// Takes a body of the `application/json` content type.
+	//
 	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverride(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+	StopPresentationOverride(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ProviderCatalog performs a GET /api/v1/provider-catalog (the `ProviderCatalog` operationId) request.
 	//
@@ -16431,8 +16507,8 @@ func (c *Client) ListPresentationOverrides(ctx context.Context, reqEditors ...Re
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-func (c *Client) CreatePresentationOverrideWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreatePresentationOverrideRequestWithBody(c.Server, contentType, body)
+func (c *Client) CreatePresentationOverrideWithBody(ctx context.Context, params *CreatePresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePresentationOverrideRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16450,8 +16526,27 @@ func (c *Client) CreatePresentationOverrideWithBody(ctx context.Context, content
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-func (c *Client) CreatePresentationOverride(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreatePresentationOverrideRequest(c.Server, body)
+func (c *Client) CreatePresentationOverride(ctx context.Context, params *CreatePresentationOverrideParams, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreatePresentationOverrideRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// StopPresentationOverrideWithBody Stop Quick Present
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
+func (c *Client) StopPresentationOverrideWithBody(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopPresentationOverrideRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16466,9 +16561,11 @@ func (c *Client) CreatePresentationOverride(ctx context.Context, body CreatePres
 //
 // Requires an authenticated dashboard user.
 //
+// Takes a body of the `application/json` content type.
+//
 // Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *Client) StopPresentationOverride(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewStopPresentationOverrideRequest(c.Server, id)
+func (c *Client) StopPresentationOverride(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStopPresentationOverrideRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -30608,18 +30705,18 @@ func NewListPresentationOverridesRequest(server string) (*http.Request, error) {
 }
 
 // NewCreatePresentationOverrideRequest calls the generic CreatePresentationOverride builder with application/json body
-func NewCreatePresentationOverrideRequest(server string, body CreatePresentationOverrideJSONRequestBody) (*http.Request, error) {
+func NewCreatePresentationOverrideRequest(server string, params *CreatePresentationOverrideParams, body CreatePresentationOverrideJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewCreatePresentationOverrideRequestWithBody(server, "application/json", bodyReader)
+	return NewCreatePresentationOverrideRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewCreatePresentationOverrideRequestWithBody constructs an http.Request for the CreatePresentationOverride method, with any body, and a specified content type
-func NewCreatePresentationOverrideRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewCreatePresentationOverrideRequestWithBody(server string, params *CreatePresentationOverrideParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -30644,11 +30741,37 @@ func NewCreatePresentationOverrideRequestWithBody(server string, contentType str
 
 	req.Header.Add("Content-Type", contentType)
 
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
 	return req, nil
 }
 
-// NewStopPresentationOverrideRequest constructs an http.Request for the StopPresentationOverride method
-func NewStopPresentationOverrideRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+// NewStopPresentationOverrideRequest calls the generic StopPresentationOverride builder with application/json body
+func NewStopPresentationOverrideRequest(server string, id openapi_types.UUID, params *StopPresentationOverrideParams, body StopPresentationOverrideJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStopPresentationOverrideRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewStopPresentationOverrideRequestWithBody constructs an http.Request for the StopPresentationOverride method, with any body, and a specified content type
+func NewStopPresentationOverrideRequestWithBody(server string, id openapi_types.UUID, params *StopPresentationOverrideParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -30673,9 +30796,26 @@ func NewStopPresentationOverrideRequest(server string, id openapi_types.UUID) (*
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
 	if err != nil {
 		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -37868,7 +38008,7 @@ type ClientWithResponsesInterface interface {
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-	CreatePresentationOverrideWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error)
+	CreatePresentationOverrideWithBodyWithResponse(ctx context.Context, params *CreatePresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error)
 
 	// CreatePresentationOverrideWithResponse Start Quick Present
 	//
@@ -37877,16 +38017,25 @@ type ClientWithResponsesInterface interface {
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-	CreatePresentationOverrideWithResponse(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error)
+	CreatePresentationOverrideWithResponse(ctx context.Context, params *CreatePresentationOverrideParams, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error)
+
+	// StopPresentationOverrideWithBodyWithResponse Stop Quick Present
+	//
+	// Requires an authenticated dashboard user.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
+	StopPresentationOverrideWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
 
 	// StopPresentationOverrideWithResponse Stop Quick Present
 	//
 	// Requires an authenticated dashboard user.
 	//
-	// Returns a wrapper object for the known response body format(s).
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-	StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
+	StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error)
 
 	// ProviderCatalogWithResponse performs a GET /api/v1/provider-catalog (the `ProviderCatalog` operationId) request.
 	//
@@ -48932,6 +49081,23 @@ func (r TestPresentationNetworkResponse) ContentType() string {
 type ListPresentationOverridesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items []PresentationOverride `json:"items"`
+			Total int                    `json:"total"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPresentationOverridesResponse) GetJSON200() *struct {
+	Data struct {
+		Items []PresentationOverride `json:"items"`
+		Total int                    `json:"total"`
+	} `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -48966,6 +49132,19 @@ func (r ListPresentationOverridesResponse) ContentType() string {
 type CreatePresentationOverrideResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+		Data PresentationOverride `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreatePresentationOverrideResponse) GetJSON201() *struct {
+	// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+	Data PresentationOverride `json:"data"`
+} {
+	return r.JSON201
 }
 
 // GetBody returns the raw response body bytes
@@ -49000,6 +49179,19 @@ func (r CreatePresentationOverrideResponse) ContentType() string {
 type StopPresentationOverrideResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+		Data PresentationOverride `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r StopPresentationOverrideResponse) GetJSON200() *struct {
+	// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+	Data PresentationOverride `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -58214,8 +58406,8 @@ func (c *ClientWithResponses) ListPresentationOverridesWithResponse(ctx context.
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-func (c *ClientWithResponses) CreatePresentationOverrideWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error) {
-	rsp, err := c.CreatePresentationOverrideWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) CreatePresentationOverrideWithBodyWithResponse(ctx context.Context, params *CreatePresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error) {
+	rsp, err := c.CreatePresentationOverrideWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -58229,23 +58421,38 @@ func (c *ClientWithResponses) CreatePresentationOverrideWithBodyWithResponse(ctx
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/presentation-overrides (the `CreatePresentationOverride` operationId).
-func (c *ClientWithResponses) CreatePresentationOverrideWithResponse(ctx context.Context, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error) {
-	rsp, err := c.CreatePresentationOverride(ctx, body, reqEditors...)
+func (c *ClientWithResponses) CreatePresentationOverrideWithResponse(ctx context.Context, params *CreatePresentationOverrideParams, body CreatePresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*CreatePresentationOverrideResponse, error) {
+	rsp, err := c.CreatePresentationOverride(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseCreatePresentationOverrideResponse(rsp)
 }
 
+// StopPresentationOverrideWithBodyWithResponse Stop Quick Present
+//
+// Requires an authenticated dashboard user.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
+func (c *ClientWithResponses) StopPresentationOverrideWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
+	rsp, err := c.StopPresentationOverrideWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStopPresentationOverrideResponse(rsp)
+}
+
 // StopPresentationOverrideWithResponse Stop Quick Present
 //
 // Requires an authenticated dashboard user.
 //
-// Returns a wrapper object for the known response body format(s).
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/presentation-overrides/{id}/stop (the `StopPresentationOverride` operationId).
-func (c *ClientWithResponses) StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
-	rsp, err := c.StopPresentationOverride(ctx, id, reqEditors...)
+func (c *ClientWithResponses) StopPresentationOverrideWithResponse(ctx context.Context, id openapi_types.UUID, params *StopPresentationOverrideParams, body StopPresentationOverrideJSONRequestBody, reqEditors ...RequestEditorFn) (*StopPresentationOverrideResponse, error) {
+	rsp, err := c.StopPresentationOverride(ctx, id, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -66053,6 +66260,24 @@ func ParseListPresentationOverridesResponse(rsp *http.Response) (*ListPresentati
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items []PresentationOverride `json:"items"`
+				Total int                    `json:"total"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66069,6 +66294,28 @@ func ParseCreatePresentationOverrideResponse(rsp *http.Response) (*CreatePresent
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+			Data PresentationOverride `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -66083,6 +66330,25 @@ func ParseStopPresentationOverrideResponse(rsp *http.Response) (*StopPresentatio
 	response := &StopPresentationOverrideResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Active Quick Present session. The stopped timestamp and reason appear once the session ends.
+			Data PresentationOverride `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	}
 
 	return response, nil

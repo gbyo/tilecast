@@ -6047,13 +6047,34 @@ paths:
         Requires an authenticated dashboard user.
       operationId: listPresentationOverrides
       summary: List active Quick Present sessions
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       responses:
-        "200": { description: Active temporary presentation overrides }
+        "200":
+          description: Active temporary presentation overrides
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required: [items, total]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          { $ref: "#/components/schemas/PresentationOverride" }
+                      total: { type: integer, minimum: 0 }
+        "401": { description: Dashboard authentication required }
     post:
       description: >-
         Requires an authenticated dashboard user.
       operationId: createPresentationOverride
       summary: Start Quick Present
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters: [{ $ref: "#/components/parameters/CSRFToken" }]
       requestBody:
         required: true
         content:
@@ -6061,7 +6082,16 @@ paths:
             schema:
               $ref: "#/components/schemas/PresentationOverrideInput"
       responses:
-        "201": { description: Quick Present started }
+        "201":
+          description: Quick Present started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PresentationOverride" }
+        "401": { description: Dashboard authentication required }
         "409":
           {
             description: Destination conflicts with AirPlay or another temporary presentation,
@@ -6073,6 +6103,7 @@ paths:
         Requires an authenticated dashboard user.
       operationId: stopPresentationOverride
       summary: Stop Quick Present
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
       parameters:
         - {
             in: path,
@@ -6080,8 +6111,30 @@ paths:
             required: true,
             schema: { type: string, format: uuid },
           }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: >-
+                    Defaults to "Stopped from Studio" when empty.
       responses:
-        "200": { description: Quick Present stopped }
+        "200":
+          description: Quick Present stopped
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PresentationOverride" }
+        "401": { description: Dashboard authentication required }
         "404": { description: Quick Present is no longer active }
   /api/v1/screens/{id}/commands:
     parameters:
@@ -9604,18 +9657,38 @@ components:
     PresentationOverride:
       type: object
       additionalProperties: false
+      description: >-
+        Active Quick Present session. The stopped timestamp and reason
+        appear once the session ends.
       required:
-        [id, contentType, contentId, contentName, startedAt, wakeDisplay]
+        [
+          id,
+          targetType,
+          targetId,
+          targetName,
+          contentType,
+          contentId,
+          contentName,
+          durationSeconds,
+          startedAt,
+          afterAction,
+          wakeDisplay,
+        ]
       properties:
         id: { type: string, format: uuid }
+        targetType: { type: string, enum: [screen, group] }
+        targetId: { type: string, format: uuid }
+        targetName: { type: string }
         contentType: { type: string, enum: [playlist, layout, asset] }
         contentId: { type: string, format: uuid }
         contentName: { type: string }
+        durationSeconds: { type: integer, minimum: 0 }
         startedAt: { type: string, format: date-time }
-        expiresAt: { type: [string, "null"], format: date-time }
-        playlistId: { type: [string, "null"], format: uuid }
-        layoutId: { type: [string, "null"], format: uuid }
+        expiresAt: { type: string, format: date-time }
+        afterAction: { type: string, enum: [resume] }
         wakeDisplay: { type: boolean }
+        stoppedAt: { type: string, format: date-time }
+        stopReason: { type: string }
     PresentationOverrideInput:
       type: object
       additionalProperties: false
