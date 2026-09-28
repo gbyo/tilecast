@@ -118,6 +118,40 @@ class RuntimeHostSessionTest {
         assertEquals(1, sink.boundaries.size)
     }
 
+    @Test fun commandReplayIsAcknowledgedOnlyAfterDeliveredState() {
+        val session = RuntimeHostSessionTest.Sink().let { session(it) }
+        val command = RuntimeBridgeProtocol.parseHostMessage(
+            """{"type":"command","command":"skip-item"}""",
+        ).getOrThrow()
+        session.offer(command)
+
+        val first = session.handlePageMessage(
+            """{"type":"host-state","wantGeneration":-1}""", 1, null,
+        )!!
+        val firstMessages = Json.parseToJsonElement(first).jsonObject["messages"]!!.jsonArray
+        assertTrue(firstMessages.any { it.jsonObject["type"]?.jsonPrimitive?.content == "command" })
+
+        // No delivery acknowledgement: the command remains pending.
+        val retry = session.handlePageMessage(
+            """{"type":"host-state","wantGeneration":-1}""", 1, null,
+        )!!
+        assertTrue(
+            Json.parseToJsonElement(retry).jsonObject["messages"]!!.jsonArray.any {
+                it.jsonObject["type"]?.jsonPrimitive?.content == "command"
+            },
+        )
+
+        session.responseDelivered(retry)
+        val afterAck = session.handlePageMessage(
+            """{"type":"host-state","wantGeneration":-1}""", 1, null,
+        )!!
+        assertFalse(
+            Json.parseToJsonElement(afterAck).jsonObject["messages"]!!.jsonArray.any {
+                it.jsonObject["type"]?.jsonPrimitive?.content == "command"
+            },
+        )
+    }
+
     @Test fun unknownCallsAreRefusedWithoutState() {
         val session = RuntimeHostSessionTest.Sink().let { session(it) }
         val reply = session.handlePageMessage(
