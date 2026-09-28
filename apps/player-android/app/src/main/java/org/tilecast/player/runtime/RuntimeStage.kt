@@ -2,6 +2,7 @@ package org.tilecast.player.runtime
 
 import android.annotation.SuppressLint
 import android.net.Uri
+import android.net.http.SslError
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.GeolocationPermissions
@@ -139,6 +140,7 @@ fun SharedRuntimePlayback(
                 hostVersion = hostVersion,
                 engineVersion = engineVersion,
                 onIncrementInstance = { instance++ },
+                onError = onError,
                 onHandlePageMessage = { payload, generation, reply ->
                     val response = runtimeSession.handlePageMessage(payload, generation, reply)
                     if (response != null) runCatching { reply?.postMessage(response) }
@@ -163,6 +165,7 @@ private fun RuntimeStageBody(
     hostVersion: String,
     engineVersion: String,
     onIncrementInstance: () -> Unit,
+    onError: (String) -> Unit,
     onHandlePageMessage: (String, Long, JavaScriptReplyProxy?) -> Unit,
 ) {
         fun handlePageMessage(payload: String, generation: Long, reply: JavaScriptReplyProxy?) {
@@ -196,7 +199,7 @@ private fun RuntimeStageBody(
                             )
                             resolved?.let(TcMediaBridge::toResponse)
                         },
-                        onRendererGone = { instance++ },
+                        onRendererGone = { onIncrementInstance() },
                     )
                     refs.owner = owner
                     when (val endpoint = owner.create()) {
@@ -232,7 +235,6 @@ private fun RuntimeStageBody(
                 }
             }
         }
-    }
 }
 
 @Composable

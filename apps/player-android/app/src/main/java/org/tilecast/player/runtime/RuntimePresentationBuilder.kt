@@ -2,12 +2,14 @@ package org.tilecast.player.runtime
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.content.effectiveDurationMs
 import org.tilecast.player.content.resolveWebsitePolicy
 import org.tilecast.player.content.withPlaybackDefaults
@@ -20,7 +22,6 @@ import org.tilecast.player.network.PlayerBranding
 import org.tilecast.player.network.PlayerManifest
 import org.tilecast.player.network.PlayerPlaybackDefaults
 import org.tilecast.player.network.PlayerWebsitePolicy
-import org.tilecast.player.network.PreparedContent
 import org.tilecast.player.network.WebsiteSourceConfig
 import org.tilecast.player.network.YouTubeSourceConfig
 

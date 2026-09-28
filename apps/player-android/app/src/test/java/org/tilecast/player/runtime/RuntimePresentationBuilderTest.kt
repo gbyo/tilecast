@@ -9,6 +9,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assert.*
 import org.junit.Test
+import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.network.ManifestAsset
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestSyncGroup
@@ -16,7 +17,6 @@ import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.ManifestWidget
 import org.tilecast.player.network.PlayerBranding
 import org.tilecast.player.network.PlayerManifest
-import org.tilecast.player.network.PreparedContent
 
 class RuntimePresentationBuilderTest {
     private fun item(
