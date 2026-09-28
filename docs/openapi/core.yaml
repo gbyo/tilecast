@@ -99,7 +99,9 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    { $ref: "#/components/schemas/InstallableLinuxPlayerRelease" }
+                    {
+                      $ref: "#/components/schemas/InstallableLinuxPlayerRelease",
+                    }
         "404": { description: No installable Linux Player release is cached }
   /api/v1/install/linux/artifact:
     get:
@@ -4813,7 +4815,9 @@ paths:
                 required: [data]
                 properties:
                   data:
-                    { $ref: "#/components/schemas/ContentSubmissionPublication" }
+                    {
+                      $ref: "#/components/schemas/ContentSubmissionPublication",
+                    }
         "202":
           description: Submitted for editorial review instead of publishing
           content:
@@ -4975,7 +4979,8 @@ paths:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
         "404": { description: Screen or assignment not found }
     put:
       operationId: assignPresentation
@@ -4996,7 +5001,8 @@ paths:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
         "403": { description: Owner or Administrator required }
         "404": { description: Screen or assignment not found }
     delete:
@@ -5013,7 +5019,8 @@ paths:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
+                  data:
+                    { $ref: "#/components/schemas/ScreenPlaylistAssignment" }
         "403": { description: Owner or Administrator required }
         "404": { description: Screen or assignment not found }
   /api/v1/player/manifest:
@@ -5608,7 +5615,8 @@ paths:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: "#/components/schemas/ContentDefinitionCatalog" }
+                  data:
+                    { $ref: "#/components/schemas/ContentDefinitionCatalog" }
   /api/v1/widgets/compile-preview:
     post:
       operationId: compileWidgetPreview
@@ -5636,7 +5644,9 @@ paths:
                 properties:
                   data:
                     anyOf:
-                      - { $ref: "#/components/schemas/CompiledWidgetPresentation" }
+                      - {
+                          $ref: "#/components/schemas/CompiledWidgetPresentation",
+                        }
                       - { type: "null" }
         "400":
           description: Draft configuration cannot be compiled
@@ -6123,7 +6133,9 @@ paths:
                 properties:
                   data:
                     oneOf:
-                      - { $ref: "#/components/schemas/ContentSubmissionPublication" }
+                      - {
+                          $ref: "#/components/schemas/ContentSubmissionPublication",
+                        }
                       - { $ref: "#/components/schemas/LayoutRevision" }
         "202":
           description: Submitted for editorial review instead of publishing
@@ -9812,8 +9824,7 @@ components:
     ScreenSnapshot:
       type: object
       additionalProperties: false
-      required:
-        [id, screenId, capturedAt, width, height, fileSize, trigger]
+      required: [id, screenId, capturedAt, width, height, fileSize, trigger]
       properties:
         id: { type: string, format: uuid }
         screenId: { type: string, format: uuid }
@@ -10680,16 +10691,7 @@ components:
     ProviderCatalogEntry:
       type: object
       additionalProperties: false
-      required:
-        [
-          id,
-          role,
-          label,
-          group,
-          description,
-          capabilities,
-          uiHints,
-        ]
+      required: [id, role, label, group, description, capabilities, uiHints]
       properties:
         id: { type: string }
         role: { type: string, enum: [widget, data_source] }
@@ -10834,10 +10836,7 @@ components:
       required: [kind, fields]
       properties:
         kind:
-          {
-            type: string,
-            enum: [scalar, records, time_series, list, object],
-          }
+          { type: string, enum: [scalar, records, time_series, list, object] }
         fields:
           type: array
           items: { $ref: "#/components/schemas/ContentDefinitionOutputField" }
@@ -10938,7 +10937,8 @@ components:
         kind: { type: string, enum: [widget, app] }
         featured: { type: boolean }
         keywords: { type: array, items: { type: string } }
-        availability: { $ref: "#/components/schemas/ContentDefinitionAvailability" }
+        availability:
+          { $ref: "#/components/schemas/ContentDefinitionAvailability" }
         runtime: { type: string, enum: [native, web] }
         configurationSchema:
           { $ref: "#/components/schemas/ContentDefinitionConfigurationSchema" }
@@ -12192,8 +12192,10 @@ components:
         layoutRevision: { type: integer, format: int64, minimum: 1 }
         presentationType: { type: string, enum: [playlist, layout] }
         manifestVersion: { type: integer, format: int64, minimum: 0 }
-        playerActiveManifestVersion: { type: integer, format: int64, minimum: 0 }
-        playerPendingManifestVersion: { type: integer, format: int64, minimum: 0 }
+        playerActiveManifestVersion:
+          { type: integer, format: int64, minimum: 0 }
+        playerPendingManifestVersion:
+          { type: integer, format: int64, minimum: 0 }
         synchronizationStatus:
           {
             type: string,
@@ -12249,13 +12251,7 @@ components:
     PowerAssistResult:
       type: string
       enum:
-        [
-          untested,
-          confirmed_working,
-          partially_working,
-          failed,
-          unsupported,
-        ]
+        [untested, confirmed_working, partially_working, failed, unsupported]
     PowerAssistInput:
       type: object
       additionalProperties: false

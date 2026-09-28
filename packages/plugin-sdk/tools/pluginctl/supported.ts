@@ -400,9 +400,7 @@ export function checkDerivedConformance(
         message: `${location} needs a stable operationId`,
       });
     }
-    const description = textOf(
-      findPair(entry.operation, "description"),
-    ).trim();
+    const description = textOf(findPair(entry.operation, "description")).trim();
     const useful =
       description || textOf(findPair(entry.operation, "summary")).trim();
     if (useful.length < MIN_DESCRIPTION_LENGTH) {
