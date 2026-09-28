@@ -296,11 +296,10 @@ describe("format", () => {
       }),
     ).toBe("Yes");
     expect(
-      formatWidgetValue(
-        { kind: "date", date: "2026-09-28" },
-        undefined,
-        { locale, timeZone: "UTC" },
-      ),
+      formatWidgetValue({ kind: "date", date: "2026-09-28" }, undefined, {
+        locale,
+        timeZone: "UTC",
+      }),
     ).toBe("Sep 28, 2026");
     // A bare date names no zone, so it never shifts with the screen zone.
     expect(
@@ -309,9 +308,13 @@ describe("format", () => {
       }),
     ).toBe("Sep 28, 2026");
     expect(
-      formatWidgetValue({ kind: "duration", durationSeconds: 7540 }, undefined, {
-        locale,
-      }),
+      formatWidgetValue(
+        { kind: "duration", durationSeconds: 7540 },
+        undefined,
+        {
+          locale,
+        },
+      ),
     ).toBe("2h 5m");
     expect(formatWidgetValue(null, undefined, { locale })).toBe("");
     expect(

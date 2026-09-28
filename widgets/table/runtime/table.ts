@@ -340,21 +340,21 @@ export class TilecastTableWidget extends TilecastWidgetElement<
             ? html`<thead>
                 <tr>
                   ${visible.map((column) => {
-                  const field = data.fields[column.field];
-                  const align = effectiveAlign(column, field);
-                  return html`<th
-                    class=${
-                      align === "right"
-                        ? "numeric"
-                        : align === "center"
-                          ? "center"
-                          : nothing
-                    }
-                    scope="col"
-                  >
-                    ${column.label || field?.label || column.field}
-                  </th>`;
-                })}
+                    const field = data.fields[column.field];
+                    const align = effectiveAlign(column, field);
+                    return html`<th
+                      class=${
+                        align === "right"
+                          ? "numeric"
+                          : align === "center"
+                            ? "center"
+                            : nothing
+                      }
+                      scope="col"
+                    >
+                      ${column.label || field?.label || column.field}
+                    </th>`;
+                  })}
                 </tr>
               </thead>`
             : nothing
@@ -364,19 +364,22 @@ export class TilecastTableWidget extends TilecastWidgetElement<
             (record) =>
               html`<tr>
                 ${visible.map((column) => {
-                const align = effectiveAlign(column, data.fields[column.field]);
-                return html`<td
-                  class=${
-                    align === "right"
-                      ? "numeric"
-                      : align === "center"
-                        ? "center"
-                        : nothing
-                  }
-                >
-                  ${cell(record, column)}
-                </td>`;
-              })}
+                  const align = effectiveAlign(
+                    column,
+                    data.fields[column.field],
+                  );
+                  return html`<td
+                    class=${
+                      align === "right"
+                        ? "numeric"
+                        : align === "center"
+                          ? "center"
+                          : nothing
+                    }
+                  >
+                    ${cell(record, column)}
+                  </td>`;
+                })}
               </tr>`,
           )}
         </tbody>

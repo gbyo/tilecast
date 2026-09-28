@@ -1693,7 +1693,11 @@ export type WidgetDefinition = {
    * Superseded providers stay resolvable for saved content but disappear
    * from new creation once their replacement proves parity.
    */
-  deprecation?: { deprecated?: boolean; replacement?: string; message?: string };
+  deprecation?: {
+    deprecated?: boolean;
+    replacement?: string;
+    message?: string;
+  };
   name: string;
   description: string;
   category: string;
