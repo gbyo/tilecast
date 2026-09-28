@@ -79,6 +79,16 @@ export interface ProgressData {
   readonly style: ProgressStyle;
 }
 
+interface ProgressView {
+  readonly label: string;
+  readonly valueText: string;
+  readonly percentText: string;
+  readonly percent: number;
+  readonly complete: boolean;
+  readonly completionText: string;
+  readonly style: ProgressStyle;
+}
+
 function optionalNumber(value: unknown): number | null | undefined {
   if (value === undefined || value === null) return null;
   if (typeof value !== "number") return undefined;
@@ -416,14 +426,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
     </div>`;
   }
 
-  private renderBar(view: {
-    label: string;
-    valueText: string;
-    percentText: string;
-    percent: number;
-    complete: boolean;
-    completionText: string;
-  }): TemplateResult {
+  private renderBar(view: ProgressView): TemplateResult {
     const fill = Math.max(0, Math.min(100, view.percent));
     return html`${
         view.label
@@ -450,14 +453,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
       </div>`;
   }
 
-  private renderRing(view: {
-    label: string;
-    valueText: string;
-    percentText: string;
-    percent: number;
-    complete: boolean;
-    completionText: string;
-  }): TemplateResult {
+  private renderRing(view: ProgressView): TemplateResult {
     const fill = Math.max(0, Math.min(100, view.percent));
     const radius = 44;
     const circumference = 2 * Math.PI * radius;
@@ -512,14 +508,7 @@ export class TilecastProgressWidget extends TilecastWidgetElement<
       </div>`;
   }
 
-  private renderThermometer(view: {
-    label: string;
-    valueText: string;
-    percentText: string;
-    percent: number;
-    complete: boolean;
-    completionText: string;
-  }): TemplateResult {
+  private renderThermometer(view: ProgressView): TemplateResult {
     const fill = Math.max(0, Math.min(100, view.percent));
     const label = `${view.valueText}${view.percentText ? `, ${view.percentText}` : ""}`;
     return html`${
