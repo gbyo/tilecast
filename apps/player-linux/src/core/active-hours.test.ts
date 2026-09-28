@@ -89,6 +89,19 @@ describe("activeHoursFromConfig", () => {
     });
   });
 
+  it("rejects fractional weekdays so malformed schedules fail open", () => {
+    const config = activeHoursFromConfig({
+      activeHoursEnabled: true,
+      activeHoursTimezone: "America/New_York",
+      activeHoursDays: [1.5],
+      activeHoursStart: "07:00",
+      activeHoursEnd: "19:00",
+    });
+
+    expect(config?.days).toEqual([]);
+    expect(evaluateActiveHours(config, wed("09:30")).active).toBe(true);
+  });
+
   it("returns a disabled config when the flag is off", () => {
     expect(activeHoursFromConfig({ activeHoursEnabled: false })?.enabled).toBe(
       false,
