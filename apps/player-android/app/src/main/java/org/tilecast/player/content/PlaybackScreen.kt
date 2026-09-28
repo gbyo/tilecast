@@ -64,7 +64,7 @@ import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
-internal data class RuntimeActivationIdentity(val id: String, val generation: Long)
+data class RuntimeActivationIdentity(val id: String, val generation: Long)
 
 private val runtimeActivationSequence = AtomicLong(0)
 
