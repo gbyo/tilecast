@@ -5562,6 +5562,161 @@ export interface components {
     IncidentList: {
       items: components["schemas"]["Incident"][];
     };
+    /** @enum {string} */
+    ProofResult:
+      | "playing"
+      | "completed"
+      | "partial"
+      | "skipped"
+      | "failed"
+      | "unknown"
+      | "recovered"
+      | "success";
+    /** @enum {string} */
+    ProofSessionType:
+      "presentation" | "content" | "layout_placement" | "playlist_item";
+    /** @enum {string} */
+    ProofTerminalReason:
+      | "expected_item_boundary"
+      | "completed_duration"
+      | "schedule_transition"
+      | "manifest_replacement"
+      | "direct_assignment_change"
+      | "takeover"
+      | "manual_skip"
+      | "empty_content"
+      | "player_restart"
+      | "process_exit"
+      | "heartbeat_gap"
+      | "renderer_failure"
+      | "decoder_failure"
+      | "recovery_action"
+      | "bounded_timeout"
+      | "unknown";
+    ProofOfPlayRecord: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      startedAt: string;
+      /** Format: date-time */
+      endedAt?: string;
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: uuid */
+      groupId?: string;
+      groupName?: string;
+      presentationType?: string;
+      presentationId?: string;
+      presentationRevision?: string;
+      presentationName?: string;
+      contentType?: string;
+      contentId?: string;
+      contentName?: string;
+      playlistItemId?: string;
+      layoutPlacementId?: string;
+      /** Format: int64 */
+      actualDurationMs?: number;
+      /** Format: int64 */
+      expectedDurationMs?: number;
+      result: components["schemas"]["ProofResult"];
+      trigger?: string;
+      scheduleId?: string;
+      takeoverId?: string;
+      /** Format: int64 */
+      manifestVersion?: number;
+      failureCode?: string;
+      sourceId?: string;
+      selectedRecordId?: string;
+      /** Format: date-time */
+      selectionDate?: string;
+      /** Format: date-time */
+      sourceCachedAt?: string;
+      sourceRevision?: string;
+      snapshotHash?: string;
+      sessionType: components["schemas"]["ProofSessionType"];
+      terminalReason?: components["schemas"]["ProofTerminalReason"];
+      /** @description Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side. */
+      details: Record<string, never>;
+    };
+    ProofOfPlayPage: {
+      items: components["schemas"]["ProofOfPlayRecord"][];
+      nextCursor?: string;
+    };
+    ProofSummaryItem: {
+      key: string;
+      label: string;
+      /** Format: int64 */
+      confirmedScreenPlaybackMs: number;
+      /** Format: int64 */
+      contentExposureMs: number;
+      /** Format: int64 */
+      records: number;
+      /** Format: int64 */
+      completed: number;
+      /** Format: int64 */
+      failures: number;
+      /** Format: int64 */
+      partial: number;
+      /** Format: int64 */
+      unknown: number;
+      /** Format: int64 */
+      interrupted: number;
+      sessionCompletionPercent: number;
+    };
+    ProofSummary: {
+      dimension: string;
+      items: components["schemas"]["ProofSummaryItem"][];
+    };
+    /** @enum {string} */
+    ActivitySeverity: "debug" | "info" | "warning" | "error" | "critical";
+    /** @enum {string} */
+    ActivityCategory:
+      | "connectivity"
+      | "manifest"
+      | "playback"
+      | "scheduling"
+      | "commands"
+      | "reliability"
+      | "updates"
+      | "takeovers"
+      | "system";
+    ScreenEventRecord: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      timestamp: string;
+      /** Format: date-time */
+      receivedAt: string;
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: uuid */
+      groupId?: string;
+      groupName?: string;
+      /**
+       * Format: int64
+       * @description Player sequence, monotonic per device. Null for server-derived transitions, which have no device queue position.
+       */
+      sequence: number | null;
+      eventType: string;
+      category: components["schemas"]["ActivityCategory"];
+      severity: components["schemas"]["ActivitySeverity"];
+      description: string;
+      relatedType?: string;
+      relatedId?: string;
+      result: components["schemas"]["ProofResult"];
+      /** Format: int64 */
+      manifestVersion?: number;
+      failureCode?: string;
+      failureMessage?: string;
+      /** @description Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side. */
+      details: Record<string, never>;
+    };
+    ScreenEventPage: {
+      items: components["schemas"]["ScreenEventRecord"][];
+      nextCursor?: string;
+    };
     /** @description Token-authenticated fleet summary for monitoring systems. Screen buckets mirror the Studio status thresholds, except there is deliberately no online count: live presence lives in the process-local socket hub, which a database read cannot see. */
     FleetHealth: {
       /** Format: date-time */
@@ -12197,7 +12352,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ProofOfPlayPage"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12232,7 +12391,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ProofSummary"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {
@@ -12311,7 +12474,11 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenEventPage"];
+          };
+        };
       };
       /** @description Dashboard authentication required */
       401: {

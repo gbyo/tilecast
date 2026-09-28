@@ -18,6 +18,72 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for ActivityCategory.
+const (
+	ActivityCategoryCommands     ActivityCategory = "commands"
+	ActivityCategoryConnectivity ActivityCategory = "connectivity"
+	ActivityCategoryManifest     ActivityCategory = "manifest"
+	ActivityCategoryPlayback     ActivityCategory = "playback"
+	ActivityCategoryReliability  ActivityCategory = "reliability"
+	ActivityCategoryScheduling   ActivityCategory = "scheduling"
+	ActivityCategorySystem       ActivityCategory = "system"
+	ActivityCategoryTakeovers    ActivityCategory = "takeovers"
+	ActivityCategoryUpdates      ActivityCategory = "updates"
+)
+
+// Valid indicates whether the value is a known member of the ActivityCategory enum.
+func (e ActivityCategory) Valid() bool {
+	switch e {
+	case ActivityCategoryCommands:
+		return true
+	case ActivityCategoryConnectivity:
+		return true
+	case ActivityCategoryManifest:
+		return true
+	case ActivityCategoryPlayback:
+		return true
+	case ActivityCategoryReliability:
+		return true
+	case ActivityCategoryScheduling:
+		return true
+	case ActivityCategorySystem:
+		return true
+	case ActivityCategoryTakeovers:
+		return true
+	case ActivityCategoryUpdates:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivitySeverity.
+const (
+	ActivitySeverityCritical ActivitySeverity = "critical"
+	ActivitySeverityDebug    ActivitySeverity = "debug"
+	ActivitySeverityError    ActivitySeverity = "error"
+	ActivitySeverityInfo     ActivitySeverity = "info"
+	ActivitySeverityWarning  ActivitySeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the ActivitySeverity enum.
+func (e ActivitySeverity) Valid() bool {
+	switch e {
+	case ActivitySeverityCritical:
+		return true
+	case ActivitySeverityDebug:
+		return true
+	case ActivitySeverityError:
+		return true
+	case ActivitySeverityInfo:
+		return true
+	case ActivitySeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AirplaySessionAudioMode.
 const (
 	AirplaySessionAudioModeGatewayOnly AirplaySessionAudioMode = "gateway_only"
@@ -2634,6 +2700,126 @@ func (e PresentationOverrideInputTargetType) Valid() bool {
 	}
 }
 
+// Defines values for ProofResult.
+const (
+	ProofResultCompleted ProofResult = "completed"
+	ProofResultFailed    ProofResult = "failed"
+	ProofResultPartial   ProofResult = "partial"
+	ProofResultPlaying   ProofResult = "playing"
+	ProofResultRecovered ProofResult = "recovered"
+	ProofResultSkipped   ProofResult = "skipped"
+	ProofResultSuccess   ProofResult = "success"
+	ProofResultUnknown   ProofResult = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ProofResult enum.
+func (e ProofResult) Valid() bool {
+	switch e {
+	case ProofResultCompleted:
+		return true
+	case ProofResultFailed:
+		return true
+	case ProofResultPartial:
+		return true
+	case ProofResultPlaying:
+		return true
+	case ProofResultRecovered:
+		return true
+	case ProofResultSkipped:
+		return true
+	case ProofResultSuccess:
+		return true
+	case ProofResultUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProofSessionType.
+const (
+	ProofSessionTypeContent         ProofSessionType = "content"
+	ProofSessionTypeLayoutPlacement ProofSessionType = "layout_placement"
+	ProofSessionTypePlaylistItem    ProofSessionType = "playlist_item"
+	ProofSessionTypePresentation    ProofSessionType = "presentation"
+)
+
+// Valid indicates whether the value is a known member of the ProofSessionType enum.
+func (e ProofSessionType) Valid() bool {
+	switch e {
+	case ProofSessionTypeContent:
+		return true
+	case ProofSessionTypeLayoutPlacement:
+		return true
+	case ProofSessionTypePlaylistItem:
+		return true
+	case ProofSessionTypePresentation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProofTerminalReason.
+const (
+	ProofTerminalReasonBoundedTimeout         ProofTerminalReason = "bounded_timeout"
+	ProofTerminalReasonCompletedDuration      ProofTerminalReason = "completed_duration"
+	ProofTerminalReasonDecoderFailure         ProofTerminalReason = "decoder_failure"
+	ProofTerminalReasonDirectAssignmentChange ProofTerminalReason = "direct_assignment_change"
+	ProofTerminalReasonEmptyContent           ProofTerminalReason = "empty_content"
+	ProofTerminalReasonExpectedItemBoundary   ProofTerminalReason = "expected_item_boundary"
+	ProofTerminalReasonHeartbeatGap           ProofTerminalReason = "heartbeat_gap"
+	ProofTerminalReasonManifestReplacement    ProofTerminalReason = "manifest_replacement"
+	ProofTerminalReasonManualSkip             ProofTerminalReason = "manual_skip"
+	ProofTerminalReasonPlayerRestart          ProofTerminalReason = "player_restart"
+	ProofTerminalReasonProcessExit            ProofTerminalReason = "process_exit"
+	ProofTerminalReasonRecoveryAction         ProofTerminalReason = "recovery_action"
+	ProofTerminalReasonRendererFailure        ProofTerminalReason = "renderer_failure"
+	ProofTerminalReasonScheduleTransition     ProofTerminalReason = "schedule_transition"
+	ProofTerminalReasonTakeover               ProofTerminalReason = "takeover"
+	ProofTerminalReasonUnknown                ProofTerminalReason = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ProofTerminalReason enum.
+func (e ProofTerminalReason) Valid() bool {
+	switch e {
+	case ProofTerminalReasonBoundedTimeout:
+		return true
+	case ProofTerminalReasonCompletedDuration:
+		return true
+	case ProofTerminalReasonDecoderFailure:
+		return true
+	case ProofTerminalReasonDirectAssignmentChange:
+		return true
+	case ProofTerminalReasonEmptyContent:
+		return true
+	case ProofTerminalReasonExpectedItemBoundary:
+		return true
+	case ProofTerminalReasonHeartbeatGap:
+		return true
+	case ProofTerminalReasonManifestReplacement:
+		return true
+	case ProofTerminalReasonManualSkip:
+		return true
+	case ProofTerminalReasonPlayerRestart:
+		return true
+	case ProofTerminalReasonProcessExit:
+		return true
+	case ProofTerminalReasonRecoveryAction:
+		return true
+	case ProofTerminalReasonRendererFailure:
+		return true
+	case ProofTerminalReasonScheduleTransition:
+		return true
+	case ProofTerminalReasonTakeover:
+		return true
+	case ProofTerminalReasonUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicationHistoryItemMethod.
 const (
 	PublicationHistoryItemMethodAutomaticAfterApproval PublicationHistoryItemMethod = "automatic_after_approval"
@@ -3989,6 +4175,12 @@ func (e UpdateUserJSONBodyRole) Valid() bool {
 		return false
 	}
 }
+
+// ActivityCategory defines model for ActivityCategory.
+type ActivityCategory string
+
+// ActivitySeverity defines model for ActivitySeverity.
+type ActivitySeverity string
 
 // AirplaySession Temporary AirPlay Present session. The PIN appears only while the session is preparing, waiting, or active, and only when the server issued one. Null audio and network ids mean no audio screen and no Presentation Network, respectively.
 type AirplaySession struct {
@@ -6526,6 +6718,81 @@ type PresentationReference1 struct {
 	LayoutId openapi_types.UUID `json:"layoutId"`
 }
 
+// ProofOfPlayPage defines model for ProofOfPlayPage.
+type ProofOfPlayPage struct {
+	Items      []ProofOfPlayRecord `json:"items"`
+	NextCursor *string             `json:"nextCursor,omitempty"`
+}
+
+// ProofOfPlayRecord defines model for ProofOfPlayRecord.
+type ProofOfPlayRecord struct {
+	ActualDurationMs *int64  `json:"actualDurationMs,omitempty"`
+	ContentId        *string `json:"contentId,omitempty"`
+	ContentName      *string `json:"contentName,omitempty"`
+	ContentType      *string `json:"contentType,omitempty"`
+
+	// Details Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
+	Details              map[string]interface{} `json:"details"`
+	EndedAt              *time.Time             `json:"endedAt,omitempty"`
+	ExpectedDurationMs   *int64                 `json:"expectedDurationMs,omitempty"`
+	FailureCode          *string                `json:"failureCode,omitempty"`
+	GroupId              *openapi_types.UUID    `json:"groupId,omitempty"`
+	GroupName            *string                `json:"groupName,omitempty"`
+	Id                   openapi_types.UUID     `json:"id"`
+	LayoutPlacementId    *string                `json:"layoutPlacementId,omitempty"`
+	ManifestVersion      *int64                 `json:"manifestVersion,omitempty"`
+	PlaylistItemId       *string                `json:"playlistItemId,omitempty"`
+	PresentationId       *string                `json:"presentationId,omitempty"`
+	PresentationName     *string                `json:"presentationName,omitempty"`
+	PresentationRevision *string                `json:"presentationRevision,omitempty"`
+	PresentationType     *string                `json:"presentationType,omitempty"`
+	Result               ProofResult            `json:"result"`
+	ScheduleId           *string                `json:"scheduleId,omitempty"`
+	ScreenId             openapi_types.UUID     `json:"screenId"`
+	ScreenName           string                 `json:"screenName"`
+	SelectedRecordId     *string                `json:"selectedRecordId,omitempty"`
+	SelectionDate        *time.Time             `json:"selectionDate,omitempty"`
+	SessionType          ProofSessionType       `json:"sessionType"`
+	SnapshotHash         *string                `json:"snapshotHash,omitempty"`
+	SourceCachedAt       *time.Time             `json:"sourceCachedAt,omitempty"`
+	SourceId             *string                `json:"sourceId,omitempty"`
+	SourceRevision       *string                `json:"sourceRevision,omitempty"`
+	StartedAt            time.Time              `json:"startedAt"`
+	TakeoverId           *string                `json:"takeoverId,omitempty"`
+	TerminalReason       *ProofTerminalReason   `json:"terminalReason,omitempty"`
+	Trigger              *string                `json:"trigger,omitempty"`
+}
+
+// ProofResult defines model for ProofResult.
+type ProofResult string
+
+// ProofSessionType defines model for ProofSessionType.
+type ProofSessionType string
+
+// ProofSummary defines model for ProofSummary.
+type ProofSummary struct {
+	Dimension string             `json:"dimension"`
+	Items     []ProofSummaryItem `json:"items"`
+}
+
+// ProofSummaryItem defines model for ProofSummaryItem.
+type ProofSummaryItem struct {
+	Completed                 int64   `json:"completed"`
+	ConfirmedScreenPlaybackMs int64   `json:"confirmedScreenPlaybackMs"`
+	ContentExposureMs         int64   `json:"contentExposureMs"`
+	Failures                  int64   `json:"failures"`
+	Interrupted               int64   `json:"interrupted"`
+	Key                       string  `json:"key"`
+	Label                     string  `json:"label"`
+	Partial                   int64   `json:"partial"`
+	Records                   int64   `json:"records"`
+	SessionCompletionPercent  float32 `json:"sessionCompletionPercent"`
+	Unknown                   int64   `json:"unknown"`
+}
+
+// ProofTerminalReason defines model for ProofTerminalReason.
+type ProofTerminalReason string
+
 // PublicationHistoryItem defines model for PublicationHistoryItem.
 type PublicationHistoryItem struct {
 	AffectedScreenCount     int                          `json:"affectedScreenCount"`
@@ -6708,6 +6975,39 @@ type Screen struct {
 	UpdateState               *string             `json:"updateState,omitempty"`
 	UpdatedAt                 time.Time           `json:"updatedAt"`
 	UptimeSeconds             *int64              `json:"uptimeSeconds,omitempty"`
+}
+
+// ScreenEventPage defines model for ScreenEventPage.
+type ScreenEventPage struct {
+	Items      []ScreenEventRecord `json:"items"`
+	NextCursor *string             `json:"nextCursor,omitempty"`
+}
+
+// ScreenEventRecord defines model for ScreenEventRecord.
+type ScreenEventRecord struct {
+	Category    ActivityCategory `json:"category"`
+	Description string           `json:"description"`
+
+	// Details Allowlisted event metadata, filtered for the caller's role. Sensitive values stay server-side.
+	Details         map[string]interface{} `json:"details"`
+	EventType       string                 `json:"eventType"`
+	FailureCode     *string                `json:"failureCode,omitempty"`
+	FailureMessage  *string                `json:"failureMessage,omitempty"`
+	GroupId         *openapi_types.UUID    `json:"groupId,omitempty"`
+	GroupName       *string                `json:"groupName,omitempty"`
+	Id              openapi_types.UUID     `json:"id"`
+	ManifestVersion *int64                 `json:"manifestVersion,omitempty"`
+	ReceivedAt      time.Time              `json:"receivedAt"`
+	RelatedId       *string                `json:"relatedId,omitempty"`
+	RelatedType     *string                `json:"relatedType,omitempty"`
+	Result          ProofResult            `json:"result"`
+	ScreenId        openapi_types.UUID     `json:"screenId"`
+	ScreenName      string                 `json:"screenName"`
+
+	// Sequence Player sequence, monotonic per device. Null for server-derived transitions, which have no device queue position.
+	Sequence  *int64           `json:"sequence"`
+	Severity  ActivitySeverity `json:"severity"`
+	Timestamp time.Time        `json:"timestamp"`
 }
 
 // ScreenGroup defines model for ScreenGroup.
@@ -40660,6 +40960,17 @@ func (r GetActivityOverviewResponse) ContentType() string {
 type ListProofOfPlayResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ProofOfPlayPage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListProofOfPlayResponse) GetJSON200() *struct {
+	Data ProofOfPlayPage `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -40728,6 +41039,17 @@ func (r ExportProofOfPlayResponse) ContentType() string {
 type GetProofOfPlaySummaryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ProofSummary `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetProofOfPlaySummaryResponse) GetJSON200() *struct {
+	Data ProofSummary `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -40830,6 +41152,17 @@ func (r UpdateActivityRetentionResponse) ContentType() string {
 type ListScreenEventsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenEventPage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListScreenEventsResponse) GetJSON200() *struct {
+	Data ScreenEventPage `json:"data"`
+} {
+	return r.JSON200
 }
 
 // GetBody returns the raw response body bytes
@@ -62374,6 +62707,24 @@ func ParseListProofOfPlayResponse(rsp *http.Response) (*ListProofOfPlayResponse,
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ProofOfPlayPage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
 	return response, nil
 }
 
@@ -62404,6 +62755,24 @@ func ParseGetProofOfPlaySummaryResponse(rsp *http.Response) (*GetProofOfPlaySumm
 	response := &GetProofOfPlaySummaryResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ProofSummary `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
@@ -62452,6 +62821,24 @@ func ParseListScreenEventsResponse(rsp *http.Response) (*ListScreenEventsRespons
 	response := &ListScreenEventsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenEventPage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil
