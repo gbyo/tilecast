@@ -304,12 +304,13 @@ export function formatAgendaCountdownLabel(
   locale: string,
 ): string {
   const language = locale.toLowerCase().split(/[-_]/u, 1)[0];
-  const labels: Record<string, { start: string; end: string }> = {
-    en: { start: "Starts in", end: "Ends in" },
+  const fallback = { start: "Starts in", end: "Ends in" };
+  const labels: Record<string, typeof fallback> = {
+    en: fallback,
     es: { start: "Empieza en", end: "Termina en" },
     ru: { start: "Начнётся через", end: "Закончится через" },
   };
-  return (labels[language ?? ""] ?? labels.en)[direction];
+  return (labels[language ?? ""] ?? fallback)[direction];
 }
 
 /** Schedule Board countdowns change every second; other views change by minute. */
