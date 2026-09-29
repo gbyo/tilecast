@@ -77,7 +77,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.8.5")
     implementation("androidx.room:room-ktx:2.8.5")
     ksp("androidx.room:room-compiler:2.8.5")
-    implementation("androidx.work:work-runtime-ktx:2.12.0")
+    // WorkManager 2.12 raises minSdk to 24; Tilecast still supports API 23.
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
     // Trusted Player Runtime host (WebViewAssetLoader, WebMessageListener).
     // minSdk stays 23: webkit 1.15.x is the newest stable line supporting API
     // 23 (1.16.x requires API 24). Required APIs are feature-detected at
