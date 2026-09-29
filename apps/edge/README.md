@@ -1,7 +1,7 @@
 # Tilecast Edge
 
 Tilecast Edge is the Linux player platform that replaces the Electron Linux
-Player. It has three processes:
+Player. It has four processes:
 
 - `tilecastd` is the unprivileged daemon. It owns the server relationship,
   the device credential, state, the content store, supervision and machine
@@ -11,10 +11,15 @@ Player. It has three processes:
   runtime the Electron player hosts). It shows what `tilecastd` sends and
   reports what happened. See [`renderer-wpe/README.md`](renderer-wpe/README.md)
   and [`docs/player-runtime.md`](../../docs/player-runtime.md).
-- `tilecast-session-bridge` is a small user-session process for what only
-  the tilecast account's session can see: the PipeWire audio inventory
-  through WirePlumber, and derived microphone levels for the Noise Meter.
-  See
+- `tilecast-web-renderer-wpe` is the isolated remote-web helper for
+  Websites, YouTube and remote web Widgets. It runs as the separate
+  `tilecast-web` account with no Tilecast credential or state access and
+  sends only bounded frame/protocol data to the trusted renderer. See
+  [`docs/tilecast-edge-remote-web-threat-review.md`](../../docs/tilecast-edge-remote-web-threat-review.md).
+- `tilecast-session-bridge` is a small optional user-session process that
+  holds the `session_bridge` IPC role so the daemon can observe session
+  presence. The Noise Meter capture path is retired and no audio
+  capabilities are reported. See
   [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) §4.4 and
   [`session-bridge/`](session-bridge/).
 
@@ -31,9 +36,9 @@ service, and neither can read the device credential:
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
 
-Milestones M1 to M10 are software-complete and merged. Physical hardware
-qualification (M11) is not started, so Edge is not qualified for production
-screens yet.
+Milestones M1 to M10 and the M11 remote-web implementation are merged.
+Physical WPE and hardware qualification (the remainder of M11) is still
+outstanding, so Edge is not qualified for production screens yet.
 
 The design is [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md). The
 current state and the next work are in
