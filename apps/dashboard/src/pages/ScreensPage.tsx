@@ -1940,18 +1940,22 @@ export function ScreenListContent({
                         }}
                       />
                     )}
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                      <strong className="truncate text-sm">
-                        {group.label}
-                      </strong>
-                      <Badge variant="secondary">{group.screens.length}</Badge>
-                      {group.description && (
-                        <span className="text-xs text-muted-foreground">
-                          {group.description}
-                        </span>
-                      )}
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:w-auto sm:flex-1">
+                        <strong className="truncate text-sm">
+                          {group.label}
+                        </strong>
+                        <Badge variant="secondary">
+                          {group.screens.length}
+                        </Badge>
+                        {group.description && (
+                          <span className="text-xs text-muted-foreground">
+                            {group.description}
+                          </span>
+                        )}
+                      </div>
+                      <GroupHealth screens={group.screens} />
                     </div>
-                    <GroupHealth screens={group.screens} />
                   </header>
                 )}
                 {!isCollapsed && view === "table" && (
@@ -2132,7 +2136,7 @@ function GroupHealth({ screens }: { screens: Screen[] }) {
     screens.map((item) => item.syncGroupName).filter(Boolean),
   );
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5 sm:ml-auto sm:justify-end">
       <Badge variant={online === screens.length ? "outline" : "secondary"}>
         {t("list.healthFraction", { online, total: screens.length })}
       </Badge>
