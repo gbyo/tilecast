@@ -99,7 +99,9 @@ Tilecast does not currently provide a one-click restore workflow. Treat restore 
 
 ## Stable server upgrade
 
-Normal installs run a published server image, so a Stable upgrade is a version change, not a source rebuild:
+Normal installs run a published server image, so a Stable upgrade is a version change, not a source rebuild.
+
+If this installation still uses the former Compose file with a `build:` section under `server`, update the deployment files once first (pull them in the existing checkout) and confirm the Compose file now selects a published image through `TILECAST_VERSION`. Later upgrades never touch the checkout again.
 
 ```sh
 # Take and verify a backup first.

@@ -52,7 +52,7 @@ docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
 ```
 
-Production upgrades must not use `git pull`, `git checkout`, or `docker compose up --build`. To build and run the server from source instead, add the development override:
+Installations that still use the former Compose file with a `build:` section under `server` must update the deployment files once before the first image-based upgrade; pulling them in the existing checkout is the simplest path. After that one-time transition, production upgrades must not use `git pull`, `git checkout`, or `docker compose up --build`. To build and run the server from source instead, add the development override:
 
 ```sh
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml up -d --build

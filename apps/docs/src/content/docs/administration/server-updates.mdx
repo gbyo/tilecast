@@ -29,6 +29,14 @@ A full recovery needs PostgreSQL data and Tilecast media from the same point in 
 
 ## Update a Stable installation
 
+If this installation still uses the former Compose file that builds the server from source (its `server` service has a `build:` section), update the deployment files first. The simplest path is to pull them in the existing checkout:
+
+```sh title="Repository root · One-time Compose file transition"
+git pull --ff-only
+```
+
+This one-time transition is the last update that touches the Git checkout. Confirm `deploy/docker/compose.yml` now selects a published image through `TILECAST_VERSION` and has no `build:` section under `server` before continuing.
+
 <Steps>
 
 1. Set `TILECAST_VERSION` in `deploy/docker/.env` to the release you want to install, for example `0.11.0`.
@@ -40,7 +48,7 @@ A full recovery needs PostgreSQL data and Tilecast media from the same point in 
    docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
    ```
 
-   A production update never needs `git pull`, `git checkout`, or `--build`.
+   After the one-time transition above, a production update never needs `git pull`, `git checkout`, or `--build`.
 
 3. Wait for Tilecast Server to finish startup and any database migrations, then check readiness.
 
