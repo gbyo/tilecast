@@ -13,6 +13,18 @@ import type { AuthStatus, Layout, Screen } from "./types";
 
 afterEach(() => vi.unstubAllGlobals());
 
+/**
+ * Realistic fetch stub body for migrated domain helpers, which read
+ * through openapi-fetch (headers and all) rather than the legacy
+ * json-only request path.
+ */
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 describe("authentication contract", () => {
   it("distinguishes initial setup from a signed-out installation", () => {
     const setup: AuthStatus = { setupRequired: true, authenticated: false };
@@ -29,43 +41,39 @@ describe("layout library contract", () => {
   it("loads every page for client-side library filtering", async () => {
     const fetch = vi
       .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            data: {
-              items: [{ id: "layout-1" }],
-              total: 101,
-              page: 1,
-              pageSize: 100,
-            },
-          }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            data: {
-              items: [{ id: "layout-101" }],
-              total: 101,
-              page: 2,
-              pageSize: 100,
-            },
-          }),
-      });
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [{ id: "layout-1" }],
+            total: 101,
+            page: 1,
+            pageSize: 100,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [{ id: "layout-101" }],
+            total: 101,
+            page: 2,
+            pageSize: 100,
+          },
+        }),
+      );
     vi.stubGlobal("fetch", fetch);
 
     await expect(api.layouts("lobby")).resolves.toMatchObject({
       items: [{ id: "layout-1" }, { id: "layout-101" }],
       total: 101,
     });
-    expect(fetch).toHaveBeenNthCalledWith(
-      2,
-      "/api/v1/layouts?search=lobby&page=2&pageSize=100",
-      expect.any(Object),
-    );
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const second = fetch.mock.calls[1] as [string, RequestInit];
+    const url = new URL(second[0]);
+    expect(url.pathname).toBe("/api/v1/layouts");
+    expect(url.searchParams.get("search")).toBe("lobby");
+    expect(url.searchParams.get("page")).toBe("2");
+    expect(url.searchParams.get("pageSize")).toBe("100");
   });
 });
 
@@ -87,11 +95,11 @@ describe("screen group compatibility", () => {
   it("normalizes a missing screens collection in group details", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: { id: "group-1", name: "Lobby" } }),
-      }),
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ data: { id: "group-1", name: "Lobby" } }),
+        ),
     );
 
     await expect(api.screenGroup("group-1")).resolves.toMatchObject({
@@ -103,11 +111,11 @@ describe("screen group compatibility", () => {
   it("normalizes missing screens collections in group lists", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: { items: [{ id: "group-1" }] } }),
-      }),
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ data: { items: [{ id: "group-1" }] } }),
+        ),
     );
 
     await expect(api.screenGroups()).resolves.toMatchObject({
@@ -118,11 +126,7 @@ describe("screen group compatibility", () => {
   it("handles a list response without items", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: {} }),
-      }),
+      vi.fn().mockResolvedValue(jsonResponse({ data: {} })),
     );
 
     await expect(api.screenGroups()).resolves.toMatchObject({ items: [] });
@@ -164,11 +168,7 @@ describe("mixed-version collection compatibility", () => {
   it("normalizes missing playlist collections before pages consume them", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ data: { id: "playlist-1" } }),
-      }),
+      vi.fn().mockResolvedValue(jsonResponse({ data: { id: "playlist-1" } })),
     );
 
     await expect(api.playlist("playlist-1")).resolves.toMatchObject({
@@ -181,20 +181,17 @@ describe("mixed-version collection compatibility", () => {
   it("normalizes missing layout editor collections", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: () =>
-          Promise.resolve({
-            data: {
-              id: "layout-1",
-              orientation: "landscape",
-              canvasWidth: 1920,
-              canvasHeight: 1080,
-              draft: { schemaVersion: 2, canvas: null },
-            },
-          }),
-      }),
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          data: {
+            id: "layout-1",
+            orientation: "landscape",
+            canvasWidth: 1920,
+            canvasHeight: 1080,
+            draft: { schemaVersion: 2, canvas: null },
+          },
+        }),
+      ),
     );
 
     await expect(api.layout("layout-1")).resolves.toMatchObject({
@@ -228,14 +225,11 @@ describe("mixed-version collection compatibility", () => {
 
 describe("playlist creation contract", () => {
   it("sends the selected playlist type", async () => {
-    const fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 201,
-      json: () =>
-        Promise.resolve({
-          data: { id: "playlist-1", sourceType: "tag" },
-        }),
-    });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { id: "playlist-1", sourceType: "tag" } }, 201),
+      );
     vi.stubGlobal("fetch", fetch);
 
     await api.createPlaylist(
@@ -243,19 +237,19 @@ describe("playlist creation contract", () => {
       "csrf-token",
     );
 
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/playlists",
-      expect.objectContaining({
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": "csrf-token",
-        },
-        body: JSON.stringify({
-          name: "Tagged media",
-          description: "",
-          sourceType: "tag",
-        }),
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/playlists");
+    expect(init.method).toBe("POST");
+    const headers = init.headers as Record<string, string>;
+    expect(headers["content-type"]).toBe("application/json");
+    expect(headers["x-csrf-token"]).toBe("csrf-token");
+    expect(init.credentials).toBe("same-origin");
+    expect(init.body).toBe(
+      JSON.stringify({
+        name: "Tagged media",
+        description: "",
+        sourceType: "tag",
       }),
     );
   });
@@ -263,11 +257,11 @@ describe("playlist creation contract", () => {
 
 describe("playlist bulk editing contract", () => {
   it("sends an authoring-level transition update to the static playlist endpoint", async () => {
-    const fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ data: { id: "playlist-1", items: [] } }),
-    });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ data: { id: "playlist-1", items: [] } }),
+      );
     vi.stubGlobal("fetch", fetch);
 
     await api.bulkUpdatePlaylistItems(
@@ -276,17 +270,15 @@ describe("playlist bulk editing contract", () => {
       "csrf-token",
     );
 
-    expect(fetch).toHaveBeenCalledWith(
-      "/api/v1/playlists/playlist-1/items/bulk",
-      expect.objectContaining({
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": "csrf-token",
-        },
-        body: JSON.stringify({ transition: "crossfade" }),
-      }),
-    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/api/v1/playlists/playlist-1/items/bulk");
+    expect(init.method).toBe("PUT");
+    const headers = init.headers as Record<string, string>;
+    expect(headers["content-type"]).toBe("application/json");
+    expect(headers["x-csrf-token"]).toBe("csrf-token");
+    expect(init.credentials).toBe("same-origin");
+    expect(init.body).toBe(JSON.stringify({ transition: "crossfade" }));
   });
 });
 

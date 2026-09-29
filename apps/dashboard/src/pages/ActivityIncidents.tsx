@@ -13,13 +13,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { buttonVariants } from "../components/ui/button";
-import {
-  activityParams,
-  activityRequest,
-  ErrorNotice,
-  humanize,
-  Loading,
-} from "./ActivityShared";
+import { ErrorNotice, humanize, Loading } from "./ActivityShared";
 import {
   IncidentActionButtons,
   IncidentRow,
@@ -28,6 +22,7 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
+import { getIncidentAnalytics, listIncidents } from "../api/domains/activity";
 import { buildActivityLink } from "./activityLinks";
 
 export type { Incident, IncidentStatus } from "./ActivityIncidentShared";
@@ -94,8 +89,7 @@ export function NeedsAttentionPanel() {
   const act = useIncidentAction();
   const query = useQuery({
     queryKey: ["activity", "incidents", "active"],
-    queryFn: () =>
-      activityRequest<{ items: Incident[] }>(`/incidents?status=active`),
+    queryFn: () => listIncidents({ status: "active" }),
     refetchInterval: 30_000,
   });
 
@@ -204,10 +198,7 @@ export function IncidentAnalyticsPanel({
   const { t } = useTranslation("activity");
   const query = useQuery({
     queryKey: ["activity", "incident-analytics", range.from, range.to],
-    queryFn: () =>
-      activityRequest<IncidentAnalytics>(
-        `/incidents/analytics?${activityParams(range, {}).toString()}`,
-      ),
+    queryFn: () => getIncidentAnalytics({ from: range.from, to: range.to }),
   });
   const data = query.data;
   if (!data) return null;

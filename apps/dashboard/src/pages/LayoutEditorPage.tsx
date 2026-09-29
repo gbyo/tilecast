@@ -101,6 +101,7 @@ import {
   WidgetLivePreview,
   assetPreviewStyle,
 } from "../components/layout-editor/WidgetLivePreview";
+import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -173,12 +174,10 @@ import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
-  CalendarPreview,
   LayoutDocument,
   LayoutPlacement,
   LayoutPrimitive,
   Playlist,
-  StructuredPreview,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
@@ -1121,26 +1120,42 @@ export function LayoutEditorPage() {
               },
             ] as const;
           }
-          if ("events" in preview.configuration.data) {
-            const calendar = preview as CalendarPreview;
+          if ("datasets" in preview) {
+            // Live and record adapters answer named datasets rather than a
+            // flat record list. A dataset is records, an object of values,
+            // or time-series points; each becomes rows so bound widgets
+            // preview what the Player resolves.
             return [
               dataSourceId,
               {
-                provider: "calendar" as const,
-                events: calendar.configuration.data.events,
-                emptyState: calendar.configuration.emptyState,
+                provider: "json" as const,
+                records: previewRecordsFromDatasets(preview.datasets),
+                emptyState: "No items available",
               },
             ] as const;
           }
-          const structured = preview as StructuredPreview;
-          return [
-            dataSourceId,
-            {
-              provider: "json" as const,
-              records: structured.configuration.data.records,
-              emptyState: structured.configuration.emptyState,
-            },
-          ] as const;
+          if ("configuration" in preview) {
+            const { configuration } = preview;
+            if ("events" in configuration.data) {
+              return [
+                dataSourceId,
+                {
+                  provider: "calendar" as const,
+                  events: configuration.data.events,
+                  emptyState: configuration.emptyState,
+                },
+              ] as const;
+            }
+            return [
+              dataSourceId,
+              {
+                provider: "json" as const,
+                records: configuration.data.records,
+                emptyState: configuration.emptyState,
+              },
+            ] as const;
+          }
+          throw new Error(`Unsupported preview shape for ${dataSourceId}`);
         }),
       );
       const live = Object.fromEntries(resolved) as LivePreviewData;

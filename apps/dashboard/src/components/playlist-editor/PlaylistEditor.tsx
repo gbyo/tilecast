@@ -381,6 +381,9 @@ export function PlaylistEditorPage() {
           audioEnabled: false,
           volume: 0,
           deliveryPolicy: "stream",
+          // The server forces player defaults off for Layout items; send
+          // the normalized value so the request matches the contract.
+          usePlayerDefaults: false,
         },
         csrf,
       );

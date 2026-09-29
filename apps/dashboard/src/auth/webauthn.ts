@@ -149,14 +149,28 @@ export function toRequestOptions(
   };
 }
 
+/**
+ * A PublicKeyCredential always carries type "public-key" and, when present,
+ * a platform/cross-platform attachment. Narrow here so the wire shapes
+ * below match the WebAuthn contract schemas exactly.
+ */
+function wireAttachment(
+  credential: PublicKeyCredential,
+): "platform" | "cross-platform" | undefined {
+  const attachment = credential.authenticatorAttachment;
+  return attachment === "platform" || attachment === "cross-platform"
+    ? attachment
+    : undefined;
+}
+
 export function serializeRegistration(credential: PublicKeyCredential) {
   const response = credential.response as AuthenticatorAttestationResponse;
   return {
     id: credential.id,
     rawId: encode(credential.rawId),
-    type: credential.type,
-    authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
-    clientExtensionResults: credential.getClientExtensionResults(),
+    type: "public-key" as const,
+    authenticatorAttachment: wireAttachment(credential),
+    clientExtensionResults: { ...credential.getClientExtensionResults() },
     response: {
       clientDataJSON: encode(response.clientDataJSON),
       attestationObject: encode(response.attestationObject),
@@ -172,9 +186,9 @@ export function serializeAssertion(credential: PublicKeyCredential) {
   return {
     id: credential.id,
     rawId: encode(credential.rawId),
-    type: credential.type,
-    authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
-    clientExtensionResults: credential.getClientExtensionResults(),
+    type: "public-key" as const,
+    authenticatorAttachment: wireAttachment(credential),
+    clientExtensionResults: { ...credential.getClientExtensionResults() },
     response: {
       clientDataJSON: encode(response.clientDataJSON),
       authenticatorData: encode(response.authenticatorData),

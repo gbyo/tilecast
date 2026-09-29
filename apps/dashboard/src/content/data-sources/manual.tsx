@@ -19,6 +19,7 @@ import {
 import { Switch } from "../../components/ui/switch";
 import type {
   DataSourceDetail,
+  SavedDataSource,
   DateSelection,
   ManualColumn,
   ManualSourceConfig,
@@ -66,7 +67,7 @@ export function ManualDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);

@@ -5,7 +5,12 @@ import { Check, Clipboard, ExternalLink, Github } from "lucide-react";
 import { useLocation } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { api } from "../api/client";
+import {
+  configureGitHubReleases,
+  pollGitHubDeviceAuthorization,
+  startGitHubDeviceAuthorization,
+} from "../api/domains/system";
+import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../api/errors";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
@@ -24,30 +29,22 @@ import { toast } from "./ui/toast";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
 
-type ErrorResponse = {
-  error?: { message?: string };
-};
-
 async function configureGitHubClientID(
   clientId: string,
   csrfToken: string,
   t?: TFunction<"settings">,
 ) {
-  const response = await fetch("/api/v1/player-releases/github/configuration", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": csrfToken,
-    },
-    body: JSON.stringify({ clientId }),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorResponse;
+  try {
+    await configureGitHubReleases(clientId, csrfToken);
+  } catch (error) {
     throw new Error(
-      body.error?.message ??
-        t?.("updates.setup.saveError") ??
-        "Tilecast could not save the GitHub Client ID.",
+      error instanceof ApiError &&
+        error.status > 0 &&
+        error.message !== FALLBACK_REQUEST_MESSAGE
+        ? error.message
+        : (t?.("updates.setup.saveError") ??
+            "Tilecast could not save the GitHub Client ID."),
+      { cause: error },
     );
   }
 }
@@ -131,7 +128,7 @@ export function GitHubOAuthSetupPortal() {
   const configure = useMutation({
     mutationFn: async () => {
       await configureGitHubClientID(clientId.trim(), csrfToken, t);
-      return api.startGitHubDeviceAuthorization(csrfToken);
+      return startGitHubDeviceAuthorization(csrfToken);
     },
     onMutate: () => setMessage(""),
     onSuccess: async (started) => {
@@ -149,8 +146,7 @@ export function GitHubOAuthSetupPortal() {
     if (!flow) return;
     let cancelled = false;
     const timeout = window.setTimeout(() => {
-      void api
-        .pollGitHubDeviceAuthorization(flow.flowId, csrfToken)
+      void pollGitHubDeviceAuthorization(flow.flowId, csrfToken)
         .then(async (result) => {
           if (cancelled) return;
           if (result.status === "connected") {

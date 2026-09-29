@@ -146,6 +146,25 @@ function openMore() {
   );
 }
 
+const publication = {
+  submission: {
+    id: "66666666-6666-4666-8666-666666666666",
+    contentType: "playlist",
+    contentId: "playlist-1",
+    workingRevision: 3,
+    snapshot: {},
+    snapshotSha256: "c".repeat(64),
+    submittedAt: "2026-07-30T11:00:00Z",
+    status: "published",
+    reviewRequired: false,
+    allowSelfApproval: true,
+    newerWorkingDraft: false,
+    affectedScreenCount: 0,
+    affectedLocationCount: 0,
+  },
+  published: {},
+} as const;
+
 describe("PlaylistEditor panes", () => {
   it("gives the timeline the full width until an item is selected", async () => {
     mockDesktop();
@@ -379,7 +398,7 @@ describe("PlaylistEditor panes", () => {
     mockDesktop();
     mockServer();
     const add = vi.spyOn(toast, "add");
-    vi.spyOn(api, "publishPlaylist").mockResolvedValue(undefined);
+    vi.spyOn(api, "publishPlaylist").mockResolvedValue(publication);
     renderEditor();
 
     fireEvent.click(await screen.findByRole("button", { name: "Publish" }));

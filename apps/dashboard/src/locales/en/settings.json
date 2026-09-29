@@ -1815,7 +1815,9 @@
       "applyTitle": "Apply this validated settings document?",
       "apply": "Apply",
       "applyAction": "Apply imported settings",
-      "imported": "Settings imported."
+      "imported": "Settings imported.",
+      "noDocument": "Choose a settings file before validating.",
+      "invalidDocument": "That file is not a Tilecast settings export."
     }
   }
 }

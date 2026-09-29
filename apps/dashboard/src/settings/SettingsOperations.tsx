@@ -41,7 +41,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "../components/ui/tabs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useSearchParams } from "react-router";
@@ -59,7 +59,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { api } from "../api/client";
+import { api, isSettingsExportDocument } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import {
   releaseUpdateTab,
@@ -68,8 +68,11 @@ import {
 } from "../playerPlatform";
 import type {
   GitHubDeviceStart,
+  MaintenanceAction,
   PlayerRelease,
+  SettingsExportDocument,
   UpdateDeployment,
+  UpdateDeploymentMode,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -94,7 +97,7 @@ type MaintenanceActionKey =
 // Action names hold translation keys, never rendered text. Labels resolve
 // with t() at render so the panel follows language changes.
 const maintenanceActions: {
-  id: string;
+  id: MaintenanceAction;
   labelKey: MaintenanceActionKey;
   descriptionKey: MaintenanceActionKey;
   confirm: boolean;
@@ -144,7 +147,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
     refetchInterval: 30_000,
   });
   const maintenance = useMutation({
-    mutationFn: (action: string) =>
+    mutationFn: (action: MaintenanceAction) =>
       api.runMaintenance(action, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
       toast.add({
@@ -304,20 +307,29 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const [document, setDocument] = useState<unknown>();
+  // The selected file, and the preview of exactly that file. Apply imports
+  // the previewed document, so replacing or rejecting a file can never leave
+  // an older document applicable.
+  const [document, setDocument] = useState<SettingsExportDocument>();
   const [preview, setPreview] = useState<{
+    document: SettingsExportDocument;
     changedKeys: string[];
     groupPolicyCount: number;
     screenPolicyCount: number;
   } | null>(null);
+  const selection = useRef(0);
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewSettingsImport(document, auth.status?.csrfToken ?? ""),
-    onSuccess: setPreview,
+    mutationFn: (candidate: SettingsExportDocument) =>
+      api.previewSettingsImport(candidate, auth.status?.csrfToken ?? ""),
+    onSuccess: (result, candidate) => {
+      // A slower preview of a file the user has since replaced is discarded.
+      if (candidate !== document) return;
+      setPreview({ ...result, document: candidate });
+    },
   });
   const apply = useMutation({
-    mutationFn: () =>
-      api.applySettingsImport(document, auth.status?.csrfToken ?? ""),
+    mutationFn: (candidate: SettingsExportDocument) =>
+      api.applySettingsImport(candidate, auth.status?.csrfToken ?? ""),
     onSuccess: () => {
       toast.add({
         title: t("operations.importExport.imported"),
@@ -325,6 +337,30 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
       });
     },
   });
+  const selectFile = async (input: HTMLInputElement) => {
+    const token = ++selection.current;
+    setDocument(undefined);
+    setPreview(null);
+    previewMutation.reset();
+    const file = input.files?.[0];
+    if (!file) return;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(await file.text());
+    } catch {
+      parsed = undefined;
+    }
+    if (token !== selection.current) return;
+    if (!isSettingsExportDocument(parsed)) {
+      toast.add({
+        title: t("operations.importExport.invalidDocument"),
+        type: "error",
+      });
+      input.value = "";
+      return;
+    }
+    setDocument(parsed);
+  };
   if (!owner)
     return (
       <Alert role="status">
@@ -373,14 +409,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
               id="settings-import-file"
               type="file"
               accept="application/json"
-              onChange={(event) =>
-                void (async () => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  setDocument(JSON.parse(await file.text()));
-                  setPreview(null);
-                })
-              }
+              onChange={(event) => void selectFile(event.currentTarget)}
             />
           </Field>
           <div>
@@ -388,7 +417,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
               variant="ghost"
 
               disabled={!document || previewMutation.isPending}
-              onClick={() => previewMutation.mutate()}
+              onClick={() => document && previewMutation.mutate(document)}
             >
               {previewMutation.isPending
                 ? t("operations.importExport.validating")
@@ -419,7 +448,7 @@ export function ImportExportPanel({ owner }: { owner: boolean }) {
                         title: t("operations.importExport.applyTitle"),
                         action: t("operations.importExport.apply"),
                       }).then((ok) => {
-                        if (ok) apply.mutate();
+                        if (ok) apply.mutate(preview.document);
                       });
                     }}
                   >
@@ -498,7 +527,7 @@ export function PlayerUpdatesPanel({
   const [releaseId, setReleaseId] = useState("");
   const [screenIds, setScreenIds] = useState<string[]>([]);
   const [groupIds, setGroupIds] = useState<string[]>([]);
-  const [mode, setMode] = useState("download_only");
+  const [mode, setMode] = useState<UpdateDeploymentMode>("download_only");
   const [canarySize, setCanarySize] = useState(0);
   const [windowStart, setWindowStart] = useState("");
   const [targetSearch, setTargetSearch] = useState("");

@@ -84,8 +84,14 @@ beforeEach(() => {
   ];
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: string, init?: RequestInit) => {
-      const path = input.replace("/api/v1", "");
+    vi.fn((input: string | Request, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.url;
+      // The transport calls absolute URLs; strip any origin first so the
+      // path matching below works for relative and absolute forms.
+      const path = new URL(url, "http://localhost").pathname.replace(
+        "/api/v1",
+        "",
+      );
       const request = { method: init?.method ?? "GET", path };
       calls.push(request);
       if (override) return Promise.resolve(override(request));

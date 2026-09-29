@@ -1,4 +1,5 @@
-import { normalizeScreen } from "./client";
+import { apiGet } from "./transport";
+import { normalizeScreen } from "./domains/screens";
 import type { Screen } from "./types";
 
 export type ArchivedScreen = Screen & {
@@ -6,36 +7,15 @@ export type ArchivedScreen = Screen & {
   archivedReason?: string;
 };
 
-type ArchivedScreenResponse = {
-  data?: {
-    items?: ArchivedScreen[];
-    total?: number;
-  };
-  error?: {
-    message?: string;
-  };
-};
-
 export async function archivedScreens(): Promise<{
   items: ArchivedScreen[];
   total: number;
 }> {
-  const response = await fetch("/api/v1/screens/archive", {
-    credentials: "same-origin",
-  });
-  const body = (await response
-    .json()
-    .catch(() => ({}))) as ArchivedScreenResponse;
-  if (!response.ok) {
-    throw new Error(
-      body.error?.message ?? "Archived screens could not be loaded.",
-    );
-  }
-  const result = body.data;
+  const result = await apiGet("/api/v1/screens/archive");
   return {
-    items: (Array.isArray(result?.items) ? result.items : []).map(
+    items: (Array.isArray(result.items) ? result.items : []).map(
       (screen) => normalizeScreen(screen) as ArchivedScreen,
     ),
-    total: result?.total ?? 0,
+    total: result.total ?? 0,
   };
 }

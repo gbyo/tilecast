@@ -135,6 +135,8 @@ describe("Player update deployment history", () => {
       id: "r1",
       tag: "player-v1.4.0",
       platform: "android",
+      playerFamily: "android",
+      architecture: "",
       source: "github",
       channel: "stable",
       versionCode: 42,
@@ -154,6 +156,8 @@ describe("Player update deployment history", () => {
     };
     vi.mocked(api.playerReleases).mockResolvedValue({
       repository: "Gibsonmb71/tilecast",
+      lastCheckedAt: null,
+      providerError: null,
       manifestKeyConfigured: true,
       githubAuth: {
         available: false,
@@ -243,6 +247,8 @@ describe("Player update deployment history", () => {
     };
     vi.mocked(api.playerReleases).mockResolvedValue({
       repository: "Gibsonmb71/tilecast",
+      lastCheckedAt: null,
+      providerError: null,
       manifestKeyConfigured: true,
       githubAuth: {
         available: false,

@@ -11,11 +11,7 @@ import {
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type {
-  DataSource,
-  DataSourceDefinition,
-  DataSourceDetail,
-} from "../api/types";
+import type { DataSource, DataSourceDefinition } from "../api/types";
 import {
   iconForIdentifier,
   resolveSetup,
@@ -166,7 +162,7 @@ describe("Data Source card actions", () => {
   it("duplicates a Data Source from its right-click menu", async () => {
     const duplicate = vi
       .spyOn(api, "duplicateDataSource")
-      .mockResolvedValue({ ...source, id: "source-2" } as DataSourceDetail);
+      .mockResolvedValue({ ...source, id: "source-2" });
     renderPage();
     fireEvent.contextMenu(await screen.findByText("District news"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));

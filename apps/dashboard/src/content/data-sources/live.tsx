@@ -20,6 +20,7 @@ import { Switch } from "../../components/ui/switch";
 import { Textarea } from "../../components/ui/textarea";
 import type {
   DataSourceDetail,
+  SavedDataSource,
   TransitSourceConfig,
   CAPAlertsSourceConfig,
   AirQualitySourceConfig,
@@ -125,7 +126,7 @@ export function LiveDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -170,12 +171,7 @@ export function LiveDataSourceEditor({
   ]);
   const [preview, setPreview] = useState<TypedDatasetPayload>();
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewDataSource(
-        provider,
-        configuration,
-        csrf,
-      ) as unknown as Promise<TypedDatasetPayload>,
+    mutationFn: () => api.previewDatasetSource(provider, configuration, csrf),
     onSuccess: setPreview,
   });
   const save = useMutation({

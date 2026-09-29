@@ -1,66 +1,27 @@
-export type LiveStreamSession = {
-  id: string;
-  screenId: string;
-  active: boolean;
-  expiresAt: string;
-  frameIntervalMillis: number;
-  maxWidth: number;
-  maxHeight: number;
-  maxFrameBytes: number;
-};
-
-type Envelope<T> = { data: T };
-type ErrorEnvelope = { error?: { message?: string } };
-
-async function request<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    cache: "no-store",
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init.headers ?? {}),
-    },
-  });
-  const body = await response.text();
-  if (!response.ok) {
-    let message = `Tilecast returned HTTP ${response.status}`;
-    try {
-      message = (JSON.parse(body) as ErrorEnvelope).error?.message ?? message;
-    } catch {
-      // Preserve the bounded HTTP fallback for proxy-generated responses.
-    }
-    throw new Error(message);
-  }
-  if (!body) return undefined as T;
-  return (JSON.parse(body) as Envelope<T>).data;
-}
-
-export const liveStreamApi = {
-  start: (screenId: string, csrfToken: string) =>
-    request<LiveStreamSession>(`/api/v1/screens/${screenId}/live-stream`, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
-    }),
-  renew: (screenId: string, sessionId: string, csrfToken: string) =>
-    request<LiveStreamSession>(
-      `/api/v1/screens/${screenId}/live-stream/${sessionId}/renew`,
-      {
-        method: "POST",
-        headers: { "X-CSRF-Token": csrfToken },
-      },
-    ),
-  end: (
-    screenId: string,
-    sessionId: string,
-    csrfToken: string,
-    keepalive = false,
-  ) =>
-    request<void>(`/api/v1/screens/${screenId}/live-stream/${sessionId}`, {
+/**
+ * Ephemeral live-stream teardown only. Ending a live MJPEG session during
+ * dialog close or page unload must survive navigation, so this DELETE
+ * carries `keepalive: true` on a hand-built RequestInit. The typed
+ * transport (openapi-fetch) does not forward `keepalive` — verified by
+ * LiveStreamDialog.test.tsx, which pins the exact fetch init — so this
+ * one call stays on raw fetch. Session start and renewal are ordinary
+ * JSON and live on the typed transport (see ./domains/screens.ts), and
+ * the MJPEG relay URL is not a fetch call at all
+ * (`screenLiveStreamUrl` in ./domains/screens.ts).
+ */
+export async function endLiveStreamSession(
+  screenId: string,
+  sessionId: string,
+  csrfToken: string,
+): Promise<void> {
+  const response = await fetch(
+    `/api/v1/screens/${screenId}/live-stream/${sessionId}`,
+    {
       method: "DELETE",
+      credentials: "same-origin",
       headers: { "X-CSRF-Token": csrfToken },
-      keepalive,
-    }),
-  mjpegUrl: (screenId: string, sessionId: string) =>
-    `/api/v1/screens/${screenId}/live-stream/${sessionId}/mjpeg`,
-};
+      keepalive: true,
+    },
+  );
+  if (!response.ok) throw new Error("Unable to end the live stream session.");
+}

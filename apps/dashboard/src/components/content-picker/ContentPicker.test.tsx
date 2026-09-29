@@ -30,6 +30,10 @@ const asset = (id: string, name: string, type: Asset["type"]): Asset => ({
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
   variants: [],
+  playlistUsage: 0,
+  layoutUsage: [],
+  tags: [],
+  collectionIds: [],
   widget:
     type === "widget"
       ? { provider: "website", configVersion: 1, configuration: {} as never }

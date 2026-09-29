@@ -17,6 +17,7 @@ import {
 } from "../../components/ui/select";
 import type {
   DataSourceDetail,
+  SavedDataSource,
   TypedRecordData,
   WeatherSourceConfig,
 } from "../../api/types";
@@ -43,7 +44,7 @@ export function WeatherDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -79,12 +80,7 @@ export function WeatherDataSourceEditor({
   }, [dataSource, regional.ready, regional.region, regional.timezone]);
   const [preview, setPreview] = useState<TypedRecordData>();
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewDataSource(
-        "weather",
-        configuration,
-        csrf,
-      ) as unknown as Promise<TypedRecordData>,
+    mutationFn: () => api.previewRecordSource("weather", configuration, csrf),
     onSuccess: setPreview,
   });
   const save = useMutation({
