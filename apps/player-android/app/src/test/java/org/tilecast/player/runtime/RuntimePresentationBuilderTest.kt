@@ -104,7 +104,7 @@ class RuntimePresentationBuilderTest {
         assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
     }
 
-    @Test fun mapsYouTubeProviderWidget() {
+    @Test fun mapsYouTubeProviderWidgetToReference() {
         val config = buildJsonObject {
             put("url", "https://youtube.com/watch?v=x")
             put("videoId", "x")
@@ -116,16 +116,15 @@ class RuntimePresentationBuilderTest {
         val manifest = manifest(items).copy(widgets = listOf(widget))
         val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
         val built = presentation["items"]!!.jsonArray[0].jsonObject
-        assertEquals("youtube", built["kind"]!!.jsonPrimitive.content)
-        assertEquals(
-            "x",
-            built["remoteWeb"]!!.jsonObject["content"]!!.jsonObject["videoId"]!!.jsonPrimitive.content,
-        )
-        assertTrue(built["audioEnabled"]!!.jsonPrimitive.content.toBoolean())
+        // The shared runtime projector owns YouTube remote-web projection;
+        // Android sends only the generic reference, never per-provider config.
+        assertEquals("widget", built["kind"]!!.jsonPrimitive.content)
+        assertEquals("y1", built["widget"]!!.jsonObject["widgetAssetId"]!!.jsonPrimitive.content)
+        assertFalse("remoteWeb" in built)
         assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
     }
 
-    @Test fun preservesRemoteWidgetKeepWarmLifecycle() {
+    @Test fun mapsRemoteWebWidgetToReference() {
         val descriptor = WebSandboxPresentation(
             mode = "remote",
             url = "https://example.com/widget",
@@ -141,10 +140,14 @@ class RuntimePresentationBuilderTest {
         val items = listOf(item("irw", "rw1", null, "widget", 15_000))
         val manifest = manifest(items).copy(widgets = listOf(widget))
         val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
-        val remote = presentation["items"]!!.jsonArray[0].jsonObject["remoteWeb"]!!
-            .jsonObject["presentation"]!!.jsonObject
-        assertEquals("keep_warm", remote["lifecycle"]!!.jsonPrimitive.content)
-        assertEquals(45, remote["warmSeconds"]!!.jsonPrimitive.content.toInt())
+        val built = presentation["items"]!!.jsonArray[0].jsonObject
+        // Lifecycle/warmth live in the manifest the projection carries; the
+        // item itself is a generic reference the projector expands.
+        assertEquals("widget", built["kind"]!!.jsonPrimitive.content)
+        assertEquals("rw1", built["widget"]!!.jsonObject["widgetAssetId"]!!.jsonPrimitive.content)
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
+        val message = RuntimePresentationBuilder.hostMessage(playing(manifest, items))
+        assertTrue("projection" in message)
     }
 
     @Test fun runtimeResumeProjectsSavedCursorWithoutAffectingSyncOrder() {
@@ -180,7 +183,10 @@ class RuntimePresentationBuilderTest {
         assertTrue(second.generation > first.generation)
     }
 
-    @Test fun forwardsLegacyWidgetsOpaquelyWithoutInterpreting() {
+    @Test fun forwardsUnknownWidgetsAsGenericReferences() {
+        // Architectural guard: a future Widget provider must flow through
+        // without an Android source edit, so no provider/type switch may
+        // reappear in the runtime bridge.
         val config = buildJsonObject { put("timezone", "UTC") }
         val widget = ManifestWidget("c1", "Clock", "some-future-provider", 3, config)
         val items = listOf(item("ic", "c1", null, "widget", 5_000))
@@ -188,12 +194,35 @@ class RuntimePresentationBuilderTest {
         val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
         val built = presentation["items"]!!.jsonArray[0].jsonObject
         assertEquals("widget", built["kind"]!!.jsonPrimitive.content)
-        val opaque = built["widget"]!!.jsonObject
-        assertEquals("some-future-provider", opaque["legacyProvider"]!!.jsonPrimitive.content)
-        assertEquals(3, opaque["configVersion"]!!.jsonPrimitive.content.toInt())
-        assertFalse(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
-        assertFalse("root" in opaque)
-        assertFalse("component" in opaque)
+        val reference = built["widget"]!!.jsonObject
+        assertEquals("c1", reference["widgetAssetId"]!!.jsonPrimitive.content)
+        assertEquals(setOf("widgetAssetId"), reference.keys)
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
+    }
+
+    @Test fun forwardsComponentWidgetsAsGenericReferences() {
+        val component = org.tilecast.player.network.ComponentPresentation(
+            type = "tilecast.clock",
+            version = 1,
+            config = buildJsonObject {},
+        )
+        val widget = ManifestWidget(
+            assetId = "cc1",
+            name = "Clock",
+            presentation = WidgetPresentation(
+                schemaVersion = 2,
+                kind = "component",
+                requiredCapabilities = mapOf("widget.tilecast.clock" to 1),
+                component = component,
+            ),
+        )
+        val items = listOf(item("icc", "cc1", null, "widget", 5_000))
+        val manifest = manifest(items, schemaVersion = 16).copy(widgets = listOf(widget))
+        val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
+        val built = presentation["items"]!!.jsonArray[0].jsonObject
+        assertEquals("widget", built["kind"]!!.jsonPrimitive.content)
+        assertEquals("cc1", built["widget"]!!.jsonObject["widgetAssetId"]!!.jsonPrimitive.content)
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
     }
 
     @Test fun invalidWebsiteConfigIsNotRenderable() {
@@ -228,6 +257,71 @@ class RuntimePresentationBuilderTest {
         val state = playing(manifest, items).copy(playbackAnchorMillis = 123_456L)
         val timing = RuntimePresentationBuilder.hostMessage(state)["timing"]!!.jsonObject
         assertEquals(123_456L, timing["anchorMs"]!!.jsonPrimitive.content.toLong())
+    }
+
+    @Test fun forwardsLayoutItemsAsGenericReferences() {
+        val document = org.tilecast.player.network.LayoutDocument(
+            schemaVersion = 1,
+            canvas = org.tilecast.player.network.LayoutCanvas(1920, 1080, "landscape", "#000000"),
+        )
+        val layout = org.tilecast.player.network.ManifestLayout("l1", "r1", 1, "hash", document)
+        val items = listOf(item("il", "a1", "v1", "image", 10_000).copy(assetType = "layout", layoutId = "l1"))
+        val manifest = manifest(items).copy(layouts = listOf(layout))
+        val presentation = RuntimePresentationBuilder.build(playing(manifest, items))
+        val built = presentation["items"]!!.jsonArray[0].jsonObject
+        assertEquals("layout", built["kind"]!!.jsonPrimitive.content)
+        assertEquals("l1", built["layout"]!!.jsonObject["layoutId"]!!.jsonPrimitive.content)
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
+    }
+
+    @Test fun projectionCarriesVerifiedManifestMediaClockAndPlayback() {
+        val widget = ManifestWidget("c1", "Clock", "clock", 1, buildJsonObject {})
+        val items = listOf(item("ic", "c1", null, "widget", 5_000))
+        val manifest = manifest(items).copy(
+            widgets = listOf(widget),
+            assets = listOf(asset(), asset("a1", "v2", "video/mp4")),
+        )
+        val rawManifest = buildJsonObject {
+            put("widgets", buildJsonObject { put("count", 1) })
+            put("futureField", "future-value")
+        }
+        val state = playing(manifest, items).copy(
+            content = PreparedContent(
+                manifest,
+                mapOf("v1" to "/data/cached/v1.png"),
+                projectionManifest = rawManifest,
+            ),
+            playbackDefaults = org.tilecast.player.network.PlayerPlaybackDefaults(),
+        )
+        val message = RuntimePresentationBuilder.hostMessage(state)
+        val projection = message["projection"]!!.jsonObject
+        assertEquals(1, projection["schema"]!!.jsonPrimitive.content.toInt())
+        assertEquals(500, projection["clockOffsetMs"]!!.jsonPrimitive.content.toInt())
+        // Lossless: fields Kotlin does not model still reach the projector.
+        assertEquals("future-value", projection["manifest"]!!.jsonObject["futureField"]!!.jsonPrimitive.content)
+        val media = projection["media"]!!.jsonArray
+        assertEquals(1, media.size)
+        assertEquals("a1", media[0].jsonObject["assetId"]!!.jsonPrimitive.content)
+        assertEquals("v1", media[0].jsonObject["variantId"]!!.jsonPrimitive.content)
+        assertEquals("tcmedia://variant/a1/v1", media[0].jsonObject["uri"]!!.jsonPrimitive.content)
+        // Host-private state never crosses into the projection.
+        val encoded = projection.toString()
+        assertFalse("/data/cached/v1.png" in encoded)
+        assertFalse("Bearer" in encoded)
+        assertTrue("playback" in projection)
+    }
+
+    @Test fun projectionOmittedWithoutReferences() {
+        val items = listOf(item(assetType = "image"))
+        val manifest = manifest(items)
+        val message = RuntimePresentationBuilder.hostMessage(playing(manifest, items))
+        assertFalse("projection" in message)
+    }
+
+    @Test fun unknownManifestFieldSurvivesIntoProjectionManifest() {
+        val envelope = """{"data":{"schemaVersion":16,"futureWidgetKind":"hologram","widgets":[]}}"""
+        val raw = org.tilecast.player.content.projectionManifestFromEnvelope(envelope)
+        assertEquals("hologram", raw["futureWidgetKind"]!!.jsonPrimitive.content)
     }
 
     @Test fun buildsBrandedStatusStates() {

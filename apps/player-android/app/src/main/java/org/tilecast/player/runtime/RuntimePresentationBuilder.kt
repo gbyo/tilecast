@@ -3,6 +3,7 @@ package org.tilecast.player.runtime
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
@@ -13,7 +14,6 @@ import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.content.effectiveDurationMs
 import org.tilecast.player.content.resolveWebsitePolicy
 import org.tilecast.player.content.withPlaybackDefaults
-import org.tilecast.player.network.LayoutDocument
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestLayout
 import org.tilecast.player.network.ManifestWebsite
@@ -23,7 +23,6 @@ import org.tilecast.player.network.PlayerManifest
 import org.tilecast.player.network.PlayerPlaybackDefaults
 import org.tilecast.player.network.PlayerWebsitePolicy
 import org.tilecast.player.network.WebsiteSourceConfig
-import org.tilecast.player.network.YouTubeSourceConfig
 import java.time.Instant
 
 /** Screen states the shared runtime can present, mapped from native player state. */
@@ -52,11 +51,12 @@ sealed interface RuntimeScreenState {
 
 /** One built playlist item plus whether the shared runtime can render it.
  *
- * Widget and Layout payloads are forwarded opaquely: the runtime renders V2
- * components and skips anything else per item, while the legacy Compose
- * stack keeps rendering those families until the PR3 deletion gate passes.
- * There is intentionally no branch over widget provider or type here; an
- * unknown future Widget flows through untouched.
+ * Widget and Layout items travel as generic references plus a projection
+ * context: the shared runtime projector owns V2 components, legacy
+ * compatibility Widgets, web/YouTube Widgets (remote-web), Layout
+ * primitives, placements, zones, and availability. There is intentionally no
+ * branch over widget provider or component type here; an unknown future
+ * Widget flows through untouched.
  */
 data class BuiltRuntimeItem(val json: JsonObject, val runtimeRenderable: Boolean)
 
@@ -87,7 +87,8 @@ object RuntimePresentationBuilder {
         is RuntimeScreenState.Playing -> buildPlaying(state)
     }
 
-    /** Full host message envelope for the bridge, with sync timing when grouped. */
+    /** Full host message envelope for the bridge, with sync timing when grouped
+     * and a projection context whenever items travel as references. */
     fun hostMessage(state: RuntimeScreenState.Playing): JsonObject {
         val presentation = build(state)
         return buildJsonObject {
@@ -98,8 +99,61 @@ object RuntimePresentationBuilder {
                 put("generation", state.generation)
             }
             timingOf(state)?.let { put("timing", it) }
+            projectionOf(state)?.let { put("projection", it) }
         }
     }
+
+    /**
+     * Projection context for reference items, mirroring the Edge reference
+     * host: the preserved verified manifest subset, one media alias per
+     * manifest variant Android has verified and cached, the corrected clock
+     * offset, and the playback/regional section. Never carries file paths,
+     * auth headers, credentials, or arbitrary network URLs; the host alone
+     * translates authorized tcmedia identities to cached bytes.
+     */
+    internal fun projectionOf(state: RuntimeScreenState.Playing): JsonObject? {
+        val manifest = state.content.manifest
+        val built = state.items.map { buildItem(manifest, it, state.playbackDefaults, state.websitePolicy) }
+        if (built.none { needsProjection(it.json) }) return null
+        val raw = state.content.projectionManifest
+        return buildJsonObject {
+            put("schema", 1)
+            put("clockOffsetMs", state.clockOffsetMillis)
+            putJsonObject("manifest") {
+                PROJECTION_MANIFEST_KEYS.forEach { key ->
+                    raw[key]?.let { put(key, it) }
+                }
+            }
+            putJsonArray("media") {
+                manifest.assets
+                    .filter { state.content.localFiles.containsKey(it.variantId) }
+                    .distinctBy { it.variantId }
+                    .forEach { asset ->
+                        addJsonObject {
+                            put("assetId", asset.assetId.take(128))
+                            put("variantId", asset.variantId.take(128))
+                            put("uri", "tcmedia://variant/${asset.assetId}/${asset.variantId}".take(512))
+                        }
+                    }
+            }
+            state.playbackDefaults?.let { defaults ->
+                runCatching { json.encodeToJsonElement(PlayerPlaybackDefaults.serializer(), defaults) as JsonObject }
+                    .getOrNull()?.let { put("playback", it) }
+            }
+        }
+    }
+
+    internal fun needsProjection(item: JsonObject): Boolean {
+        val widget = item["widget"] as? JsonObject
+        if (widget?.get("widgetAssetId") is kotlinx.serialization.json.JsonPrimitive) return true
+        val layout = item["layout"] as? JsonObject
+        return layout?.get("layoutId") is kotlinx.serialization.json.JsonPrimitive
+    }
+
+    private val PROJECTION_MANIFEST_KEYS = listOf(
+        "assets", "playlist", "directFallbackPlaylist", "playlists",
+        "widgets", "dataSources", "layouts", "layout", "canvas", "viewport",
+    )
 
     fun isRuntimeRenderable(manifest: PlayerManifest, item: ManifestItem): Boolean =
         buildItem(manifest, item, null, null).runtimeRenderable
@@ -157,34 +211,14 @@ object RuntimePresentationBuilder {
         val asset = item.variantId?.let { variant -> manifest.assets.firstOrNull { it.variantId == variant } }
 
         if (item.assetType == "layout" && layout != null) {
-            return BuiltRuntimeItem(layoutItem(resolved, manifest, layout), false)
+            return BuiltRuntimeItem(layoutReference(resolved, layout.id), true)
         }
         if (manifest.schemaVersion >= 13 && widget?.presentation?.kind == "web") {
             val descriptor = widget.presentation.web
             if (descriptor != null && descriptor.mode == "remote") {
-                return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
-                    url = descriptor.url,
-                    allowedHosts = descriptor.allowedHosts,
-                    javascriptEnabled = true,
-                    domStorageEnabled = false,
-                    cookiePolicy = "disabled",
-                    userAgent = "",
-                    zoomPercent = 100,
-                    scrollX = 0,
-                    scrollY = 0,
-                    backgroundColor = "#0E141B",
-                    loadTimeoutSeconds = descriptor.loadTimeoutSeconds,
-                    reloadIntervalSeconds = descriptor.reload
-                        ?.takeIf { it.mode == "periodic" }?.intervalSeconds,
-                    lifecycle = descriptor.lifecycle
-                        .takeIf { it == "destroy_on_hide" || it == "keep_warm" }
-                        ?: "destroy_on_hide",
-                    warmSeconds = descriptor.warmSeconds,
-                    onlineOnly = descriptor.onlineOnly,
-                    failureBehavior = descriptor.fallbackBehavior,
-                    fallbackSrc = null,
-                    playUntilEnd = false,
-                )), true)
+                // The shared runtime projector turns this reference into the
+                // remote-web spec itself (host-view on Android).
+                return BuiltRuntimeItem(widgetReference(resolved, widget), true)
             }
             return BuiltRuntimeItem(unresolvableItem(resolved), false)
         }
@@ -214,9 +248,10 @@ object RuntimePresentationBuilder {
             )), true)
         }
         if (widget?.provider == "youtube") {
-            val config = runCatching { json.decodeFromJsonElement<YouTubeSourceConfig>(widget.configuration) }.getOrNull()
-                ?: return BuiltRuntimeItem(unresolvableItem(resolved), false)
-            return BuiltRuntimeItem(youtubeItem(resolved, manifest, config), true)
+            // The projector's remote-web branch owns YouTube projection from
+            // the server-normalized configuration; duration/audio fallbacks
+            // follow the reference host path.
+            return BuiltRuntimeItem(widgetReference(resolved, widget), true)
         }
         if (website != null) {
             return BuiltRuntimeItem(websiteItem(resolved, remoteWebPage(
@@ -242,7 +277,14 @@ object RuntimePresentationBuilder {
             )), true)
         }
         if (widget != null) {
-            return BuiltRuntimeItem(widgetItem(resolved, widget), false)
+            // Component, legacy compatibility, and web/YouTube Widgets all
+            // travel as the same generic reference. The shared runtime
+            // projector owns the per-category decision (component projection,
+            // legacy render, remote-web), so a future Widget needs no Android
+            // source edit. Provider "website" without a kind "web"
+            // presentation keeps the direct remote-web mapping above: the
+            // projector has no website-provider branch.
+            return BuiltRuntimeItem(widgetReference(resolved, widget), true)
         }
         if (asset != null) {
             val variantId = item.variantId
@@ -296,52 +338,6 @@ object RuntimePresentationBuilder {
             put("remoteWeb", remoteWeb)
         }
 
-    private fun youtubeItem(
-        resolved: ManifestItem,
-        manifest: PlayerManifest,
-        config: YouTubeSourceConfig,
-    ): JsonObject {
-        // Without IFrame-ended delivery (host-view interim), a duration keeps
-        // play-until-end honest: explicit duration wins, then the author's
-        // fixed fallback, mirroring the legacy YouTube item.
-        val withDuration = when {
-            resolved.durationMs != null -> resolved
-            else -> config.fixedDurationSeconds?.let { resolved.copy(durationMs = it * 1_000L) } ?: resolved
-        }
-        val content = buildJsonObject {
-            put("kind", "youtube")
-            config.videoId?.take(64)?.let { put("videoId", it) }
-            config.playlistId?.take(64)?.let { put("playlistId", it) }
-            put("startSeconds", config.startSeconds.coerceAtLeast(0))
-            config.endSeconds?.let { put("endSeconds", it.coerceAtLeast(0)) }
-            put("loop", config.loop)
-            put("muted", config.muted)
-            put("volume", config.volume.coerceIn(0, 100))
-            put("captions", config.captions)
-            put("captionLanguage", config.captionLanguage.take(16))
-            put("controls", config.controls)
-        }
-        val presentation = buildJsonObject {
-            put("loadTimeoutSeconds", 20)
-            put("lifecycle", "destroy_on_hide")
-            put("warmSeconds", 0)
-            put("onlineOnly", true)
-            put("failureBehavior", config.failureBehavior.take(32))
-            put("fallbackSrc", fallbackSrc(manifest, config.fallbackImageAssetId, config.fallbackVariantId))
-            put("playUntilEnd", config.playlistPlaybackMode == "until_end")
-        }
-        return buildJsonObject {
-            baseItem(withDuration, "youtube", config.url.take(512)).toMap().forEach { (k, v) -> put(k, v) }
-            // The runtime owns activation mute through remoteWeb.setMuted;
-            // preserve the playlist's audio decision instead of forcing silence.
-            put("audioEnabled", withDuration.audioEnabled)
-            putJsonObject("remoteWeb") {
-                put("content", content)
-                put("presentation", presentation)
-            }
-        }
-    }
-
     private fun remoteWebPage(
         url: String,
         allowedHosts: List<String>,
@@ -387,25 +383,21 @@ object RuntimePresentationBuilder {
         }
     }
 
-    private fun widgetItem(resolved: ManifestItem, widget: ManifestWidget): JsonObject =
+    private fun widgetReference(resolved: ManifestItem, widget: ManifestWidget): JsonObject =
         buildJsonObject {
             baseItem(resolved, "widget", "").toMap().forEach { (k, v) -> put(k, v) }
             putJsonObject("widget") {
-                put("legacyProvider", widget.provider.take(64))
-                put("configVersion", widget.configVersion)
-                put("configuration", widget.configuration)
+                put("widgetAssetId", widget.assetId.take(128))
             }
         }
 
-    private fun layoutItem(resolved: ManifestItem, manifest: PlayerManifest, layout: ManifestLayout): JsonObject =
+    private fun layoutReference(resolved: ManifestItem, layoutId: String): JsonObject =
         buildJsonObject {
             baseItem(resolved, "layout", "").toMap().forEach { (k, v) -> put(k, v) }
-            put("layout", encodeOpaqueLayout(layout.document))
+            putJsonObject("layout") {
+                put("layoutId", layoutId.take(128))
+            }
         }
-
-    private fun encodeOpaqueLayout(document: LayoutDocument): JsonObject =
-        runCatching { json.encodeToJsonElement(LayoutDocument.serializer(), document) as JsonObject }
-            .getOrDefault(buildJsonObject { put("opaque", true) })
 
     private fun unresolvableItem(resolved: ManifestItem): JsonObject =
         buildJsonObject {
