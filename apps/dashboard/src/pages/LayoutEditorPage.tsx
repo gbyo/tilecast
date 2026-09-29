@@ -660,7 +660,6 @@ export function LayoutEditorPage() {
   const [previewValues, setPreviewValues] = useState<
     Record<string, Record<string, string>>
   >({});
-  const [liveData, setLiveData] = useState<LivePreviewData>({});
   const [previewAssets, setPreviewAssets] = useState<Asset[]>([]);
   const [previewPlaylists, setPreviewPlaylists] = useState<Playlist[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -1145,7 +1144,6 @@ export function LayoutEditorPage() {
         }),
       );
       const live = Object.fromEntries(resolved) as LivePreviewData;
-      setLiveData(live);
       // Derive first-record field values for text bindings (unchanged behaviour).
       const values: Record<string, Record<string, string>> = {};
       Object.entries(live).forEach(([dataSourceId, source]) => {
@@ -1162,7 +1160,6 @@ export function LayoutEditorPage() {
       });
       setPreviewValues(values);
     } catch {
-      setLiveData({});
       setPreviewValues({});
     }
   };
