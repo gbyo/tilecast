@@ -2,7 +2,7 @@
 
 The Tilecast iOS app is a native host for Tilecast Studio. SwiftUI owns the Apple-platform shell and system integrations. The Studio React frontend, loaded from the configured server, stays the authoritative interface for Tilecast product surfaces. Shared contracts connect the two.
 
-The app is in `apps/ios`. It targets iOS 26 and iPadOS 26 and later, uses Swift 6 with complete concurrency checking, and has no third-party dependencies.
+The app is in `apps/ios`. It targets iOS 26 and iPadOS 26 and later, uses Swift 6 with complete concurrency checking. Its only package dependencies are Apple's Swift OpenAPI Generator, OpenAPI Runtime, OpenAPI URLSession transport, and HTTP Types.
 
 ## Architecture rules
 
@@ -38,6 +38,8 @@ Tests can use Studio paths and destination identifiers as data.
 | ------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | App target               | `apps/ios/Tilecast/`                                    | SwiftUI scenes, native tabs and sidebar, server switching, add-server flow, connection states, localized text |
 | `TilecastCore`           | `apps/ios/TilecastKit/Sources/TilecastCore/`            | Server profiles, address policy, installation identity, WebKit storage, navigation policy, hosting            |
+| Native authentication    | `apps/ios/TilecastKit/Sources/TilecastCore/Auth/`       | Sign-in callback checks, the iOS session client, the credential store, `NativeAuthSession`, bearer transport  |
+| `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code            |
 | Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call    |
 | Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                        |
 | Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run               |
@@ -81,7 +83,7 @@ Before the app adds a server, and again each time it opens one, it reads `GET /a
 
 The app binds each profile to the installation ID it reported when it was added. If the address later reports a different installation, the app does not load Studio, so the old installation's session cookie is not sent to it. The user can remove the profile, or accept the new installation. Acceptance deletes the old website data and gives the profile a new data store. This is the rule Players follow before they send a stored credential.
 
-`InstallationIdentity` is the one hand-written API model in the app. It is the version-independent bootstrap document that every client reads before it knows anything else about a server. Ordinary endpoints will use a client generated from the composed OpenAPI contract when native API access starts in Milestone 3.
+`InstallationIdentity` is the one hand-written API model in the app. It is the version-independent bootstrap document that every client reads before it knows anything else about a server. All other endpoints use the generated client. See [Generated API client](#generated-api-client).
 
 ## Studio hosting
 
@@ -145,19 +147,21 @@ The bridge is privileged. The app applies these rules:
 - The bridge refuses a message from a subframe, from a content world other than the page world, and from any origin other than the configured server origin. The refusal is a `forbidden` reply.
 - The bridge validates the envelope and the payload before it dispatches a message. An unknown message type gets an `unknown_type` reply. A malformed message gets a `malformed` reply. Another protocol version gets an `unsupported_version` reply.
 - The user content controller holds the handler. The handler holds the bridge weakly, so the page and the bridge do not keep each other alive. Closing the page removes the handler and clears the navigation state.
-- The bridge carries presentation and navigation data only. It never carries a password, an OAuth token, a refresh token, a session cookie, a Keychain value, or a CSRF token. It has no file access.
+- The bridge carries presentation data, navigation data, and credential-free sign-out coordination only. It never carries a password, an OAuth token, a refresh token, a session cookie, a Keychain value, or a CSRF token. It has no file access.
 
 ### Version 1 messages
 
-| Type                 | Direction        | Purpose                                                                       |
-| -------------------- | ---------------- | ----------------------------------------------------------------------------- |
-| `config/get`         | Studio to native | Studio asks for the protocol version and capabilities                         |
-| `frontend/ready`     | Studio to native | Studio finished its host integration. The app accepts it more than one time   |
-| `navigation/catalog` | Studio to native | A complete snapshot of navigation destinations that replaces the previous one |
-| `navigation/state`   | Studio to native | The destination that Studio resolved for its current location, and the path   |
-| `navigation/request` | native to Studio | The app asks Studio to open a destination by its opaque identifier            |
+| Type                    | Direction        | Purpose                                                                       |
+| ----------------------- | ---------------- | ----------------------------------------------------------------------------- |
+| `config/get`            | Studio to native | Studio asks for the protocol version and capabilities                         |
+| `frontend/ready`        | Studio to native | Studio finished its host integration. The app accepts it more than one time   |
+| `navigation/catalog`    | Studio to native | A complete snapshot of navigation destinations that replaces the previous one |
+| `navigation/state`      | Studio to native | The destination that Studio resolved for its current location, and the path   |
+| `navigation/request`    | native to Studio | The app asks Studio to open a destination by its opaque identifier            |
+| `auth/sign-out-request` | native to Studio | The app asks Studio to sign out with its normal logout                        |
+| `auth/signed-out`       | Studio to native | Studio completed its logout. The payload is empty                             |
 
-The `config/get` reply reports `protocolVersion: 1` and `capabilities.nativeNavigation: true`. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
+The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
 Presentation messages for Milestone 4 will be new message types in the same protocol. Version 1 does not define them.
 
@@ -242,11 +246,78 @@ To add a destination, add a Studio route with `navigation` metadata and a locali
 
 ## Authentication
 
-When Studio navigates to `/login`, the app starts `ASWebAuthenticationSession` at the configured server's real origin. iOS owns the consent sheet and browser. The server's own sign-in page handles passwords, authenticator codes, recovery codes, passkeys, and enrollment policy. The app does not imitate the consent sheet.
+The app has two authentication channels for each server. They are kept separate:
 
-The fixed first-party `tilecast-ios` client uses a PKCE S256 authorization code and the exact `tilecast-ios://oauth/callback` redirect. The app verifies callback state. The rate-limited `/api/v1/oauth/ios-session` endpoint consumes the code, revokes its temporary grant, and sets an ordinary HttpOnly Studio cookie. The app imports that cookie into only the configured server's isolated WebKit store, then reloads Studio. No OAuth access or refresh token is kept on the device or exposed to page JavaScript.
+| Credential                   | Where it is kept                                  | Who uses it            |
+| ---------------------------- | ------------------------------------------------- | ---------------------- |
+| HttpOnly Studio cookie       | The server's `WKWebsiteDataStore` only            | Studio in the web view |
+| OAuth access token (`tca_`)  | Memory in `NativeAuthSession` only                | Native API calls       |
+| OAuth refresh token (`tcr_`) | The Keychain only                                 | `NativeAuthSession`    |
+| Password, passkey, MFA       | The server's own pages in the system browser only | The server             |
 
-The app checks installation identity before it opens Studio. The cookie handoff also checks the response origin. A changed installation must be accepted explicitly, which removes the old WebKit data before another sign-in starts. First-time server setup remains in Studio until the organization creates its Owner account.
+Page JavaScript and the native bridge never get an access token, a refresh token, the cookie, the CSRF token, or a Keychain value. The web view does not use bearer authentication. Native API requests do not use the Studio cookie.
+
+### Sign-in
+
+When Studio reaches `/login`, the app starts `ASWebAuthenticationSession` at the configured server's origin. The server's own sign-in page handles passwords, authenticator codes, recovery codes, passkeys, and the enrollment policy. The app does not show a native password, code, or passkey form.
+
+1. `IOSSignInRequest` makes a PKCE S256 challenge and a random state. The fixed `tilecast-ios` client uses the exact callback `tilecast-ios://oauth/callback`.
+2. The server records the approval and redirects to the callback with the code, the state, and `iss` (RFC 9207). `iss` is the origin of the approval page, as the browser reports it in the `Origin` header. The approval requires the session cookie and its CSRF token, so only a Studio page from that server can make the request. The server does not use forwarded headers for `iss`.
+3. The app refuses the callback if the state is wrong, or if `iss` is present and is not the origin of the server that started the attempt. The app refuses it before the code goes anywhere. This prevents a mix-up between the many unrelated servers that one app can connect to.
+4. `NativeAuthSession` sends the code and the verifier to `POST /api/v1/oauth/ios-session`. The server sets the normal Studio cookie and returns the grant's native credential.
+5. The app writes the refresh token to the Keychain. Native API access starts only after this write succeeds. The app keeps the access token in memory.
+6. The app puts the cookie into only this server's data store, and reloads Studio.
+
+One authorization gives both channels, so the user authorizes one time. The grant is "Tilecast for iOS" in the user's account security. It stays active until the user signs out, removes the server, accepts a changed installation, or revokes the grant, or until the server invalidates it.
+
+The server links the Studio session to the grant. Revoking the grant ends the Studio session. Signing out of that Studio session revokes the grant. When the server signs a user out everywhere (a password change, a factor reset, or deactivation), it also revokes each grant that backs a Studio session, because such a grant could start a new session.
+
+### Credential storage
+
+`NativeCredentialStore` keeps only refresh tokens. `KeychainCredentialStore` stores each one as a generic password in the data protection keychain:
+
+- The account is the profile UUID and the installation ID. Two installations never share an item, also when the same user signs in to both. A profile that is rebound to a new installation cannot read the old item.
+- The accessibility class is `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, so later background work can refresh. The item is not synchronized to iCloud Keychain and is not restored to another device.
+- The app deletes the item when the user removes the server, and before a changed installation can use the profile. At launch, the app deletes items that no profile owns. Keychain items can stay after the app's files are gone, for example after a reinstall.
+
+The refresh token is never in `UserDefaults`, `ServerDirectory`, JSON files, logs, bridge messages, or state restoration. `NativeCredential` descriptions do not show the tokens.
+
+### Refresh
+
+`NativeAuthSession` is an actor for one verified server. `StudioHost` makes it only after the installation identity check passes, and discards it when the page closes.
+
+- The actor replaces the access token one minute before it expires.
+- Refresh is single-flight. All callers that need a new token wait for the same rotation. Tilecast revokes the whole grant when a rotated refresh token is presented again, so two concurrent rotations would sign the app out.
+- Refresh uses `POST /api/v1/oauth/ios-session` with `grant_type=refresh_token`. The server refuses a refresh token of another client before it consumes it, so a CLI or MCP token cannot start a Studio session. The general token endpoint does not rotate `tilecast-ios` tokens.
+- The actor writes the new refresh token to the Keychain before it gives the new access token to a caller. If the write fails, the app deletes the credential and the user signs in again. The server already retired the old token, and the app does not keep a refresh token only in memory.
+- A refused refresh (`invalid_grant`, reuse detection, a revoked grant, or an inactive account) deletes the credential. The app does not try again. A timeout, a DNS failure, an offline device, rate limiting, or a server error keeps the credential.
+- A plain refresh does not change the Studio cookie, because a new cookie under a running page would strand Studio's CSRF token. When Studio's own session ends and Studio reaches `/login`, the app asks for `studio_session: true`. The server then starts a new session for the grant, and the app reloads Studio without the browser. If the server refuses, the app opens the system sign-in sheet.
+
+### Sign-out and revocation
+
+Sign-out means the whole app session for that server:
+
+- **From Studio.** Studio does its normal cookie and CSRF logout. Before it shows the sign-in page, it sends `auth/signed-out`. The app revokes the grant (best effort), deletes the refresh token, and drops the access token.
+- **From the app.** The Sign Out control is in the iPhone More list, the iPad server menu, and the fallback menu. The app sends `auth/sign-out-request`, and Studio does its normal logout. The app does not need a CSRF token. Then the app revokes the grant, deletes the credential, and deletes this server's cookies. If the server cannot be reached, the local deletion still occurs. Other website data, such as preferences and caches, stays.
+
+After an explicit sign-out, the profile records `signedOutAt`. The app shows its Sign In control and does not open the browser by itself, also after a relaunch. A completed sign-in clears the record. A missing or expired session still opens the browser, as before.
+
+If the grant is revoked remotely, the next refresh fails, and the app deletes the credential one time. If Studio still looks signed in, the app asks Studio to sign out. The linked Studio session has already ended on the server.
+
+The app revokes a grant only through a connection whose installation identity was verified. When the user removes a server that is not connected, or accepts a changed installation, the app deletes the credential locally and sends it nowhere.
+
+### Older servers and older apps
+
+- A current app with a server released before native API access: the server returns only `{"authenticated": true}` and the cookie, and the callback has no `iss`. The app signs in to Studio and native API access is unavailable. The app accepts a callback without `iss`, because such a server cannot send it. State and PKCE still protect that callback.
+- An older app with a current server: the older app imports the cookie and ignores the response body, as before. The grant stays active until Studio signs out, which revokes it.
+
+### Generated API client
+
+`TilecastAPI` is generated at build time by the Swift OpenAPI Generator package plugin. `Sources/TilecastAPI/openapi.yaml` is a symbolic link to the composed `docs/openapi.yaml`, so there is no second copy of the contract and no generated Swift in the repository. The configuration does not filter operations. Do not hand-write models for Tilecast endpoints; change the contract instead.
+
+`NativeAuthSession.makeClient()` gives a client for the verified server's address. `BearerAuthenticationMiddleware` is the only code that adds authentication. It sends `Authorization: Bearer` and removes any `Cookie` header. After a 401 response, it rotates and tries one more time. The URLSession has no cookie storage, no cache, no credential storage, and refuses redirects, so the token and the authorization code go only to the server's origin.
+
+The generated client refuses response properties and enum values that the contract does not list. Response schemas that the app decodes before it knows the server version (`IOSSession` and `OAuthTokens`) are open. A later native workflow must make its response schemas open, or must check the server's capabilities first, so that a newer server does not break an installed app.
 
 ## Transport security
 
@@ -266,28 +337,30 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 
 ## Milestones
 
-| Milestone | Scope                                                                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                      |
-| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar |
-| 3         | Native API access, Keychain for native credentials, sign-out and revocation                                                                 |
-| 4         | Native presentation: frameless Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                        |
-| 5         | Native Pair Screen with scanning and manual code entry                                                                                      |
-| 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                |
-| 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                     |
-| 8         | Media intake, Share, push notifications and deep links, haptics, screen quick actions                                                       |
+| Milestone | Scope                                                                                                                                          |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                         |
+| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar    |
+| 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages |
+| 4         | Native presentation: frameless Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                           |
+| 5         | Native Pair Screen with scanning and manual code entry                                                                                         |
+| 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                   |
+| 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                        |
+| 8         | Media intake, Share, push notifications and deep links, haptics, screen quick actions                                                          |
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio.
 
-## Known limitations after Milestone 2
+## Known limitations after Milestone 3
 
 - Studio opens the Layout and Playlist previews with `window.open`. `WebPage` has no new-window hook, so these previews do not open in the app. Milestone 4 presentation replaces them.
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
-- Native sheets and the presentation protocol are not part of Milestone 2.
+- Native sheets and the presentation protocol are not part of Milestone 3.
+- No production screen calls the native API yet. Milestone 3 is the foundation for later native workflows.
+- The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.
 - The Studio topbar stays a Studio component. This is intentional: breadcrumbs, search, notifications, and editor controls remain Studio features.
 
 ## Build and test
 
-See `apps/ios/README.md` for commands. CI runs the `ios_ci` job in `.github/workflows/ci-ios.yml` on `macos-26` when a pull request changes `apps/ios/`, `packages/native-bridge-schema/`, or the shared server address corpus. A change to the bridge schema also runs the dashboard checks, because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app, because the app loads Studio from the server at runtime. This includes Studio's own bridge code in `apps/dashboard/src/native-host/`, which the dashboard tests cover. `scripts/ci/affected.mjs` records these edges. Add one when the app starts to compile or test against another contract, such as the OpenAPI contract or the settings schema.
+See `apps/ios/README.md` for commands. CI runs the `ios_ci` job in `.github/workflows/ci-ios.yml` on `macos-26` when a pull request changes `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract (`docs/openapi/` and `docs/openapi.yaml`), or the shared server address corpus. A change to the bridge schema also runs the dashboard checks, because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app, because the app loads Studio from the server at runtime. This includes Studio's own bridge code in `apps/dashboard/src/native-host/`, which the dashboard tests cover. `scripts/ci/affected.mjs` records these edges. Add one when the app starts to compile or test against another contract, such as the settings schema.
