@@ -46,7 +46,7 @@ A reply is `{ "version": 1, "ok": true, "payload": {} }` or `{ "version": 1, "ok
 
 The `config/get` reply payload is `{ "protocolVersion": 1, "capabilities": { "nativeNavigation": true } }`. A capability that is absent or not `true` is unavailable.
 
-Destination and group identifiers are opaque. Only Studio knows what they mean. A native host never receives or derives a Studio path for routine navigation: it sends the identifier, and Studio resolves it with React Router. `navigation/state.path` is for diagnostics and state restoration only. `activeDestinationId` is authoritative for native selection. A catalog with no groups means native navigation is not available now, for example on the sign-in page.
+Destination and group identifiers are opaque. Only Studio knows what they mean. A native host never receives or derives a Studio path for routine navigation: it sends the identifier, and Studio resolves it with React Router. `navigation/state.path` is the location path without its query string, for diagnostics only. `activeDestinationId` is authoritative for native selection. A catalog with no groups means native navigation is not available now, for example on the sign-in page.
 
 After Studio handles a `navigation/request`, it sends `navigation/state` even when the location did not change, for example because an unsaved-changes prompt stopped the navigation. The host uses that message to reconcile its selection.
 

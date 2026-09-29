@@ -36,15 +36,20 @@ export function buildNavigationCatalog(
   };
 }
 
+/**
+ * The path is for the host's diagnostics only, so it carries no query
+ * string: a query can hold values, such as OAuth approval parameters, that
+ * the host has no reason to see.
+ */
 export function navigationState(
   navigation: ResolvedStudioNavigation,
-  location: { pathname: string; search: string },
+  location: { pathname: string },
 ): NavigationStatePayload {
   return {
     activeDestinationId:
       resolveActiveDestination(location.pathname, navigation.destinations)
         ?.id ?? null,
-    path: `${location.pathname}${location.search}`,
+    path: location.pathname,
   };
 }
 

@@ -116,7 +116,7 @@
           "oneOf": [{ "$ref": "#/$defs/destinationId" }, { "type": "null" }]
         },
         "path": {
-          "description": "Diagnostics and state restoration only. A host never derives selection from it.",
+          "description": "The location path, without a query string. Diagnostics only. A host never derives selection from it.",
           "type": "string",
           "maxLength": 2048,
           "pattern": "^/"

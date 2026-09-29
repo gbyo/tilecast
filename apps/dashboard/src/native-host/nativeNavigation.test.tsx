@@ -517,6 +517,18 @@ describe("Studio hosted by the native app", () => {
     );
   });
 
+  it("sends the path without its query string", async () => {
+    const host = installNativeHost();
+    renderStudio("/screens/player-1?tab=playback&code=secret");
+    await waitFor(() =>
+      expect(host.lastState()).toEqual({
+        activeDestinationId: "screens",
+        path: "/screens/player-1",
+      }),
+    );
+    expect(JSON.stringify(host.sent)).not.toContain("secret");
+  });
+
   it.each([
     ["/", "overview"],
     ["/screens", "screens"],
