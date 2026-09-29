@@ -43,7 +43,9 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
       - name: Check localization
         run: scripts/check-localization.py "$DERIVED_DATA"
-      # Core and UI tests run separately so a hang or failure names its bundle.
+      # Keep the real-WebKit integration suite isolated from the deterministic
+      # Core tests. A stuck WebKit process must not consume the entire Core-test
+      # timeout or hide which surface stalled.
       - name: Core tests
         timeout-minutes: 10
         run: >
@@ -52,7 +54,19 @@ jobs:
           -destination "$DESTINATION"
           -derivedDataPath "$DERIVED_DATA"
           -only-testing:TilecastCoreTests
+          -skip-testing:TilecastCoreTests/StudioBridgeWebKitTests
           -resultBundlePath "$RUNNER_TEMP/core-tests.xcresult"
+      - name: WebKit bridge tests
+        timeout-minutes: 5
+        run: >
+          xcodebuild test-without-building
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -only-testing:TilecastCoreTests/StudioBridgeWebKitTests
+          -test-iterations 2
+          -retry-tests-on-failure
+          -resultBundlePath "$RUNNER_TEMP/webkit-bridge-tests.xcresult"
       - name: UI tests
         timeout-minutes: 10
         run: >
