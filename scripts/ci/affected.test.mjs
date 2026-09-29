@@ -25,6 +25,24 @@ test("Studio selects the real stack without Edge or Android", () => {
     "e2e",
   ]);
 });
+test("iOS host selects only its own validation", () => {
+  assert.deepEqual(selected(["apps/ios/Tilecast/App/RootView.swift"]), ["ios"]);
+  assert.deepEqual(
+    selected([
+      "apps/ios/TilecastKit/Sources/TilecastCore/Web/StudioPage.swift",
+    ]),
+    ["ios"],
+  );
+});
+test("Studio and server changes do not build the iOS host", () => {
+  for (const path of [
+    "apps/dashboard/src/components/Button.tsx",
+    "apps/dashboard/src/navigation/routes.ts",
+    "apps/server/internal/httpapi/devices.go",
+    "plugins/weather/studio/Page.tsx",
+  ])
+    assert.equal(affected([path]).ios, false, path);
+});
 test("CLI and MCP select their module without a server image", () => {
   assert.deepEqual(selected(["apps/cli/internal/cli/mcp.go"]), ["cli"]);
 });
@@ -171,6 +189,8 @@ test("player contract sources select every native consumer and their drift gate"
     "scripts/generate-player-contracts.mjs",
   ]) {
     const result = affected([path]);
+    if (path.endsWith("server-url-policy.json"))
+      assert.equal(result.ios, true, `${path}: ios`);
     for (const area of [
       "ci",
       "server",
