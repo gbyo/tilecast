@@ -2420,16 +2420,16 @@ func (e PlayerPlatform) Valid() bool {
 
 // Defines values for PlayerReleaseChannel.
 const (
-	Beta   PlayerReleaseChannel = "beta"
-	Stable PlayerReleaseChannel = "stable"
+	PlayerReleaseChannelBeta   PlayerReleaseChannel = "beta"
+	PlayerReleaseChannelStable PlayerReleaseChannel = "stable"
 )
 
 // Valid indicates whether the value is a known member of the PlayerReleaseChannel enum.
 func (e PlayerReleaseChannel) Valid() bool {
 	switch e {
-	case Beta:
+	case PlayerReleaseChannelBeta:
 		return true
-	case Stable:
+	case PlayerReleaseChannelStable:
 		return true
 	default:
 		return false
@@ -4029,6 +4029,24 @@ const (
 func (e SystemHealthStatus) Valid() bool {
 	switch e {
 	case SystemHealthStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SystemStatusChannel.
+const (
+	SystemStatusChannelDevelopment SystemStatusChannel = "development"
+	SystemStatusChannelStable      SystemStatusChannel = "stable"
+)
+
+// Valid indicates whether the value is a known member of the SystemStatusChannel enum.
+func (e SystemStatusChannel) Valid() bool {
+	switch e {
+	case SystemStatusChannelDevelopment:
+		return true
+	case SystemStatusChannelStable:
 		return true
 	default:
 		return false
@@ -5668,6 +5686,8 @@ type BackupList struct {
 // BackupRestorePlan defines model for BackupRestorePlan.
 type BackupRestorePlan struct {
 	Archive               BackupArchive     `json:"archive"`
+	BuildCommit           *string           `json:"buildCommit,omitempty"`
+	BuildDate             *string           `json:"buildDate,omitempty"`
 	Components            []BackupComponent `json:"components"`
 	CreatedAt             time.Time         `json:"createdAt"`
 	CurrentInstallationId string            `json:"currentInstallationId"`
@@ -5675,6 +5695,7 @@ type BackupRestorePlan struct {
 	InstallationId        string            `json:"installationId"`
 	OrganizationName      string            `json:"organizationName"`
 	SchemaVersion         int               `json:"schemaVersion"`
+	ServerChannel         *string           `json:"serverChannel,omitempty"`
 	SizeBytes             int               `json:"sizeBytes"`
 	TilecastVersion       string            `json:"tilecastVersion"`
 }
@@ -9738,10 +9759,11 @@ type SystemHealthStatus string
 
 // SystemStatus defines model for SystemStatus.
 type SystemStatus struct {
-	ActiveProcessingJobs int    `json:"activeProcessingJobs"`
-	BuildCommit          string `json:"buildCommit"`
-	BuildDate            string `json:"buildDate"`
-	ConnectedScreens     int    `json:"connectedScreens"`
+	ActiveProcessingJobs int                 `json:"activeProcessingJobs"`
+	BuildCommit          string              `json:"buildCommit"`
+	BuildDate            string              `json:"buildDate"`
+	Channel              SystemStatusChannel `json:"channel"`
+	ConnectedScreens     int                 `json:"connectedScreens"`
 	Database             struct {
 		MigrationVersion string `json:"migrationVersion"`
 		PostgresVersion  string `json:"postgresVersion"`
@@ -9759,6 +9781,9 @@ type SystemStatus struct {
 	TilecastVersion string                 `json:"tilecastVersion"`
 	UptimeSeconds   int                    `json:"uptimeSeconds"`
 }
+
+// SystemStatusChannel defines model for SystemStatus.Channel.
+type SystemStatusChannel string
 
 // TOTPEnrollment defines model for TOTPEnrollment.
 type TOTPEnrollment struct {

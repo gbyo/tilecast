@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
 import { affected } from "../affected.mjs";
@@ -49,7 +52,116 @@ test("stable releases trigger from tags only", () => {
     !("workflow_dispatch" in release.on),
     "no manual tag input may differ from the validated ref",
   );
+});
+
+test("all stable releases serialize through one global group", () => {
+  const release = workflow("server-release.yml");
+  // A per-tag group would let two different Stable releases race the
+  // shared stable/latest aliases, so the group must name no ref or tag.
+  assert.equal(release.concurrency.group, "tilecast-server-stable-release");
+  assert.doesNotMatch(release.concurrency.group, /github\.ref|tag|version/i);
   assert.equal(release.concurrency["cancel-in-progress"], false);
+});
+
+test("release tags must point at a commit on main", () => {
+  const raw = readFileSync(".github/workflows/server-release.yml", "utf8");
+  // The tag commit must be an ancestor of main: main may advance after
+  // tagging. The reverse direction would race normal development.
+  assert.ok(
+    raw.includes("git merge-base --is-ancestor HEAD refs/remotes/origin/main"),
+  );
+  assert.ok(
+    !raw.includes("git merge-base --is-ancestor refs/remotes/origin/main HEAD"),
+  );
+});
+
+test("the ancestry predicate accepts main tags and rejects side branches", () => {
+  // Behavioral coverage for the predicate in server-release.yml, run
+  // against real git histories. The middle case is the regression that
+  // the reversed predicate direction failed: main advanced after tagging.
+  const makeRepo = () => {
+    const dir = mkdtempSync(join(tmpdir(), "server-release-ancestry-"));
+    const git = (...args) =>
+      execFileSync(
+        "git",
+        [
+          "-c",
+          "init.defaultBranch=main",
+          "-c",
+          "user.email=release@example.test",
+          "-c",
+          "user.name=Release Test",
+          "-c",
+          "commit.gpgsign=false",
+          ...args,
+        ],
+        { cwd: dir, stdio: "pipe" },
+      );
+    git("init");
+    // Distinct messages: identical empty commits made within one second
+    // hash to the same object and would collapse the history.
+    let sequence = 0;
+    const commit = () =>
+      git("commit", "--allow-empty", "-m", `change ${sequence++}`);
+    commit(); // A
+    commit(); // B
+    commit(); // C
+    return { dir, git, commit };
+  };
+  const predicateHolds = (dir, ...args) => {
+    try {
+      execFileSync("git", ["merge-base", "--is-ancestor", ...args], {
+        cwd: dir,
+        stdio: "pipe",
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // A---B---C main, tag at C: pass.
+  {
+    const { dir, git } = makeRepo();
+    try {
+      git("tag", "server-v0.11.0");
+      git("checkout", "--detach", "server-v0.11.0");
+      assert.equal(predicateHolds(dir, "HEAD", "main"), true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  // Tag at C, then main advances to D: still pass, since the tagged
+  // commit remains part of main. The reversed predicate fails here.
+  {
+    const { dir, git, commit } = makeRepo();
+    try {
+      git("tag", "server-v0.11.0");
+      commit(); // D on main after tagging
+      git("checkout", "--detach", "server-v0.11.0");
+      assert.equal(predicateHolds(dir, "HEAD", "main"), true);
+      assert.equal(predicateHolds(dir, "main", "HEAD"), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  //      D tag (unmerged side branch from B)
+  //     /
+  // A---B---C main: fail.
+  {
+    const { dir, git, commit } = makeRepo();
+    try {
+      git("checkout", "-b", "side", "HEAD~1");
+      commit(); // D
+      git("tag", "server-v0.11.0");
+      git("checkout", "--detach", "server-v0.11.0");
+      assert.equal(predicateHolds(dir, "HEAD", "main"), false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
 });
 
 test("the release caller grants every called validation its permissions", () => {
@@ -142,39 +254,52 @@ test("stable aliases move only after the release succeeds", () => {
   assert.equal(builds[0].with.provenance, "mode=max");
   assert.equal(builds[0].with.sbom, true);
 
-  // Build, then release, then promotion: a failed release can never leave
-  // the Stable aliases pointing at an unreleased build.
+  // Build, verify, release, resolve, promote: a failed release can never
+  // leave the Stable aliases pointing at an unreleased build, and no
+  // mutable tag resolution sits between verification and promotion.
   const index = (predicate) => steps.findIndex(predicate);
   const buildIndex = index(
     (step) => step.uses === "docker/build-push-action@v7",
   );
-  const verifyIndex = index(
-    (step) =>
-      step.run?.includes("Verify the published versioned image") ||
-      step.name === "Verify the published versioned image",
-  );
+  const verifyIndex = index((step) => step.id === "verify");
   const createIndex = index((step) => step.run?.includes("gh release create"));
+  const resolveIndex = index((step) => step.id === "promote");
   const promoteIndex = index((step) => step.run?.includes("imagetools create"));
-  assert.ok(buildIndex >= 0 && createIndex >= 0 && promoteIndex >= 0);
+  assert.ok(
+    buildIndex >= 0 &&
+      verifyIndex >= 0 &&
+      createIndex >= 0 &&
+      resolveIndex >= 0 &&
+      promoteIndex >= 0,
+  );
   assert.ok(
     buildIndex < verifyIndex &&
       verifyIndex < createIndex &&
-      createIndex < promoteIndex,
-    "expected build < verify < gh release create < promotion",
+      createIndex < resolveIndex &&
+      resolveIndex < promoteIndex,
+    "expected build < verify < gh release create < resolve < promotion",
   );
 
-  // Promotion is a registry-native tag operation on the exact versioned
-  // digest: no rebuild, and the aliases can only name released artifacts.
-  const promote = steps[promoteIndex].run;
+  // The verified digest becomes a step output; promotion consumes the
+  // immutable image@digest reference, never the version tag.
+  assert.ok(steps[verifyIndex].run.includes('echo "digest=$digest"'));
+  const promoteStep = steps[promoteIndex];
+  assert.ok(
+    String(promoteStep.env?.PROMOTE_DIGEST ?? "").includes(
+      "steps.promote.outputs.digest",
+    ),
+  );
+  const promote = promoteStep.run;
   assert.match(promote, /imagetools create/);
   assert.ok(promote.includes('"$image:stable"'));
   assert.ok(promote.includes('"$image:latest"'));
-  assert.ok(promote.includes('"$image:$RELEASE_VERSION"'));
+  assert.ok(promote.includes("$image@$PROMOTE_DIGEST"));
+  assert.ok(!promote.includes("$image:$RELEASE_VERSION"));
   assert.doesNotMatch(promote, /build-push/);
   assert.doesNotMatch(promote, /docker build /);
 
   // If promotion fails after the release exists, a rerun resumes at
-  // promotion instead of rebuilding the released versioned image.
+  // digest resolution instead of rebuilding the released image.
   assert.match(raw, /gh release view/);
   for (const step of [builds[0], steps[verifyIndex], steps[createIndex]]) {
     assert.match(
@@ -183,7 +308,25 @@ test("stable aliases move only after the release succeeds", () => {
       `${step.name ?? step.uses} must skip on a resumed run`,
     );
   }
+  assert.ok(!("if" in steps[resolveIndex]));
   assert.ok(!("if" in steps[promoteIndex]));
+});
+
+test("a resumed run promotes the digest recorded by the release", () => {
+  const release = workflow("server-release.yml");
+  const steps = release.jobs.release.steps;
+  const resolve = steps.find((step) => step.id === "promote").run;
+
+  // The existing release notes record the digest; the resumed run
+  // recovers it, validates its shape, and confirms it still exists.
+  assert.ok(resolve.includes("gh release view"));
+  assert.ok(resolve.includes("sha256:[0-9a-f]"));
+  assert.ok(resolve.includes("imagetools inspect"));
+  assert.ok(resolve.includes("$image@$digest"));
+  // Fail closed: no valid recorded digest means no promotion, and the
+  // version tag is never consulted as a fallback.
+  assert.match(resolve, /refusing to guess from the version tag/);
+  assert.ok(!resolve.includes("$RELEASE_VERSION"));
 });
 
 test("production compose runs a published image selected by TILECAST_VERSION", () => {
