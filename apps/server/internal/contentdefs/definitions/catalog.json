@@ -458,6 +458,7 @@
     {
       "id": "stat_grid",
       "version": 1,
+      "configVersion": 2,
       "apiVersion": 1,
       "name": "Stat Grid",
       "description": "Display a responsive grid of numeric values.",

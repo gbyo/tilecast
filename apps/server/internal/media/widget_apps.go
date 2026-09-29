@@ -123,7 +123,7 @@ func (s *Service) createAppRecipeWidget(ctx context.Context, user uuid.UUID, inp
 	if _, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5)`, widgetID, organizationID, input.Name, input.Description, user); err != nil {
 		return Asset{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration,app_configuration,managed_data_source_id) VALUES($1,$2,1,$3::jsonb,$4::jsonb,$5)`, widgetID, input.Provider, string(prepared.widgetJSON), string(prepared.authorJSON), sourceID); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration,app_configuration,managed_data_source_id) VALUES($1,$2,$3,$4::jsonb,$5::jsonb,$6)`, widgetID, input.Provider, definition.PersistedConfigVersion(), string(prepared.widgetJSON), string(prepared.authorJSON), sourceID); err != nil {
 		return Asset{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'widget_app.created','widget',$3,jsonb_build_object('provider',$4::text,'managedDataSourceId',$5::text))`, uuid.New(), user, widgetID.String(), input.Provider, sourceID.String()); err != nil {
@@ -171,7 +171,7 @@ func (s *Service) updateAppRecipeWidget(ctx context.Context, id, user uuid.UUID,
 		}
 		return Asset{}, ErrNotFound
 	}
-	if _, err = tx.Exec(ctx, `UPDATE widgets SET configuration=$2::jsonb,app_configuration=$3::jsonb,updated_at=now(),preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL WHERE asset_id=$1`, id, string(prepared.widgetJSON), string(prepared.authorJSON)); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE widgets SET configuration=$2::jsonb,config_version=$3,app_configuration=$4::jsonb,updated_at=now(),preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL WHERE asset_id=$1`, id, string(prepared.widgetJSON), definition.PersistedConfigVersion(), string(prepared.authorJSON)); err != nil {
 		return Asset{}, err
 	}
 	if tag, updateErr := tx.Exec(ctx, `UPDATE data_sources SET name=$2,description=$3,configuration=$4::jsonb,updated_at=now() WHERE id=$1 AND system_managed=TRUE AND deleted_at IS NULL`, *existing.ManagedDataSourceID, input.Name+" · "+definition.Recipe.DataSource.Name, definition.Recipe.DataSource.Description, string(prepared.sourceJSON)); updateErr != nil || tag.RowsAffected() == 0 {

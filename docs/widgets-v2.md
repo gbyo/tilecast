@@ -91,6 +91,8 @@ widgets/                      one directory for each V2 Widget; also a Go module
 
 `tilecast.widget.json` is the single catalog source for a V2 Widget. The Server reads it through the `widgets` Go module. The Player Runtime and Studio discover it with `import.meta.glob`. No second registry lists V2 Widgets.
 
+The top-level `configVersion` field identifies the saved Widget configuration schema. It is separate from the definition `version` and `component.version`. The Server stores it when it creates or updates a Widget. If a legacy definition omits `configVersion`, the Server stores version 1.
+
 ## 4. The Widget definition
 
 ```ts

@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "table",
   "version": 1,
+  "configVersion": 2,
   "name": "Table",
   "description": "Show records as a comparison grid with a header row.",
   "category": "Data display",

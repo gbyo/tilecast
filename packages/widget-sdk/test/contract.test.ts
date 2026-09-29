@@ -445,6 +445,21 @@ describe("manifest", () => {
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
   });
 
+  it("accepts only positive persisted configuration versions", () => {
+    expect(
+      widgetManifestSchema.safeParse({
+        ...manifest("tilecast.clock", "tc-widget-clock"),
+        configVersion: 2,
+      }).success,
+    ).toBe(true);
+    expect(
+      widgetManifestSchema.safeParse({
+        ...manifest("tilecast.clock", "tc-widget-clock"),
+        configVersion: 0,
+      }).success,
+    ).toBe(false);
+  });
+
   it("limits the component type so widget.<type> fits the capability bound", () => {
     const fitting = `a${"b".repeat(31)}.${"c".repeat(40)}`;
     expect(fitting).toHaveLength(MAX_COMPONENT_TYPE_LENGTH);
