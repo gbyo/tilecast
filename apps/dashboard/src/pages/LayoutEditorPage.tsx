@@ -164,7 +164,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -661,15 +660,10 @@ export function LayoutEditorPage() {
   const [previewValues, setPreviewValues] = useState<
     Record<string, Record<string, string>>
   >({});
-  const [liveData, setLiveData] = useState<LivePreviewData>({});
   const [previewAssets, setPreviewAssets] = useState<Asset[]>([]);
   const [previewPlaylists, setPreviewPlaylists] = useState<Playlist[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [previewScale, setPreviewScale] = useState(0);
-  // State rather than a ref: the frame mounts inside the Dialog portal after
-  // the preview opens, and measuring must wait for it to exist.
-  const [previewFrame, setPreviewFrame] = useState<HTMLDivElement | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -922,18 +916,6 @@ export function LayoutEditorPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  // Track the rendered size of the preview frame so widgets can convert canvas
-  // pixels into screen pixels the same way the Player scales the whole canvas.
-  useLayoutEffect(() => {
-    const frame = previewFrame;
-    if (!preview || !frame || !document) return;
-    const measure = () =>
-      setPreviewScale(frame.clientWidth / document.canvas.width);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [preview, previewFrame, document]);
   const publish = useMutation<unknown, ApiError>({
     mutationFn: () =>
       canPublish
@@ -1162,7 +1144,6 @@ export function LayoutEditorPage() {
         }),
       );
       const live = Object.fromEntries(resolved) as LivePreviewData;
-      setLiveData(live);
       // Derive first-record field values for text bindings (unchanged behaviour).
       const values: Record<string, Record<string, string>> = {};
       Object.entries(live).forEach(([dataSourceId, source]) => {
@@ -1179,7 +1160,6 @@ export function LayoutEditorPage() {
       });
       setPreviewValues(values);
     } catch {
-      setLiveData({});
       setPreviewValues({});
     }
   };
@@ -3355,7 +3335,6 @@ export function LayoutEditorPage() {
             </Button>
           </div>
           <div
-            ref={setPreviewFrame}
             className="layout-preview-frame"
             style={{
               aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
@@ -3372,33 +3351,30 @@ export function LayoutEditorPage() {
                   alt=""
                 />
               )}
-            {previewScale > 0 &&
-              [...document.placements]
-                .sort((a, b) => a.layer - b.layer)
-                .map((item) => (
-                  <PlacementView
-                    key={item.id}
-                    item={item}
-                    canvas={document.canvas}
-                    content={
-                      item.widgetId
-                        ? previewContentByID.get(item.widgetId)
-                        : item.assetId
-                          ? previewContentByID.get(item.assetId)
-                          : undefined
-                    }
-                    playlist={
-                      item.playlistId
-                        ? previewPlaylistByID.get(item.playlistId)
+            {[...document.placements]
+              .sort((a, b) => a.layer - b.layer)
+              .map((item) => (
+                <PlacementView
+                  key={item.id}
+                  item={item}
+                  canvas={document.canvas}
+                  content={
+                    item.widgetId
+                      ? previewContentByID.get(item.widgetId)
+                      : item.assetId
+                        ? previewContentByID.get(item.assetId)
                         : undefined
-                    }
-                    assetsById={previewContentByID}
-                    previewValues={previewValues}
-                    live={liveData}
-                    previewScale={previewScale}
-                    playbackPreview
-                  />
-                ))}
+                  }
+                  playlist={
+                    item.playlistId
+                      ? previewPlaylistByID.get(item.playlistId)
+                      : undefined
+                  }
+                  assetsById={previewContentByID}
+                  previewValues={previewValues}
+                  playbackPreview
+                />
+              ))}
           </div>
         </DialogContent>
       </Dialog>
@@ -3484,8 +3460,6 @@ function PlacementView({
   playlist,
   assetsById,
   previewValues,
-  live,
-  previewScale = 0,
   playbackPreview = false,
   selected = false,
   onPointerDown,
@@ -3498,8 +3472,6 @@ function PlacementView({
   playlist?: Playlist;
   assetsById?: Map<string, Asset>;
   previewValues?: Record<string, Record<string, string>>;
-  live?: LivePreviewData;
-  previewScale?: number;
   playbackPreview?: boolean;
   selected?: boolean;
   onPointerDown?: (event: ReactPointerEvent) => void;
@@ -3531,8 +3503,6 @@ function PlacementView({
             placement={item}
             playlist={playlist}
             assetsById={assetsById ?? new Map()}
-            live={live ?? {}}
-            scale={previewScale}
           />
         ) : playlist?.items?.[0]?.thumbnailUrl ? (
           <img
@@ -3577,13 +3547,8 @@ function PlacementView({
           </div>
         )
       ) : item.type === "widget" ? (
-        live && content?.widget ? (
-          <WidgetLivePreview
-            asset={content}
-            item={item}
-            live={live}
-            scale={previewScale}
-          />
+        content?.widget ? (
+          <WidgetLivePreview asset={content} item={item} />
         ) : (
           <AppPlacementPreview asset={content} item={item} />
         )

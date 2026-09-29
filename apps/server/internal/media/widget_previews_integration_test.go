@@ -91,6 +91,10 @@ func TestWidgetPreviewSurvivesEditsThatDoNotChangeWhatItDepicts(t *testing.T) {
 	if err != nil || stored.ThumbnailURL == nil {
 		t.Fatalf("stored snapshot should be reported as a thumbnail: %#v %v", stored, err)
 	}
+	version, err := json.Marshal(stored.Metadata["widgetPreviewCaptureVersion"])
+	if err != nil || string(version) != "2" {
+		t.Fatalf("stored snapshot should record capture version %d: %s %v", WidgetPreviewCaptureVersion, version, err)
+	}
 
 	// Renaming a Widget cannot change what its snapshot depicts.
 	renamed, err := service.UpdateWidget(ctx, widget.ID, user, WidgetInput{Provider: "clock", Name: "Front desk clock", Description: "Reworded", Configuration: json.RawMessage(configuration)})
@@ -178,6 +182,10 @@ func TestDuplicatedWidgetKeepsTheSnapshotItDepicts(t *testing.T) {
 	}
 	if !bytes.Equal(image.Data, snapshot) {
 		t.Error("the duplicate should carry the original's snapshot image")
+	}
+	version, err := json.Marshal(copied.Metadata["widgetPreviewCaptureVersion"])
+	if err != nil || string(version) != "2" {
+		t.Fatalf("duplicate should keep capture version %d: %s %v", WidgetPreviewCaptureVersion, version, err)
 	}
 
 	// A duplicate of a Widget that never had a snapshot still has none, and must not fail.

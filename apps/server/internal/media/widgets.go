@@ -37,6 +37,11 @@ var youtubeIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{6,128}$`)
 
 const MaxWidgetPreviewBytes = 500 * 1024
 
+// Persisted in assets.metadata with each stored preview. Bump when the browser
+// capture representation changes and existing thumbnails must be regenerated.
+// Keep in sync with WIDGET_PREVIEW_CAPTURE_VERSION in Studio.
+const WidgetPreviewCaptureVersion = 2
+
 type WidgetPreviewImage struct {
 	Data        []byte
 	ContentType string
@@ -366,6 +371,9 @@ func (s *Service) StoreWidgetPreview(ctx context.Context, id, user uuid.UUID, da
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+	if _, err = tx.Exec(ctx, `UPDATE assets SET metadata=jsonb_set(COALESCE(metadata,'{}'::jsonb),'{widgetPreviewCaptureVersion}',to_jsonb($2::int),true) WHERE id=$1`, id, WidgetPreviewCaptureVersion); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'widget.preview.updated','widget',$3)`, uuid.New(), user, id.String()); err != nil {
 		return err
 	}
@@ -421,6 +429,12 @@ func (s *Service) DuplicateWidget(ctx context.Context, id, user uuid.UUID) (Asse
 	// it. Carrying the image over means a duplicate appears in the library with a preview instead of
 	// waiting for someone to open it in the editor and save it again.
 	if _, err := s.db.Exec(ctx, `UPDATE widgets copy SET preview_image=original.preview_image,preview_content_type=original.preview_content_type,preview_width=original.preview_width,preview_height=original.preview_height,preview_updated_at=original.preview_updated_at FROM widgets original WHERE copy.asset_id=$1 AND original.asset_id=$2 AND original.preview_image IS NOT NULL`, copied.ID, id); err != nil {
+		return Asset{}, err
+	}
+	// A copied preview keeps the capture-generation marker that describes those
+	// bytes. Older previews intentionally have no marker so Studio repairs them
+	// once with the current capture pipeline.
+	if _, err := s.db.Exec(ctx, `UPDATE assets copy SET metadata=jsonb_set(COALESCE(copy.metadata,'{}'::jsonb),'{widgetPreviewCaptureVersion}',original.metadata->'widgetPreviewCaptureVersion',true) FROM assets original WHERE copy.id=$1 AND original.id=$2 AND original.metadata ? 'widgetPreviewCaptureVersion'`, copied.ID, id); err != nil {
 		return Asset{}, err
 	}
 	return s.GetAsset(ctx, copied.ID)

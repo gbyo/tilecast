@@ -14,18 +14,20 @@ import {
 import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
 import { DeclarativePresentationPreview } from "./SourceEditors";
 import { studioWidgetComponent } from "./studioWidgets";
-import { captureWidgetPreview } from "./widgetPreviewCapture";
+import {
+  captureWidgetPreview,
+  WIDGET_PREVIEW_CAPTURE_VERSION,
+} from "./widgetPreviewCapture";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
 } from "./widgetPreviewSources";
 
 // A Widget's library preview is a JPEG captured from a rendered Widget, and only a browser can
-// produce one. The editor uploads a capture whenever someone saves, which leaves every Widget that
-// nobody has saved since — anything created before stored previews existed, or imported, or restored
-// from a backup — with nothing to show. This renders those Widgets off-screen, captures them with
-// exactly the machinery the editor uses, and stores the result, so the library fills itself in
-// instead of asking people to reopen and re-save every Widget they own.
+// produce one. The editor uploads a capture whenever someone saves. Backfill also repairs previews
+// produced by an older capture pipeline: the Server persists a capture-generation marker beside the
+// JPEG, so a broken generation is replaced once instead of being trusted forever or regenerated on
+// every visit. Widgets with no preview (imports, restores, pre-preview content) follow the same path.
 //
 // Deliberately excluded: `website` and `youtube` Widgets. They present a cross-origin iframe that
 // cannot be read back into a canvas, so a capture would store a blank rectangle. Those keep the
@@ -35,9 +37,11 @@ const uncapturableProviders = new Set<string>(["website", "youtube"]);
 function needsSnapshot(asset: Asset) {
   return (
     asset.type === "widget" &&
-    !asset.thumbnailUrl &&
     Boolean(asset.widget) &&
-    !uncapturableProviders.has(asset.widget!.provider)
+    !uncapturableProviders.has(asset.widget!.provider) &&
+    (!asset.thumbnailUrl ||
+      asset.metadata["widgetPreviewCaptureVersion"] !==
+        WIDGET_PREVIEW_CAPTURE_VERSION)
   );
 }
 

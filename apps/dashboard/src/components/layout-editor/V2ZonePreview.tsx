@@ -39,7 +39,10 @@ export function V2ZonePreview({
 }: {
   provider: string;
   asset?: Asset;
-  /** Zone dimensions in preview pixels. Sizes the frame, never the Widget. */
+  /**
+   * Intrinsic zone dimensions in Layout-canvas pixels. WidgetPreviewHost fits
+   * that frame into Studio without changing the Widget's container geometry.
+   */
   width: number;
   height: number;
   /** Per-placement overrides win over Widget configuration, as in Studio. */
