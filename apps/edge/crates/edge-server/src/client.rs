@@ -338,10 +338,7 @@ where
     F: Future<Output = Result<(), tokio_tungstenite::tungstenite::Error>>,
 {
     let timeout = remaining.min(LIVE_STREAM_FRAME_SEND_TIMEOUT);
-    tokio::time::timeout(timeout, send)
-        .await
-        .map_err(|_| ServerError::Network)?
-        .map_err(|_| ServerError::Network)
+    tokio::time::timeout(timeout, send).await.map_err(|_| ServerError::Network)?.map_err(|_| ServerError::Network)
 }
 
 impl PlayerSocket {

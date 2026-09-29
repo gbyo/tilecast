@@ -2825,10 +2825,8 @@ async fn watch_live_same_id_renewal_restarts_a_finished_capture_task() {
     // reconciliation. The capture worker exits while the reconciler still
     // remembers this session ID.
     let session = open_live_session_with_expiry(&harness.fake, 1);
-    wait_long("a frame before the short lease expires", 30, async || {
-        live_frames_for(&harness.fake, &session) >= 1
-    })
-    .await;
+    wait_long("a frame before the short lease expires", 30, async || live_frames_for(&harness.fake, &session) >= 1)
+        .await;
     tokio::time::sleep(Duration::from_secs(2)).await;
     let before = live_frames_for(&harness.fake, &session);
 
@@ -2836,10 +2834,7 @@ async fn watch_live_same_id_renewal_restarts_a_finished_capture_task() {
     // even though the UUID did not change.
     harness.fake.live_expires_in_secs.store(15, Ordering::SeqCst);
     harness.fake.live_push_generation.fetch_add(1, Ordering::SeqCst);
-    wait_long("frames after the same-ID renewal", 30, async || {
-        live_frames_for(&harness.fake, &session) > before
-    })
-    .await;
+    wait_long("frames after the same-ID renewal", 30, async || live_frames_for(&harness.fake, &session) > before).await;
 
     renderer.stop();
     player.stop().await;
