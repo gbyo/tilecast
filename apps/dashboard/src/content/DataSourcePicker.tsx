@@ -14,7 +14,6 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   Check,
-  ChevronDown,
   ChevronRight,
   Database,
   Plus,
@@ -29,9 +28,10 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   Dialog,
   DialogContent,
@@ -234,7 +234,7 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
           </strong>
           <small className="text-xs text-muted-foreground">{guide.shape}</small>
         </span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <CollapsibleChevron size={16} />
       </CollapsibleTrigger>
       <CollapsibleContent className="grid gap-2 px-1 pt-2">
         <p className="text-sm text-muted-foreground">{guide.summary}</p>
