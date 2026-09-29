@@ -2563,7 +2563,7 @@ export function LayoutEditorPage() {
         <Plus
           aria-hidden="true"
           className={cn(
-            "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "transition-transform duration-(--tc-motion-standard) ease-(--tc-ease-standard) motion-reduce:transition-none",
             addMenuOpen && "rotate-45",
           )}
         />
