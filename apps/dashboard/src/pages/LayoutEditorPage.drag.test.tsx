@@ -626,4 +626,38 @@ describe("Layout editor layers and zoom controls", () => {
       else document.body.setAttribute("tabindex", previousTabIndex);
     }
   });
+
+  it("keeps text editing keys local while allowing editor commands from controls", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    const control = await screen.findByRole("button", {
+      name: "Add to canvas",
+    });
+    const press = (
+      target: HTMLElement,
+      key: string,
+      modifiers: Pick<KeyboardEventInit, "ctrlKey" | "metaKey" | "code"> = {},
+    ) => {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...modifiers,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    expect(press(control, "z", { ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(press(control, "+", { ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(press(control, " ", { code: "Space" }).defaultPrevented).toBe(false);
+
+    const input = document.createElement("input");
+    document.body.append(input);
+    try {
+      expect(press(input, "z", { ctrlKey: true }).defaultPrevented).toBe(false);
+    } finally {
+      input.remove();
+    }
+  });
 });

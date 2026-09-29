@@ -86,7 +86,10 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
-import { isInteractiveShortcutTarget } from "../lib/keyboard";
+import {
+  isEditorCommandShortcutTarget,
+  isInteractiveShortcutTarget,
+} from "../lib/keyboard";
 import {
   Dialog,
   DialogContent,
@@ -959,7 +962,13 @@ export function LayoutEditorPage() {
   // Cmd/Ctrl 0 fits, 1 is 100%, +/- zoom about the center; Space arms panning.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
+      const controlCommand =
+        (event.ctrlKey || event.metaKey) &&
+        isEditorCommandShortcutTarget(event.target);
+      if (
+        event.defaultPrevented ||
+        (isInteractiveShortcutTarget(event.target) && !controlCommand)
+      )
         return;
       if (event.code === "Space") {
         event.preventDefault();
@@ -2105,7 +2114,13 @@ export function LayoutEditorPage() {
         void save();
         return;
       }
-      if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
+      const controlCommand =
+        (event.ctrlKey || event.metaKey) &&
+        isEditorCommandShortcutTarget(event.target);
+      if (
+        event.defaultPrevented ||
+        (isInteractiveShortcutTarget(event.target) && !controlCommand)
+      )
         return;
       // While a context menu is up its own keys own the keyboard, so arrowing through
       // the items does not also nudge or delete the selection behind it.

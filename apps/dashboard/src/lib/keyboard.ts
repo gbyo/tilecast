@@ -24,6 +24,19 @@ const interactiveShortcutTargetSelector = [
   "[role='treeitem']",
 ].join(",");
 
+const editorCommandShortcutTargetSelector = [
+  "button",
+  "input[type='button']",
+  "input[type='submit']",
+  "input[type='reset']",
+  "input[type='checkbox']",
+  "input[type='radio']",
+  "[role='button']",
+  "[role='checkbox']",
+  "[role='radio']",
+  "[role='switch']",
+].join(",");
+
 /** Return whether a focused interactive or editable control should own its keys. */
 export function isInteractiveShortcutTarget(target: EventTarget | null) {
   if (!(target instanceof Element)) return false;
@@ -31,5 +44,13 @@ export function isInteractiveShortcutTarget(target: EventTarget | null) {
 
   return Boolean(
     target.closest("[contenteditable]:not([contenteditable='false'])"),
+  );
+}
+
+/** Return whether editor commands may run while a non-editable control is focused. */
+export function isEditorCommandShortcutTarget(target: EventTarget | null) {
+  return (
+    target instanceof Element &&
+    Boolean(target.closest(editorCommandShortcutTargetSelector))
   );
 }
