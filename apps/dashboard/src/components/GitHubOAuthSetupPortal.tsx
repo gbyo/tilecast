@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Clipboard, ExternalLink, Github } from "lucide-react";
+import { Check, Clipboard, ExternalLink } from "lucide-react";
+import { GitHubIcon } from "./GitHubIcon";
 import { useLocation } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -225,7 +226,7 @@ export function GitHubOAuthSetupPortal() {
               setSetupOpen(true);
             }}
           >
-            <Github size={16} aria-hidden="true" />
+            <GitHubIcon size={16} aria-hidden="true" />
             {t("updates.setup.connect")}
           </Button>,
           target,
@@ -341,7 +342,7 @@ export function GitHubOAuthSetupPortal() {
               disabled={!validClientID(clientId) || configure.isPending}
               onClick={() => configure.mutate()}
             >
-              <Github size={16} aria-hidden="true" />
+              <GitHubIcon size={16} aria-hidden="true" />
               {configure.isPending
                 ? t("common:actions.saving")
                 : t("updates.setup.saveConnect")}
