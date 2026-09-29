@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	datasources "github.com/tilecast/tilecast/data-sources"
+	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 )
 
 const CompilerVersion = "definition-compiler-v2"
@@ -54,21 +55,8 @@ var supportedOutputFieldTypes = map[string]bool{
 	"boolean": true, "date": true, "datetime": true, "duration": true, "url": true, "asset": true,
 }
 
-// supportedCapabilities enumerates every presentation capability a Widget may require.
-// It must stay in agreement with the Player's declared native capabilities and the web
-// runtime capability; unknown names are rejected at startup.
-var supportedCapabilities = map[string]bool{
-	"layout.surface": true, "layout.box": true, "layout.row": true, "layout.column": true,
-	"layout.stack": true, "layout.grid": true, "layout.spacer": true, "layout.divider": true,
-	"content.text": true, "content.icon": true, "content.asset_image": true, "content.badge": true,
-	"content.progress": true, "content.qr_code": true, "content.marquee": true,
-	"content.line_chart": true, "content.bar_chart": true, "content.donut_chart": true,
-	"collection.repeat": true, "collection.conditional": true, "collection.grouped_sections": true,
-	"binding.core": true, "format.typed": true, "selection.relative_date": true,
-	"selection.temporal": true,
-	"playback.auto_skip": true,
-	"environment.time":   true, "web.remote": true,
-}
+// Declarative capability names and versions are owned by the manifest contract.
+// web.remote remains a separate web-runtime capability.
 
 // supportedBindingSources and supportedConditionOperators mirror the vocabularies the
 // Player enforces in ManifestSyncManager, keeping Server validation and Player playback
@@ -877,7 +865,7 @@ func validateFetchSpec(spec FetchSpec, schema ConfigurationSchema, output Output
 // validateCapabilities rejects unknown capability names and versions below one.
 func validateCapabilities(capabilities map[string]int) error {
 	for name, version := range capabilities {
-		if !supportedCapabilities[name] {
+		if name != "web.remote" && !presentationcaps.Supports(name) {
 			return fmt.Errorf("declares unknown capability %q", name)
 		}
 		if version < 1 {
