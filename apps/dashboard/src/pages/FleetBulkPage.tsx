@@ -111,18 +111,25 @@ export function FleetBulkPage() {
     auth.status?.user?.role ?? "",
   );
 
-  const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
+  const screens = useQuery({
+    queryKey: ["screens"],
+    queryFn: api.screens,
+    enabled: canManage,
+  });
   const playlists = useQuery({
     queryKey: ["playlists"],
     queryFn: () => api.playlists(),
+    enabled: canManage,
   });
   const layouts = useQuery({
     queryKey: ["layouts"],
     queryFn: () => api.layouts(),
+    enabled: canManage,
   });
   const operations = useQuery({
     queryKey: ["bulk-operations"],
     queryFn: () => api.bulkOperations(5),
+    enabled: canManage,
   });
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -178,6 +185,17 @@ export function FleetBulkPage() {
       void client.invalidateQueries({ queryKey: ["bulk-operations"] });
     },
   });
+
+  if (!canManage) {
+    return (
+      <div className="bulk-page">
+        <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
+        <Alert variant="destructive">
+          <AlertDescription>{t("bulk.manageOnly")}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const ready =
     selected.length > 0 &&
