@@ -36,11 +36,20 @@ class RuntimeEvidenceRouter(
         widgetProviders: Map<String, String> = this.widgetProviders,
         websiteAssets: Set<String> = this.websiteAssets,
     ) {
+        // A replaced activation disposes the previous presentation: drop
+        // its Widget/Website status like the native renderers did on
+        // dispose, so a later item cannot inherit a stale widgetId (which
+        // would also keep the foreground watchdog disabled).
+        val activationChanged = activationId != this.activationId
         this.activationId = activationId
         assetByItem = items.associate { it.id to it.assetId }
         this.widgetProviders = widgetProviders
         this.websiteAssets = websiteAssets
         framed.clear()
+        if (activationChanged) {
+            onWidgetStatus(WidgetPlaybackStatus())
+            onWebsiteStatus(WebsitePlaybackStatus())
+        }
     }
 
     fun handle(report: RuntimeReport, reportActivationId: String?): Boolean {
@@ -64,7 +73,14 @@ class RuntimeEvidenceRouter(
         val itemId = report.itemId
         when (report.kind) {
             "item-started" -> {
-                if (itemId != null) onBoundary(itemId, assetByItem[itemId] ?: "")
+                // A new item displaces the previous one: clear statuses the
+                // starting item cannot own, so a Widget played earlier does
+                // not linger (and suppress the watchdog) through later
+                // image/video/layout items.
+                val asset = itemId?.let(assetByItem::get)
+                if (asset == null || asset !in widgetProviders) onWidgetStatus(WidgetPlaybackStatus())
+                if (asset == null || asset !in websiteAssets) onWebsiteStatus(WebsitePlaybackStatus())
+                if (itemId != null) onBoundary(itemId, asset ?: "")
             }
             "image-shown", "video-progress", "widget-shown", "layout-shown",
             "website-loaded", "surface-shown" -> {

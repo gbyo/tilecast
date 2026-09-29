@@ -267,6 +267,39 @@ class RuntimeEvidenceRouterTest {
         assertEquals("tls", siteStatuses.last().failureCategory)
     }
 
+    @Test fun itemStartAndActivationReplaceClearStaleStatuses() {
+        val mixed = listOf(
+            ManifestItem("w1", "widget-1", null, "widget", 5_000, "contain", "none", false, 0f, deliveryPolicy = "stream"),
+            ManifestItem("i1", "a1", "v1", "image", 10_000, "contain", "none", false, 0f, deliveryPolicy = "cache"),
+        )
+        val statuses = mutableListOf<org.tilecast.player.content.WidgetPlaybackStatus>()
+        val siteStatuses = mutableListOf<org.tilecast.player.content.WebsitePlaybackStatus>()
+        val router = RuntimeEvidenceRouter(
+            mixed, "act1",
+            onBoundary = { _, _ -> },
+            onError = {},
+            onProgress = {},
+            onWidgetStatus = { statuses.add(it) },
+            onWebsiteStatus = { siteStatuses.add(it) },
+            widgetProviders = mapOf("widget-1" to "clock"),
+            websiteAssets = emptySet(),
+        )
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "w1", "widget-shown", null), "act1")
+        assertEquals("widget-1", statuses.last().widgetId)
+        // Rebinding the same activation (state replay) clears nothing.
+        router.replace(mixed, "act1", mapOf("widget-1" to "clock"), emptySet())
+        assertEquals(1, statuses.size)
+        // A later image item displaces the Widget: the stale widgetId must
+        // go so the foreground watchdog resumes.
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "i1", "item-started", null), "act1")
+        assertEquals(null, statuses.last().widgetId)
+        // Activation replacement disposes the presentation: both clear.
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "w1", "widget-shown", null), "act1")
+        router.replace(mixed, "act2", mapOf("widget-1" to "clock"), emptySet())
+        assertEquals(null, statuses.last().widgetId)
+        assertEquals(null, siteStatuses.last().assetId)
+    }
+
     @Test fun authoritativeRoutingResolvesThreadedRootLayouts() {
         val document = org.tilecast.player.network.LayoutDocument(
             schemaVersion = 1,
