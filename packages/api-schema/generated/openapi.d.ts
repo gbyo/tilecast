@@ -11352,7 +11352,7 @@ export interface operations {
         scope: string;
         state?: string;
         code_challenge: string;
-        /** @description S256 */
+        /** @description S256, or omitted. The Server rejects any other value. */
         code_challenge_method?: string;
       };
       header?: never;

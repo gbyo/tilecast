@@ -11300,7 +11300,7 @@ type DescribeOAuthApprovalParams struct {
 	State         *string `form:"state,omitempty" json:"state,omitempty"`
 	CodeChallenge string  `form:"code_challenge" json:"code_challenge"`
 
-	// CodeChallengeMethod S256
+	// CodeChallengeMethod S256, or omitted. The Server rejects any other value.
 	CodeChallengeMethod *string `form:"code_challenge_method,omitempty" json:"code_challenge_method,omitempty"`
 }
 
