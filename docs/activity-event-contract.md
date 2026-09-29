@@ -13,7 +13,7 @@ Every event carries the same envelope. The server assigns `receivedAt`. Everythi
 | Field               | Required | Notes                                                                                      |
 | ------------------- | -------- | ------------------------------------------------------------------------------------------ |
 | `id`                | yes      | UUID. Retries reuse it, which is what makes ingestion idempotent.                          |
-| `sequence`          | yes      | Positive, monotonic per device, persisted across process restarts.                         |
+| `sequence`          | yes      | Positive and normally monotonic per device. The server tolerates a reset after local state corruption without dropping the new UUID. |
 | `eventType`         | yes      | A name from the table below.                                                               |
 | `category`          | no       | Derived from the event name when absent.                                                   |
 | `severity`          | no       | `debug`, `info`, `warning`, `error`, `critical`. Derived when absent.                      |
