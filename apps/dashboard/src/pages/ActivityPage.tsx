@@ -422,7 +422,7 @@ export function ActivityPage() {
         <TabsList
           variant="line"
           aria-label={t("page.tabsLabel")}
-          className="w-full justify-start overflow-x-auto"
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
         >
           {activityTabs.map((item) => (
             <TabsTrigger
