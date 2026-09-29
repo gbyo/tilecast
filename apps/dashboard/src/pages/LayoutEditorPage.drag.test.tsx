@@ -392,7 +392,11 @@ describe("Layout editor chrome", () => {
     await waitFor(() => expect(saveStatus()).toHaveTextContent("Not saved"), {
       timeout: 2_000,
     });
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: "Layout file actions" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Save now/ }));
     await waitFor(() => expect(saveStatus()).toHaveTextContent("Saved"));
   });
 });
@@ -419,8 +423,18 @@ describe("Layout editor layers and zoom controls", () => {
     await screen.findByText("New text");
 
     const user = userEvent.setup();
-    const preview = screen.getByRole("button", { name: "Preview" });
-    await user.click(preview);
+    expect(screen.queryByRole("button", { name: "Preview" })).toBeNull();
+    const fileActions = screen.getByRole("button", {
+      name: "Layout file actions",
+    });
+    await user.click(fileActions);
+    expect(
+      await screen.findByRole("menuitem", { name: "Undo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Redo" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Preview" }));
     expect(open).toHaveBeenCalledWith(
       "about:blank",
       "tilecast-layout-preview-layout-1",
@@ -436,11 +450,8 @@ describe("Layout editor layers and zoom controls", () => {
     expect(popup.opener).toBeNull();
     expect(focus).toHaveBeenCalled();
 
-    // History lives with the other file commands rather than the toolbar.
+    // History and secondary editor actions live in the compact file menu.
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
-    const fileActions = screen.getByRole("button", {
-      name: "Layout file actions",
-    });
     await user.click(fileActions);
     await user.click(await screen.findByRole("menuitem", { name: "History…" }));
     expect(
