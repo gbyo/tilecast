@@ -30,8 +30,10 @@ jobs:
         run: scripts/check-architecture.sh
       # The app has no third-party packages, so there is no dependency
       # cache to restore. A cold build of this size takes a few minutes.
-      - name: Choose a simulator
-        run: echo "DESTINATION=$(scripts/simulator-destination.py)" >> "$GITHUB_ENV"
+      - name: Choose simulators
+        run: |
+          echo "DESTINATION=$(scripts/simulator-destination.py)" >> "$GITHUB_ENV"
+          echo "IPAD_DESTINATION=$(scripts/simulator-destination.py --ipad)" >> "$GITHUB_ENV"
       - name: Build for testing
         run: >
           xcodebuild build-for-testing
@@ -60,6 +62,17 @@ jobs:
           -derivedDataPath "$DERIVED_DATA"
           -only-testing:TilecastUITests
           -resultBundlePath "$RUNNER_TEMP/ui-tests.xcresult"
+      # The same build runs on an iPad, where regular width shows the native
+      # sidebar instead of tabs.
+      - name: UI tests on iPad
+        timeout-minutes: 10
+        run: >
+          xcodebuild test-without-building
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$IPAD_DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -only-testing:TilecastUITests/NativeNavigationUITests
+          -resultBundlePath "$RUNNER_TEMP/ipad-ui-tests.xcresult"
       - name: Upload test results
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
