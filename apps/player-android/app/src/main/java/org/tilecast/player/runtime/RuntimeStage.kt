@@ -89,6 +89,7 @@ private class RemoteBridge(private val onEvent: (kind: String, code: String?) ->
 @Composable
 fun SharedRuntimePlayback(
     session: PlaybackSession,
+    items: List<ManifestItem> = session.content.manifest.playlist?.items ?: emptyList(),
     message: JsonObject,
     activationId: String,
     hostVersion: String,
@@ -101,7 +102,6 @@ fun SharedRuntimePlayback(
     onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
 ) {
     val manifest = session.content.manifest
-    val items = manifest.playlist?.items ?: emptyList()
     // Recreated only on renderer death; new presentations reuse the WebView
     // and arrive through state replay plus a numeric nudge.
     var instance by remember { mutableIntStateOf(0) }

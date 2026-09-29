@@ -232,4 +232,31 @@ class RuntimeEvidenceRouterTest {
             RuntimeCutover.enabled = false
         }
     }
+
+    @Test fun cutoverRoutesRootLayoutsWithoutPlaylistMedia() {
+        val document = org.tilecast.player.network.LayoutDocument(
+            schemaVersion = 1,
+            canvas = org.tilecast.player.network.LayoutCanvas(1920, 1080, "landscape", "#000000"),
+        )
+        val layout = org.tilecast.player.network.ManifestLayout("l1", "r1", 1, "hash", document)
+        val manifest = PlayerManifest(
+            15, 1, "s", "t", "single-zone",
+            assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
+            layout = layout,
+            layouts = listOf(layout),
+        )
+        val content = org.tilecast.player.content.PreparedContent(manifest, emptyMap())
+        val rootItems = listOf(org.tilecast.player.content.rootLayoutItem(layout))
+        RuntimeCutover.enabled = true
+        try {
+            // No finite duration and no cached media required: the reference
+            // persists until replacement and zones project what is cached.
+            assertTrue(RuntimeCutover.useSharedRuntime(content, rootItems, layout))
+            assertFalse(RuntimeCutover.useSharedRuntime(content, rootItems, null))
+            val other = layout.copy(id = "l2")
+            assertFalse(RuntimeCutover.useSharedRuntime(content, rootItems, other))
+        } finally {
+            RuntimeCutover.enabled = false
+        }
+    }
 }

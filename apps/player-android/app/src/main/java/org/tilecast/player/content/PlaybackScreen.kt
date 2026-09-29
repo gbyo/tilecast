@@ -51,6 +51,7 @@ import okhttp3.Request
 import org.tilecast.player.activity.PlaybackActivityReporter
 import org.tilecast.player.network.ManifestAsset
 import org.tilecast.player.network.ManifestItem
+import org.tilecast.player.network.ManifestLayout
 import org.tilecast.player.network.ManifestWidget
 import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.PlayerPlaybackDefaults
@@ -92,6 +93,24 @@ internal fun runtimePlaylistItems(session: PlaybackSession): List<ManifestItem> 
     if (start !in items.indices || start == 0) return items
     return items.drop(start) + items.take(start)
 }
+
+/**
+ * The selected root Layout as one shared-runtime playlist item, mirroring
+ * the Edge reference host: a single layout reference with no finite
+ * duration, so it persists until schedule/manifest/presentation replacement.
+ */
+internal fun rootLayoutItem(layout: ManifestLayout): ManifestItem = ManifestItem(
+    id = "layout-${layout.id}",
+    assetId = layout.id,
+    assetType = "layout",
+    layoutId = layout.id,
+    durationMs = null,
+    fitMode = "contain",
+    transition = "none",
+    audioEnabled = false,
+    volume = 0f,
+    deliveryPolicy = "stream",
+)
 
 /**
  * Apply the player defaults only where a manifest item does not carry a
@@ -169,15 +188,19 @@ private fun FullscreenPlaybackBody(
     // in the trusted Player Runtime WebView. The gate defaults off until
     // device validation flips it; everything else keeps the legacy path.
     val sharedRuntimeItems = runtimePlaylistItems(session)
-    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, sharedRuntimeItems)) {
+    // A selected root Layout plays as one layout reference through the same
+    // shared-runtime path; playlists keep the existing cutover behavior.
+    val rootLayout = session.content.manifest.layout
+    val runtimeItems = if (rootLayout != null) listOf(rootLayoutItem(rootLayout)) else sharedRuntimeItems
+    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, runtimeItems, rootLayout)) {
         val runtimeManifest = session.content.manifest
         val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
         val runtimeActivationId = session.runtimeActivation.id
         val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
             org.tilecast.player.runtime.RuntimeScreenState.Playing(
                 content = session.content,
-                items = sharedRuntimeItems,
-                fullscreenLayout = null,
+                items = runtimeItems,
+                fullscreenLayout = rootLayout,
                 playbackDefaults = session.playbackDefaults,
                 websitePolicy = session.websitePolicy,
                 activationId = runtimeActivationId,
@@ -191,6 +214,7 @@ private fun FullscreenPlaybackBody(
         val runtimeContext = androidx.compose.ui.platform.LocalContext.current
         org.tilecast.player.runtime.SharedRuntimePlayback(
             session = session,
+            items = runtimeItems,
             message = runtimeMessage,
             activationId = runtimeActivationId,
             hostVersion = org.tilecast.player.BuildConfig.VERSION_NAME,

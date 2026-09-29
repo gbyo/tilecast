@@ -1,12 +1,14 @@
 package org.tilecast.player.runtime
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import org.junit.Assert.*
 import org.junit.Test
 import org.tilecast.player.content.PlaybackCursor
@@ -272,6 +274,36 @@ class RuntimePresentationBuilderTest {
         assertEquals("layout", built["kind"]!!.jsonPrimitive.content)
         assertEquals("l1", built["layout"]!!.jsonObject["layoutId"]!!.jsonPrimitive.content)
         assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
+    }
+
+    @Test fun rootLayoutPlaysAsOneLayoutReferenceWithoutDuration() {
+        val document = org.tilecast.player.network.LayoutDocument(
+            schemaVersion = 1,
+            canvas = org.tilecast.player.network.LayoutCanvas(1920, 1080, "landscape", "#000000"),
+        )
+        val layout = org.tilecast.player.network.ManifestLayout("l1", "r1", 1, "hash", document)
+        val manifest = manifest(emptyList()).copy(layout = layout, layouts = listOf(layout))
+        val items = listOf(org.tilecast.player.content.rootLayoutItem(layout))
+        assertEquals("layout-l1", items[0].id)
+        assertNull(items[0].durationMs)
+        val rawManifest = buildJsonObject {
+            put("layout", buildJsonObject { put("id", "l1") })
+            putJsonArray("layouts") { addJsonObject { put("id", "l1") } }
+        }
+        val state = playing(manifest, items).copy(
+            content = PreparedContent(manifest, emptyMap(), projectionManifest = rawManifest),
+            fullscreenLayout = layout,
+        )
+        val presentation = RuntimePresentationBuilder.build(state)
+        val built = presentation["items"]!!.jsonArray[0].jsonObject
+        assertEquals("layout", built["kind"]!!.jsonPrimitive.content)
+        assertEquals("l1", built["layout"]!!.jsonObject["layoutId"]!!.jsonPrimitive.content)
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0], layout))
+        // The reference persists until replacement: projection carries the
+        // manifest subset so zones and availability project in the runtime.
+        val message = RuntimePresentationBuilder.hostMessage(state)
+        assertTrue("projection" in message)
+        assertTrue("layout" in message["projection"]!!.jsonObject["manifest"]!!.jsonObject)
     }
 
     @Test fun projectionCarriesVerifiedManifestMediaClockAndPlayback() {

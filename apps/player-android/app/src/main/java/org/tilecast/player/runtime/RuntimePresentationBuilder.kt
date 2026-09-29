@@ -113,7 +113,7 @@ object RuntimePresentationBuilder {
      */
     internal fun projectionOf(state: RuntimeScreenState.Playing): JsonObject? {
         val manifest = state.content.manifest
-        val built = state.items.map { buildItem(manifest, it, state.playbackDefaults, state.websitePolicy) }
+        val built = state.items.map { buildItem(manifest, it, state.playbackDefaults, state.websitePolicy, state.fullscreenLayout) }
         if (built.none { needsProjection(it.json) }) return null
         val raw = state.content.projectionManifest
         return buildJsonObject {
@@ -155,8 +155,8 @@ object RuntimePresentationBuilder {
         "widgets", "dataSources", "layouts", "layout", "canvas", "viewport",
     )
 
-    fun isRuntimeRenderable(manifest: PlayerManifest, item: ManifestItem): Boolean =
-        buildItem(manifest, item, null, null).runtimeRenderable
+    fun isRuntimeRenderable(manifest: PlayerManifest, item: ManifestItem, rootLayout: ManifestLayout? = null): Boolean =
+        buildItem(manifest, item, null, null, rootLayout).runtimeRenderable
 
     private fun branded(state: String, branding: PlayerBranding, logoSrc: String?): JsonObject =
         buildJsonObject {
@@ -171,7 +171,7 @@ object RuntimePresentationBuilder {
 
     private fun buildPlaying(state: RuntimeScreenState.Playing): JsonObject {
         val manifest = state.content.manifest
-        val built = state.items.map { buildItem(manifest, it, state.playbackDefaults, state.websitePolicy) }
+        val built = state.items.map { buildItem(manifest, it, state.playbackDefaults, state.websitePolicy, state.fullscreenLayout) }
         return buildJsonObject {
             put("state", "playing")
             putJsonArray("items") { built.forEach { add(it.json) } }
@@ -201,13 +201,19 @@ object RuntimePresentationBuilder {
         item: ManifestItem,
         defaults: PlayerPlaybackDefaults?,
         websitePolicy: PlayerWebsitePolicy?,
+        rootLayout: ManifestLayout? = null,
     ): BuiltRuntimeItem {
         val resolved = item.withPlaybackDefaults(defaults)
         val website = manifest.websites.firstOrNull { it.assetId == item.assetId }?.let {
             resolveWebsitePolicy(it, websitePolicy)
         }
         val widget = manifest.widgets.firstOrNull { it.assetId == item.assetId }
-        val layout = item.layoutId?.let { id -> manifest.layouts.firstOrNull { it.id == id } }
+        // A selected root Layout may live outside manifest.layouts (for
+        // example a direct fallback), so the caller threads the resolved
+        // Layout through; playlist Layout items resolve from the list.
+        val layout = item.layoutId?.let { id ->
+            if (rootLayout?.id == id) rootLayout else manifest.layouts.firstOrNull { it.id == id }
+        }
         val asset = item.variantId?.let { variant -> manifest.assets.firstOrNull { it.variantId == variant } }
 
         if (item.assetType == "layout" && layout != null) {
