@@ -2,7 +2,11 @@
 
 import "@testing-library/jest-dom/vitest";
 import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -326,6 +330,47 @@ describe("navigation a presentation relays to the main page", () => {
     expect(host.deliver("navigation/open-path", { path: "/screens" })).toBe(
       false,
     );
+  });
+});
+
+describe("refetching after a presentation ends", () => {
+  function Names({ fetchName }: { fetchName: () => Promise<string> }) {
+    const query = useQuery({ queryKey: ["names"], queryFn: fetchName });
+    return <p>Name {query.data}</p>;
+  }
+
+  it("refetches active queries in the main page", async () => {
+    const host = installNativeHost();
+    const fetchName = vi
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce("Old")
+      .mockResolvedValue("Renamed");
+    renderRoutes(
+      [{ path: "*", element: <Names fetchName={fetchName} /> }],
+      "/",
+    );
+    expect(await screen.findByText("Name Old")).toBeInTheDocument();
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    expect(host.deliver("presentation/ended", { presentationId: "p-1" })).toBe(
+      true,
+    );
+    expect(await screen.findByText("Name Renamed")).toBeInTheDocument();
+    expect(fetchName).toHaveBeenCalledTimes(2);
+  });
+
+  it("is inert in a presentation page", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    const fetchName = vi.fn<() => Promise<string>>().mockResolvedValue("Old");
+    renderRoutes(
+      [{ path: "*", element: <Names fetchName={fetchName} /> }],
+      "/",
+    );
+    expect(await screen.findByText("Name Old")).toBeInTheDocument();
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    expect(host.deliver("presentation/ended", { presentationId: "p-1" })).toBe(
+      false,
+    );
+    expect(fetchName).toHaveBeenCalledTimes(1);
   });
 });
 

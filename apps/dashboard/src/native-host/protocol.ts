@@ -141,6 +141,8 @@ export type NativeToFrontendPayloads = {
   "presentation/action": { presentationId: string; actionId: string };
   /** Presentation page: the native sheet went away. */
   "presentation/dismissed": { presentationId: string };
+  /** Main page: a presentation ended, so what it changed may be stale. */
+  "presentation/ended": { presentationId: string };
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -365,6 +367,7 @@ export function decodeNativeMessage(
         },
       };
     case "presentation/dismissed":
+    case "presentation/ended":
       if (!isOpaqueId(payload.presentationId)) return { outcome: "malformed" };
       return {
         outcome: "accept",

@@ -1734,6 +1734,19 @@
       }
     },
     {
+      "name": "presentation/ended",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "presentationEnded",
+      "message": {
+        "version": 1,
+        "type": "presentation/ended",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
       "name": "navigation/open-path",
       "direction": "nativeToFrontend",
       "outcome": "accept",
@@ -1828,6 +1841,18 @@
       "message": {
         "version": 1,
         "type": "presentation/dismissed",
+        "payload": {
+          "presentationId": "p-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "presentation/ended with an oversized presentation id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/ended",
         "payload": {
           "presentationId": "p-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         }

@@ -511,7 +511,8 @@
                 "navigation/open-path",
                 "presentation/show",
                 "presentation/action",
-                "presentation/dismissed"
+                "presentation/dismissed",
+                "presentation/ended"
               ]
             }
           }
@@ -552,6 +553,15 @@
           "if": {
             "properties": { "type": { "const": "presentation/dismissed" } }
           },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. A presentation ended, however it was dismissed. Studio refetches what a presentation may have changed. Sent only when the main page negotiated nativePresentations.",
+          "if": { "properties": { "type": { "const": "presentation/ended" } } },
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/presentationIdPayload" }

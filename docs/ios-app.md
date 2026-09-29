@@ -168,6 +168,7 @@ The bridge is privileged. The app applies these rules:
 | `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load |
 | `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                        |
 | `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                   |
+| `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries  |
 | `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path             |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
@@ -302,7 +303,8 @@ Both sides validate paths. `presentation/open` and `presentation/show` accept on
 3. The sheet opens immediately with the title and a native loader. When the page is ready, the app sends `presentation/show`. Studio routes to the child with React Router and keys it with the presentation id. The app never loads a presentation route.
 4. The page sends `presentation/update` with complete header snapshots. The app ignores messages for an id that is not active.
 5. When the sheet goes away for any reason, the app sends `presentation/dismissed`. Studio goes back to the empty root. This removes the content and stops transient work, for example a live stream lease.
-6. `presentation/navigate` dismisses the sheet. The app then relays the path with `navigation/open-path`, and the React Router of the main page navigates, so unsaved-change blockers apply. The app never loads a URL in the main page for it.
+6. The presentation page has its own query cache, so a change that a presentation saved is stale in the main page. When any presentation ends, the app sends `presentation/ended` to the main page, if that page negotiated presentations. Studio refetches its active queries. This is generic: the app does not know what the presentation changed.
+7. `presentation/navigate` dismisses the sheet. The app then relays the path with `navigation/open-path`, and the React Router of the main page navigates, so unsaved-change blockers apply. The app never loads a URL in the main page for it.
 
 The app keeps the page for the next presentation. On a memory warning, the app discards the page when no sheet shows it. These also discard it: a server switch or removal, a changed installation, sign-out, and a new main document that did not negotiate. If its content process stops while the page is hidden, the app discards it. If the page is visible, the sheet shows an error with Try Again, which rebuilds only the presentation page.
 
