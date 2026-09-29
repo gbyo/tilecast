@@ -2,7 +2,11 @@ package org.tilecast.player.conformance
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.view.PixelCopy
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.webkit.JavascriptInterface
@@ -272,9 +276,12 @@ class PlayerRuntimeConformanceTest {
     ) {
         require(checkpoint.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "invalid checkpoint name" }
         val rect = IntArray(2)
-        val located = java.util.concurrent.FutureTask { webView.getLocationOnScreen(rect) }
+        val located = java.util.concurrent.FutureTask {
+            webView.getLocationInWindow(rect)
+            Rect(rect[0], rect[1], rect[0] + webView.width, rect[1] + webView.height)
+        }
         activity.runOnUiThread(located)
-        located.get(10, TimeUnit.SECONDS)
+        val sourceRect = located.get(10, TimeUnit.SECONDS)
         val visualStateReady = CountDownLatch(1)
         val frameCommitted = CountDownLatch(1)
         activity.runOnUiThread {
@@ -283,6 +290,7 @@ class PlayerRuntimeConformanceTest {
                 object : WebView.VisualStateCallback() {
                     override fun onComplete(requestId: Long) {
                         visualStateReady.countDown()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) return
                         val decorView = activity.window.decorView
                         val observer = decorView.viewTreeObserver
                         var listenerRemovalPosted = false
@@ -317,21 +325,48 @@ class PlayerRuntimeConformanceTest {
         check(visualStateReady.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView visual state before $checkpoint screenshot"
         }
-        check(frameCommitted.await(10, TimeUnit.SECONDS)) {
-            "timed out waiting for WebView frame before $checkpoint screenshot"
+        val cropped = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // UIAutomation may still return the previous WebView surface buffer after this callback.
+            val bitmap = Bitmap.createBitmap(
+                sourceRect.width(),
+                sourceRect.height(),
+                Bitmap.Config.ARGB_8888,
+            )
+            val copied = CountDownLatch(1)
+            val copyResult = AtomicReference<Int?>(null)
+            PixelCopy.request(
+                activity.window,
+                sourceRect,
+                bitmap,
+                { result ->
+                    copyResult.set(result)
+                    copied.countDown()
+                },
+                Handler(Looper.getMainLooper()),
+            )
+            check(copied.await(10, TimeUnit.SECONDS)) {
+                "timed out waiting for PixelCopy before $checkpoint screenshot"
+            }
+            check(copyResult.get() == PixelCopy.SUCCESS) {
+                "PixelCopy failed before $checkpoint screenshot: ${copyResult.get()}"
+            }
+            bitmap
+        } else {
+            check(frameCommitted.await(10, TimeUnit.SECONDS)) {
+                "timed out waiting for WebView frame before $checkpoint screenshot"
+            }
+            val full = instrumentation.uiAutomation.takeScreenshot()
+                ?: error("screenshot unavailable")
+            val x = rect[0].coerceIn(0, full.width - 1)
+            val y = rect[1].coerceIn(0, full.height - 1)
+            val w = webView.width.coerceIn(1, full.width - x)
+            val h = webView.height.coerceIn(1, full.height - y)
+            Bitmap.createBitmap(full, x, y, w, h).also { full.recycle() }
         }
-        val full = instrumentation.uiAutomation.takeScreenshot()
-            ?: error("screenshot unavailable")
-        val x = rect[0].coerceIn(0, full.width - 1)
-        val y = rect[1].coerceIn(0, full.height - 1)
-        val w = webView.width.coerceIn(1, full.width - x)
-        val h = webView.height.coerceIn(1, full.height - y)
-        val cropped = Bitmap.createBitmap(full, x, y, w, h)
         File(outDir, "$checkpoint.png").outputStream().use { out ->
             cropped.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         cropped.recycle()
-        if (cropped !== full) full.recycle()
     }
 
     private fun visualCheckpoints(fixtureJson: String): Set<String> {
