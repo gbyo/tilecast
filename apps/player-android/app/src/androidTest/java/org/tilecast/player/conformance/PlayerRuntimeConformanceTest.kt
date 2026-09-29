@@ -290,7 +290,6 @@ class PlayerRuntimeConformanceTest {
                 object : WebView.VisualStateCallback() {
                     override fun onComplete(requestId: Long) {
                         visualStateReady.countDown()
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) return
                         val decorView = activity.window.decorView
                         val observer = decorView.viewTreeObserver
                         var listenerRemovalPosted = false
@@ -298,24 +297,24 @@ class PlayerRuntimeConformanceTest {
                             override fun onDraw() {
                                 if (listenerRemovalPosted) return
                                 listenerRemovalPosted = true
+                                if (
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                    decorView.isHardwareAccelerated
+                                ) {
+                                    decorView.registerFrameCommitCallback {
+                                        frameCommitted.countDown()
+                                    }
+                                } else {
+                                    decorView.postOnAnimation { frameCommitted.countDown() }
+                                }
                                 decorView.post {
                                     if (observer.isAlive) {
                                         observer.removeOnDrawListener(this)
                                     }
-                                    // Run after this traversal's draw has finished.
-                                    decorView.postOnAnimation { frameCommitted.countDown() }
                                 }
                             }
                         }
                         observer.addOnDrawListener(listener)
-                        if (
-                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                                decorView.isHardwareAccelerated
-                        ) {
-                            observer.registerFrameCommitCallback {
-                                frameCommitted.countDown()
-                            }
-                        }
                         webView.invalidate()
                         decorView.invalidate()
                     }
@@ -324,6 +323,9 @@ class PlayerRuntimeConformanceTest {
         }
         check(visualStateReady.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView visual state before $checkpoint screenshot"
+        }
+        check(frameCommitted.await(10, TimeUnit.SECONDS)) {
+            "timed out waiting for WebView frame before $checkpoint screenshot"
         }
         val cropped = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             // UIAutomation may still return the previous WebView surface buffer after this callback.
@@ -352,9 +354,6 @@ class PlayerRuntimeConformanceTest {
             }
             bitmap
         } else {
-            check(frameCommitted.await(10, TimeUnit.SECONDS)) {
-                "timed out waiting for WebView frame before $checkpoint screenshot"
-            }
             val full = instrumentation.uiAutomation.takeScreenshot()
                 ?: error("screenshot unavailable")
             val x = rect[0].coerceIn(0, full.width - 1)
