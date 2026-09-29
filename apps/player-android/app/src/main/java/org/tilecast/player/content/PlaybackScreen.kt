@@ -61,6 +61,15 @@ import org.tilecast.player.ui.theme.SignalBackground
 import org.tilecast.player.ui.theme.SignalText
 import java.io.File
 import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
+
+data class RuntimeActivationIdentity(val id: String, val generation: Long)
+
+private val runtimeActivationSequence = AtomicLong(0)
+
+internal fun nextRuntimeActivationIdentity(): RuntimeActivationIdentity =
+    RuntimeActivationIdentity(UUID.randomUUID().toString(), runtimeActivationSequence.incrementAndGet())
 
 data class PlaybackSession(
     val content: PreparedContent,
@@ -72,7 +81,17 @@ data class PlaybackSession(
     val startedAtWallClock: Instant = Instant.now(),
     val playbackDefaults: PlayerPlaybackDefaults? = null,
     val websitePolicy: PlayerWebsitePolicy? = null,
+    val playbackAnchor: Instant? = null,
+    val runtimeActivation: RuntimeActivationIdentity = nextRuntimeActivationIdentity(),
 )
+
+internal fun runtimePlaylistItems(session: PlaybackSession): List<ManifestItem> {
+    val items = session.content.manifest.playlist?.items ?: return emptyList()
+    if (session.content.manifest.syncGroup != null) return items
+    val start = session.initialCursor.index
+    if (start !in items.indices || start == 0) return items
+    return items.drop(start) + items.take(start)
+}
 
 /**
  * Apply the player defaults only where a manifest item does not carry a
@@ -146,6 +165,48 @@ private fun FullscreenPlaybackBody(
         true,
     )
     val activityReporter = rememberPlaybackActivityReporter(session, takeoverDecision)
+    // Shared-runtime cutover (PR2): fully runtime-renderable playlists play
+    // in the trusted Player Runtime WebView. The gate defaults off until
+    // device validation flips it; everything else keeps the legacy path.
+    val sharedRuntimeItems = runtimePlaylistItems(session)
+    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, sharedRuntimeItems)) {
+        val runtimeManifest = session.content.manifest
+        val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
+        val runtimeActivationId = session.runtimeActivation.id
+        val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
+            org.tilecast.player.runtime.RuntimeScreenState.Playing(
+                content = session.content,
+                items = sharedRuntimeItems,
+                fullscreenLayout = null,
+                playbackDefaults = session.playbackDefaults,
+                websitePolicy = session.websitePolicy,
+                activationId = runtimeActivationId,
+                generation = session.runtimeActivation.generation,
+                takeover = runtimeManifest.effectiveTakeover != null,
+                nowMillis = session.content.serverNow().toEpochMilli(),
+                clockOffsetMillis = session.content.serverClockOffsetMillis ?: 0L,
+                playbackAnchorMillis = session.playbackAnchor?.toEpochMilli(),
+            ),
+        )
+        val runtimeContext = androidx.compose.ui.platform.LocalContext.current
+        org.tilecast.player.runtime.SharedRuntimePlayback(
+            session = session,
+            message = runtimeMessage,
+            activationId = runtimeActivationId,
+            hostVersion = org.tilecast.player.BuildConfig.VERSION_NAME,
+            engineVersion = androidx.webkit.WebViewCompat.getCurrentWebViewPackage(runtimeContext)?.versionName ?: "unknown",
+            onBoundary = { itemId, assetId ->
+                runtimeActivity?.boundary(itemId)
+                onBoundary(itemId, assetId)
+            },
+            onError = onError,
+            onProgress = onProgress,
+            onFirstFrame = { onProgress() },
+            onItemTransition = { runtimeActivity?.transition(it) },
+            onPlaybackError = { itemId, message -> runtimeActivity?.fail(itemId, message) },
+        )
+        return
+    }
     session.content.manifest.layout?.let { layout ->
         FullscreenLayoutPlayback(session, layout, onError, onWebsiteStatus, onWidgetStatus, onProgress, activityReporter)
         return
