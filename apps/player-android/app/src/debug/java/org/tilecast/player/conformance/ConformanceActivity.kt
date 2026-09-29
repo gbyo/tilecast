@@ -5,7 +5,7 @@ import android.os.Bundle
 import android.widget.FrameLayout
 
 /**
- * Test-only host for the Player Runtime conformance suite (never ships).
+ * Debug-only host for the Player Runtime conformance suite (never ships).
  * A blank fullscreen container; the test sizes and drives one WebView per
  * fixture. Mirrors the Electron runner's test-only preload: the bridge here
  * exists only to hand fixtures in and results out.
