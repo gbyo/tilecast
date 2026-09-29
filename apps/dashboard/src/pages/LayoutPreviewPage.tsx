@@ -291,16 +291,14 @@ export function LayoutPreviewPage() {
             String(layoutDocument.canvas.height),
           maxWidth:
             "calc((100dvh - 96px) * " +
-            String(
-              layoutDocument.canvas.width / layoutDocument.canvas.height,
-            ) +
+            String(layoutDocument.canvas.width / layoutDocument.canvas.height) +
             ")",
           backgroundColor: layoutDocument.canvas.backgroundColor,
         }}
       >
         {layoutDocument.canvas.backgroundAssetId &&
-          assetsById.get(layoutDocument.canvas.backgroundAssetId)?.type ===
-            "image" && (
+          assetsById.get(layoutDocument.canvas.backgroundAssetId)
+            ?.type === "image" && (
             <img
               className="layout-preview-background"
               src={api.assetPreviewUrl(layoutDocument.canvas.backgroundAssetId)}
