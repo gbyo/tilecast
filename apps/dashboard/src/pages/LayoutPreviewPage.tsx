@@ -47,8 +47,8 @@ async function loadLayoutPreviewData(
   );
 
   const assetIds = new Set<string>();
-  if (document.canvas.backgroundAssetId)
-    assetIds.add(document.canvas.backgroundAssetId);
+  if (layoutDocument.canvas.backgroundAssetId)
+    assetIds.add(layoutDocument.canvas.backgroundAssetId);
   document.placements.forEach((placement) => {
     if (placement.assetId) assetIds.add(placement.assetId);
     if (placement.widgetId) assetIds.add(placement.widgetId);
@@ -256,13 +256,13 @@ export function LayoutPreviewPage() {
       </PreviewStatus>
     );
 
-  const document = query.data.draft;
+  const layoutDocument = query.data.draft;
   return (
     <main className="layout-preview-page">
       <header className="layout-preview-toolbar">
         <strong>{query.data.name}</strong>
         <span>
-          {document.canvas.width} × {document.canvas.height}
+          {layoutDocument.canvas.width} × {layoutDocument.canvas.height}
         </span>
         <DateInput
           id="layout-preview-date"
@@ -288,30 +288,30 @@ export function LayoutPreviewPage() {
         className="layout-preview-frame"
         style={{
           aspectRatio:
-            String(document.canvas.width) + "/" + String(document.canvas.height),
+            String(layoutDocument.canvas.width) + "/" + String(layoutDocument.canvas.height),
           maxWidth:
             "calc((100dvh - 96px) * " +
-            String(document.canvas.width / document.canvas.height) +
+            String(layoutDocument.canvas.width / layoutDocument.canvas.height) +
             ")",
-          backgroundColor: document.canvas.backgroundColor,
+          backgroundColor: layoutDocument.canvas.backgroundColor,
         }}
       >
-        {document.canvas.backgroundAssetId &&
-          assetsById.get(document.canvas.backgroundAssetId)?.type ===
+        {layoutDocument.canvas.backgroundAssetId &&
+          assetsById.get(layoutDocument.canvas.backgroundAssetId)?.type ===
             "image" && (
             <img
               className="layout-preview-background"
-              src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
+              src={api.assetPreviewUrl(layoutDocument.canvas.backgroundAssetId)}
               alt=""
             />
           )}
-        {[...document.placements]
+        {[...layoutDocument.placements]
           .sort((a, b) => a.layer - b.layer)
           .map((item) => (
             <LayoutPlacementView
               key={item.id}
               item={item}
-              canvas={document.canvas}
+              canvas={layoutDocument.canvas}
               content={
                 item.widgetId
                   ? assetsById.get(item.widgetId)
