@@ -28,7 +28,7 @@
     "vitest": "^4.1.10"
   },
   "allowScripts": {
-    "electron@39.8.5": true
+    "electron@39.8.10": true
   },
   "files": [
     "dist/**"
