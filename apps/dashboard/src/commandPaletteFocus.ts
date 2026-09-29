@@ -1,4 +1,5 @@
-const commandPaletteDialogSelector = "dialog.command-palette-dialog[open]";
+const commandPaletteDialogSelector =
+  '[data-slot="dialog-content"].command-palette-dialog[data-open]';
 
 function focusCommandPaletteInput(dialog: Element) {
   const input = dialog.querySelector<HTMLInputElement>("[cmdk-input]");
@@ -28,7 +29,7 @@ export function installCommandPaletteFocus(
     for (const record of records) {
       if (
         record.type === "attributes" &&
-        record.attributeName === "open" &&
+        record.attributeName === "data-open" &&
         record.target instanceof Element &&
         record.target.matches(commandPaletteDialogSelector)
       ) {
@@ -41,7 +42,7 @@ export function installCommandPaletteFocus(
 
   observer.observe(observerTarget, {
     attributes: true,
-    attributeFilter: ["open"],
+    attributeFilter: ["data-open"],
     childList: true,
     subtree: true,
   });
