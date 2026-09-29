@@ -51,6 +51,11 @@ describe("normalizePersonalAccessToken", () => {
   });
 });
 
+function requestUrl(input: RequestInfo | URL | undefined): string {
+  if (input instanceof Request) return input.url;
+  return input instanceof URL ? input.href : (input ?? "");
+}
+
 describe("describeOAuthApproval", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -76,7 +81,7 @@ describe("describeOAuthApproval", () => {
     await expect(describeOAuthApproval(authorize("plain"))).rejects.toThrow(
       "Bad challenge.",
     );
-    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    const url = new URL(requestUrl(fetchMock.mock.calls[0]?.[0]));
     expect(url.searchParams.get("code_challenge_method")).toBe("plain");
   });
 
@@ -89,7 +94,7 @@ describe("describeOAuthApproval", () => {
     const params = authorize("S256");
     params.delete("code_challenge_method");
     await describeOAuthApproval(params);
-    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    const url = new URL(requestUrl(fetchMock.mock.calls[0]?.[0]));
     expect(url.searchParams.has("code_challenge_method")).toBe(false);
   });
 });
