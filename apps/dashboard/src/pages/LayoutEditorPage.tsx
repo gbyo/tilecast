@@ -93,9 +93,7 @@ import {
 import { CanvasInspector } from "../components/layout-editor/CanvasInspector";
 import { PlacementInspector } from "../components/layout-editor/PlacementInspector";
 import { toast } from "../components/ui/toast";
-import {
-  LayoutPlacementView as PlacementView,
-} from "../components/layout-editor/LayoutPlacementView";
+import { LayoutPlacementView as PlacementView } from "../components/layout-editor/LayoutPlacementView";
 import {
   LayoutCaptureCoordinator,
   LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
