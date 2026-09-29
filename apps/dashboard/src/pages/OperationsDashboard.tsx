@@ -399,7 +399,7 @@ function PlayerUpdates({
             <ItemDescription>
               {t("operations.updateVersion", {
                 version: latest.versionName,
-                status: humanize(latest.status),
+                status: t(updateDeploymentStatusKey(latest.status)),
               })}
             </ItemDescription>
             <p className="text-xs text-muted-foreground">
@@ -516,8 +516,29 @@ function formatScheduleTime(value: Date) {
   }).format(value);
 }
 
-function humanize(value: string) {
-  return value
-    .replaceAll("_", " ")
-    .replace(/^./, (letter) => letter.toUpperCase());
+type UpdateDeploymentStatusTranslationKey =
+  | "operations.updateStatuses.pending"
+  | "operations.updateStatuses.active"
+  | "operations.updateStatuses.paused"
+  | "operations.updateStatuses.cancelled"
+  | "operations.updateStatuses.completed"
+  | "operations.updateStatuses.unknown";
+
+const updateDeploymentStatusKeys: Record<
+  string,
+  UpdateDeploymentStatusTranslationKey
+> = {
+  pending: "operations.updateStatuses.pending",
+  active: "operations.updateStatuses.active",
+  paused: "operations.updateStatuses.paused",
+  cancelled: "operations.updateStatuses.cancelled",
+  completed: "operations.updateStatuses.completed",
+};
+
+export function updateDeploymentStatusKey(
+  status: string,
+): UpdateDeploymentStatusTranslationKey {
+  return (
+    updateDeploymentStatusKeys[status] ?? "operations.updateStatuses.unknown"
+  );
 }

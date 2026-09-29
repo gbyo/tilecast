@@ -572,6 +572,14 @@
     "updateCenter": "Centro de actualizaciones",
     "updatesFailed": "No se pudo cargar el estado de las actualizaciones",
     "updateVersion": "Reproductor {{version}} · {{status}}",
+    "updateStatuses": {
+      "pending": "Pendiente",
+      "active": "Activa",
+      "paused": "En pausa",
+      "cancelled": "Cancelada",
+      "completed": "Completada",
+      "unknown": "Estado desconocido"
+    },
     "updateProgress": "{{succeeded}} de {{target}} con éxito",
     "needAction_one": "{{count}} requiere acción",
     "needAction_many": "{{count}} de implementaciones requieren acción",

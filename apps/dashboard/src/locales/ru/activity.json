@@ -591,6 +591,14 @@
     "updateCenter": "Центр обновлений",
     "updatesFailed": "Не удалось загрузить статус обновлений",
     "updateVersion": "Проигрыватель {{version}} · {{status}}",
+    "updateStatuses": {
+      "pending": "Ожидает",
+      "active": "Активно",
+      "paused": "Приостановлено",
+      "cancelled": "Отменено",
+      "completed": "Завершено",
+      "unknown": "Неизвестный статус"
+    },
     "updateProgress": "{{succeeded}} из {{target}} успешно",
     "needAction_one": "{{count}} требует действий",
     "needAction_few": "{{count}} требуют действий",

@@ -553,6 +553,14 @@
     "updateCenter": "Update center",
     "updatesFailed": "Update status could not be loaded",
     "updateVersion": "Player {{version}} · {{status}}",
+    "updateStatuses": {
+      "pending": "Pending",
+      "active": "Active",
+      "paused": "Paused",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "unknown": "Unknown status"
+    },
     "updateProgress": "{{succeeded}} of {{target}} succeeded",
     "needAction_one": "{{count}} needs action",
     "needAction_other": "{{count}} need action",
