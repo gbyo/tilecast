@@ -3809,48 +3809,48 @@ export function LayoutEditorPage() {
                 aria-label={t("editor.undoRedoLabel")}
                 className="shrink-0"
               >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="disabled:text-[#a1a1a1] disabled:opacity-100"
-                      aria-label={t("editor.menuUndo")}
-                      onClick={undo}
-                      disabled={!past.length}
-                    />
-                  }
-                >
-                  <Undo2 aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("editor.menuUndo")}{" "}
-                  <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="disabled:text-[#a1a1a1] disabled:opacity-100"
-                      aria-label={t("editor.menuRedo")}
-                      onClick={redo}
-                      disabled={!future.length}
-                    />
-                  }
-                >
-                  <Redo2 aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("editor.menuRedo")}{" "}
-                  <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
-                </TooltipContent>
-              </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="disabled:text-[#a1a1a1] disabled:opacity-100"
+                        aria-label={t("editor.menuUndo")}
+                        onClick={undo}
+                        disabled={!past.length}
+                      />
+                    }
+                  >
+                    <Undo2 aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("editor.menuUndo")}{" "}
+                    <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="disabled:text-[#a1a1a1] disabled:opacity-100"
+                        aria-label={t("editor.menuRedo")}
+                        onClick={redo}
+                        disabled={!future.length}
+                      />
+                    }
+                  >
+                    <Redo2 aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("editor.menuRedo")}{" "}
+                    <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
+                  </TooltipContent>
+                </Tooltip>
               </ButtonGroup>
             )}
           </>
