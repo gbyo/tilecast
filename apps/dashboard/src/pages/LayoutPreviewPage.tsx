@@ -63,7 +63,7 @@ async function loadLayoutPreviewData(
     result.status === "fulfilled" ? [result.value] : [],
   );
 
-  let previewValues: Record<string, Record<string, string>> = {};
+  let previewValues: Record<string, Record<string, string>>;
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const dataSourceIds = new Set<string>();
   document.placements.forEach((placement) => {
