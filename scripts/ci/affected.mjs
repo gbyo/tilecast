@@ -143,7 +143,7 @@ const rules = [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
     ["docs"],
   ],
-  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli"]],
+  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server"]],
   [
     /^(package(-lock)?\.json|go\.work(\.sum)?|Makefile|\.github\/CODEOWNERS)$|^\.github\/(workflows|actions)\/|^scripts\/ci\//,
     areas,

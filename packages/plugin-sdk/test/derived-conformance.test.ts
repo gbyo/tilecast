@@ -163,18 +163,41 @@ responses:
     ]);
   });
 
-  it("accepts a 101 upgrade as the success case", () => {
+  it("accepts a 101 upgrade for the Player socket", () => {
     const problems = checkDerivedConformance(
       doc(
-        OPERATION(`operationId: getSocket
+        OPERATION(
+          `operationId: playerSocket
 description: Requires an authenticated player credential.
 security: [{ deviceBearer: [] }]
 responses:
   "101": { description: Player WebSocket connected }
-  "401": { description: Credential invalid or revoked }`),
+  "401": { description: Credential invalid or revoked }`,
+          "/api/v1/player/socket",
+          "get",
+        ),
       ),
     );
     expect(problems).toEqual([]);
+  });
+
+  it("does not accept 101 as success for ordinary operations", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(
+          `operationId: updateThing
+description: Requires an authenticated dashboard session.
+responses:
+  "101": { description: Unexpected protocol switch }
+  "401": { description: Dashboard authentication required }`,
+          "/api/v1/things/{id}",
+          "post",
+        ),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toContain(
+      "POST /api/v1/things/{id} (updateThing) must document a 2xx response",
+    );
   });
 
   it("accepts a referenced parameter schema", () => {

@@ -187,6 +187,15 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
   ])
     assert.deepEqual(selected([path]), ["docs"], path);
 });
+test("OpenAPI contract changes run server route parity", () => {
+  for (const path of ["docs/openapi/core.yaml", "docs/openapi.yaml"]) {
+    const result = affected([path]);
+    assert.equal(result.plugins, true, `${path}: plugins`);
+    assert.equal(result.cli, true, `${path}: cli`);
+    assert.equal(result.server, true, `${path}: server`);
+  }
+});
+
 test("documentation stays inexpensive", () => {
   assert.deepEqual(selected(["docs/deployment.md"]), ["docs"]);
   for (const path of [
