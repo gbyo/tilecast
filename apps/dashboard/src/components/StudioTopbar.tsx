@@ -42,6 +42,7 @@ import {
 } from "./ui/command";
 import { Kbd } from "./ui/kbd";
 import { SiteHeader } from "./studio/SiteHeader";
+import { TopbarUserMenu } from "./studio/NavUser";
 import { MediaUploadDialog } from "./content-picker/MediaUploadDialog";
 import { installCommandPaletteFocus } from "../commandPaletteFocus";
 
@@ -613,11 +614,21 @@ export function StudioTopbar({
   csrfToken = "",
   editor = false,
   demoMode = false,
+  nativeNavigation = false,
+  onSignOut,
+  signOutDisabled,
 }: {
   user?: User;
   csrfToken?: string;
   editor?: boolean;
   demoMode?: boolean;
+  /**
+   * A native host provides navigation: no sidebar trigger, and the account
+   * menu moves from the sidebar footer into the topbar.
+   */
+  nativeNavigation?: boolean;
+  onSignOut?: () => void;
+  signOutDisabled?: boolean;
 }) {
   const routes = useStudioRoutes();
   const location = useLocation();
@@ -662,6 +673,16 @@ export function StudioTopbar({
         onSearch={() => setPaletteOpen(true)}
         editor={editor}
         demoMode={demoMode}
+        navigationTrigger={!nativeNavigation}
+        accountMenu={
+          nativeNavigation && user && onSignOut ? (
+            <TopbarUserMenu
+              user={user}
+              onSignOut={onSignOut}
+              disabled={signOutDisabled}
+            />
+          ) : undefined
+        }
       />
       <CommandPalette
         open={paletteOpen}

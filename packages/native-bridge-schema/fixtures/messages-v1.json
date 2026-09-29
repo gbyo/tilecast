@@ -1,0 +1,619 @@
+{
+  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly.",
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "config/get",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": { "version": 1, "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "config/get with a request id",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "id": "c1",
+        "type": "config/get",
+        "payload": {}
+      }
+    },
+    {
+      "name": "frontend/ready",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": { "version": 1, "type": "frontend/ready", "payload": {} }
+    },
+    {
+      "name": "catalog with headed and unheaded groups",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "destinationIds": [
+        "overview",
+        "screens",
+        "groups",
+        "media",
+        "widgets",
+        "activity",
+        "plugin:forms:approvals",
+        "settings"
+      ],
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "home",
+              "items": [
+                {
+                  "id": "overview",
+                  "title": "Overview",
+                  "icon": "home",
+                  "mobilePlacement": "primary"
+                }
+              ]
+            },
+            {
+              "id": "screens",
+              "title": "Screens",
+              "items": [
+                {
+                  "id": "screens",
+                  "title": "Fleet",
+                  "icon": "screens",
+                  "mobilePlacement": "primary"
+                },
+                {
+                  "id": "groups",
+                  "title": "Display Groups",
+                  "icon": "groups",
+                  "mobilePlacement": "more"
+                }
+              ]
+            },
+            {
+              "id": "content",
+              "title": "Content",
+              "items": [
+                {
+                  "id": "media",
+                  "title": "Media",
+                  "icon": "media",
+                  "mobilePlacement": "primary"
+                },
+                { "id": "widgets", "title": "Widgets", "icon": "widgets" }
+              ]
+            },
+            {
+              "id": "secondary",
+              "items": [
+                { "id": "activity", "title": "Activity", "icon": "activity" },
+                {
+                  "id": "plugin:forms:approvals",
+                  "title": "Approvals",
+                  "icon": "plugin"
+                },
+                { "id": "settings", "title": "Settings", "icon": "settings" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog with an icon token no host knows",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "destinationIds": ["room-bookings"],
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "operations",
+              "title": "Operations",
+              "items": [
+                {
+                  "id": "room-bookings",
+                  "title": "Room Bookings",
+                  "icon": "door-calendar"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog with no groups",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "destinationIds": [],
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": { "groups": [] }
+      }
+    },
+    {
+      "name": "catalog with properties a newer Studio adds",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "destinationIds": ["alpha"],
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "main",
+              "title": "Main",
+              "collapsed": false,
+              "items": [
+                {
+                  "id": "alpha",
+                  "title": "Alpha",
+                  "icon": "home",
+                  "badge": 3
+                }
+              ]
+            }
+          ],
+          "revision": 7
+        }
+      }
+    },
+    {
+      "name": "navigation/state with an active destination",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": {
+          "activeDestinationId": "layouts",
+          "path": "/layouts/abc123"
+        }
+      }
+    },
+    {
+      "name": "navigation/state with no active destination",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": { "activeDestinationId": null, "path": "/account" }
+      }
+    },
+    {
+      "name": "navigation/state without a path",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": { "activeDestinationId": "overview" }
+      }
+    },
+    {
+      "name": "a string instead of an object",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": "config/get"
+    },
+    {
+      "name": "an array",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": []
+    },
+    {
+      "name": "null",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": null
+    },
+    {
+      "name": "no version",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "version as a string",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": "1", "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "fractional version",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1.5, "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "version zero",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 0, "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "no type",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "payload": {} }
+    },
+    {
+      "name": "empty type",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "", "payload": {} }
+    },
+    {
+      "name": "type outside the naming pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "Config Get", "payload": {} }
+    },
+    {
+      "name": "no payload",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "config/get" }
+    },
+    {
+      "name": "payload as an array",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "config/get", "payload": [] }
+    },
+    {
+      "name": "unknown envelope property",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "config/get",
+        "payload": {},
+        "callback": "window.steal"
+      }
+    },
+    {
+      "name": "numeric request id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "id": 7, "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "catalog without groups",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "navigation/catalog", "payload": {} }
+    },
+    {
+      "name": "catalog item without an id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "main",
+              "items": [{ "title": "Alpha", "icon": "home" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog item with an empty title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "main",
+              "items": [{ "id": "alpha", "title": "", "icon": "home" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog item with an unknown placement",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "main",
+              "items": [
+                {
+                  "id": "alpha",
+                  "title": "Alpha",
+                  "icon": "home",
+                  "mobilePlacement": "toolbar"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog item id that looks like a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "main",
+              "items": [
+                { "id": "/screens", "title": "Fleet", "icon": "screens" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "catalog group with no items",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": { "groups": [{ "id": "main", "items": [] }] }
+      }
+    },
+    {
+      "name": "catalog with a duplicate destination",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "navigation/catalog",
+        "payload": {
+          "groups": [
+            {
+              "id": "one",
+              "items": [{ "id": "alpha", "title": "Alpha", "icon": "home" }]
+            },
+            {
+              "id": "two",
+              "items": [{ "id": "alpha", "title": "Again", "icon": "home" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "navigation/state without an active destination field",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": { "path": "/" }
+      }
+    },
+    {
+      "name": "navigation/state with a numeric destination",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": { "activeDestinationId": 3 }
+      }
+    },
+    {
+      "name": "navigation/state with a relative path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/state",
+        "payload": { "activeDestinationId": null, "path": "layouts" }
+      }
+    },
+    {
+      "name": "a message type this version does not define",
+      "direction": "frontendToNative",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": { "route": "/layouts/abc123/preview" }
+      }
+    },
+    {
+      "name": "a native-to-frontend type sent to the native host",
+      "direction": "frontendToNative",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "navigation/request",
+        "payload": { "destinationId": "alpha" }
+      }
+    },
+    {
+      "name": "protocol version 2",
+      "direction": "frontendToNative",
+      "outcome": "unsupportedVersion",
+      "message": { "version": 2, "type": "config/get", "payload": {} }
+    },
+    {
+      "name": "protocol version 2 with a different envelope",
+      "direction": "frontendToNative",
+      "outcome": "unsupportedVersion",
+      "message": { "version": 2, "kind": "hello" }
+    },
+    {
+      "name": "navigation/request",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "navigationRequest",
+      "message": {
+        "version": 1,
+        "type": "navigation/request",
+        "payload": { "destinationId": "layouts" }
+      }
+    },
+    {
+      "name": "navigation/request for a plugin destination",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "navigation/request",
+        "payload": { "destinationId": "plugin:forms:approvals" }
+      }
+    },
+    {
+      "name": "navigation/request without a destination",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "navigation/request", "payload": {} }
+    },
+    {
+      "name": "navigation/request with an empty destination",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/request",
+        "payload": { "destinationId": "" }
+      }
+    },
+    {
+      "name": "navigation/request with a path instead of an id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/request",
+        "payload": { "destinationId": "/settings/users" }
+      }
+    },
+    {
+      "name": "a native message type this version does not define",
+      "direction": "nativeToFrontend",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "presentation/dismiss",
+        "payload": {}
+      }
+    },
+    {
+      "name": "a native message from protocol version 3",
+      "direction": "nativeToFrontend",
+      "outcome": "unsupportedVersion",
+      "message": {
+        "version": 3,
+        "type": "navigation/request",
+        "payload": {}
+      }
+    },
+    {
+      "name": "config/get reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "configGetReply",
+      "message": {
+        "version": 1,
+        "ok": true,
+        "payload": {
+          "protocolVersion": 1,
+          "capabilities": { "nativeNavigation": true }
+        }
+      }
+    },
+    {
+      "name": "config/get reply with a capability Studio does not know",
+      "direction": "reply",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "ok": true,
+        "payload": {
+          "protocolVersion": 1,
+          "capabilities": {
+            "nativeNavigation": true,
+            "nativePresentation": true
+          }
+        }
+      }
+    },
+    {
+      "name": "empty success reply with a request id",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "okReplyWithId",
+      "message": { "version": 1, "id": "c1", "ok": true, "payload": {} }
+    },
+    {
+      "name": "unknown type reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "unknownTypeReply",
+      "message": {
+        "version": 1,
+        "ok": false,
+        "error": { "code": "unknown_type" }
+      }
+    },
+    {
+      "name": "unsupported version reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "unsupportedVersionReply",
+      "message": {
+        "version": 1,
+        "ok": false,
+        "error": { "code": "unsupported_version", "supportedVersions": [1] }
+      }
+    },
+    {
+      "name": "reply without ok",
+      "direction": "reply",
+      "outcome": "malformed",
+      "message": { "version": 1, "payload": {} }
+    },
+    {
+      "name": "success reply without a payload",
+      "direction": "reply",
+      "outcome": "malformed",
+      "message": { "version": 1, "ok": true }
+    },
+    {
+      "name": "error reply without a code",
+      "direction": "reply",
+      "outcome": "malformed",
+      "message": { "version": 1, "ok": false, "error": {} }
+    },
+    {
+      "name": "reply from protocol version 2",
+      "direction": "reply",
+      "outcome": "unsupportedVersion",
+      "message": { "version": 2, "ok": true, "payload": {} }
+    }
+  ]
+}

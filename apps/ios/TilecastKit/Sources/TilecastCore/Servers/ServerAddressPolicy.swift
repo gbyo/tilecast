@@ -119,4 +119,15 @@ public struct WebOrigin: Hashable, Sendable {
         self.host = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
         self.port = url.port ?? (scheme == "https" ? 443 : 80)
     }
+
+    /// An origin from its parts, as WebKit reports a frame's security
+    /// origin. Port 0 means the scheme's default port.
+    public init?(scheme: String, host: String, port: Int) {
+        let scheme = scheme.lowercased()
+        let host = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+        guard scheme == "http" || scheme == "https", !host.isEmpty, (0...65535).contains(port) else { return nil }
+        self.scheme = scheme
+        self.host = host
+        self.port = port == 0 ? (scheme == "https" ? 443 : 80) : port
+    }
 }

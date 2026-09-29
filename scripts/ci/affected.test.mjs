@@ -38,10 +38,35 @@ test("Studio and server changes do not build the iOS host", () => {
   for (const path of [
     "apps/dashboard/src/components/Button.tsx",
     "apps/dashboard/src/navigation/routes.ts",
+    "apps/dashboard/src/navigation/studioNavigation.tsx",
+    "apps/dashboard/src/native-host/useNativeNavigation.ts",
+    "apps/dashboard/src/pages/RoomBookingsPage.tsx",
+    "apps/dashboard/src/styles.css",
+    "apps/dashboard/src/App.tsx",
     "apps/server/internal/httpapi/devices.go",
     "plugins/weather/studio/Page.tsx",
+    "plugins/forms/studio/index.tsx",
   ])
     assert.equal(affected([path]).ios, false, path);
+});
+test("the native bridge contract selects Studio and the iOS host", () => {
+  for (const path of [
+    "packages/native-bridge-schema/schema-v1.json",
+    "packages/native-bridge-schema/fixtures/messages-v1.json",
+    "packages/native-bridge-schema/icon-tokens.json",
+    "packages/native-bridge-schema/package.json",
+  ]) {
+    const result = affected([path]);
+    assert.equal(result.ios, true, `${path}: ios`);
+    assert.equal(result.dashboard, true, `${path}: dashboard`);
+    // A contract change is not a Player, Edge, or server change.
+    for (const area of ["server", "android", "runtime", "edge_rust"])
+      assert.equal(result[area], false, `${path}: ${area}`);
+  }
+  // A README explains the contract and does not compile into it.
+  assert.deepEqual(selected(["packages/native-bridge-schema/README.md"]), [
+    "docs",
+  ]);
 });
 test("CLI and MCP select their module without a server image", () => {
   assert.deepEqual(selected(["apps/cli/internal/cli/mcp.go"]), ["cli"]);

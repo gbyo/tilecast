@@ -19,8 +19,9 @@ export const graph = {
   android: [],
   // The iOS host embeds Studio at runtime from the configured server, so a
   // Studio change never requires an iOS build. Its build inputs are its own
-  // sources and the contracts it compiles or tests against. Add an edge here
-  // only when the app starts consuming a new contract at build time.
+  // sources and the contracts it compiles or tests against: the server
+  // address corpus and the native bridge schema. Add an edge here only when
+  // the app starts consuming a new contract at build time.
   ios: [],
   docs: [],
   container: [],
@@ -45,6 +46,9 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // Studio and the iOS app both run the native bridge contract's fixtures.
+  // Studio's own bridge code is ordinary dashboard code.
+  [/^packages\/native-bridge-schema\//, ["dashboard", "ios"]],
   [
     /^scripts\/(build-player-release|extract-apksigner-sha256)\.sh$/,
     ["android"],
