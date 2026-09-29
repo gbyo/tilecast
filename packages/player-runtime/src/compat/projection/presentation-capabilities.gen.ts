@@ -2,6 +2,7 @@
 // Source: packages/manifest-schema/presentation-capabilities.json
 
 /** Declarative presentation capabilities implemented by the shared Player Runtime. */
+// prettier-ignore
 export const SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES = Object.freeze({
   "binding.core": 2,
   "collection.conditional": 2,
@@ -33,6 +34,7 @@ export const SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES = Object.freez
 }) satisfies Readonly<Record<string, number>>;
 
 /** Compatibility floor implemented by every currently supported legacy Player. */
+// prettier-ignore
 export const BASELINE_DECLARATIVE_PRESENTATION_CAPABILITIES = Object.freeze({
   "binding.core": 2,
   "collection.conditional": 2,

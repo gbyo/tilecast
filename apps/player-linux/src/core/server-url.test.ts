@@ -94,5 +94,4 @@ describe("normalizeServerUrl", () => {
       if (entry.accepted) expect(result.url, entry.name).toBe(entry.normalized);
     }
   });
-
 });
