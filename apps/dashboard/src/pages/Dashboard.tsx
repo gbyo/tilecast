@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import {
+  matchPath,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { User } from "@/api/types";
@@ -11,6 +17,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { StudioTopbar } from "@/components/StudioTopbar";
+import { EditorHeaderProvider } from "@/components/studio/EditorHeaderSlots";
 import {
   LANGUAGE_PREFERENCE_KEY,
   applyLanguagePreference,
@@ -127,6 +134,8 @@ export function DashboardShell() {
   const reducedMotion = Boolean(values?.["preference.reduced_motion"]);
   const user = auth.status.user;
   if (!user) return null;
+  // The Layout editor is a full-bleed workspace with one merged header.
+  const editorRoute = Boolean(matchPath("/layouts/:id", location.pathname));
 
   return (
     <ThemeProvider
@@ -141,13 +150,26 @@ export function DashboardShell() {
           signOutDisabled={auth.isSubmitting}
         />
         <SidebarInset className="min-h-svh overflow-hidden">
-          {auth.status.demoMode ? <DemoModeBanner /> : null}
-          <StudioTopbar user={user} csrfToken={auth.status.csrfToken} />
-          <div className="min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6">
-            <RouteErrorBoundary key={location.pathname}>
-              <Outlet />
-            </RouteErrorBoundary>
-          </div>
+          <EditorHeaderProvider>
+            {auth.status.demoMode && !editorRoute ? <DemoModeBanner /> : null}
+            <StudioTopbar
+              user={user}
+              csrfToken={auth.status.csrfToken}
+              editor={editorRoute}
+              demoMode={Boolean(auth.status.demoMode)}
+            />
+            <div
+              className={
+                editorRoute
+                  ? "min-h-0 flex-1 overflow-auto"
+                  : "min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6"
+              }
+            >
+              <RouteErrorBoundary key={location.pathname}>
+                <Outlet />
+              </RouteErrorBoundary>
+            </div>
+          </EditorHeaderProvider>
         </SidebarInset>
       </SidebarProvider>
     </ThemeProvider>
