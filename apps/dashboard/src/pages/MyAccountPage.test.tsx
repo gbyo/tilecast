@@ -54,14 +54,20 @@ const security: SecurityStatus = {
   authMethod: "password",
 };
 
-function renderPage(initialEntry = "/account") {
-  vi.spyOn(api, "preferences").mockResolvedValue({
-    schemaVersion: 1,
-    revision: 1,
-    values: { "preference.appearance": "system" },
-    definitions: [definition],
-    updatedAt: "2026-07-01T00:00:00Z",
-  });
+const preferenceResponse = {
+  schemaVersion: 1,
+  revision: 1,
+  values: { "preference.appearance": "system" },
+  definitions: [definition],
+  updatedAt: "2026-07-01T00:00:00Z",
+};
+
+function renderPage(
+  initialEntry = "/account",
+  loadPreferences: typeof api.preferences = () =>
+    Promise.resolve(preferenceResponse),
+) {
+  vi.spyOn(api, "preferences").mockImplementation(loadPreferences);
   vi.spyOn(api, "security").mockResolvedValue(security);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -169,5 +175,30 @@ describe("MyAccountPage", () => {
         "token",
       ),
     );
+  });
+
+  it("shows a retry state when preferences fail to load", async () => {
+    let calls = 0;
+    const loadPreferences: typeof api.preferences = vi.fn(() => {
+      calls += 1;
+      return calls === 1
+        ? Promise.reject(new Error("network failure"))
+        : Promise.resolve(preferenceResponse);
+    });
+    renderPage("/account", loadPreferences);
+
+    expect(
+      await screen.findByText("Preferences could not be loaded."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("group", { name: "Appearance" }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("group", { name: "Appearance" }),
+    ).toBeInTheDocument();
+    expect(loadPreferences).toHaveBeenCalledTimes(2);
   });
 });
