@@ -115,7 +115,9 @@ test("backfills a real rendered Widget thumbnail for the library", async ({
     .poll(() =>
       image.evaluate(
         (node: HTMLImageElement) =>
-          node.complete && node.naturalWidth === 960 && node.naturalHeight === 540,
+          node.complete &&
+          node.naturalWidth === 960 &&
+          node.naturalHeight === 540,
       ),
     )
     .toBe(true);
@@ -130,12 +132,7 @@ test("backfills a real rendered Widget thumbnail for the library", async ({
     const context = canvas.getContext("2d");
     if (!context) return 0;
     context.drawImage(node, 0, 0);
-    const pixels = context.getImageData(
-      0,
-      0,
-      canvas.width,
-      canvas.height,
-    ).data;
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
     let minimum = 255;
     let maximum = 0;
     // Sample every 16th pixel: enough to hit the large Clock glyphs without
