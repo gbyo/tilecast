@@ -157,6 +157,8 @@ downloaded Widget all describe the same content type.
 
 The current Widgets V2 ownership rules remain binding:
 
+- **shared Widget renderer** means the Widget runtime module plus `WidgetMount`, used by Studio, Storybook/fixtures, and the Player Runtime;
+- **shared Player Runtime** means the complete playback document/engine hosted by Electron, Edge/WPE, and Android; Studio intentionally does not instantiate it for ordinary Widget authoring preview;
 - a Widget owns presentation, not acquisition;
 - a Widget reads only prepared Data Documents and verified media aliases;
 - a Widget does not fetch;

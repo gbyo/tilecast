@@ -17,6 +17,7 @@ import agendaManifest from "../../../../../widgets/agenda/tilecast.widget.json";
 import weatherManifest from "../../../../../widgets/weather/tilecast.widget.json";
 import newsManifest from "../../../../../widgets/news/tilecast.widget.json";
 import tickerManifest from "../../../../../widgets/ticker/tilecast.widget.json";
+import { studioWidgetDiscovery } from "../../content/studioWidgets";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -351,8 +352,22 @@ describe("V2ZonePreview", () => {
     const frame = await screen.findByRole("img", {
       name: "Live Widget preview",
     });
-    await waitFor(() => frame.querySelector("tc-widget-clock"));
-    expect(container.querySelector("tc-widget-clock")).toBeInTheDocument();
+    const widget = await waitFor(() => frame.querySelector("tc-widget-clock"));
+    expect(widget).toBeInTheDocument();
+    const sharedDefinition = studioWidgetDiscovery.registry.lookup(
+      "tilecast.clock",
+      1,
+    );
+    expect(customElements.get("tc-widget-clock")).toBe(
+      sharedDefinition?.element as CustomElementConstructor,
+    );
+    const stage = frame.firstElementChild as HTMLElement;
+    const intrinsicFrame = stage.firstElementChild as HTMLElement;
+    expect(stage.style.width).toBe("480px");
+    expect(stage.style.height).toBe("270px");
+    expect(intrinsicFrame.style.width).toBe("480px");
+    expect(intrinsicFrame.style.height).toBe("270px");
+    expect(container.querySelector("tc-widget-clock")).toBe(widget);
   });
 
   it("mounts the real QR element for saved legacy provider content", async () => {
