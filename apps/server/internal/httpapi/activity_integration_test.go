@@ -416,6 +416,75 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 	})
 }
 
+func TestActivityOverviewReturnsServerErrorWhenRequiredQueryFails(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		if _, err := env.pool.Exec(context.Background(), `ALTER TABLE audit_logs RENAME TO audit_logs_unavailable_for_activity_test`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := env.pool.Exec(context.Background(), `ALTER TABLE audit_logs_unavailable_for_activity_test RENAME TO audit_logs`); err != nil {
+				t.Errorf("restore audit_logs table: %v", err)
+			}
+		}()
+
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/overview?range=24h", nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.activityOverview(response, request)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("overview status=%d body=%s, want 500", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+			t.Fatalf("overview error=%s, want internal_error", response.Body.String())
+		}
+	})
+}
+
+func TestScreenActivityReturnsServerErrorWhenRequiredQueryFails(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		if _, err := env.pool.Exec(context.Background(), `ALTER TABLE player_activity_events RENAME TO player_activity_events_unavailable_for_activity_test`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := env.pool.Exec(context.Background(), `ALTER TABLE player_activity_events_unavailable_for_activity_test RENAME TO player_activity_events`); err != nil {
+				t.Errorf("restore player_activity_events table: %v", err)
+			}
+		}()
+
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String(), nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.screenActivity(response, request)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("screen activity status=%d body=%s, want 500", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+			t.Fatalf("screen activity error=%s, want internal_error", response.Body.String())
+		}
+	})
+}
+
+func TestScreenActivityAllowsNoCurrentPresentation(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String(), nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.screenActivity(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("screen activity status=%d body=%s, want 200", response.Code, response.Body.String())
+		}
+		var envelope struct {
+			Data screenActivityData `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.CurrentPresentation != nil || envelope.Data.RecentProof == nil || envelope.Data.RecentEvents == nil {
+			t.Fatalf("screen activity returned invalid empty state: %s", response.Body.String())
+		}
+	})
+}
+
 func TestAuditFilteringRedactionAndCSV(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		auditID := uuid.New()
