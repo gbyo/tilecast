@@ -548,8 +548,15 @@ func (s *server) stopAirplaySession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"data": s.airplaySessionResponse(r.Context(), record, nil)})
 		return
 	}
-	s.stopAirplaySessionInternal(r.Context(), record, user.ID, strings.TrimSpace(body.Reason))
-	record, _ = s.getAirplayRecord(r.Context(), id)
+	if err := s.stopAirplaySessionInternal(r.Context(), record, user.ID, strings.TrimSpace(body.Reason)); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	record, err = s.getAirplayRecord(r.Context(), id)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	writeJSON(w, 200, map[string]any{"data": s.airplaySessionResponse(r.Context(), record, nil)})
 }
 
@@ -868,32 +875,78 @@ func (s *server) authorizeAirplayRecord(w http.ResponseWriter, r *http.Request, 
 	return s.authorizeScreenList(w, r, ids, nil)
 }
 
-func (s *server) stopAirplaySessionInternal(ctx context.Context, record airplaySessionRecord, userID uuid.UUID, reason string) {
+func (s *server) stopAirplaySessionInternal(ctx context.Context, record airplaySessionRecord, userID uuid.UUID, reason string) error {
 	if reason == "" {
 		reason = "stopped"
 	}
 	screens, err := s.airplaySessionScreens(ctx, record.ID)
 	if err != nil {
-		return
+		return fmt.Errorf("load AirPlay session screens: %w", err)
 	}
-	tag, err := s.db.Exec(ctx, `UPDATE external_presentation_sessions SET status='stopping',end_reason=$2 WHERE id=$1 AND status IN ('preparing','waiting','active')`, record.ID, reason)
-	if err != nil || tag.RowsAffected() == 0 {
-		// Another stop/expiry/failure path already owns the terminal transition.
-		// In particular, do not enqueue a second set of stop commands while a
-		// concurrent request is finishing the same session.
-		return
+
+	if record.Status != "stopping" {
+		tag, updateErr := s.db.Exec(ctx, `UPDATE external_presentation_sessions SET status='stopping',end_reason=$2 WHERE id=$1 AND status IN ('preparing','waiting','active')`, record.ID, reason)
+		if updateErr != nil {
+			return fmt.Errorf("mark AirPlay session stopping: %w", updateErr)
+		}
+		if tag.RowsAffected() == 0 {
+			latest, latestErr := s.getAirplayRecord(ctx, record.ID)
+			if latestErr != nil {
+				return fmt.Errorf("reload AirPlay session after stop race: %w", latestErr)
+			}
+			switch latest.Status {
+			case "ended", "expired", "failed":
+				return nil
+			case "stopping":
+				record = latest
+			default:
+				return fmt.Errorf("AirPlay session %s could not enter stopping from %s", record.ID, latest.Status)
+			}
+		}
 	}
-	_, _ = s.db.Exec(ctx, `UPDATE player_commands SET state='cancelled',completed_at=now(),updated_at=now(),safe_result_code='airplay_session_stopped',safe_result_message='The AirPlay session ended before this command was delivered.' WHERE type='prepare_airplay_session' AND payload->>'sessionId'=$1 AND state IN ('pending','delivered','acknowledged','running')`, record.ID.String())
-	stopPayload, _ := s.validateCommand("stop_airplay_session", mustJSON(map[string]any{"sessionId": record.ID.String(), "reason": reason}))
+
+	if _, err = s.db.Exec(ctx, `UPDATE player_commands SET state='cancelled',completed_at=now(),updated_at=now(),safe_result_code='airplay_session_stopped',safe_result_message='The AirPlay session ended before this command was delivered.' WHERE type='prepare_airplay_session' AND payload->>'sessionId'=$1 AND state IN ('pending','delivered','acknowledged','running')`, record.ID.String()); err != nil {
+		return fmt.Errorf("cancel AirPlay preparation commands: %w", err)
+	}
+	stopPayload, err := s.validateCommand("stop_airplay_session", mustJSON(map[string]any{"sessionId": record.ID.String(), "reason": reason}))
+	if err != nil {
+		return fmt.Errorf("build AirPlay stop command: %w", err)
+	}
 	for _, screen := range screens {
-		s.queueAirplayStopCommand(ctx, record.OrganizationID, screen.ID, userID, stopPayload)
+		if err = s.queueAirplayStopCommand(ctx, record.OrganizationID, screen.ID, userID, stopPayload); err != nil {
+			return fmt.Errorf("queue AirPlay stop for screen %s: %w", screen.ID, err)
+		}
+	}
+
+	// Once every durable stop command exists, commit all server-side terminal
+	// state together. A failure leaves the session in "stopping"; retrying is
+	// safe because stop commands are deduplicated by session.
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin AirPlay stop finalization: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `UPDATE external_presentation_screen_states SET state='stopped',last_updated_at=now(),failure_code=NULL,safe_failure_message=NULL WHERE session_id=$1`, record.ID); err != nil {
+		return fmt.Errorf("finalize AirPlay screen states: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE screen_player_status SET external_presentation_state=NULL,external_presentation_session_id=NULL,external_presentation_role=NULL,airplay_receiver_state=NULL,airplay_transport=NULL,airplay_connected=NULL,external_presentation_expires_at=NULL WHERE external_presentation_session_id=$1`, record.ID); err != nil {
+		return fmt.Errorf("clear AirPlay player status: %w", err)
+	}
+	// Redact the temporary receiver identity before the terminal state commits so
+	// a failed redaction remains retryable instead of becoming unreachable.
+	if _, err = tx.Exec(ctx, `UPDATE player_commands SET payload='{}'::jsonb WHERE type='prepare_airplay_session' AND payload->>'sessionId'=$1`, record.ID.String()); err != nil {
+		return fmt.Errorf("redact AirPlay preparation commands: %w", err)
+	}
+	if _, err = tx.Exec(ctx, `UPDATE external_presentation_sessions SET status=CASE WHEN expires_at<=now() THEN 'expired' ELSE 'ended' END,ended_at=COALESCE(ended_at,now()),end_reason=COALESCE(end_reason,$2),pin=NULL,device_id=NULL WHERE id=$1 AND status='stopping'`, record.ID, reason); err != nil {
+		return fmt.Errorf("finalize AirPlay session: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit AirPlay stop: %w", err)
+	}
+	for _, screen := range screens {
 		s.devices.Notify(screen.ID, map[string]any{"type": "external_presentation.changed", "sessionId": record.ID})
 	}
-	_, _ = s.db.Exec(ctx, `UPDATE external_presentation_screen_states SET state='stopped',last_updated_at=now(),failure_code=NULL,safe_failure_message=NULL WHERE session_id=$1`, record.ID)
-	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET external_presentation_state=NULL,external_presentation_session_id=NULL,external_presentation_role=NULL,airplay_receiver_state=NULL,airplay_transport=NULL,airplay_connected=NULL,external_presentation_expires_at=NULL WHERE external_presentation_session_id=$1`, record.ID)
-	_, _ = s.db.Exec(ctx, `UPDATE external_presentation_sessions SET status=CASE WHEN expires_at<=now() THEN 'expired' ELSE 'ended' END,ended_at=COALESCE(ended_at,now()),end_reason=COALESCE(end_reason,$2),pin=NULL,device_id=NULL WHERE id=$1`, record.ID, reason)
-	// Do not retain the PIN/device identity in the persistent command history.
-	_, _ = s.db.Exec(ctx, `UPDATE player_commands SET payload='{}'::jsonb WHERE type='prepare_airplay_session' AND payload->>'sessionId'=$1`, record.ID.String())
+	return nil
 }
 
 // queueAirplayStopCommand also handles server-owned cleanup. A session can
@@ -969,9 +1022,15 @@ func (s *server) stopAirplayForScreens(ctx context.Context, screens []uuid.UUID,
 	}
 	rows.Close()
 	for _, id := range ids {
-		record, err := s.getAirplayRecord(ctx, id)
-		if err == nil {
-			s.stopAirplaySessionInternal(ctx, record, userID, reason)
+		record, recordErr := s.getAirplayRecord(ctx, id)
+		if recordErr != nil {
+			if s.logger != nil {
+				s.logger.Error("AirPlay stop lookup failed", "session_id", id, "error", recordErr)
+			}
+			continue
+		}
+		if stopErr := s.stopAirplaySessionInternal(ctx, record, userID, reason); stopErr != nil && s.logger != nil {
+			s.logger.Error("AirPlay stop cleanup failed", "session_id", id, "error", stopErr)
 		}
 	}
 }
