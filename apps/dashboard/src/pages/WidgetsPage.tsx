@@ -283,6 +283,23 @@ export function WidgetEditorPage() {
         aria-label={t("widgets.detail.loadingDefinition")}
       />
     );
+  if ((id && widget.isError) || definitions.isError) {
+    const error = id && widget.isError ? widget.error : definitions.error;
+    return (
+      <section className="w-full min-w-0 space-y-5">
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error instanceof ApiError
+              ? apiErrorMessage(error)
+              : t("widgets.list.loadError")}
+          </AlertDescription>
+        </Alert>
+        <Button type="button" variant="outline" onClick={close}>
+          {t("widgets.detail.backToWidgets")}
+        </Button>
+      </section>
+    );
+  }
   if ((id && !asset) || !provider || !definition) {
     return (
       <section className="w-full min-w-0 space-y-5">
