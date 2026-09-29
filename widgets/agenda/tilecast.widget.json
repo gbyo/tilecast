@@ -211,6 +211,13 @@
         "ui": { "section": "appearance", "order": 4 }
       },
       {
+        "key": "cardBackgroundColor",
+        "label": "Schedule card background",
+        "control": "color",
+        "default": "",
+        "ui": { "hidden": true }
+      },
+      {
         "key": "textScale",
         "label": "Text scale",
         "control": "integer",
@@ -249,7 +256,8 @@
     "emptyText": "",
     "backgroundColor": "",
     "foregroundColor": "",
-    "accentColor": ""
+    "accentColor": "",
+    "cardBackgroundColor": ""
   },
   "presentationSchemaVersion": 1,
   "requiredCapabilities": {
@@ -310,7 +318,8 @@
       },
       "background": { "$config": "backgroundColor", "default": "" },
       "foreground": { "$config": "foregroundColor", "default": "" },
-      "accent": { "$config": "accentColor", "default": "" }
+      "accent": { "$config": "accentColor", "default": "" },
+      "cardBackground": { "$config": "cardBackgroundColor", "default": "" }
     },
     "dataSourceFields": ["dataSourceId"],
     "empty": "skip-eligible"

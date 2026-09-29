@@ -123,9 +123,15 @@ export class ClockController implements ReactiveController {
     const now = clock.now();
     const remainder = ((now % unit) + unit) % unit;
     const boundary = this.nextBoundary(now);
-    const requestedDelay = boundary
+    const cadenceDelay = unit - remainder + BOUNDARY_SLACK_MS;
+    const boundaryDelay = boundary
       ? boundary - now + BOUNDARY_SLACK_MS
-      : unit - remainder + BOUNDARY_SLACK_MS;
+      : Number.POSITIVE_INFINITY;
+    const wakesForBoundary =
+      boundary !== null &&
+      boundaryDelay <= cadenceDelay &&
+      boundaryDelay <= MAX_TIMER_DELAY_MS;
+    const requestedDelay = Math.min(cadenceDelay, boundaryDelay);
     const delay = Math.min(requestedDelay, MAX_TIMER_DELAY_MS);
     this.scheduledClock = clock;
     this.scheduledGranularity = granularity;
@@ -136,7 +142,7 @@ export class ClockController implements ReactiveController {
       this.scheduledBoundary = null;
       this.wakeups += 1;
       const key = this.options.key?.(clock.now());
-      if (key === undefined || key !== this.lastKey) {
+      if (wakesForBoundary || key === undefined || key !== this.lastKey) {
         this.host.requestUpdate();
       }
       this.reschedule();

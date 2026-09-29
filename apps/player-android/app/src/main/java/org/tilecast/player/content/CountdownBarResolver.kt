@@ -171,11 +171,12 @@ private fun isoDayOfWeek(day: Int): DayOfWeek? =
 
 /** Accepts the HH:MM the API publishes and the HH:MM:SS Postgres can render. */
 private fun parseTargetTime(value: String?): LocalTime? {
-    val match = Regex("^(\\d{2}):(\\d{2})").find(value ?: "") ?: return null
+    val match = Regex("^(\\d{2}):(\\d{2})(?::(\\d{2}))?$").matchEntire(value ?: "") ?: return null
     val hour = match.groupValues[1].toIntOrNull() ?: return null
     val minute = match.groupValues[2].toIntOrNull() ?: return null
-    if (hour > 23 || minute > 59) return null
-    return LocalTime.of(hour, minute)
+    val second = match.groupValues[3].takeIf { it.isNotEmpty() }?.toIntOrNull() ?: 0
+    if (hour > 23 || minute > 59 || second > 59) return null
+    return LocalTime.of(hour, minute, second)
 }
 
 /**

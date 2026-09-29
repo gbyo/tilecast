@@ -212,5 +212,3 @@ private fun EmptyPlayback(message: String) {
         androidx.compose.material3.Text(message, color = SignalText)
     }
 }
-
-

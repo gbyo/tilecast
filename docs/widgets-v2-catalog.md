@@ -88,13 +88,18 @@ Status reads any prepared object Data Source through explicit status,
 message, severity, and time-field mappings. Panel and banner are component
 styles. `school-status-banner` maps to panel; `alert-banner` maps to banner.
 Both provider IDs stay on saved Widgets, and their compiled template
-presentations remain available to Players without the component.
+presentations remain available to Players without the component. CAP
+severities map as follows: Minor to accent, Moderate to warning, and Severe
+or Extreme to critical. A date-only effective time starts at midnight in the
+screen time zone. A date-only expiry stays active through that local day.
 
 Agenda uses one component for three styles. `agenda` groups by local day and
 marks the current event. `now-next` shows the current and next event; when a
 saved Now and Next Widget has no usable start mapping, it keeps the source
 order. `schedule-board` features the current or next event, updates its
 countdown at schedule boundaries, and can show a bounded upcoming timeline.
+When the current event has no end, the next event's start is its implicit
+end. Without a following event, it ends at the local-day boundary.
 The saved `schedule-board` provider keeps its old schema and template for
 older Players. The component does not receive the legacy column or font-size
 controls.
@@ -105,27 +110,27 @@ does not change.
 
 ### 3.3 Data display
 
-| Provider            | Name              | Fate     | Component        | Notes                                                       |
-| ------------------- | ----------------- | -------- | ---------------- | ----------------------------------------------------------- |
-| `list`              | List              | V2       | `tilecast.list`  | Shipped in #729.                                            |
-| `table`             | Table             | V2       | `tilecast.table` | Shipped in #729.                                            |
-| `cards`             | Cards             | V2       | `tilecast.cards` | Shipped in #729.                                            |
-| `recognition-board` | Recognition Board | Collapse | `tilecast.cards` | Name to title, note to body; legacy columns are not mapped. |
+| Provider                  | Name                    | Fate     | Component             | Notes                                                       |
+| ------------------------- | ----------------------- | -------- | --------------------- | ----------------------------------------------------------- |
+| `list`                    | List                    | V2       | `tilecast.list`       | Shipped in #729.                                            |
+| `table`                   | Table                   | V2       | `tilecast.table`      | Shipped in #729.                                            |
+| `cards`                   | Cards                   | V2       | `tilecast.cards`      | Shipped in #729.                                            |
+| `recognition-board`       | Recognition Board       | Collapse | `tilecast.cards`      | Name to title, note to body; legacy columns are not mapped. |
+| `menu`                    | Menu Board              | V2       | `tilecast.menu-board` | Shipped in #730.                                            |
+| `ticker`                  | Ticker                  | V2       | `tilecast.ticker`     | Shipped in #731.                                            |
+| `metric`                  | Metrics                 | V2       | `tilecast.metrics`    | One value or a grid of two to six values.                   |
+| `stat_grid`               | Stat Grid               | Collapse | `tilecast.metrics`    | Its `metrics` items keep their shape.                       |
+| `progress`                | Progress                | V2       | `tilecast.progress`   | Bar, ring, and thermometer styles.                          |
+| `fundraising-thermometer` | Fundraising Thermometer | Style    | `tilecast.progress`   | Thermometer style.                                          |
+| `spotlight`               | Spotlight               | V2       | `tilecast.spotlight`  | One featured record.                                        |
+| `chart`                   | Chart                   | V2       | `tilecast.chart`      | Bar, line, and area. A saved donut shows bars.              |
+| `timeline`                | Timeline                | V2       | `tilecast.timeline`   | Milestones. See §5.                                         |
 
 Recognition Board keeps its provider ID and saved configuration. Its
 component template maps `nameField` to Cards `titleField`, `noteField` to
 `bodyField`, `maxItems` to `maximumItems`, and preserves its heading, empty
 message, and colors. The old column count remains available only to the
 legacy template fallback.
-| `menu` | Menu Board | V2 | `tilecast.menu-board` | Shipped in #730. |
-| `ticker` | Ticker | V2 | `tilecast.ticker` | Shipped in #731. |
-| `metric` | Metrics | V2 | `tilecast.metrics` | One value or a grid of two to six values. |
-| `stat_grid` | Stat Grid | Collapse | `tilecast.metrics` | Its `metrics` items keep their shape. |
-| `progress` | Progress | V2 | `tilecast.progress` | Bar, ring, and thermometer styles. |
-| `fundraising-thermometer` | Fundraising Thermometer | Style | `tilecast.progress` | Thermometer style. |
-| `spotlight` | Spotlight | V2 | `tilecast.spotlight` | One featured record. |
-| `chart` | Chart | V2 | `tilecast.chart` | Bar, line, and area. A saved donut shows bars. |
-| `timeline` | Timeline | V2 | `tilecast.timeline` | Milestones. See §5. |
 
 The news Apps (`news-feed`, `espn`, `custom-rss`, `atom-feed`,
 `bbc-news`, `sky-news`, `the-guardian`) and `rss-ticker` are

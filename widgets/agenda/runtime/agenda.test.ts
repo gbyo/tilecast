@@ -52,6 +52,7 @@ const base: AgendaConfig = {
   background: null,
   foreground: null,
   accent: null,
+  cardBackground: null,
 };
 
 function documentWith(
@@ -279,6 +280,59 @@ describe("Agenda time model", () => {
     expect(formatAgendaCountdownLabel("start", "ru-RU")).toBe("Начнётся через");
     expect(formatAgendaCountdownLabel("end", "fr-FR")).toBe("Ends in");
   });
+
+  it("uses a following event as the end of an open-ended Schedule Board event", async () => {
+    const nextStart = NOW + 30 * 60_000;
+    const items = [
+      {
+        id: "open-current",
+        values: {
+          title: { kind: "text", text: "All day event" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(NOW - 60_000).toISOString(),
+          },
+        },
+      },
+      {
+        id: "next",
+        values: {
+          title: { kind: "text", text: "Next event" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(nextStart).toISOString(),
+          },
+          end: {
+            kind: "datetime",
+            datetime: new Date(nextStart + 60_000).toISOString(),
+          },
+        },
+      },
+    ] as never;
+    const { root, test, element, clock } = await render(
+      { style: "schedule-board", cardBackground: "#19324d" },
+      documentWith(items),
+    );
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 30m",
+    );
+    expect(
+      root.querySelector(".schedule-card")?.getAttribute("style"),
+    ).toContain("#19324d");
+
+    clock.advance(nextStart - NOW + 8);
+    await element.updateComplete;
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Next event",
+    );
+    test.dispose();
+  });
 });
 
 describe("Agenda data resolution", () => {
@@ -484,6 +538,31 @@ describe("Agenda element", () => {
         (node) => node.textContent?.trim(),
       ),
     ).toEqual(["Board meeting", "Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("formats a Now and Next datetime detail in the screen time zone", async () => {
+    const source = [
+      {
+        id: "detail",
+        values: {
+          title: { kind: "text", text: "Doors open" },
+          detail: { kind: "datetime", datetime: "2026-09-28T05:30:00Z" },
+        },
+      },
+    ] as never;
+    const { root, test } = await render(
+      {
+        style: "now-next",
+        locationField: "",
+        startField: "",
+        descriptionField: "detail",
+      },
+      documentWith(source),
+    );
+    expect(root.querySelector(".schedule-detail")?.textContent?.trim()).toBe(
+      "Sep 28, 2026, 12:30 AM",
+    );
     test.dispose();
   });
 

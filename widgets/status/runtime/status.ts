@@ -23,6 +23,7 @@ import {
   emptyState,
   firstObjectValues,
   formatWidgetValue,
+  localDayKey,
   TilecastWidgetElement,
   ClockController,
   type Tone,
@@ -136,9 +137,53 @@ export function resolveStatusData(
   return ready(object);
 }
 
-/** Read a date or datetime value without treating unfamiliar text as time. */
+/** Return the first instant in a local calendar date, even if midnight shifts. */
+function localDateBoundary(value: string, timeZone: string): number | null {
+  const utcMidnight = Date.parse(`${value}T00:00:00Z`);
+  if (
+    !Number.isFinite(utcMidnight) ||
+    new Date(utcMidnight).toISOString().slice(0, 10) !== value
+  ) {
+    return null;
+  }
+  let before = utcMidnight - 36 * 60 * 60 * 1000;
+  let after = utcMidnight + 36 * 60 * 60 * 1000;
+  if (
+    localDayKey(before, timeZone) >= value ||
+    localDayKey(after, timeZone) < value
+  ) {
+    return null;
+  }
+  while (after - before > 1) {
+    const middle = Math.floor((before + after) / 2);
+    if (localDayKey(middle, timeZone) >= value) after = middle;
+    else before = middle;
+  }
+  return after;
+}
+
+function dateInstant(
+  value: string,
+  timeZone: string,
+  throughEndOfDay: boolean,
+): number | null {
+  const start = Date.parse(`${value}T00:00:00Z`);
+  if (
+    !Number.isFinite(start) ||
+    new Date(start).toISOString().slice(0, 10) !== value
+  ) {
+    return null;
+  }
+  const boundary = throughEndOfDay
+    ? new Date(start + 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    : value;
+  return localDateBoundary(boundary, timeZone);
+}
+
+/** Read a datetime instant or a date at midnight in the screen time zone. */
 export function statusInstant(
   value: WidgetValue | null | undefined,
+  timeZone: string = "UTC",
 ): number | null {
   if (!value) return null;
   const raw =
@@ -148,23 +193,38 @@ export function statusInstant(
         ? value.date
         : null;
   if (raw === null) return null;
-  const instant = Date.parse(raw);
-  return Number.isFinite(instant) ? instant : null;
+  if (typeof value.datetime === "string") {
+    const instant = Date.parse(value.datetime);
+    return Number.isFinite(instant) ? instant : null;
+  }
+  return dateInstant(raw, timeZone, false);
+}
+
+/** A date-only expiration remains active through that local calendar day. */
+function statusExpiryInstant(
+  value: WidgetValue | null | undefined,
+  timeZone: string,
+): number | null {
+  if (typeof value?.date === "string") {
+    return dateInstant(value.date, timeZone, true);
+  }
+  return statusInstant(value, timeZone);
 }
 
 export function statusActive(
   config: StatusConfig,
   data: StatusData,
   nowMs: number,
+  timeZone: string = "UTC",
 ): { active: true } | { active: false; reason: "not_yet_active" | "expired" } {
   const effectiveAt =
     config.effectiveAtField === ""
       ? null
-      : statusInstant(data.values[config.effectiveAtField]);
+      : statusInstant(data.values[config.effectiveAtField], timeZone);
   const expiresAt =
     config.expiresAtField === ""
       ? null
-      : statusInstant(data.values[config.expiresAtField]);
+      : statusExpiryInstant(data.values[config.expiresAtField], timeZone);
   if (effectiveAt !== null && nowMs < effectiveAt) {
     return { active: false, reason: "not_yet_active" };
   }
@@ -179,11 +239,15 @@ export function severityTone(value: string): Tone {
   switch (value.trim().toLowerCase()) {
     case "normal":
       return "positive";
+    case "minor":
     case "notice":
     case "informational":
       return "accent";
+    case "moderate":
     case "warning":
       return "warning";
+    case "severe":
+    case "extreme":
     case "critical":
       return "critical";
     default:
@@ -392,6 +456,7 @@ export class TilecastStatusWidget extends TilecastWidgetElement<
       this.config,
       this.data,
       this.context.clock.now(),
+      this.context.timeZone,
     );
     return state.active
       ? { state: "ready" as const }
@@ -405,7 +470,12 @@ export class TilecastStatusWidget extends TilecastWidgetElement<
 
   protected override renderContent(data: StatusData | null): TemplateResult {
     if (!data) return html``;
-    const state = statusActive(this.config, data, this.context.clock.now());
+    const state = statusActive(
+      this.config,
+      data,
+      this.context.clock.now(),
+      this.context.timeZone,
+    );
     if (!state.active)
       return emptyState({
         title: this.config.emptyText || "Status is unavailable",
@@ -483,10 +553,16 @@ export class TilecastStatusWidget extends TilecastWidgetElement<
     const times = [
       this.config.effectiveAtField === ""
         ? null
-        : statusInstant(this.data.values[this.config.effectiveAtField]),
+        : statusInstant(
+            this.data.values[this.config.effectiveAtField],
+            this.context.timeZone,
+          ),
       this.config.expiresAtField === ""
         ? null
-        : statusInstant(this.data.values[this.config.expiresAtField]),
+        : statusExpiryInstant(
+            this.data.values[this.config.expiresAtField],
+            this.context.timeZone,
+          ),
     ].filter((value): value is number => value !== null && value > now);
     return times.length ? Math.min(...times) : null;
   }

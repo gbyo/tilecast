@@ -21,6 +21,7 @@ class CountdownBarResolverTest {
         contentPadding: Int = 4,
         textScale: Int = 100,
         urgencyEnabled: Boolean = false,
+        targetTime: String = "12:00",
         id: String = "bar-1",
     ) = ManifestPlugin(
         id = id,
@@ -30,7 +31,7 @@ class CountdownBarResolverTest {
             name = "Lunch",
             message = message,
             scheduleType = "weekly",
-            targetTime = "12:00",
+            targetTime = targetTime,
             daysOfWeek = listOf(1),
             timezone = "America/New_York",
             leadTimeSeconds = 900,
@@ -69,6 +70,29 @@ class CountdownBarResolverTest {
         assertEquals("Lunch ends in", active?.message)
         assertEquals("10m 0s", active?.value)
         assertEquals(Instant.parse("2026-07-27T16:00:00Z"), active?.targetAt)
+    }
+
+    @Test
+    fun `preserves seconds from PostgreSQL-style weekly target times`() {
+        val active =
+            resolveCountdownBar(
+                listOf(weekly(targetTime = "12:00:45")),
+                Instant.parse("2026-07-27T15:50:00Z"),
+            )
+        assertEquals(Instant.parse("2026-07-27T16:00:45Z"), active?.targetAt)
+        assertEquals("10m 45s", active?.value)
+    }
+
+    @Test
+    fun `rejects malformed and out of range weekly target times`() {
+        for (targetTime in listOf("12:00oops", "12:00:60", "24:00", "12:60")) {
+            assertNull(
+                resolveCountdownBar(
+                    listOf(weekly(targetTime = targetTime)),
+                    Instant.parse("2026-07-27T15:50:00Z"),
+                ),
+            )
+        }
     }
 
     @Test

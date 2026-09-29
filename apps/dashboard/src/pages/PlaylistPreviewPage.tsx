@@ -42,6 +42,17 @@ export function playlistPreviewItemDuration(item: PlaylistItem) {
 
 export const PLAYLIST_PREVIEW_FADE_MS = 300;
 
+export function playlistPreviewShortcutTargetIsInteractive(
+  target: EventTarget | null,
+) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      "button, a[href], input, select, textarea, [contenteditable]:not([contenteditable='false']), [role='button'], [role='link'], [role='slider'], [role='textbox'], [role='combobox']",
+    ),
+  );
+}
+
 function mediaStyle(item: PlaylistItem) {
   return {
     objectFit: item.fitMode === "stretch" ? ("fill" as const) : item.fitMode,
@@ -157,10 +168,15 @@ function PreviewMedia({
     if (!widgetItem) return;
     if (
       presentationQuery.data?.kind === "native" &&
-      (!dataSourceId || !sourceQuery.isLoading)
+      (!dataSourceId || (!sourceQuery.isLoading && !sourceQuery.isError))
     )
       onReady();
-    else if ((widgetQuery.isError || presentationQuery.isError) && active)
+    else if (
+      (widgetQuery.isError ||
+        presentationQuery.isError ||
+        (Boolean(dataSourceId) && sourceQuery.isError)) &&
+      active
+    )
       onError();
   }, [
     active,
@@ -170,6 +186,7 @@ function PreviewMedia({
     onReady,
     presentationQuery.data,
     presentationQuery.isError,
+    sourceQuery.isError,
     sourceQuery.isLoading,
     widgetQuery.data,
     widgetQuery.isError,
@@ -340,6 +357,11 @@ export function PlaylistPreviewPage() {
   }, [advance, current, paused]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        playlistPreviewShortcutTargetIsInteractive(event.target)
+      )
+        return;
       if (event.key === "ArrowRight") move(1);
       else if (event.key === "ArrowLeft") move(-1);
       else if (event.key === " ") {

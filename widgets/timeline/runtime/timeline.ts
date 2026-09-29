@@ -207,7 +207,9 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         padding: 0 0 min(2.4cqh, 2.4cqw) 0;
         min-width: 0;
         min-height: 0;
-        overflow: hidden;
+        /* Clip crowded rows without clipping their marker or creating a scroll container. */
+        overflow: visible;
+        clip-path: inset(0 0 0 calc(0px - min(4cqh, 4cqw) - 1px));
       }
       .milestone::before {
         content: "";
@@ -267,6 +269,7 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
       .timeline[data-horizontal] .milestone {
         min-width: 0;
         padding: min(2.4cqh, 2.4cqw) 0 0 0;
+        clip-path: inset(calc(0px - min(4cqh, 4cqw) - 1px) 0 0 0);
       }
       .timeline[data-horizontal] .milestone::before {
         left: 0.2em;
@@ -309,6 +312,7 @@ export class TilecastTimelineWidget extends TilecastWidgetElement<
         }
         .timeline[data-horizontal] .milestone {
           padding: 0 0 min(2.4cqh, 2.4cqw) 0;
+          clip-path: inset(0 0 0 calc(0px - min(4cqh, 4cqw) - 1px));
         }
         .timeline[data-horizontal] .milestone::before {
           left: calc(-1 * min(4cqh, 4cqw) - 1px);

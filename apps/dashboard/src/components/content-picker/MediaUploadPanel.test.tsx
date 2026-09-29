@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -75,6 +76,31 @@ describe("MediaUploadPanel", () => {
       screen.getByText("Uploading · 50% · 4 B of 8 B"),
     ).toBeInTheDocument();
     expect(document.querySelector("progress")).toBeNull();
+  });
+
+  it("does not report an upload that completes after unmount", async () => {
+    vi.spyOn(api, "createUpload").mockResolvedValue({
+      id: "s-unmount",
+      offset: 8,
+    } as Awaited<ReturnType<typeof api.createUpload>>);
+    let resolveComplete!: (value: Asset) => void;
+    vi.spyOn(api, "completeUpload").mockReturnValue(
+      new Promise<Asset>((resolve) => {
+        resolveComplete = resolve;
+      }),
+    );
+    const onAsset = vi.fn();
+    const rendered = render(<MediaUploadPanel csrf="csrf" onAsset={onAsset} />);
+    choose(clip());
+
+    await waitFor(() => expect(api.completeUpload).toHaveBeenCalled());
+    rendered.unmount();
+    await act(async () => {
+      resolveComplete(asset("ready"));
+      await Promise.resolve();
+    });
+
+    expect(onAsset).not.toHaveBeenCalled();
   });
 
   it("retries a transfer failure from the same file", async () => {

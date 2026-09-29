@@ -64,6 +64,7 @@ pub mod network_task;
 pub mod pairing;
 pub mod player_config;
 pub mod presentation;
+pub mod presentation_capabilities;
 pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;
