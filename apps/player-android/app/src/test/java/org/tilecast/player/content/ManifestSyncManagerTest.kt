@@ -8,9 +8,13 @@ import org.junit.Test
 import org.tilecast.player.network.LayoutCanvas
 import org.tilecast.player.network.LayoutDocument
 import org.tilecast.player.network.LayoutPlacement
+import org.tilecast.player.network.ComponentMediaRef
+import org.tilecast.player.network.ComponentPresentation
 import org.tilecast.player.network.ManifestAsset
 import org.tilecast.player.network.ManifestLayout
+import org.tilecast.player.network.ManifestWidget
 import org.tilecast.player.network.PlayerManifest
+import org.tilecast.player.network.WidgetPresentation
 import org.tilecast.player.data.CachedAsset
 
 class ManifestSyncManagerTest {
@@ -79,6 +83,84 @@ class ManifestSyncManagerTest {
         val manifest = PlayerManifest(13, 1, "screen", "2026-07-18T00:00:00Z", "presentation", layout = layout, layouts = listOf(layout), assets = listOf(other, requested))
 
         assertEquals(listOf(requested.variantId), selectManifestDownloads(manifest, 0, 1_000, 1_000, 0, 100).map { it.variantId })
+    }
+
+    @Test
+    fun downloadsValidatedComponentMediaGrants() {
+        val media = ManifestAsset("media-asset", "media-variant", "image/png", "media-hash", 30, downloadPath = "/media")
+        val widget = ManifestWidget(
+            assetId = "widget-1",
+            name = "Clock",
+            provider = "clock",
+            presentation = WidgetPresentation(
+                schemaVersion = 2,
+                kind = "component",
+                requiredCapabilities = mapOf("widget.tilecast.clock" to 1),
+                component = ComponentPresentation(
+                    type = "tilecast.clock",
+                    version = 1,
+                    media = listOf(ComponentMediaRef("media-asset", "media-variant")),
+                ),
+            ),
+        )
+        val manifest = PlayerManifest(
+            schemaVersion = 16,
+            manifestVersion = 1,
+            screenId = "screen-1",
+            generatedAt = "2026-07-18T00:00:00Z",
+            mode = "presentation",
+            widgets = listOf(widget),
+            assets = listOf(media),
+        )
+
+        val selected = selectManifestDownloads(
+            manifest = manifest,
+            cacheUsedBytes = 0,
+            usableSpaceBytes = 1_000,
+            cacheLimitBytes = 1_000,
+            minimumFreeBytes = 0,
+            automaticVideoThresholdBytes = 100,
+        )
+
+        assertEquals(listOf("media-variant"), selected.map { it.variantId })
+    }
+
+    @Test
+    fun rejectsMultiDotComponentTypes() {
+        val media = ManifestAsset("media-asset", "media-variant", "image/png", "media-hash", 30, downloadPath = "/media")
+        val widget = ManifestWidget(
+            assetId = "widget-1",
+            name = "Bad",
+            provider = "clock",
+            presentation = WidgetPresentation(
+                schemaVersion = 2,
+                kind = "component",
+                requiredCapabilities = mapOf("widget.tilecast.foo.bar" to 1),
+                component = ComponentPresentation(
+                    type = "tilecast.foo.bar",
+                    version = 1,
+                ),
+            ),
+        )
+        val manifest = PlayerManifest(
+            schemaVersion = 16,
+            manifestVersion = 1,
+            screenId = "screen-1",
+            generatedAt = "2026-07-18T00:00:00Z",
+            mode = "presentation",
+            widgets = listOf(widget),
+            assets = listOf(media),
+        )
+        try {
+            validateWidgetComponentPresentation(
+                widget.presentation!!,
+                emptyMap(),
+                manifest,
+            )
+            fail("multi-dot component type must be rejected")
+        } catch (error: IllegalArgumentException) {
+            // Expected: mirrors schema v16 and the runtime projector.
+        }
     }
 
     @Test

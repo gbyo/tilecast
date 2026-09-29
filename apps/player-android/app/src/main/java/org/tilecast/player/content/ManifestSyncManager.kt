@@ -125,6 +125,15 @@ internal fun selectManifestDownloads(
     manifest.widgets.flatMap { widget -> widget.presentation?.native?.root?.let(::presentationAssets).orEmpty() }
         .mapNotNull(byVariant::get)
         .forEach(::add)
+    // Schema-2 component media grants are validated against manifest.assets
+    // before activation; they must enter the required-download set like any
+    // other presentation asset, or a fresh cache projects a Widget whose
+    // media alias was never downloaded.
+    manifest.widgets
+        .mapNotNull { it.presentation?.component }
+        .flatMap { it.media }
+        .mapNotNull { ref -> manifest.assets.firstOrNull { it.assetId == ref.assetId && it.variantId == ref.variantId } }
+        .forEach(::add)
     val layouts = (manifest.layouts + listOfNotNull(manifest.layout, manifest.directFallbackLayout)).distinctBy { it.id }
     layouts.flatMap { layout ->
         listOfNotNull(layout.document.canvas.backgroundAssetId).map { id ->
@@ -512,5 +521,7 @@ private fun visitWidgetComponentConfig(value:kotlinx.serialization.json.JsonElem
 	}
 }
 
-private val componentTypePattern=Regex("^[a-z][a-z0-9]{1,31}(\\.[a-z][a-z0-9-]{0,47})+$")
+// Mirrors manifest schema v16 and
+// packages/player-runtime/src/widgets/projection.ts exactly: one dot.
+private val componentTypePattern=Regex("^[a-z][a-z0-9]{1,31}\\.[a-z][a-z0-9-]{0,47}$")
 private val componentIdentifierPattern=Regex("^[A-Za-z0-9-]{1,64}$")
