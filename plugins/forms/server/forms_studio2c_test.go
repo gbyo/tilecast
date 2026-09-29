@@ -265,6 +265,9 @@ func TestOutputsEligibleOnlyAndRebuild(t *testing.T) {
 	if approvedView.RecordCount != 1 {
 		t.Fatalf("approved output should have 1 eligible record, got %d", approvedView.RecordCount)
 	}
+	if approvedView.Usage.Names == nil {
+		t.Fatal("outputs usage names must be an empty array, not null, when the view has no consumers")
+	}
 	for _, record := range approvedView.PreviewRecords {
 		if record.Values["title"] == "Hidden draft" {
 			t.Fatal("outputs preview must not contain unapproved records")
