@@ -416,7 +416,11 @@ describe("Layout editor layers and zoom controls", () => {
       "popup=yes,width=1280,height=800,resizable=yes,scrollbars=no",
     );
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/layouts/layout-1/preview"),
+      expect(replace).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^\/layouts\/layout-1\/preview\?date=\d{4}-\d{2}-\d{2}$/,
+        ),
+      ),
     );
     expect(popup.opener).toBeNull();
     expect(focus).toHaveBeenCalled();
