@@ -1195,7 +1195,9 @@ func (s *server) expireAirplaySessions(ctx context.Context) {
 		if ref.createdBy != nil {
 			actor = *ref.createdBy
 		}
-		s.stopAirplaySessionInternal(ctx, record, actor, "expired")
+		if stopErr := s.stopAirplaySessionInternal(ctx, record, actor, "expired"); stopErr != nil && s.logger != nil {
+			s.logger.Error("AirPlay expiry cleanup failed", "session_id", record.ID, "error", stopErr)
+		}
 	}
 }
 
