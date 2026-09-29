@@ -1,0 +1,348 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F3320EFC15B4453BBCCB4FB1 /* TilecastCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5B08EA8491F33AAE89A5EF81 /* TilecastCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BAE9143321BD9C0E43B53418 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B384F173623C0E47D8F91305 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0B32AC1D043E738E78866DCE;
+			remoteInfo = Tilecast;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TilecastUITests.xcconfig; sourceTree = "<group>"; };
+		064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TilecastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		17C24CC145F21ACFB46C834F /* Local.xcconfig.example */ = {isa = PBXFileReference; path = Local.xcconfig.example; sourceTree = "<group>"; };
+		23D4CC096BF02644976B36C4 /* TilecastKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TilecastKit; path = TilecastKit; sourceTree = SOURCE_ROOT; };
+		67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Tilecast.xcconfig; sourceTree = "<group>"; };
+		AA8FBF69EFE12BEA4FF85A42 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		C66DE3D082F5162179243024 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		F406C608DADC63E5251026A3 /* Tilecast.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Tilecast.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FFEF5E552CD4056055BC8236 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3A3B0B6A978015B857EE9DE4 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0B32AC1D043E738E78866DCE /* Tilecast */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		C51B4ABB26689EED0D4FA5C2 /* Tilecast */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3A3B0B6A978015B857EE9DE4 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Tilecast;
+			sourceTree = "<group>";
+		};
+		E4CD350141089EF361253F36 /* TilecastUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = TilecastUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6A6F47E8D8A9C83E922E776F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F3320EFC15B4453BBCCB4FB1 /* TilecastCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		489C2E0906BCB89F3D1A7AB4 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				23D4CC096BF02644976B36C4 /* TilecastKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		4F0C20180E7E9B7A6F67F8BA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F406C608DADC63E5251026A3 /* Tilecast.app */,
+				064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A8DE63D4E089CC387E1CCB0D = {
+			isa = PBXGroup;
+			children = (
+				D719F65E7C12F37952F5E8C4 /* Config */,
+				489C2E0906BCB89F3D1A7AB4 /* Packages */,
+				C51B4ABB26689EED0D4FA5C2 /* Tilecast */,
+				E4CD350141089EF361253F36 /* TilecastUITests */,
+				4F0C20180E7E9B7A6F67F8BA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D719F65E7C12F37952F5E8C4 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				FFEF5E552CD4056055BC8236 /* Base.xcconfig */,
+				C66DE3D082F5162179243024 /* Debug.xcconfig */,
+				17C24CC145F21ACFB46C834F /* Local.xcconfig.example */,
+				AA8FBF69EFE12BEA4FF85A42 /* Release.xcconfig */,
+				67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */,
+				02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0B32AC1D043E738E78866DCE /* Tilecast */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 93A8FBF6E2BB129427CB142B /* Build configuration list for PBXNativeTarget "Tilecast" */;
+			buildPhases = (
+				29D3A9DF861FF4BA3C5178D1 /* Sources */,
+				8EA9DFA413711BC6326E042E /* Resources */,
+				6A6F47E8D8A9C83E922E776F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				C51B4ABB26689EED0D4FA5C2 /* Tilecast */,
+			);
+			name = Tilecast;
+			packageProductDependencies = (
+				5B08EA8491F33AAE89A5EF81 /* TilecastCore */,
+			);
+			productName = Tilecast;
+			productReference = F406C608DADC63E5251026A3 /* Tilecast.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A5C4F73F9D7792AE7A213CC9 /* TilecastUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF4ACE7998901DFE37BD3C6C /* Build configuration list for PBXNativeTarget "TilecastUITests" */;
+			buildPhases = (
+				9C66040339865BCDE4C5FCF6 /* Sources */,
+				8448F1E14CDC12EB4651CB43 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4D857909F444F4618693CE2B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				E4CD350141089EF361253F36 /* TilecastUITests */,
+			);
+			name = TilecastUITests;
+			packageProductDependencies = (
+			);
+			productName = TilecastUITests;
+			productReference = 064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B384F173623C0E47D8F91305 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					0B32AC1D043E738E78866DCE = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					A5C4F73F9D7792AE7A213CC9 = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = AF1AF28CF46B66F525A4B03C /* Build configuration list for PBXProject "Tilecast" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				es,
+				ru,
+			);
+			mainGroup = A8DE63D4E089CC387E1CCB0D;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				568F201DBB82036531E4FBC4 /* XCLocalSwiftPackageReference "TilecastKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4F0C20180E7E9B7A6F67F8BA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0B32AC1D043E738E78866DCE /* Tilecast */,
+				A5C4F73F9D7792AE7A213CC9 /* TilecastUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8448F1E14CDC12EB4651CB43 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8EA9DFA413711BC6326E042E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		29D3A9DF861FF4BA3C5178D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C66040339865BCDE4C5FCF6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4D857909F444F4618693CE2B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0B32AC1D043E738E78866DCE /* Tilecast */;
+			targetProxy = BAE9143321BD9C0E43B53418 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0CDC331818649DF767A6203F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C66DE3D082F5162179243024 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		12BD099FD9E9B1CD461C3F5B /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		23CE08FB36CC62CE12F4F37D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		23DA55673C39CABF76472550 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = AA8FBF69EFE12BEA4FF85A42 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		A02564153B40BDBFE589F004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = Tilecast/Info.plist;
+			};
+			name = Debug;
+		};
+		AEB9095B0FEB3FD7AC3FE779 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = Tilecast/Info.plist;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		93A8FBF6E2BB129427CB142B /* Build configuration list for PBXNativeTarget "Tilecast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A02564153B40BDBFE589F004 /* Debug */,
+				AEB9095B0FEB3FD7AC3FE779 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AF1AF28CF46B66F525A4B03C /* Build configuration list for PBXProject "Tilecast" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CDC331818649DF767A6203F /* Debug */,
+				23DA55673C39CABF76472550 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FF4ACE7998901DFE37BD3C6C /* Build configuration list for PBXNativeTarget "TilecastUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				23CE08FB36CC62CE12F4F37D /* Debug */,
+				12BD099FD9E9B1CD461C3F5B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		568F201DBB82036531E4FBC4 /* XCLocalSwiftPackageReference "TilecastKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = TilecastKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5B08EA8491F33AAE89A5EF81 /* TilecastCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = TilecastCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B384F173623C0E47D8F91305 /* Project object */;
+}

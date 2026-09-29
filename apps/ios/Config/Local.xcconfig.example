@@ -1,0 +1,4 @@
+// Copy to Local.xcconfig (ignored by git) to build for a device.
+DEVELOPMENT_TEAM = ABCDE12345
+// A bundle identifier your team can register.
+TILECAST_BUNDLE_ID = com.example.tilecast

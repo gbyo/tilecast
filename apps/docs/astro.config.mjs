@@ -403,6 +403,7 @@ export default defineConfig({
             { slug: "developers" },
             { slug: "developers/demo-mode" },
             { slug: "developers/testing" },
+            { slug: "developers/ios-app" },
             {
               label: "Plugin development",
               collapsed: true,

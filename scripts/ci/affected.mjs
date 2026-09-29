@@ -17,6 +17,11 @@ export const graph = {
   protocol: ["server", "android", "runtime", "edge_rust", "edge_server"],
   activity: ["protocol", "edge_activity"],
   android: [],
+  // The iOS host embeds Studio at runtime from the configured server, so a
+  // Studio change never requires an iOS build. Its build inputs are its own
+  // sources and the contracts it compiles or tests against. Add an edge here
+  // only when the app starts consuming a new contract at build time.
+  ios: [],
   docs: [],
   container: [],
   e2e: [],
@@ -37,6 +42,9 @@ const rules = [
   [/^apps\/server\//, ["server"]],
   [/^(apps\/cli|packages\/api-client)\//, ["cli"]],
   [/^apps\/player-android\//, ["android"]],
+  [/^apps\/ios\//, ["ios"]],
+  // The iOS app runs the shared server-address corpus in its tests.
+  [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
   [
     /^scripts\/(build-player-release|extract-apksigner-sha256)\.sh$/,
     ["android"],
