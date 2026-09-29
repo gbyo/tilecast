@@ -84,9 +84,6 @@ dependencies {
     // runtime; an unsupported WebView fails closed, never silently downgrades.
     implementation("androidx.webkit:webkit:1.15.0")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
-    implementation("androidx.media3:media3-exoplayer:1.10.1")
-    implementation("androidx.media3:media3-ui:1.10.1")
-    implementation("androidx.media3:media3-datasource-okhttp:1.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.google.zxing:core:3.5.4")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")

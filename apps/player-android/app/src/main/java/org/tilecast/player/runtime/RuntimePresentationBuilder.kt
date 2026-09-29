@@ -12,7 +12,6 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.content.effectiveDurationMs
-import org.tilecast.player.content.resolveWebsitePolicy
 import org.tilecast.player.content.withPlaybackDefaults
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestLayout
@@ -410,4 +409,30 @@ object RuntimePresentationBuilder {
             baseItem(resolved, "image", "").toMap().forEach { (k, v) -> put(k, v) }
             put("durationMs", 1_000)
         }
+}
+
+/**
+ * Resolve the server-authoritative website policy at the last point before a
+ * WebView is created. The organization defaults are used while authoring a
+ * site, but the player policy is an operational guardrail and therefore wins
+ * over a stale manifest for timeout and cookie handling.
+ */
+internal fun resolveWebsitePolicy(site: ManifestWebsite, policy: PlayerWebsitePolicy?): ManifestWebsite {
+    if (policy == null) return site
+    val cookiePolicy = policy.cookiePolicy
+        .takeIf { it in setOf("disabled", "first_party", "first_and_third_party") }
+        ?: site.cookiePolicy.ifBlank { policy.defaultCookiePolicy }
+    val timeoutSeconds = policy.timeoutSeconds.takeIf { it in 1..120 }
+        ?: site.loadTimeoutSeconds.takeIf { it in 1..120 }
+        ?: policy.defaultTimeoutSeconds
+    return site.copy(
+        javascriptEnabled = site.javascriptEnabled,
+        domStorageEnabled = site.domStorageEnabled,
+        cookiePolicy = cookiePolicy,
+        reloadPolicy = site.reloadPolicy.ifBlank { policy.defaultReloadPolicy },
+        refreshIntervalSeconds = site.refreshIntervalSeconds?.takeIf { it >= policy.minimumRefreshSeconds },
+        loadTimeoutSeconds = timeoutSeconds,
+        zoomPercent = site.zoomPercent.takeIf { it in 50..200 } ?: policy.defaultZoomPercent,
+        failureBehavior = site.failureBehavior.ifBlank { policy.defaultFailureBehavior },
+    )
 }
