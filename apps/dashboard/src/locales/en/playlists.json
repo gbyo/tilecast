@@ -21,6 +21,7 @@
   "library": {
     "title": "Playlists",
     "subtitle": "Find, preview, and organize fullscreen playback for your screens.",
+    "loadError": "Playlists could not be loaded.",
     "create": "Create playlist",
     "searchLabel": "Search playlists",
     "searchPlaceholder": "Search names, descriptions, or previewed content",
