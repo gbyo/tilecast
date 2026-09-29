@@ -59,6 +59,7 @@ describe("captureWidgetPreview", () => {
     );
     expect(drawImage).toHaveBeenCalledOnce();
   });
+
   it("captures rendered content from open Widget shadow roots", async () => {
     Object.defineProperty(document, "fonts", {
       configurable: true,
@@ -112,5 +113,4 @@ describe("captureWidgetPreview", () => {
     expect(markup).toContain("12:34 PM from Shadow DOM");
     expect(markup).toContain("clock-value");
   });
-
 });
