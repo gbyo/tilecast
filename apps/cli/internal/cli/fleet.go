@@ -338,7 +338,7 @@ func runPairingResolve(cmd *cobra.Command, env *environment, code string) error 
 		if expires, _ := session["expiresAt"].(string); expires != "" {
 			out.WriteString("expires=" + expires + "\n")
 		}
-		out.WriteString("approve with: tilecast pairing approve " + pairingID(session) + " --name <screen> --room-name <room> --room-number <n> --description <text>")
+		out.WriteString("approve with: tilecast pairing approve " + pairingID(session) + " --name <screen>")
 		return out.String()
 	})
 }
@@ -353,13 +353,18 @@ func runPairingApprove(cmd *cobra.Command, env *environment, id string) error {
 	replaceCredential, _ := flags.GetBool("replace-existing-credential")
 	replaceHardware, _ := flags.GetBool("replace-hardware")
 	replacementScreenID, _ := flags.GetString("replacement-screen-id")
-	if name == "" || roomName == "" || roomNumber == "" || description == "" {
-		return fmt.Errorf("approve needs --name, --room-name, --room-number, and --description")
+	if replaceHardware {
+		if replacementScreenID == "" {
+			return fmt.Errorf("approve needs --replacement-screen-id with --replace-hardware")
+		}
+	} else if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("approve needs --name unless --replace-hardware is used")
 	}
-	if replaceHardware && replacementScreenID == "" {
-		return fmt.Errorf("approve needs --replacement-screen-id with --replace-hardware")
+	confirmation := fmt.Sprintf("approve pairing %s as %q?", id, name)
+	if replaceHardware {
+		confirmation = fmt.Sprintf("approve pairing %s as replacement hardware for screen %s?", id, replacementScreenID)
 	}
-	if err := confirmChange(cmd, fmt.Sprintf("approve pairing %s as %q?", id, name)); err != nil {
+	if err := confirmChange(cmd, confirmation); err != nil {
 		return err
 	}
 	resolved, err := env.resolver(cmd).Resolve(true)
