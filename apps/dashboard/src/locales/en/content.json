@@ -181,7 +181,8 @@
       "image": "Image",
       "video": "Video",
       "websiteWidget": "Website Widget",
-      "youtubeWidget": "YouTube Widget"
+      "youtubeWidget": "YouTube Widget",
+      "widget": "Widget"
     },
     "upload": {
       "activeCount_one": "{{count}} active",
@@ -619,6 +620,8 @@
         "statusReady": "Preview ready.",
         "statusEmpty": "Preview is empty: {{reason}}",
         "statusError": "Preview cannot render: {{code}}",
+        "sourceError": "A connected Data Source failed to load, so this preview cannot render. Reconnect the source or try again.",
+        "captureFailed": "The Widget preview failed to render, so nothing was saved. Try again.",
         "sections": {
           "data": "Data",
           "content": "Content",

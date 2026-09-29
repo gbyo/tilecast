@@ -3,7 +3,9 @@ import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
 import { V2ZonePreview } from "./V2ZonePreview";
+import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
 import type {
@@ -91,14 +93,27 @@ export function nextPlaylistPreviewIndex(
   return index + 1;
 }
 
+export interface ZoneCaptureTracking {
+  /** Coordinator owned by the Layout editor canvas. */
+  coordinator: LayoutCaptureCoordinator;
+  /** Placement id the zone reports under. */
+  zoneId: string;
+}
+
 export function PlaylistZonePreview({
   placement,
   playlist,
   assetsById,
+  previewDate,
+  captureTracking,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
+  /** Layout-selected preview date, forwarded to V2 Widget zones. */
+  previewDate?: string;
+  /** Present only on the editor canvas, which Layout thumbnails capture. */
+  captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
@@ -147,7 +162,12 @@ export function PlaylistZonePreview({
     return (
       <div className={className} key={`${playlist.id}-${current.id}`}>
         {asset.widget ? (
-          <WidgetLivePreview asset={asset} item={placement} />
+          <WidgetLivePreview
+            asset={asset}
+            item={placement}
+            previewDate={previewDate}
+            captureTracking={captureTracking}
+          />
         ) : (
           <AppPlacementPreview asset={asset} item={placement} />
         )}
@@ -257,16 +277,39 @@ export function AppPlacementPreview({
 export function WidgetLivePreview({
   asset,
   item,
+  previewDate,
+  captureTracking,
 }: {
   asset: Asset;
   item: LayoutPlacement;
+  /** Layout-selected preview date (YYYY-MM-DD); absent means live. */
+  previewDate?: string;
+  /** Present only on the editor canvas, which Layout thumbnails capture. */
+  captureTracking?: ZoneCaptureTracking;
 }) {
   const definitions = useQuery({
     queryKey: ["content-definitions"],
     queryFn: () => api.contentDefinitions(),
   });
   const provider = asset.widget!.provider;
-  if (studioWidgetComponent(definitions.data, provider))
+  const v2 = studioWidgetComponent(definitions.data, provider);
+  // Register capture-relevant zones while a V2 component is mounted. Static
+  // content (snapshots, placeholders) has nothing asynchronous to wait for.
+  // The asset id joins the deps so a swapped Widget re-registers as pending.
+  const tracked = Boolean(captureTracking && v2);
+  useEffect(() => {
+    if (!captureTracking || !tracked) return;
+    const { coordinator, zoneId } = captureTracking;
+    coordinator.register(zoneId);
+    return () => coordinator.unregister(zoneId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    captureTracking?.coordinator,
+    captureTracking?.zoneId,
+    asset.id,
+    tracked,
+  ]);
+  if (v2)
     return (
       <V2ZonePreview
         provider={provider}
@@ -274,10 +317,22 @@ export function WidgetLivePreview({
         // Keep the intrinsic Layout-zone geometry here. WidgetPreviewHost
         // scales the whole mounted surface to the Studio box, so responsive
         // Widget/container-query behavior matches playback instead of being
-        // compiled against the already-shrunken preview pixels.
+        // compiled against the already-shrunken preview pixels. Fill lets
+        // the zone grow past 100% Studio zoom without underfilling.
         width={item.width}
         height={item.height}
         overrides={item.overrides}
+        fit="fill"
+        previewDate={previewDate}
+        onState={
+          captureTracking
+            ? (state: WidgetMountState) =>
+                captureTracking.coordinator.reportMountState(
+                  captureTracking.zoneId,
+                  state.state,
+                )
+            : undefined
+        }
       />
     );
   return <AppPlacementPreview asset={asset} item={item} />;

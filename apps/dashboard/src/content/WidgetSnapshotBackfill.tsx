@@ -17,6 +17,7 @@ import { studioWidgetComponent } from "./studioWidgets";
 import {
   captureWidgetPreview,
   WIDGET_PREVIEW_CAPTURE_VERSION,
+  WIDGET_THUMBNAIL_FRAME,
 } from "./widgetPreviewCapture";
 import {
   widgetPreviewConfiguration,
@@ -77,7 +78,7 @@ export function WidgetSnapshotBackfill({
   );
 }
 
-const SNAPSHOT_FRAME = { width: 960, height: 540 } as const;
+const SNAPSHOT_FRAME = WIDGET_THUMBNAIL_FRAME;
 
 /**
  * Store a capture of a rendered Widget once `ready` says it has painted.
@@ -257,6 +258,11 @@ function CompatibilitySnapshotCapture({
     })),
   });
   const sourcesSettled = sourcePreviews.every((preview) => !preview.isLoading);
+  // A settled source that errored (or returned nothing usable) must fail the
+  // capture: uploading it would store the fetch failure as an empty Widget.
+  const sourcesFailed =
+    sourcesSettled &&
+    sourcePreviews.some((preview) => preview.isError || !preview.data);
   const previewDatasets = declaredSources.reduce<PreviewDatasets>(
     (all, id, index) => ({
       ...all,
@@ -271,8 +277,9 @@ function CompatibilitySnapshotCapture({
     }),
     {},
   );
-  const ready = Boolean(compiled.data) && sourcesSettled;
-  const failed = compiled.isError || (definitions.isError && !definition);
+  const ready = Boolean(compiled.data) && sourcesSettled && !sourcesFailed;
+  const failed =
+    compiled.isError || (definitions.isError && !definition) || sourcesFailed;
 
   useSnapshotUpload(asset, ready, failed, previewRef, onSettled);
 

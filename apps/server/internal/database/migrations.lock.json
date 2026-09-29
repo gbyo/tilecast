@@ -640,5 +640,11 @@
     "file": "00108_api_grants.sql",
     "owner": "core",
     "sha256": "92a674487eec92067ee6b23bf85eb262105a82fb45c997e46855c1d91a688991"
+  },
+  {
+    "version": 109,
+    "file": "00109_layout_preview_capture_version.sql",
+    "owner": "core",
+    "sha256": "d1c47f736caa8aa5bf023197afb7955a361b1c0cf4ddf58e94012420b035dcae"
   }
 ]

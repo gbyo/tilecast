@@ -16,9 +16,14 @@ import { WidgetSnapshotBackfill } from "./WidgetSnapshotBackfill";
 
 const captureWidgetPreview = vi.hoisted(() => vi.fn());
 
-vi.mock("./widgetPreviewCapture", () => ({
-  captureWidgetPreview,
-}));
+vi.mock("./widgetPreviewCapture", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./widgetPreviewCapture")>();
+  return {
+    ...actual,
+    captureWidgetPreview,
+  };
+});
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
