@@ -114,6 +114,7 @@ struct MoreView: View {
                 Button(action: actions.add) { IconLabel("Add Server…", image: AppIcon.add) }
                 Button(action: actions.manage) { IconLabel("Manage Servers…", image: AppIcon.manage) }
                 Button { page.reload() } label: { IconLabel("Reload", image: AppIcon.reload) }
+                SignOutButton(page: page)
             } header: {
                 Text("Servers").font(.geist(.footnote))
             }
@@ -145,6 +146,7 @@ struct NativeSidebarNavigation: View {
                         ServerMenuItems(actions: actions)
                         Divider()
                         Button { page.reload() } label: { Label("Reload", image: AppIcon.reload) }
+                        SignOutButton(page: page)
                     } label: {
                         IconLabel(verbatim: host.directory.activeServer?.displayName ?? String(localized: "Tilecast"), image: AppIcon.server)
                     }

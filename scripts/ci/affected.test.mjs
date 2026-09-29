@@ -259,6 +259,8 @@ test("OpenAPI contract changes run server route parity", () => {
     assert.equal(result.plugins, true, `${path}: plugins`);
     assert.equal(result.cli, true, `${path}: cli`);
     assert.equal(result.server, true, `${path}: server`);
+    // The iOS app generates its API client from the composed contract.
+    assert.equal(result.ios, true, `${path}: ios`);
   }
 });
 

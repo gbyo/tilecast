@@ -23,11 +23,11 @@ public struct BridgeSender: Equatable, Sendable {
 /// message and delivers its own messages through one Studio receiver
 /// function, passing the message as an argument, never as script source.
 ///
-/// The bridge is privileged, so it is narrow. It carries presentation and
-/// navigation only: never a password, token, cookie, Keychain value, CSRF
-/// token, or file access. It exists only on the main Studio page, and it
-/// answers only the main frame of the configured server's origin, in the
-/// page's own content world.
+/// The bridge is privileged, so it is narrow. It carries presentation,
+/// navigation, and credential-free sign-out coordination only: never a
+/// password, token, cookie, Keychain value, CSRF token, or file access. It
+/// exists only on the main Studio page, and it answers only the main frame
+/// of the configured server's origin, in the page's own content world.
 @MainActor
 public final class StudioBridge {
     public static let handlerName = "tilecastNative"
@@ -36,6 +36,11 @@ public final class StudioBridge {
     public let navigation: NativeNavigationModel
     /// Studio finished its host integration in the current document.
     public private(set) var isFrontendReady = false
+    /// What the current document's Studio reported it supports.
+    public private(set) var frontendCapabilities = NativeBridgeProtocol.FrontendCapabilities()
+    /// Called when Studio reports that it signed out. The message carries
+    /// nothing; the owner decides what signing out means for the app.
+    public var onSignedOut: (@MainActor () -> Void)?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -45,6 +50,8 @@ public final class StudioBridge {
     /// page with no bridge support) must not inherit the previous
     /// document's navigation.
     private var negotiatedSinceNavigationStarted = true
+    private var signOutWaiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
+    private var signOutTimeouts: [UUID: Task<Void, Never>] = [:]
 
     /// Studio's receiver. Static source; the message is an argument.
     static let receiverScript = """
@@ -80,6 +87,7 @@ public final class StudioBridge {
         controller?.removeScriptMessageHandler(forName: Self.handlerName, contentWorld: .page)
         controller = nil
         page = nil
+        onSignedOut = nil
         reset()
     }
 
@@ -94,7 +102,48 @@ public final class StudioBridge {
 
     private func reset() {
         isFrontendReady = false
+        frontendCapabilities = .init()
         navigation.reset()
+        finishSignOut(false)
+    }
+
+    /// Asks Studio to sign out with its own logout and waits until Studio
+    /// reports that it did. Returns false at once when the current Studio
+    /// does not support the request, and false after `timeout`, for
+    /// example when the server cannot be reached.
+    public func requestSignOut(timeout: Duration = .seconds(5)) async -> Bool {
+        guard isFrontendReady, frontendCapabilities.authLifecycle else { return false }
+        let id = UUID()
+        return await withCheckedContinuation { continuation in
+            signOutWaiters[id] = continuation
+            // Holds the bridge until this waiter resolves, so a send
+            // failure or timeout here never resolves another caller.
+            signOutTimeouts[id] = Task { @MainActor in
+                if await !self.send(NativeBridgeProtocol.signOutRequest()) {
+                    self.resolveSignOut(id, false)
+                    return
+                }
+                try? await Task.sleep(for: timeout)
+                self.resolveSignOut(id, false)
+            }
+        }
+    }
+
+    /// Resolves one waiter and stops its timeout. Resolving twice, or
+    /// after finishSignOut, does nothing.
+    private func resolveSignOut(_ id: UUID, _ signedOut: Bool) {
+        guard let waiter = signOutWaiters.removeValue(forKey: id) else { return }
+        signOutTimeouts.removeValue(forKey: id)?.cancel()
+        waiter.resume(returning: signedOut)
+    }
+
+    private func finishSignOut(_ signedOut: Bool) {
+        let waiters = signOutWaiters
+        signOutWaiters.removeAll()
+        let timeouts = signOutTimeouts
+        signOutTimeouts.removeAll()
+        for task in timeouts.values { task.cancel() }
+        for waiter in waiters.values { waiter.resume(returning: signedOut) }
     }
 
     /// Answers one message from the page. Public for tests; WebKit calls it
@@ -121,9 +170,16 @@ public final class StudioBridge {
             switch message {
             case .configGet:
                 negotiatedSinceNavigationStarted = true
-                return NativeBridgeProtocol.reply(id: id, payload: NativeBridgeProtocol.configPayload(nativeNavigation: true))
-            case .frontendReady:
+                return NativeBridgeProtocol.reply(
+                    id: id,
+                    payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)
+                )
+            case .frontendReady(let capabilities):
                 isFrontendReady = true
+                frontendCapabilities = capabilities
+            case .authSignedOut:
+                finishSignOut(true)
+                onSignedOut?()
             case .navigationCatalog(let catalog):
                 navigation.apply(catalog)
             case .navigationState(let state):

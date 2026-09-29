@@ -123,6 +123,21 @@
         }
       }
     },
+    "frontendReadyPayload": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "description": "Capabilities Studio supports in this document. A capability that is absent or not true is unavailable, so a host never sends a message that needs it.",
+          "type": "object",
+          "properties": {
+            "authLifecycle": {
+              "description": "Studio handles auth/sign-out-request and reports auth/signed-out.",
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
     "navigationRequestPayload": {
       "type": "object",
       "required": ["destinationId"],
@@ -140,7 +155,11 @@
           "description": "Capabilities the host offers. A capability that is absent or not true is unavailable.",
           "type": "object",
           "properties": {
-            "nativeNavigation": { "type": "boolean" }
+            "nativeNavigation": { "type": "boolean" },
+            "authLifecycle": {
+              "description": "The host keeps a native credential whose lifecycle follows Studio's sign-out. Studio reports auth/signed-out only to a host that offers it.",
+              "type": "boolean"
+            }
           }
         }
       }
@@ -156,7 +175,8 @@
                 "config/get",
                 "frontend/ready",
                 "navigation/catalog",
-                "navigation/state"
+                "navigation/state",
+                "auth/signed-out"
               ]
             }
           }
@@ -169,6 +189,15 @@
         },
         {
           "if": { "properties": { "type": { "const": "frontend/ready" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/frontendReadyPayload" }
+            }
+          }
+        },
+        {
+          "description": "Studio completed its own sign-out. The payload carries no credential or account data.",
+          "if": { "properties": { "type": { "const": "auth/signed-out" } } },
           "then": {
             "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
           }
@@ -197,8 +226,24 @@
         { "$ref": "#/$defs/envelope" },
         {
           "properties": {
-            "type": { "const": "navigation/request" },
-            "payload": { "$ref": "#/$defs/navigationRequestPayload" }
+            "type": { "enum": ["navigation/request", "auth/sign-out-request"] }
+          }
+        },
+        {
+          "if": { "properties": { "type": { "const": "navigation/request" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/navigationRequestPayload" }
+            }
+          }
+        },
+        {
+          "description": "The host asks Studio to sign out with its normal logout. Studio answers with auth/signed-out when it is done. The payload carries no credential.",
+          "if": {
+            "properties": { "type": { "const": "auth/sign-out-request" } }
+          },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
           }
         }
       ]

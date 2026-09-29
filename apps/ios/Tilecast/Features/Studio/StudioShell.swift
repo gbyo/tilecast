@@ -71,6 +71,7 @@ struct StudioShell: View {
         Menu {
             if let page = host.page {
                 Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                SignOutButton(page: page)
             }
             Button("Manage Servers…", systemImage: "server.rack") { managingServers = true }
         } label: {

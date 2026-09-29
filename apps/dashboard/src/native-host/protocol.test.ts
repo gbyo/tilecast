@@ -9,6 +9,7 @@ import {
   decodeNativeMessage,
   decodeNativeReply,
   frontendMessage,
+  studioCapabilities,
 } from "./protocol";
 
 type FixtureCase = {
@@ -16,6 +17,7 @@ type FixtureCase = {
   direction: "frontendToNative" | "nativeToFrontend" | "reply";
   outcome: "accept" | "malformed" | "unknownType" | "unsupportedVersion";
   schemaValid?: boolean;
+  studioEncodes?: string;
   message: unknown;
 };
 
@@ -87,10 +89,33 @@ describe("the shared native bridge fixtures", () => {
 });
 
 describe("messages Studio sends", () => {
+  // Studio's encoder must match the corpus exactly, so a native decoder,
+  // tested against the same cases, accepts what Studio sends.
+  const goldens: Record<string, unknown> = {
+    frontendReady: frontendMessage("frontend/ready", {
+      capabilities: studioCapabilities,
+    }),
+    signedOut: frontendMessage("auth/signed-out", {}),
+  };
+  const encoded = cases.filter((entry) => entry.studioEncodes !== undefined);
+  it.each(encoded.map((entry) => [entry.name, entry] as const))(
+    "encodes like the corpus: %s",
+    (_, entry) => {
+      expect(goldens[entry.studioEncodes!]).toEqual(entry.message);
+    },
+  );
+  it("has a corpus case for every message it encodes", () => {
+    expect(new Set(encoded.map((entry) => entry.studioEncodes))).toEqual(
+      new Set(Object.keys(goldens)),
+    );
+  });
+
   it("builds valid version 1 envelopes", () => {
     const messages = [
       frontendMessage("config/get", {}),
       frontendMessage("frontend/ready", {}, "ready-1"),
+      frontendMessage("frontend/ready", { capabilities: studioCapabilities }),
+      frontendMessage("auth/signed-out", {}),
       frontendMessage("navigation/state", {
         activeDestinationId: null,
         path: "/account",
@@ -123,13 +148,13 @@ describe("messages Studio sends", () => {
         protocolVersion: 1,
         capabilities: { nativeNavigation: true, nativePresentation: true },
       }),
-    ).toEqual({ nativeNavigation: true });
+    ).toEqual({ nativeNavigation: true, authLifecycle: false });
     expect(
       decodeCapabilities({
         protocolVersion: 1,
-        capabilities: { nativeNavigation: "yes" },
+        capabilities: { nativeNavigation: "yes", authLifecycle: true },
       }),
-    ).toEqual({ nativeNavigation: false });
+    ).toEqual({ nativeNavigation: false, authLifecycle: true });
     expect(decodeCapabilities({ capabilities: {} })).toBeNull();
     expect(decodeCapabilities({ protocolVersion: 1 })).toBeNull();
   });

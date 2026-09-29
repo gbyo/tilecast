@@ -31,7 +31,7 @@ The [native bridge contract](https://github.com/gbyo/tilecast/tree/main/packages
 
 ## Build and run
 
-You need Xcode 26 or later. The app has no third-party packages.
+You need Xcode 26 or later. The app's only packages are Apple's Swift OpenAPI Generator and its runtime libraries. Xcode fetches the versions pinned in `apps/ios/TilecastKit/Package.resolved`. The first time you build, Xcode asks you to trust the OpenAPI Generator plugin, which builds the API client from `docs/openapi.yaml`.
 
 1. Open `apps/ios/Tilecast.xcodeproj`.
 2. Run the **Tilecast** scheme on an iOS 26 simulator.
@@ -51,11 +51,17 @@ Tabs and the iPad sidebar show the same Lucide icons as Studio's sidebar. The ic
 swift test
 ```
 
-The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them on an iPhone and an iPad simulator whenever a pull request changes `apps/ios/` or the native bridge contract. The UI tests use a small local stand-in server, so they don't need a real Tilecast server or the internet.
+The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them on an iPhone and an iPad simulator whenever a pull request changes `apps/ios/`, the native bridge contract, or the OpenAPI contract. The UI tests use a small local stand-in server, so they don't need a real Tilecast server or the internet.
 
 ## Sign in
 
-On sign-in, iOS shows its system authentication consent sheet for the configured server, then opens that server in the system authentication browser. Passwords, passkeys, authenticator codes, and recovery codes stay on the server's real origin. After approval, the app receives an ordinary Studio session for that server. See the [iOS authentication contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#authentication).
+On sign-in, iOS shows its system authentication consent sheet for the configured server, then opens that server in the system authentication browser. Passwords, passkeys, authenticator codes, and recovery codes stay on the server's real origin. After you approve **Tilecast for iOS**, the app receives an ordinary Studio session for that server and, from a current server, a credential for its own API calls. You authorize once for both. The credential stays in the device's Keychain for that server only, and never reaches Studio's web page.
+
+If your Studio session expires, the app renews it without asking you to sign in again, as long as the authorization is still active. You can see and revoke **Tilecast for iOS** in your account's security settings, like any other authorized app.
+
+**Sign Out**, in Studio's account menu or in the app's server controls, signs the app out of that server completely and revokes its authorization. The app then waits for you to tap **Sign In**. Removing a server also deletes its credential.
+
+An older server still works: you sign in to Studio as before, without the app's own credential. See the [iOS authentication contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#authentication).
 
 ## Known limitations
 

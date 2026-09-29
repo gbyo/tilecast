@@ -78,12 +78,26 @@ enum JSONValue: Equatable, Sendable {
 public enum NativeBridgeProtocol {
     public static let version = 1
 
+    /// What Studio reports it supports in `frontend/ready`. A capability
+    /// that is absent or not `true` is unavailable, so the app never sends a
+    /// message that an older Studio would not understand.
+    public struct FrontendCapabilities: Equatable, Sendable {
+        /// Studio handles `auth/sign-out-request` and reports `auth/signed-out`.
+        public var authLifecycle: Bool
+
+        public init(authLifecycle: Bool = false) {
+            self.authLifecycle = authLifecycle
+        }
+    }
+
     /// A message Studio sends to the app.
     public enum FrontendMessage: Equatable, Sendable {
         case configGet
-        case frontendReady
+        case frontendReady(FrontendCapabilities)
         case navigationCatalog(NavigationCatalog)
         case navigationState(NavigationState)
+        /// Studio completed its own sign-out. It carries no credential.
+        case authSignedOut
     }
 
     public enum Decoded: Equatable, Sendable {
@@ -128,7 +142,8 @@ public enum NativeBridgeProtocol {
         let message: FrontendMessage?
         switch type {
         case "config/get": message = .configGet
-        case "frontend/ready": message = .frontendReady
+        case "frontend/ready": message = frontendCapabilities(payload).map(FrontendMessage.frontendReady)
+        case "auth/signed-out": message = .authSignedOut
         case "navigation/catalog": message = catalog(payload).map(FrontendMessage.navigationCatalog)
         case "navigation/state": message = state(payload).map(FrontendMessage.navigationState)
         default: return .unknownType(type, id: requestID)
@@ -153,11 +168,24 @@ public enum NativeBridgeProtocol {
         return .object(reply)
     }
 
-    static func configPayload(nativeNavigation: Bool) -> [String: JSONValue] {
+    static func configPayload(nativeNavigation: Bool, authLifecycle: Bool) -> [String: JSONValue] {
         [
             "protocolVersion": .number(Double(version)),
-            "capabilities": .object(["nativeNavigation": .bool(nativeNavigation)]),
+            "capabilities": .object([
+                "nativeNavigation": .bool(nativeNavigation),
+                "authLifecycle": .bool(authLifecycle),
+            ]),
         ]
+    }
+
+    /// Asks Studio to sign out with its own logout. Like every message the
+    /// app sends, it carries no credential.
+    static func signOutRequest() -> JSONValue {
+        .object([
+            "version": .number(Double(version)),
+            "type": .string("auth/sign-out-request"),
+            "payload": .object([:]),
+        ])
     }
 
     static func navigationRequest(destinationID: String) -> JSONValue {
@@ -169,6 +197,14 @@ public enum NativeBridgeProtocol {
     }
 
     // MARK: Payloads
+
+    private static func frontendCapabilities(_ payload: [String: JSONValue]) -> FrontendCapabilities? {
+        switch payload["capabilities"] {
+        case nil: return FrontendCapabilities()
+        case .object(let capabilities)?: return FrontendCapabilities(authLifecycle: capabilities["authLifecycle"] == .bool(true))
+        default: return nil
+        }
+    }
 
     private static func catalog(_ payload: [String: JSONValue]) -> NavigationCatalog? {
         guard case .array(let rawGroups)? = payload["groups"], rawGroups.count <= 32 else { return nil }
