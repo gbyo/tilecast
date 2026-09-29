@@ -92,7 +92,9 @@ test("create a Layout, edit its canvas and persist the draft", async ({
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   const preview = await popupPromise;
-  await expect(preview).toHaveURL(/\/layouts\/[0-9a-f-]+\/preview$/);
+  await expect(preview).toHaveURL(
+    /\/layouts\/[0-9a-f-]+\/preview\?date=\d{4}-\d{2}-\d{2}$/,
+  );
   await expect(preview.locator(".layout-preview-frame")).toBeVisible();
 });
 
