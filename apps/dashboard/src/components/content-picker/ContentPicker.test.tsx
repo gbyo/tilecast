@@ -131,6 +131,78 @@ describe("ContentPicker", () => {
     await waitFor(() => expect(confirm).toHaveBeenCalledWith(items));
   });
 
+  it("does not carry selections into a later picker opening", async () => {
+    vi.spyOn(api, "assets").mockResolvedValue(listing(items));
+    vi.spyOn(api, "contentFolders").mockResolvedValue([]);
+    vi.spyOn(api, "contentCollections").mockResolvedValue([]);
+    vi.spyOn(api, "contentTags").mockResolvedValue([]);
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const confirm = vi.fn().mockResolvedValue({ failures: [] });
+    const onClose = vi.fn();
+    const view = (open: boolean) => (
+      <QueryClientProvider client={client}>
+        <ContentPicker
+          open={open}
+          mode="multiple"
+          csrf="csrf"
+          confirmLabel="Add to playlist"
+          onConfirm={confirm}
+          onClose={onClose}
+        />
+      </QueryClientProvider>
+    );
+    const rendered = render(view(true));
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Welcome" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add to playlist (1)" }),
+    );
+    await waitFor(() => expect(confirm).toHaveBeenNthCalledWith(1, [welcome]));
+
+    rendered.rerender(view(false));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Choose content" }),
+      ).toBeNull(),
+    );
+    rendered.rerender(view(true));
+
+    await screen.findByRole("checkbox", { name: "Menu" });
+    expect(screen.getByText("0 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Menu" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add to playlist (1)" }),
+    );
+    await waitFor(() => expect(confirm).toHaveBeenNthCalledWith(2, [menuApp]));
+  });
+
+  it("keeps an initial selection deselected when library results change", async () => {
+    const assets = vi.spyOn(api, "assets").mockResolvedValue(listing(items));
+    renderPicker({ selectedIds: [welcome.id] });
+    const user = userEvent.setup();
+
+    const welcomeBox = await screen.findByRole("checkbox", { name: "Welcome" });
+    await waitFor(() => expect(welcomeBox).toBeChecked());
+    await user.click(welcomeBox);
+    expect(screen.getByText("0 selected")).toBeInTheDocument();
+
+    await user.type(
+      screen.getByRole("searchbox", { name: "Search content" }),
+      "wel",
+    );
+    await waitFor(() =>
+      expect(assets.mock.lastCall?.[0].get("search")).toBe("wel"),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("checkbox", { name: "Welcome" }),
+      ).not.toBeChecked(),
+    );
+    expect(screen.getByText("0 selected")).toBeInTheDocument();
+  });
+
   it("toggles an entry by clicking anywhere on its card", async () => {
     vi.spyOn(api, "assets").mockResolvedValue(listing([welcome]));
     picker("multiple");
