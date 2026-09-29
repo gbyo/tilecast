@@ -2560,7 +2560,13 @@ export function LayoutEditorPage() {
           />
         }
       >
-        {addMenuOpen ? <X aria-hidden="true" /> : <Plus aria-hidden="true" />}
+        <Plus
+          aria-hidden="true"
+          className={cn(
+            "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            addMenuOpen && "rotate-45",
+          )}
+        />
       </PopoverTrigger>
       <PopoverContent
         side="right"
