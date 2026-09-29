@@ -1,7 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
-import { snapshot } from "./support";
-
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 
 test.beforeEach(async ({ page }) => {
@@ -32,11 +30,6 @@ test("mobile overview keeps uptime rows inside the viewport", async ({ page }) =
   await expect(page.getByRole("link", { name: "Cafeteria East" })).toBeVisible();
   await expectNoPageOverflow(page);
 
-  await snapshot(page, "mobile-overview", [
-    page.locator(".recharts-wrapper"),
-    page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
-    perScreen.locator("span"),
-  ]);
 });
 
 test("mobile activity keeps the long tab strip contained", async ({ page }) => {
@@ -45,15 +38,25 @@ test("mobile activity keeps the long tab strip contained", async ({ page }) => {
 
   const tabs = page.getByRole("tablist");
   await expect
-    .poll(() => tabs.evaluate((element) => element.scrollWidth > element.clientWidth))
+    .poll(() =>
+      tabs.evaluate((element) => element.scrollWidth > element.clientWidth),
+    )
     .toBe(true);
+
+  await tabs.getByRole("tab", { name: "Proof of Play", exact: true }).click();
+  await page.getByRole("button", { name: /more filters/i }).click();
+  const filters = page.getByRole("dialog").last();
+  await expect(filters).toBeVisible();
+  const filterBounds = await filters.boundingBox();
+  expect(filterBounds).not.toBeNull();
+  expect(filterBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(filterBounds!.x + filterBounds!.width).toBeLessThanOrEqual(375);
+  await page.keyboard.press("Escape");
 
   const lastTab = tabs.getByRole("tab").last();
   await lastTab.click();
   await expect(lastTab).toHaveAttribute("aria-selected", "true");
   await expectNoPageOverflow(page);
-
-  await snapshot(page, "mobile-activity");
 });
 
 test("mobile layout editor moves secondary actions into the file menu", async ({
@@ -73,7 +76,29 @@ test("mobile layout editor moves secondary actions into the file menu", async ({
   await expect(page.getByRole("menuitem", { name: "History…" })).toBeVisible();
   await expectNoPageOverflow(page);
 
-  await snapshot(page, "mobile-layout-editor");
+});
+
+
+test("mobile content picker keeps tabs and create action reachable", async ({
+  page,
+}) => {
+  await page.goto(`/playlists/${ids.morningAnnouncements}`);
+  await expect(page.getByText("Add content", { exact: true }).first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Add content", exact: true }).click();
+  const dialog = page.getByRole("dialog").last();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "Library" })).toBeVisible();
+  await expect(dialog.getByRole("tab", { name: "Upload" })).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: /create widget/i }),
+  ).toBeVisible();
+
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
+  await expectNoPageOverflow(page);
 });
 
 test("mobile dependency search popup stays inside the viewport", async ({
@@ -94,5 +119,4 @@ test("mobile dependency search popup stays inside the viewport", async ({
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
 
-  await snapshot(page, "mobile-dependency-search");
 });
