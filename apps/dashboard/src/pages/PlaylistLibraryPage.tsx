@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   LayoutGrid,
@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -201,7 +202,7 @@ function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
 }
 
 export function PlaylistLibraryPage() {
-  const { t } = useTranslation("playlists");
+  const { t } = useTranslation(["playlists", "common"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -213,9 +214,11 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const query = useQuery({
-    queryKey: ["playlists", "library"],
-    queryFn: () => api.playlists(""),
+  const query = useInfiniteQuery({
+    queryKey: ["playlists", "library", search],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.playlistPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
 
   useEffect(() => {
@@ -231,9 +234,12 @@ export function PlaylistLibraryPage() {
   }, [view]);
 
   const allPlaylists = useMemo(
-    () => (query.data?.items ?? []) as PlaylistLibraryItem[],
-    [query.data?.items],
+    () =>
+      (query.data?.pages.flatMap((page) => page.items) ??
+        []) as PlaylistLibraryItem[],
+    [query.data?.pages],
   );
+  const totalPlaylists = query.data?.pages[0]?.total ?? 0;
   const visiblePlaylists = useMemo(
     () =>
       filterAndSortPlaylists(allPlaylists, search, filter, sort, formatLocale),
@@ -347,7 +353,7 @@ export function PlaylistLibraryPage() {
         <div className="text-sm text-muted-foreground" aria-live="polite">
           {t("library.showing", {
             shown: visiblePlaylists.length,
-            total: allPlaylists.length,
+            total: totalPlaylists,
           })}
         </div>
       )}
@@ -520,6 +526,21 @@ export function PlaylistLibraryPage() {
               </Link>
             </article>
           ))}
+        </div>
+      )}
+
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            {query.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
 

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -12,6 +17,7 @@ import {
   Send,
 } from "lucide-react";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import { useFormatLocale } from "../i18n";
 import type {
   Campaign,
@@ -147,9 +153,11 @@ function CampaignLibrary() {
   const canCreate = ["owner", "administrator", "editor"].includes(
     auth.status?.user?.role ?? "viewer",
   );
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["campaigns"],
-    queryFn: () => api.campaigns(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.campaignPage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
   const create = useMutation({
     mutationFn: () =>
@@ -190,7 +198,7 @@ function CampaignLibrary() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : !query.data?.items.length ? (
+      ) : !(query.data?.pages.flatMap((page) => page.items).length ?? 0) ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -204,31 +212,48 @@ function CampaignLibrary() {
         </Empty>
       ) : (
         <div className="grid gap-2">
-          {query.data.items.map((campaign) => (
-            <Link
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
-              to={`/campaigns/${campaign.id}`}
-              key={campaign.id}
-            >
-              <div className="grid min-w-0 gap-0.5">
-                <strong className="truncate text-sm">{campaign.name}</strong>
-                <span className="truncate text-xs text-muted-foreground">
-                  {campaign.description || t("campaigns.library.noDescription")}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {t("campaigns.library.listMeta", {
-                    blocks: t("campaigns.library.blockCount", {
-                      count: campaign.draft.blocks.length,
-                    }),
-                    destinations: t("campaigns.library.destinationCount", {
-                      count: campaign.draft.destinations.length,
-                    }),
-                  })}
-                </span>
-              </div>
-              <Badge variant="secondary">{campaign.status}</Badge>
-            </Link>
-          ))}
+          {query.data?.pages
+            .flatMap((page) => page.items)
+            .map((campaign) => (
+              <Link
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
+                to={`/campaigns/${campaign.id}`}
+                key={campaign.id}
+              >
+                <div className="grid min-w-0 gap-0.5">
+                  <strong className="truncate text-sm">{campaign.name}</strong>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {campaign.description ||
+                      t("campaigns.library.noDescription")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("campaigns.library.listMeta", {
+                      blocks: t("campaigns.library.blockCount", {
+                        count: campaign.draft.blocks.length,
+                      }),
+                      destinations: t("campaigns.library.destinationCount", {
+                        count: campaign.draft.destinations.length,
+                      }),
+                    })}
+                  </span>
+                </div>
+                <Badge variant="secondary">{campaign.status}</Badge>
+              </Link>
+            ))}
+        </div>
+      )}
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            {query.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
       <Dialog
