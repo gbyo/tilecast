@@ -72,7 +72,8 @@ apps/player-android/         native Android TV application
 packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
 packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
 packages/api-schema/         generated TypeScript contract for the composed OpenAPI
-packages/manifest-schema/    reserved for the later player manifest
+packages/manifest-schema/    Player manifest schemas + declarative presentation capability registry
+packages/player-contracts/     ownerless cross-player conformance fixtures only
 packages/layout-schema/      reserved for renderer-neutral layouts
 packages/design-tokens/      shared Studio visual tokens
 deploy/docker/               multi-stage image and Compose setup

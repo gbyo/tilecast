@@ -25,3 +25,6 @@ Historical manifests may contain `brand_bug@1` and `noise_meter@1` entries. Both
 Time-series points may carry one `value` or a bounded `values` object for multi-series charts. Capability revision 2 covers native charts, asset images, target progress, repeat indexes, and richer conditions without changing the presentation schema version.
 
 Native presentation schema v1 may also use the capability-gated `playback.auto_skip@1` behavior. Eligible definitions place `autoSkipWhenEmpty` and a bounded presentation condition in the root node properties. Players that report the capability evaluate that condition locally and may advance an unsynchronized fullscreen playlist item; other placements retain the normal empty-state render.
+## Declarative presentation capabilities
+
+`presentation-capabilities.json` owns the versioned capability vocabulary used by compatibility presentations. `npm run player-contracts:generate` produces language-native tables for the Server, Player Runtime, Edge, and Android. The baseline profile is the legacy compatibility floor; the shared-runtime profile adds behavior that exists only when the shared Player Runtime is actually hosted. Widget V2 component capabilities are intentionally not listed here; `widgetctl` generates those from Widget manifests.

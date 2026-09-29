@@ -18,4 +18,5 @@ jobs:
           cache: npm
       # Only the root tool dependencies are needed to parse workflow YAML.
       - run: npm ci --ignore-scripts --workspaces=false
+      - run: npm run player-contracts:check
       - run: node --test scripts/ci/contracts/*.test.mjs
