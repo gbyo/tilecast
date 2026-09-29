@@ -164,6 +164,164 @@ func TestAirplaySessionCreationPersistsAssignmentAndStopIsIdempotent(t *testing.
 	})
 }
 
+func TestAirplayManualStopReportsCommandQueueFailureAndCanRetry(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		airplayCreateTestSetup(t, env)
+		sessionID := createAirplaySessionForStopTest(t, env)
+		removeFailure := installAirplayStopCommandFailure(t, env)
+
+		stopped := httptest.NewRecorder()
+		env.server.stopAirplaySession(stopped, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions/"+sessionID.String()+"/stop", []byte(`{"reason":"manual_stop"}`), env.owner))
+		assertAirplayStopFailure(t, stopped)
+		assertAirplayStopRolledBack(t, env, sessionID)
+
+		removeFailure()
+		retried := httptest.NewRecorder()
+		env.server.stopAirplaySession(retried, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions/"+sessionID.String()+"/stop", []byte(`{"reason":"manual_stop"}`), env.owner))
+		if retried.Code != http.StatusOK {
+			t.Fatalf("retry stop status = %d, body = %s", retried.Code, retried.Body.String())
+		}
+		assertAirplayStopCommitted(t, env, sessionID)
+	})
+}
+
+func TestAirplayManualStopReportsDatabaseFailureAndRollsBackQueuedCommand(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		airplayCreateTestSetup(t, env)
+		sessionID := createAirplaySessionForStopTest(t, env)
+		installAirplayStoppedStateFailure(t, env)
+
+		stopped := httptest.NewRecorder()
+		env.server.stopAirplaySession(stopped, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions/"+sessionID.String()+"/stop", []byte(`{"reason":"manual_stop"}`), env.owner))
+		assertAirplayStopFailure(t, stopped)
+		assertAirplayStopRolledBack(t, env, sessionID)
+	})
+}
+
+func createAirplaySessionForStopTest(t *testing.T, env activityTestEnvironment) uuid.UUID {
+	t.Helper()
+	created := httptest.NewRecorder()
+	env.server.createAirplaySession(created, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions", airplayCreateBody(env.screenID), env.owner))
+	if created.Code != http.StatusAccepted {
+		t.Fatalf("create status = %d, body = %s", created.Code, created.Body.String())
+	}
+	var envelope struct {
+		Data struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Data.ID == uuid.Nil {
+		t.Fatal("create response did not contain a session ID")
+	}
+	return envelope.Data.ID
+}
+
+func installAirplayStopCommandFailure(t *testing.T, env activityTestEnvironment) func() {
+	t.Helper()
+	_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stop_command ON player_commands`)
+	_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stop_command()`)
+	if _, err := env.pool.Exec(context.Background(), `CREATE OR REPLACE FUNCTION tilecast_test_reject_airplay_stop_command() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+	IF NEW.type = 'stop_airplay_session' THEN
+		RAISE EXCEPTION 'injected AirPlay stop command failure';
+	END IF;
+	RETURN NEW;
+END;
+$$`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(context.Background(), `CREATE TRIGGER tilecast_test_reject_airplay_stop_command BEFORE INSERT ON player_commands FOR EACH ROW EXECUTE FUNCTION tilecast_test_reject_airplay_stop_command()`); err != nil {
+		t.Fatal(err)
+	}
+	remove := func() {
+		_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stop_command ON player_commands`)
+		_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stop_command()`)
+	}
+	t.Cleanup(remove)
+	return remove
+}
+
+func installAirplayStoppedStateFailure(t *testing.T, env activityTestEnvironment) {
+	t.Helper()
+	_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stopped_state ON external_presentation_screen_states`)
+	_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stopped_state()`)
+	if _, err := env.pool.Exec(context.Background(), `CREATE OR REPLACE FUNCTION tilecast_test_reject_airplay_stopped_state() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+	IF NEW.state = 'stopped' THEN
+		RAISE EXCEPTION 'injected AirPlay participant state failure';
+	END IF;
+	RETURN NEW;
+END;
+$$`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.pool.Exec(context.Background(), `CREATE TRIGGER tilecast_test_reject_airplay_stopped_state BEFORE UPDATE ON external_presentation_screen_states FOR EACH ROW EXECUTE FUNCTION tilecast_test_reject_airplay_stopped_state()`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stopped_state ON external_presentation_screen_states`)
+		_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stopped_state()`)
+	})
+}
+
+func assertAirplayStopFailure(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("stop status = %d, want %d; body = %s", response.Code, http.StatusServiceUnavailable, response.Body.String())
+	}
+	var envelope struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.Code != "airplay_stop_failed" {
+		t.Fatalf("stop error code = %q, want airplay_stop_failed", envelope.Error.Code)
+	}
+}
+
+func assertAirplayStopRolledBack(t *testing.T, env activityTestEnvironment, sessionID uuid.UUID) {
+	t.Helper()
+	var status, prepareState string
+	var assignedSession *uuid.UUID
+	var stopCount int
+	if err := env.pool.QueryRow(context.Background(), `SELECT status FROM external_presentation_sessions WHERE id=$1`, sessionID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.pool.QueryRow(context.Background(), `SELECT state FROM player_commands WHERE type='prepare_airplay_session' AND payload->>'sessionId'=$1`, sessionID.String()).Scan(&prepareState); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.pool.QueryRow(context.Background(), `SELECT external_presentation_session_id FROM screen_player_status WHERE screen_id=$1`, env.screenID).Scan(&assignedSession); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.pool.QueryRow(context.Background(), `SELECT count(*) FROM player_commands WHERE type='stop_airplay_session' AND payload->>'sessionId'=$1`, sessionID.String()).Scan(&stopCount); err != nil {
+		t.Fatal(err)
+	}
+	if status != "preparing" || prepareState != "pending" || assignedSession == nil || *assignedSession != sessionID || stopCount != 0 {
+		t.Fatalf("failed stop left status=%q prepare=%q assigned=%v stop_commands=%d", status, prepareState, assignedSession, stopCount)
+	}
+}
+
+func assertAirplayStopCommitted(t *testing.T, env activityTestEnvironment, sessionID uuid.UUID) {
+	t.Helper()
+	var status string
+	var stopCount int
+	if err := env.pool.QueryRow(context.Background(), `SELECT status FROM external_presentation_sessions WHERE id=$1`, sessionID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.pool.QueryRow(context.Background(), `SELECT count(*) FROM player_commands WHERE type='stop_airplay_session' AND payload->>'sessionId'=$1`, sessionID.String()).Scan(&stopCount); err != nil {
+		t.Fatal(err)
+	}
+	if status != "ended" || stopCount != 1 {
+		t.Fatalf("successful stop left status=%q and %d stop commands", status, stopCount)
+	}
+}
+
 func TestConcurrentAirplayActivationAllowsOnlyOneSession(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		airplayCreateTestSetup(t, env)

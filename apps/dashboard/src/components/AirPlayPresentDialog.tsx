@@ -611,9 +611,7 @@ export function AirPlayPresentDialog({
               </Button>
               <Button
                 variant="destructive"
-                disabled={["stopping", "ended", "expired", "failed"].includes(
-                  live.status,
-                )}
+                disabled={["ended", "expired", "failed"].includes(live.status)}
                 onClick={() => stop.mutate(targetKey)}
               >
                 {stop.isPending ? t("airplay.stopping") : t("airplay.stop")}
