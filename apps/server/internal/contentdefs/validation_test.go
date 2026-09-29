@@ -71,6 +71,9 @@ func TestCapabilityValidation(t *testing.T) {
 	expectWidgetError(t, func(w *WidgetDefinition) {
 		w.RequiredCapabilities = map[string]int{"content.text": 0, "layout.surface": 1}
 	}, "capability version below 1")
+	expectWidgetError(t, func(w *WidgetDefinition) {
+		w.RequiredCapabilities = map[string]int{"content.text": 2, "layout.surface": 1}
+	}, "capability version above registry maximum")
 }
 
 func TestMissingRequiredCapabilityForUsedNode(t *testing.T) {

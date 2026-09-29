@@ -30,6 +30,8 @@ The runtime owns:
 
 The runtime does not own server credentials, server reconciliation, Edge SQLite state, the Edge CAS, the Electron IPC implementation, WPE or GLib APIs, filesystem access, or the host's kiosk and process lifecycle.
 
+The cross-process contract owners, generated capability registry, and shared Server URL fixture corpus are inventoried in [player-contracts.md](player-contracts.md). Widget component capabilities remain owned by `widgetctl`.
+
 ## 2. Host contract
 
 A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `TilecastRuntimeHostV1` (`src/host/contract.ts`). The contract has no generic message or native-invocation member. Every function is named and typed:

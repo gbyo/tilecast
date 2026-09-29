@@ -34,6 +34,7 @@ check:
 # ledgers and composed OpenAPI contract first, then the consumers (the Go
 # client and the TypeScript contract) generated from that contract.
 generate:
+	npm run player-contracts:generate
 	npm run extensions:generate
 	cd packages/api-client && go generate ./...
 	npm run generate --workspace @tilecast/api-schema
