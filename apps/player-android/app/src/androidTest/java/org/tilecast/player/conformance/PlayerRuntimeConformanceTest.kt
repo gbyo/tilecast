@@ -203,15 +203,30 @@ class PlayerRuntimeConformanceTest {
                     snapshotCheckpoint(activity, webView, outDir, checkpoint)
                 }
             },
+            onSnapshotComplete = { requestId, failure ->
+                activity.runOnUiThread {
+                    val idJson = JSONObject.quote(requestId)
+                    val failureJson = failure?.let { JSONObject.quote(it) } ?: "null"
+                    webView.evaluateJavascript(
+                        "globalThis.__tilecastSnapshotBridge.complete($idJson,$failureJson)",
+                        null,
+                    )
+                }
+            },
             onFinish = onFinish,
         )
         webView.addJavascriptInterface(bridge, "TcConformance")
         // The fixture is inlined (as on WPE), never pasted through a URL.
         val runnerScript =
-            "globalThis.__tilecastConformanceRunner=Object.freeze({" +
+            "globalThis.__tilecastSnapshotBridge=(()=>{let nextId=0;const pending=new Map();" +
+                "return {complete:function(id,error){id=String(id);const item=pending.get(id);" +
+                "if(!item)return;pending.delete(id);if(error)item.reject(new Error(error));" +
+                "else item.resolve();},snapshot:function(n){return new Promise((resolve,reject)=>{" +
+                "const id=String(++nextId);pending.set(id,{resolve,reject});" +
+                "TcConformance.snapshot(String(n),id);});}};})();" +
+                "globalThis.__tilecastConformanceRunner=Object.freeze({" +
                 "fixture:$fixtureJson," +
-                "snapshot:function(n){const result=TcConformance.snapshot(String(n));" +
-                "if(result!==\"ok\")throw new Error(result);return Promise.resolve();}," +
+                "snapshot:function(n){return globalThis.__tilecastSnapshotBridge.snapshot(n);}," +
                 "finish:function(r){TcConformance.finish(JSON.stringify(r));}});\n;" +
                 hostSource
         WebViewCompat.addDocumentStartJavaScript(
@@ -225,20 +240,22 @@ class PlayerRuntimeConformanceTest {
     private class ConformanceBridge(
         private val fixtureJson: String,
         private val onSnapshot: (String) -> Unit,
+        private val onSnapshotComplete: (String, String?) -> Unit,
         private val onFinish: (String) -> Unit,
     ) {
         @JavascriptInterface
         fun getFixture(): String = fixtureJson
 
         @JavascriptInterface
-        fun snapshot(name: String): String {
-            // Called on the JavaBridge thread; blocking here is safe.
-            return try {
-                onSnapshot(name)
-                "ok"
-            } catch (failure: Throwable) {
-                "error: ${failure.stackTraceToString()}"
+        fun snapshot(name: String, requestId: String) {
+            if (!requestId.matches(Regex("[0-9]{1,12}"))) {
+                onSnapshotComplete(requestId, "invalid snapshot request id")
+                return
             }
+            Thread({
+                val failure = runCatching { onSnapshot(name) }.exceptionOrNull()
+                onSnapshotComplete(requestId, failure?.stackTraceToString())
+            }, "tilecast-conformance-screenshot").start()
         }
 
         @JavascriptInterface
