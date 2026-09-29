@@ -28,6 +28,9 @@ func foundationJSON(_ data: Data) throws -> Any {
         let destinationIDs: [String]?
         let encodes: String?
         let frontendCapabilities: [String: Bool]?
+        let presentation: [String: Any]?
+        let headerActionIDs: [String]?
+        let headerMenuIDs: [String]?
         let message: Any
         var testDescription: String { name }
     }
@@ -47,6 +50,9 @@ func foundationJSON(_ data: Data) throws -> Any {
                 destinationIDs: entry["destinationIds"] as? [String],
                 encodes: entry["encodes"] as? String,
                 frontendCapabilities: entry["frontendCapabilities"] as? [String: Bool],
+                presentation: entry["presentation"] as? [String: Any],
+                headerActionIDs: entry["headerActionIds"] as? [String],
+                headerMenuIDs: entry["headerMenuIds"] as? [String],
                 message: entry["message"] ?? NSNull()
             )
         }
@@ -86,6 +92,28 @@ func foundationJSON(_ data: Data) throws -> Any {
                 return
             }
             #expect(capabilities.authLifecycle == expected["authLifecycle"])
+            #expect(capabilities.nativePresentations == (expected["nativePresentations"] ?? false))
+        }
+        if let expected = entry.presentation {
+            guard case .accept(.presentationOpen(let presentation), _) = decoded else {
+                Issue.record("\(entry.name) should decode as presentation/open")
+                return
+            }
+            #expect(presentation.id == expected["presentationId"] as? String)
+            #expect(presentation.path == expected["path"] as? String)
+            #expect(presentation.header.title == expected["title"] as? String)
+            #expect(presentation.header.subtitle == expected["subtitle"] as? String)
+            #expect(presentation.size.rawValue == expected["size"] as? String)
+            #expect(presentation.isDismissible == expected["dismissible"] as? Bool)
+            #expect(presentation.header.actions.isEmpty && presentation.header.menu.isEmpty)
+        }
+        if let actions = entry.headerActionIDs {
+            guard case .accept(.presentationUpdate(let update), _) = decoded, let header = update.header else {
+                Issue.record("\(entry.name) should decode as presentation/update with a header")
+                return
+            }
+            #expect(header.actions.map(\.id) == actions)
+            #expect(header.menu.map(\.id) == entry.headerMenuIDs)
         }
     }
 
@@ -96,10 +124,22 @@ func foundationJSON(_ data: Data) throws -> Any {
         let encoded: JSONValue = switch entry.encodes {
         case "navigationRequest": NativeBridgeProtocol.navigationRequest(destinationID: "layouts")
         case "signOutRequest": NativeBridgeProtocol.signOutRequest()
-        case "configGetReply": NativeBridgeProtocol.reply(
-            id: nil,
-            payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)
+        case "configGetReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .main))
+        case "configGetPresentationReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .presentation))
+        case "forbiddenReply": NativeBridgeProtocol.reply(id: nil, error: .forbidden)
+        case "unavailableReply": NativeBridgeProtocol.reply(id: nil, error: .unavailable)
+        case "presentationShow": NativeBridgeProtocol.presentationShow(
+            presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+            path: "/__native/modal/live-stream/screen-1"
         )
+        case "presentationAction": NativeBridgeProtocol.presentationAction(
+            presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+            actionID: "refresh"
+        )
+        case "presentationDismissed": NativeBridgeProtocol.presentationDismissed(
+            presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        )
+        case "openPath": NativeBridgeProtocol.openPath("/screens/screen-1?tab=activity")
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])
         case "unknownTypeReply": NativeBridgeProtocol.reply(id: nil, error: .unknownType)
         case "unsupportedVersionReply": NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion)
@@ -150,7 +190,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         let messages: [JSONValue] = [
             NativeBridgeProtocol.signOutRequest(),
             NativeBridgeProtocol.navigationRequest(destinationID: "alpha"),
-            NativeBridgeProtocol.reply(id: "c1", payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)),
+            NativeBridgeProtocol.reply(id: "c1", payload: NativeBridgeProtocol.configPayload(context: .main)),
             NativeBridgeProtocol.reply(id: nil, payload: [:]),
             NativeBridgeProtocol.reply(id: nil, error: .forbidden),
         ]
@@ -168,8 +208,8 @@ func foundationJSON(_ data: Data) throws -> Any {
     }
 
     @Test func echoesAValidRequestID() {
-        let decoded = NativeBridgeProtocol.decode(["version": 1, "id": "c1", "type": "presentation/open", "payload": [:]])
-        #expect(decoded == .unknownType("presentation/open", id: "c1"))
+        let decoded = NativeBridgeProtocol.decode(["version": 1, "id": "c1", "type": "clipboard/write", "payload": [:]])
+        #expect(decoded == .unknownType("clipboard/write", id: "c1"))
     }
 }
 

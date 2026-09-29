@@ -19,7 +19,7 @@ const reply =
 
 Every message receives one reply. The native host sends a message to Studio by calling the single receiver function `window.tilecastNativeReceiver(message)`. The receiver returns `true` when it accepts the message. The host passes the message as a function argument and never builds script source from message content.
 
-A host registers the handler only on its main Studio page. It refuses a message from a subframe, from a content world other than the page, or from any origin other than the configured Tilecast server.
+A host registers the handler only on its privileged Studio pages: the main page and the presentation page. Each bridge has a context, `main` or `presentation`, and refuses the other context's messages with `forbidden`. It refuses a message from a subframe, from a content world other than the page, or from any origin other than the configured Tilecast server.
 
 ## Envelope
 
@@ -49,6 +49,8 @@ The `config/get` reply payload is `{ "protocolVersion": 1, "capabilities": { "na
 Destination and group identifiers are opaque. Only Studio knows what they mean. A native host never receives or derives a Studio path for routine navigation: it sends the identifier, and Studio resolves it with React Router. `navigation/state.path` is the location path without its query string, for diagnostics only. `activeDestinationId` is authoritative for native selection. A catalog with no groups means native navigation is not available now, for example on the sign-in page.
 
 After Studio handles a `navigation/request`, it sends `navigation/state` even when the location did not change, for example because an unsaved-changes prompt stopped the navigation. The host uses that message to reconcile its selection.
+
+The presentation messages (`presentation/*` and `navigation/open-path`) need the `nativePresentations` capability on both sides. Presentation paths are in the reserved `/__native/modal` tree. A host knows only that root. See `docs/ios-app.md`.
 
 ## Icons
 

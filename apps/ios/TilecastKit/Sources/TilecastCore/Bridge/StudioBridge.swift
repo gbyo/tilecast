@@ -16,7 +16,15 @@ public struct BridgeSender: Equatable, Sendable {
     }
 }
 
-/// The versioned native bridge for one main Studio page.
+/// A message from the presentation page to the app.
+public enum PresentationPageMessage: Equatable, Sendable {
+    case ready
+    case update(PresentationUpdate)
+    case close(presentationID: String)
+    case navigate(presentationID: String, path: String)
+}
+
+/// The versioned native bridge for one privileged Studio page.
 ///
 /// This is the only code in the app that touches page scripting. Studio
 /// calls the one message handler, `tilecastNative`; the app answers every
@@ -26,13 +34,21 @@ public struct BridgeSender: Equatable, Sendable {
 /// The bridge is privileged, so it is narrow. It carries presentation,
 /// navigation, and credential-free sign-out coordination only: never a
 /// password, token, cookie, Keychain value, CSRF token, or file access. It
-/// exists only on the main Studio page, and it answers only the main frame
-/// of the configured server's origin, in the page's own content world.
+/// answers only the main frame of the configured server's origin, in the
+/// page's own content world.
+///
+/// Each bridge belongs to one page and has that page's context. The main
+/// Studio page's bridge publishes navigation, follows the auth lifecycle,
+/// and opens presentations. The presentation page's bridge has its own
+/// instance, handles only the presentation lifecycle, and is refused
+/// everything else. The auxiliary page has no bridge.
 @MainActor
 public final class StudioBridge {
     public static let handlerName = "tilecastNative"
 
+    public let context: NativeBridgeProtocol.Context
     /// The navigation Studio publishes, and the selection the app shows.
+    /// A presentation bridge's model stays empty.
     public let navigation: NativeNavigationModel
     /// Studio finished its host integration in the current document.
     public private(set) var isFrontendReady = false
@@ -41,6 +57,13 @@ public final class StudioBridge {
     /// Called when Studio reports that it signed out. The message carries
     /// nothing; the owner decides what signing out means for the app.
     public var onSignedOut: (@MainActor () -> Void)?
+    /// Main page: Studio asks for a presentation. Returns whether the app
+    /// accepted it; Studio shows its own dialog when it did not.
+    var onPresentationOpen: (@MainActor (NativePresentation) -> Bool)?
+    /// Presentation page: its lifecycle and chrome messages.
+    var onPresentationMessage: (@MainActor (PresentationPageMessage) -> Void)?
+    /// Readiness, capabilities, or navigation availability changed.
+    var onStateChange: (@MainActor () -> Void)?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -59,8 +82,9 @@ public final class StudioBridge {
         return typeof receive === "function" && receive(message) === true;
         """
 
-    public init(origin: WebOrigin) {
+    public init(origin: WebOrigin, context: NativeBridgeProtocol.Context = .main) {
         self.origin = origin
+        self.context = context
         navigation = NativeNavigationModel()
         navigation.requestNavigation = { [weak self] id in
             Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
@@ -88,7 +112,10 @@ public final class StudioBridge {
         controller = nil
         page = nil
         onSignedOut = nil
+        onPresentationOpen = nil
+        onPresentationMessage = nil
         reset()
+        onStateChange = nil
     }
 
     func mainFrameNavigationStarted() {
@@ -105,6 +132,7 @@ public final class StudioBridge {
         frontendCapabilities = .init()
         navigation.reset()
         finishSignOut(false)
+        onStateChange?()
     }
 
     /// Asks Studio to sign out with its own logout and waits until Studio
@@ -112,7 +140,7 @@ public final class StudioBridge {
     /// does not support the request, and false after `timeout`, for
     /// example when the server cannot be reached.
     public func requestSignOut(timeout: Duration = .seconds(5)) async -> Bool {
-        guard isFrontendReady, frontendCapabilities.authLifecycle else { return false }
+        guard context == .main, isFrontendReady, frontendCapabilities.authLifecycle else { return false }
         let id = UUID()
         return await withCheckedContinuation { continuation in
             signOutWaiters[id] = continuation
@@ -164,26 +192,47 @@ public final class StudioBridge {
         case .malformed(let type, let id):
             // Studio falls back to its own sidebar when its catalog is
             // refused, so the app must stop showing the old one too.
-            if type == "navigation/catalog" { navigation.apply(NavigationCatalog(groups: [])) }
+            if type == "navigation/catalog", context == .main {
+                navigation.apply(NavigationCatalog(groups: []))
+                onStateChange?()
+            }
             return NativeBridgeProtocol.reply(id: id, error: .malformed)
         case .accept(let message, let id):
+            // Each page may send only its own context's messages: the
+            // presentation page never publishes navigation or owns the auth
+            // lifecycle, and the main page never drives a presentation.
+            if let required = message.context, required != context {
+                return NativeBridgeProtocol.reply(id: id, error: .forbidden)
+            }
             switch message {
             case .configGet:
                 negotiatedSinceNavigationStarted = true
-                return NativeBridgeProtocol.reply(
-                    id: id,
-                    payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)
-                )
+                return NativeBridgeProtocol.reply(id: id, payload: NativeBridgeProtocol.configPayload(context: context))
             case .frontendReady(let capabilities):
                 isFrontendReady = true
                 frontendCapabilities = capabilities
+                onStateChange?()
             case .authSignedOut:
                 finishSignOut(true)
                 onSignedOut?()
             case .navigationCatalog(let catalog):
                 navigation.apply(catalog)
+                onStateChange?()
             case .navigationState(let state):
                 navigation.apply(state)
+            case .presentationOpen(let presentation):
+                guard isFrontendReady, frontendCapabilities.nativePresentations,
+                      onPresentationOpen?(presentation) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .presentationReady:
+                onPresentationMessage?(.ready)
+            case .presentationUpdate(let update):
+                onPresentationMessage?(.update(update))
+            case .presentationClose(let presentationID):
+                onPresentationMessage?(.close(presentationID: presentationID))
+            case .presentationNavigate(let presentationID, let path):
+                onPresentationMessage?(.navigate(presentationID: presentationID, path: path))
             }
             return NativeBridgeProtocol.reply(id: id, payload: [:])
         }

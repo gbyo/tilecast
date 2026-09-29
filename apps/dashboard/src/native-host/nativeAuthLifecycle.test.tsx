@@ -155,13 +155,13 @@ describe("native auth lifecycle", () => {
     delete window.tilecastNativeReceiver;
   });
 
-  it("tells the host it supports the auth lifecycle", async () => {
+  it("tells the host it supports the auth lifecycle and presentations", async () => {
     stubServer();
     const host = installNativeHost();
     renderStudio();
     await waitFor(() => expect(host.types()).toContain("frontend/ready"));
     expect(host.sent.find((m) => m.type === "frontend/ready")?.payload).toEqual(
-      { capabilities: { authLifecycle: true } },
+      { capabilities: { authLifecycle: true, nativePresentations: true } },
     );
   });
 

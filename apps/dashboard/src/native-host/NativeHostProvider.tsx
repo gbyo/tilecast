@@ -14,11 +14,12 @@ import {
   type NativeBridge,
 } from "./bridge";
 import {
-  decodeCapabilities,
+  decodeHostConfig,
   decodeNativeMessage,
   noNativeCapabilities,
   NATIVE_RECEIVER_NAME,
   studioCapabilities,
+  type BridgeContext,
   type FrontendToNativePayloads,
   type FrontendToNativeType,
   type NativeCapabilities,
@@ -40,6 +41,8 @@ type NativeMessageHandler<Type extends NativeToFrontendType> = (
 
 export type NativeHost = {
   status: NativeHostStatus;
+  /** Which kind of page this is. Null until the host answered, and in a browser. */
+  context: BridgeContext | null;
   capabilities: NativeCapabilities;
   /** Resolves with the reply, or null when there is no usable host. */
   send<Type extends FrontendToNativeType>(
@@ -55,6 +58,7 @@ export type NativeHost = {
 
 const browserHost: NativeHost = {
   status: "unavailable",
+  context: null,
   capabilities: noNativeCapabilities,
   send: () => Promise.resolve(null),
   subscribe: () => () => undefined,
@@ -65,7 +69,7 @@ const NativeHostContext = createContext<NativeHost>(browserHost);
 async function negotiate(bridge: NativeBridge) {
   try {
     const reply = await bridge.send("config/get", {});
-    return reply.ok ? decodeCapabilities(reply.payload) : null;
+    return reply.ok ? decodeHostConfig(reply.payload) : null;
   } catch {
     return null;
   }
@@ -84,9 +88,11 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
   });
   const [negotiated, setNegotiated] = useState<{
     status: NativeHostStatus;
+    context: BridgeContext | null;
     capabilities: NativeCapabilities;
   }>(() => ({
     status: bridge ? "negotiating" : "unavailable",
+    context: null,
     capabilities: noNativeCapabilities,
   }));
   const subscribers = useRef(
@@ -123,17 +129,21 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!bridge) return;
     let current = true;
-    void negotiate(bridge).then((capabilities) => {
+    void negotiate(bridge).then((config) => {
       if (!current) return;
       setNegotiated(
-        capabilities
-          ? { status: "ready", capabilities }
-          : { status: "unavailable", capabilities: noNativeCapabilities },
+        config
+          ? { status: "ready", ...config }
+          : {
+              status: "unavailable",
+              context: null,
+              capabilities: noNativeCapabilities,
+            },
       );
       // The host treats ready as idempotent, so a remount may repeat it.
       // It carries what this Studio supports, so a host never sends a
       // message an older Studio would not understand.
-      if (capabilities) {
+      if (config) {
         void bridge
           .send("frontend/ready", { capabilities: studioCapabilities })
           .catch(() => {});

@@ -151,19 +151,28 @@ The bridge is privileged. The app applies these rules:
 
 ### Version 1 messages
 
-| Type                    | Direction        | Purpose                                                                       |
-| ----------------------- | ---------------- | ----------------------------------------------------------------------------- |
-| `config/get`            | Studio to native | Studio asks for the protocol version and capabilities                         |
-| `frontend/ready`        | Studio to native | Studio finished its host integration. The app accepts it more than one time   |
-| `navigation/catalog`    | Studio to native | A complete snapshot of navigation destinations that replaces the previous one |
-| `navigation/state`      | Studio to native | The destination that Studio resolved for its current location, and the path   |
-| `navigation/request`    | native to Studio | The app asks Studio to open a destination by its opaque identifier            |
-| `auth/sign-out-request` | native to Studio | The app asks Studio to sign out with its normal logout                        |
-| `auth/signed-out`       | Studio to native | Studio completed its logout. The payload is empty                             |
+| Type                     | Direction        | Purpose                                                                       |
+| ------------------------ | ---------------- | ----------------------------------------------------------------------------- |
+| `config/get`             | Studio to native | Studio asks for the protocol version and capabilities                         |
+| `frontend/ready`         | Studio to native | Studio finished its host integration. The app accepts it more than one time   |
+| `navigation/catalog`     | Studio to native | A complete snapshot of navigation destinations that replaces the previous one |
+| `navigation/state`       | Studio to native | The destination that Studio resolved for its current location, and the path   |
+| `navigation/request`     | native to Studio | The app asks Studio to open a destination by its opaque identifier            |
+| `auth/sign-out-request`  | native to Studio | The app asks Studio to sign out with its normal logout                        |
+| `auth/signed-out`        | Studio to native | Studio completed its logout. The payload is empty                             |
+| `presentation/open`      | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route    |
+| `presentation/ready`     | Studio to native | Presentation page only. Its Studio is signed in and receives presentations    |
+| `presentation/update`    | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility        |
+| `presentation/close`     | Studio to native | Presentation page only. Dismiss the presentation                              |
+| `presentation/navigate`  | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path |
+| `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load |
+| `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                        |
+| `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                   |
+| `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path             |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
-Presentation messages for Milestone 4 will be new message types in the same protocol. Version 1 does not define them.
+Milestone 4 adds the presentation messages to version 1. They are additive, and both sides use them only after capability negotiation. See [Native presentations](#native-presentations).
 
 ### Document changes
 
@@ -253,6 +262,63 @@ Plugin pages are always Studio pages. A plugin page below `/plugins/` opens in t
 ### Adding a destination
 
 To add a destination, add a Studio route with `navigation` metadata and a localized label. Do not change `apps/ios`. After the server updates, the installed app receives the new catalog. On an iPad, the destination appears in its sidebar group. On an iPhone, it appears in More unless its metadata says `primary`. A tap sends only its identifier, and Studio renders its React page in the same Studio page.
+
+## Native presentations
+
+Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The first surface is Live Stream. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
+
+### Two pages, one data store
+
+The app has two privileged pages for the active server. Both use the server's persistent `WKWebsiteDataStore`, so both have the same HttpOnly Studio session cookie:
+
+- the main Studio page;
+- one reusable presentation page, `PresentationPage`, with a new `WebPage.Configuration`, the same navigation policy, and its own bridge.
+
+Each bridge has a context, which the `config/get` reply reports as `context`:
+
+| Context        | Accepts                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `main`         | Navigation catalog and state, the auth lifecycle, and `presentation/open`                  |
+| `presentation` | `presentation/ready`, `presentation/update`, `presentation/close`, `presentation/navigate` |
+
+A message from the other context gets a `forbidden` reply. The presentation page cannot publish the navigation catalog, the app never asks it to sign out, and it never receives an OAuth token. The auxiliary page has no bridge. It shows any same-origin page that Studio opens in a new window, so it must not get a privileged bridge.
+
+### Capability negotiation
+
+The app reports `capabilities.nativePresentations: true`. Studio reports the same capability in `frontend/ready`. Studio sends `presentation/open` only to a main page whose host offers the capability. The app prewarms, shows, and relays only for a Studio that reported it. An older app does not offer the capability, so Studio shows its own dialogs. An older Studio does not report it, so the app makes no presentation page.
+
+### The reserved route
+
+Presentation routes are below `/__native/modal`, outside the Studio dashboard shell. They have no sidebar, topbar, breadcrumbs, or navigation catalog, but they have the normal providers and the signed-in session. They have no navigation or search metadata. Outside a presentation page, the root redirects to `/`.
+
+The app knows only the root. Studio owns every child route, for example `/__native/modal/live-stream/:screenId`, so a new presentation needs no Swift change. `scripts/check-architecture.sh` fails when app sources name a child route.
+
+Both sides validate paths. `presentation/open` and `presentation/show` accept only a relative same-origin path in the tree. `presentation/navigate` accepts only an ordinary same-origin Studio path outside `/__native`. Both refuse other origins, `//host`, schemes, backslashes, whitespace, control characters, and dot segments.
+
+### Lifecycle
+
+1. After signed-in Studio in the main page negotiates presentations and sends its catalog, the app prewarms the presentation page at `/__native/modal`. App launch and the main page do not wait for it.
+2. Studio sends `presentation/open` with a new opaque presentation id, the route, a localized title, and a size. The app accepts one presentation at a time. When the app refuses, Studio shows its web dialog.
+3. The sheet opens immediately with the title and a native loader. When the page is ready, the app sends `presentation/show`. Studio routes to the child with React Router and keys it with the presentation id. The app never loads a presentation route.
+4. The page sends `presentation/update` with complete header snapshots. The app ignores messages for an id that is not active.
+5. When the sheet goes away for any reason, the app sends `presentation/dismissed`. Studio goes back to the empty root. This removes the content and stops transient work, for example a live stream lease.
+6. `presentation/navigate` dismisses the sheet. The app then relays the path with `navigation/open-path`, and the React Router of the main page navigates, so unsaved-change blockers apply. The app never loads a URL in the main page for it.
+
+The app keeps the page for the next presentation. On a memory warning, the app discards the page when no sheet shows it. These also discard it: a server switch or removal, a changed installation, sign-out, and a new main document that did not negotiate. If its content process stops while the page is hidden, the app discards it. If the page is visible, the sheet shows an error with Try Again, which rebuilds only the presentation page.
+
+### The sheet
+
+`PresentationSheet` is a SwiftUI `.sheet` with a `NavigationStack`, a `WebView` of the presentation page, and a native toolbar: close or back, the title and subtitle, icon actions, and an overflow menu. All of it comes from the Studio descriptor. Action ids are opaque, and an unknown icon token shows the generic icon.
+
+- `compact` uses the medium and large detents with a drag indicator, and `.form` sizing on iPad.
+- `full` uses the large detent, and `.page` sizing on iPad. Any other size is `full`.
+- `dismissible: false` disables interactive dismissal.
+
+A dialog that Studio opens in a presentation shows in the presentation page. The Studio dialog primitives make the sheet grow to `full`, and it stays full. Milestone 4 has no stacked native presentations. A new-window request from the presentation page is refused.
+
+### Adding a presentation
+
+Add a child route to `presentationRoutes` in `apps/dashboard/src/App.tsx`. Open it with `useOpenNativePresentation()` from `apps/dashboard/src/native-presentation/`, and show the web dialog when it returns `false`. Describe the chrome with `usePresentationChrome()`. Use `useNativePresentation()` to close or to navigate. Do not change `apps/ios`.
 
 ## Authentication
 
@@ -363,7 +429,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                         |
 | 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar    |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages |
-| 4         | Native presentation: frameless Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                           |
+| 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs            |
 | 5         | Native Pair Screen with scanning and manual code entry                                                                                         |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                   |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                        |
@@ -371,13 +437,12 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio.
 
-## Known limitations after Milestone 3
+## Known limitations after Milestone 4
 
-- Studio opens the Layout and Playlist previews with `window.open`. `WebPage` has no new-window hook, so these previews do not open in the app. Milestone 4 presentation replaces them.
+- Studio opens the Layout and Playlist previews with `window.open`. `WebPage` has no new-window hook, so these previews do not open in the app. They can move to native presentations later.
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
-- Native sheets and the presentation protocol are not part of Milestone 3.
 - No production screen calls the native API yet. Milestone 3 is the foundation for later native workflows.
 - The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.
 - The Studio topbar stays a Studio component. This is intentional: breadcrumbs, search, notifications, and editor controls remain Studio features.

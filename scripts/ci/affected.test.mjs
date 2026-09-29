@@ -40,6 +40,7 @@ test("Studio and server changes do not build the iOS host", () => {
     "apps/dashboard/src/navigation/routes.ts",
     "apps/dashboard/src/navigation/studioNavigation.tsx",
     "apps/dashboard/src/native-host/useNativeNavigation.ts",
+    "apps/dashboard/src/native-presentation/NativePresentationHost.tsx",
     "apps/dashboard/src/pages/RoomBookingsPage.tsx",
     "apps/dashboard/src/styles.css",
     "apps/dashboard/src/App.tsx",

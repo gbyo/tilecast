@@ -5,10 +5,12 @@ import iconTokens from "@tilecast/native-bridge-schema/icon-tokens.json";
 import schema from "@tilecast/native-bridge-schema/schema-v1.json";
 import { navigationIcons } from "@/navigation/NavigationIcon";
 import {
-  decodeCapabilities,
+  decodeHostConfig,
   decodeNativeMessage,
   decodeNativeReply,
   frontendMessage,
+  isPresentationPath,
+  isStudioPath,
   studioCapabilities,
 } from "./protocol";
 
@@ -18,6 +20,7 @@ type FixtureCase = {
   outcome: "accept" | "malformed" | "unknownType" | "unsupportedVersion";
   schemaValid?: boolean;
   studioEncodes?: string;
+  hostContext?: string | null;
   message: unknown;
 };
 
@@ -86,7 +89,23 @@ describe("the shared native bridge fixtures", () => {
       expect(decode(entry.message).outcome).toBe(entry.outcome);
     },
   );
+
+  const configReplies = cases.filter((entry) => "hostContext" in entry);
+  it.each(configReplies.map((entry) => [entry.name, entry] as const))(
+    "Studio reads the bridge context: %s",
+    (_, entry) => {
+      const reply = decodeNativeReply(entry.message);
+      if (reply.outcome !== "accept" || !reply.message.ok) {
+        throw new Error("expected a successful reply");
+      }
+      expect(decodeHostConfig(reply.message.payload)?.context ?? null).toBe(
+        entry.hostContext,
+      );
+    },
+  );
 });
+
+const presentationId = "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e";
 
 describe("messages Studio sends", () => {
   // Studio's encoder must match the corpus exactly, so a native decoder,
@@ -96,6 +115,39 @@ describe("messages Studio sends", () => {
       capabilities: studioCapabilities,
     }),
     signedOut: frontendMessage("auth/signed-out", {}),
+    presentationOpen: frontendMessage("presentation/open", {
+      presentationId,
+      path: "/__native/modal/live-stream/screen-1",
+      title: "Live stream · Lobby",
+      subtitle: "Lobby",
+      size: "full",
+      dismissible: true,
+    }),
+    presentationReady: frontendMessage("presentation/ready", {}),
+    presentationUpdate: frontendMessage("presentation/update", {
+      presentationId,
+      header: {
+        title: "Lobby",
+        subtitle: "Screen",
+        navigation: "close",
+        navigationLabel: "Close",
+        actions: [{ id: "refresh", label: "Refresh", icon: "activity" }],
+        menuLabel: "More",
+        menu: [
+          { id: "open-screen", label: "Open screen", icon: "screens" },
+          { id: "history", label: "History", disabled: true },
+        ],
+      },
+      size: "full",
+      dismissible: true,
+    }),
+    presentationClose: frontendMessage("presentation/close", {
+      presentationId,
+    }),
+    presentationNavigate: frontendMessage("presentation/navigate", {
+      presentationId,
+      path: "/screens/screen-1?tab=activity",
+    }),
   };
   const encoded = cases.filter((entry) => entry.studioEncodes !== undefined);
   it.each(encoded.map((entry) => [entry.name, entry] as const))(
@@ -144,19 +196,41 @@ describe("messages Studio sends", () => {
 
   it("reads capabilities, treating anything but true as unavailable", () => {
     expect(
-      decodeCapabilities({
+      decodeHostConfig({
         protocolVersion: 1,
-        capabilities: { nativeNavigation: true, nativePresentation: true },
+        capabilities: { nativeNavigation: true, nativeShare: true },
       }),
-    ).toEqual({ nativeNavigation: true, authLifecycle: false });
+    ).toEqual({
+      context: "main",
+      capabilities: {
+        nativeNavigation: true,
+        authLifecycle: false,
+        nativePresentations: false,
+      },
+    });
     expect(
-      decodeCapabilities({
+      decodeHostConfig({
         protocolVersion: 1,
-        capabilities: { nativeNavigation: "yes", authLifecycle: true },
+        context: "presentation",
+        capabilities: {
+          nativeNavigation: "yes",
+          authLifecycle: true,
+          nativePresentations: 1,
+        },
       }),
-    ).toEqual({ nativeNavigation: false, authLifecycle: true });
-    expect(decodeCapabilities({ capabilities: {} })).toBeNull();
-    expect(decodeCapabilities({ protocolVersion: 1 })).toBeNull();
+    ).toEqual({
+      context: "presentation",
+      capabilities: {
+        nativeNavigation: false,
+        authLifecycle: true,
+        nativePresentations: false,
+      },
+    });
+    expect(decodeHostConfig({ capabilities: {} })).toBeNull();
+    expect(decodeHostConfig({ protocolVersion: 1 })).toBeNull();
+    expect(
+      decodeHostConfig({ protocolVersion: 1, context: 7, capabilities: {} }),
+    ).toBeNull();
   });
 });
 
@@ -165,5 +239,57 @@ describe("navigation icon tokens", () => {
     for (const token of iconTokens.tokens) {
       expect(Object.hasOwn(navigationIcons, token), token).toBe(true);
     }
+  });
+});
+
+describe("presentation paths", () => {
+  it.each([
+    "/__native/modal",
+    "/__native/modal/live-stream/screen-1",
+    "/__native/modal/fixture?step=2#top",
+  ])("accepts %s inside the presentation tree", (path) => {
+    expect(isPresentationPath(path)).toBe(true);
+    expect(isStudioPath(path)).toBe(false);
+  });
+
+  it.each([
+    "",
+    "/__native/modals",
+    "/__native",
+    "/screens/screen-1",
+    "__native/modal",
+    "//evil.example/__native/modal",
+    "https://evil.example/__native/modal",
+    "javascript:alert(1)",
+    "/__native/modal/../screens",
+    "/__native/modal/%2E%2e/screens",
+    "/__native/modal/%2e",
+    "/__native/modal/\\evil.example",
+    "/__native/modal/a b",
+    "/__native/modal/\u0000",
+    `/__native/modal/${"a".repeat(1010)}`,
+  ])("refuses %j as a presentation path", (path) => {
+    expect(isPresentationPath(path)).toBe(false);
+  });
+
+  it.each(["/", "/screens/screen-1?tab=activity", "/settings/general#x"])(
+    "accepts %s as a Studio path",
+    (path) => {
+      expect(isStudioPath(path)).toBe(true);
+    },
+  );
+
+  it.each([
+    "screens",
+    "//evil.example",
+    "/\\evil.example",
+    "https://evil.example/",
+    "javascript:alert(1)",
+    "/screens/../../settings",
+    "/__native/modal",
+    "/__native/other",
+    "/screens?a=1 b",
+  ])("refuses %j as a Studio path", (path) => {
+    expect(isStudioPath(path)).toBe(false);
   });
 });

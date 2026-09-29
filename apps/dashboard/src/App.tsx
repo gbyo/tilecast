@@ -5,6 +5,10 @@ import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import type { StudioNavigationMetadata } from "./navigation/studioNavigation";
 import { NativeHostProvider } from "./native-host/NativeHostProvider";
 import { NativeAuthLifecycle } from "./native-host/useNativeAuthLifecycle";
+import { PRESENTATION_ROOT } from "./native-host/protocol";
+import { NativePresentationHost } from "./native-presentation/NativePresentationHost";
+import { NativePresentationNavigation } from "./native-presentation/NativePresentationNavigation";
+import { LiveStreamPresentation } from "./components/LiveStreamPresentation";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
@@ -80,7 +84,22 @@ const settingsSearch: Partial<
   },
 };
 
+/**
+ * Routes a native host can present in its own sheet, below the reserved
+ * /__native/modal root. Adding one needs no app change: the host knows only
+ * the root. They have no navigation or search metadata, and outside a
+ * native presentation page the root redirects to the start page.
+ */
+const presentationRoutes: RouteObject[] = [
+  { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
+];
+
 export const studioRoutes: RouteObject[] = [
+  {
+    path: PRESENTATION_ROOT,
+    element: <NativePresentationHost routes={presentationRoutes} />,
+    children: presentationRoutes,
+  },
   { path: "/setup", element: <AuthPage mode="setup" /> },
   { path: "/login", element: <AuthPage mode="login" /> },
   { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
@@ -621,6 +640,7 @@ export function App() {
   return (
     <NativeHostProvider>
       <NativeAuthLifecycle />
+      <NativePresentationNavigation />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
