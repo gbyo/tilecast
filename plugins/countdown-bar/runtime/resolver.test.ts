@@ -88,6 +88,29 @@ describe("countdown bar resolver", () => {
     });
   });
 
+  it("preserves seconds from PostgreSQL-style weekly target times", () => {
+    const active = resolver.resolve(
+      [weekly({ targetTime: "12:00:45" })],
+      new Date("2026-07-27T15:50:00Z"),
+    );
+
+    expect(active).toMatchObject({
+      targetAt: "2026-07-27T16:00:45.000Z",
+      value: "10m 45s",
+    });
+  });
+
+  it("rejects malformed and out-of-range weekly target times", () => {
+    for (const targetTime of ["12:00oops", "12:00:60", "24:00", "12:60"]) {
+      expect(
+        resolver.resolve(
+          [weekly({ targetTime })],
+          new Date("2026-07-27T15:50:00Z"),
+        ),
+      ).toBeNull();
+    }
+  });
+
   it("shows completion text for one minute and then hides", () => {
     const plugin: CountdownBarPlugin = {
       ...weekly(),
