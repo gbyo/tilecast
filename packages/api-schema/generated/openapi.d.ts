@@ -6586,6 +6586,9 @@ export interface components {
       organizationName: string;
       installationId: string;
       tilecastVersion: string;
+      serverChannel?: string;
+      buildCommit?: string;
+      buildDate?: string;
       schemaVersion: number;
       /** Format: date-time */
       createdAt: string;
@@ -6673,6 +6676,8 @@ export interface components {
     };
     SystemStatus: {
       tilecastVersion: string;
+      /** @enum {string} */
+      channel: "stable" | "development";
       buildCommit: string;
       buildDate: string;
       uptimeSeconds: number;

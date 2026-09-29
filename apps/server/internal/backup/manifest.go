@@ -93,6 +93,12 @@ type Manifest struct {
 	Components       []ManifestComponent `json:"components"`
 	Database         DatabaseManifest    `json:"database"`
 	Files            []ManifestFile      `json:"files"`
+	// ServerChannel, BuildCommit, and BuildDate record which server build
+	// created the archive. They are additive: archives written before they
+	// existed decode with empty values and remain valid.
+	ServerChannel string `json:"serverChannel,omitempty"`
+	BuildCommit   string `json:"buildCommit,omitempty"`
+	BuildDate     string `json:"buildDate,omitempty"`
 }
 
 // TotalBytes reports the summed size of every archived file.

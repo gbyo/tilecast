@@ -6,9 +6,7 @@ import { api } from "../api/client";
 import type { Asset, LayoutDocument, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { DateInput } from "../components/date-picker";
-import {
-  LayoutPlacementView,
-} from "../components/layout-editor/LayoutPlacementView";
+import { LayoutPlacementView } from "../components/layout-editor/LayoutPlacementView";
 import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { Button } from "../components/ui/button";
@@ -63,7 +61,7 @@ async function loadLayoutPreviewData(
     result.status === "fulfilled" ? [result.value] : [],
   );
 
-  let previewValues: Record<string, Record<string, string>> = {};
+  let previewValues: Record<string, Record<string, string>>;
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const dataSourceIds = new Set<string>();
   document.placements.forEach((placement) => {
@@ -226,9 +224,7 @@ export function LayoutPreviewPage() {
   );
   const playlistsById = useMemo(
     () =>
-      new Map(
-        previewData.playlists.map((playlist) => [playlist.id, playlist]),
-      ),
+      new Map(previewData.playlists.map((playlist) => [playlist.id, playlist])),
     [previewData.playlists],
   );
 
@@ -288,7 +284,9 @@ export function LayoutPreviewPage() {
         className="layout-preview-frame"
         style={{
           aspectRatio:
-            String(layoutDocument.canvas.width) + "/" + String(layoutDocument.canvas.height),
+            String(layoutDocument.canvas.width) +
+            "/" +
+            String(layoutDocument.canvas.height),
           maxWidth:
             "calc((100dvh - 96px) * " +
             String(layoutDocument.canvas.width / layoutDocument.canvas.height) +
