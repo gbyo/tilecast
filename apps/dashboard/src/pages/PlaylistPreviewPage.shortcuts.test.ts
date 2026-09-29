@@ -23,6 +23,14 @@ describe("playlist preview keyboard shortcuts", () => {
     expect(playlistPreviewShortcutTargetIsInteractive(customControl)).toBe(
       true,
     );
+
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "");
+    expect(playlistPreviewShortcutTargetIsInteractive(editable)).toBe(true);
+    editable.setAttribute("contenteditable", "plaintext-only");
+    expect(playlistPreviewShortcutTargetIsInteractive(editable)).toBe(true);
+    editable.setAttribute("contenteditable", "false");
+    expect(playlistPreviewShortcutTargetIsInteractive(editable)).toBe(false);
   });
 
   it("keeps global shortcuts available on non-interactive preview content", () => {
