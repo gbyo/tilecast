@@ -450,4 +450,40 @@ describe("command search", () => {
     expect(result?.to).toBe("/screens/screen-1");
     expect(result?.description).toBe("Offline · Lobby");
   });
+
+  it("hides role-restricted routes from users who cannot access them", () => {
+    const t = i18n.getFixedT("en", "navigation");
+    const ownerResults = buildCommandResults(
+      studioRoutes,
+      [],
+      "bulk",
+      { canCreate: true, canPair: true, role: "owner" },
+      [],
+      t,
+    );
+    const administratorResults = buildCommandResults(
+      studioRoutes,
+      [],
+      "bulk",
+      { canCreate: true, canPair: true, role: "administrator" },
+      [],
+      t,
+    );
+    const viewerResults = buildCommandResults(
+      studioRoutes,
+      [],
+      "bulk",
+      { canCreate: true, canPair: false, role: "viewer" },
+      [],
+      t,
+    );
+
+    expect(ownerResults.map((result) => result.to)).toContain("/screens/bulk");
+    expect(administratorResults.map((result) => result.to)).toContain(
+      "/screens/bulk",
+    );
+    expect(viewerResults.map((result) => result.to)).not.toContain(
+      "/screens/bulk",
+    );
+  });
 });

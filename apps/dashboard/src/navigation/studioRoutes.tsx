@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { RouteObject } from "react-router";
+import type { User } from "../api/types";
 
 export type BreadcrumbResource =
   | "screen"
@@ -31,6 +32,8 @@ export type StudioRouteHandle = {
    */
   breadcrumbKey?: { ns: string; key: string };
   resource?: BreadcrumbResource | BreadcrumbResourceLoader;
+  /** Roles that can discover this route through command search. */
+  searchAllowedRoles?: readonly User["role"][];
   search?: {
     label: string;
     description: string;

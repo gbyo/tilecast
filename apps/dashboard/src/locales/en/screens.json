@@ -732,6 +732,7 @@
   "bulk": {
     "title": "Bulk changes",
     "body": "Apply one change to many screens. Tilecast shows exactly what will change before anything happens, including screens pulled in by a Display Group.",
+    "accessDenied": "Only Owners and Administrators can use bulk changes.",
     "screensTitle": "Screens",
     "screensBody": "A screen in a Display Group shares that group’s assignment, so selecting one member includes the rest. The preview lists them.",
     "selectedCount": "{{selected}} of {{total}} selected",

@@ -146,6 +146,7 @@ export const studioRoutes: RouteObject[] = [
             element: <FleetBulkPage />,
             handle: {
               breadcrumb: "Bulk changes",
+              searchAllowedRoles: ["owner", "administrator"],
               search: search(
                 "Bulk changes",
                 "Apply one change to many screens with a preview",
