@@ -224,9 +224,7 @@ export function LayoutPreviewPage() {
   );
   const playlistsById = useMemo(
     () =>
-      new Map(
-        previewData.playlists.map((playlist) => [playlist.id, playlist]),
-      ),
+      new Map(previewData.playlists.map((playlist) => [playlist.id, playlist])),
     [previewData.playlists],
   );
 
@@ -297,8 +295,8 @@ export function LayoutPreviewPage() {
         }}
       >
         {layoutDocument.canvas.backgroundAssetId &&
-          assetsById.get(layoutDocument.canvas.backgroundAssetId)
-            ?.type === "image" && (
+          assetsById.get(layoutDocument.canvas.backgroundAssetId)?.type ===
+            "image" && (
             <img
               className="layout-preview-background"
               src={api.assetPreviewUrl(layoutDocument.canvas.backgroundAssetId)}
