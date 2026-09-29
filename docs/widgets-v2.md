@@ -160,6 +160,8 @@ interface WidgetResources {
 
 The context has no size. The element measures its own box with CSS container queries (§9). A size change never rerenders a Widget that does not measure.
 
+Time-sensitive Widgets use the `ClockController` from `@tilecast/widget-kit`. It schedules against `context.clock`, can wake once at a declared future boundary, then returns to its normal second or minute cadence. A Widget must not create its own timer or read wall-clock time.
+
 `WidgetResources` answers only for Data Sources and media variants that the component presentation declares (§6). Every other lookup returns `null`. The resources object has no network, file, storage or host access.
 
 ## 6. Manifest v16 component presentation
@@ -231,6 +233,8 @@ A Widget element dispatches bounded, bubbling, composed events:
 | `tilecast-widget-error` | `{ code }` (≤ 48 chars)   | The Widget cannot render these inputs.          |
 
 `WidgetMount` turns these events into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
+
+A time-sensitive Widget may change between `ready` and `empty` at a clock boundary. The base element reports that transition once, even when its `config`, `data`, `empty`, and `context` properties did not change.
 
 The fullscreen `ComponentWidgetSurface` resolves `prepare()` when the mount is `ready` or `empty` and rejects it on `error` or after the ready timeout (10 s of clock time). So the item swaps in only after the Widget rendered. An error after the Widget is shown is a playback failure.
 

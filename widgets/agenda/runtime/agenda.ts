@@ -40,6 +40,9 @@ import {
   type HourCycle,
 } from "@tilecast/widget-kit";
 
+export const AGENDA_STYLES = ["agenda", "now-next", "schedule-board"] as const;
+export type AgendaStyle = (typeof AGENDA_STYLES)[number];
+
 export interface AgendaConfig {
   readonly dataSourceId: string;
   readonly titleField: string;
@@ -49,12 +52,19 @@ export interface AgendaConfig {
   readonly descriptionField: string;
   readonly categoryField: string;
   readonly heading: string;
+  readonly style: AgendaStyle;
+  readonly nowLabel: string;
+  readonly nextLabel: string;
   readonly maximumItems: number;
+  readonly upcomingCount: number;
+  readonly showCountdown: boolean;
+  readonly showUpcomingTimeline: boolean;
   readonly groupByDay: boolean;
   readonly hideEnded: boolean;
   readonly emptyText: string;
   readonly background: string | null;
   readonly foreground: string | null;
+  readonly accent: string | null;
 }
 
 export interface AgendaEvent {
@@ -70,6 +80,8 @@ export interface AgendaData {
   readonly events: readonly AgendaEvent[];
   readonly fields: Readonly<Record<string, WidgetField>>;
   readonly total: number;
+  /** Legacy now-and-next records with no usable time mapping retain source order. */
+  readonly sourceOrderFallback: boolean;
 }
 
 const MAX_FIELD_LENGTH = 120;
@@ -126,6 +138,15 @@ export function parseAgendaConfig(value: unknown): ConfigResult<AgendaConfig> {
     return { ok: false, problem: "mapped fields must be field names" };
   }
   const heading = boundText(raw["heading"] ?? "", 120);
+  const style = raw["style"] ?? "agenda";
+  if (!AGENDA_STYLES.includes(style as AgendaStyle)) {
+    return {
+      ok: false,
+      problem: "style must be agenda, now-next, or schedule-board",
+    };
+  }
+  const nowLabel = boundText(raw["nowLabel"] ?? "Now", 80);
+  const nextLabel = boundText(raw["nextLabel"] ?? "Next", 80);
   const emptyText = boundText(raw["emptyText"] ?? "", 200);
   const maximumItems = raw["maximumItems"] ?? 20;
   if (
@@ -147,6 +168,26 @@ export function parseAgendaConfig(value: unknown): ConfigResult<AgendaConfig> {
   if (hideEnded === null) {
     return { ok: false, problem: "hideEnded must be a boolean" };
   }
+  const upcomingCount = raw["upcomingCount"] ?? 4;
+  if (
+    typeof upcomingCount !== "number" ||
+    !Number.isInteger(upcomingCount) ||
+    upcomingCount < 1 ||
+    upcomingCount > 8
+  ) {
+    return {
+      ok: false,
+      problem: "upcomingCount must be an integer from 1 to 8",
+    };
+  }
+  const showCountdown = optionalBoolean(raw["showCountdown"], true);
+  const showUpcomingTimeline = optionalBoolean(
+    raw["showUpcomingTimeline"],
+    true,
+  );
+  if (showCountdown === null || showUpcomingTimeline === null) {
+    return { ok: false, problem: "schedule options must be booleans" };
+  }
   return {
     ok: true,
     config: {
@@ -158,13 +199,20 @@ export function parseAgendaConfig(value: unknown): ConfigResult<AgendaConfig> {
       descriptionField,
       categoryField,
       heading,
+      style: style as AgendaStyle,
+      nowLabel,
+      nextLabel,
       maximumItems,
+      upcomingCount,
+      showCountdown,
+      showUpcomingTimeline,
       groupByDay,
       hideEnded,
       emptyText,
       // Author colors are optional; an invalid one is ignored, not fatal.
       background: parseHexColor(raw["background"]),
       foreground: parseHexColor(raw["foreground"]),
+      accent: parseHexColor(raw["accent"]),
     },
   };
 }
@@ -174,7 +222,6 @@ export function resolveAgendaData(
   resources: WidgetResources,
 ): WidgetResolution<AgendaData> {
   if (config.dataSourceId === "") return empty("no_source");
-  if (config.startField === "") return empty("no_source");
   const document = resources.dataDocument(config.dataSourceId);
   if (!document) return empty("no_source");
   const dataset = firstRecordsDataset(document);
@@ -183,19 +230,21 @@ export function resolveAgendaData(
   if (records.length === 0) return empty("no_records");
   const fields: Record<string, WidgetField> = {};
   for (const field of dataset.fields ?? []) fields[field.key] = field;
-  // Events without a start cannot be placed on a day, so they resolve
-  // away; the element then filters ended events against the Widget clock.
-  const events = records
+  // Most styles need a real start instant. Older Now and Next Widgets may
+  // not have had a usable temporal mapping; retain their source order.
+  const sorted = records
     .map((record) => ({
       record,
-      startMs: eventInstant(record.values[config.startField]),
+      startMs:
+        config.startField === ""
+          ? null
+          : eventInstant(record.values[config.startField]),
     }))
     .filter(
       (entry): entry is { record: WidgetRecord; startMs: number } =>
         entry.startMs !== null,
     )
     .sort((a, b) => a.startMs - b.startMs)
-    .slice(0, config.maximumItems)
     .map((entry) => ({
       id: entry.record.id,
       values: entry.record.values,
@@ -205,8 +254,49 @@ export function resolveAgendaData(
           ? null
           : eventInstant(entry.record.values[config.endField]),
     }));
+  const sourceOrderFallback =
+    config.style === "now-next" && sorted.length === 0;
+  const events = sourceOrderFallback
+    ? records.slice(0, config.maximumItems).map((record, index) => ({
+        id: record.id,
+        values: record.values,
+        // The source-order presentation never formats or compares this value.
+        startMs: index,
+        endMs: null,
+      }))
+    : sorted.slice(0, config.maximumItems);
   if (events.length === 0) return empty("no_records");
-  return ready({ events, fields, total: records.length });
+  return ready({ events, fields, total: records.length, sourceOrderFallback });
+}
+
+/** The nearest event start or end that can change the current schedule view. */
+export function nextAgendaBoundary(
+  events: readonly AgendaEvent[],
+  nowMs: number,
+): number | null {
+  let next: number | null = null;
+  for (const event of events) {
+    for (const boundary of [event.startMs, event.endMs]) {
+      if (
+        boundary !== null &&
+        boundary > nowMs &&
+        (next === null || boundary < next)
+      ) {
+        next = boundary;
+      }
+    }
+  }
+  return next;
+}
+
+/** Compact countdown text used by the schedule-board style. */
+export function formatAgendaCountdown(targetMs: number, nowMs: number): string {
+  const seconds = Math.max(0, Math.ceil((targetMs - nowMs) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${seconds}s`;
 }
 
 /** An event already finished at `nowMs`. Without an end, an event ends when its local day does. */
@@ -391,6 +481,106 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         white-space: nowrap;
       }
 
+      .now-next,
+      .schedule-board {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+        padding: var(--tc-gutter);
+      }
+      .schedule-heading {
+        color: var(--tc-color-fg-muted);
+        font-size: clamp(12px, min(5cqh, 3.5cqw), 64px);
+        font-weight: 650;
+        line-height: 1.2;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .schedule-feature {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        justify-content: center;
+        gap: min(2.4cqh, 2.4cqw);
+        min-height: 0;
+      }
+      .schedule-label {
+        color: var(--tc-color-accent);
+        font-size: clamp(12px, min(5cqh, 3.5cqw), 68px);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .schedule-title {
+        color: var(--tc-color-fg);
+        font-size: clamp(22px, min(14cqh, 10cqw), 200px);
+        font-weight: 650;
+        line-height: 1.08;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+      }
+      .schedule-detail,
+      .schedule-countdown {
+        color: var(--tc-color-fg-muted);
+        font-size: clamp(12px, min(5cqh, 3.5cqw), 72px);
+        line-height: 1.3;
+      }
+      .schedule-countdown {
+        color: var(--tc-color-accent);
+        font-variant-numeric: tabular-nums;
+        font-weight: 650;
+      }
+      .schedule-timeline {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(12em, 100%), 1fr));
+        gap: min(1.8cqh, 1.8cqw);
+        max-height: 34%;
+        overflow: hidden;
+      }
+      .schedule-card {
+        min-width: 0;
+        overflow: hidden;
+        padding: min(1.6cqh, 1.6cqw);
+        border: var(--tc-stroke) solid var(--tc-color-separator);
+        border-radius: var(--tc-radius-m);
+        background: var(--tc-color-surface);
+      }
+      .schedule-card-title,
+      .schedule-card-time,
+      .schedule-card-detail {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .schedule-card-title {
+        color: var(--tc-color-fg);
+        font-size: clamp(12px, min(4.4cqh, 3cqw), 56px);
+        font-weight: 620;
+      }
+      .schedule-card-time,
+      .schedule-card-detail {
+        color: var(--tc-color-fg-muted);
+        font-size: clamp(10px, min(3.5cqh, 2.4cqw), 40px);
+      }
+
+      @container tc-widget (max-height: 150px) or (max-width: 200px) {
+        .schedule-heading,
+        .schedule-detail,
+        .schedule-timeline {
+          display: none;
+        }
+        .schedule-title {
+          font-size: clamp(16px, min(12cqh, 9cqw), 80px);
+        }
+      }
+
       /* Wide frame: days flow side by side. */
       @container tc-widget (min-width: 900px) {
         .days {
@@ -425,10 +615,40 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
    */
   private readonly ticks = new ClockController(this, {
     granularity: () => "minute" as const,
+    nextBoundary: (now) =>
+      this.data ? nextAgendaBoundary(this.data.events, now) : null,
   });
 
   protected override themeOverrides(config: AgendaConfig) {
-    return { background: config.background, foreground: config.foreground };
+    return {
+      background: config.background,
+      foreground: config.foreground,
+      accent: config.accent,
+    };
+  }
+
+  protected override presentationState():
+    | { state: "ready" }
+    | { state: "empty"; reason: string }
+    | { state: "error"; code: string } {
+    if (this.empty !== null) return { state: "empty", reason: this.empty };
+    if (!this.data) return { state: "ready" };
+    if (this.data.sourceOrderFallback) {
+      return this.data.events.length > 0
+        ? { state: "ready" }
+        : { state: "empty", reason: "no_records" };
+    }
+    const now = this.context.clock.now();
+    const available = this.data.sourceOrderFallback
+      ? this.data.events
+      : this.config.hideEnded
+        ? this.data.events.filter(
+            (event) => !isEnded(event, now, this.context.timeZone),
+          )
+        : this.data.events;
+    return available.length > 0
+      ? { state: "ready" }
+      : { state: "empty", reason: "no_records" };
   }
 
   protected override renderEmpty(reason: string): TemplateResult {
@@ -447,9 +667,25 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         ? this.context.hourCycle
         : "locale";
     const nowMs = this.context.clock.now();
-    const visible = this.config.hideEnded
-      ? data.events.filter((event) => !isEnded(event, nowMs, timeZone))
-      : data.events;
+    const visible = data.sourceOrderFallback
+      ? data.events
+      : this.config.hideEnded
+        ? data.events.filter((event) => !isEnded(event, nowMs, timeZone))
+        : data.events;
+    if (visible.length === 0) return this.renderEmpty("no_records");
+    if (this.config.style === "now-next") {
+      return this.renderNowNext(data, visible, nowMs, timeZone, hourCycle);
+    }
+    if (this.config.style === "schedule-board") {
+      return this.renderScheduleBoard(
+        data,
+        visible,
+        nowMs,
+        timeZone,
+        locale,
+        hourCycle,
+      );
+    }
     const groups = groupAgendaEvents(visible, timeZone, this.config.groupByDay);
     const cell = (event: AgendaEvent, key: string): string => {
       if (key === "") return "";
@@ -457,7 +693,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         locale,
       });
     };
-    return html`<div class="agenda">
+    return html`<div class="agenda" data-style=${this.config.style}>
       ${
         this.config.heading
           ? html`<div class="heading">${this.config.heading}</div>`
@@ -511,6 +747,120 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
             </section>`,
         )}
       </div>
+    </div>`;
+  }
+
+  private titleFor(event: AgendaEvent, data: AgendaData): string {
+    return this.config.titleField === ""
+      ? ""
+      : formatWidgetValue(
+          event.values[this.config.titleField],
+          data.fields[this.config.titleField],
+          {
+            locale: this.context.locale,
+          },
+        );
+  }
+
+  private detailFor(event: AgendaEvent, data: AgendaData): string {
+    const key = this.config.locationField || this.config.descriptionField;
+    return key === ""
+      ? ""
+      : formatWidgetValue(event.values[key], data.fields[key], {
+          locale: this.context.locale,
+        });
+  }
+
+  private renderNowNext(
+    data: AgendaData,
+    visible: readonly AgendaEvent[],
+    nowMs: number,
+    timeZone: string,
+    hourCycle: HourCycle,
+  ): TemplateResult {
+    const current = data.sourceOrderFallback
+      ? visible[0]
+      : visible.find((event) => isNow(event, nowMs, timeZone));
+    const upcoming = data.sourceOrderFallback
+      ? visible.slice(1)
+      : visible.filter((event) => event.startMs > nowMs);
+    const next = upcoming[0];
+    const showNext = current ? next : upcoming[0];
+    return html`<div
+      class="now-next"
+      data-style="now-next"
+      ?data-source-order=${data.sourceOrderFallback}
+    >
+      ${this.config.heading ? html`<div class="schedule-heading">${this.config.heading}</div>` : nothing}
+      ${
+        current
+          ? html`<section class="schedule-feature">
+              <div class="schedule-label">${this.config.nowLabel}</div>
+              <div class="schedule-title">${this.titleFor(current, data)}</div>
+              ${this.detailFor(current, data) ? html`<div class="schedule-detail">${this.detailFor(current, data)}</div>` : nothing}
+            </section>`
+          : nothing
+      }
+      ${
+        showNext
+          ? html`<section class="schedule-feature">
+              <div class="schedule-label">${this.config.nextLabel}</div>
+              <div class="schedule-title">${this.titleFor(showNext, data)}</div>
+              ${!data.sourceOrderFallback ? html`<div class="schedule-detail">${formatTime(showNext.startMs, { locale: this.context.locale, timeZone, hourCycle })}</div>` : nothing}
+              ${this.detailFor(showNext, data) ? html`<div class="schedule-detail">${this.detailFor(showNext, data)}</div>` : nothing}
+            </section>`
+          : nothing
+      }
+    </div>`;
+  }
+
+  private renderScheduleBoard(
+    data: AgendaData,
+    visible: readonly AgendaEvent[],
+    nowMs: number,
+    timeZone: string,
+    locale: string,
+    hourCycle: HourCycle,
+  ): TemplateResult {
+    const current = visible.find((event) => isNow(event, nowMs, timeZone));
+    const next = visible.find((event) => event.startMs > nowMs);
+    const featured = current ?? next;
+    const target = current?.endMs ?? next?.startMs ?? null;
+    const upcoming = visible
+      .filter((event) => event !== featured && event.startMs > nowMs)
+      .slice(0, this.config.upcomingCount);
+    return html`<div class="schedule-board" data-style="schedule-board">
+      ${this.config.heading ? html`<div class="schedule-heading">${this.config.heading}</div>` : nothing}
+      ${
+        featured
+          ? html`<section class="schedule-feature">
+              <div class="schedule-label">
+                ${current ? this.config.nowLabel : this.config.nextLabel}
+              </div>
+              <div class="schedule-title">${this.titleFor(featured, data)}</div>
+              ${this.detailFor(featured, data) ? html`<div class="schedule-detail">${this.detailFor(featured, data)}</div>` : nothing}
+              ${target !== null && this.config.showCountdown ? html`<div class="schedule-countdown">${current ? "Ends in" : "Starts in"} ${formatAgendaCountdown(target, nowMs)}</div>` : nothing}
+            </section>`
+          : nothing
+      }
+      ${
+        this.config.showUpcomingTimeline && upcoming.length > 0
+          ? html`<div class="schedule-timeline">
+              ${upcoming.map(
+                (event) =>
+                  html`<article class="schedule-card">
+                    <div class="schedule-card-title">
+                      ${this.titleFor(event, data)}
+                    </div>
+                    <div class="schedule-card-time">
+                      ${formatTime(event.startMs, { locale, timeZone, hourCycle })}
+                    </div>
+                    ${this.detailFor(event, data) ? html`<div class="schedule-card-detail">${this.detailFor(event, data)}</div>` : nothing}
+                  </article>`,
+              )}
+            </div>`
+          : nothing
+      }
     </div>`;
   }
 }

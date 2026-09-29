@@ -25,18 +25,19 @@ Choose by what you want people to see. The **Works with** column says what kind 
 | **Ticker**     | One continuous scrolling line of short items, such as headlines or closures.               | Any records source, such as a feed, Manual Table, or Google Sheet. |
 | **News**       | Feed headlines with an optional summary, publication time, and source name.                | An RSS / Atom Feed, or another source with headline fields.        |
 | **Menu Board** | Items with descriptions and aligned prices, grouped into sections.                         | Menu Items, or another source with item names and prices.          |
-| **Agenda**     | Upcoming events grouped by day, with the current event marked.                             | A Calendar, Events, or another source with a start date or time.   |
+| **Status**     | A current status, severity, message, and optional effective or expiry time.                | An object source, such as Status Message.                          |
+| **Agenda**     | Events shown as an agenda, a current and next view, or a schedule board.                   | A Calendar, Events, or another source with a start date or time.   |
 | **Weather**    | Current conditions and a forecast of several days.                                         | A Weather Data Source.                                             |
 
 A **records source** is any Data Source that provides rows of fields, such as a feed, a CSV file, a Google Sheet, a Manual Table, or a plugin source like Forms. See [Connect a Data Source](../data-sources/).
 
 News shows text only. It doesn't show article images.
 
-The catalog also includes other Widgets, such as Text Notice, Countdown, World Clock, Chart, and Alert Banner, and web Apps such as Website, YouTube, Google Slides, and **Google Sheets — Display**. A web App shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes.
+Status has **Panel** and **Banner** styles. Agenda has **Agenda**, **Now and next**, and **Schedule board** styles. A **web App** shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes. For the exact saved-provider mappings, see the [Widgets V2 catalog contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-catalog.md).
 
 ### Choices that moved
 
-Studio no longer offers feed-specific Widgets, such as **Custom RSS**, **Atom Feed**, **RSS Ticker**, **News Feed**, and the publisher Apps. The older QR Code Widget and **QR Call to Action** are replaced by the current **QR Code**. For feeds, use **News** or **Ticker** with an **RSS / Atom Feed** Data Source. Widgets you already saved with the older choices keep working, and you can still edit them.
+Studio no longer offers feed-specific Widgets, such as **Custom RSS**, **Atom Feed**, **RSS Ticker**, **News Feed**, and the publisher Apps. The older QR Code Widget and **QR Call to Action** are replaced by the current **QR Code**. **School Status Banner** and **Alert Banner** are now Status styles. **Now and Next** and **School Schedule** are Agenda styles. **Recognition Board** is now Cards. For feeds, use **News** or **Ticker** with an **RSS / Atom Feed** Data Source. Widgets you already saved with the older choices keep working, and you can still edit them.
 
 ## Create a Widget
 

@@ -21,3 +21,24 @@ export const DefaultSidebar = story(standard, "sidebar");
 export const DefaultZone = story(standard, "zone");
 export const EmptyZone = story(empty, "zone");
 export const NoSourceZone = story(noSource, "zone");
+export const NowNextLandscape = story(
+  {
+    ...standard,
+    name: "Now and next",
+    configuration: {
+      ...standard.configuration,
+      style: "now-next",
+      nowLabel: "Happening now",
+      nextLabel: "Coming up",
+    },
+  },
+  "landscape",
+);
+export const ScheduleBoardLandscape = story(
+  {
+    ...standard,
+    name: "Schedule board",
+    configuration: { ...standard.configuration, style: "schedule-board" },
+  },
+  "landscape",
+);
