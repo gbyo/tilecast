@@ -222,7 +222,7 @@ function Sidebar({
       <div
         data-slot="sidebar-gap"
         className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-(--tc-motion-standard) ease-(--tc-ease-standard)",
+          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-(--tc-motion-standard) ease-(--tc-ease-standard) motion-reduce:transition-none",
           "group-data-[collapsible=offcanvas]:w-0",
           "group-data-[side=right]:rotate-180",
           variant === "floating" || variant === "inset"
