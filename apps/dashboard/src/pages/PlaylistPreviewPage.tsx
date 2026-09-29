@@ -48,7 +48,7 @@ export function playlistPreviewShortcutTargetIsInteractive(
   if (!(target instanceof Element)) return false;
   return Boolean(
     target.closest(
-      "button, a[href], input, select, textarea, [contenteditable='true'], [role='button'], [role='link'], [role='slider'], [role='textbox'], [role='combobox']",
+      "button, a[href], input, select, textarea, [contenteditable]:not([contenteditable='false']), [role='button'], [role='link'], [role='slider'], [role='textbox'], [role='combobox']",
     ),
   );
 }
