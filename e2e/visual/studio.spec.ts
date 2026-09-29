@@ -58,6 +58,24 @@ for (const [name, path, ready] of states) {
         "Booster Club",
       );
     }
+    if (name === "widgets") {
+      // The library repairs an old Widget thumbnail asynchronously. Wait for
+      // that real capture so the screenshot records the stable preview state.
+      const preview = page
+        .getByRole("article")
+        .filter({ hasText: "Lobby Clock" })
+        .first()
+        .locator("img");
+      await expect(preview).toBeVisible();
+      await expect
+        .poll(() =>
+          preview.evaluate(
+            (image: HTMLImageElement) =>
+              image.complete && image.naturalWidth > 0,
+          ),
+        )
+        .toBe(true);
+    }
     if (name === "widget-editor") {
       await page
         .getByRole("button", { name: "Small zone", exact: true })
