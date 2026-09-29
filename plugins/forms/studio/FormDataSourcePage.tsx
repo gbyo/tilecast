@@ -220,7 +220,11 @@ export function FormDataSourcePage() {
           className="w-full justify-start overflow-x-auto"
         >
           {permittedTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="flex-none">
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex-none"
+            >
               {t(tab.labelKey)}
             </TabsTrigger>
           ))}
