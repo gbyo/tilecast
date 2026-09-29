@@ -112,6 +112,7 @@ export function GroupsPage() {
       api.createScreenGroup(value, csrf),
     onSuccess: () => {
       toast.add({ title: "Display Group created.", type: "success" });
+      setCreateOpen(false);
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
   });
@@ -218,11 +219,9 @@ export function GroupsPage() {
           action={t("groups.detail.dialogCreateAction")}
           initial={{ name: "", description: "" }}
           pending={create.isPending}
+          error={create.error?.message}
           onClose={() => setCreateOpen(false)}
-          onSave={(value) => {
-            create.mutate(value);
-            setCreateOpen(false);
-          }}
+          onSave={(value) => create.mutate(value)}
         />
       )}
     </section>
@@ -306,6 +305,7 @@ export function GroupDetailPage() {
       }) => api.updateScreenGroup(id, value, csrf),
       onSuccess: () => {
         toast.add({ title: "Display Group updated.", type: "success" });
+        setEditOpen(false);
         return refresh();
       },
     }),
@@ -420,11 +420,9 @@ export function GroupDetailPage() {
                   description: groupData.description,
                 }}
                 pending={update.isPending}
+                error={update.error?.message}
                 onClose={() => setEditOpen(false)}
-                onSave={(value) => {
-                  update.mutate(value);
-                  setEditOpen(false);
-                }}
+                onSave={(value) => update.mutate(value)}
               />
             )}
             <Button type="button" onClick={() => setAirplayOpen(true)}>
@@ -459,6 +457,21 @@ export function GroupDetailPage() {
           </div>
         )}
       </header>
+      {(add.error ||
+        remove.error ||
+        deleteGroup.error ||
+        assignContent.error) && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {(
+              add.error ??
+              remove.error ??
+              deleteGroup.error ??
+              assignContent.error
+            )?.message}
+          </AlertDescription>
+        </Alert>
+      )}
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="group"
@@ -899,6 +912,7 @@ function GroupDialog({
   action,
   initial,
   pending,
+  error,
   onClose,
   onSave,
 }: {
@@ -906,6 +920,7 @@ function GroupDialog({
   action: string;
   initial: { name: string; description: string };
   pending: boolean;
+  error?: string;
   onClose: () => void;
   onSave: (value: { name: string; description: string }) => void;
 }) {
@@ -957,6 +972,11 @@ function GroupDialog({
               </FieldDescription>
             </Field>
           </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose}>
               {t("common:actions.cancel")}
