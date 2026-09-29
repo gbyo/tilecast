@@ -89,8 +89,11 @@ test("create a Layout, edit its canvas and persist the draft", async ({
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(width).toHaveValue("2000");
+  const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.locator(".layout-preview-frame")).toBeVisible();
+  const preview = await popupPromise;
+  await expect(preview).toHaveURL(/\/layouts\/[0-9a-f-]+\/preview$/);
+  await expect(preview.locator(".layout-preview-frame")).toBeVisible();
 });
 
 test("backfills a real rendered Widget thumbnail for the library", async ({
