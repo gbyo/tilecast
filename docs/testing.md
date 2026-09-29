@@ -31,7 +31,7 @@ The graph selects these contracts:
 
 Unknown shared packages select all areas. Workflow, dependency, and classifier changes also select all areas. Add a consumer rule and tests when you add a shared package.
 
-Detection runs the dependency-free affected-area and aggregate tests with Node before any package installation. Workflow YAML tests run in `CI workflow contracts`, after installation of the root tool dependencies. CI infrastructure changes select this job. `Required PR validation` includes its result.
+Detection runs only the dependency-free affected-area graph tests before classification, so unrelated helper tests do not delay job fan-out. The doctor and aggregate helper tests run in `CI workflow contracts` when CI infrastructure changes. Workflow YAML tests run there after installation of the root tool dependencies. `Required PR validation` includes its result.
 
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
@@ -46,7 +46,7 @@ Require these stable check names in the branch ruleset:
 - `Required PR validation`
 - `Required Edge validation`
 
-Both workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The contract tests require every validation job to appear in the aggregate dependencies.
+Both workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
 
@@ -134,6 +134,8 @@ go tool cover -func=coverage.out
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
 
 Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
+
+Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
 
 ## Deep platform validation
 

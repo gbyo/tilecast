@@ -41,7 +41,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node --test scripts/ci/*.test.mjs
+      - name: Validate affected-area graph
+        run: node --test scripts/ci/affected.test.mjs
       - name: Classify changed paths
         id: paths
         env:
@@ -141,24 +142,61 @@ jobs:
       - sources_ci
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
       - name: Require every selected job to pass
         env:
-          NEEDS: ${{ toJSON(needs) }}
-          SELECTIONS: >-
-            {"ci_contract": ${{ needs.changes.outputs.ci == 'true' }},
-             "android_ci": ${{ needs.changes.outputs.android == 'true' }},
-             "linux_player_ci": ${{ needs.changes.outputs.linux == 'true' }},
-             "server_ci": ${{ needs.changes.outputs.server == 'true' }},
-             "dashboard_ci": ${{ needs.changes.outputs.dashboard == 'true' }},
-             "container_ci": ${{ needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true' }},
-             "e2e_ci": ${{ needs.changes.outputs.e2e == 'true' }},
-             "docs_ci": ${{ needs.changes.outputs.docs == 'true' }},
-             "plugins_ci": ${{ needs.changes.outputs.plugins == 'true' }},
-             "widgets_ci": ${{ needs.changes.outputs.widgets == 'true' }},
-             "cli_ci": ${{ needs.changes.outputs.cli == 'true' }},
-             "sources_ci": ${{ needs.changes.outputs.sources == 'true' }}}
-        run: node scripts/ci/required.mjs
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          CI_CONTRACT_SELECTED: ${{ needs.changes.outputs.ci == 'true' }}
+          CI_CONTRACT_RESULT: ${{ needs.ci_contract.result }}
+          ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
+          ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
+          LINUX_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.linux == 'true' }}
+          LINUX_PLAYER_CI_RESULT: ${{ needs.linux_player_ci.result }}
+          SERVER_CI_SELECTED: ${{ needs.changes.outputs.server == 'true' }}
+          SERVER_CI_RESULT: ${{ needs.server_ci.result }}
+          DASHBOARD_CI_SELECTED: ${{ needs.changes.outputs.dashboard == 'true' }}
+          DASHBOARD_CI_RESULT: ${{ needs.dashboard_ci.result }}
+          CONTAINER_CI_SELECTED: ${{ needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true' }}
+          CONTAINER_CI_RESULT: ${{ needs.container_ci.result }}
+          E2E_CI_SELECTED: ${{ needs.changes.outputs.e2e == 'true' }}
+          E2E_CI_RESULT: ${{ needs.e2e_ci.result }}
+          DOCS_CI_SELECTED: ${{ needs.changes.outputs.docs == 'true' }}
+          DOCS_CI_RESULT: ${{ needs.docs_ci.result }}
+          PLUGINS_CI_SELECTED: ${{ needs.changes.outputs.plugins == 'true' }}
+          PLUGINS_CI_RESULT: ${{ needs.plugins_ci.result }}
+          WIDGETS_CI_SELECTED: ${{ needs.changes.outputs.widgets == 'true' }}
+          WIDGETS_CI_RESULT: ${{ needs.widgets_ci.result }}
+          CLI_CI_SELECTED: ${{ needs.changes.outputs.cli == 'true' }}
+          CLI_CI_RESULT: ${{ needs.cli_ci.result }}
+          SOURCES_CI_SELECTED: ${{ needs.changes.outputs.sources == 'true' }}
+          SOURCES_CI_RESULT: ${{ needs.sources_ci.result }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error title=Required validation failed::Changed-area detection was $CHANGES_RESULT"
+            exit 1
+          fi
+          check() {
+            local job="$1"
+            local selected="$2"
+            local result="$3"
+            if [ "$result" = "success" ]; then
+              return 0
+            fi
+            if [ "$selected" = "false" ] && [ "$result" = "skipped" ]; then
+              return 0
+            fi
+            echo "::error title=Required validation failed::$job was $result (selected=$selected)"
+            return 1
+          }
+          check ci_contract "$CI_CONTRACT_SELECTED" "$CI_CONTRACT_RESULT"
+          check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
+          check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
+          check server_ci "$SERVER_CI_SELECTED" "$SERVER_CI_RESULT"
+          check dashboard_ci "$DASHBOARD_CI_SELECTED" "$DASHBOARD_CI_RESULT"
+          check container_ci "$CONTAINER_CI_SELECTED" "$CONTAINER_CI_RESULT"
+          check e2e_ci "$E2E_CI_SELECTED" "$E2E_CI_RESULT"
+          check docs_ci "$DOCS_CI_SELECTED" "$DOCS_CI_RESULT"
+          check plugins_ci "$PLUGINS_CI_SELECTED" "$PLUGINS_CI_RESULT"
+          check widgets_ci "$WIDGETS_CI_SELECTED" "$WIDGETS_CI_RESULT"
+          check cli_ci "$CLI_CI_SELECTED" "$CLI_CI_RESULT"
+          check sources_ci "$SOURCES_CI_SELECTED" "$SOURCES_CI_RESULT"

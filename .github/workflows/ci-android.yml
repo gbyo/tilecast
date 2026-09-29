@@ -97,6 +97,29 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      # The profile is versioned deliberately. Bump v1 when the cached system
+      # image or AVD configuration changes in an incompatible way.
+      - name: Restore Android conformance AVD
+        id: avd-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: android-conformance-avd-v1-${{ runner.os }}-api34-google_apis-x86_64-nexus6
+      - name: Create Android conformance AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          avd-name: tilecast-conformance
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated Android conformance AVD snapshot."
       - name: Android conformance on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -105,6 +128,9 @@ jobs:
           arch: x86_64
           profile: Nexus 6
           avd-name: tilecast-conformance
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
           # The emulator must match CI's other engines: UTC, en-US, and an
           # mdpi 1280x720 display so screenshots compare at device scale 1.
           script: |

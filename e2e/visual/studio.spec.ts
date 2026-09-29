@@ -115,9 +115,11 @@ test("overview", async ({ page }) => {
 
 test("layout-widget-preview", async ({ page }) => {
   await page.goto(`/layouts/${lobbyPortrait}`);
+  const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  await expect(page.locator("#layout-preview-date")).toHaveText("9/28/2026");
-  const widget = page
+  const preview = await popupPromise;
+  await expect(preview.locator("#layout-preview-date")).toHaveText("9/28/2026");
+  const widget = preview
     .locator(".layout-preview-frame [data-tilecast-widget]")
     .first();
   await expect(widget).toHaveCount(1);
@@ -136,17 +138,17 @@ test("layout-widget-preview", async ({ page }) => {
       })),
     )
     .toEqual({ width: 1080, height: 480 });
-  await expect(page.locator(".layout-preview-frame")).toBeInViewport({
+  await expect(preview.locator(".layout-preview-frame")).toBeInViewport({
     ratio: 1,
   });
   await expect
     .poll(() =>
-      page
+      preview
         .locator(".layout-preview-frame")
         .evaluate((frame) => frame.clientWidth / frame.clientHeight),
     )
     .toBeCloseTo(1080 / 1920, 2);
-  await snapshot(page, "layout-widget-preview");
+  await snapshot(preview, "layout-widget-preview");
 });
 
 test("playlist-create-dialog", async ({ page }) => {

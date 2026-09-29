@@ -38,7 +38,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - run: node --test scripts/ci/*.test.mjs
+      - name: Validate affected-area graph
+        run: node --test scripts/ci/affected.test.mjs
       - name: Classify changed paths
         id: paths
         env:
@@ -297,21 +298,46 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
       - name: Require every selected job to pass
         env:
-          NEEDS: ${{ toJSON(needs) }}
-          SELECTIONS: >-
-            {"rust": ${{ needs.changes.outputs.edge_rust == 'true' }},
-             "wpe": ${{ needs.changes.outputs.edge_wpe == 'true' }},
-             "runtime": ${{ needs.changes.outputs.edge_runtime == 'true' }},
-             "conformance": ${{ needs.changes.outputs.edge_conformance == 'true' }},
-             "server_e2e": ${{ needs.changes.outputs.edge_server == 'true' }},
-             "migration": ${{ needs.changes.outputs.edge_migration == 'true' }},
-             "activity_parity": ${{ needs.changes.outputs.edge_activity == 'true' }}}
-        run: node scripts/ci/required.mjs
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUST_SELECTED: ${{ needs.changes.outputs.edge_rust == 'true' }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          WPE_SELECTED: ${{ needs.changes.outputs.edge_wpe == 'true' }}
+          WPE_RESULT: ${{ needs.wpe.result }}
+          RUNTIME_SELECTED: ${{ needs.changes.outputs.edge_runtime == 'true' }}
+          RUNTIME_RESULT: ${{ needs.runtime.result }}
+          CONFORMANCE_SELECTED: ${{ needs.changes.outputs.edge_conformance == 'true' }}
+          CONFORMANCE_RESULT: ${{ needs.conformance.result }}
+          SERVER_E2E_SELECTED: ${{ needs.changes.outputs.edge_server == 'true' }}
+          SERVER_E2E_RESULT: ${{ needs.server_e2e.result }}
+          MIGRATION_SELECTED: ${{ needs.changes.outputs.edge_migration == 'true' }}
+          MIGRATION_RESULT: ${{ needs.migration.result }}
+          ACTIVITY_PARITY_SELECTED: ${{ needs.changes.outputs.edge_activity == 'true' }}
+          ACTIVITY_PARITY_RESULT: ${{ needs.activity_parity.result }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error title=Required validation failed::Changed-area detection was $CHANGES_RESULT"
+            exit 1
+          fi
+          check() {
+            local job="$1"
+            local selected="$2"
+            local result="$3"
+            if [ "$result" = "success" ]; then
+              return 0
+            fi
+            if [ "$selected" = "false" ] && [ "$result" = "skipped" ]; then
+              return 0
+            fi
+            echo "::error title=Required validation failed::$job was $result (selected=$selected)"
+            return 1
+          }
+          check rust "$RUST_SELECTED" "$RUST_RESULT"
+          check wpe "$WPE_SELECTED" "$WPE_RESULT"
+          check runtime "$RUNTIME_SELECTED" "$RUNTIME_RESULT"
+          check conformance "$CONFORMANCE_SELECTED" "$CONFORMANCE_RESULT"
+          check server_e2e "$SERVER_E2E_SELECTED" "$SERVER_E2E_RESULT"
+          check migration "$MIGRATION_SELECTED" "$MIGRATION_RESULT"
+          check activity_parity "$ACTIVITY_PARITY_SELECTED" "$ACTIVITY_PARITY_RESULT"

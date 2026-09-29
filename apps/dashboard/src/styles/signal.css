@@ -256,7 +256,7 @@ p {
   border: 2px dashed rgb(255 255 255 / 45%);
 }
 
-.layout-preview-overlay[data-slot="dialog-content"] {
+.layout-preview-page {
   position: fixed;
   z-index: 1200;
   top: 0;
