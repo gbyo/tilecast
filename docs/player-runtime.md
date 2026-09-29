@@ -46,7 +46,7 @@ Behavior depends on `capabilities`, never on `info.host`:
 
 | Capability             | Electron           | WPE (Edge)                   |
 | ---------------------- | ------------------ | ---------------------------- |
-| `remoteWeb`            | `electron-webview` | `null` until M11 isolation   |
+| `remoteWeb`            | `electron-webview` | `host-view`                  |
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
@@ -80,7 +80,7 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 ## 5. Views, surfaces and transitions
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
-- **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface` and `WebviewWebsiteSurface`. The engine depends on the interface only, so a future surface (a host-owned web view in M11, or a native media pipeline if hardware testing ever justifies one) needs no change to the engine.
+- **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
 - **The stage** (`surfaces/stage.ts`) is the only code that creates or destroys media elements. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. A takeover or a newer swap cancels it, which puts both layers in their resting state at once.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.

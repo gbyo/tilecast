@@ -20,16 +20,16 @@ The architectural invariant is: **one Widget component renders fullscreen, Layou
 
 ## 1. Architecture checkpoint (2026-09-26)
 
-| Item                     | Decision                                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                   |
-| #699 (Edge M11)          | Open draft. It changes Edge Rust and C code, one YouTube Layout rule and docs. It does not change `packages/player-runtime`, the manifest schema or content definitions. |
-| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                              |
-| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                               |
-| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                  |
-| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.        |
-| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                          |
-| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                      |
+| Item                     | Decision                                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                               |
+| #699 (Edge M11)          | Merged. It adds Edge remote-web isolation and the shared Player Runtime host-view path, plus the YouTube Layout rule. It does not change the manifest schema or content definitions. |
+| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                                          |
+| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                                           |
+| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                              |
+| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.                    |
+| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                                      |
+| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                                  |
 
 ### 1.1 CSP and Shadow DOM result
 
