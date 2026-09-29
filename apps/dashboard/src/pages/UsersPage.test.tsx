@@ -96,6 +96,14 @@ describe("permanent user deletion", () => {
       row!.querySelector('[data-slot="avatar-fallback"]'),
     ).toHaveTextContent("FE");
     await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
+    const editDialog = document.body.querySelector<HTMLElement>(
+      '[data-slot="dialog-content"]',
+    );
+    expect(editDialog).toHaveClass(
+      "max-h-[calc(100dvh-2rem)]",
+      "overflow-y-auto",
+    );
+
     await userEvent.click(
       screen.getByRole("button", { name: "Delete permanently" }),
     );
