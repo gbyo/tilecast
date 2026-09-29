@@ -166,7 +166,7 @@ class MainActivity : ComponentActivity() {
 		// appearing on schedule — and an alert ticker keeps its own expiry — even
 		// while the server is unreachable.
 		WithPluginBars(content!!.content.manifest.plugins, content!!.content.serverClockOffsetMillis) {
-			FullscreenPlayback(content!!, model::playbackBoundary, model::playbackError,model::websitePlaybackStatus,model::widgetPlaybackStatus,model::playbackProgress)
+			FullscreenPlayback(content!!, model::playbackBoundary, model::playbackError,model::websitePlaybackStatus,model::widgetPlaybackStatus,model::playbackProgress,model::onComponentProbeDone)
 		}
 		return
 	}

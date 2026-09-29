@@ -34,6 +34,12 @@ class TrustedRuntimeWebView(
     /** Serves host-authorized media (tcmedia:) to the trusted page. */
     private val mediaInterceptor: (url: String, rangeHeader: String?) -> WebResourceResponse? = { _, _ -> null },
     private val onRendererGone: (deadGeneration: Long) -> Unit = {},
+    /**
+     * Receives the Widget runtime feature-probe outcome. The first
+     * capability heartbeat leaves before this WebView exists, so a late
+     * pass must re-advertise capabilities (see the host's handler).
+     */
+    private val onComponentProbeDone: (Boolean) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -105,7 +111,7 @@ class TrustedRuntimeWebView(
                 // contract before its capabilities are ever advertised.
                 if (!probeDispatched && url == TrustedRuntimeOrigin.entryUrl) {
                     probeDispatched = true
-                    RuntimeComponentProbe.run(view)
+                    RuntimeComponentProbe.run(view, onComponentProbeDone)
                 }
             }
 

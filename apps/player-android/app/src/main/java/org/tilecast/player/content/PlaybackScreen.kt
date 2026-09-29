@@ -115,11 +115,12 @@ fun FullscreenPlayback(
     onWebsiteStatus: (WebsitePlaybackStatus) -> Unit = {},
     onWidgetStatus: (WidgetPlaybackStatus) -> Unit = {},
     onProgress: () -> Unit = {},
+    onComponentProbeDone: (Boolean) -> Unit = {},
 ) {
     CompositionLocalProvider(
         LocalTilecastRegionalFormatting provides session.playbackDefaults?.regionalFormat,
     ) {
-        FullscreenPlaybackBody(session, onBoundary, onError, onWebsiteStatus, onWidgetStatus, onProgress)
+        FullscreenPlaybackBody(session, onBoundary, onError, onWebsiteStatus, onWidgetStatus, onProgress, onComponentProbeDone)
     }
 }
 
@@ -131,6 +132,7 @@ private fun FullscreenPlaybackBody(
     onWebsiteStatus: (WebsitePlaybackStatus) -> Unit,
     onWidgetStatus: (WidgetPlaybackStatus) -> Unit,
     onProgress: () -> Unit,
+    onComponentProbeDone: (Boolean) -> Unit,
 ) {
     val takeoverDecision = TakeoverController.evaluate(
         session.content.serverNow(),
@@ -195,6 +197,7 @@ private fun FullscreenPlaybackBody(
             onPlaybackError = { itemId, message -> runtimeActivity?.fail(itemId, message) },
             onWidgetStatus = onWidgetStatus,
             onWebsiteStatus = onWebsiteStatus,
+            onComponentProbeDone = onComponentProbeDone,
         )
         return
     }

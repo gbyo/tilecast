@@ -719,6 +719,24 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 		if(status.state=="loaded") recordPlaybackProgress()
 	}
 		fun widgetPlaybackStatus(status:WidgetPlaybackStatus){widgetStatus=status}
+	/** Re-advertises capabilities when the component probe passes.
+	 *
+	 * The first capability heartbeat leaves before the playback WebView
+	 * exists, so a fresh process initially reports schema 1. A late probe
+	 * pass re-sends the heartbeat with the proven schemas/capabilities
+	 * and reconciles content, so a component-only assignment stops
+	 * waiting for capabilities the player already has. Acts only on the
+	 * false-to-true transition; renderer-death re-probes re-report the
+	 * same pass without restarting playback.
+	 */
+	private var lastAdvertisedProbePassed=false
+	fun onComponentProbeDone(passed:Boolean){
+		if(!passed||passed==lastAdvertisedProbePassed)return
+		lastAdvertisedProbePassed=passed
+		val url=current?.serverUrl?:return;val credential=credentials.read()?:return
+		viewModelScope.launch{runCatching{api.heartbeat(url,credential,heartbeat())}}
+		scheduleContent?.let{activateScheduleSelection(it,url,credential)}
+	}
 		fun recalculateSchedule(){evaluateActiveHours();val prepared=scheduleContent?:return;val url=current?.serverUrl?:return;val credential=credentials.read()?:return;activateScheduleSelection(prepared,url,credential)}
 		fun refreshCommissioning(){val cached=getApplication<Application>().getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE).getBoolean("cached-fallback-available",false);mutableCommissioning.value=commissioningController.status(current?.screenId,cached)}
 		fun setCommissioningPin(pin:CharArray){commissioningController.setPin(pin);refreshCommissioning()}

@@ -63,6 +63,7 @@ private class StageRefs {
     var authorized: Set<AuthorizedMedia> = emptySet()
     var localFiles: Map<String, String> = emptyMap()
     var mimeByVariant: Map<String, String> = emptyMap()
+    var downloadPathByVariant: Map<String, String> = emptyMap()
 }
 
 private class RemoteBridge(private val onEvent: (kind: String, code: String?) -> Unit) {
@@ -101,6 +102,7 @@ fun SharedRuntimePlayback(
     onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
     onWidgetStatus: (org.tilecast.player.content.WidgetPlaybackStatus) -> Unit = {},
     onWebsiteStatus: (org.tilecast.player.content.WebsitePlaybackStatus) -> Unit = {},
+    onComponentProbeDone: (Boolean) -> Unit = {},
 ) {
     val manifest = session.content.manifest
     // Recreated only on renderer death; new presentations reuse the WebView
@@ -120,6 +122,7 @@ fun SharedRuntimePlayback(
         val latestPlaybackError = rememberUpdatedState(onPlaybackError)
         val latestWidgetStatus = rememberUpdatedState(onWidgetStatus)
         val latestWebsiteStatus = rememberUpdatedState(onWebsiteStatus)
+        val latestProbeDone = rememberUpdatedState(onComponentProbeDone)
         val runtimeSession = remember(rendererGeneration) {
             RuntimeHostSession(
                 hostVersion, engineVersion,
@@ -143,11 +146,13 @@ fun SharedRuntimePlayback(
             .map { AuthorizedMedia(it.assetId, it.variantId) }
             .toSet()
         val mimeByVariant = manifest.assets.associate { it.variantId to it.mimeType }
+        val downloadPathByVariant = manifest.assets.associate { it.variantId to it.downloadPath }
         // The trusted WebView survives presentation replacement, so its
         // interceptor reads current grants/maps through these mutable refs.
         refs.authorized = authorized
         refs.localFiles = session.content.localFiles
         refs.mimeByVariant = mimeByVariant
+        refs.downloadPathByVariant = downloadPathByVariant
 
         // Fail closed before creating anything when the secure bridge is
         // unavailable on this device/WebView combination.
@@ -172,6 +177,7 @@ fun SharedRuntimePlayback(
                 session = session,
                 hostVersion = hostVersion,
                 engineVersion = engineVersion,
+                onComponentProbeDone = { latestProbeDone.value(it) },
                 onIncrementInstance = {
                     crashPolicy.onRecreated()
                     instance++
@@ -208,6 +214,7 @@ private fun RuntimeStageBody(
     session: PlaybackSession,
     hostVersion: String,
     engineVersion: String,
+    onComponentProbeDone: (Boolean) -> Unit = {},
     onIncrementInstance: () -> Unit,
     onError: (String) -> Unit,
     onHandlePageMessage: (String, Long, JavaScriptReplyProxy?) -> Unit,
@@ -238,11 +245,21 @@ private fun RuntimeStageBody(
                             handlePageMessage(payload, generation, reply)
                         },
                         documentStartScript = HostChannel.installScript(hostVersion, engineVersion),
+                        onComponentProbeDone = onComponentProbeDone,
                         mediaInterceptor = { url, range ->
                             val resolved = TcMediaBridge.resolve(
                                 url, refs.authorized, refs.localFiles, refs.mimeByVariant, range,
                             )
                             resolved?.let(TcMediaBridge::toResponse)
+                                // Stream-policy and not-yet-cached variants have
+                                // no cache file: proxy the authenticated server
+                                // bytes (Range included) with the credential
+                                // held in the host, never in the runtime.
+                                ?: TcMediaStreamFallback.fetch(
+                                    session.serverUrl, session.credential, url,
+                                    refs.authorized, refs.downloadPathByVariant,
+                                    refs.mimeByVariant, range,
+                                )
                         },
                         onRendererGone = { onIncrementInstance() },
                     )
