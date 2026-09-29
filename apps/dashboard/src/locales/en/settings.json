@@ -1143,6 +1143,7 @@
     "secretNotice": "<strong>Copy this token now.</strong> Shown once.",
     "copied": "I have copied it",
     "loading": "Loading tokens…",
+    "tokensLoadError": "Token data failed to load.",
     "empty": "No tokens",
     "emptyHint": "No integration tokens exist.",
     "revokeTitle": "Revoke \"{{name}}\"?",
@@ -1179,6 +1180,7 @@
     "limitLabel": "Limit to Data Sources",
     "limitHint": "Select none to allow every Manual Table Data Source. Naming them is the safer default.",
     "loadingSources": "Loading Data Sources…",
+    "sourcesLoadError": "Data Source data failed to load.",
     "noSources": "No Manual Table Data Sources exist yet.",
     "creating": "Creating…",
     "createAction": "Create token"

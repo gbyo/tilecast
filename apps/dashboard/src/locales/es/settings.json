@@ -1143,6 +1143,7 @@
     "secretNotice": "<strong>Copia este token ahora.</strong> Se muestra una vez.",
     "copied": "Ya lo he copiado",
     "loading": "Cargando tokens…",
+    "tokensLoadError": "No se pudieron cargar los tokens.",
     "empty": "Sin tokens",
     "emptyHint": "No existen tokens de integración.",
     "revokeTitle": "¿Revocar \"{{name}}\"?",
@@ -1180,6 +1181,7 @@
     "limitLabel": "Limitar a fuentes de datos",
     "limitHint": "No elijas ninguna para permitir todas las fuentes de tablas manuales. Nombrarlas es lo más seguro.",
     "loadingSources": "Cargando fuentes de datos…",
+    "sourcesLoadError": "No se pudieron cargar las fuentes de datos.",
     "noSources": "Aún no existen fuentes de tablas manuales.",
     "creating": "Creando…",
     "createAction": "Crear token"
