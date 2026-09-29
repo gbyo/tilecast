@@ -74,10 +74,11 @@ fun RuntimeCapabilityProbeHost(onComponentProbeDone: (Boolean) -> Unit) {
     var instance by remember { mutableIntStateOf(0) }
     val crashPolicy = remember { RuntimeCrashPolicy() }
     key(instance) {
+        val ownerRef = remember { mutableStateOf<TrustedRuntimeWebView?>(null) }
         AndroidView(
             modifier = Modifier.size(1.dp).alpha(0f),
             factory = { viewContext ->
-                when (val endpoint = TrustedRuntimeWebView(
+                val owner = TrustedRuntimeWebView(
                     viewContext,
                     crashPolicy,
                     onComponentProbeDone = { latestProbeDone.value(it) },
@@ -85,7 +86,9 @@ fun RuntimeCapabilityProbeHost(onComponentProbeDone: (Boolean) -> Unit) {
                         crashPolicy.onRecreated()
                         instance++
                     },
-                ).create()) {
+                )
+                ownerRef.value = owner
+                when (val endpoint = owner.create()) {
                     is TrustedRuntimeEndpoint.Ready -> endpoint.webView.apply {
                         isFocusable = false
                         isFocusableInTouchMode = false
@@ -94,6 +97,10 @@ fun RuntimeCapabilityProbeHost(onComponentProbeDone: (Boolean) -> Unit) {
                     }
                     is TrustedRuntimeEndpoint.Unsupported -> View(viewContext)
                 }
+            },
+            onRelease = { view ->
+                if (view is WebView) ownerRef.value?.destroy(view)
+                ownerRef.value = null
             },
         )
     }
