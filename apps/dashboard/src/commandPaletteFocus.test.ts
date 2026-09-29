@@ -9,8 +9,9 @@ afterEach(() => {
 
 describe("installCommandPaletteFocus", () => {
   it("focuses the cmdk input when the palette dialog opens", async () => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "dialog command-palette-dialog";
+    const dialog = document.createElement("div");
+    dialog.className = "command-palette-dialog";
+    dialog.setAttribute("data-slot", "dialog-content");
 
     const closeButton = document.createElement("button");
     closeButton.textContent = "Close";
@@ -22,7 +23,7 @@ describe("installCommandPaletteFocus", () => {
     closeButton.focus();
 
     const uninstall = installCommandPaletteFocus();
-    dialog.setAttribute("open", "");
+    dialog.setAttribute("data-open", "");
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -37,9 +38,10 @@ describe("installCommandPaletteFocus", () => {
 
     const uninstall = installCommandPaletteFocus();
 
-    const dialog = document.createElement("dialog");
-    dialog.className = "dialog command-palette-dialog";
-    dialog.setAttribute("open", "");
+    const dialog = document.createElement("div");
+    dialog.className = "command-palette-dialog";
+    dialog.setAttribute("data-slot", "dialog-content");
+    dialog.setAttribute("data-open", "");
     const input = document.createElement("input");
     input.setAttribute("cmdk-input", "");
     dialog.append(input);
@@ -52,7 +54,7 @@ describe("installCommandPaletteFocus", () => {
   });
 
   it("does not move focus for unrelated dialogs", async () => {
-    const dialog = document.createElement("dialog");
+    const dialog = document.createElement("div");
     dialog.className = "dialog";
     const input = document.createElement("input");
     input.setAttribute("cmdk-input", "");
@@ -64,7 +66,7 @@ describe("installCommandPaletteFocus", () => {
     outsideButton.focus();
 
     const uninstall = installCommandPaletteFocus();
-    dialog.setAttribute("open", "");
+    dialog.setAttribute("data-open", "");
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
