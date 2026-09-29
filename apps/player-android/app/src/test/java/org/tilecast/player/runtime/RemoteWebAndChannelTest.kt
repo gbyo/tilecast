@@ -174,12 +174,17 @@ class RuntimeEvidenceRouterTest {
         ManifestItem("i1", "a1", "v1", "image", 10_000, "contain", "none", false, 0.5f, deliveryPolicy = "cache"),
     )
 
-    private inner class Sink {
+    private inner class Sink(
+        val widgetProviders: Map<String, String> = emptyMap(),
+        val websiteAssets: Set<String> = emptySet(),
+    ) {
         val boundaries = mutableListOf<Pair<String, String>>()
         val errors = mutableListOf<String>()
         val itemErrors = mutableListOf<Pair<String?, String>>()
         var progress = 0
         val firstFrames = mutableListOf<String>()
+        val widgetStatuses = mutableListOf<org.tilecast.player.content.WidgetPlaybackStatus>()
+        val websiteStatuses = mutableListOf<org.tilecast.player.content.WebsitePlaybackStatus>()
         fun router(activation: String) = RuntimeEvidenceRouter(
             items, activation,
             onBoundary = { id, asset -> boundaries.add(id to asset) },
@@ -187,6 +192,10 @@ class RuntimeEvidenceRouterTest {
             onProgress = { progress++ },
             onFirstFrame = { firstFrames.add(it) },
             onPlaybackError = { itemId, message -> itemErrors.add(itemId to message) },
+            onWidgetStatus = { widgetStatuses.add(it) },
+            onWebsiteStatus = { websiteStatuses.add(it) },
+            widgetProviders = widgetProviders,
+            websiteAssets = websiteAssets,
         )
     }
 
@@ -214,22 +223,101 @@ class RuntimeEvidenceRouterTest {
         assertEquals(listOf("i1" to "boom"), sink.itemErrors)
     }
 
-    @Test fun cutoverStaysOffUntilValidated() {
+    @Test fun authoritativeRoutingCoversEveryPresentableKind() {
+        // No cutover gate remains: renderability alone decides, and anything
+        // else fails closed with an explicit error upstream.
         val manifest = PlayerManifest(
             15, 1, "s", "t", "single-zone",
             assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
         )
-        val cached = org.tilecast.player.content.PreparedContent(manifest, mapOf("v1" to "/tmp/v1"))
-        val uncached = org.tilecast.player.content.PreparedContent(manifest, emptyMap())
-        assertFalse(RuntimeCutover.enabled)
-        assertFalse(RuntimeCutover.useSharedRuntime(cached, items))
-        RuntimeCutover.enabled = true
-        try {
-            assertTrue(RuntimeCutover.useSharedRuntime(cached, items))
-            assertFalse(RuntimeCutover.useSharedRuntime(uncached, items))
-            assertFalse(RuntimeCutover.useSharedRuntime(cached, emptyList()))
-        } finally {
-            RuntimeCutover.enabled = false
+        for (item in items) {
+            assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, item))
         }
+    }
+
+    @Test fun publishesWidgetAndWebsiteStatusFromEvidence() {
+        val widgetItems = listOf(
+            ManifestItem("w1", "widget-1", null, "widget", 5_000, "contain", "none", false, 0f, deliveryPolicy = "stream"),
+            ManifestItem("s1", "site-1", null, "website", 10_000, "contain", "none", false, 0f, deliveryPolicy = "stream"),
+        )
+        val statuses = mutableListOf<org.tilecast.player.content.WidgetPlaybackStatus>()
+        val siteStatuses = mutableListOf<org.tilecast.player.content.WebsitePlaybackStatus>()
+        val router = RuntimeEvidenceRouter(
+            widgetItems, "act1",
+            onBoundary = { _, _ -> },
+            onError = {},
+            onProgress = {},
+            onWidgetStatus = { statuses.add(it) },
+            onWebsiteStatus = { siteStatuses.add(it) },
+            widgetProviders = mapOf("widget-1" to "clock"),
+            websiteAssets = setOf("site-1"),
+        )
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "w1", "widget-shown", null), "act1")
+        assertEquals(listOf(Triple("widget-1", "clock", "shown")), statuses.map { Triple(it.widgetId, it.provider, it.state) })
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "s1", "website-loaded", null), "act1")
+        assertEquals(listOf(Pair("site-1", "loaded")), siteStatuses.map { it.assetId to it.state })
+        // Image evidence publishes no status; unknown assets stay silent.
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "i1", "image-shown", null), "act1")
+        assertTrue(statuses.size == 1 && siteStatuses.size == 1)
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.PlaybackError("act1", "w1", "boom"), "act1")
+        assertEquals("error", statuses.last().state)
+        assertEquals("boom", statuses.last().error)
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.PlaybackError("act1", "s1", "tls"), "act1")
+        assertEquals("failed", siteStatuses.last().state)
+        assertEquals("tls", siteStatuses.last().failureCategory)
+    }
+
+    @Test fun itemStartAndActivationReplaceClearStaleStatuses() {
+        val mixed = listOf(
+            ManifestItem("w1", "widget-1", null, "widget", 5_000, "contain", "none", false, 0f, deliveryPolicy = "stream"),
+            ManifestItem("i1", "a1", "v1", "image", 10_000, "contain", "none", false, 0f, deliveryPolicy = "cache"),
+        )
+        val statuses = mutableListOf<org.tilecast.player.content.WidgetPlaybackStatus>()
+        val siteStatuses = mutableListOf<org.tilecast.player.content.WebsitePlaybackStatus>()
+        val router = RuntimeEvidenceRouter(
+            mixed, "act1",
+            onBoundary = { _, _ -> },
+            onError = {},
+            onProgress = {},
+            onWidgetStatus = { statuses.add(it) },
+            onWebsiteStatus = { siteStatuses.add(it) },
+            widgetProviders = mapOf("widget-1" to "clock"),
+            websiteAssets = emptySet(),
+        )
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "w1", "widget-shown", null), "act1")
+        assertEquals("widget-1", statuses.last().widgetId)
+        // Rebinding the same activation (state replay) clears nothing.
+        router.replace(mixed, "act1", mapOf("widget-1" to "clock"), emptySet())
+        assertEquals(1, statuses.size)
+        // A later image item displaces the Widget: the stale widgetId must
+        // go so the foreground watchdog resumes.
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "i1", "item-started", null), "act1")
+        assertEquals(null, statuses.last().widgetId)
+        // Activation replacement disposes the presentation: both clear.
+        router.handle(RuntimeBridgeProtocol.RuntimeReport.Evidence("act1", "w1", "widget-shown", null), "act1")
+        router.replace(mixed, "act2", mapOf("widget-1" to "clock"), emptySet())
+        assertEquals(null, statuses.last().widgetId)
+        assertEquals(null, siteStatuses.last().assetId)
+    }
+
+    @Test fun authoritativeRoutingResolvesThreadedRootLayouts() {
+        val document = org.tilecast.player.network.LayoutDocument(
+            schemaVersion = 1,
+            canvas = org.tilecast.player.network.LayoutCanvas(1920, 1080, "landscape", "#000000"),
+        )
+        val layout = org.tilecast.player.network.ManifestLayout("l1", "r1", 1, "hash", document)
+        val manifest = PlayerManifest(
+            15, 1, "s", "t", "single-zone",
+            assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
+            layout = layout,
+            layouts = listOf(layout),
+        )
+        val rootItems = listOf(org.tilecast.player.content.rootLayoutItem(layout))
+        // The threaded Layout wins on id match so selected roots outside
+        // manifest.layouts resolve; anything else falls back to the list.
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0], layout))
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0]))
+        val other = layout.copy(id = "l2")
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0], other))
     }
 }

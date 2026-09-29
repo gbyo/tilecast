@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.PlayerWebsitePolicy
+import org.tilecast.player.runtime.resolveWebsitePolicy
 
 class WebsitePolicyTest {
     private val site = ManifestWebsite(

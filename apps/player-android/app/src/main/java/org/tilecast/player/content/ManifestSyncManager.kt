@@ -12,8 +12,11 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.tilecast.player.data.CachedAsset
 import org.tilecast.player.data.PlayerDatabase
@@ -38,7 +41,20 @@ import java.time.Instant
 import kotlin.random.Random
 import java.util.concurrent.ConcurrentHashMap
 
-data class PreparedContent(val manifest: PlayerManifest, val localFiles: Map<String, String>,val serverClockOffsetSeconds:Long?=null, val serverClockOffsetMillis:Long?=null)
+data class PreparedContent(val manifest: PlayerManifest, val localFiles: Map<String, String>,val serverClockOffsetSeconds:Long?=null, val serverClockOffsetMillis:Long?=null,val projectionManifest: JsonObject = buildJsonObject{})
+
+/**
+ * Lossless projection manifest: the exact verified `data` object from the
+ * persisted/fetched manifest envelope, after successful typed decoding and
+ * validation. Never reconstruct from Kotlin models: [Json] uses
+ * `ignoreUnknownKeys`, so re-encoding a [PlayerManifest] would silently drop
+ * fields Kotlin does not know about. Host-private values (credentials,
+ * filesystem paths) must never be added here.
+ */
+internal fun projectionManifestFromEnvelope(envelope: String): JsonObject {
+    val root = Json.parseToJsonElement(envelope).jsonObject
+    return root["data"]?.jsonObject ?: error("Manifest envelope is missing data")
+}
 data class SyncProgress(val pendingVersion: Long? = null, val queueCount: Int = 0, val downloadedBytes: Long = 0, val requiredBytes: Long = 0, val cacheUsedBytes: Long = 0, val error: String? = null)
 
 internal fun manifestEtagForRequest(activeCacheVerified: Boolean, etag: String?): String? =
@@ -109,6 +125,15 @@ internal fun selectManifestDownloads(
     manifest.widgets.flatMap { widget -> widget.presentation?.native?.root?.let(::presentationAssets).orEmpty() }
         .mapNotNull(byVariant::get)
         .forEach(::add)
+    // Schema-2 component media grants are validated against manifest.assets
+    // before activation; they must enter the required-download set like any
+    // other presentation asset, or a fresh cache projects a Widget whose
+    // media alias was never downloaded.
+    manifest.widgets
+        .mapNotNull { it.presentation?.component }
+        .flatMap { it.media }
+        .mapNotNull { ref -> manifest.assets.firstOrNull { it.assetId == ref.assetId && it.variantId == ref.variantId } }
+        .forEach(::add)
     val layouts = (manifest.layouts + listOfNotNull(manifest.layout, manifest.directFallbackLayout)).distinctBy { it.id }
     layouts.flatMap { layout ->
         listOfNotNull(layout.document.canvas.backgroundAssetId).map { id ->
@@ -171,13 +196,18 @@ class ManifestSyncManager(
             return null
         }
         val manifest = runCatching { api.decodeManifest(stored.rawJson) }.getOrNull() ?: run { activeCacheVerified = false; return null }
-        if (manifest.schemaVersion !in setOf(11,12,13,14,15)) { activeCacheVerified = false; return null }
+        if (manifest.schemaVersion !in setOf(11,12,13,14,15,16)) { activeCacheVerified = false; return null }
+        // Preserve the verified original envelope object losslessly: typed
+        // decoding uses ignoreUnknownKeys, so only the raw `data` object
+        // carries fields Kotlin does not know about into the projection.
+        val projectionManifest = runCatching { projectionManifestFromEnvelope(stored.rawJson) }.getOrNull() ?: run { activeCacheVerified = false; return null }
+        try { validateManifest(manifest, manifest.screenId) } catch (error: Exception) { activeCacheVerified = false; return null }
         val validation = withContext(Dispatchers.IO) {
             validateActiveCache(database.cachedAssets().all(), identity = identity)
         }
         if (!validation.complete) { activeCacheVerified = false; return null }
         activeCacheVerified = true
-        return PreparedContent(manifest, validation.localFiles, serverClock.offsetSeconds(), serverClock.offsetMillis())
+        return PreparedContent(manifest, validation.localFiles, serverClock.offsetSeconds(), serverClock.offsetMillis(), projectionManifest)
     }
 
     suspend fun reconcile(serverUrl: String, credential: String, screenId: String, progress: (SyncProgress) -> Unit, installationId: String? = null): PreparedContent? {
@@ -216,7 +246,7 @@ class ManifestSyncManager(
                 record.downloadStatus == "ready" &&
                     currentCacheIdentity?.matches(record.installationId, record.screenId, record.normalizedServerUrl) == true
             }.associate { it.variantId to it.localPath }
-            PreparedContent(manifest, local, serverClock.offsetSeconds(), clockOffset ?: serverClock.offsetMillis())
+            PreparedContent(manifest, local, serverClock.offsetSeconds(), clockOffset ?: serverClock.offsetMillis(), projectionManifestFromEnvelope(raw))
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -284,7 +314,7 @@ class ManifestSyncManager(
     private fun finalFile(asset: ManifestAsset) = File(mediaDirectory(), "${asset.variantId}.${extension(asset.mimeType)}")
     private fun extension(mime: String) = when (mime) { "video/mp4" -> "mp4"; "image/png" -> "png"; "image/webp" -> "webp"; "image/gif" -> "gif"; else -> "jpg" }
 	private fun validateManifest(manifest: PlayerManifest, screenId: String) {
-		require(manifest.schemaVersion in setOf(11,12,13,14,15) && manifest.mode in setOf("single-zone", "presentation") && manifest.screenId == screenId) { "Manifest validation failed" }
+		require(manifest.schemaVersion in setOf(11,12,13,14,15,16) && manifest.mode in setOf("single-zone", "presentation") && manifest.screenId == screenId) { "Manifest validation failed" }
 		val assets = manifest.assets.associateBy { it.variantId }
 		val websites = manifest.websites.associateBy { it.assetId }
 		val widgets = manifest.widgets.associateBy { it.assetId }
@@ -346,7 +376,7 @@ class ManifestSyncManager(
 		}
 		if(manifest.schemaVersion>=13){
 			manifest.dataSources.forEach{source->validateDataDocument(source.dataDocument?:error("Data document is missing"))}
-			manifest.widgets.forEach{widget->validatePresentation(widget.presentation?:error("Presentation is missing"),dataSources)}
+			manifest.widgets.forEach{widget->validatePresentation(widget.presentation?:error("Presentation is missing"),dataSources,manifest)}
 			return
 		}
 		manifest.widgets.forEach { widget -> when(widget.provider){
@@ -386,7 +416,11 @@ class ManifestSyncManager(
 		value.list.forEach{validateValue(it,depth+1)};value.objectValue.values.forEach{validateValue(it,depth+1)}
 	}
 
-	private fun validatePresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>){
+	private fun validatePresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?=null){
+		if(presentation.kind=="component"){
+			validateComponentPresentation(presentation,dataSources,manifest)
+			return
+		}
 		require(presentation.schemaVersion==1&&presentation.kind in setOf("native","web"))
 		presentation.requiredCapabilities.forEach{(capability,version)->
 			val supported=if(capability=="web.remote")PresentationCapabilities.webRuntimeVersion else PresentationCapabilities.native[capability]?:0
@@ -430,4 +464,71 @@ class ManifestSyncManager(
 			else require(web.packageSize in 1..PresentationCapabilities.webBundleLimitBytes&&Regex("^[0-9a-f]{64}$").matches(web.integritySha256))
 		}
 	}
+
+	private fun validateComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?){
+		validateWidgetComponentPresentation(
+			presentation,dataSources,manifest,
+			componentRuntimeSupported=org.tilecast.player.runtime.RuntimeComponentProbe.passed,
+		)
+	}
 }
+
+/** Generic schema-2 component presentation validation (manifest v16).
+ *
+ * The config stays opaque JSON: Android never defines per-Widget config
+ * classes and never interprets executable values or URLs from it. Bounds
+ * mirror the Server contract (8 KiB encoded, depth 6, 64 keys, 200 items,
+ * 2000-char strings, 8 Data Sources, 16 media grants. The caller supplies
+ * whether the installed runtime has passed its startup capability probe.
+ */
+internal fun validateWidgetComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?,componentRuntimeSupported:Boolean){
+	require(presentation.schemaVersion==2&&presentation.kind=="component"){ "Component presentation is invalid" }
+	require(componentRuntimeSupported){ "Component presentation runtime is unavailable" }
+	val component=presentation.component?:error("Component descriptor is missing")
+	require(component.type.length in 1..72&&componentTypePattern.matches(component.type)){ "Component type is invalid" }
+	require(component.version in 1..100){ "Component version is invalid" }
+	val expectedCapability="widget.${component.type}"
+	require(presentation.requiredCapabilities.size==1&&presentation.requiredCapabilities[expectedCapability]==component.version){ "Component capability is invalid" }
+	val supportedVersion=org.tilecast.player.runtime.WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES[expectedCapability]?:0
+	require(supportedVersion>=component.version){ "Missing presentation capability $expectedCapability@${component.version}" }
+	validateWidgetComponentConfig(component.config)
+	require(component.dataSources.size<=8){ "Component Data Sources are invalid" }
+	require(component.dataSources.toSet().size==component.dataSources.size){ "Component Data Sources are invalid" }
+	component.dataSources.forEach{id->require(id.length in 1..64&&componentIdentifierPattern.matches(id)&&dataSources.containsKey(id)){ "Component Data Source is unavailable" }}
+	require(component.media.size<=16){ "Component media grants are invalid" }
+	val pairs=component.media.map{it.assetId to it.variantId}
+	require(pairs.toSet().size==pairs.size){ "Component media grants are invalid" }
+	val assets=manifest?.assets.orEmpty()
+	component.media.forEach{ref->
+		require(ref.assetId.length in 1..64&&componentIdentifierPattern.matches(ref.assetId)&&ref.variantId.length in 1..64&&componentIdentifierPattern.matches(ref.variantId)){ "Component media grant is invalid" }
+		require(assets.any{it.assetId==ref.assetId&&it.variantId==ref.variantId}){ "Component media grant is unavailable" }
+	}
+}
+
+internal fun validateWidgetComponentConfig(config:JsonObject){
+	val encoded=config.toString()
+	require(encoded.toByteArray(Charsets.UTF_8).size<=8*1024){ "Component configuration is invalid" }
+	visitWidgetComponentConfig(config,1)
+}
+
+private fun visitWidgetComponentConfig(value:kotlinx.serialization.json.JsonElement,depth:Int){
+	require(depth<=6){ "Component configuration is invalid" }
+	when(value){
+		is kotlinx.serialization.json.JsonPrimitive->{
+			if(value.isString)require(value.content.length<=2000){ "Component configuration is invalid" }
+		}
+		is kotlinx.serialization.json.JsonArray->{
+			require(value.size<=200){ "Component configuration is invalid" }
+			value.forEach{visitWidgetComponentConfig(it,depth+1)}
+		}
+		is kotlinx.serialization.json.JsonObject->{
+			require(value.size<=64){ "Component configuration is invalid" }
+			value.values.forEach{visitWidgetComponentConfig(it,depth+1)}
+		}
+	}
+}
+
+// Mirrors manifest schema v16 and
+// packages/player-runtime/src/widgets/projection.ts exactly: one dot.
+private val componentTypePattern=Regex("^[a-z][a-z0-9]{1,31}\\.[a-z][a-z0-9-]{0,47}$")
+private val componentIdentifierPattern=Regex("^[A-Za-z0-9-]{1,64}$")

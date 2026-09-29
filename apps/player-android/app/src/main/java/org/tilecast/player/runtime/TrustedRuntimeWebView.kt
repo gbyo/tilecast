@@ -34,6 +34,12 @@ class TrustedRuntimeWebView(
     /** Serves host-authorized media (tcmedia:) to the trusted page. */
     private val mediaInterceptor: (url: String, rangeHeader: String?) -> WebResourceResponse? = { _, _ -> null },
     private val onRendererGone: (deadGeneration: Long) -> Unit = {},
+    /**
+     * Receives the Widget runtime feature-probe outcome. The first
+     * capability heartbeat can leave before the startup WebView probe
+     * completes, so a late result must re-advertise capabilities.
+     */
+    private val onComponentProbeDone: (Boolean) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -99,8 +105,24 @@ class TrustedRuntimeWebView(
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
                 shouldBlockTopLevelNavigation(view, url)
 
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                // Prove the installed WebView runs the Widget runtime
+                // contract before its capabilities are ever advertised.
+                if (!probeDispatched && url == TrustedRuntimeOrigin.entryUrl) {
+                    probeDispatched = true
+                    RuntimeComponentProbe.run(view, onComponentProbeDone)
+                }
+            }
+
+            private var probeDispatched = false
+
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 val dead = crashPolicy.onRendererGone()
+                // Capabilities must be re-proven on the recreated WebView,
+                // never inherited from the dead renderer.
+                RuntimeComponentProbe.record(false)
+                onComponentProbeDone(false)
                 onRendererGone(dead)
                 view.post {
                     runCatching {

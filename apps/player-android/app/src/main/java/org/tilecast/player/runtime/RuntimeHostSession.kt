@@ -27,22 +27,36 @@ class RuntimeHostSession(
     onFirstFrame: (itemId: String) -> Unit = {},
     onItemTransition: (itemId: String) -> Unit = {},
     onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
+    onWidgetStatus: (org.tilecast.player.content.WidgetPlaybackStatus) -> Unit = {},
+    onWebsiteStatus: (org.tilecast.player.content.WebsitePlaybackStatus) -> Unit = {},
+    widgetProviders: Map<String, String> = emptyMap(),
+    websiteAssets: Set<String> = emptySet(),
     crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
 ) {
     val host = AndroidRuntimeHost(hostVersion, engineVersion, crashPolicy = crashPolicy)
     val remoteWeb = RemoteWebHostManager.Tracker(rendererGeneration)
     private val router = RuntimeEvidenceRouter(
         items, activationId, onBoundary, onError, onProgress, onFirstFrame, onItemTransition,
-        onPlaybackError,
+        onPlaybackError, onWidgetStatus, onWebsiteStatus, widgetProviders, websiteAssets,
     )
     private var stateGeneration = 0L
     private var lastActivationId: String? = null
 
     fun capabilities(): Map<String, Any?> = RemoteWebCallHandler.capabilities()
 
+    private var widgetProviders: Map<String, String> = widgetProviders
+    private var websiteAssets: Set<String> = websiteAssets
+
     /** Rebind reports before offering a replacement presentation. */
-    fun updatePresentation(items: List<ManifestItem>, activationId: String) {
-        router.replace(items, activationId)
+    fun updatePresentation(
+        items: List<ManifestItem>,
+        activationId: String,
+        widgetProviders: Map<String, String> = this.widgetProviders,
+        websiteAssets: Set<String> = this.websiteAssets,
+    ) {
+        this.widgetProviders = widgetProviders
+        this.websiteAssets = websiteAssets
+        router.replace(items, activationId, widgetProviders, websiteAssets)
     }
 
     /** Offers a host message. Returns the new state generation and any remote

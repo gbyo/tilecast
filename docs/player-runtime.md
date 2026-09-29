@@ -116,6 +116,7 @@ RenderNode is not the Player Runtime's permanent widget API. Widgets V2 ([widget
 - `conformance/host/conformance-host.ts` is a `TilecastRuntimeHostV1` that plays a fixture script (host messages, clock steps, evidence waits, checkpoints) into the runtime on a manual clock with instant transitions.
 - The Electron runner (`apps/player-linux/conformance/runner.cjs`) loads the runtime through the player's own `tilecast://runtime/` protocol module.
 - The WPE runner (`apps/edge/renderer-wpe/tests/conformance.c`) loads it through the renderer's own path validation and `tcmediasrc` media source on WPEPlatform headless.
+- The Android runner (`apps/player-android/app/src/androidTest/.../PlayerRuntimeConformanceTest.kt`, driven by `apps/player-android/conformance/run-android.sh`) loads the exact packaged runtime asset through the same app-owned origin production uses, injects the same fixture host, serves `tcmedia:` bytes from the pushed fixture store, and captures per-checkpoint screenshots with UiAutomation. Its `@JavascriptInterface` bridge is test-only surface that never ships. Remote web fixtures run with the default null `remoteWeb` capability, exactly as on WPE: host-owned Android WebViews get Android-specific host tests instead of pixel comparison.
 - `compare.mjs` requires identical semantic state, evidence, errors and presentation results at every checkpoint. It compares screenshots perceptually, with a 1.5 % mismatch budget. Active video and remote web content are never pixel-compared. On a failure the report keeps both screenshots, the diff, the fixture and the engine versions.
 
 The fixtures cover setup and discovery, pairing, idle, offline, disabled and safe-mode surfaces, image contain, cover and fill, playlist transitions, the video lifecycle, a synchronized join and boundary with a wall-clock step, Layout zones with a rotating zone, the stable widget compatibility fixture, the Widgets V2 gate (`widget-component`), outside active hours, takeover and resume, plugin strip priority, identify, and projection rejection.
@@ -129,6 +130,13 @@ docker run --rm -v "$PWD:/src" -v "$RESULTS:/results" tilecast-edge-dev \
 docker run --rm -v "$PWD:/src" -v "$RESULTS:/results" tilecast-conformance-electron \
   node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
 node packages/player-runtime/conformance/compare.mjs --a "$RESULTS/electron" --b "$RESULTS/wpe" --report "$RESULTS/report"
+```
+
+Android needs one attached device (or a running emulator, API 34+, UTC timezone, mdpi 1280x720 display for scale-1 screenshots). The wrapper never boots or manages the emulator itself:
+
+```sh
+node packages/player-runtime/conformance/run.mjs --engine android --out "$RESULTS"
+node packages/player-runtime/conformance/compare.mjs --a "$RESULTS/electron" --b "$RESULTS/android" --report "$RESULTS/report-android"
 ```
 
 Compare Chromium screenshots from Linux. On macOS, Electron captures the window in the display's colour space, so pixel results there are not meaningful.

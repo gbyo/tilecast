@@ -86,6 +86,7 @@ import org.tilecast.player.ui.theme.SignalText
 import org.tilecast.player.ui.theme.SignalWarning
 import org.tilecast.player.ui.theme.SignalButton
 import org.tilecast.player.ui.theme.TilecastSignalTheme
+import org.tilecast.player.runtime.RuntimeCapabilityProbeHost
 import org.tilecast.player.ui.CommissioningScreen
 import org.tilecast.player.ui.OutsideActiveHoursScreen
 import org.tilecast.player.reliability.BootRecovery
@@ -113,7 +114,14 @@ class MainActivity : ComponentActivity() {
 		getSharedPreferences("tilecast-reliability",MODE_PRIVATE).edit().putBoolean("update-active",model.update.value?.state in setOf("waiting_for_permission","waiting_for_user","installing")).putBoolean("update-relaunch-requested",false).putInt("update-relaunch-attempts",0).apply()
         enableEdgeToEdge()
 		WindowCompat.getInsetsController(window,window.decorView).hide(WindowInsetsCompat.Type.systemBars())
-        setContent { TilecastSignalTheme { TilecastPlayer(model,adminPrompt,{adminPrompt=false},reliability) } }
+        setContent {
+            TilecastSignalTheme {
+                Box(Modifier.fillMaxSize()) {
+                    RuntimeCapabilityProbeHost(model::onComponentProbeDone)
+                    TilecastPlayer(model,adminPrompt,{adminPrompt=false},reliability)
+                }
+            }
+        }
     }
     override fun onStart(){super.onStart();livePreview.start();liveStream.start();getSharedPreferences("tilecast-reliability",MODE_PRIVATE).edit().putBoolean("foreground",true).apply();ContextCompat.registerReceiver(this,clockReceiver,IntentFilter().apply{addAction(Intent.ACTION_TIME_CHANGED);addAction(Intent.ACTION_TIMEZONE_CHANGED)},ContextCompat.RECEIVER_NOT_EXPORTED);model.recalculateSchedule();model.refreshUpdatePermission();model.resumeUpdateSchedule();model.playerConfig.value?.let{reliability.applyWindow(this,it,model.activeHours.value)};reliabilityHandler.postDelayed({BootRecovery.markForegroundHealthy(this);model.refreshCommissioning()},5000)}
     override fun onResume(){super.onResume();model.refreshCommissioning()}
@@ -166,7 +174,7 @@ class MainActivity : ComponentActivity() {
 		// appearing on schedule — and an alert ticker keeps its own expiry — even
 		// while the server is unreachable.
 		WithPluginBars(content!!.content.manifest.plugins, content!!.content.serverClockOffsetMillis) {
-			FullscreenPlayback(content!!, model::playbackBoundary, model::playbackError,model::websitePlaybackStatus,model::widgetPlaybackStatus,model::playbackProgress)
+			FullscreenPlayback(content!!, model::playbackBoundary, model::playbackError,model::websitePlaybackStatus,model::widgetPlaybackStatus,model::playbackProgress,model::onComponentProbeDone,model::unsupportedPlaybackContent)
 		}
 		return
 	}

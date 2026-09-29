@@ -16,6 +16,8 @@ jobs:
       checks: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -29,6 +31,16 @@ jobs:
       - run: npm ci
       # The APK packages the exact shared Player Runtime artifact.
       - run: npm run build --workspace @tilecast/player-runtime
+      - name: Guard the single presentation implementation
+        # The shared runtime is authoritative: a legacy composition path, an
+        # exemption list, or a second native renderer must fail loudly here,
+        # not slip back in as a quiet fallback.
+        run: |
+          if grep -rn "androidx.media3\|ExoPlayer\|RuntimeCutover\|FullscreenLayoutPlayback\|RenderedItem(\|SeamlessItemSwap\|nextPlaybackCursor\|SynchronizedPlaybackTimeline" \
+            apps/player-android/app/src/main apps/player-android/app/build.gradle.kts; then
+            echo "ci-android: legacy presentation implementation reappeared" >&2
+            exit 1
+          fi
       - name: Test, lint, and assemble
         working-directory: apps/player-android
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug
@@ -40,3 +52,84 @@ jobs:
           path: apps/player-android/app/build/test-results/testDebugUnitTest/*.xml
           reporter: java-junit
           fail-on-empty: false
+
+  conformance:
+    name: Android runtime conformance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the shared runtime and Electron reference host
+        # The Linux Player workspace prebuilds Player Runtime, then emits the
+        # runtime-protocol module imported by the Electron conformance runner.
+        run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - name: Build Electron image (reference engine)
+        uses: ./.github/actions/edge-images
+        with:
+          targets: electron
+      - name: Electron reference run
+        run: |
+          # Keep the shared output root owned by the runner. Docker writes only
+          # the Electron subdirectory; the emulator runner creates android/.
+          mkdir -p "$RUNNER_TEMP/conformance"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
+            tilecast-conformance-electron \
+            node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
+      # Required by android-emulator-runner: without KVM group permission the
+      # action disables hardware acceleration and the emulator never boots
+      # under software emulation before adb gives up.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android conformance on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          avd-name: tilecast-conformance
+          # The emulator must match CI's other engines: UTC, en-US, and an
+          # mdpi 1280x720 display so screenshots compare at device scale 1.
+          script: |
+            adb root
+            # adb root restarts adbd; wait for the device to come back
+            # before issuing shell commands.
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1
+            adb shell setprop persist.sys.timezone UTC
+            adb shell wm size 1280x720
+            adb shell wm density 160
+            mkdir -p "$RUNNER_TEMP/conformance"
+            node packages/player-runtime/conformance/run.mjs --engine android --out "$RUNNER_TEMP/conformance" --media-dir "$RUNNER_TEMP/conformance/electron/media"
+      - name: Compare with the reference engine
+        run: |
+          node packages/player-runtime/conformance/compare.mjs \
+            --a "$RUNNER_TEMP/conformance/electron" --b "$RUNNER_TEMP/conformance/android" \
+            --report "$RUNNER_TEMP/conformance/report"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: android-runtime-conformance
+          path: |
+            ${{ runner.temp }}/conformance/report/**
+            ${{ runner.temp }}/conformance/android-engine-versions.txt
+            ${{ runner.temp }}/conformance/*/summary.json
+            ${{ runner.temp }}/conformance/*/*/result.json
+          if-no-files-found: ignore

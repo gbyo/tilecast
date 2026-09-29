@@ -14,10 +14,19 @@ import {
   pluginWidgetIdentities,
   scaffold,
 } from "../tools/widgetctl/main.ts";
-import { goQuoted, pluginWidgetLedger } from "../tools/widgetctl/generate.ts";
+import {
+  ANDROID_CAPABILITIES,
+  androidCapabilities,
+  capabilities,
+  generate,
+  goQuoted,
+  pluginWidgetLedger,
+  stale,
+} from "../tools/widgetctl/generate.ts";
 import {
   discover,
   pluginIdForDir,
+  repoRoot,
   resolvePlugin,
 } from "../tools/widgetctl/repo.ts";
 
@@ -282,5 +291,32 @@ describe("plugin Widget ledger", () => {
     expect(first).toBeGreaterThan(-1);
     expect(second).toBeGreaterThan(first);
     expect(ledger).toContain('{PluginID: "emergency_alerts"');
+  });
+});
+
+describe("Android Widget capabilities", () => {
+  it("generates the Android artifact from the same discovered manifests", async () => {
+    const repo = discover(repoRoot());
+    expect(repo.problems).toEqual([]);
+    const names = capabilities(repo).map(([name]) => name);
+    expect(names.length).toBeGreaterThan(0);
+    expect([...names].sort()).toEqual(names);
+    const files = await generate(repo);
+    expect(files.has(ANDROID_CAPABILITIES)).toBe(true);
+    const android = files.get(ANDROID_CAPABILITIES) ?? "";
+    expect(android).toContain("package org.tilecast.player.runtime");
+    expect(android).toContain("object WidgetComponentCapabilities");
+    expect(android).toContain("COMPONENT_PRESENTATION_SCHEMA_VERSION = 2");
+    expect(android).toContain('"widget.tilecast.clock" to 2');
+    expect(stale(repo, files)).toEqual([]);
+  });
+
+  it("emits one sorted widget capability per Widget", () => {
+    const repo = discover(repoRoot());
+    const android = androidCapabilities(repo);
+    const entries = capabilities(repo).map(
+      ([name, version]) => `"${name}" to ${version}`,
+    );
+    for (const entry of entries) expect(android).toContain(entry);
   });
 });
