@@ -548,7 +548,7 @@ paths:
     get:
       operationId: describeOAuthApproval
       description: >-
-        Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+        Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
       parameters:
         - {
             in: query,
@@ -595,7 +595,7 @@ paths:
     post:
       operationId: approveOAuthRequest
       description: >-
-        Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+        Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -605,7 +605,7 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
         "200":
-          description: Loopback redirect carrying the code
+          description: Validated redirect carrying the code
           content:
             application/json:
               schema:
@@ -632,7 +632,7 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
         "200":
-          description: Loopback redirect carrying access_denied
+          description: Validated redirect carrying access_denied
           content:
             application/json:
               schema:
@@ -666,6 +666,35 @@ paths:
         "400":
           description: >-
             Expired, used, mismatched, or revoked grant
+        "429": { description: Too many authentication attempts }
+  /api/v1/oauth/ios-session:
+    post:
+      operationId: createIOSStudioSession
+      description: >-
+        Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OAuthTokenRequest" }
+      responses:
+        "200":
+          description: Studio session cookie set
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [authenticated]
+                    properties:
+                      authenticated: { type: boolean }
+        "400": { description: "Invalid, expired, or used authorization code" }
         "429": { description: Too many authentication attempts }
   /api/v1/oauth/revoke:
     post:

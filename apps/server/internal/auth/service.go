@@ -252,11 +252,16 @@ func (s *Service) createSession(ctx context.Context, db querier, user User, meth
 }
 
 // IssueSession starts an ordinary dashboard session for an active account
-// without a password. Only the Demo Mode boundary calls it, and only for the
-// seeded demo Owner; no request handler reaches it on a normal installation.
-// The session is stored, expires, carries its own CSRF token, and is revoked by
-// logout exactly like one produced by Login.
+// after a separate trusted ceremony (Demo Mode or the one-time iOS OAuth
+// exchange). The session is stored, expires, carries its own CSRF token,
+// and is revoked by logout exactly like one produced by Login.
 func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, method string) (Session, error) {
+	return s.IssueSessionWithEnrollment(ctx, userID, method, false)
+}
+
+// IssueSessionWithEnrollment preserves the current MFA enrollment gate when
+// a browser authorization is exchanged after the policy changes.
+func (s *Service) IssueSessionWithEnrollment(ctx context.Context, userID uuid.UUID, method string, enrollmentPending bool) (Session, error) {
 	var user User
 	err := s.db.QueryRow(ctx, `SELECT id,name,username,role,active,created_at,last_login_at FROM users WHERE id=$1`, userID).Scan(
 		&user.ID, &user.Name, &user.Username, &user.Role, &user.Active, &user.CreatedAt, &user.LastLoginAt,
@@ -270,7 +275,7 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, method str
 	if !user.Active {
 		return Session{}, ErrInactive
 	}
-	return s.createSession(ctx, s.db, user, method, false)
+	return s.createSession(ctx, s.db, user, method, enrollmentPending)
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {

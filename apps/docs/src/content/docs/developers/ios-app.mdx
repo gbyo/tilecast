@@ -31,6 +31,8 @@ swift test
 
 The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them whenever a pull request changes `apps/ios/`.
 
+On sign-in, iOS shows its system authentication consent sheet for the configured server, then opens that server in the system authentication browser. Passwords, passkeys, authenticator codes, and recovery codes stay on the server's real origin. After approval, the app receives an ordinary Studio session for that server. See the [iOS authentication contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#authentication).
+
 ## Server addresses
 
 The app accepts the same addresses as Tilecast Players. Servers on the internet need HTTPS with a certificate your device trusts. Plain HTTP works only for local network addresses, such as `192.168.1.20` or `tilecast.local`, and the app warns you before it saves one.

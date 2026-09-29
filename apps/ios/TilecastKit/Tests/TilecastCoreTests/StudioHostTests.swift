@@ -258,6 +258,16 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
                           applicationName: "TilecastTests")
     }
 
+    @Test func detectsClientSideLoginNavigation() throws {
+        let page = try makePage()
+        page.requireSignInIfNeeded(at: URL(string: "https://signage.example.org/login?returnTo=%2Fscreens"))
+        #expect(page.signInRequired)
+        #expect(page.takeEvents() == [.signIn])
+        page.requireSignInIfNeeded(at: URL(string: "https://signage.example.org/login"))
+        #expect(page.takeEvents().isEmpty)
+        page.close()
+    }
+
     @Test func keepsAtMostOneAuxiliaryPage() throws {
         let page = try makePage()
         page.handle(.openAuxiliary(URL(string: "https://signage.example.org/a")!))

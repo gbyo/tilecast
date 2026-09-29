@@ -178,14 +178,15 @@ These endpoints require the session cookie, and mutations require `X-CSRF-Token`
 - `GET /api/v1/me/security/pats?search=` — lists this account's personal access tokens newest first with display metadata only, never secrets. Expired and revoked tokens stay listed until explicitly revoked.
 - `POST /api/v1/me/security/pats` — enrolled session plus CSRF, or a Bearer [REDACTED] the admin scope. Creates a named personal access token (`{ "name", "scopes", "expiresInDays" }`, lifetime one of 7, 30, 90, or 365 days — there is no permanent token) and returns the plaintext secret exactly once. Only SHA-256 hashes are stored.
 
-### Loopback operators (OAuth)
+### First-party OAuth clients
 
-The installation acts as its own authorization server so the `tilecast` CLI can work as the signed-in user without ever seeing a password or session cookie. Only the authorization-code flow with PKCE S256 exists, only for loopback redirects, and only with explicit per-grant approval in Studio at `/oauth/approve`. There is no client registration UI and no general OAuth provider. The client IDs `tilecast-cli` and `tilecast-mcp` are stable protocol constants validated as-is, not database rows; personal access tokens ride the generic grant table directly with no OAuth client of any kind.
+The installation acts as its own authorization server for first-party clients. It uses authorization codes with PKCE S256 and approval in Studio at `/oauth/approve`. The CLI and MCP use loopback redirects. The iOS app uses the fixed `tilecast-ios://oauth/callback` redirect. There is no client registration UI. The client IDs `tilecast-cli`, `tilecast-mcp`, and `tilecast-ios` are constants in code, not database rows. Personal access tokens use the generic grant table without an OAuth client.
 
 - `GET /api/v1/oauth/authorize` — enrolled session. Describes the request (client, scopes, redirect) for the approval screen. Stores nothing.
-- `POST /api/v1/oauth/approve` — enrolled session plus CSRF. Records the grant and returns the loopback redirect carrying the single-use, ten-minute code.
+- `POST /api/v1/oauth/approve` — enrolled session plus CSRF. Records the grant and returns the validated redirect carrying the single-use, ten-minute code.
 - `POST /api/v1/oauth/deny` — answers the client with `access_denied` and records nothing.
 - `POST /api/v1/oauth/token` — public and rate-limited. Exchanges a code with its verifier, or rotates a refresh token. Access tokens live fifteen minutes; refresh tokens live thirty days and rotate on every use. Reusing a rotated refresh token revokes the whole grant.
+- `POST /api/v1/oauth/ios-session` — public and rate-limited. Exchanges an iOS code with its verifier for a normal Studio cookie. It revokes the temporary grant before it returns. The `tilecast-ios` client cannot use the general token endpoint.
 - `POST /api/v1/oauth/revoke` — public and rate-limited. Revokes the grant behind the presented credential.
 
 Scopes are `read`, `write`, and `admin`. Grants always intersect the user's current role and screen scope at use time, so disabling an account or narrowing its scope takes effect immediately.
