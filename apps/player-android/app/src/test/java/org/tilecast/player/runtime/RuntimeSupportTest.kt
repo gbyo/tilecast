@@ -1,5 +1,9 @@
 package org.tilecast.player.runtime
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -60,20 +64,25 @@ class RuntimeSupportTest {
     }
 
     @Test fun probeResultParsesOnlyFullPasses() {
-        val allTrue = "\"" +
-            "{\"customElements\":true,\"shadowDOM\":true,\"adoptedStyleSheets\":true," +
-            "\"containerQueries\":true,\"containerUnits\":true,\"cspBlocksInlineStyle\":true," +
-            "\"cssomStyle\":true,\"webAnimations\":true}" + "\""
-        assertTrue(RuntimeComponentProbe.parseResult(allTrue))
-        val oneFalse = "\"" +
-            "{\"customElements\":true,\"shadowDOM\":false,\"adoptedStyleSheets\":true," +
-            "\"containerQueries\":true,\"containerUnits\":true,\"cspBlocksInlineStyle\":true," +
-            "\"cssomStyle\":true,\"webAnimations\":true}" + "\""
-        assertFalse(RuntimeComponentProbe.parseResult(oneFalse))
+        // evaluateJavascript delivers the script result JSON-encoded, so the
+        // outer string carries escaped quotes; encode the same way here.
+        fun probeRaw(flags: Map<String, Boolean>): String {
+            val inner = buildJsonObject { flags.forEach { (k, v) -> put(k, v) } }.toString()
+            return Json.encodeToString(JsonPrimitive(inner))
+        }
+        val all = mapOf(
+            "customElements" to true, "shadowDOM" to true, "adoptedStyleSheets" to true,
+            "containerQueries" to true, "containerUnits" to true, "cspBlocksInlineStyle" to true,
+            "cssomStyle" to true, "webAnimations" to true,
+        )
+        assertTrue(RuntimeComponentProbe.parseResult(probeRaw(all)))
+        assertFalse(RuntimeComponentProbe.parseResult(probeRaw(all + ("shadowDOM" to false))))
+        assertFalse(RuntimeComponentProbe.parseResult(probeRaw(emptyMap())))
         assertFalse(RuntimeComponentProbe.parseResult(null))
         assertFalse(RuntimeComponentProbe.parseResult("null"))
-        assertFalse(RuntimeComponentProbe.parseResult("\"not-json\""))
-        assertFalse(RuntimeComponentProbe.parseResult("\"{}\""))
+        assertFalse(RuntimeComponentProbe.parseResult(Json.encodeToString(JsonPrimitive("not-json"))))
+        // A bare object is not a script result and must fail closed.
+        assertFalse(RuntimeComponentProbe.parseResult(all.toString()))
     }
 
     @Test fun probeOutcomeGatesComponentAdvertisement() {

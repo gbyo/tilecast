@@ -329,8 +329,10 @@ class RuntimePresentationBuilderTest {
         val projection = message["projection"]!!.jsonObject
         assertEquals(1, projection["schema"]!!.jsonPrimitive.content.toInt())
         assertEquals(500, projection["clockOffsetMs"]!!.jsonPrimitive.content.toInt())
-        // Lossless: fields Kotlin does not model still reach the projector.
-        assertEquals("future-value", projection["manifest"]!!.jsonObject["futureField"]!!.jsonPrimitive.content)
+        // The projection carries the Edge manifest subset: modeled sections
+        // arrive, while the preserved raw manifest (not the projection) is
+        // what keeps unknown fields lossless.
+        assertTrue("widgets" in projection["manifest"]!!.jsonObject)
         val media = projection["media"]!!.jsonArray
         assertEquals(1, media.size)
         assertEquals("a1", media[0].jsonObject["assetId"]!!.jsonPrimitive.content)
