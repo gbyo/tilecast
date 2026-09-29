@@ -265,7 +265,7 @@ vertical screen insets, and keeps remote controls at least 52 dp high.
 
 ### Motion
 
-| Token                  | Duration | Use                                    |
+| Token                  | Value    | Use                                    |
 | ---------------------- | -------- | -------------------------------------- |
 | `--tc-motion-fast`     | 120 ms   | Small hover or focus response          |
 | `--tc-motion-standard` | 180 ms   | Normal state transition                |
