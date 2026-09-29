@@ -1,52 +1,28 @@
-import { ApiError } from "./client";
+import { apiDelete, apiGet, apiPut } from "./transport";
 
 export type LoginBackground = {
   assetId?: string;
   imageUrl: string;
 };
 
-type DataResponse<T> = { data: T };
-type ErrorResponse = { error?: { code?: string; message?: string } };
-
 export async function getLoginBackground(): Promise<LoginBackground> {
-  const response = await fetch("/api/v1/settings/login-background", {
-    credentials: "same-origin",
-  });
-  if (!response.ok) throw await responseError(response);
-  return ((await response.json()) as DataResponse<LoginBackground>).data;
+  const wire = await apiGet("/api/v1/settings/login-background");
+  // The server serializes an unset selection as null; Studio models an
+  // absent selection as undefined.
+  return { ...wire, assetId: wire.assetId ?? undefined };
 }
 
 export async function setLoginBackground(
   assetId: string,
   csrfToken: string,
 ): Promise<LoginBackground> {
-  const response = await fetch("/api/v1/settings/login-background", {
-    method: "PUT",
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRF-Token": csrfToken,
-    },
-    body: JSON.stringify({ assetId }),
+  const wire = await apiPut("/api/v1/settings/login-background", {
+    body: { assetId },
+    csrfToken,
   });
-  if (!response.ok) throw await responseError(response);
-  return ((await response.json()) as DataResponse<LoginBackground>).data;
+  return { ...wire, assetId: wire.assetId ?? undefined };
 }
 
-export async function clearLoginBackground(csrfToken: string): Promise<void> {
-  const response = await fetch("/api/v1/settings/login-background", {
-    method: "DELETE",
-    credentials: "same-origin",
-    headers: { "X-CSRF-Token": csrfToken },
-  });
-  if (!response.ok) throw await responseError(response);
-}
-
-async function responseError(response: Response) {
-  const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-  return new ApiError(
-    body.error?.message ?? "The login background could not be updated.",
-    response.status,
-    body.error?.code ?? "unknown_error",
-  );
+export function clearLoginBackground(csrfToken: string): Promise<void> {
+  return apiDelete("/api/v1/settings/login-background", { csrfToken });
 }

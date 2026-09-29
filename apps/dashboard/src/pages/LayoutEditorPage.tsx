@@ -101,6 +101,7 @@ import {
   WidgetLivePreview,
   assetPreviewStyle,
 } from "../components/layout-editor/WidgetLivePreview";
+import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -164,7 +165,6 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -174,12 +174,10 @@ import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
-  CalendarPreview,
   LayoutDocument,
   LayoutPlacement,
   LayoutPrimitive,
   Playlist,
-  StructuredPreview,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
@@ -661,15 +659,10 @@ export function LayoutEditorPage() {
   const [previewValues, setPreviewValues] = useState<
     Record<string, Record<string, string>>
   >({});
-  const [liveData, setLiveData] = useState<LivePreviewData>({});
   const [previewAssets, setPreviewAssets] = useState<Asset[]>([]);
   const [previewPlaylists, setPreviewPlaylists] = useState<Playlist[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [previewScale, setPreviewScale] = useState(0);
-  // State rather than a ref: the frame mounts inside the Dialog portal after
-  // the preview opens, and measuring must wait for it to exist.
-  const [previewFrame, setPreviewFrame] = useState<HTMLDivElement | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -922,18 +915,6 @@ export function LayoutEditorPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  // Track the rendered size of the preview frame so widgets can convert canvas
-  // pixels into screen pixels the same way the Player scales the whole canvas.
-  useLayoutEffect(() => {
-    const frame = previewFrame;
-    if (!preview || !frame || !document) return;
-    const measure = () =>
-      setPreviewScale(frame.clientWidth / document.canvas.width);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(frame);
-    return () => observer.disconnect();
-  }, [preview, previewFrame, document]);
   const publish = useMutation<unknown, ApiError>({
     mutationFn: () =>
       canPublish
@@ -1139,30 +1120,45 @@ export function LayoutEditorPage() {
               },
             ] as const;
           }
-          if ("events" in preview.configuration.data) {
-            const calendar = preview as CalendarPreview;
+          if ("datasets" in preview) {
+            // Live and record adapters answer named datasets rather than a
+            // flat record list. A dataset is records, an object of values,
+            // or time-series points; each becomes rows so bound widgets
+            // preview what the Player resolves.
             return [
               dataSourceId,
               {
-                provider: "calendar" as const,
-                events: calendar.configuration.data.events,
-                emptyState: calendar.configuration.emptyState,
+                provider: "json" as const,
+                records: previewRecordsFromDatasets(preview.datasets),
+                emptyState: "No items available",
               },
             ] as const;
           }
-          const structured = preview as StructuredPreview;
-          return [
-            dataSourceId,
-            {
-              provider: "json" as const,
-              records: structured.configuration.data.records,
-              emptyState: structured.configuration.emptyState,
-            },
-          ] as const;
+          if ("configuration" in preview) {
+            const { configuration } = preview;
+            if ("events" in configuration.data) {
+              return [
+                dataSourceId,
+                {
+                  provider: "calendar" as const,
+                  events: configuration.data.events,
+                  emptyState: configuration.emptyState,
+                },
+              ] as const;
+            }
+            return [
+              dataSourceId,
+              {
+                provider: "json" as const,
+                records: configuration.data.records,
+                emptyState: configuration.emptyState,
+              },
+            ] as const;
+          }
+          throw new Error(`Unsupported preview shape for ${dataSourceId}`);
         }),
       );
       const live = Object.fromEntries(resolved) as LivePreviewData;
-      setLiveData(live);
       // Derive first-record field values for text bindings (unchanged behaviour).
       const values: Record<string, Record<string, string>> = {};
       Object.entries(live).forEach(([dataSourceId, source]) => {
@@ -1179,7 +1175,6 @@ export function LayoutEditorPage() {
       });
       setPreviewValues(values);
     } catch {
-      setLiveData({});
       setPreviewValues({});
     }
   };
@@ -3355,7 +3350,6 @@ export function LayoutEditorPage() {
             </Button>
           </div>
           <div
-            ref={setPreviewFrame}
             className="layout-preview-frame"
             style={{
               aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
@@ -3372,33 +3366,30 @@ export function LayoutEditorPage() {
                   alt=""
                 />
               )}
-            {previewScale > 0 &&
-              [...document.placements]
-                .sort((a, b) => a.layer - b.layer)
-                .map((item) => (
-                  <PlacementView
-                    key={item.id}
-                    item={item}
-                    canvas={document.canvas}
-                    content={
-                      item.widgetId
-                        ? previewContentByID.get(item.widgetId)
-                        : item.assetId
-                          ? previewContentByID.get(item.assetId)
-                          : undefined
-                    }
-                    playlist={
-                      item.playlistId
-                        ? previewPlaylistByID.get(item.playlistId)
+            {[...document.placements]
+              .sort((a, b) => a.layer - b.layer)
+              .map((item) => (
+                <PlacementView
+                  key={item.id}
+                  item={item}
+                  canvas={document.canvas}
+                  content={
+                    item.widgetId
+                      ? previewContentByID.get(item.widgetId)
+                      : item.assetId
+                        ? previewContentByID.get(item.assetId)
                         : undefined
-                    }
-                    assetsById={previewContentByID}
-                    previewValues={previewValues}
-                    live={liveData}
-                    previewScale={previewScale}
-                    playbackPreview
-                  />
-                ))}
+                  }
+                  playlist={
+                    item.playlistId
+                      ? previewPlaylistByID.get(item.playlistId)
+                      : undefined
+                  }
+                  assetsById={previewContentByID}
+                  previewValues={previewValues}
+                  playbackPreview
+                />
+              ))}
           </div>
         </DialogContent>
       </Dialog>
@@ -3484,8 +3475,6 @@ function PlacementView({
   playlist,
   assetsById,
   previewValues,
-  live,
-  previewScale = 0,
   playbackPreview = false,
   selected = false,
   onPointerDown,
@@ -3498,8 +3487,6 @@ function PlacementView({
   playlist?: Playlist;
   assetsById?: Map<string, Asset>;
   previewValues?: Record<string, Record<string, string>>;
-  live?: LivePreviewData;
-  previewScale?: number;
   playbackPreview?: boolean;
   selected?: boolean;
   onPointerDown?: (event: ReactPointerEvent) => void;
@@ -3531,8 +3518,6 @@ function PlacementView({
             placement={item}
             playlist={playlist}
             assetsById={assetsById ?? new Map()}
-            live={live ?? {}}
-            scale={previewScale}
           />
         ) : playlist?.items?.[0]?.thumbnailUrl ? (
           <img
@@ -3577,13 +3562,8 @@ function PlacementView({
           </div>
         )
       ) : item.type === "widget" ? (
-        live && content?.widget ? (
-          <WidgetLivePreview
-            asset={content}
-            item={item}
-            live={live}
-            scale={previewScale}
-          />
+        content?.widget ? (
+          <WidgetLivePreview asset={content} item={item} />
         ) : (
           <AppPlacementPreview asset={content} item={item} />
         )

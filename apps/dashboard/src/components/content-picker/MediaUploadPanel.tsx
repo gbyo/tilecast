@@ -181,6 +181,7 @@ export function MediaUploadPanel({
         );
         if (!mounted.current) return;
         const next = await api.asset(asset.id).catch(() => undefined);
+        if (!mounted.current) return;
         if (!next) continue;
         latest = next;
         update(id, { asset: latest });
@@ -213,6 +214,7 @@ export function MediaUploadPanel({
           { filename: file.name, mimeType, sizeBytes: file.size },
           csrf,
         );
+        if (!mounted.current) return;
         let offset = session.offset;
         update(id, { state: "uploading", uploaded: offset });
         while (offset < file.size) {
@@ -223,9 +225,11 @@ export function MediaUploadPanel({
             file.slice(offset, next),
             csrf,
           );
+          if (!mounted.current) return;
           update(id, { uploaded: offset });
         }
         const asset = await api.completeUpload(session.id, csrf);
+        if (!mounted.current) return;
         update(id, { state: "processing", uploaded: file.size, asset });
         onAssetRef.current?.(asset);
         await follow(id, asset);

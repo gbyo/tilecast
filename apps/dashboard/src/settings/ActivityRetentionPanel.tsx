@@ -9,7 +9,11 @@ import { Button } from "../components/ui/button";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { toast } from "../components/ui/toast";
-import { activityRequest } from "../pages/ActivityShared";
+import { ApiError } from "../api/errors";
+import {
+  getActivityRetention,
+  updateActivityRetention,
+} from "../api/domains/activity";
 
 type Retention = {
   rawEventDays: number;
@@ -100,7 +104,7 @@ export function ActivityRetentionPanel({
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ["activity", "retention"],
-    queryFn: () => activityRequest<Retention>("/retention"),
+    queryFn: () => getActivityRetention(),
     enabled: editable,
   });
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -113,22 +117,15 @@ export function ActivityRetentionPanel({
 
   const save = useMutation({
     mutationFn: async (input: Record<RetentionNumberKey, number>) => {
-      const response = await fetch("/api/v1/activity/retention", {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": auth.status?.csrfToken ?? "",
-        },
-        body: JSON.stringify(input),
-      });
-      const body = (await response.json().catch(() => ({}))) as {
-        data?: Retention;
-        error?: { message?: string };
-      };
-      if (!response.ok || !body.data)
-        throw new Error(body.error?.message ?? t("retention.saveError"));
-      return body.data;
+      try {
+        return await updateActivityRetention(
+          input,
+          auth.status?.csrfToken ?? "",
+        );
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new Error(t("retention.saveError"), { cause: error });
+      }
     },
     onSuccess: (next) => {
       toast.add({

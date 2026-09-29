@@ -99,9 +99,25 @@ test("layout-widget-preview", async ({ page }) => {
   await page.goto(`/layouts/${lobbyPortrait}`);
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   await expect(page.locator("#layout-preview-date")).toHaveText("9/28/2026");
-  await expect(
-    page.locator(".layout-preview-frame [data-tilecast-widget]"),
-  ).toHaveCount(1);
+  const widget = page
+    .locator(".layout-preview-frame [data-tilecast-widget]")
+    .first();
+  await expect(widget).toHaveCount(1);
+  await expect
+    .poll(() =>
+      widget.evaluate(
+        (element) => element.shadowRoot?.textContent?.trim() ?? "",
+      ),
+    )
+    .not.toBe("");
+  await expect
+    .poll(() =>
+      widget.evaluate((element: HTMLElement) => ({
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+      })),
+    )
+    .toEqual({ width: 1080, height: 480 });
   await expect(page.locator(".layout-preview-frame")).toBeInViewport({
     ratio: 1,
   });

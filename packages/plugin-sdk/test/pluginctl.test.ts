@@ -32,7 +32,7 @@ function makeRepo(): string {
   mkdirSync(join(dir, "docs/openapi"), { recursive: true });
   writeFileSync(
     join(dir, "docs/openapi/core.yaml"),
-    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      responses:\n        '200':\n          description: ok\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n",
+    "openapi: 3.1.0\ninfo:\n  title: Core\n  version: 1.0.0\npaths:\n  /healthz:\n    get:\n      operationId: health\n      description: The server process is running.\n      responses:\n        '200':\n          description: ok\n          content:\n            application/json:\n              schema:\n                type: object\n                additionalProperties: true\ncomponents:\n  responses:\n    NotFound:\n      description: Missing\n  schemas:\n    Error:\n      type: object\n      additionalProperties: true\n",
   );
   writeFileSync(
     join(dir, "plugins/review-eligibility.json"),
@@ -77,6 +77,25 @@ async function generateInto(dir: string) {
 
 async function problems(dir: string) {
   return (await check(discover(dir))).map((problem) => problem.message);
+}
+
+/** Replace the fixture core document with one test operation set. */
+function writeCore(dir: string, paths: string[]) {
+  writeFileSync(
+    join(dir, "docs/openapi/core.yaml"),
+    [
+      "openapi: 3.1.0",
+      "info:",
+      "  title: Core",
+      "  version: 1.0.0",
+      "paths:",
+      ...paths,
+      "components:",
+      "  schemas:",
+      "    Error: { type: object, additionalProperties: true }",
+      "",
+    ].join("\n"),
+  );
 }
 
 function editManifest(
@@ -501,12 +520,19 @@ describe("pluginctl", () => {
         "  /api/v1/plugins/transit-alerts/feeds:",
         "    get:",
         "      operationId: listTransitFeeds",
+        "      description: List configured transit feeds.",
         "      responses:",
-        "        '200': { description: Feeds }",
+        "        '200':",
+        "          description: Feeds",
+        "          content:",
+        "            application/json:",
+        "              schema:",
+        "                type: object",
+        "                additionalProperties: true",
         "        '404': { $ref: '../../../docs/openapi/core.yaml#/components/responses/NotFound' }",
         "components:",
         "  schemas:",
-        "    TransitFeed: { type: object }",
+        "    TransitFeed: { type: object, additionalProperties: true }",
         "",
       ].join("\n"),
     );
@@ -527,6 +553,93 @@ describe("pluginctl", () => {
     );
   });
 
+  it("requires content on a 200 JSON response", async () => {
+    writeCore(root, [
+      "  /api/v1/things:",
+      "    get:",
+      "      operationId: listThings",
+      "      description: List things for an authenticated dashboard user.",
+      "      responses:",
+      "        '200': { description: Things }",
+    ]);
+    await generateInto(root);
+    expect(await problems(root)).toContain(
+      "GET /api/v1/things (listThings) 200 success body needs content",
+    );
+  });
+
+  it("accepts a described 200 alongside a bodyless 204", async () => {
+    writeCore(root, [
+      "  /api/v1/things:",
+      "    delete:",
+      "      operationId: clearThings",
+      "      description: Clear things for an authenticated dashboard user.",
+      "      responses:",
+      "        '200':",
+      "          description: Things",
+      "          content:",
+      "            application/json:",
+      "              schema: { type: object, additionalProperties: true }",
+      "        '204': { description: Nothing left }",
+    ]);
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+  });
+
+  it("accepts bodyless HEAD and 101 protocol-upgrade responses", async () => {
+    writeCore(root, [
+      "  /api/v1/things/headers:",
+      "    head:",
+      "      operationId: headThings",
+      "      description: Preview headers for an authenticated dashboard user.",
+      "      responses:",
+      "        '200': { description: Headers }",
+      "  /api/v1/player/socket:",
+      "    get:",
+      "      operationId: playerSocket",
+      "      description: Open the authenticated player WebSocket channel.",
+      "      responses:",
+      "        '101': { description: Switching protocols }",
+    ]);
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+  });
+
+  it("requires a schema for every success media type", async () => {
+    writeCore(root, [
+      "  /api/v1/things:",
+      "    get:",
+      "      operationId: listThings",
+      "      description: List things for an authenticated dashboard user.",
+      "      responses:",
+      "        '200':",
+      "          description: Things",
+      "          content:",
+      "            application/json: {}",
+    ]);
+    await generateInto(root);
+    expect(await problems(root)).toContain(
+      "GET /api/v1/things (listThings) application/json success body needs a schema",
+    );
+  });
+
+  it("accepts a binary download body with a schema", async () => {
+    writeCore(root, [
+      "  /api/v1/things/export:",
+      "    get:",
+      "      operationId: exportThings",
+      "      description: Download things for an authenticated dashboard user.",
+      "      responses:",
+      "        '200':",
+      "          description: Things archive",
+      "          content:",
+      "            application/octet-stream:",
+      "              schema: { type: string, format: binary }",
+    ]);
+    await generateInto(root);
+    expect(await problems(root)).toEqual([]);
+  });
+
   it("resolves a new plugin's automation with no central edits", async () => {
     scaffold(root, {
       id: "room_comfort",
@@ -544,10 +657,12 @@ paths:
   /api/v1/plugins/room-comfort/thermostats:
     get:
       operationId: listThermostats
+      description: List configured thermostats.
       responses:
         "200": { description: Thermostats }
     post:
       operationId: setThermostat
+      description: Set a thermostat target temperature.
       responses:
         "201": { description: Set }
 `,

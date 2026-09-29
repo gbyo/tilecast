@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Screen } from "../api/types";
-import type { ScreenPreview } from "../api/previews";
+import type { WireScreenPreview as ScreenPreview } from "../api/domains/screens";
 import { livePreviewState, previewAge } from "./livePreviewState";
 
 const screen = { status: "online" } as Screen;

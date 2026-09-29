@@ -84,6 +84,8 @@ describe("previewToDataDocument", () => {
           fields: [{ key: "home", label: "Home", type: "text" }],
           records: [{ id: "r1", values: { home: "Riverside" } }],
           attribution: "League feed",
+          usingCachedData: false,
+          unavailable: false,
         },
       ],
     };

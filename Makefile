@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
 
 bootstrap:
 	npm install
@@ -18,13 +18,36 @@ check:
 	$(MAKE) docs-check
 	$(MAKE) plugins-check
 	$(MAKE) widgets-check
+	$(MAKE) data-sources-check
+	$(MAKE) generated-check
 	npm run format:check
 	npm run lint
 	npm test
-	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
 	cd apps/cli && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
+	cd packages/api-client && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
+	cd data-sources && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
 	$(MAKE) helper-check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
+
+# Regenerate every generated file in dependency order: the extension
+# ledgers and composed OpenAPI contract first, then the consumers (the Go
+# client and the TypeScript contract) generated from that contract.
+generate:
+	npm run player-contracts:generate
+	npm run extensions:generate
+	cd packages/api-client && go generate ./...
+	npm run generate --workspace @tilecast/api-schema
+
+# Fail on any working-tree diff in a generated file. Run in a clean
+# checkout; dirty-tree runs blame unrelated edits.
+generated-check:
+	./scripts/generated-check.sh
+
+# Area-aware prerequisite diagnostics. Never installs anything:
+# make doctor AREA=server|dashboard|edge|android|media|docs
+doctor:
+	./scripts/doctor.sh $(AREA)
 
 # Bundled plugins and the plugin SDK are separate Go modules in the go.work
 # workspace; the server's commands name them so one run covers all three.
@@ -45,6 +68,10 @@ widgets-check:
 	npm run widgets:check
 	npm test --workspace @tilecast/widget-sdk
 	npm test --workspace @tilecast/widget-kit
+
+# Data sources: manifests, generated files, and the SDK tests.
+data-sources-check:
+	npm run data-sources:check
 
 # The root-owned Presentation Network helper. Its nmcli and NetworkManager
 # interaction is mocked, so this needs neither a Wi-Fi adapter nor a running

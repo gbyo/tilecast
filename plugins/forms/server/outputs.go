@@ -111,7 +111,11 @@ func (s *Service) datasetUsage(ctx context.Context, id uuid.UUID, viewKey string
 	if err != nil {
 		return OutputUsage{}, err
 	}
-	return OutputUsage{Widgets: usage.Widgets, Layouts: usage.Layouts, Names: usage.Names}, nil
+	names := usage.Names
+	if names == nil {
+		names = []string{}
+	}
+	return OutputUsage{Widgets: usage.Widgets, Layouts: usage.Layouts, Names: names}, nil
 }
 
 // RebuildOutputs re-runs the projection for a form and returns the refreshed Outputs status. The

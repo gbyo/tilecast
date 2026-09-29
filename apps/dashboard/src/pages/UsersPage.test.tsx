@@ -105,10 +105,12 @@ describe("permanent user deletion", () => {
     );
 
     await waitFor(() => {
+      // The typed transport prefixes the origin (see studioFetch in
+      // ../api/transport.ts); match the dedicated endpoint by path.
       const deletion = request.mock.calls.find(
         ([input, init]) =>
           typeof input === "string" &&
-          input === "/api/v1/users/user-2/permanent" &&
+          input.endsWith("/api/v1/users/user-2/permanent") &&
           init?.method === "DELETE",
       );
       expect(deletion).toBeDefined();

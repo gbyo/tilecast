@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CoroutineScope
@@ -113,6 +114,84 @@ internal fun rememberActivityChild(
     }
     DisposableEffect(tracker) {
         onDispose { tracker.finishIfNeeded("completed") }
+    }
+    return tracker
+}
+
+internal class RuntimeActivityTracker(
+    private val reporter: PlaybackActivityReporter,
+    private var session: PlaybackSession,
+) {
+    private var currentItemId: String? = null
+    private var current: ActivityChildTracker? = null
+
+    fun updateSession(session: PlaybackSession) {
+        this.session = session
+    }
+
+    fun boundary(itemId: String) {
+        current?.complete()
+        current = null
+        currentItemId = null
+        val manifest = session.content.manifest
+        val item = manifest.playlist?.items?.firstOrNull { it.id == itemId }
+            ?.withPlaybackDefaults(session.playbackDefaults) ?: return
+        val widget = manifest.widgets.firstOrNull { it.assetId == item.assetId }
+        val attribution = widgetAttribution(widget, manifest.dataSources)
+        val contentType = if (
+            widget != null || item.assetType == "widget" || item.assetType == "website"
+        ) "widget" else "media"
+        current = ActivityChildTracker(
+            reporter.childStarted(
+                contentType = contentType,
+                contentId = item.assetId,
+                playlistItemId = item.id,
+                layoutPlacementId = "",
+                expectedDurationMs = item.durationMs?.takeUnless { it == Long.MAX_VALUE },
+                sourceId = attribution.sourceId,
+                selectedRecordId = attribution.selectedRecordId,
+                sourceCachedAt = attribution.sourceCachedAt,
+                sourceRevision = attribution.sourceRevision,
+                snapshotHash = attribution.snapshotHash,
+            ),
+        )
+        currentItemId = item.id
+    }
+
+    fun transition(itemId: String) {
+        if (currentItemId != itemId) return
+        current?.complete()
+        current = null
+        currentItemId = null
+    }
+
+    fun fail(itemId: String?, message: String) {
+        if (itemId == null || currentItemId != itemId) return
+        current?.fail(message)
+        current = null
+        currentItemId = null
+    }
+
+    fun stop() {
+        current?.finishIfNeeded("partial")
+        current = null
+        currentItemId = null
+    }
+}
+
+@Composable
+internal fun rememberRuntimeActivityTracker(
+    reporter: PlaybackActivityReporter?,
+    session: PlaybackSession,
+): RuntimeActivityTracker? {
+    if (reporter == null) return null
+    val manifest = session.content.manifest
+    val tracker = remember(reporter, manifest.manifestVersion, manifest.playlist?.id) {
+        RuntimeActivityTracker(reporter, session)
+    }
+    SideEffect { tracker.updateSession(session) }
+    DisposableEffect(tracker) {
+        onDispose { tracker.stop() }
     }
     return tracker
 }

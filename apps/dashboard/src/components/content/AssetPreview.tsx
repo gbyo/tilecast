@@ -6,7 +6,13 @@ import type { Asset } from "../../api/types";
 export function AssetPreview({ asset }: { asset: Asset }) {
   const { t } = useTranslation(["content", "common"]);
   const [failedImageUrl, setFailedImageUrl] = useState<string>();
-  const imageUrl = asset.thumbnailUrl;
+  const captureVersion = asset.metadata["widgetPreviewCaptureVersion"];
+  const imageUrl =
+    asset.thumbnailUrl &&
+    asset.type === "widget" &&
+    typeof captureVersion === "number"
+      ? `${asset.thumbnailUrl}?capture=${captureVersion}`
+      : asset.thumbnailUrl;
   const isSuperwide = Boolean(
     asset.width && asset.height && asset.width / asset.height >= 2.4,
   );

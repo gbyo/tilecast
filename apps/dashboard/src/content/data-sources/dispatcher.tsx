@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
-import type { DataSourceDetail, DataSourceProvider } from "../../api/types";
+import type {
+  DataSourceDetail,
+  DataSourceProvider,
+  SavedDataSource,
+} from "../../api/types";
 import { GenericDataSourceEditor } from "../GenericDefinitionEditors";
 import { CalendarDataSourceEditor } from "./calendar";
 import { LiveDataSourceEditor, type LiveProvider } from "./live";
@@ -25,7 +29,7 @@ export function DataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const definitions = useQuery({

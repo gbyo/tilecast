@@ -3,6 +3,7 @@
     {
       "id": "schedule-board",
       "version": 1,
+      "apiVersion": 1,
       "name": "School Schedule",
       "description": "Show the current event, a live countdown, and upcoming event cards.",
       "category": "Schedules",
@@ -635,7 +636,54 @@
           "Choose how many upcoming cards fit the screen."
         ]
       },
-      "deprecation": {}
+      "legacyEditor": false,
+      "component": {
+        "type": "tilecast.agenda",
+        "version": 1,
+        "tagName": "tc-widget-agenda",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "titleField": { "$config": "titleField", "default": "title" },
+          "startField": { "$config": "startField", "default": "startTime" },
+          "endField": { "$config": "endField", "default": "endTime" },
+          "locationField": { "$config": "locationField", "default": "" },
+          "descriptionField": "",
+          "categoryField": "",
+          "heading": "",
+          "maximumItems": 100,
+          "groupByDay": false,
+          "hideEnded": true,
+          "emptyText": {
+            "$config": "emptyState",
+            "default": "No more events scheduled"
+          },
+          "style": "schedule-board",
+          "nowLabel": "Happening now",
+          "nextLabel": "Next up",
+          "upcomingCount": { "$config": "upcomingCount", "default": 4 },
+          "showCountdown": { "$config": "showCountdown", "default": true },
+          "showUpcomingTimeline": {
+            "$config": "showUpcomingTimeline",
+            "default": true
+          },
+          "background": { "$config": "backgroundColor", "default": "#101f33" },
+          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
+          "accent": { "$config": "accentColor", "default": "#5dd6c0" },
+          "cardBackground": {
+            "$config": "cardBackgroundColor",
+            "default": "#19324d"
+          }
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "template" },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "agenda",
+        "message": "Use Agenda with the Schedule board style for new Widgets. Saved School Schedule Widgets keep working."
+      }
     }
   ],
   "dataSources": []

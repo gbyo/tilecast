@@ -49,6 +49,10 @@ const rules = [
   [/^(widgets|packages\/widget-sdk|packages\/widget-kit)\//, ["widgets"]],
   [/^(data-sources|packages\/data-source-sdk)\//, ["sources"]],
   [/^packages\/design-tokens\//, ["dashboard", "docs"]],
+  [
+    /^(packages\/manifest-schema\/presentation-capabilities\.json|packages\/player-contracts\/fixtures\/server-url-policy\.json|scripts\/generate-player-contracts\.mjs|packages\/player-runtime\/src\/compat\/projection\/presentation-capabilities\.gen\.ts|apps\/player-android\/app\/src\/main\/java\/org\/tilecast\/player\/network\/PresentationCapabilities\.gen\.kt|apps\/edge\/tilecastd\/src\/presentation_capabilities\.rs|apps\/server\/internal\/presentationcaps\/capabilities\.gen\.go)$/,
+    ["protocol", "ci"],
+  ],
   // These packages contain transport JSON, not shared application code.
   // README/metadata edits do not change the player wire contract.
   [
@@ -143,7 +147,7 @@ const rules = [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
     ["docs"],
   ],
-  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli"]],
+  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server"]],
   [
     /^(package(-lock)?\.json|go\.work(\.sum)?|Makefile|\.github\/CODEOWNERS)$|^\.github\/(workflows|actions)\/|^scripts\/ci\//,
     areas,

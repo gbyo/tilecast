@@ -24,7 +24,7 @@ paths:
               properties:
                 name: { type: string }
                 description: { type: string }
-                draftSchema: { type: object }
+                draftSchema: { type: object, additionalProperties: true }
       responses:
         "201":
           {
@@ -89,7 +89,7 @@ paths:
               type: object
               required: [schema]
               properties:
-                schema: { type: object }
+                schema: { type: object, additionalProperties: true }
       responses:
         "200": { description: Refreshed Form detail with the saved draft }
         "403": { description: Manage capability required }

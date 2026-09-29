@@ -378,8 +378,14 @@ describe("StudioTopbar", () => {
       },
     });
 
+    // The absolute-positioned count badge must be anchored to the bell button.
+    const notificationButton = screen.getByRole("button", {
+      name: /Notifications/,
+    });
+    expect(notificationButton.classList.contains("relative")).toBe(true);
+
     // A failed deployment is critical, so the badge escalates to the critical style.
-    fireEvent.click(screen.getByRole("button", { name: /Notifications/ }));
+    fireEvent.click(notificationButton);
 
     expect(
       (

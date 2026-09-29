@@ -26,6 +26,7 @@ import {
 import { Switch } from "../../components/ui/switch";
 import type {
   DataSourceDetail,
+  SavedDataSource,
   StructuredField,
   StructuredInspection,
   StructuredValueType,
@@ -489,7 +490,7 @@ export function StructuredDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (dataSource: DataSourceDetail) => void;
+  onSaved: (dataSource: SavedDataSource) => void;
   page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -547,12 +548,12 @@ export function StructuredDataSourceEditor({
   });
   const previewMutation = useMutation({
     mutationFn: () =>
-      api.previewDataSource(
+      api.previewStructuredSource(
         provider,
         configuration,
         csrf,
         configuration.dateSelection.enabled ? previewDate : undefined,
-      ) as Promise<StructuredPreview>,
+      ),
     onSuccess: setPreview,
   });
   const mapping = configuration.mapping;

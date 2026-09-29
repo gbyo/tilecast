@@ -1,0 +1,47 @@
+# Redocly lint for the composed OpenAPI contract. The per-operation
+# content rules (stable operationIds, useful descriptions, typed
+# parameters/bodies/responses, authentication evidence) live in
+# derived-conformance inside packages/plugin-sdk/tools/pluginctl, which
+# also accepts a summary where Redocly would demand a description; that
+# rule stays off here so there is exactly one owner.
+apis:
+  core@latest:
+    root: docs/openapi.yaml
+extends:
+  - recommended
+rules:
+  operation-description: off
+  operation-summary: off
+  operation-operationId: error
+  no-unresolved-refs: error
+  # pluginctl derived-conformance owns the useful-description rule
+  # (description or summary) and the Tilecast authentication-evidence
+  # model (security declaration, CSRF parameter, documented 401, or
+  # explicit auth text covering public, poll-secret, and integration
+  # token forms that have no security scheme).
+  security-defined: off
+  # Tilecast is self-hosted at a variable base URL; there is no fixed
+  # server to declare.
+  no-empty-servers: off
+  # Chi resolves static segments before templates deterministically and
+  # the Go route-contract parity test walks the real router, so template
+  # overlap in the contract cannot drift from serving behavior.
+  no-ambiguous-paths: off
+  # Duplicate core path keys fail composition loudly (the YAML document
+  # errors), so a lint duplicate check would be a second owner.
+  no-identical-paths: off
+  # Warnings policy. The gate is zero errors (`npm run openapi:lint`
+  # exits nonzero on any error). Warnings stay visible and are triaged,
+  # not gated, because each current class is either intentional or
+  # follow-up contract work:
+  # - operation-4xx-response: many operations document their error model
+  #   in prose plus the typed error envelope and gain explicit 4xx
+  #   response entries over time; public 2xx-only endpoints (healthz,
+  #   readyz, install scripts) intentionally have none.
+  # - operation-2xx-response: the player WebSocket upgrade answers 101,
+  #   which derived-conformance accepts as success.
+  # - no-unused-components: named schemas kept for generator consumers
+  #   (Asset, DataSource, UploadSession, SpanStatus,
+  #   PresentationNetworkError) until responses reference them.
+  # - no-required-schema-properties-undefined: follow-up response-shape
+  #   typing (publish envelope, PlaylistItemInput guards).

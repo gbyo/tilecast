@@ -1,13 +1,15 @@
 # Tilecast Player Runtime
 
 **Package:** `packages/player-runtime` (`@tilecast/player-runtime`)
-**Hosts:** the Electron Linux player (`apps/player-linux`) and the WPE renderer (`apps/edge/renderer-wpe`)
+**Hosts:** the Electron Linux player (`apps/player-linux`), the WPE renderer (`apps/edge/renderer-wpe`), and the Android trusted local WebView as Android convergence lands (`apps/player-android`)
 **Host contract:** `TilecastRuntimeHostV1` (contract version 1)
 
-The Player Runtime is the one trusted display document for Tilecast screens. Electron and WPE host the same built artifact from the same origin, `tilecast://runtime/index.html`, so a presentation looks and behaves the same whichever engine draws it.
+The Player Runtime is the one trusted playback document and engine for Tilecast screens. Electron and WPE host the same built artifact from the same runtime sources, and Android's convergence loads that same runtime behind its trusted local WebView boundary, so presentation behavior does not acquire a host-specific Widget renderer.
+
+Studio is deliberately **not** another host of this complete runtime. Studio shares the **Widget renderer** only: the Widget runtime module plus `WidgetMount` from `@tilecast/widget-sdk`. Authoring preview provides its own preview `WidgetContext`, resources, locally edited configuration, and geometry; it does not run the XState playback engine, occurrence staging, evidence, synchronization, or playback host bridge.
 
 ```text
-host process (Electron main + preload, or tilecastd + tilecast-renderer-wpe)
+host process (Electron, tilecastd/WPE, or Android trusted WebView host)
         │  TilecastRuntimeHostV1 (typed members only)
         ▼
 @tilecast/player-runtime  ── Lit views ── Stage + item surfaces ── DOM / <video> / <img>
@@ -28,6 +30,8 @@ The runtime owns:
 
 The runtime does not own server credentials, server reconciliation, Edge SQLite state, the Edge CAS, the Electron IPC implementation, WPE or GLib APIs, filesystem access, or the host's kiosk and process lifecycle.
 
+The cross-process contract owners, generated capability registry, and shared Server URL fixture corpus are inventoried in [player-contracts.md](player-contracts.md). Widget component capabilities remain owned by `widgetctl`.
+
 ## 2. Host contract
 
 A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `TilecastRuntimeHostV1` (`src/host/contract.ts`). The contract has no generic message or native-invocation member. Every function is named and typed:
@@ -42,7 +46,7 @@ Behavior depends on `capabilities`, never on `info.host`:
 
 | Capability             | Electron           | WPE (Edge)                   |
 | ---------------------- | ------------------ | ---------------------------- |
-| `remoteWeb`            | `electron-webview` | `null` until M11 isolation   |
+| `remoteWeb`            | `electron-webview` | `host-view`                  |
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
@@ -76,7 +80,7 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 ## 5. Views, surfaces and transitions
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
-- **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface` and `WebviewWebsiteSurface`. The engine depends on the interface only, so a future surface (a host-owned web view in M11, or a native media pipeline if hardware testing ever justifies one) needs no change to the engine.
+- **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
 - **The stage** (`surfaces/stage.ts`) is the only code that creates or destroys media elements. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. A takeover or a newer swap cancels it, which puts both layers in their resting state at once.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.

@@ -11,7 +11,16 @@ import {
   Trash2,
   UserRoundX,
 } from "lucide-react";
-import type { User } from "../api/types";
+import type { ManagedUser, User } from "../api/types";
+import {
+  createUser,
+  deactivateUser,
+  listUsers,
+  permanentlyDeleteUser,
+  updateUser,
+} from "../api/domains/system";
+import { resetUserSecurity } from "../api/domains/auth";
+import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../api/errors";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -55,42 +64,24 @@ type UserInput = {
   active?: boolean;
   password?: string;
 };
-type ErrorResponse = { error?: { message?: string } };
-
-async function userRequest<T>(
-  path: string,
-  csrfToken: string,
-  init?: RequestInit,
-  fallbackMessage?: string,
-) {
-  const response = await fetch(`/api/v1${path}`, {
-    ...init,
-    credentials: "same-origin",
-    headers: {
-      "Content-Type": "application/json",
-      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
-      ...init?.headers,
-    },
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-    throw new Error(body.error?.message ?? fallbackMessage);
+// Server envelope errors already carry a message; anything else (network
+// failure, malformed payload) falls back to localized page text.
+async function withUserError<T>(
+  promise: Promise<T>,
+  fallbackMessage: string,
+): Promise<T> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.status > 0 &&
+      error.message !== FALLBACK_REQUEST_MESSAGE
+    ) {
+      throw error;
+    }
+    throw new Error(fallbackMessage, { cause: error });
   }
-  if (response.status === 204) return undefined as T;
-  return ((await response.json()) as { data: T }).data;
-}
-
-// The list carries each account's multi-factor state so an administrator can
-// see who is still unenrolled under a policy without opening every account.
-type ManagedUser = User & { mfaEnrolled: boolean; mfaRequired: boolean };
-
-function listUsers(fallbackMessage: string) {
-  return userRequest<{ items: ManagedUser[]; total: number }>(
-    "/users",
-    "",
-    undefined,
-    fallbackMessage,
-  );
 }
 
 import { ScreenScopeEditor } from "./ScreenScopeEditor";
@@ -129,7 +120,7 @@ export function UsersPage() {
   const isOwner = currentUser?.role === "owner";
   const users = useQuery({
     queryKey: ["users"],
-    queryFn: () => listUsers(t("users.errors.requestFailed")),
+    queryFn: () => withUserError(listUsers(), t("users.errors.requestFailed")),
     enabled: canManage,
   });
   const [name, setName] = useState("");
@@ -139,13 +130,17 @@ export function UsersPage() {
   const [editing, setEditing] = useState<ManagedUser>();
   const create = useMutation({
     mutationFn: (input: UserInput) =>
-      userRequest<User>(
-        "/users",
-        csrf,
-        {
-          method: "POST",
-          body: JSON.stringify(input),
-        },
+      withUserError(
+        createUser(
+          {
+            name: input.name,
+            username: input.username,
+            password: input.password ?? "",
+            role: input.role,
+            ...(input.active === undefined ? {} : { active: input.active }),
+          },
+          csrf,
+        ),
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {
@@ -427,19 +422,18 @@ function UserEditorDialog({
   }, [user]);
   const update = useMutation({
     mutationFn: () =>
-      userRequest<User>(
-        `/users/${user.id}`,
-        csrf,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
+      withUserError(
+        updateUser(
+          user.id,
+          {
             name: name.trim(),
             username: username.trim(),
             role,
             active,
             ...(password ? { password } : {}),
-          }),
-        },
+          },
+          csrf,
+        ),
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {
@@ -449,10 +443,8 @@ function UserEditorDialog({
   });
   const deactivate = useMutation({
     mutationFn: () =>
-      userRequest<void>(
-        `/users/${user.id}`,
-        csrf,
-        { method: "DELETE" },
+      withUserError(
+        deactivateUser(user.id, csrf),
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {
@@ -462,12 +454,8 @@ function UserEditorDialog({
   });
   const permanentlyDelete = useMutation({
     mutationFn: () =>
-      userRequest<void>(
-        `/users/${user.id}/permanent`,
-        csrf,
-        {
-          method: "DELETE",
-        },
+      withUserError(
+        permanentlyDeleteUser(user.id, csrf),
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {
@@ -479,12 +467,8 @@ function UserEditorDialog({
   // An administrator clearing the factors is the ordinary recovery path.
   const resetSecurity = useMutation({
     mutationFn: () =>
-      userRequest<void>(
-        `/users/${user.id}/security/reset`,
-        csrf,
-        {
-          method: "POST",
-        },
+      withUserError(
+        resetUserSecurity(user.id, csrf),
         t("users.errors.requestFailed"),
       ),
     onSuccess: async () => {

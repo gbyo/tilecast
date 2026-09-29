@@ -14,7 +14,7 @@ import { Steps } from "@astrojs/starlight/components";
 <Steps>
 
 1. Open **Content** > **Data Sources**, then select **Create Data Source**.
-2. Choose a provider from the catalog offered by your Tilecast Server. Providers include **RSS / Atom Feed**, **Calendar**, **Google Sheet**, **JSON**, **CSV**, **Weather**, **Transit**, alerts, and tables you edit in Studio, such as **Manual Table**, **Announcements**, **Events**, and **Menu Items**.
+2. Choose a provider from the catalog offered by your Tilecast Server. Providers include **RSS / Atom Feed**, **Calendar**, **Google Sheet**, **JSON**, **CSV**, **Weather**, **Transit**, **Status Message**, alerts, and tables you edit in Studio, such as **Manual Table**, **Announcements**, **Events**, and **Menu Items**.
 3. Follow the setup checklist for that provider. Enter its connection details, map the values to typed fields when prompted, and review the preview when one is available.
 4. Select **Save Data Source**.
 
@@ -33,6 +33,12 @@ Tilecast marks what each feed field means: the title is the headline, the descri
 Feed content belongs to its publisher. Confirm that you may show a feed before you use it, and credit the publisher on screen. News can show the source name for this.
 
 Studio used to offer separate **RSS** and **Atom** providers. Sources you created with them keep refreshing and working. New feeds use **RSS / Atom Feed**.
+
+## Status Message
+
+Choose **Status Message** to keep one current status, message, and severity in Studio. You can set an effective time or an expiry time when the status should apply for only part of a day. Connect the source to a **Status** Widget. The Widget shows its empty message before the effective time and at or after the expiry time.
+
+Studio records the update time when you save. **School Status** sources you already created keep working, but new sources use **Status Message**. Both provide the same fields to a Status Widget. For the exact object fields and saved Widget mappings, see the [Widgets V2 catalog contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-catalog.md).
 
 ## Spreadsheets: data or display
 

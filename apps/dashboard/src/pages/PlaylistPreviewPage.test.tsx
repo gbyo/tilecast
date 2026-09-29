@@ -249,6 +249,10 @@ it("loads the saved configuration and renders a native Clock Widget", async () =
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
     variants: [],
+    playlistUsage: 0,
+    layoutUsage: [],
+    tags: [],
+    collectionIds: [],
     widget: {
       provider: "clock",
       configVersion: 1,
@@ -473,8 +477,12 @@ it("renders compiled Website and YouTube presentations in a sandboxed frame", ()
           mode: "remote",
           url: "https://www.youtube.com/embed/video-id",
           allowedHosts: ["www.youtube.com"],
+          externalNetworkAccess: true,
           onlineOnly: true,
+          fallbackBehavior: "placeholder",
+          loadTimeoutSeconds: 30,
           lifecycle: "destroy_on_hide",
+          warmSeconds: 0,
         },
       }}
       source={undefined}

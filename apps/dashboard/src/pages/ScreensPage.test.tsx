@@ -11,9 +11,9 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { previewApi } from "../api/previews";
+import { api } from "../api/client";
 import { i18n } from "../i18n";
-import type { Screen, User } from "../api/types";
+import type { PowerAssistResults, Screen, User } from "../api/types";
 import type { PairingRequest } from "../api/types";
 import {
   autostartSummary,
@@ -213,12 +213,12 @@ describe("screen management", () => {
       status: "online",
       lastContactAt: new Date().toISOString(),
     } as Screen;
-    const renew = vi.spyOn(previewApi, "renew").mockResolvedValue({
+    const renew = vi.spyOn(api, "renewScreenPreview").mockResolvedValue({
       active: true,
       captureIntervalSeconds: 20,
       captureNow: true,
     });
-    vi.spyOn(previewApi, "metadata").mockResolvedValue({
+    vi.spyOn(api, "screenPreview").mockResolvedValue({
       screenId: item.id,
       status: "available",
       capturedAt,
@@ -263,7 +263,7 @@ describe("screen management", () => {
     );
 
     await waitFor(() =>
-      expect(renew).toHaveBeenCalledWith(item.id, "csrf-token", true),
+      expect(renew).toHaveBeenCalledWith(item.id, true, "csrf-token"),
     );
     expect(
       await screen.findByLabelText("Snapshot captured 1m ago"),
@@ -358,7 +358,7 @@ describe("screen management", () => {
   });
 
   it("reports zero-touch readiness only after every safeguard is verified", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -427,7 +427,7 @@ describe("screen management", () => {
   });
 
   it("separates an installed autostart unit from one verified at boot", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -486,7 +486,7 @@ describe("screen management", () => {
   });
 
   it("hides Linux autostart controls for players that do not report it", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
@@ -504,7 +504,7 @@ describe("screen management", () => {
   });
 
   it("warns about the gaps the player cannot close by itself", () => {
-    const powerAssist = {
+    const powerAssist: PowerAssistResults = {
       deviceSleep: "untested",
       tvStandby: "untested",
       deviceWake: "untested",
