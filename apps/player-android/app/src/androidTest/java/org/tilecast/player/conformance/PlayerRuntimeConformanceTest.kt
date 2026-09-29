@@ -301,7 +301,7 @@ class PlayerRuntimeConformanceTest {
                                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
                                     decorView.isHardwareAccelerated
                                 ) {
-                                    decorView.registerFrameCommitCallback {
+                                    observer.registerFrameCommitCallback {
                                         frameCommitted.countDown()
                                     }
                                 } else {
