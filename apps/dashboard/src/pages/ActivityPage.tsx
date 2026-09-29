@@ -425,7 +425,11 @@ export function ActivityPage() {
           className="w-full justify-start overflow-x-auto"
         >
           {activityTabs.map((item) => (
-            <TabsTrigger key={item.value} value={item.value} className="flex-none">
+            <TabsTrigger
+              key={item.value}
+              value={item.value}
+              className="flex-none"
+            >
               {item.label}
             </TabsTrigger>
           ))}
