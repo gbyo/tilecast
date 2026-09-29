@@ -30,6 +30,7 @@ import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
 import { MyAccountPage } from "./pages/MyAccountPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
+import { LayoutPreviewPage } from "./pages/LayoutPreviewPage";
 import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
@@ -76,6 +77,7 @@ export const studioRoutes: RouteObject[] = [
   { path: "/setup", element: <AuthPage mode="setup" /> },
   { path: "/login", element: <AuthPage mode="login" /> },
   { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
+  { path: "/layouts/:id/preview", element: <LayoutPreviewPage /> },
   {
     path: "/",
     element: <DashboardShell />,
