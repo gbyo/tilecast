@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "name": "bare public host defaults to HTTPS",
+      "input": "signage.example.org",
+      "accepted": true,
+      "normalized": "https://signage.example.org"
+    },
+    {
+      "name": "whitespace and trailing slash normalize",
+      "input": "  https://Signage.Example.org/  ",
+      "accepted": true,
+      "normalized": "https://signage.example.org"
+    },
+    {
+      "name": "explicit HTTPS port is preserved",
+      "input": "https://signage.example.org:8443/",
+      "accepted": true,
+      "normalized": "https://signage.example.org:8443"
+    },
+    {
+      "name": "private 10/8 HTTP is allowed",
+      "input": "http://10.2.3.4",
+      "accepted": true,
+      "normalized": "http://10.2.3.4"
+    },
+    {
+      "name": "private 172.16/12 HTTP is allowed",
+      "input": "http://172.16.0.2",
+      "accepted": true,
+      "normalized": "http://172.16.0.2"
+    },
+    {
+      "name": "private 192.168/16 HTTP port is allowed",
+      "input": "http://192.168.1.50:8080",
+      "accepted": true,
+      "normalized": "http://192.168.1.50:8080"
+    },
+    {
+      "name": "IPv4 link-local HTTP is allowed",
+      "input": "http://169.254.1.2",
+      "accepted": true,
+      "normalized": "http://169.254.1.2"
+    },
+    {
+      "name": "loopback IPv4 HTTP is allowed",
+      "input": "http://127.0.0.1",
+      "accepted": true,
+      "normalized": "http://127.0.0.1"
+    },
+    {
+      "name": "localhost HTTP is allowed",
+      "input": "http://localhost:8080",
+      "accepted": true,
+      "normalized": "http://localhost:8080"
+    },
+    {
+      "name": "mDNS local HTTP is allowed",
+      "input": "http://tilecast.local:8080",
+      "accepted": true,
+      "normalized": "http://tilecast.local:8080"
+    },
+    {
+      "name": "public hostname HTTP is rejected",
+      "input": "http://signage.example.org",
+      "accepted": false
+    },
+    {
+      "name": "public IPv4 HTTP is rejected",
+      "input": "http://8.8.8.8",
+      "accepted": false
+    },
+    {
+      "name": "172.32 is outside private range",
+      "input": "http://172.32.0.1",
+      "accepted": false
+    },
+    {
+      "name": "public IPv6 HTTP is rejected",
+      "input": "http://[2001:db8::1]",
+      "accepted": false
+    },
+    {
+      "name": "unsupported scheme is rejected",
+      "input": "ftp://signage.example.org",
+      "accepted": false
+    },
+    {
+      "name": "embedded credentials are rejected",
+      "input": "https://user:pw@signage.example.org",
+      "accepted": false
+    },
+    {
+      "name": "path is rejected",
+      "input": "https://signage.example.org/api",
+      "accepted": false
+    },
+    {
+      "name": "query is rejected",
+      "input": "https://signage.example.org/?x=1",
+      "accepted": false
+    },
+    {
+      "name": "fragment is rejected",
+      "input": "https://signage.example.org/#setup",
+      "accepted": false
+    },
+    {
+      "name": "empty input is rejected",
+      "input": "   ",
+      "accepted": false
+    }
+  ]
+}

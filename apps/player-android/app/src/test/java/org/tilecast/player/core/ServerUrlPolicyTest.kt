@@ -1,5 +1,11 @@
 package org.tilecast.player.core
 
+import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -19,5 +25,27 @@ class ServerUrlPolicyTest {
         assertTrue(ServerUrlPolicy.normalize("ftp://192.168.1.2").isFailure)
         assertTrue(ServerUrlPolicy.normalize("https://example.com/path").isFailure)
     }
-}
+    @Test fun matchesSharedServerUrlPolicyFixtures() {
+        val root = Json.parseToJsonElement(sharedFixture().readText()).jsonObject
+        for (element in root.getValue("cases").jsonArray) {
+            val entry = element.jsonObject
+            val name = entry.getValue("name").jsonPrimitive.content
+            val result = ServerUrlPolicy.normalize(entry.getValue("input").jsonPrimitive.content)
+            val accepted = entry.getValue("accepted").jsonPrimitive.boolean
+            assertEquals(name, accepted, result.isSuccess)
+            if (accepted) {
+                assertEquals(name, entry.getValue("normalized").jsonPrimitive.content, result.getOrThrow().value)
+            }
+        }
+    }
 
+    private fun sharedFixture(): File {
+        var directory = File(System.getProperty("user.dir")).absoluteFile
+        while (true) {
+            val candidate = File(directory, "packages/player-contracts/fixtures/server-url-policy.json")
+            if (candidate.isFile) return candidate
+            directory = directory.parentFile ?: error("repository root not found from user.dir")
+        }
+    }
+
+}

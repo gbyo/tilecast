@@ -120,6 +120,20 @@ fn split_host_port(authority: &str) -> Result<(&str, Option<u16>), UrlPolicyErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct SharedFixtures {
+        cases: Vec<SharedCase>,
+    }
+
+    #[derive(Deserialize)]
+    struct SharedCase {
+        name: String,
+        input: String,
+        accepted: bool,
+        normalized: Option<String>,
+    }
 
     #[test]
     fn matches_the_player_policy() {
@@ -145,4 +159,19 @@ mod tests {
         assert_eq!(normalize_server_url(""), Err(UrlPolicyError::Empty));
         assert_eq!(normalize_server_url("https://ho st"), Err(UrlPolicyError::Invalid));
     }
+    #[test]
+    fn matches_shared_server_url_policy_fixtures() {
+        let fixtures: SharedFixtures = serde_json::from_str(include_str!(
+            "../../../../../packages/player-contracts/fixtures/server-url-policy.json"
+        ))
+        .unwrap();
+        for case in fixtures.cases {
+            let result = normalize_server_url(&case.input);
+            assert_eq!(result.is_ok(), case.accepted, "{}", case.name);
+            if let Some(expected) = case.normalized {
+                assert_eq!(result.unwrap(), expected, "{}", case.name);
+            }
+        }
+    }
+
 }
