@@ -83,6 +83,9 @@ jobs:
           targets: electron
       - name: Electron reference run
         run: |
+          # Keep the shared output root owned by the runner. Docker writes only
+          # the Electron subdirectory; the emulator runner creates android/.
+          mkdir -p "$RUNNER_TEMP/conformance"
           docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
             tilecast-conformance-electron \
             node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
