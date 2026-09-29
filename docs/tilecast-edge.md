@@ -104,7 +104,7 @@ The fixed `tilecast` account is used because an existing Electron kiosk already 
 
 `tilecast-renderer-wpe` runs in its own unit, `tilecast-renderer.service`, as the same account with a narrower sandbox. It is disposable: systemd restarts it, and `tilecastd` restores the current presentation when it reconnects.
 
-M11 adds the isolated remote web helper, `tilecast-web-renderer-wpe` in `tilecast-web-renderer.service`, for Websites, YouTube and web Widgets. It runs remote pages as the dedicated `tilecast-web` account with no Tilecast credential, state or content socket; only the trusted renderer joins the `tilecast-web` group to reach its control and frame sockets. The boundary is binding in [`tilecast-edge-remote-web-threat-review.md`](tilecast-edge-remote-web-threat-review.md).
+M11 added the isolated remote web helper, `tilecast-web-renderer-wpe` in `tilecast-web-renderer.service`, for Websites, YouTube and web Widgets. It runs remote pages as the dedicated `tilecast-web` account with no Tilecast credential, state or content socket; only the trusted renderer joins the `tilecast-web` group to reach its control and frame sockets. The boundary is binding in [`tilecast-edge-remote-web-threat-review.md`](tilecast-edge-remote-web-threat-review.md).
 
 It receives a complete, validated, prepared presentation and returns evidence. It does not receive the device credential, the state database, the identity directory, arbitrary host paths, server API access, or any way to run a program. It cannot see the legacy home directory.
 
@@ -475,7 +475,7 @@ Telemetry and Activity events use a bounded outbox in SQLite (at most 500 rows, 
 
 Edge 1 ships as a sequence of reviewable milestones. Each one keeps the tree releasable.
 
-M1 to M10 are software-complete and merged into `main` (2026-09-26). M11 and M12 are not started. [`tilecast-edge-next.md`](tilecast-edge-next.md) §3 records the state of each milestone.
+M1 to M10 are software-complete and merged into `main` (2026-09-26). The M11 remote-web implementation merged in gbyo/tilecast#699 on 2026-09-27; M11 physical qualification remains outstanding. M12 has not started. [`tilecast-edge-next.md`](tilecast-edge-next.md) §3 records the state of each milestone.
 
 | Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                                  |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
