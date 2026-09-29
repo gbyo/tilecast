@@ -211,6 +211,7 @@ function checkRequestBody(
 function checkResponses(
   operation: YAMLMap,
   method: string,
+  path: string,
   location: string,
   problems: Problem[],
 ): void {
@@ -222,17 +223,23 @@ function checkResponses(
     });
     return;
   }
-  // A 101 Switching Protocols is the success case for protocol upgrades
-  // such as the authenticated player WebSocket; everything else succeeds
-  // with 2xx.
+  // The authenticated Player socket is the only HTTP upgrade operation in
+  // the contract. Every ordinary operation must still document a 2xx success.
+  const allowsProtocolUpgrade =
+    method === "get" && path === "/api/v1/player/socket";
   const success = responses.items.find((pair) => {
     const code = scalar(pair.key);
-    return code !== null && (code.startsWith("2") || code === "101");
+    return (
+      code !== null &&
+      (code.startsWith("2") || (allowsProtocolUpgrade && code === "101"))
+    );
   });
   if (success === undefined) {
     problems.push({
       file: COMPOSED_OPENAPI,
-      message: `${location} must document a 2xx response (or 101 for a protocol upgrade)`,
+      message: allowsProtocolUpgrade
+        ? `${location} must document a 2xx response or the Player socket 101 upgrade`
+        : `${location} must document a 2xx response`,
     });
     return;
   }
@@ -473,7 +480,13 @@ export function checkDerivedConformance(
     if (excluded.has(id)) continue;
     checkParameters(entry.operation, location, problems);
     checkRequestBody(entry.operation, location, problems);
-    checkResponses(entry.operation, entry.method, location, problems);
+    checkResponses(
+      entry.operation,
+      entry.method,
+      entry.path,
+      location,
+      problems,
+    );
     checkAuth(entry.operation, location, problems);
   }
   checkReferences(composed, problems);

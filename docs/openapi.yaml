@@ -574,8 +574,7 @@ paths:
             in: query,
             name: code_challenge_method,
             required: false,
-            description: S256,
-            or omitted. The Server rejects any other value.,
+            description: "S256, or omitted. The Server rejects any other value.",
             schema: { type: string },
           }
       responses:
