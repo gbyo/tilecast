@@ -86,6 +86,7 @@ import {
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { isInteractiveShortcutTarget } from "../lib/keyboard";
 import {
   Dialog,
   DialogContent,
@@ -957,11 +958,10 @@ export function LayoutEditorPage() {
   }, [setViewport, viewAt, canvasWidth, getViewport]);
   // Cmd/Ctrl 0 fits, 1 is 100%, +/- zoom about the center; Space arms panning.
   useEffect(() => {
-    const typing = (target: EventTarget | null) =>
-      target instanceof HTMLElement &&
-      target.matches("input,textarea,select,[contenteditable='true']");
     const onKey = (event: KeyboardEvent) => {
-      if (event.code === "Space" && !typing(event.target)) {
+      if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
+        return;
+      if (event.code === "Space") {
         event.preventDefault();
         if (!spaceHeld.current) {
           spaceHeld.current = true;
@@ -2105,7 +2105,7 @@ export function LayoutEditorPage() {
         void save();
         return;
       }
-      if ((event.target as HTMLElement).matches("input,textarea,select"))
+      if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
         return;
       // While a context menu is up its own keys own the keyboard, so arrowing through
       // the items does not also nudge or delete the selection behind it.
@@ -2535,6 +2535,11 @@ export function LayoutEditorPage() {
     setAddMenuOpen(false);
     setSelection(new Set());
     setActiveTool(kind);
+    window.requestAnimationFrame(() => {
+      canvasRef.current
+        ?.closest<HTMLElement>(".layout-stage-scroll")
+        ?.focus({ preventScroll: true });
+    });
   };
   const dockButtonClass = "size-9 rounded-md text-muted-foreground";
   const addMenu = (
@@ -3230,6 +3235,7 @@ export function LayoutEditorPage() {
         <ContextMenuTrigger
           render={
             <div
+              tabIndex={-1}
               className={cn(
                 "layout-stage-scroll",
                 activeTool && "cursor-crosshair",
