@@ -262,6 +262,10 @@ import {
   normalizeContentDefinitionCatalog,
   normalizeProviderCatalog,
   previewDataSource,
+  previewCalendarSource,
+  previewDatasetSource,
+  previewRecordSource,
+  previewStructuredSource,
   previewSavedDataSource,
   restoreAssets,
   retryAsset,
@@ -663,6 +667,10 @@ export const api = {
 
   dataSourceDiagnostics: getDataSourceDiagnostics,
   previewDataSource,
+  previewCalendarSource,
+  previewDatasetSource,
+  previewRecordSource,
+  previewStructuredSource,
   // Report the fields a candidate RSS, Atom, JSON, or CSV connection contains, before a
   // mapping exists, so Studio can offer detected fields rather than typed guesses.
   inspectDataSource,

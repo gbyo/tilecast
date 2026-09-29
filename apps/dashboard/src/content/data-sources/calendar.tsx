@@ -140,12 +140,7 @@ export function CalendarDataSourceEditor({
     },
   });
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewDataSource(
-        "calendar",
-        configuration,
-        csrf,
-      ) as Promise<CalendarPreview>,
+    mutationFn: () => api.previewCalendarSource(configuration, csrf),
     onSuccess: setPreview,
   });
   const updateFeed = (index: number, key: "name" | "url", value: string) =>

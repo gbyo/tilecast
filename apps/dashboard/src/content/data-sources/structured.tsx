@@ -548,12 +548,12 @@ export function StructuredDataSourceEditor({
   });
   const previewMutation = useMutation({
     mutationFn: () =>
-      api.previewDataSource(
+      api.previewStructuredSource(
         provider,
         configuration,
         csrf,
         configuration.dateSelection.enabled ? previewDate : undefined,
-      ) as Promise<StructuredPreview>,
+      ),
     onSuccess: setPreview,
   });
   const mapping = configuration.mapping;

@@ -1882,19 +1882,9 @@ export type PresentationNode = {
   };
   children?: PresentationNode[];
 };
-export type WidgetPresentation = {
-  schemaVersion: 1;
-  kind: "native" | "web";
-  requiredCapabilities: Record<string, number>;
-  native?: { root: PresentationNode };
-  web?: {
-    mode: "remote" | "bundle";
-    url?: string;
-    allowedHosts: string[];
-    onlineOnly: boolean;
-    lifecycle: "destroy_on_hide" | "keep_warm";
-  };
-};
+/** A compiled Widget presentation; the contract owns the wire shape. */
+export type WidgetPresentation =
+  components["schemas"]["CompiledWidgetPresentation"];
 export type Widget = {
   provider: WidgetProvider;
   presetId?: WidgetPreset | null;
@@ -2163,28 +2153,10 @@ export type AirQualitySourceConfig = {
   refreshIntervalSeconds: number;
   stalenessLimitHours: number;
 };
-export type TypedRecordData = {
-  fields: DataSourceField[];
-  records: { id: string; values: Record<string, string> }[];
-  cachedAt?: string;
-  staleAt?: string;
-  usingCachedData: boolean;
-  unavailable: boolean;
-  dateSelection?: DateSelection;
-  dateField?: string;
-  attribution?: string;
-};
-export type TypedDatasetPayload = {
-  datasets: {
-    id: string;
-    kind: "records" | "time_series" | "object";
-    fields?: DataSourceField[];
-    records?: { id: string; values: Record<string, string> }[];
-    points?: { at: string; values: Record<string, string> }[];
-    values?: Record<string, string>;
-    attribution?: string;
-  }[];
-};
+/** Preview of a manual or weather Data Source; the contract owns the shape. */
+export type TypedRecordData = components["schemas"]["TypedRecordData"];
+/** Preview of a live or definition-backed Data Source: named datasets. */
+export type TypedDatasetPayload = components["schemas"]["TypedDatasetPayload"];
 export type ClockWidgetConfig = {
   timezone: string;
   format: "locale" | "12" | "24";
@@ -2344,21 +2316,8 @@ export type StructuredRecord = {
   link?: string;
   values?: Record<string, string>;
 };
-export type StructuredPreview = {
-  configuration: {
-    presentation: StructuredSourceConfig["presentation"];
-    fields: StructuredSourceConfig["fields"];
-    emptyState: string;
-    dateSelection: DateSelection;
-    data: {
-      records: StructuredRecord[];
-      cachedAt: string;
-      staleAt: string;
-      usingCachedData: boolean;
-    };
-  };
-  diagnostics: SourceRefreshDiagnostics;
-};
+/** Preview of a feed or document Data Source. */
+export type StructuredPreview = components["schemas"]["StructuredPreview"];
 export type WebsiteConfig = {
   url: string;
   displayUrl: string;
@@ -2463,17 +2422,8 @@ export type SourceRefreshDiagnostics = {
   cacheExpiresAt?: string;
   errorCode?: string;
 };
-export type CalendarPreview = {
-  configuration: CalendarConfig & {
-    data: {
-      events: CalendarEvent[];
-      cachedAt: string;
-      staleAt: string;
-      usingCachedData: boolean;
-    };
-  };
-  diagnostics: SourceRefreshDiagnostics;
-};
+/** Preview of a calendar Data Source: the Player configuration and events. */
+export type CalendarPreview = components["schemas"]["CalendarPreview"];
 export type WebsiteDiagnostics = {
   assetId: string;
   configuredUrl: string;
@@ -2704,35 +2654,8 @@ export type SubmissionFilter =
   | "superseded"
   | "publication_failed";
 
-export type ContentSubmission = {
-  id: string;
-  contentType: EditorialContentType;
-  contentId: string;
-  contentName?: string;
-  workingRevision: number;
-  snapshot: unknown;
-  snapshotSha256: string;
-  submittedBy?: string;
-  submitterName?: string;
-  submittedAt: string;
-  basedPublishedRevision?: number;
-  basedPublishedRevisionId?: string;
-  status: SubmissionStatus;
-  reviewRequired: boolean;
-  allowSelfApproval: boolean;
-  reviewNote?: string;
-  reviewedBy?: string;
-  reviewerName?: string;
-  reviewedAt?: string;
-  requestedPublicationAt?: string;
-  publicationFailureReason?: string;
-  publishedAt?: string;
-  newerWorkingDraft: boolean;
-  currentPublishedRevision?: number;
-  affectedScreenCount: number;
-  affectedLocationCount: number;
-};
-
+/** An editorial submission; the contract owns the wire shape. */
+export type ContentSubmission = components["schemas"]["ContentSubmission"];
 export type ContentSubmissionList = {
   policy: "off" | "contributors" | "everyone";
   allowSelfApproval: boolean;

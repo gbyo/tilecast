@@ -134,7 +134,10 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
         <ToggleGroup
           aria-label={t("timeline.rangeLabel")}
           value={[range]}
-          onValueChange={(values) => values[0] && setRange(values[0])}
+          onValueChange={(values) => {
+            const next = ranges.find((item) => item.value === values[0]);
+            if (next) setRange(next.value);
+          }}
           multiple={false}
           variant="outline"
           size="sm"
@@ -157,7 +160,9 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
         aria-label={t("timeline.domainLabel")}
         value={[domain || "__all__"]}
         onValueChange={(values) => {
-          if (values[0]) setDomain(values[0] === "__all__" ? "" : values[0]);
+          const selected = values[0] === "__all__" ? "" : values[0];
+          const next = domains.find((item) => item.value === selected);
+          if (next) setDomain(next.value);
         }}
         multiple={false}
         variant="outline"

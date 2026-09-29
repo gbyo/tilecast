@@ -80,12 +80,7 @@ export function WeatherDataSourceEditor({
   }, [dataSource, regional.ready, regional.region, regional.timezone]);
   const [preview, setPreview] = useState<TypedRecordData>();
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewDataSource(
-        "weather",
-        configuration,
-        csrf,
-      ) as unknown as Promise<TypedRecordData>,
+    mutationFn: () => api.previewRecordSource("weather", configuration, csrf),
     onSuccess: setPreview,
   });
   const save = useMutation({

@@ -171,12 +171,7 @@ export function LiveDataSourceEditor({
   ]);
   const [preview, setPreview] = useState<TypedDatasetPayload>();
   const previewMutation = useMutation({
-    mutationFn: () =>
-      api.previewDataSource(
-        provider,
-        configuration,
-        csrf,
-      ) as unknown as Promise<TypedDatasetPayload>,
+    mutationFn: () => api.previewDatasetSource(provider, configuration, csrf),
     onSuccess: setPreview,
   });
   const save = useMutation({

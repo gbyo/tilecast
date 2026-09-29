@@ -10,12 +10,14 @@
  * genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
+import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../errors";
 import type { components, paths } from "@tilecast/api-schema/generated/openapi";
 import type {
   AirQualitySourceConfig,
   Asset,
   BulkOrganizeInput,
   CalendarConfig,
+  CalendarPreview,
   CAPAlertsSourceConfig,
   ContentCollection,
   ContentDefinitionCatalog,
@@ -28,8 +30,11 @@ import type {
   ProviderCatalog,
   SourceRefreshDiagnostics,
   StructuredInspection,
+  StructuredPreview,
   StructuredSourceConfig,
   TransitSourceConfig,
+  TypedDatasetPayload,
+  TypedRecordData,
   UploadSession,
   WeatherSourceConfig,
   WebsiteDiagnostics,
@@ -475,6 +480,96 @@ export function previewDataSource(
     body: { configuration, previewDate },
     csrfToken,
   });
+}
+
+/*
+ * The preview route answers a provider-dependent shape (see
+ * DataSourcePreviewResult). These guards name each shape by its
+ * distinguishing member, and the per-shape wrappers below let an editor
+ * that knows its provider receive exactly that shape, or a
+ * malformed_response error instead of a silently wrong one.
+ */
+export function isCalendarPreview(
+  preview: WireDataSourcePreviewResult,
+): preview is CalendarPreview {
+  return (
+    "configuration" in preview &&
+    "events" in (preview.configuration as { data: object }).data
+  );
+}
+
+export function isStructuredPreview(
+  preview: WireDataSourcePreviewResult,
+): preview is StructuredPreview {
+  return (
+    "configuration" in preview &&
+    "records" in (preview.configuration as { data: object }).data
+  );
+}
+
+export function isTypedRecordData(
+  preview: WireDataSourcePreviewResult,
+): preview is TypedRecordData {
+  return "records" in preview && "fields" in preview;
+}
+
+export function isTypedDatasetPayload(
+  preview: WireDataSourcePreviewResult,
+): preview is TypedDatasetPayload {
+  return "datasets" in preview;
+}
+
+async function previewShaped<T extends WireDataSourcePreviewResult>(
+  guard: (preview: WireDataSourcePreviewResult) => preview is T,
+  ...args: Parameters<typeof previewDataSource>
+): Promise<T> {
+  const preview = await previewDataSource(...args);
+  if (!guard(preview))
+    throw new ApiError(FALLBACK_REQUEST_MESSAGE, 0, "malformed_response");
+  return preview;
+}
+
+export function previewCalendarSource(
+  configuration: CalendarConfig,
+  csrfToken: string,
+): Promise<CalendarPreview> {
+  return previewShaped(isCalendarPreview, "calendar", configuration, csrfToken);
+}
+
+export function previewStructuredSource(
+  provider: InspectProvider,
+  configuration: StructuredSourceConfig,
+  csrfToken: string,
+  previewDate?: string,
+): Promise<StructuredPreview> {
+  return previewShaped(
+    isStructuredPreview,
+    provider,
+    configuration,
+    csrfToken,
+    previewDate,
+  );
+}
+
+export function previewRecordSource(
+  provider: "manual" | "weather",
+  configuration: ManualSourceConfig | WeatherSourceConfig,
+  csrfToken: string,
+): Promise<TypedRecordData> {
+  return previewShaped(isTypedRecordData, provider, configuration, csrfToken);
+}
+
+export function previewDatasetSource(
+  provider: PreviewProvider,
+  configuration: Parameters<typeof previewDataSource>[1],
+  csrfToken: string,
+): Promise<TypedDatasetPayload> {
+  return previewShaped(
+    isTypedDatasetPayload,
+    provider,
+    configuration,
+    csrfToken,
+  );
 }
 
 export function inspectDataSource(
