@@ -211,6 +211,133 @@ describe("layout library page", () => {
     );
   });
 
+  it("keeps announcement settings when creation is dismissed while pending", async () => {
+    const user = userEvent.setup();
+    let finishCreate!: (value: Layout) => void;
+    vi.mocked(api.createLayout).mockImplementation(
+      () =>
+        new Promise<Layout>((resolve) => {
+          finishCreate = resolve;
+        }),
+    );
+    vi.mocked(api.saveLayoutDraft).mockRejectedValue(
+      new Error("Temporary draft failure"),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    let dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    const nameInput = within(dialog).getByRole("textbox", { name: "Name *" });
+    await user.type(nameInput, "Assembly update");
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+    await vi.waitFor(() => expect(api.createLayout).toHaveBeenCalledOnce());
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Create layout" }));
+    dialog = await screen.findByRole("dialog", { name: "Create layout" });
+    expect(within(dialog).getByRole("textbox", { name: "Name *" })).toHaveValue(
+      "Assembly update",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+    ).toBeDisabled();
+
+    finishCreate(newAnnouncementLayout as unknown as Layout);
+    expect(
+      await within(dialog).findByText(
+        /The Layout was created, but its announcement template could not be initialized/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Name *" })).toHaveValue(
+      "Assembly update",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    ).toBeEnabled();
+  });
+
+  it("clears a conflicted retry when dismissed but keeps its Layout in the library", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.layouts).mockResolvedValue({
+      items: [
+        savedLayout,
+        layout({ id: "layout-announcement", name: "Assembly update" }),
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.mocked(api.createLayout).mockResolvedValue(
+      newAnnouncementLayout as never,
+    );
+    vi.mocked(api.layout).mockResolvedValue({
+      ...(newAnnouncementLayout as unknown as Layout),
+      draftRevision: 2,
+    });
+    vi.mocked(api.saveLayoutDraft).mockRejectedValueOnce(
+      new Error("Temporary draft failure"),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    let dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+      "Assembly update",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+    await within(dialog).findByText(
+      /The Layout was created, but its announcement template could not be initialized/,
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    );
+    expect(
+      await within(dialog).findByText(
+        "This Layout's draft changed after creation. Close this dialog and review the existing Layout in the library.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await screen.findByRole("link", { name: "Edit Assembly update" });
+    await user.click(screen.getByRole("button", { name: "Create layout" }));
+    dialog = await screen.findByRole("dialog", { name: "Create layout" });
+    const nameInput = within(dialog).getByRole("textbox", { name: "Name *" });
+    expect(nameInput).toBeEnabled();
+    expect(nameInput).toHaveValue("");
+    await user.type(nameInput, "Fresh notice");
+    expect(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    ).toBeEnabled();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+
+    expect(api.createLayout).toHaveBeenCalledTimes(2);
+    expect(api.saveLayoutDraft).toHaveBeenCalledOnce();
+  });
+
   it("recognizes a template saved before the server response failed", async () => {
     const user = userEvent.setup();
     let currentLayout = newAnnouncementLayout as unknown as Layout;

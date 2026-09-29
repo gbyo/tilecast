@@ -541,14 +541,19 @@ export function LayoutsPage() {
   }));
 
   const closeCreate = () => {
+    const creationPending = create.isPending;
+    if (announcementDraftChanged && pendingAnnouncementRef.current) {
+      pendingAnnouncementRef.current = null;
+      setPendingAnnouncementLayoutId(undefined);
+    }
     setCreating(false);
-    if (!pendingAnnouncementRef.current) {
+    if (!creationPending && !pendingAnnouncementRef.current) {
       setName("");
       setDescription("");
       setPreset(0);
       setTemplate("blank");
     }
-    create.reset();
+    if (!creationPending) create.reset();
     if (searchParams.has("create")) {
       const next = new URLSearchParams(searchParams);
       next.delete("create");
@@ -565,6 +570,8 @@ export function LayoutsPage() {
     setRenameName("");
     rename.reset();
   };
+  const createFieldsDisabled =
+    create.isPending || Boolean(pendingAnnouncementLayoutId);
   const clearLibraryFilters = () => {
     setSearch("");
     setOrientation("all");
@@ -938,7 +945,7 @@ export function LayoutsPage() {
               <Input
                 id="layout-create-name"
                 autoFocus
-                disabled={Boolean(pendingAnnouncementLayoutId)}
+                disabled={createFieldsDisabled}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
@@ -950,7 +957,7 @@ export function LayoutsPage() {
               <Textarea
                 id="layout-create-description"
                 rows={3}
-                disabled={Boolean(pendingAnnouncementLayoutId)}
+                disabled={createFieldsDisabled}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
@@ -966,7 +973,7 @@ export function LayoutsPage() {
                 {presets.map((item, index) => (
                   <Button
                     type="button"
-                    disabled={Boolean(pendingAnnouncementLayoutId)}
+                    disabled={createFieldsDisabled}
                     variant={preset === index ? "default" : "outline"}
                     className="h-auto items-center gap-3 p-3 text-left"
                     aria-pressed={preset === index}
@@ -998,7 +1005,7 @@ export function LayoutsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
-                  disabled={Boolean(pendingAnnouncementLayoutId)}
+                  disabled={createFieldsDisabled}
                   variant={template === "blank" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
                   aria-pressed={template === "blank"}
@@ -1016,7 +1023,7 @@ export function LayoutsPage() {
                 </Button>
                 <Button
                   type="button"
-                  disabled={Boolean(pendingAnnouncementLayoutId)}
+                  disabled={createFieldsDisabled}
                   variant={template === "announcement" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
                   aria-pressed={template === "announcement"}
