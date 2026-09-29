@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   fireTvAccessibilityCommands,
+  fireTvAdbTarget,
   isFireTvScreen,
 } from "./FireTvAccessibilityAdbPanel";
 
@@ -12,6 +13,15 @@ describe("Fire TV accessibility ADB commands", () => {
     expect(commands.enable).toContain(
       'current="${current:+$current:}$component"',
     );
+  });
+
+  it("preserves explicit ports and formats IPv6 endpoints", () => {
+    expect(fireTvAdbTarget("192.168.1.44:5556")).toBe("192.168.1.44:5556");
+    expect(fireTvAccessibilityCommands("192.168.1.44:5556").connect).toBe(
+      "adb connect 192.168.1.44:5556",
+    );
+    expect(fireTvAdbTarget("2001:db8::44")).toBe("[2001:db8::44]:5555");
+    expect(fireTvAdbTarget("[2001:db8::44]:5556")).toBe("[2001:db8::44]:5556");
   });
 
   it("falls back to a clear placeholder when no address was reported", () => {
