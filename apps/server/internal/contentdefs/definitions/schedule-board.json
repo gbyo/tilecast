@@ -669,7 +669,11 @@
           },
           "background": { "$config": "backgroundColor", "default": "#101f33" },
           "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
-          "accent": { "$config": "accentColor", "default": "#5dd6c0" }
+          "accent": { "$config": "accentColor", "default": "#5dd6c0" },
+          "cardBackground": {
+            "$config": "cardBackgroundColor",
+            "default": "#19324d"
+          }
         },
         "dataSourceFields": ["dataSourceId"],
         "empty": "skip-eligible"

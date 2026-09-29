@@ -88,13 +88,18 @@ Status reads any prepared object Data Source through explicit status,
 message, severity, and time-field mappings. Panel and banner are component
 styles. `school-status-banner` maps to panel; `alert-banner` maps to banner.
 Both provider IDs stay on saved Widgets, and their compiled template
-presentations remain available to Players without the component.
+presentations remain available to Players without the component. CAP
+severities map as follows: Minor to accent, Moderate to warning, and Severe
+or Extreme to critical. A date-only effective time starts at midnight in the
+screen time zone. A date-only expiry stays active through that local day.
 
 Agenda uses one component for three styles. `agenda` groups by local day and
 marks the current event. `now-next` shows the current and next event; when a
 saved Now and Next Widget has no usable start mapping, it keeps the source
 order. `schedule-board` features the current or next event, updates its
 countdown at schedule boundaries, and can show a bounded upcoming timeline.
+When the current event has no end, the next event's start is its implicit
+end. Without a following event, it ends at the local-day boundary.
 The saved `schedule-board` provider keeps its old schema and template for
 older Players. The component does not receive the legacy column or font-size
 controls.

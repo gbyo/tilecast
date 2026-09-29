@@ -32,12 +32,18 @@ const nextTag = () => `tc-widget-kit${++seq}`;
 
 type TickConfig = { granularity: "second" | "minute"; background?: string };
 
-function tickingDefinition(options: { dayKey?: boolean } = {}) {
+function tickingDefinition(
+  options: {
+    dayKey?: boolean;
+    nextBoundary?: (now: number) => number | null;
+  } = {},
+) {
   const tag = nextTag();
   class Ticking extends TilecastWidgetElement<TickConfig, { label: string }> {
     renders = 0;
     readonly ticks = new ClockController(this, {
       granularity: () => this.config.granularity,
+      nextBoundary: options.nextBoundary,
       key: options.dayKey
         ? (now) => localDayKey(now, this.context.timeZone)
         : undefined,
@@ -139,6 +145,32 @@ describe("ClockController", () => {
     expect(clock.pendingTimers).toBe(1);
     test.dispose();
     expect(clock.pendingTimers).toBe(0);
+  });
+
+  it("wakes at an exact boundary and resumes the regular cadence", async () => {
+    const start = Date.parse("2026-09-28T14:25:36.250Z");
+    const boundary = Date.parse("2026-09-28T14:25:45.000Z");
+    const clock = createManualClock(start);
+    const test = mountForTest(
+      tickingDefinition({
+        nextBoundary: (now) => (now < boundary ? boundary : null),
+      }),
+      {
+        config: { granularity: "minute" },
+        context: createTestContext({ clock }),
+      },
+    );
+    const element = test.element as Ticking;
+    await element.updateComplete;
+
+    clock.advance(boundary - start + 7);
+    expect(element.ticks.wakeups).toBe(0);
+    clock.advance(1);
+    expect(element.ticks.wakeups).toBe(1);
+
+    clock.advance(15_000);
+    expect(element.ticks.wakeups).toBe(2);
+    test.dispose();
   });
 
   it("rerenders a keyed presentation only when its key changes", async () => {

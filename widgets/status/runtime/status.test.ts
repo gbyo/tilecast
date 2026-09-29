@@ -11,6 +11,7 @@ import {
   parseStatusConfig,
   resolveStatusData,
   severityTone,
+  statusInstant,
   statusActive,
   type StatusConfig,
   type StatusData,
@@ -188,6 +189,30 @@ describe("Status data and time model", () => {
     test.dispose();
   });
 
+  it.each([
+    ["Minor", "accent"],
+    ["Moderate", "warning"],
+    ["Severe", "critical"],
+    ["Extreme", "critical"],
+  ] as const)("maps CAP severity %s to %s", (severity, tone) => {
+    expect(severityTone(severity)).toBe(tone);
+  });
+
+  it("renders the Emergency Alerts managed severity vocabulary", async () => {
+    const { root, test } = await render(
+      { style: "banner" },
+      {
+        status: { kind: "text", text: "Tornado Warning" },
+        message: { kind: "text", text: "Take shelter now." },
+        severity: { kind: "text", text: "Extreme" },
+      },
+    );
+    expect(root.querySelector(".tc-badge")?.getAttribute("data-tone")).toBe(
+      "critical",
+    );
+    test.dispose();
+  });
+
   it("formats an updated datetime in the screen locale and time zone", async () => {
     const { text, test } = await render(
       {},
@@ -235,6 +260,32 @@ describe("Status data and time model", () => {
     ).toEqual({
       active: true,
     });
+  });
+
+  it("uses screen-local midnights and includes a date-only expiration day", () => {
+    const data: StatusData = {
+      fields: {},
+      values: {
+        effectiveAt: { kind: "date", date: "2026-09-29" },
+        expiresAt: { kind: "date", date: "2026-09-29" },
+      },
+    };
+    const zone = "America/New_York";
+    expect(statusInstant(data.values.effectiveAt, zone)).toBe(
+      Date.parse("2026-09-29T04:00:00Z"),
+    );
+    expect(
+      statusActive(base, data, Date.parse("2026-09-29T03:59:59Z"), zone),
+    ).toEqual({ active: false, reason: "not_yet_active" });
+    expect(
+      statusActive(base, data, Date.parse("2026-09-29T04:00:00Z"), zone),
+    ).toEqual({ active: true });
+    expect(
+      statusActive(base, data, Date.parse("2026-09-30T03:59:59Z"), zone),
+    ).toEqual({ active: true });
+    expect(
+      statusActive(base, data, Date.parse("2026-09-30T04:00:00Z"), zone),
+    ).toEqual({ active: false, reason: "expired" });
   });
 
   it("reevaluates an exact effective boundary from the Widget clock", async () => {

@@ -219,6 +219,13 @@ func TestLegacyDomainProvidersProjectIntoV2(t *testing.T) {
 	if component.Component.Type != "tilecast.agenda" || component.Component.Config["titleField"] != "name" || component.Component.Config["startField"] != "day" || component.Component.Config["locationField"] != "room" || component.Component.Config["maximumItems"] != float64(10) {
 		t.Fatalf("legacy agenda config did not project: %+v", component.Component)
 	}
+	schedule, err := service.compileWidgetComponent("schedule-board", json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","cardBackgroundColor":"#19324d"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if schedule.Component.Config["cardBackground"] != "#19324d" {
+		t.Fatalf("Schedule Board lost its saved card background: %+v", schedule.Component.Config)
+	}
 	weather := json.RawMessage(`{"dataSourceId":"11111111-1111-4111-8111-111111111111","showLocation":false,"forecastDays":3,"textScale":2}`)
 	component, err = service.compileWidgetComponent("weather", weather)
 	if err != nil {
@@ -229,6 +236,48 @@ func TestLegacyDomainProvidersProjectIntoV2(t *testing.T) {
 	}
 	if component.RequiredCapabilities["widget.tilecast.weather"] != 1 {
 		t.Fatalf("weather capability missing: %+v", component.RequiredCapabilities)
+	}
+}
+
+func TestAutoSkipWidgetsStayOnCompatibilityPresentations(t *testing.T) {
+	service := &Service{definitions: contentdefs.MustLoad()}
+	for _, test := range []struct {
+		provider string
+	}{
+		{"now-and-next"},
+		{"recognition-board"},
+		{"schedule-board"},
+	} {
+		t.Run(test.provider, func(t *testing.T) {
+			definition, ok := service.definitions.Widget(test.provider)
+			if !ok {
+				t.Fatal("Widget definition not found")
+			}
+			configuration := make(map[string]any, len(definition.DefaultConfiguration)+2)
+			for key, value := range definition.DefaultConfiguration {
+				configuration[key] = value
+			}
+			configuration["dataSourceId"] = "11111111-1111-4111-8111-111111111111"
+			configuration["autoSkipWhenEmpty"] = true
+			raw, err := json.Marshal(configuration)
+			if err != nil {
+				t.Fatal(err)
+			}
+			component, err := service.compileWidgetComponent(test.provider, raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if component != nil {
+				t.Fatalf("auto-skip Widget selected component presentation: %+v", component)
+			}
+			fallback, err := service.compileWidgetPresentation(test.provider, raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if fallback == nil || fallback.Native == nil || fallback.Native.Root.Props["autoSkipWhenEmpty"] != true || fallback.RequiredCapabilities["playback.auto_skip"] != 1 {
+				t.Fatalf("compatibility presentation lost auto-skip behavior: %+v", fallback)
+			}
+		})
 	}
 }
 

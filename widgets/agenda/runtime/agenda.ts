@@ -64,6 +64,7 @@ export interface AgendaConfig {
   readonly background: string | null;
   readonly foreground: string | null;
   readonly accent: string | null;
+  readonly cardBackground: string | null;
 }
 
 export interface AgendaEvent {
@@ -212,6 +213,7 @@ export function parseAgendaConfig(value: unknown): ConfigResult<AgendaConfig> {
       background: parseHexColor(raw["background"]),
       foreground: parseHexColor(raw["foreground"]),
       accent: parseHexColor(raw["accent"]),
+      cardBackground: parseHexColor(raw["cardBackground"]),
     },
   };
 }
@@ -339,6 +341,24 @@ export function isNow(
   timeZone: string,
 ): boolean {
   return event.startMs <= nowMs && !isEnded(event, nowMs, timeZone);
+}
+
+/**
+ * Schedule Board treats the next event's start as the end of an open-ended
+ * current event. This keeps it from remaining current after the next event
+ * begins and gives its countdown a precise target.
+ */
+function currentScheduleEvent(
+  events: readonly AgendaEvent[],
+  nowMs: number,
+  timeZone: string,
+): AgendaEvent | undefined {
+  return events.find((event, index) => {
+    if (!isNow(event, nowMs, timeZone)) return false;
+    if (event.endMs !== null) return true;
+    const next = events[index + 1];
+    return next === undefined || nowMs < next.startMs;
+  });
 }
 
 export interface AgendaGroup {
@@ -850,6 +870,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
       ? ""
       : formatWidgetValue(event.values[key], data.fields[key], {
           locale: this.context.locale,
+          timeZone: this.context.timeZone,
         });
   }
 
@@ -923,7 +944,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
     locale: string,
     hourCycle: HourCycle,
   ): TemplateResult {
-    const current = visible.find((event) => isNow(event, nowMs, timeZone));
+    const current = currentScheduleEvent(visible, nowMs, timeZone);
     const next = visible.find((event) => event.startMs > nowMs);
     const featured = current ?? next;
     const target = current?.endMs ?? next?.startMs ?? null;
@@ -949,7 +970,14 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
           ? html`<div class="schedule-timeline">
               ${upcoming.map(
                 (event) =>
-                  html`<article class="schedule-card">
+                  html`<article
+                    class="schedule-card"
+                    style=${
+                      this.config.cardBackground
+                        ? `background-color:${this.config.cardBackground}`
+                        : ""
+                    }
+                  >
                     <div class="schedule-card-title">
                       ${this.titleFor(event, data)}
                     </div>

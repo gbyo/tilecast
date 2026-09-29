@@ -32,8 +32,8 @@ type ComponentMediaRef struct {
 }
 
 // compileWidgetComponent returns a Widget's component presentation, or nil
-// when its definition has no component. It never replaces the compatibility
-// presentation: manifest generation chooses between them for each Player.
+// when the component cannot preserve a saved behavior. Manifest generation
+// then uses the compatibility presentation when one exists.
 func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
 	definition, ok := s.definitions.Widget(provider)
 	if !ok || definition.Component == nil {
@@ -44,6 +44,14 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 	if len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &configuration); err != nil {
 			return nil, err
+		}
+	}
+	// Component playback does not apply a Widget's playlist auto-skip signal
+	// yet. Keep an opted-in Widget on its compatibility presentation until the
+	// selected component can preserve that behavior.
+	if definition.HasFallback() {
+		if autoSkip, _ := configuration["autoSkipWhenEmpty"].(bool); autoSkip {
+			return nil, nil
 		}
 	}
 	config, err := contentdefs.CompileComponentConfig(spec, configuration)
