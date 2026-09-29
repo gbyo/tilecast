@@ -40,3 +40,64 @@ jobs:
           path: apps/player-android/app/build/test-results/testDebugUnitTest/*.xml
           reporter: java-junit
           fail-on-empty: false
+
+  conformance:
+    name: Android runtime conformance
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - name: Build Electron image (reference engine)
+        uses: ./.github/actions/edge-images
+        with:
+          targets: electron
+      - name: Android conformance on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          avd-name: tilecast-conformance
+          # The emulator must match CI's other engines: UTC, en-US, and an
+          # mdpi 1280x720 display so screenshots compare at device scale 1.
+          script: |
+            adb root
+            adb shell setprop persist.sys.timezone UTC
+            adb shell wm size 1280x720
+            adb shell wm density 160
+            mkdir -p "$RUNNER_TEMP/conformance"
+            node packages/player-runtime/conformance/run.mjs --engine android --out "$RUNNER_TEMP/conformance"
+      - name: Electron reference run
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
+            tilecast-conformance-electron \
+            node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
+      - name: Compare with the reference engine
+        run: |
+          node packages/player-runtime/conformance/compare.mjs \
+            --a "$RUNNER_TEMP/conformance/electron" --b "$RUNNER_TEMP/conformance/android" \
+            --report "$RUNNER_TEMP/conformance/report"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: android-runtime-conformance
+          path: |
+            ${{ runner.temp }}/conformance/report/**
+            ${{ runner.temp }}/conformance/android-engine-versions.txt
+            ${{ runner.temp }}/conformance/*/summary.json
+            ${{ runner.temp }}/conformance/*/*/result.json
+          if-no-files-found: ignore

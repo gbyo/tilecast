@@ -5,6 +5,12 @@
  *   node conformance/run.mjs --engine electron --out DIR [--only a,b]
  *   node conformance/run.mjs --engine wpe --out DIR --wpe-runner BIN \
  *     --gst-plugin-dir DIR [--only a,b]
+ *   node conformance/run.mjs --engine android --out DIR [--only a,b]
+ *
+ * The android engine delegates to apps/player-android/conformance/run-android.sh,
+ * which drives the instrumentation suite on an attached device or a running
+ * emulator (API 34+ recommended, UTC timezone, mdpi for scale-1 screenshots).
+ * run.mjs never boots or manages the emulator itself.
  *
  * Results land in DIR/<engine>/<fixture>/ (result.json and screenshots). The
  * environment is normalized for every engine: UTC, en-US, a fixed viewport,
@@ -37,8 +43,10 @@ const fixtures =
     : args.get("suite") === "widget-perf"
       ? widgetPerfScenarios()
       : conformanceFixtures;
-if (!["electron", "electron-legacy", "wpe"].includes(engine)) {
-  console.error("run: --engine electron|electron-legacy|wpe is required");
+if (!["electron", "electron-legacy", "wpe", "android"].includes(engine)) {
+  console.error(
+    "run: --engine electron|electron-legacy|wpe|android is required",
+  );
   process.exit(64);
 }
 
@@ -83,123 +91,190 @@ const env = {
 };
 
 const summary = [];
-for (const fixture of fixtures) {
-  if (only && !only.includes(fixture.name)) continue;
-  if (engine === "electron-legacy" && fixture.legacy === false) {
-    summary.push({
-      fixture: fixture.name,
-      status: "skipped",
-      reason: "not expressible through the legacy bridge",
-    });
-    continue;
+if (engine === "android") {
+  // Android runs every fixture inside one instrumentation pass on a device
+  // run.mjs does not manage: see apps/player-android/conformance/run-android.sh.
+  // Fixture inputs are written here so the device run and compare.mjs share
+  // the exact layout the other engines produce.
+  const selected = [];
+  for (const fixture of fixtures) {
+    if (only && !only.includes(fixture.name)) continue;
+    if (fixture.video && !video) {
+      summary.push({
+        fixture: fixture.name,
+        status: "skipped",
+        reason: "no FFmpeg for the video clip",
+      });
+      continue;
+    }
+    const dir = path.join(engineDir, fixture.name);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "fixture.json"),
+      JSON.stringify({ ...fixture, media: mediaMap }, null, 2),
+    );
+    selected.push(fixture.name);
   }
-  if (fixture.video && !video) {
-    summary.push({
-      fixture: fixture.name,
-      status: "skipped",
-      reason: "no FFmpeg for the video clip",
-    });
-    continue;
-  }
-  const dir = path.join(engineDir, fixture.name);
-  fs.mkdirSync(dir, { recursive: true });
-  const fixtureFile = path.join(dir, "fixture.json");
-  fs.writeFileSync(
-    fixtureFile,
-    JSON.stringify({ ...fixture, media: mediaMap }, null, 2),
+  const wrapper = path.join(
+    repo,
+    "apps",
+    "player-android",
+    "conformance",
+    "run-android.sh",
   );
   const started = Date.now();
-  let child;
-  if (engine === "electron" || engine === "electron-legacy") {
-    const electron =
-      process.env.TILECAST_ELECTRON ??
-      path.join(repo, "node_modules", ".bin", "electron");
-    const runner = path.join(
-      repo,
-      "apps",
-      "player-linux",
-      "conformance",
-      "runner.cjs",
-    );
-    const command = [
-      // Chromium refuses to start as root (CI containers) without this.
-      // Test harness only; the player never runs as root.
-      ...(process.getuid?.() === 0 ? ["--no-sandbox"] : []),
-      runner,
-      "--fixture",
-      fixtureFile,
-      "--runtime-dir",
-      runtimeDir,
+  const android = spawnSync(
+    wrapper,
+    [
+      "--fixtures",
+      engineDir,
       "--host-script",
       hostScript,
       "--cas-root",
       path.join(mediaDir, "cas"),
       "--out",
-      dir,
-      ...(engine === "electron-legacy"
-        ? ["--legacy-dir", path.resolve(args.get("legacy-dir") ?? "")]
-        : []),
-      ...(perf ? ["--perf"] : []),
-    ];
-    // Linux CI has no display: run under a virtual framebuffer when present.
-    const xvfb = process.platform === "linux" && !process.env.DISPLAY;
-    child = xvfb
-      ? spawnSync(
-          "xvfb-run",
-          ["-a", "-s", "-screen 0 1920x1080x24", electron, ...command],
-          { env, stdio: "inherit" },
-        )
-      : spawnSync(electron, command, { env, stdio: "inherit" });
-  } else {
-    const runner = args.get("wpe-runner");
-    const gst = args.get("gst-plugin-dir");
-    if (!runner || !gst) {
-      console.error(
-        "run: --wpe-runner and --gst-plugin-dir are required for wpe",
-      );
-      process.exit(64);
+      engineDir,
+      ...(only ? ["--only", only.join(",")] : []),
+    ],
+    { env, stdio: "inherit" },
+  );
+  for (const name of selected) {
+    const resultFile = path.join(engineDir, name, "result.json");
+    const result = fs.existsSync(resultFile)
+      ? JSON.parse(fs.readFileSync(resultFile, "utf8"))
+      : null;
+    const status =
+      android.status === 0 && result && !result.failure
+        ? "completed"
+        : "failed";
+    summary.push({
+      fixture: name,
+      status,
+      exitCode: android.status,
+      failure: result?.failure ?? (result ? null : "no result"),
+      seconds: (Date.now() - started) / 1000,
+    });
+    console.log(`run: android ${name}: ${status}`);
+  }
+} else {
+  for (const fixture of fixtures) {
+    if (only && !only.includes(fixture.name)) continue;
+    if (engine === "electron-legacy" && fixture.legacy === false) {
+      summary.push({
+        fixture: fixture.name,
+        status: "skipped",
+        reason: "not expressible through the legacy bridge",
+      });
+      continue;
     }
-    child = spawnSync(
-      runner,
-      [
+    if (fixture.video && !video) {
+      summary.push({
+        fixture: fixture.name,
+        status: "skipped",
+        reason: "no FFmpeg for the video clip",
+      });
+      continue;
+    }
+    const dir = path.join(engineDir, fixture.name);
+    fs.mkdirSync(dir, { recursive: true });
+    const fixtureFile = path.join(dir, "fixture.json");
+    fs.writeFileSync(
+      fixtureFile,
+      JSON.stringify({ ...fixture, media: mediaMap }, null, 2),
+    );
+    const started = Date.now();
+    let child;
+    if (engine === "electron" || engine === "electron-legacy") {
+      const electron =
+        process.env.TILECAST_ELECTRON ??
+        path.join(repo, "node_modules", ".bin", "electron");
+      const runner = path.join(
+        repo,
+        "apps",
+        "player-linux",
+        "conformance",
+        "runner.cjs",
+      );
+      const command = [
+        // Chromium refuses to start as root (CI containers) without this.
+        // Test harness only; the player never runs as root.
+        ...(process.getuid?.() === 0 ? ["--no-sandbox"] : []),
+        runner,
+        "--fixture",
+        fixtureFile,
         "--runtime-dir",
         runtimeDir,
         "--host-script",
         hostScript,
-        "--fixture",
-        fixtureFile,
         "--cas-root",
         path.join(mediaDir, "cas"),
         "--out",
         dir,
-        `--size=${fixture.viewport.width}x${fixture.viewport.height}`,
-      ],
-      {
-        env: {
-          ...env,
-          GST_PLUGIN_PATH: gst,
-          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1",
-          WPE_PLATFORM: "headless",
+        ...(engine === "electron-legacy"
+          ? ["--legacy-dir", path.resolve(args.get("legacy-dir") ?? "")]
+          : []),
+        ...(perf ? ["--perf"] : []),
+      ];
+      // Linux CI has no display: run under a virtual framebuffer when present.
+      const xvfb = process.platform === "linux" && !process.env.DISPLAY;
+      child = xvfb
+        ? spawnSync(
+            "xvfb-run",
+            ["-a", "-s", "-screen 0 1920x1080x24", electron, ...command],
+            { env, stdio: "inherit" },
+          )
+        : spawnSync(electron, command, { env, stdio: "inherit" });
+    } else {
+      const runner = args.get("wpe-runner");
+      const gst = args.get("gst-plugin-dir");
+      if (!runner || !gst) {
+        console.error(
+          "run: --wpe-runner and --gst-plugin-dir are required for wpe",
+        );
+        process.exit(64);
+      }
+      child = spawnSync(
+        runner,
+        [
+          "--runtime-dir",
+          runtimeDir,
+          "--host-script",
+          hostScript,
+          "--fixture",
+          fixtureFile,
+          "--cas-root",
+          path.join(mediaDir, "cas"),
+          "--out",
+          dir,
+          `--size=${fixture.viewport.width}x${fixture.viewport.height}`,
+        ],
+        {
+          env: {
+            ...env,
+            GST_PLUGIN_PATH: gst,
+            WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1",
+            WPE_PLATFORM: "headless",
+          },
+          stdio: "inherit",
         },
-        stdio: "inherit",
-      },
-    );
+      );
+    }
+    const resultFile = path.join(dir, "result.json");
+    const result = fs.existsSync(resultFile)
+      ? JSON.parse(fs.readFileSync(resultFile, "utf8"))
+      : null;
+    const status =
+      child.status === 0 && result && !result.failure ? "completed" : "failed";
+    summary.push({
+      fixture: fixture.name,
+      status,
+      exitCode: child.status,
+      failure: result?.failure ?? (result ? null : "no result"),
+      seconds: (Date.now() - started) / 1000,
+    });
+    console.log(`run: ${engine} ${fixture.name}: ${status}`);
   }
-  const resultFile = path.join(dir, "result.json");
-  const result = fs.existsSync(resultFile)
-    ? JSON.parse(fs.readFileSync(resultFile, "utf8"))
-    : null;
-  const status =
-    child.status === 0 && result && !result.failure ? "completed" : "failed";
-  summary.push({
-    fixture: fixture.name,
-    status,
-    exitCode: child.status,
-    failure: result?.failure ?? (result ? null : "no result"),
-    seconds: (Date.now() - started) / 1000,
-  });
-  console.log(`run: ${engine} ${fixture.name}: ${status}`);
-}
+} // end non-android engines
 fs.writeFileSync(
   path.join(engineDir, "summary.json"),
   JSON.stringify(summary, null, 2),
