@@ -1907,9 +1907,7 @@ export function ScreenListContent({
               <Collapsible
                 key={group.key}
                 open={!isCollapsed}
-                onOpenChange={(open) =>
-                  setGroupCollapsed(group.key, !open)
-                }
+                onOpenChange={(open) => setGroupCollapsed(group.key, !open)}
                 render={<section className="min-w-0 space-y-2" />}
               >
                 {groupBy !== "none" && (
