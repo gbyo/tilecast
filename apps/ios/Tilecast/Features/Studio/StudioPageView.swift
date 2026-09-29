@@ -3,7 +3,8 @@ import TilecastCore
 import WebKit
 
 /// Displays the main Studio page and carries out what its navigation policy
-/// asks of the system.
+/// asks of the system. `StudioOverlay` creates the only instance; layouts
+/// place it with `StudioSlotView`.
 struct StudioPageView: View {
     @Environment(StudioHost.self) private var host
     let page: StudioPage
@@ -12,12 +13,11 @@ struct StudioPageView: View {
 
     var body: some View {
         WebView(page.webPage)
-            // React Router owns history. Native history gestures stay off
-            // until native navigation coordinates with it.
+            // React Router owns history, so native history gestures stay
+            // off; native navigation goes through the bridge instead.
             .webViewBackForwardNavigationGestures(.disabled)
             // Link previews load pages outside the navigation policy.
             .webViewLinkPreviews(.disabled)
-            .ignoresSafeArea(edges: .bottom)
             .overlay { phaseOverlay }
             .onChange(of: page.pendingEvents, initial: true) { perform(page.takeEvents()) }
             // Route changes are infrequent; saving each one means a killed

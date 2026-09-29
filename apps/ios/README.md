@@ -26,7 +26,7 @@ cd apps/ios/TilecastKit
 swift test
 ```
 
-The full suite runs on the iOS Simulator, as in CI:
+The full suite runs on the iOS Simulator, as in CI. The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the UI tests a second time with `scripts/simulator-destination.py --ipad` to test the iPad sidebar.
 
 ```sh
 cd apps/ios
@@ -37,6 +37,12 @@ scripts/check-localization.py build/DerivedData
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastCoreTests
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastUITests
 ```
+
+## Native bridge and navigation
+
+Studio sends the app its navigation catalog through the native bridge. The app renders the catalog and never names a Studio route or destination. Read [Native bridge](../../docs/ios-app.md#native-bridge) and [Native navigation](../../docs/ios-app.md#native-navigation) before you change `TilecastKit/Sources/TilecastCore/Bridge/` or `TilecastKit/Sources/TilecastCore/Navigation/`. The protocol contract is [`packages/native-bridge-schema`](../../packages/native-bridge-schema/README.md). Its fixtures run in the Core tests and in the Studio tests.
+
+The app shows the one Studio web view through `StudioOverlay`. A `WebPage` can have only one `WebView`, so a layout marks where Studio goes with `StudioSlotView` and never creates a `WebView` itself.
 
 ## Localization
 

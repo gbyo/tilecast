@@ -1,27 +1,50 @@
 import SwiftUI
 import TilecastCore
 
-/// Native chrome around the single main Studio page: the server switcher,
-/// server management, and connection states. Studio renders everything
-/// inside the page, including its own navigation, until the native
-/// navigation bridge replaces the primary sidebar.
+/// Native chrome around the single main Studio page.
+///
+/// When Studio has sent a navigation catalog, the app shows native
+/// navigation (tabs, or an iPad sidebar) and Studio hides its own sidebar.
+/// Otherwise, for example on the sign-in page, with an older Studio, or
+/// after a bridge failure, the app keeps its fallback chrome: a server
+/// switcher above the page, with Studio's own navigation inside it.
 struct StudioShell: View {
     @Environment(StudioHost.self) private var host
     @State private var managingServers = false
     @State private var addingServer = false
+    @State private var slot = StudioSlot()
+
+    private var actions: ServerActions {
+        ServerActions(add: { addingServer = true }, manage: { managingServers = true })
+    }
 
     var body: some View {
+        // A ZStack, not a Group: a Group applies its modifiers to each child,
+        // which would build a second overlay and a second web view.
+        ZStack {
+            if let page = host.page, page.bridge.navigation.isAvailable {
+                NativeNavigationShell(page: page, actions: actions)
+                    .id(ObjectIdentifier(page))
+            } else {
+                fallbackShell
+            }
+        }
+        .overlay { StudioOverlay() }
+        .environment(slot)
+        .sheet(isPresented: $managingServers) { ServerListView() }
+        .sheet(isPresented: $addingServer) { AddServerView() }
+    }
+
+    private var fallbackShell: some View {
         NavigationStack {
             content
                 .navigationTitle(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"))
                 .navigationBarTitleDisplayMode(.inline)
-                .toolbarTitleMenu { serverMenu }
+                .toolbarTitleMenu { ServerMenuItems(actions: actions) }
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) { moreMenu }
                 }
         }
-        .sheet(isPresented: $managingServers) { ServerListView() }
-        .sheet(isPresented: $addingServer) { AddServerView() }
     }
 
     @ViewBuilder private var content: some View {
@@ -35,27 +58,10 @@ struct StudioShell: View {
             ServerUnavailableView(server: server, error: error)
         case .identityChanged(let server, let found):
             IdentityChangedView(server: server, found: found)
-        case .connected(let page):
-            StudioPageView(page: page)
-                .id(ObjectIdentifier(page))
+        case .connected:
+            StudioSlotView()
+                .ignoresSafeArea(edges: .bottom)
         }
-    }
-
-    @ViewBuilder private var serverMenu: some View {
-        ForEach(host.directory.servers) { server in
-            Button {
-                Task { await host.activate(server.id) }
-            } label: {
-                if server.id == host.directory.activeServerID {
-                    Label(server.displayName, systemImage: "checkmark")
-                } else {
-                    Text(server.displayName)
-                }
-            }
-        }
-        Divider()
-        Button("Add Server…", systemImage: "plus") { addingServer = true }
-        Button("Manage Servers…", systemImage: "server.rack") { managingServers = true }
     }
 
     private var moreMenu: some View {
