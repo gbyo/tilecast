@@ -387,7 +387,7 @@ describe("Layout editor chrome", () => {
 });
 
 describe("Layout editor layers and zoom controls", () => {
-  it("uses generated preview and history dialogs with Escape focus return", async () => {
+  it("opens Layout preview in a popup and keeps history as a dialog", async () => {
     mockAuth();
     vi.spyOn(api, "layoutRevisions").mockResolvedValue({
       items: [],
@@ -395,22 +395,35 @@ describe("Layout editor layers and zoom controls", () => {
       page: 1,
       pageSize: 100,
     });
+    const replace = vi.fn();
+    const focus = vi.fn();
+    const popup = {
+      opener: window,
+      location: { replace },
+      focus,
+      close: vi.fn(),
+    } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(popup);
     renderLayoutEditor();
     await screen.findByText("New text");
 
     const user = userEvent.setup();
     const preview = screen.getByRole("button", { name: "Preview" });
     await user.click(preview);
-    expect(
-      await screen.findByRole("dialog", { name: "Preview Lobby" }),
-    ).toBeInTheDocument();
-    await user.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("dialog", { name: "Preview Lobby" }),
-      ).not.toBeInTheDocument(),
+    expect(open).toHaveBeenCalledWith(
+      "about:blank",
+      "tilecast-layout-preview-layout-1",
+      "popup=yes,width=1280,height=800,resizable=yes,scrollbars=no",
     );
-    expect(preview).toHaveFocus();
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /^\/layouts\/layout-1\/preview\?date=\d{4}-\d{2}-\d{2}$/,
+        ),
+      ),
+    );
+    expect(popup.opener).toBeNull();
+    expect(focus).toHaveBeenCalled();
 
     // History lives with the other file commands rather than the toolbar.
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();

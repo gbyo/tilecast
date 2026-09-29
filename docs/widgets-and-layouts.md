@@ -175,7 +175,7 @@ Two narrow additions extend what a definition may express without weakening that
 
 The Widget editor's live preview renders at the current instant by default and can instead render at a date and time the author picks, read in the author's own time zone. The chosen instant drives everything the preview derives from the clock — clock and date formats, countdowns, and the current/next/upcoming record selection — because Studio evaluates those in the browser rather than at compile time; the compiled presentation itself is unchanged. The thumbnail captured on save reflects whatever the preview shows.
 
-The Layout preview fills the Studio window. The canvas retains its aspect ratio and fits below the preview toolbar in both portrait and landscape orientations. Widgets use the shared renderer at the scale of that canvas.
+The Layout preview opens in its own browser popup, leaving the editor available behind it. The current draft is saved before the popup navigates to the preview route, and the canvas retains its aspect ratio below the preview toolbar in both portrait and landscape orientations. Widgets use the shared renderer at the scale of that canvas.
 
 Studio draws a catalog preview for each Widget rather than an icon. The preview is inline SVG built from the definition's `thumbnail` name, follows the active theme, and needs no asset or network request. An unknown or missing name falls back to a generic preview, so a definition from a later release never breaks the gallery.
 

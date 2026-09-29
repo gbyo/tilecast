@@ -1,6 +1,5 @@
 import { cn } from "cn";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
-import { DateInput } from "../components/date-picker";
 import {
   Alert,
   AlertAction,
@@ -95,14 +94,8 @@ import { CanvasInspector } from "../components/layout-editor/CanvasInspector";
 import { PlacementInspector } from "../components/layout-editor/PlacementInspector";
 import { toast } from "../components/ui/toast";
 import {
-  AppPlacementPreview,
-  AssetPlaybackPreview,
-  PlaylistZonePreview,
-  WidgetLivePreview,
-  assetPreviewStyle,
-} from "../components/layout-editor/WidgetLivePreview";
-import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
-import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
+  LayoutPlacementView as PlacementView,
+} from "../components/layout-editor/LayoutPlacementView";
 import {
   LayoutCaptureCoordinator,
   LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
@@ -188,7 +181,6 @@ import type {
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useFormatLocale } from "../i18n";
-import { layoutFontStack } from "../layoutFonts";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
 
 type SaveState = "saved" | "unsaved" | "saving" | "conflict" | "error";
@@ -231,14 +223,6 @@ export function recentLayoutLibraryItems(
     )
     .slice(0, 20);
 }
-
-const widgetDataSourceId = (asset?: Asset): string | undefined => {
-  const widget = asset?.widget;
-  if (!widget) return undefined;
-  if (["ticker", "menu", "list", "table", "agenda"].includes(widget.provider))
-    return (widget.configuration as { dataSourceId?: string }).dataSourceId;
-  return undefined;
-};
 
 const clone = <T,>(value: T): T => structuredClone(value);
 
@@ -689,17 +673,6 @@ export function LayoutEditorPage() {
   const [safeArea, setSafeArea] = useState(true);
   const [sidebarSection, setSidebarSection] =
     useState<LayoutSidebarSection>("media");
-  const [preview, setPreview] = useState(false);
-  const [previewDate, setPreviewDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
-  const [previewValues, setPreviewValues] = useState<
-    Record<string, Record<string, string>>
-  >({});
-  const [previewAssets, setPreviewAssets] = useState<Asset[]>([]);
-  const [previewPlaylists, setPreviewPlaylists] = useState<Playlist[]>([]);
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [picker, setPicker] = useState<"media" | "widgets" | "playlists">();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -908,12 +881,9 @@ export function LayoutEditorPage() {
     });
   }, [markUnsaved]);
   const save = useCallback(async () => {
-    if (
-      !documentRef.current ||
-      savingRef.current ||
-      savedChangeVersionRef.current === changeVersionRef.current
-    )
-      return;
+    if (!documentRef.current) return false;
+    if (savingRef.current) return false;
+    if (savedChangeVersionRef.current === changeVersionRef.current) return true;
     savingRef.current = true;
     try {
       setSaveState("saving");
@@ -975,12 +945,14 @@ export function LayoutEditorPage() {
           void queryClient.invalidateQueries({ queryKey: ["layouts"] });
         })();
       }
+      return true;
     } catch (error) {
       setSaveState(
         error instanceof ApiError && error.code === "layout_revision_conflict"
           ? "conflict"
           : "error",
       );
+      return false;
     } finally {
       savingRef.current = false;
     }
@@ -1155,173 +1127,6 @@ export function LayoutEditorPage() {
     );
     stack(item);
     setSelection(new Set([item.id]));
-  };
-  // Resolve the same date-selected records/events the Player receives so previews
-  // show real values without copying data into the Layout document. Collects Data
-  // Sources referenced by both text bindings and native widgets.
-  const loadStructuredPreview = async (
-    date = previewDate,
-    resolvedAssets: Asset[] = [],
-  ) => {
-    const current = documentRef.current;
-    if (!current) return;
-    const assetsById = new Map(
-      [...(contentQuery.data?.items ?? []), ...resolvedAssets].map((asset) => [
-        asset.id,
-        asset,
-      ]),
-    );
-    const dataSourceIds = new Set<string>();
-    current.placements.forEach((placement) => {
-      const bindingId = placement.primitive?.binding?.dataSourceId;
-      if (bindingId) dataSourceIds.add(bindingId);
-      const widgetSourceId = placement.widgetId
-        ? widgetDataSourceId(assetsById.get(placement.widgetId))
-        : undefined;
-      if (widgetSourceId) dataSourceIds.add(widgetSourceId);
-    });
-    resolvedAssets.forEach((asset) => {
-      const dataSourceID = widgetDataSourceId(asset);
-      if (dataSourceID) dataSourceIds.add(dataSourceID);
-    });
-    try {
-      const resolved = await Promise.all(
-        Array.from(dataSourceIds).map(async (dataSourceId) => {
-          // Preview the saved Source by id so uploaded CSV content (stripped from
-          // the detail response) is resolved server-side, exactly as the Player sees it.
-          const preview = await api.previewSavedDataSource(dataSourceId, date);
-          if ("records" in preview) {
-            const typed = preview;
-            return [
-              dataSourceId,
-              {
-                provider: "manual" as const,
-                records: typed.records.map((record) => ({
-                  id: record.id,
-                  title:
-                    record.values.title ??
-                    Object.values(record.values).find(Boolean) ??
-                    "",
-                  values: record.values,
-                })),
-                emptyState: "No items available",
-              },
-            ] as const;
-          }
-          if ("datasets" in preview) {
-            // Live and record adapters answer named datasets rather than a
-            // flat record list. A dataset is records, an object of values,
-            // or time-series points; each becomes rows so bound widgets
-            // preview what the Player resolves.
-            return [
-              dataSourceId,
-              {
-                provider: "json" as const,
-                records: previewRecordsFromDatasets(preview.datasets),
-                emptyState: "No items available",
-              },
-            ] as const;
-          }
-          if ("configuration" in preview) {
-            const { configuration } = preview;
-            if ("events" in configuration.data) {
-              return [
-                dataSourceId,
-                {
-                  provider: "calendar" as const,
-                  events: configuration.data.events,
-                  emptyState: configuration.emptyState,
-                },
-              ] as const;
-            }
-            return [
-              dataSourceId,
-              {
-                provider: "json" as const,
-                records: configuration.data.records,
-                emptyState: configuration.emptyState,
-              },
-            ] as const;
-          }
-          throw new Error(`Unsupported preview shape for ${dataSourceId}`);
-        }),
-      );
-      const live = Object.fromEntries(resolved) as LivePreviewData;
-      // Derive first-record field values for text bindings (unchanged behaviour).
-      const values: Record<string, Record<string, string>> = {};
-      Object.entries(live).forEach(([dataSourceId, source]) => {
-        const record = source.records?.[0];
-        if (!record) return;
-        const fields: Record<string, string> = { ...(record.values ?? {}) };
-        (
-          ["title", "subtitle", "date", "author", "description"] as const
-        ).forEach((key) => {
-          const value = record[key];
-          if (value) fields[key] = value;
-        });
-        values[dataSourceId] = fields;
-      });
-      setPreviewValues(values);
-    } catch {
-      setPreviewValues({});
-    }
-  };
-  const loadLayoutPreview = async (date = previewDate) => {
-    const current = documentRef.current;
-    if (!current) return;
-    setPreviewLoading(true);
-    setPreviewError("");
-    const playlistIDs = Array.from(
-      new Set(
-        current.placements
-          .map((placement) => placement.playlistId)
-          .filter((value): value is string => Boolean(value)),
-      ),
-    );
-    const playlistResults = await Promise.allSettled(
-      playlistIDs.map((playlistID) => api.playlist(playlistID)),
-    );
-    const playlists = playlistResults.flatMap((result) =>
-      result.status === "fulfilled" ? [result.value] : [],
-    );
-    setPreviewPlaylists(playlists);
-
-    const assetIDs = new Set<string>();
-    if (current.canvas.backgroundAssetId)
-      assetIDs.add(current.canvas.backgroundAssetId);
-    current.placements.forEach((placement) => {
-      if (placement.assetId) assetIDs.add(placement.assetId);
-      if (placement.widgetId) assetIDs.add(placement.widgetId);
-    });
-    playlists.forEach((playlist) =>
-      playlist.items.forEach((item) => assetIDs.add(item.assetId)),
-    );
-    const knownAssets = new Map(
-      (contentQuery.data?.items ?? []).map((asset) => [asset.id, asset]),
-    );
-    const missingIDs = Array.from(assetIDs).filter(
-      (assetID) => !knownAssets.has(assetID),
-    );
-    const assetResults = await Promise.allSettled(
-      missingIDs.map((assetID) => api.asset(assetID)),
-    );
-    const assets = [
-      ...Array.from(assetIDs).flatMap((assetID) => {
-        const asset = knownAssets.get(assetID);
-        return asset ? [asset] : [];
-      }),
-      ...assetResults.flatMap((result) =>
-        result.status === "fulfilled" ? [result.value] : [],
-      ),
-    ];
-    setPreviewAssets(assets);
-    await loadStructuredPreview(date, assets);
-    const failures =
-      playlistResults.filter((result) => result.status === "rejected").length +
-      assetResults.filter((result) => result.status === "rejected").length;
-    if (failures)
-      setPreviewError(t("editor.previewUnavailable", { count: failures }));
-    setPreviewLoading(false);
   };
   const duplicateSelection = useCallback(() => {
     const current = documentRef.current;
@@ -2042,16 +1847,6 @@ export function LayoutEditorPage() {
   const playlistByID = new Map(
     libraryPlaylists.map((playlist) => [playlist.id, playlist] as const),
   );
-  const previewContentByID = new Map(
-    [...libraryAssets, ...previewAssets].map(
-      (asset) => [asset.id, asset] as const,
-    ),
-  );
-  const previewPlaylistByID = new Map(
-    [...libraryPlaylists, ...previewPlaylists].map(
-      (playlist) => [playlist.id, playlist] as const,
-    ),
-  );
   const dataSources = dataSourcesQuery.data?.items ?? [];
   const addLibraryItem = (
     item: LayoutLibraryItem,
@@ -2088,8 +1883,28 @@ export function LayoutEditorPage() {
     });
   };
   const openPreview = () => {
-    setPreview(true);
-    void loadLayoutPreview();
+    const popup = window.open(
+      "about:blank",
+      "tilecast-layout-preview-" + id,
+      "popup=yes,width=1280,height=800,resizable=yes,scrollbars=no",
+    );
+    if (!popup) return;
+    popup.opener = null;
+    void (async () => {
+      const saved = await save();
+      if (!saved) {
+        popup.close();
+        return;
+      }
+      const date = new Date().toISOString().slice(0, 10);
+      popup.location.replace(
+        "/layouts/" +
+          encodeURIComponent(id) +
+          "/preview?date=" +
+          encodeURIComponent(date),
+      );
+      popup.focus();
+    })();
   };
   const openHistory = () => {
     setHistoryOpen(true);
@@ -2882,7 +2697,10 @@ export function LayoutEditorPage() {
                     </MenubarShortcut>
                   </MenubarItem>
                   <MenubarSeparator />
-                  <MenubarItem onClick={openPreview}>
+                  <MenubarItem
+                    disabled={saveState === "saving"}
+                    onClick={openPreview}
+                  >
                     <Scan aria-hidden="true" />
                     {t("editor.toolbarPreview")}
                   </MenubarItem>
@@ -3233,6 +3051,7 @@ export function LayoutEditorPage() {
             type="button"
             variant="outline"
             size="sm"
+            disabled={saveState === "saving"}
             onClick={openPreview}
           >
             <Scan aria-hidden="true" />
@@ -3395,94 +3214,6 @@ export function LayoutEditorPage() {
           }}
         />
       )}
-      <Dialog open={preview} onOpenChange={setPreview}>
-        <DialogContent
-          className="layout-preview-overlay translate-x-0 translate-y-0"
-          showCloseButton={false}
-        >
-          <DialogHeader className="sr-only">
-            <DialogTitle>
-              {t("editor.previewTitle", {
-                name: layoutQuery.data?.name ?? t("editor.toolbarDefaultName"),
-              })}
-            </DialogTitle>
-            <DialogDescription>
-              {t("editor.previewDescription")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="layout-preview-toolbar">
-            <strong>{layoutQuery.data?.name}</strong>
-            <span>
-              {document.canvas.width} × {document.canvas.height}
-            </span>
-            <DateInput
-              id="layout-preview-date"
-              aria-label={t("editor.previewDateLabel")}
-              value={previewDate}
-              onChange={(date) => {
-                setPreviewDate(date);
-                void loadLayoutPreview(date);
-              }}
-            />
-            {previewLoading && (
-              <span className="layout-preview-status">
-                {t("editor.previewLoading")}
-              </span>
-            )}
-            {!previewLoading && previewError && (
-              <span className="layout-preview-status layout-preview-status--warning">
-                {previewError}
-              </span>
-            )}
-            <Button variant="secondary" onClick={() => setPreview(false)}>
-              {t("editor.previewClose")}
-            </Button>
-          </div>
-          <div
-            className="layout-preview-frame"
-            style={{
-              aspectRatio: `${document.canvas.width}/${document.canvas.height}`,
-              maxWidth: `calc((100dvh - 96px) * ${document.canvas.width / document.canvas.height})`,
-              backgroundColor: document.canvas.backgroundColor,
-            }}
-          >
-            {document.canvas.backgroundAssetId &&
-              previewContentByID.get(document.canvas.backgroundAssetId)
-                ?.type === "image" && (
-                <img
-                  className="layout-preview-background"
-                  src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
-                  alt=""
-                />
-              )}
-            {[...document.placements]
-              .sort((a, b) => a.layer - b.layer)
-              .map((item) => (
-                <PlacementView
-                  key={item.id}
-                  item={item}
-                  canvas={document.canvas}
-                  content={
-                    item.widgetId
-                      ? previewContentByID.get(item.widgetId)
-                      : item.assetId
-                        ? previewContentByID.get(item.assetId)
-                        : undefined
-                  }
-                  playlist={
-                    item.playlistId
-                      ? previewPlaylistByID.get(item.playlistId)
-                      : undefined
-                  }
-                  assetsById={previewContentByID}
-                  previewValues={previewValues}
-                  playbackPreview
-                  previewDate={previewDate}
-                />
-              ))}
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <DialogContent
           finalFocus={fileMenuTrigger}
@@ -3554,211 +3285,6 @@ export function LayoutEditorPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
-
-function PlacementView({
-  item,
-  canvas,
-  content,
-  playlist,
-  assetsById,
-  previewValues,
-  playbackPreview = false,
-  previewDate,
-  captureCoordinator,
-  selected = false,
-  onPointerDown,
-  onResize,
-  onContextMenu,
-}: {
-  item: LayoutPlacement;
-  canvas: LayoutDocument["canvas"];
-  content?: Asset;
-  playlist?: Playlist;
-  assetsById?: Map<string, Asset>;
-  previewValues?: Record<string, Record<string, string>>;
-  playbackPreview?: boolean;
-  /** Layout-selected preview date (YYYY-MM-DD) for V2 Widget zones. */
-  previewDate?: string;
-  /**
-   * Capture coordinator owned by the editor canvas. Only the canvas passes
-   * it: dialog and playlist previews are never rasterized into thumbnails.
-   */
-  captureCoordinator?: LayoutCaptureCoordinator;
-  selected?: boolean;
-  onPointerDown?: (event: ReactPointerEvent) => void;
-  onResize?: (event: ReactPointerEvent) => void;
-  onContextMenu?: (event: ReactMouseEvent<HTMLElement>) => void;
-}) {
-  const { t } = useTranslation("layouts");
-  if (!item.visible) return null;
-  const primitive = item.primitive;
-  const style: React.CSSProperties = {
-    left: `${(item.x / canvas.width) * 100}%`,
-    top: `${(item.y / canvas.height) * 100}%`,
-    width: `${(item.width / canvas.width) * 100}%`,
-    height: `${(item.height / canvas.height) * 100}%`,
-    zIndex: item.layer,
-    opacity: item.opacity,
-  };
-  return (
-    <div
-      className={`layout-placement ${selected ? "is-selected" : ""} ${item.locked ? "is-locked" : ""}`}
-      style={style}
-      onPointerDown={onPointerDown}
-      // Capture phase so the menu target is set before the Base UI trigger opens.
-      onContextMenuCapture={onContextMenu}
-    >
-      {item.type === "playlistZone" ? (
-        playbackPreview && playlist?.items?.length ? (
-          <PlaylistZonePreview
-            placement={item}
-            playlist={playlist}
-            assetsById={assetsById ?? new Map()}
-            previewDate={previewDate}
-            captureTracking={
-              captureCoordinator
-                ? { coordinator: captureCoordinator, zoneId: item.id }
-                : undefined
-            }
-          />
-        ) : playlist?.items?.[0]?.thumbnailUrl ? (
-          <img
-            className="layout-asset-placement"
-            src={playlist.items[0].thumbnailUrl}
-            alt=""
-            draggable={false}
-            style={assetPreviewStyle(
-              item.playback?.fit,
-              item.playback?.cornerRadius,
-            )}
-          />
-        ) : (
-          <div className="layout-playlist-zone">
-            <ListVideo size={22} />
-            <strong>{playlist?.name ?? item.name}</strong>
-            <span>
-              {t("editor.zoneBadge", {
-                count: playlist?.itemCount ?? 0,
-              })}
-            </span>
-          </div>
-        )
-      ) : item.type === "asset" ? (
-        playbackPreview && content ? (
-          <AssetPlaybackPreview asset={content} placement={item} />
-        ) : content?.thumbnailUrl ? (
-          <img
-            className="layout-asset-placement"
-            src={content.thumbnailUrl}
-            alt=""
-            draggable={false}
-            style={assetPreviewStyle(
-              item.playback?.fit,
-              item.playback?.cornerRadius,
-            )}
-          />
-        ) : (
-          <div className="layout-placement-placeholder">
-            <ImageIcon size={22} />
-            <span>{content?.name ?? item.name}</span>
-          </div>
-        )
-      ) : item.type === "widget" ? (
-        content?.widget ? (
-          <WidgetLivePreview
-            asset={content}
-            item={item}
-            previewDate={previewDate}
-            captureTracking={
-              captureCoordinator
-                ? { coordinator: captureCoordinator, zoneId: item.id }
-                : undefined
-            }
-          />
-        ) : (
-          <AppPlacementPreview asset={content} item={item} />
-        )
-      ) : primitive?.kind === "text" ? (
-        <div
-          className="layout-text-primitive"
-          style={{
-            fontFamily: layoutFontStack(primitive.fontFamily),
-            fontSize: `${((primitive.fontSize ?? 48) / canvas.width) * 100}cqw`,
-            fontWeight: primitive.fontWeight,
-            textAlign: primitive.textAlign,
-            color: primitive.color,
-            backgroundColor: primitive.backgroundColor,
-            lineHeight: primitive.lineHeight,
-            letterSpacing: primitive.letterSpacing,
-            padding: `${((primitive.padding ?? 0) / canvas.width) * 100}cqw`,
-            border: `${primitive.borderWidth ?? 0}px solid ${primitive.borderColor ?? "transparent"}`,
-            borderRadius: `${primitive.cornerRadius ?? 0}px`,
-            justifyContent:
-              primitive.verticalAlign === "top"
-                ? "flex-start"
-                : primitive.verticalAlign === "bottom"
-                  ? "flex-end"
-                  : "center",
-            WebkitLineClamp: primitive.maximumLines,
-            overflow: primitive.overflow === "clip" ? "hidden" : "hidden",
-          }}
-        >
-          {primitive.binding
-            ? (() => {
-                const binding = primitive.binding;
-                const value =
-                  previewValues?.[binding.dataSourceId]?.[binding.field];
-                return value
-                  ? `${binding.prefix ?? ""}${value}${binding.suffix ?? ""}`
-                  : binding.fallbackText ||
-                      `${binding.prefix ?? ""}{{${binding.field}}}${binding.suffix ?? ""}`;
-              })()
-            : primitive.text}
-        </div>
-      ) : primitive?.kind === "circle" ? (
-        <div
-          className="layout-shape layout-shape--circle"
-          style={{
-            background: primitive.fillColor,
-            border: `${primitive.strokeWidth ?? 0}px solid ${primitive.strokeColor ?? "transparent"}`,
-          }}
-        />
-      ) : primitive?.kind === "line" ? (
-        <div
-          className="layout-line"
-          style={{
-            height: `${Math.max(1, primitive.strokeWidth ?? 4)}px`,
-            background: primitive.strokeColor,
-          }}
-        />
-      ) : primitive?.kind === "group" ? (
-        <div className="layout-group-outline">
-          <Group size={18} />
-          <span>{item.name}</span>
-        </div>
-      ) : (
-        <div
-          className="layout-shape"
-          style={{
-            background: primitive?.fillColor,
-            border: `${primitive?.strokeWidth ?? 0}px solid ${primitive?.strokeColor ?? "transparent"}`,
-            borderRadius: `${primitive?.cornerRadius ?? 0}px`,
-          }}
-        />
-      )}
-      {selected && !item.locked && onResize && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-xs"
-          className="layout-resize-handle"
-          aria-label={t("editor.resizeLabel")}
-          onPointerDown={onResize}
-        />
-      )}
     </div>
   );
 }
