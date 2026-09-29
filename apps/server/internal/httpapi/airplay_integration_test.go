@@ -164,6 +164,66 @@ func TestAirplaySessionCreationPersistsAssignmentAndStopIsIdempotent(t *testing.
 	})
 }
 
+func TestAirplayStopFailureRemainsRetryable(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		airplayCreateTestSetup(t, env)
+		created := httptest.NewRecorder()
+		env.server.createAirplaySession(created, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions", airplayCreateBody(env.screenID), env.owner))
+		if created.Code != http.StatusAccepted {
+			t.Fatalf("create status=%d body=%s", created.Code, created.Body.String())
+		}
+		var envelope struct {
+			Data struct {
+				ID uuid.UUID `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(created.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		record, err := env.server.getAirplayRecord(context.Background(), envelope.Data.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Force the cleanup command insert to fail after the durable "stopping"
+		// transition. The retry must resume cleanup instead of treating that
+		// intermediate state as a successful terminal stop.
+		broken := record
+		broken.OrganizationID = uuid.New()
+		if err := env.server.stopAirplaySessionInternal(context.Background(), broken, env.owner.User.ID, "manual_stop"); err == nil {
+			t.Fatal("stop with an invalid organization should fail")
+		}
+		var status string
+		if err := env.pool.QueryRow(context.Background(), `SELECT status FROM external_presentation_sessions WHERE id=$1`, envelope.Data.ID).Scan(&status); err != nil {
+			t.Fatal(err)
+		}
+		if status != "stopping" {
+			t.Fatalf("failed cleanup left status=%q, want stopping", status)
+		}
+
+		retryRecord, err := env.server.getAirplayRecord(context.Background(), envelope.Data.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := env.server.stopAirplaySessionInternal(context.Background(), retryRecord, env.owner.User.ID, "manual_stop"); err != nil {
+			t.Fatalf("retry stop: %v", err)
+		}
+		if err := env.pool.QueryRow(context.Background(), `SELECT status FROM external_presentation_sessions WHERE id=$1`, envelope.Data.ID).Scan(&status); err != nil {
+			t.Fatal(err)
+		}
+		if status != "ended" {
+			t.Fatalf("retry cleanup left status=%q, want ended", status)
+		}
+		var stopCount int
+		if err := env.pool.QueryRow(context.Background(), `SELECT count(*) FROM player_commands WHERE screen_id=$1 AND type='stop_airplay_session' AND payload->>'sessionId'=$2`, env.screenID, envelope.Data.ID.String()).Scan(&stopCount); err != nil {
+			t.Fatal(err)
+		}
+		if stopCount != 1 {
+			t.Fatalf("retry cleanup stop commands=%d, want 1", stopCount)
+		}
+	})
+}
+
 func TestConcurrentAirplayActivationAllowsOnlyOneSession(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		airplayCreateTestSetup(t, env)
