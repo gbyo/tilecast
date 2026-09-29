@@ -12,13 +12,7 @@
 //   3. Show the data, not just its name. The selected source reports status, cached record
 //      count, and sample values.
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronRight,
-  Database,
-  Plus,
-  X,
-} from "lucide-react";
+import { Check, ChevronRight, Database, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
