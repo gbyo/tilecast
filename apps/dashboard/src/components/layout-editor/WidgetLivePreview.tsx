@@ -95,14 +95,10 @@ export function PlaylistZonePreview({
   placement,
   playlist,
   assetsById,
-  live,
-  scale,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
-  live: LivePreviewData;
-  scale: number;
 }) {
   const { t } = useTranslation("layouts");
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
@@ -151,12 +147,7 @@ export function PlaylistZonePreview({
     return (
       <div className={className} key={`${playlist.id}-${current.id}`}>
         {asset.widget ? (
-          <WidgetLivePreview
-            asset={asset}
-            item={placement}
-            live={live}
-            scale={scale}
-          />
+          <WidgetLivePreview asset={asset} item={placement} />
         ) : (
           <AppPlacementPreview asset={asset} item={placement} />
         )}
@@ -266,12 +257,9 @@ export function AppPlacementPreview({
 export function WidgetLivePreview({
   asset,
   item,
-  scale,
 }: {
   asset: Asset;
   item: LayoutPlacement;
-  live: LivePreviewData;
-  scale: number;
 }) {
   const definitions = useQuery({
     queryKey: ["content-definitions"],
@@ -283,8 +271,12 @@ export function WidgetLivePreview({
       <V2ZonePreview
         provider={provider}
         asset={asset}
-        width={item.width * scale}
-        height={item.height * scale}
+        // Keep the intrinsic Layout-zone geometry here. WidgetPreviewHost
+        // scales the whole mounted surface to the Studio box, so responsive
+        // Widget/container-query behavior matches playback instead of being
+        // compiled against the already-shrunken preview pixels.
+        width={item.width}
+        height={item.height}
         overrides={item.overrides}
       />
     );
