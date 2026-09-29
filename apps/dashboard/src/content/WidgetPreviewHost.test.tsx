@@ -110,7 +110,14 @@ describe("WidgetPreviewHost", () => {
 
     act(() => {
       resize?.(
-        [{ contentRect: { width: 600 } } as ResizeObserverEntry],
+        [
+          {
+            // Prefer the content box over the legacy rectangle when both are
+            // available. The conflicting fallback value makes that explicit.
+            contentBoxSize: [{ inlineSize: 600, blockSize: 338 }],
+            contentRect: { width: 400 },
+          } as unknown as ResizeObserverEntry,
+        ],
         {} as ResizeObserver,
       );
     });
@@ -125,6 +132,104 @@ describe("WidgetPreviewHost", () => {
     expect(intrinsicFrame.style.width).toBe("960px");
     expect(intrinsicFrame.style.height).toBe("540px");
   });
+
+  it("falls back to contentRect when contentBoxSize is unavailable", async () => {
+    let resize: ResizeObserverCallback | undefined;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resize = callback;
+        }
+
+        observe = vi.fn();
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+
+    render(
+      <WidgetPreviewHost
+        component={component(FULL_CONFIG)}
+        resources={createWidgetResources({ documents: new Map() }, {})}
+        context={context(new PreviewClock())}
+        frame={{ width: 960, height: 540 }}
+        label="Clock preview"
+      />,
+    );
+
+    const region = screen.getByRole("img", { name: "Clock preview" });
+    await waitFor(() => region.querySelector("tc-widget-clock"));
+    act(() => {
+      resize?.(
+        [{ contentRect: { width: 480 } } as ResizeObserverEntry],
+        {} as ResizeObserver,
+      );
+    });
+    expect((region.firstElementChild as HTMLElement).style.transform).toBe(
+      "scale(0.5)",
+    );
+  });
+
+  it.each([
+    ["Landscape", { width: 960, height: 540 }],
+    ["Portrait", { width: 540, height: 960 }],
+    ["Wide strip", { width: 960, height: 240 }],
+    ["Tall sidebar", { width: 360, height: 960 }],
+    ["Small zone", { width: 320, height: 180 }],
+    ["Custom", { width: 777, height: 333 }],
+  ])(
+    "keeps the %s frame intrinsic while the Widget stays mounted",
+    async (_name, frame) => {
+      const resources = createWidgetResources(
+        { documents: new Map() },
+        { dataSources: ["probe"] },
+      );
+      const previewContext = context(new PreviewClock());
+      const { container, rerender } = render(
+        <WidgetPreviewHost
+          component={component(FULL_CONFIG)}
+          resources={resources}
+          context={previewContext}
+          frame={{ width: 960, height: 540 }}
+          label="Clock preview"
+        />,
+      );
+      const before = await waitFor(() =>
+        container.querySelector("tc-widget-clock"),
+      );
+
+      rerender(
+        <WidgetPreviewHost
+          component={component(FULL_CONFIG)}
+          resources={createWidgetResources(
+            { documents: new Map() },
+            { dataSources: ["probe-next"] },
+          )}
+          context={{ ...previewContext, locale: "fr-FR" }}
+          frame={frame}
+          label="Clock preview"
+        />,
+      );
+
+      const region = screen.getByRole("img", { name: "Clock preview" });
+      const stage = region.firstElementChild as HTMLElement;
+      const intrinsicFrame = stage.firstElementChild as HTMLElement;
+      expect(container.querySelector("tc-widget-clock")).toBe(before);
+      expect(region.style.aspectRatio).toBe(`${frame.width} / ${frame.height}`);
+      expect(stage.style.width).toBe(`${frame.width}px`);
+      expect(stage.style.height).toBe(`${frame.height}px`);
+      expect(intrinsicFrame.style.width).toBe(`${frame.width}px`);
+      expect(intrinsicFrame.style.height).toBe(`${frame.height}px`);
+      expect(
+        (
+          before as HTMLElement & {
+            context: WidgetContext;
+          }
+        ).context.locale,
+      ).toBe("fr-FR");
+    },
+  );
 
   it("updates the element in place when the compiled config changes", async () => {
     const { container, rerender } = render(

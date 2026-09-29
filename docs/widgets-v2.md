@@ -4,9 +4,19 @@
 
 **Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.
 
-A Widgets V2 Widget is a first-class presentation component of the shared Player Runtime. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in every shared-runtime host: Electron/Chromium, Tilecast Edge (WPE WebKit), Tilecast Studio preview, and, after the Android convergence (§12), the Android trusted local WebView.
+A Widgets V2 Widget is a first-class presentation component. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in Tilecast Studio preview and inside the shared Player Runtime hosted by Electron/Chromium, Tilecast Edge (WPE WebKit), and the converging Android trusted local WebView.
 
 If Weather looks wrong, there is one Weather renderer to fix.
+
+### Shared renderer terminology
+
+**Shared Widget renderer** means the Widget runtime module (the real Web Component) plus `WidgetMount` from `@tilecast/widget-sdk`. Studio, Storybook/fixtures, and the Player Runtime all use that boundary.
+
+**Shared Player Runtime** means the complete trusted playback document and engine in `@tilecast/player-runtime`: presentation lifecycle, occurrence staging, transitions, evidence, host capabilities and bridges, synchronized playback, remote-web surfaces, and playback failure policy. Electron, Edge/WPE, and Android host that runtime.
+
+Studio intentionally does **not** instantiate the complete Player Runtime for ordinary Widget authoring preview. It supplies preview-specific `WidgetContext`, `WidgetResources`, locally edited configuration, and intrinsic preview geometry directly to `WidgetMount`.
+
+The architectural invariant is: **one Widget component renders fullscreen, Layout zones, Studio, and Storybook.**
 
 ## 1. Architecture checkpoint (2026-09-26)
 

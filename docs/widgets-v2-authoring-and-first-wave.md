@@ -270,7 +270,9 @@ keeps lightweight schematic thumbnails.
 
 ## 2. Studio preview moves completely to the shared Widget renderer
 
-Widgets V2 has one renderer. Studio is one host of that renderer.
+Widgets V2 has one renderer. Here, **shared Widget renderer** means the Widget runtime module plus `WidgetMount`; it does not mean the complete `@tilecast/player-runtime` playback document or XState engine. Studio is a host of the Widget renderer, not a Player Runtime host.
+
+That distinction is intentional. Studio supplies authoring-specific context (manual preview time, author locale/timezone, preview mode), locally edited configuration, preview resources, and intrinsic preview geometry. Playback-only lifecycle, staging, transitions, evidence, synchronization, host bridges/capabilities, remote-web surfaces, and failure policy stay in the Player Runtime.
 
 The V2 preview path is:
 

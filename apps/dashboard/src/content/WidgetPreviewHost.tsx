@@ -89,7 +89,14 @@ export function WidgetPreviewHost({
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
-      if (entry) fitToWidth(entry.contentRect.width);
+      if (!entry) return;
+      // Modern ResizeObserver reports the actual content box directly. Keep
+      // contentRect as the compatibility fallback for engines that do not.
+      const contentBoxSize = entry.contentBoxSize;
+      const firstContentBox = Array.isArray(contentBoxSize)
+        ? (contentBoxSize as readonly ResizeObserverSize[])[0]
+        : (contentBoxSize as unknown as ResizeObserverSize | undefined);
+      fitToWidth(firstContentBox?.inlineSize ?? entry.contentRect.width);
     });
     observer.observe(viewport);
     return () => observer.disconnect();
