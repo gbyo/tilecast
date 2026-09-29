@@ -15,19 +15,79 @@ export type NativeCapabilities = {
   nativeNavigation: boolean;
   /** The host keeps a native credential that follows Studio's sign-out. */
   authLifecycle: boolean;
+  /** The host presents /__native/modal routes in a native sheet. */
+  nativePresentations: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
   nativeNavigation: false,
   authLifecycle: false,
+  nativePresentations: false,
 };
 
-/** Capabilities Studio reports to the host in frontend/ready. */
-export type FrontendCapabilities = { authLifecycle?: boolean };
+/**
+ * The kind of page this document is, as the host's config/get reply says.
+ * main is the one Studio page with native navigation and the auth
+ * lifecycle; presentation is the page that renders native presentations.
+ */
+export type BridgeContext = "main" | "presentation";
 
-/** What this Studio supports. It handles auth/sign-out-request. */
+/** Capabilities Studio reports to the host in frontend/ready. */
+export type FrontendCapabilities = {
+  authLifecycle?: boolean;
+  nativePresentations?: boolean;
+};
+
+/**
+ * What this Studio supports: it handles auth/sign-out-request, and it has
+ * the presentation routes and messages.
+ */
 export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
+  nativePresentations: true,
+};
+
+/** The one presentation route root a host knows. Studio owns its children. */
+export const PRESENTATION_ROOT = "/__native/modal";
+
+/** compact and full are defined; a host shows any other size as full. */
+export type PresentationSize = "compact" | "full";
+
+export type PresentationAction = { id: string; label: string; icon: string };
+
+export type PresentationMenuItem = {
+  id: string;
+  label: string;
+  icon?: string;
+  disabled?: boolean;
+};
+
+/** A complete snapshot of the native header. It replaces the last one. */
+export type PresentationHeader = {
+  title: string;
+  subtitle?: string;
+  /** close dismisses; back reports the action id "back". */
+  navigation?: "close" | "back";
+  navigationLabel?: string;
+  menuLabel?: string;
+  actions?: PresentationAction[];
+  menu?: PresentationMenuItem[];
+};
+
+export type PresentationOpenPayload = {
+  presentationId: string;
+  path: string;
+  title: string;
+  subtitle?: string;
+  size?: PresentationSize;
+  dismissible?: boolean;
+};
+
+export type PresentationUpdatePayload = {
+  presentationId: string;
+  header?: PresentationHeader;
+  size?: PresentationSize;
+  dismissible?: boolean;
 };
 
 export type NavigationCatalogPayload = {
@@ -56,6 +116,14 @@ export type FrontendToNativePayloads = {
   "navigation/state": NavigationStatePayload;
   /** Studio finished its own logout. Carries no credential. */
   "auth/signed-out": Record<string, never>;
+  /** Main page: present a /__native/modal route natively. */
+  "presentation/open": PresentationOpenPayload;
+  /** Presentation page: booted, signed in, and listening. */
+  "presentation/ready": Record<string, never>;
+  "presentation/update": PresentationUpdatePayload;
+  "presentation/close": { presentationId: string };
+  /** Dismiss, then navigate the main Studio page to path. */
+  "presentation/navigate": { presentationId: string; path: string };
 };
 
 export type FrontendToNativeType = keyof FrontendToNativePayloads;
@@ -65,6 +133,14 @@ export type NativeToFrontendPayloads = {
   "navigation/request": { destinationId: string };
   /** The host asks Studio to sign out with its normal logout. */
   "auth/sign-out-request": Record<string, never>;
+  /** Main page: a presentation asked Studio to navigate here. */
+  "navigation/open-path": { path: string };
+  /** Presentation page: show this route for this presentation. */
+  "presentation/show": { presentationId: string; path: string };
+  /** Presentation page: the user chose a header action. */
+  "presentation/action": { presentationId: string; actionId: string };
+  /** Presentation page: the native sheet went away. */
+  "presentation/dismissed": { presentationId: string };
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -124,6 +200,65 @@ function isBoundedString(value: unknown, max: number): value is string {
 
 export function isDestinationId(value: unknown): value is string {
   return isBoundedString(value, 128) && destinationIdPattern.test(value);
+}
+
+/** Presentation and action ids share the destination id pattern. */
+export function isOpaqueId(value: unknown): value is string {
+  return isBoundedString(value, 64) && destinationIdPattern.test(value);
+}
+
+// Whitespace, controls, and backslashes, which browsers read as slashes.
+// eslint-disable-next-line no-control-regex
+const unsafePathCharacter = /[\s\\\u0000-\u001f\u007f]/;
+
+/** The path component, before any query or fragment. */
+function pathComponent(value: string) {
+  return value.split(/[?#]/, 1)[0] ?? "";
+}
+
+/** A . or .. segment, also percent-encoded, could leave a route tree. */
+function hasDotSegment(path: string) {
+  return path
+    .split("/")
+    .some((segment) =>
+      [".", ".."].includes(segment.toLowerCase().replaceAll("%2e", ".")),
+    );
+}
+
+function isSafeRelativePath(value: unknown, max: number): value is string {
+  return (
+    isBoundedString(value, max) &&
+    value.startsWith("/") &&
+    !value.startsWith("//") &&
+    !unsafePathCharacter.test(value) &&
+    !hasDotSegment(pathComponent(value))
+  );
+}
+
+function isInTree(path: string, root: string) {
+  return path === root || path.startsWith(`${root}/`);
+}
+
+/**
+ * A same-origin path inside the reserved presentation tree. Hosts accept
+ * nothing else in presentation/open and presentation/show.
+ */
+export function isPresentationPath(value: unknown): value is string {
+  return (
+    isSafeRelativePath(value, 1024) &&
+    isInTree(pathComponent(value), PRESENTATION_ROOT)
+  );
+}
+
+/**
+ * An ordinary same-origin Studio path a presentation may navigate the main
+ * page to. The reserved /__native tree is never a destination.
+ */
+export function isStudioPath(value: unknown): value is string {
+  return (
+    isSafeRelativePath(value, 2048) &&
+    !isInTree(pathComponent(value), "/__native")
+  );
 }
 
 /**
@@ -187,6 +322,58 @@ export function decodeNativeMessage(
       };
     case "auth/sign-out-request":
       return { outcome: "accept", message: { type, ...withId, payload: {} } };
+    case "navigation/open-path":
+      if (!isStudioPath(payload.path)) return { outcome: "malformed" };
+      return {
+        outcome: "accept",
+        message: { type, ...withId, payload: { path: payload.path } },
+      };
+    case "presentation/show":
+      if (
+        !isOpaqueId(payload.presentationId) ||
+        !isPresentationPath(payload.path)
+      ) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            presentationId: payload.presentationId,
+            path: payload.path,
+          },
+        },
+      };
+    case "presentation/action":
+      if (
+        !isOpaqueId(payload.presentationId) ||
+        !isOpaqueId(payload.actionId)
+      ) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            presentationId: payload.presentationId,
+            actionId: payload.actionId,
+          },
+        },
+      };
+    case "presentation/dismissed":
+      if (!isOpaqueId(payload.presentationId)) return { outcome: "malformed" };
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: { presentationId: payload.presentationId },
+        },
+      };
     default:
       return { outcome: "unknownType", type };
   }
@@ -242,24 +429,32 @@ export function decodeNativeReply(value: unknown): Decoded<NativeReply> {
 }
 
 /**
- * The capabilities in a config/get reply payload. A capability that is
- * absent or not exactly true is unavailable.
+ * The bridge context and capabilities in a config/get reply payload. A
+ * capability that is absent or not exactly true is unavailable. A host that
+ * names no context predates presentations and is the main page; a context
+ * Studio does not know refuses the negotiation, so Studio behaves as in a
+ * browser rather than guess what kind of page it is.
  */
-export function decodeCapabilities(
+export function decodeHostConfig(
   payload: Record<string, unknown>,
-): NativeCapabilities | null {
-  const { protocolVersion, capabilities } = payload;
+): { context: BridgeContext; capabilities: NativeCapabilities } | null {
+  const { protocolVersion, capabilities, context = "main" } = payload;
   if (
     typeof protocolVersion !== "number" ||
     !Number.isInteger(protocolVersion) ||
     protocolVersion < 1 ||
-    !isObject(capabilities)
+    !isObject(capabilities) ||
+    (context !== "main" && context !== "presentation")
   ) {
     return null;
   }
   return {
-    nativeNavigation: capabilities.nativeNavigation === true,
-    authLifecycle: capabilities.authLifecycle === true,
+    context,
+    capabilities: {
+      nativeNavigation: capabilities.nativeNavigation === true,
+      authLifecycle: capabilities.authLifecycle === true,
+      nativePresentations: capabilities.nativePresentations === true,
+    },
   };
 }
 

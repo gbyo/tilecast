@@ -260,6 +260,7 @@ public final class StudioHost {
     /// server, so signing out works offline. Other website data stays.
     public func signOut() async {
         guard let page else { return }
+        page.presentations.discard()
         directory.recordSignOut(page.serverID)
         _ = await page.bridge.requestSignOut()
         if let nativeAuth, nativeAuth.key.serverID == page.serverID { await nativeAuth.signOut() }
@@ -280,6 +281,7 @@ public final class StudioHost {
     /// Studio signed out by itself, from its account menu.
     func studioSignedOut(_ page: StudioPage) {
         guard page === self.page else { return }
+        page.presentations.discard()
         directory.recordSignOut(page.serverID)
         if let nativeAuth { Task { await nativeAuth.signOut() } }
     }
@@ -295,6 +297,7 @@ public final class StudioHost {
                 switch event {
                 case .authenticationLost:
                     guard !page.signInRequired else { continue }
+                    page.presentations.discard()
                     directory.recordSignOut(page.serverID)
                     if await !page.bridge.requestSignOut(), page === self.page { page.reload() }
                 }

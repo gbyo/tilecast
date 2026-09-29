@@ -133,6 +133,10 @@
             "authLifecycle": {
               "description": "Studio handles auth/sign-out-request and reports auth/signed-out.",
               "type": "boolean"
+            },
+            "nativePresentations": {
+              "description": "Studio has the /__native/modal presentation routes, handles the presentation messages, and handles navigation/open-path.",
+              "type": "boolean"
             }
           }
         }
@@ -151,6 +155,10 @@
       "required": ["protocolVersion", "capabilities"],
       "properties": {
         "protocolVersion": { "type": "integer", "minimum": 1 },
+        "context": {
+          "description": "The kind of page this bridge belongs to. Omitted means main, as hosts before presentations reply.",
+          "$ref": "#/$defs/bridgeContext"
+        },
         "capabilities": {
           "description": "Capabilities the host offers. A capability that is absent or not true is unavailable.",
           "type": "object",
@@ -159,8 +167,226 @@
             "authLifecycle": {
               "description": "The host keeps a native credential whose lifecycle follows Studio's sign-out. Studio reports auth/signed-out only to a host that offers it.",
               "type": "boolean"
+            },
+            "nativePresentations": {
+              "description": "The host can present /__native/modal routes in a native sheet. On the main page it accepts presentation/open; on the presentation page it sends presentation/show.",
+              "type": "boolean"
             }
           }
+        }
+      }
+    },
+    "bridgeContext": {
+      "description": "The kind of page a bridge endpoint belongs to. main is the one Studio page with native navigation and the auth lifecycle. presentation is the page that renders native presentation content.",
+      "enum": ["main", "presentation"]
+    },
+    "presentationId": {
+      "description": "An opaque identifier Studio creates for one presentation. It is not a request id: it separates one presentation from the next, so a late message about an old presentation cannot change a newer one.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "presentationPath": {
+      "description": "A same-origin path inside the reserved presentation route tree, /__native/modal. A host knows only this root; Studio owns every child route. A decoder also refuses dot segments, which could leave the tree.",
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 1024,
+      "pattern": "^/__native/modal(?:[/?#][^\\s\\\\]*)?$"
+    },
+    "studioPath": {
+      "description": "An ordinary same-origin Studio path, with an optional query and fragment. The host treats it as opaque after validation. A decoder also refuses dot segments and the reserved /__native tree.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^/(?![/\\\\])[^\\s\\\\]*$"
+    },
+    "presentationSize": {
+      "description": "How much room the presentation needs. compact starts at half height and can grow; full takes the whole sheet. A host shows any other value as full.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "actionId": {
+      "description": "An opaque toolbar action identifier. Only the presentation's Studio page interprets it. The reserved id back reports the leading back button.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "presentationAction": {
+      "type": "object",
+      "required": ["id", "label", "icon"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
+        "label": {
+          "description": "Localized. The host shows the icon and uses the label for accessibility.",
+          "$ref": "#/$defs/title"
+        },
+        "icon": {
+          "$ref": "#/$defs/iconToken"
+        }
+      }
+    },
+    "presentationMenuItem": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
+        "label": {
+          "$ref": "#/$defs/title"
+        },
+        "icon": {
+          "$ref": "#/$defs/iconToken"
+        },
+        "disabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "presentationHeader": {
+      "description": "A complete snapshot of the native header. It replaces the previous header; omitted actions and menu mean none. Action and menu ids are unique across the header.",
+      "type": "object",
+      "required": ["title"],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "subtitle": {
+          "$ref": "#/$defs/title"
+        },
+        "navigation": {
+          "description": "The leading control. close dismisses the presentation. back reports the action id back. A host shows any other value as close.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "navigationLabel": {
+          "description": "Localized accessibility label of the leading control.",
+          "$ref": "#/$defs/title"
+        },
+        "menuLabel": {
+          "description": "Localized accessibility label of the overflow menu.",
+          "$ref": "#/$defs/title"
+        },
+        "actions": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/presentationAction"
+          }
+        },
+        "menu": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/presentationMenuItem"
+          }
+        }
+      }
+    },
+    "presentationOpenPayload": {
+      "description": "The main Studio page asks the host to present a route. title and subtitle are already localized. dismissible defaults to true.",
+      "type": "object",
+      "required": ["presentationId", "path", "title"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/presentationPath"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "subtitle": {
+          "$ref": "#/$defs/title"
+        },
+        "size": {
+          "$ref": "#/$defs/presentationSize"
+        },
+        "dismissible": {
+          "type": "boolean"
+        }
+      }
+    },
+    "presentationUpdatePayload": {
+      "description": "The presentation page changes its native chrome. Each property that is present replaces the current value.",
+      "type": "object",
+      "required": ["presentationId"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "header": {
+          "$ref": "#/$defs/presentationHeader"
+        },
+        "size": {
+          "$ref": "#/$defs/presentationSize"
+        },
+        "dismissible": {
+          "type": "boolean"
+        }
+      }
+    },
+    "presentationIdPayload": {
+      "type": "object",
+      "required": ["presentationId"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        }
+      }
+    },
+    "presentationNavigatePayload": {
+      "type": "object",
+      "required": ["presentationId", "path"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/studioPath"
+        }
+      }
+    },
+    "presentationShowPayload": {
+      "type": "object",
+      "required": ["presentationId", "path"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/presentationPath"
+        }
+      }
+    },
+    "presentationActionPayload": {
+      "type": "object",
+      "required": ["presentationId", "actionId"],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/actionId"
+        }
+      }
+    },
+    "navigationOpenPathPayload": {
+      "description": "The host relays a path from a presentation to the main Studio page, which navigates with its router.",
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/studioPath"
         }
       }
     },
@@ -176,7 +402,12 @@
                 "frontend/ready",
                 "navigation/catalog",
                 "navigation/state",
-                "auth/signed-out"
+                "auth/signed-out",
+                "presentation/open",
+                "presentation/ready",
+                "presentation/update",
+                "presentation/close",
+                "presentation/navigate"
               ]
             }
           }
@@ -217,6 +448,53 @@
               "payload": { "$ref": "#/$defs/navigationStatePayload" }
             }
           }
+        },
+        {
+          "description": "Main page only. A presentation page that sends it gets forbidden.",
+          "if": { "properties": { "type": { "const": "presentation/open" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationOpenPayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. Its Studio started, is signed in, and receives presentation/show.",
+          "if": { "properties": { "type": { "const": "presentation/ready" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+          }
+        },
+        {
+          "description": "Presentation page only. A host ignores an update for a presentation that is not active.",
+          "if": {
+            "properties": { "type": { "const": "presentation/update" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationUpdatePayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. Asks the host to dismiss the presentation.",
+          "if": { "properties": { "type": { "const": "presentation/close" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. The host dismisses the presentation, then relays the path to the main page with navigation/open-path.",
+          "if": {
+            "properties": { "type": { "const": "presentation/navigate" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationNavigatePayload" }
+            }
+          }
         }
       ]
     },
@@ -226,7 +504,58 @@
         { "$ref": "#/$defs/envelope" },
         {
           "properties": {
-            "type": { "enum": ["navigation/request", "auth/sign-out-request"] }
+            "type": {
+              "enum": [
+                "navigation/request",
+                "auth/sign-out-request",
+                "navigation/open-path",
+                "presentation/show",
+                "presentation/action",
+                "presentation/dismissed"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Main page only. Studio navigates with its router, so unsaved-change blockers apply.",
+          "if": {
+            "properties": { "type": { "const": "navigation/open-path" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/navigationOpenPathPayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. Studio shows this route for this presentation without a page load.",
+          "if": { "properties": { "type": { "const": "presentation/show" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationShowPayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. The user chose a header action.",
+          "if": {
+            "properties": { "type": { "const": "presentation/action" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationActionPayload" }
+            }
+          }
+        },
+        {
+          "description": "Presentation page only. The native sheet went away, however it was dismissed.",
+          "if": {
+            "properties": { "type": { "const": "presentation/dismissed" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+            }
           }
         },
         {

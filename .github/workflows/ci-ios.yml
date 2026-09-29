@@ -76,4 +76,5 @@ jobs:
           -destination "$IPAD_DESTINATION"
           -derivedDataPath "$DERIVED_DATA"
           -only-testing:TilecastUITests/NativeNavigationUITests
+          -only-testing:TilecastUITests/NativePresentationUITests
           -resultBundlePath "$RUNNER_TEMP/ipad-ui-tests.xcresult"

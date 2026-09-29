@@ -11,6 +11,10 @@ import Network
 /// made-up destinations, and navigates with the History API when the app
 /// asks. The app sees only the protocol, so the fixture proves the native
 /// shell works for destinations it has never heard of.
+///
+/// Below the presentation root it serves `fixturePresentation`, Studio's
+/// presentation frontend as `apps/dashboard/src/native-presentation` runs
+/// it. Its route and its header are made up too.
 final class FixtureStudioServer: @unchecked Sendable {
     let port: UInt16
     private let listener: NWListener
@@ -60,9 +64,13 @@ final class FixtureStudioServer: @unchecked Sendable {
     private static func respond(to head: String, on connection: NWConnection) {
         let target = head.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
         let path = target.split(separator: "?").first.map(String.init) ?? "/"
-        let (type, body) = path == "/api/v1/system/identity"
-            ? ("application/json", identity)
-            : ("text/html; charset=utf-8", fixtureStudio)
+        let (type, body) = if path == "/api/v1/system/identity" {
+            ("application/json", identity)
+        } else if path == "/__native/modal" || path.hasPrefix("/__native/modal/") {
+            ("text/html; charset=utf-8", fixturePresentation)
+        } else {
+            ("text/html; charset=utf-8", fixtureStudio)
+        }
         let payload = Data(body.utf8)
         let header = [
             "HTTP/1.1 200 OK",
@@ -95,6 +103,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <nav id="sidebar"><a href="/">Browser sidebar</a></nav>
         <h1 id="page"></h1>
         <p id="document"></p>
+        <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
+        <p id="opened"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const paths = {
@@ -128,21 +138,107 @@ final class FixtureStudioServer: @unchecked Sendable {
           return send("navigation/state", { activeDestinationId: active(), path: location.pathname });
         };
         window.tilecastNativeReceiver = (message) => {
-          const path = message?.type === "navigation/request" ? paths[message.payload.destinationId] : undefined;
+          const path = message?.type === "navigation/request" ? paths[message.payload.destinationId]
+            : message?.type === "navigation/open-path" ? message.payload.path : undefined;
           if (!path) return false;
           if (location.pathname !== path) history.pushState(null, "", path);
           void publish();
           return true;
         };
+        let presentations = 0;
+        document.getElementById("open-sheet").addEventListener("click", async () => {
+          const reply = handler && await send("presentation/open", {
+            presentationId: `p-${documentId}-${++presentations}`,
+            path: "/__native/modal/fixture/sheet",
+            title: "Fixture Sheet",
+            subtitle: "Made up",
+            size: "compact",
+          });
+          // Without a native presentation, Studio shows its own dialog.
+          document.getElementById("opened").textContent = reply?.ok ? "Opened natively" : "Opened in page";
+        });
         render();
         (async () => {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
-          await send("frontend/ready", {});
+          await send("frontend/ready", { capabilities: { nativePresentations: true } });
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
           await publish();
+        })();
+        </script>
+        </body>
+        </html>
+        """
+
+    static let fixturePresentation = """
+        <!doctype html>
+        <html lang="en">
+        <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Fixture Presentation</title>
+        <style>body { font: 17px -apple-system, sans-serif; margin: 16px; }</style>
+        </head>
+        <body>
+        <p id="state">Idle</p>
+        <p id="document"></p>
+        <p id="action"></p>
+        <p><button id="close" type="button">Close from page</button></p>
+        <p><button id="leave" type="button">Go to Layouts</button></p>
+        <script>
+        const documentId = Math.random().toString(36).slice(2, 10);
+        const handler = window.webkit?.messageHandlers?.tilecastNative;
+        const send = (type, payload) => handler.postMessage({ version: 1, type, payload });
+        let current = null;
+        let shown = 0;
+        const text = (id, value) => { document.getElementById(id).textContent = value; };
+        text("document", `Presentation document ${documentId}`);
+        window.tilecastNativeReceiver = (message) => {
+          const payload = message?.payload ?? {};
+          switch (message?.type) {
+            case "presentation/show":
+              current = payload.presentationId;
+              history.replaceState(null, "", payload.path);
+              text("state", `Showing ${location.pathname.slice("/__native/modal/".length)}, time ${++shown}`);
+              text("action", "");
+              void send("presentation/update", {
+                presentationId: current,
+                header: {
+                  title: "Fixture Sheet",
+                  subtitle: "Made up",
+                  actions: [{ id: "ping", label: "Ping", icon: "a-token-no-app-knows" }],
+                  menuLabel: "Fixture menu",
+                  menu: [{ id: "about", label: "About the fixture" }],
+                },
+              });
+              return true;
+            case "presentation/action":
+              if (payload.presentationId !== current) return false;
+              text("action", `Action ${payload.actionId}`);
+              return true;
+            case "presentation/dismissed":
+              if (payload.presentationId === current) current = null;
+              history.replaceState(null, "", "/__native/modal");
+              text("state", "Idle");
+              return true;
+            default:
+              return false;
+          }
+        };
+        document.getElementById("close").addEventListener("click", () => {
+          if (current) void send("presentation/close", { presentationId: current });
+        });
+        document.getElementById("leave").addEventListener("click", () => {
+          if (current) void send("presentation/navigate", { presentationId: current, path: "/layouts" });
+        });
+        (async () => {
+          if (!handler) return;
+          const config = await send("config/get", {});
+          if (config?.payload?.context !== "presentation") return;
+          await send("frontend/ready", { capabilities: { nativePresentations: true } });
+          await send("presentation/ready", {});
         })();
         </script>
         </body>

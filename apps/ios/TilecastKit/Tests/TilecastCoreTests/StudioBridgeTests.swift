@@ -34,7 +34,10 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
             "version": .number(1), "id": .string("c1"), "ok": .bool(true),
             "payload": .object([
                 "protocolVersion": .number(1),
-                "capabilities": .object(["nativeNavigation": .bool(true), "authLifecycle": .bool(true)]),
+                "context": .string("main"),
+                "capabilities": .object([
+                    "nativeNavigation": .bool(true), "authLifecycle": .bool(true), "nativePresentations": .bool(true),
+                ]),
             ]),
         ]))
     }
@@ -61,7 +64,7 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
     }
 
     @Test func toleratesUnknownTypesAndRefusesOtherVersions() {
-        #expect(reply(envelope("presentation/open", id: "p1")) == NativeBridgeProtocol.reply(id: "p1", error: .unknownType))
+        #expect(reply(envelope("clipboard/write", id: "p1")) == NativeBridgeProtocol.reply(id: "p1", error: .unknownType))
         #expect(reply(["version": 2, "type": "config/get", "payload": [:]]) == NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion))
         #expect(reply("config/get") == NativeBridgeProtocol.reply(id: nil, error: .malformed))
         #expect(reply(nil) == NativeBridgeProtocol.reply(id: nil, error: .malformed))

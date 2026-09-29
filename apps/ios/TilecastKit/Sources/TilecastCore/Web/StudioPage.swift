@@ -18,20 +18,20 @@ public enum StudioPageEvent: Equatable, Sendable {
     case unsupportedDownload
 }
 
-/// Receives policy decisions that need UI. The page is created before its
+/// Receives policy decisions that need UI. A page is created before its
 /// owner finishes initializing, so the decider reaches the owner through
-/// this weak box.
+/// this box, which the owner fills with a weak reference to itself.
 @MainActor
 final class StudioNavigationSink {
-    weak var page: StudioPage?
+    var handler: (@MainActor (StudioNavigationDecision) -> Void)?
 
     func handle(_ decision: StudioNavigationDecision) {
-        page?.handle(decision)
+        handler?(decision)
     }
 }
 
 /// Adapts `StudioNavigationPolicy` to WebKit. Decisions that need UI are
-/// forwarded to the owning `StudioPage`.
+/// forwarded to the owning page.
 struct StudioNavigationDecider: WebPage.NavigationDeciding {
     let policy: StudioNavigationPolicy
     let sink: StudioNavigationSink
@@ -78,8 +78,12 @@ public final class StudioPage {
     public let address: ServerAddress
     public let webPage: WebPage
     public let websiteDataStore: WKWebsiteDataStore
-    /// The native bridge. Only this main page has one.
+    /// The main page's native bridge. The presentation page has a bridge
+    /// of its own; the auxiliary page has none.
     public let bridge: StudioBridge
+    /// Native presentations of Studio routes, with the one reusable
+    /// presentation page they share.
+    public let presentations: PresentationCoordinator
     public private(set) var phase: Phase = .loading
     public private(set) var signInRequired = false
     public private(set) var isClosed = false
@@ -116,8 +120,12 @@ public final class StudioPage {
             configuration: configuration,
             navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
         )
+        let address = profile.address
+        presentations = PresentationCoordinator(mainBridge: bridge) {
+            PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy)
+        }
         bridge.attach(to: webPage)
-        sink.page = self
+        sink.handler = { [weak self] in self?.handle($0) }
     }
 
     /// Settings every page for this server shares. Each call returns a new
@@ -154,6 +162,7 @@ public final class StudioPage {
     }
 
     public func resumeAfterSignIn() {
+        presentations.discard()
         signInRequired = false
         phase = .loading
         webPage.load(initialURL)
@@ -164,6 +173,7 @@ public final class StudioPage {
     public func requireSignInIfNeeded(at url: URL?) {
         guard let url, WebOrigin(url) == address.origin, url.path == "/login", !signInRequired else { return }
         signInRequired = true
+        presentations.discard()
         pendingEvents.append(.signIn)
     }
 
@@ -175,6 +185,7 @@ public final class StudioPage {
         monitor = nil
         webPage.stopLoading()
         closeAuxiliaryPage()
+        presentations.close()
         bridge.uninstall()
     }
 
@@ -201,6 +212,7 @@ public final class StudioPage {
         case .allow, .cancel: break
         case .signIn:
             signInRequired = true
+            presentations.discard()
             pendingEvents.append(.signIn)
         case .openExternally(let url): pendingEvents.append(.openExternally(url))
         case .openAuxiliary(let url): openAuxiliaryPage(url)
@@ -222,7 +234,7 @@ public final class StudioPage {
             configuration: Self.configuration(dataStore: websiteDataStore, applicationName: applicationName),
             navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
         )
-        sink.page = self
+        sink.handler = { [weak self] in self?.handle($0) }
         auxiliaryPage = page
         page.load(url)
     }
