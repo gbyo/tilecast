@@ -7794,37 +7794,38 @@ export interface components {
       rolloutMode: components["schemas"]["UpdateRolloutMode"];
       rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
       canarySize: number;
-      pauseReason?: string | null;
-      lastFailure?: string | null;
+      pauseReason: string | null;
+      lastFailure: string | null;
     };
     UpdateDeploymentList: {
       items: components["schemas"]["UpdateDeploymentSummary"][];
     };
+    /** @description Every property is always present; an unset value is an explicit null. */
     UpdateDeploymentScreen: {
       /** Format: uuid */
       screenId: string;
       screenName: string;
       /** Format: int64 */
-      previousVersionCode?: number | null;
+      previousVersionCode: number | null;
       /** Format: int64 */
       expectedVersionCode: number;
       /** Format: int64 */
       downloadedBytes: number;
-      permissionStatus?: string | null;
-      installerStatus?: string | null;
+      permissionStatus: string | null;
+      installerStatus: string | null;
       state: components["schemas"]["UpdateScreenState"];
-      safeError?: string | null;
+      safeError: string | null;
       /** Format: date-time */
       updatedAt: string;
       isCanary: boolean;
       /** Format: date-time */
-      downloadStartedAt?: string | null;
+      downloadStartedAt: string | null;
       /** Format: date-time */
-      downloadedAt?: string | null;
+      downloadedAt: string | null;
       /** Format: date-time */
-      installStartedAt?: string | null;
+      installStartedAt: string | null;
       /** Format: date-time */
-      completedAt?: string | null;
+      completedAt: string | null;
     };
     UpdateDeploymentDetail: {
       /** Format: uuid */
@@ -7835,11 +7836,11 @@ export interface components {
       /** Format: date-time */
       createdAt: string;
       /** Format: date-time */
-      completedAt?: string | null;
+      completedAt: string | null;
       rolloutMode: components["schemas"]["UpdateRolloutMode"];
       rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
       canarySize: number;
-      pauseReason?: string | null;
+      pauseReason: string | null;
       platform: components["schemas"]["PlayerPlatform"];
       playerFamily: components["schemas"]["PlayerFamily"];
       architecture: string;
@@ -9229,7 +9230,8 @@ export interface components {
       };
     };
     CompiledPresentationBinding: {
-      source: string;
+      /** @enum {string} */
+      source: "literal" | "dataset" | "repeat" | "repeat_index" | "environment";
       dataset?: string;
       path?: string;
       selector?: string;
@@ -9254,7 +9256,18 @@ export interface components {
     };
     CompiledPresentationCondition: {
       binding: components["schemas"]["CompiledPresentationBinding"];
-      op: string;
+      /** @enum {string} */
+      op:
+        | "equals"
+        | "not_equals"
+        | "empty"
+        | "not_empty"
+        | "greater_than"
+        | "greater_or_equal"
+        | "less_than"
+        | "less_or_equal"
+        | "before"
+        | "after";
       value?: string;
     };
     CompiledPresentationNode: {

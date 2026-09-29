@@ -516,6 +516,75 @@ func (e CatalogPluginCategory) Valid() bool {
 	}
 }
 
+// Defines values for CompiledPresentationBindingSource.
+const (
+	CompiledPresentationBindingSourceDataset     CompiledPresentationBindingSource = "dataset"
+	CompiledPresentationBindingSourceEnvironment CompiledPresentationBindingSource = "environment"
+	CompiledPresentationBindingSourceLiteral     CompiledPresentationBindingSource = "literal"
+	CompiledPresentationBindingSourceRepeat      CompiledPresentationBindingSource = "repeat"
+	CompiledPresentationBindingSourceRepeatIndex CompiledPresentationBindingSource = "repeat_index"
+)
+
+// Valid indicates whether the value is a known member of the CompiledPresentationBindingSource enum.
+func (e CompiledPresentationBindingSource) Valid() bool {
+	switch e {
+	case CompiledPresentationBindingSourceDataset:
+		return true
+	case CompiledPresentationBindingSourceEnvironment:
+		return true
+	case CompiledPresentationBindingSourceLiteral:
+		return true
+	case CompiledPresentationBindingSourceRepeat:
+		return true
+	case CompiledPresentationBindingSourceRepeatIndex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CompiledPresentationConditionOp.
+const (
+	CompiledPresentationConditionOpAfter          CompiledPresentationConditionOp = "after"
+	CompiledPresentationConditionOpBefore         CompiledPresentationConditionOp = "before"
+	CompiledPresentationConditionOpEmpty          CompiledPresentationConditionOp = "empty"
+	CompiledPresentationConditionOpEquals         CompiledPresentationConditionOp = "equals"
+	CompiledPresentationConditionOpGreaterOrEqual CompiledPresentationConditionOp = "greater_or_equal"
+	CompiledPresentationConditionOpGreaterThan    CompiledPresentationConditionOp = "greater_than"
+	CompiledPresentationConditionOpLessOrEqual    CompiledPresentationConditionOp = "less_or_equal"
+	CompiledPresentationConditionOpLessThan       CompiledPresentationConditionOp = "less_than"
+	CompiledPresentationConditionOpNotEmpty       CompiledPresentationConditionOp = "not_empty"
+	CompiledPresentationConditionOpNotEquals      CompiledPresentationConditionOp = "not_equals"
+)
+
+// Valid indicates whether the value is a known member of the CompiledPresentationConditionOp enum.
+func (e CompiledPresentationConditionOp) Valid() bool {
+	switch e {
+	case CompiledPresentationConditionOpAfter:
+		return true
+	case CompiledPresentationConditionOpBefore:
+		return true
+	case CompiledPresentationConditionOpEmpty:
+		return true
+	case CompiledPresentationConditionOpEquals:
+		return true
+	case CompiledPresentationConditionOpGreaterOrEqual:
+		return true
+	case CompiledPresentationConditionOpGreaterThan:
+		return true
+	case CompiledPresentationConditionOpLessOrEqual:
+		return true
+	case CompiledPresentationConditionOpLessThan:
+		return true
+	case CompiledPresentationConditionOpNotEmpty:
+		return true
+	case CompiledPresentationConditionOpNotEquals:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CompiledWidgetPresentationKind.
 const (
 	CompiledWidgetPresentationKindComponent CompiledWidgetPresentationKind = "component"
@@ -1214,19 +1283,19 @@ func (e DisplayControlGroupResultState) Valid() bool {
 
 // Defines values for GitHubAuthSource.
 const (
-	Anonymous   GitHubAuthSource = "anonymous"
-	Device      GitHubAuthSource = "device"
-	Environment GitHubAuthSource = "environment"
+	GitHubAuthSourceAnonymous   GitHubAuthSource = "anonymous"
+	GitHubAuthSourceDevice      GitHubAuthSource = "device"
+	GitHubAuthSourceEnvironment GitHubAuthSource = "environment"
 )
 
 // Valid indicates whether the value is a known member of the GitHubAuthSource enum.
 func (e GitHubAuthSource) Valid() bool {
 	switch e {
-	case Anonymous:
+	case GitHubAuthSourceAnonymous:
 		return true
-	case Device:
+	case GitHubAuthSourceDevice:
 		return true
-	case Environment:
+	case GitHubAuthSourceEnvironment:
 		return true
 	default:
 		return false
@@ -5885,28 +5954,34 @@ type ChangesRequest struct {
 
 // CompiledPresentationBinding defines model for CompiledPresentationBinding.
 type CompiledPresentationBinding struct {
-	Dataset    *string   `json:"dataset,omitempty"`
-	EndField   *string   `json:"endField,omitempty"`
-	Fallback   *string   `json:"fallback,omitempty"`
-	Fields     *[]string `json:"fields,omitempty"`
-	Format     *string   `json:"format,omitempty"`
-	Path       *string   `json:"path,omitempty"`
-	Precision  *int      `json:"precision,omitempty"`
-	Prefix     *string   `json:"prefix,omitempty"`
-	Selector   *string   `json:"selector,omitempty"`
-	Separator  *string   `json:"separator,omitempty"`
-	Source     string    `json:"source"`
-	StartField *string   `json:"startField,omitempty"`
-	Suffix     *string   `json:"suffix,omitempty"`
-	Value      *string   `json:"value,omitempty"`
+	Dataset    *string                           `json:"dataset,omitempty"`
+	EndField   *string                           `json:"endField,omitempty"`
+	Fallback   *string                           `json:"fallback,omitempty"`
+	Fields     *[]string                         `json:"fields,omitempty"`
+	Format     *string                           `json:"format,omitempty"`
+	Path       *string                           `json:"path,omitempty"`
+	Precision  *int                              `json:"precision,omitempty"`
+	Prefix     *string                           `json:"prefix,omitempty"`
+	Selector   *string                           `json:"selector,omitempty"`
+	Separator  *string                           `json:"separator,omitempty"`
+	Source     CompiledPresentationBindingSource `json:"source"`
+	StartField *string                           `json:"startField,omitempty"`
+	Suffix     *string                           `json:"suffix,omitempty"`
+	Value      *string                           `json:"value,omitempty"`
 }
+
+// CompiledPresentationBindingSource defines model for CompiledPresentationBinding.Source.
+type CompiledPresentationBindingSource string
 
 // CompiledPresentationCondition defines model for CompiledPresentationCondition.
 type CompiledPresentationCondition struct {
-	Binding CompiledPresentationBinding `json:"binding"`
-	Op      string                      `json:"op"`
-	Value   *string                     `json:"value,omitempty"`
+	Binding CompiledPresentationBinding     `json:"binding"`
+	Op      CompiledPresentationConditionOp `json:"op"`
+	Value   *string                         `json:"value,omitempty"`
 }
+
+// CompiledPresentationConditionOp defines model for CompiledPresentationCondition.Op.
+type CompiledPresentationConditionOp string
 
 // CompiledPresentationNode defines model for CompiledPresentationNode.
 type CompiledPresentationNode struct {
@@ -9950,12 +10025,12 @@ type UpdateDeploymentDetail struct {
 	Architecture      string               `json:"architecture"`
 	ArtifactSizeBytes int64                `json:"artifactSizeBytes"`
 	CanarySize        int                  `json:"canarySize"`
-	CompletedAt       *time.Time           `json:"completedAt,omitempty"`
+	CompletedAt       *time.Time           `json:"completedAt"`
 	CreatedAt         time.Time            `json:"createdAt"`
 	Id                openapi_types.UUID   `json:"id"`
 	Mode              UpdateDeploymentMode `json:"mode"`
 	Name              string               `json:"name"`
-	PauseReason       *string              `json:"pauseReason,omitempty"`
+	PauseReason       *string              `json:"pauseReason"`
 	Platform          PlayerPlatform       `json:"platform"`
 
 	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
@@ -9989,19 +10064,19 @@ type UpdateDeploymentRequest struct {
 	ScreenIds              *[]openapi_types.UUID `json:"screenIds,omitempty"`
 }
 
-// UpdateDeploymentScreen defines model for UpdateDeploymentScreen.
+// UpdateDeploymentScreen Every property is always present; an unset value is an explicit null.
 type UpdateDeploymentScreen struct {
-	CompletedAt         *time.Time         `json:"completedAt,omitempty"`
-	DownloadStartedAt   *time.Time         `json:"downloadStartedAt,omitempty"`
-	DownloadedAt        *time.Time         `json:"downloadedAt,omitempty"`
+	CompletedAt         *time.Time         `json:"completedAt"`
+	DownloadStartedAt   *time.Time         `json:"downloadStartedAt"`
+	DownloadedAt        *time.Time         `json:"downloadedAt"`
 	DownloadedBytes     int64              `json:"downloadedBytes"`
 	ExpectedVersionCode int64              `json:"expectedVersionCode"`
-	InstallStartedAt    *time.Time         `json:"installStartedAt,omitempty"`
-	InstallerStatus     *string            `json:"installerStatus,omitempty"`
+	InstallStartedAt    *time.Time         `json:"installStartedAt"`
+	InstallerStatus     *string            `json:"installerStatus"`
 	IsCanary            bool               `json:"isCanary"`
-	PermissionStatus    *string            `json:"permissionStatus,omitempty"`
-	PreviousVersionCode *int64             `json:"previousVersionCode,omitempty"`
-	SafeError           *string            `json:"safeError,omitempty"`
+	PermissionStatus    *string            `json:"permissionStatus"`
+	PreviousVersionCode *int64             `json:"previousVersionCode"`
+	SafeError           *string            `json:"safeError"`
 	ScreenId            openapi_types.UUID `json:"screenId"`
 	ScreenName          string             `json:"screenName"`
 	State               UpdateScreenState  `json:"state"`
@@ -10018,10 +10093,10 @@ type UpdateDeploymentSummary struct {
 	CreatedAt    time.Time            `json:"createdAt"`
 	FailedCount  int                  `json:"failedCount"`
 	Id           openapi_types.UUID   `json:"id"`
-	LastFailure  *string              `json:"lastFailure,omitempty"`
+	LastFailure  *string              `json:"lastFailure"`
 	Mode         UpdateDeploymentMode `json:"mode"`
 	Name         string               `json:"name"`
-	PauseReason  *string              `json:"pauseReason,omitempty"`
+	PauseReason  *string              `json:"pauseReason"`
 	Platform     PlayerPlatform       `json:"platform"`
 
 	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.

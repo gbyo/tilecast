@@ -11686,6 +11686,8 @@ components:
           rolloutMode,
           rolloutPhase,
           canarySize,
+          pauseReason,
+          lastFailure,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -11718,15 +11720,25 @@ components:
     UpdateDeploymentScreen:
       type: object
       additionalProperties: false
+      description: >-
+        Every property is always present; an unset value is an explicit null.
       required:
         [
           screenId,
           screenName,
+          previousVersionCode,
           expectedVersionCode,
           downloadedBytes,
+          permissionStatus,
+          installerStatus,
           state,
+          safeError,
           updatedAt,
           isCanary,
+          downloadStartedAt,
+          downloadedAt,
+          installStartedAt,
+          completedAt,
         ]
       properties:
         screenId: { type: string, format: uuid }
@@ -11764,6 +11776,8 @@ components:
           versionName,
           artifactSizeBytes,
           screens,
+          completedAt,
+          pauseReason,
         ]
       properties:
         id: { type: string, format: uuid }
@@ -13625,7 +13639,9 @@ components:
       additionalProperties: false
       required: [source]
       properties:
-        source: { type: string }
+        source:
+          type: string
+          enum: [literal, dataset, repeat, repeat_index, environment]
         dataset: { type: string }
         path: { type: string }
         selector: { type: string }
@@ -13656,7 +13672,21 @@ components:
       required: [binding, op]
       properties:
         binding: { $ref: "#/components/schemas/CompiledPresentationBinding" }
-        op: { type: string }
+        op:
+          type: string
+          enum:
+            [
+              equals,
+              not_equals,
+              empty,
+              not_empty,
+              greater_than,
+              greater_or_equal,
+              less_than,
+              less_or_equal,
+              before,
+              after,
+            ]
         value: { type: string }
     CompiledPresentationNode:
       type: object
