@@ -210,7 +210,8 @@ class PlayerRuntimeConformanceTest {
         val runnerScript =
             "globalThis.__tilecastConformanceRunner=Object.freeze({" +
                 "fixture:$fixtureJson," +
-                "snapshot:function(n){TcConformance.snapshot(String(n));return Promise.resolve();}," +
+                "snapshot:function(n){const result=TcConformance.snapshot(String(n));" +
+                "if(result!==\"ok\")throw new Error(result);return Promise.resolve();}," +
                 "finish:function(r){TcConformance.finish(JSON.stringify(r));}});\n;" +
                 hostSource
         WebViewCompat.addDocumentStartJavaScript(
@@ -232,8 +233,12 @@ class PlayerRuntimeConformanceTest {
         @JavascriptInterface
         fun snapshot(name: String): String {
             // Called on the JavaBridge thread; blocking here is safe.
-            onSnapshot(name)
-            return "ok"
+            return try {
+                onSnapshot(name)
+                "ok"
+            } catch (failure: Throwable) {
+                "error: ${failure.stackTraceToString()}"
+            }
         }
 
         @JavascriptInterface
