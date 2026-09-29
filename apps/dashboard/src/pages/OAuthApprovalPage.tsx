@@ -101,9 +101,11 @@ export function OAuthApprovalPage() {
     return (
       <div className="mx-auto w-full max-w-xl py-4 sm:py-8">
         <Card size="sm">
-          <CardContent className="flex-row items-center text-muted-foreground">
-            <Spinner aria-hidden="true" />
-            <p>{t("oauth.loading")}</p>
+          <CardContent>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Spinner aria-hidden="true" />
+              <p>{t("oauth.loading")}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -165,7 +167,7 @@ export function OAuthApprovalPage() {
             ))}
           </ItemGroup>
 
-          <Item variant="muted" className="items-start">
+          <Item variant="muted">
             <ItemMedia
               variant="icon"
               className="size-9 rounded-md bg-background text-muted-foreground ring-1 ring-foreground/10"
@@ -191,23 +193,28 @@ export function OAuthApprovalPage() {
           )}
         </CardContent>
 
-        <CardFooter className="grid grid-cols-1 gap-3 border-t sm:grid-cols-2">
-          <Button
-            variant="outline"
-            onClick={() => decide.mutate(false)}
-            disabled={decide.isPending}
-          >
-            <X aria-hidden="true" />
-            {t("oauth.deny")}
-          </Button>
-          <Button onClick={() => decide.mutate(true)} disabled={decide.isPending}>
-            {decide.isPending ? (
-              <Spinner aria-hidden="true" />
-            ) : (
-              <Check aria-hidden="true" />
-            )}
-            {t("oauth.approve")}
-          </Button>
+        <CardFooter className="border-t">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+            <Button
+              variant="outline"
+              onClick={() => decide.mutate(false)}
+              disabled={decide.isPending}
+            >
+              <X aria-hidden="true" />
+              {t("oauth.deny")}
+            </Button>
+            <Button
+              onClick={() => decide.mutate(true)}
+              disabled={decide.isPending}
+            >
+              {decide.isPending ? (
+                <Spinner aria-hidden="true" />
+              ) : (
+                <Check aria-hidden="true" />
+              )}
+              {t("oauth.approve")}
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </div>
