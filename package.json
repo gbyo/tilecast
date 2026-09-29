@@ -54,7 +54,11 @@
     "@playwright/test": "^1.63.0",
     "@redocly/cli": "2.54.3",
     "openapi-typescript": "7.13.0",
-    "prettier": "^3.9.6",
+    "@vitest/coverage-v8": "^5.0.2",
+    "prettier": "^3.9.9",
     "yaml": "^2.9.1"
+  },
+  "allowScripts": {
+    "electron@39.8.10": true
   }
 }

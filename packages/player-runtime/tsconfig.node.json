@@ -4,8 +4,8 @@
   // and the synchronized-timeline math. Browser code is bundled by Vite.
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node10",
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "noEmit": false,
     "allowImportingTsExtensions": false,
     "declaration": true,
