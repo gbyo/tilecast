@@ -18,11 +18,13 @@ import {
   decodeNativeMessage,
   noNativeCapabilities,
   NATIVE_RECEIVER_NAME,
+  studioCapabilities,
   type FrontendToNativePayloads,
   type FrontendToNativeType,
   type NativeCapabilities,
   type NativeReply,
-  type NativeToFrontendMessage,
+  type NativeToFrontendPayloads,
+  type NativeToFrontendType,
 } from "./protocol";
 
 /**
@@ -32,8 +34,8 @@ import {
  */
 export type NativeHostStatus = "unavailable" | "negotiating" | "ready";
 
-type NativeMessageHandler = (
-  payload: NativeToFrontendMessage["payload"],
+type NativeMessageHandler<Type extends NativeToFrontendType> = (
+  payload: NativeToFrontendPayloads[Type],
 ) => boolean;
 
 export type NativeHost = {
@@ -45,9 +47,9 @@ export type NativeHost = {
     payload: FrontendToNativePayloads[Type],
   ): Promise<NativeReply | null>;
   /** Receives one native message type; returns an unsubscribe function. */
-  subscribe(
-    type: NativeToFrontendMessage["type"],
-    handler: NativeMessageHandler,
+  subscribe<Type extends NativeToFrontendType>(
+    type: Type,
+    handler: NativeMessageHandler<Type>,
   ): () => void;
 };
 
@@ -88,7 +90,10 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
     capabilities: noNativeCapabilities,
   }));
   const subscribers = useRef(
-    new Map<NativeToFrontendMessage["type"], Set<NativeMessageHandler>>(),
+    new Map<
+      NativeToFrontendType,
+      Set<NativeMessageHandler<NativeToFrontendType>>
+    >(),
   );
 
   // The one receiver the host calls. It accepts only valid version 1
@@ -101,7 +106,9 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
       let handled = false;
       for (const handler of subscribers.current.get(decoded.message.type) ??
         []) {
-        handled = handler(decoded.message.payload) || handled;
+        handled =
+          (handler as (payload: unknown) => boolean)(decoded.message.payload) ||
+          handled;
       }
       return handled;
     };
@@ -124,7 +131,13 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
           : { status: "unavailable", capabilities: noNativeCapabilities },
       );
       // The host treats ready as idempotent, so a remount may repeat it.
-      if (capabilities) void bridge.send("frontend/ready", {}).catch(() => {});
+      // It carries what this Studio supports, so a host never sends a
+      // message an older Studio would not understand.
+      if (capabilities) {
+        void bridge
+          .send("frontend/ready", { capabilities: studioCapabilities })
+          .catch(() => {});
+      }
     });
     return () => {
       current = false;
@@ -145,9 +158,10 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
 
   const subscribe = useCallback<NativeHost["subscribe"]>((type, handler) => {
     const handlers = subscribers.current.get(type) ?? new Set();
-    handlers.add(handler);
+    const erased = handler as NativeMessageHandler<NativeToFrontendType>;
+    handlers.add(erased);
     subscribers.current.set(type, handlers);
-    return () => handlers.delete(handler);
+    return () => handlers.delete(erased);
   }, []);
 
   const host = useMemo<NativeHost>(

@@ -4,6 +4,7 @@ import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import type { StudioNavigationMetadata } from "./navigation/studioNavigation";
 import { NativeHostProvider } from "./native-host/NativeHostProvider";
+import { NativeAuthLifecycle } from "./native-host/useNativeAuthLifecycle";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
@@ -619,6 +620,7 @@ function RoutedApp() {
 export function App() {
   return (
     <NativeHostProvider>
+      <NativeAuthLifecycle />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
