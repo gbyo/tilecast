@@ -11,13 +11,17 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import type { LayoutOrientation, LayoutSummary } from "../api/types";
+import type {
+  LayoutDocument,
+  LayoutOrientation,
+  LayoutSummary,
+} from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import {
@@ -109,6 +113,66 @@ const presets = [
     height: 3840,
   },
 ] as const;
+
+type PendingAnnouncementTemplate = {
+  layoutId: string;
+  draftRevision: number;
+  document: LayoutDocument;
+  placementIds: readonly [string, string];
+};
+
+class AnnouncementDraftChangedError extends Error {}
+
+function buildAnnouncementTemplate(draft: LayoutDocument) {
+  const document = structuredClone(draft);
+  const accentId = crypto.randomUUID();
+  const headlineId = crypto.randomUUID();
+  document.placements.push(
+    {
+      id: accentId,
+      type: "primitive",
+      name: "Accent",
+      x: 0,
+      y: 0,
+      width: Math.max(24, document.canvas.width * 0.025),
+      height: document.canvas.height,
+      layer: 1,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      primitive: { kind: "rectangle", fillColor: "#2D7FF9" },
+    },
+    {
+      id: headlineId,
+      type: "primitive",
+      name: "Headline",
+      x: document.canvas.width * 0.1,
+      y: document.canvas.height * 0.24,
+      width: document.canvas.width * 0.8,
+      height: document.canvas.height * 0.5,
+      layer: 2,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      primitive: {
+        kind: "text",
+        // i18n-ignore: default headline text is layout content shown on screens, not UI
+        text: "Announcement",
+        fontFamily: "Inter",
+        fontSize: 112,
+        fontWeight: 700,
+        textAlign: "left",
+        verticalAlign: "center",
+        color: "#F5F7FA",
+        backgroundColor: "#00000000",
+        lineHeight: 1.1,
+        maximumLines: 3,
+        overflow: "ellipsis",
+      },
+    },
+  );
+  return { document, placementIds: [accentId, headlineId] as const };
+}
 
 export type LayoutLibraryOrientationFilter = "all" | LayoutOrientation;
 export type LayoutLibraryPublicationFilter =
@@ -296,6 +360,11 @@ export function LayoutsPage() {
   const [preset, setPreset] = useState(0);
   const [template, setTemplate] = useState<"blank" | "announcement">("blank");
   const [actionError, setActionError] = useState("");
+  const pendingAnnouncementRef = useRef<PendingAnnouncementTemplate | null>(
+    null,
+  );
+  const [pendingAnnouncementLayoutId, setPendingAnnouncementLayoutId] =
+    useState<string>();
   const [renaming, setRenaming] = useState<LayoutSummary>();
   const [renameName, setRenameName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<LayoutSummary | null>(
@@ -308,6 +377,26 @@ export function LayoutsPage() {
   });
   const create = useMutation({
     mutationFn: async () => {
+      const pendingAnnouncement = pendingAnnouncementRef.current;
+      if (pendingAnnouncement) {
+        const current = await api.layout(pendingAnnouncement.layoutId);
+        const templateWasSaved = pendingAnnouncement.placementIds.every((id) =>
+          current.draft.placements.some((placement) => placement.id === id),
+        );
+        if (templateWasSaved) return current;
+        if (current.draftRevision !== pendingAnnouncement.draftRevision) {
+          throw new AnnouncementDraftChangedError(
+            t("library.announcementDraftChanged"),
+          );
+        }
+        return api.saveLayoutDraft(
+          current.id,
+          current.draftRevision,
+          pendingAnnouncement.document,
+          csrf,
+        );
+      }
+
       const selectedPreset = presets[preset]!;
       const created = await api.createLayout(
         {
@@ -320,51 +409,16 @@ export function LayoutsPage() {
         csrf,
       );
       if (template === "blank") return created;
-      const document = structuredClone(created.draft);
-      document.placements.push(
-        {
-          id: crypto.randomUUID(),
-          type: "primitive",
-          name: "Accent",
-          x: 0,
-          y: 0,
-          width: Math.max(24, document.canvas.width * 0.025),
-          height: document.canvas.height,
-          layer: 1,
-          opacity: 1,
-          visible: true,
-          locked: false,
-          primitive: { kind: "rectangle", fillColor: "#2D7FF9" },
-        },
-        {
-          id: crypto.randomUUID(),
-          type: "primitive",
-          name: "Headline",
-          x: document.canvas.width * 0.1,
-          y: document.canvas.height * 0.24,
-          width: document.canvas.width * 0.8,
-          height: document.canvas.height * 0.5,
-          layer: 2,
-          opacity: 1,
-          visible: true,
-          locked: false,
-          primitive: {
-            kind: "text",
-            // i18n-ignore: default headline text is layout content shown on screens, not UI
-            text: "Announcement",
-            fontFamily: "Inter",
-            fontSize: 112,
-            fontWeight: 700,
-            textAlign: "left",
-            verticalAlign: "center",
-            color: "#F5F7FA",
-            backgroundColor: "#00000000",
-            lineHeight: 1.1,
-            maximumLines: 3,
-            overflow: "ellipsis",
-          },
-        },
+      const { document, placementIds } = buildAnnouncementTemplate(
+        created.draft,
       );
+      pendingAnnouncementRef.current = {
+        layoutId: created.id,
+        draftRevision: created.draftRevision,
+        document,
+        placementIds,
+      };
+      setPendingAnnouncementLayoutId(created.id);
       return api.saveLayoutDraft(
         created.id,
         created.draftRevision,
@@ -373,11 +427,20 @@ export function LayoutsPage() {
       );
     },
     onSuccess: (layout) => {
+      pendingAnnouncementRef.current = null;
+      setPendingAnnouncementLayoutId(undefined);
       toast.add({ title: "Layout created.", type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void navigate(`/layouts/${layout.id}`);
     },
+    onError: () => {
+      if (pendingAnnouncementRef.current) {
+        void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      }
+    },
   });
+  const announcementDraftChanged =
+    create.error instanceof AnnouncementDraftChangedError;
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateLayout(id, csrf),
     onMutate: () => setActionError(""),
@@ -479,10 +542,12 @@ export function LayoutsPage() {
 
   const closeCreate = () => {
     setCreating(false);
-    setName("");
-    setDescription("");
-    setPreset(0);
-    setTemplate("blank");
+    if (!pendingAnnouncementRef.current) {
+      setName("");
+      setDescription("");
+      setPreset(0);
+      setTemplate("blank");
+    }
     create.reset();
     if (searchParams.has("create")) {
       const next = new URLSearchParams(searchParams);
@@ -873,6 +938,7 @@ export function LayoutsPage() {
               <Input
                 id="layout-create-name"
                 autoFocus
+                disabled={Boolean(pendingAnnouncementLayoutId)}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
@@ -884,6 +950,7 @@ export function LayoutsPage() {
               <Textarea
                 id="layout-create-description"
                 rows={3}
+                disabled={Boolean(pendingAnnouncementLayoutId)}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
@@ -899,6 +966,7 @@ export function LayoutsPage() {
                 {presets.map((item, index) => (
                   <Button
                     type="button"
+                    disabled={Boolean(pendingAnnouncementLayoutId)}
                     variant={preset === index ? "default" : "outline"}
                     className="h-auto items-center gap-3 p-3 text-left"
                     aria-pressed={preset === index}
@@ -930,6 +998,7 @@ export function LayoutsPage() {
               <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
+                  disabled={Boolean(pendingAnnouncementLayoutId)}
                   variant={template === "blank" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
                   aria-pressed={template === "blank"}
@@ -947,6 +1016,7 @@ export function LayoutsPage() {
                 </Button>
                 <Button
                   type="button"
+                  disabled={Boolean(pendingAnnouncementLayoutId)}
                   variant={template === "announcement" ? "default" : "outline"}
                   className="h-auto items-center gap-3 p-3 text-left"
                   aria-pressed={template === "announcement"}
@@ -967,9 +1037,17 @@ export function LayoutsPage() {
             {create.error && (
               <Alert variant="destructive">
                 <AlertDescription>
-                  {create.error instanceof Error
-                    ? apiErrorMessage(create.error)
-                    : t("library.createFailed")}
+                  {pendingAnnouncementLayoutId && (
+                    <p>
+                      {announcementDraftChanged
+                        ? t("library.announcementDraftChanged")
+                        : t("library.announcementInitFailed")}
+                    </p>
+                  )}
+                  {!announcementDraftChanged &&
+                    (create.error instanceof Error
+                      ? apiErrorMessage(create.error)
+                      : t("library.createFailed"))}
                 </AlertDescription>
               </Alert>
             )}
@@ -983,9 +1061,13 @@ export function LayoutsPage() {
               disabled={!name.trim() || create.isPending}
               onClick={() => create.mutate()}
             >
-              {create.isPending
-                ? t("library.creating")
-                : t("library.createLayout")}
+              {pendingAnnouncementLayoutId
+                ? create.isPending
+                  ? t("library.announcementSaving")
+                  : t("library.announcementRetry")
+                : create.isPending
+                  ? t("library.creating")
+                  : t("library.createLayout")}
             </Button>
           </DialogFooter>
         </DialogContent>
