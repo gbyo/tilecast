@@ -38,6 +38,15 @@ function renderPage() {
   );
 }
 
+const review = {
+  id: "44444444-4444-4444-8444-444444444444",
+  contentType: "playlist",
+  contentId: "55555555-5555-4555-8555-555555555555",
+  revision: 7,
+  decision: "approved",
+  reviewedAt: "2026-07-30T11:00:00Z",
+} as const;
+
 describe("Content review", () => {
   beforeEach(() => {
     role = "editor";
@@ -76,7 +85,7 @@ describe("Content review", () => {
     });
     const decide = vi
       .spyOn(api, "decideContentReview")
-      .mockResolvedValue(undefined);
+      .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Review" }));
@@ -95,7 +104,7 @@ describe("Content review", () => {
     });
     const decide = vi
       .spyOn(api, "decideContentReview")
-      .mockResolvedValue(undefined);
+      .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: "Review" }));

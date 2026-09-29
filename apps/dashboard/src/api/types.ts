@@ -1,3 +1,5 @@
+import type { components } from "@tilecast/api-schema/generated/openapi";
+
 export type User = {
   id: string;
   name: string;
@@ -8,12 +10,19 @@ export type User = {
   lastLoginAt?: string;
 };
 
+/** A user row with the MFA enrollment state the user list carries. */
+export type ManagedUser = User & {
+  mfaEnrolled: boolean;
+  mfaRequired: boolean;
+};
+
 export type AuthStatus = {
   setupRequired: boolean;
   authenticated: boolean;
   user?: User;
   csrfToken?: string;
-  authMethod?: AuthMethod;
+  /** A session sign-in factor, or the bearer kind when the caller used a grant. */
+  authMethod?: AuthMethod | "pat" | "oauth";
   /** The organization requires a second factor this account has not enrolled. */
   mfaEnrollmentRequired?: boolean;
   /**
@@ -126,8 +135,8 @@ export type PersonalAccessToken = {
 
 export type PersonalAccessTokenInput = {
   name: string;
-  scopes: string[];
-  expiresInDays: number;
+  scopes: ("read" | "write" | "admin")[];
+  expiresInDays: 7 | 30 | 90 | 365;
 };
 
 export type PersonalAccessTokenCreated = {
@@ -553,7 +562,7 @@ export type PlaylistItemInput = {
   videoStartOffsetMs?: number;
   videoEndOffsetMs?: number;
   deliveryPolicy: PlaylistItem["deliveryPolicy"];
-  usePlayerDefaults?: boolean;
+  usePlayerDefaults: boolean;
 };
 export type PlaylistBulkItemUpdateInput =
   | {
@@ -844,13 +853,25 @@ export type UptimeReport = {
   screens: UptimeScreen[];
 };
 
+/**
+ * A Data Source as create and update return it: the stored record without
+ * refresh status, diagnostics, or usage.
+ */
+export type SavedDataSource = components["schemas"]["DataSource"];
+
+/** Command types the Server queues; the contract owns the vocabulary. */
+export type PlayerCommandType = components["schemas"]["PlayerCommandType"];
+
+/** The contract owns the confirmation vocabulary. */
+export type PowerAssistState = components["schemas"]["PowerAssistResult"];
+
 export type PowerAssistResults = {
-  deviceSleep: string;
-  tvStandby: string;
-  deviceWake: string;
-  tvWake: string;
-  inputSelection: string;
-  tilecastStartup: string;
+  deviceSleep: PowerAssistState;
+  tvStandby: PowerAssistState;
+  deviceWake: PowerAssistState;
+  tvWake: PowerAssistState;
+  inputSelection: PowerAssistState;
+  tilecastStartup: PowerAssistState;
   lastTestedAt?: string;
 };
 
@@ -911,6 +932,16 @@ export type SettingsDocument = {
   definitions: SettingDefinition[];
   updatedAt: string;
 };
+/** Versioned settings export file: organization document plus group and screen policies. */
+export type SettingsExportDocument = {
+  /** Only version 1 is accepted; isSettingsExportDocument checks it. */
+  schemaVersion: 1;
+  exportedAt: string;
+  tilecastVersion: string;
+  organization: SettingsDocument;
+  groupPolicies: Record<string, unknown>[];
+  screenPolicies?: Record<string, unknown>[];
+};
 export type PolicyDocument = {
   schemaVersion: number;
   revision: number;
@@ -926,6 +957,14 @@ export type EffectivePolicy = {
   configRevision: number;
   hash: string;
 };
+/** Actions the system-maintenance endpoint accepts. The server rejects anything else. */
+export type MaintenanceAction =
+  | "expired-upload-cleanup"
+  | "completed-command-cleanup"
+  | "retention-cleanup"
+  | "reconcile-config"
+  | "validate-media";
+
 export type SystemStatus = {
   tilecastVersion: string;
   buildCommit: string;
@@ -1280,9 +1319,9 @@ export type PlayerRelease = {
   id: string;
   tag: string;
   platform: PlayerPlatform;
-  playerFamily?: PlayerFamily;
+  playerFamily: PlayerFamily;
   /** The CPU architecture of an Edge release; empty for the other families. */
-  architecture?: string;
+  architecture: string;
   source: "github" | "upload";
   channel: "stable" | "beta";
   versionCode: number;
@@ -1345,6 +1384,10 @@ export type GitHubDevicePoll = {
   login?: string;
   retryAfterSeconds?: number;
 };
+/** Deployment modes the update-deployments endpoint accepts. */
+export type UpdateDeploymentMode =
+  "download_only" | "install_now" | "maintenance_window";
+
 export type UpdateDeployment = {
   id: string;
   name: string;
@@ -1529,14 +1572,14 @@ export type Asset = {
   thumbnailUrl?: string;
   website?: WebsiteConfig;
   widget?: Widget;
-  playlistUsage?: number;
+  playlistUsage: number;
   // Identified playlists containing this asset. The list endpoint reports only the
   // playlistUsage count; the detail endpoint populates this so Studio can link through.
   playlistsUsing?: { id: string; name: string }[];
-  layoutUsage?: { id: string; name: string; published: boolean }[];
+  layoutUsage: { id: string; name: string; published: boolean }[];
   folderId?: string;
-  tags?: ContentTag[];
-  collectionIds?: string[];
+  tags: ContentTag[];
+  collectionIds: string[];
 };
 export type ContentFolder = {
   id: string;
@@ -1793,68 +1836,18 @@ export type ProviderCatalog = {
   revision: number;
   providers: ProviderCatalogEntry[];
 };
-export type PresentationBinding = {
-  source: "literal" | "dataset" | "repeat" | "repeat_index" | "environment";
-  dataset?: string;
-  path?: string;
-  selector?: "all" | "current" | "next" | "upcoming" | "current_or_next";
-  startField?: string;
-  endField?: string;
-  value?: string;
-  fields?: string[];
-  format?: string;
-  precision?: number;
-  prefix?: string;
-  suffix?: string;
-  fallback?: string;
-  separator?: string;
-};
-export type PresentationNode = {
-  id?: string;
-  type: string;
-  props?: Record<string, unknown>;
-  binding?: PresentationBinding;
-  repeat?: {
-    dataset: string;
-    limit: number;
-    offset?: number;
-    selector?: "all" | "current" | "next" | "upcoming" | "current_or_next";
-    startField?: string;
-    endField?: string;
-  };
-  condition?: {
-    binding: PresentationBinding;
-    op:
-      | "equals"
-      | "not_equals"
-      | "empty"
-      | "not_empty"
-      | "greater_than"
-      | "greater_or_equal"
-      | "less_than"
-      | "less_or_equal"
-      | "before"
-      | "after";
-    value?: string;
-  };
-  children?: PresentationNode[];
-};
-export type WidgetPresentation = {
-  schemaVersion: 1;
-  kind: "native" | "web";
-  requiredCapabilities: Record<string, number>;
-  native?: { root: PresentationNode };
-  web?: {
-    mode: "remote" | "bundle";
-    url?: string;
-    allowedHosts: string[];
-    onlineOnly: boolean;
-    lifecycle: "destroy_on_hide" | "keep_warm";
-  };
-};
+/** A presentation binding; the contract owns the wire shape. */
+export type PresentationBinding =
+  components["schemas"]["CompiledPresentationBinding"];
+/** A compiled presentation node; the contract owns the wire shape. */
+export type PresentationNode =
+  components["schemas"]["CompiledPresentationNode"];
+/** A compiled Widget presentation; the contract owns the wire shape. */
+export type WidgetPresentation =
+  components["schemas"]["CompiledWidgetPresentation"];
 export type Widget = {
   provider: WidgetProvider;
-  presetId?: WidgetPreset;
+  presetId?: WidgetPreset | null;
   configVersion: number;
   authorConfiguration?: Record<string, unknown>;
   managedDataSourceId?: string;
@@ -1867,14 +1860,8 @@ export type Widget = {
     | CountdownWidgetConfig
     | TickerWidgetConfig
     | DisplayWidgetConfig
-    | MetricWidgetConfig
     | CardsWidgetConfig
     | WeatherWidgetConfig
-    | SpotlightWidgetConfig
-    | StatGridWidgetConfig
-    | ChartWidgetConfig
-    | ProgressWidgetConfig
-    | TimelineWidgetConfig
     | WorldClockWidgetConfig
     | Record<string, unknown>;
 };
@@ -1899,14 +1886,8 @@ export type WidgetInput = {
     | CountdownWidgetConfig
     | TickerWidgetConfig
     | DisplayWidgetConfig
-    | MetricWidgetConfig
     | CardsWidgetConfig
     | WeatherWidgetConfig
-    | SpotlightWidgetConfig
-    | StatGridWidgetConfig
-    | ChartWidgetConfig
-    | ProgressWidgetConfig
-    | TimelineWidgetConfig
     | WorldClockWidgetConfig
     | Record<string, unknown>;
 };
@@ -2132,28 +2113,10 @@ export type AirQualitySourceConfig = {
   refreshIntervalSeconds: number;
   stalenessLimitHours: number;
 };
-export type TypedRecordData = {
-  fields: DataSourceField[];
-  records: { id: string; values: Record<string, string> }[];
-  cachedAt?: string;
-  staleAt?: string;
-  usingCachedData: boolean;
-  unavailable: boolean;
-  dateSelection?: DateSelection;
-  dateField?: string;
-  attribution?: string;
-};
-export type TypedDatasetPayload = {
-  datasets: {
-    id: string;
-    kind: "records" | "time_series" | "object";
-    fields?: DataSourceField[];
-    records?: { id: string; values: Record<string, string> }[];
-    points?: { at: string; values: Record<string, string> }[];
-    values?: Record<string, string>;
-    attribution?: string;
-  }[];
-};
+/** Preview of a manual or weather Data Source; the contract owns the shape. */
+export type TypedRecordData = components["schemas"]["TypedRecordData"];
+/** Preview of a live or definition-backed Data Source: named datasets. */
+export type TypedDatasetPayload = components["schemas"]["TypedDatasetPayload"];
 export type ClockWidgetConfig = {
   timezone: string;
   format: "locale" | "12" | "24";
@@ -2260,23 +2223,6 @@ export type FieldFormat = {
   alignment?: "left" | "center" | "right";
   width?: number;
 };
-export type MetricWidgetConfig = {
-  dataSourceId: string;
-  valueField: string;
-  label?: string;
-  labelField?: string;
-  secondaryField?: string;
-  format: "number" | "integer" | "percent" | "currency";
-  precision: number;
-  prefix?: string;
-  suffix?: string;
-  alignment: "left" | "center" | "right";
-  emptyState: string;
-  foregroundColor: string;
-  backgroundColor: string;
-  textScale?: number;
-  contentPadding?: number;
-};
 export type CardsWidgetConfig = {
   dataSourceId: string;
   titleField: string;
@@ -2312,59 +2258,6 @@ export type WidgetVisualConfig = {
   contentPadding?: number;
   emptyState?: string;
 };
-export type SpotlightWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  titleField: string;
-  subtitleField?: string;
-  bodyField?: string;
-  badgeField?: string;
-  dateField?: string;
-  imageAssetId?: string;
-};
-export type StatGridWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  metrics: {
-    label?: string;
-    labelField?: string;
-    valueField: string;
-    format?: "number" | "integer" | "percent" | "currency";
-    precision?: number;
-    prefix?: string;
-    suffix?: string;
-  }[];
-  columns: number;
-};
-export type ChartWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  dataset?: string;
-  chartType: "line" | "bar" | "donut";
-  categoryField?: string;
-  timeField?: string;
-  series: { field: string; label?: string; color?: string }[];
-  showLegend: boolean;
-  showAxes: boolean;
-  minimum?: number;
-  maximum?: number;
-};
-export type ProgressWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  valueField: string;
-  targetField?: string;
-  staticTarget?: number;
-  label?: string;
-  labelField?: string;
-  showPercent: boolean;
-  completionText?: string;
-};
-export type TimelineWidgetConfig = WidgetVisualConfig & {
-  dataSourceId: string;
-  dateField: string;
-  titleField: string;
-  bodyField?: string;
-  statusField?: string;
-  orientation: "vertical" | "horizontal";
-  maximumItems: number;
-};
 export type WorldClockWidgetConfig = WidgetVisualConfig & {
   zones: { label: string; timezone: string }[];
   format: "locale" | "12" | "24";
@@ -2383,21 +2276,8 @@ export type StructuredRecord = {
   link?: string;
   values?: Record<string, string>;
 };
-export type StructuredPreview = {
-  configuration: {
-    presentation: StructuredSourceConfig["presentation"];
-    fields: StructuredSourceConfig["fields"];
-    emptyState: string;
-    dateSelection: DateSelection;
-    data: {
-      records: StructuredRecord[];
-      cachedAt: string;
-      staleAt: string;
-      usingCachedData: boolean;
-    };
-  };
-  diagnostics: SourceRefreshDiagnostics;
-};
+/** Preview of a feed or document Data Source. */
+export type StructuredPreview = components["schemas"]["StructuredPreview"];
 export type WebsiteConfig = {
   url: string;
   displayUrl: string;
@@ -2415,8 +2295,8 @@ export type WebsiteConfig = {
   backgroundColor: string;
   failureBehavior: "last_success" | "placeholder" | "fallback_image" | "skip";
   fallbackImageAssetId?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 export type WebsiteInput = {
   name: string;
@@ -2502,17 +2382,8 @@ export type SourceRefreshDiagnostics = {
   cacheExpiresAt?: string;
   errorCode?: string;
 };
-export type CalendarPreview = {
-  configuration: CalendarConfig & {
-    data: {
-      events: CalendarEvent[];
-      cachedAt: string;
-      staleAt: string;
-      usingCachedData: boolean;
-    };
-  };
-  diagnostics: SourceRefreshDiagnostics;
-};
+/** Preview of a calendar Data Source: the Player configuration and events. */
+export type CalendarPreview = components["schemas"]["CalendarPreview"];
 export type WebsiteDiagnostics = {
   assetId: string;
   configuredUrl: string;
@@ -2729,35 +2600,22 @@ export type SubmissionStatus =
   | "cancelled"
   | "publication_failed";
 
-export type ContentSubmission = {
-  id: string;
-  contentType: EditorialContentType;
-  contentId: string;
-  contentName?: string;
-  workingRevision: number;
-  snapshot: unknown;
-  snapshotSha256: string;
-  submittedBy?: string;
-  submitterName?: string;
-  submittedAt: string;
-  basedPublishedRevision?: number;
-  basedPublishedRevisionId?: string;
-  status: SubmissionStatus;
-  reviewRequired: boolean;
-  allowSelfApproval: boolean;
-  reviewNote?: string;
-  reviewedBy?: string;
-  reviewerName?: string;
-  reviewedAt?: string;
-  requestedPublicationAt?: string;
-  publicationFailureReason?: string;
-  publishedAt?: string;
-  newerWorkingDraft: boolean;
-  currentPublishedRevision?: number;
-  affectedScreenCount: number;
-  affectedLocationCount: number;
-};
+/**
+ * States the list-submissions filter accepts. The server rejects anything
+ * else with invalid_state; `cancelled` is a display-only detail state.
+ */
+export type SubmissionFilter =
+  | ""
+  | "in_review"
+  | "changes_requested"
+  | "approved"
+  | "scheduled"
+  | "published"
+  | "superseded"
+  | "publication_failed";
 
+/** An editorial submission; the contract owns the wire shape. */
+export type ContentSubmission = components["schemas"]["ContentSubmission"];
 export type ContentSubmissionList = {
   policy: "off" | "contributors" | "everyone";
   allowSelfApproval: boolean;

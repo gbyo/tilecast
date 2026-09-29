@@ -128,3 +128,43 @@ func TestComponentConfigErrorsAreTyped(t *testing.T) {
 		t.Fatalf("error %T is not a ConfigurationError", err)
 	}
 }
+
+func TestChartLegacyTypeMapsToStyleOnResave(t *testing.T) {
+	upgraded := map[string]any{"chartType": "bar"}
+	applyChartLegacyStyle("chart", map[string]any{"chartType": "bar"}, upgraded)
+	if upgraded["style"] != "bar" {
+		t.Fatalf("a resaved bar chart became %v", upgraded["style"])
+	}
+	donut := map[string]any{"chartType": "donut"}
+	applyChartLegacyStyle("chart", map[string]any{"chartType": "donut"}, donut)
+	if donut["style"] != "bar" {
+		t.Fatalf("a resaved donut chart became %v", donut["style"])
+	}
+	// An explicit new style still wins over the legacy type.
+	explicit := map[string]any{"style": "line", "chartType": "bar"}
+	applyChartLegacyStyle("chart", map[string]any{"style": "line", "chartType": "bar"}, explicit)
+	if explicit["style"] != "line" {
+		t.Fatalf("an explicit style was overridden: %v", explicit["style"])
+	}
+}
+
+func TestMigratedBoundsRejectAtSave(t *testing.T) {
+	if err := validateMigratedBounds("progress", map[string]any{"targetField": ""}); err == nil || !strings.Contains(err.Error(), "positive target") {
+		t.Fatalf("a missing progress target was accepted: %v", err)
+	}
+	if err := validateMigratedBounds("progress", map[string]any{"targetField": "", "staticTarget": float64(0)}); err == nil || !strings.Contains(err.Error(), "positive target") {
+		t.Fatalf("a zero progress target was accepted: %v", err)
+	}
+	if err := validateMigratedBounds("progress", map[string]any{"targetField": "", "staticTarget": float64(100)}); err != nil {
+		t.Fatalf("a positive progress target was rejected: %v", err)
+	}
+	if err := validateMigratedBounds("chart", map[string]any{"series": []any{}, "minimum": float64(20), "maximum": float64(10)}); err == nil || !strings.Contains(err.Error(), "bounds are invalid") {
+		t.Fatalf("inverted chart bounds were accepted: %v", err)
+	}
+	if err := validateMigratedBounds("chart", map[string]any{"series": []any{}}); err == nil || !strings.Contains(err.Error(), "one to four series") {
+		t.Fatalf("an empty chart series was accepted: %v", err)
+	}
+	if err := validateMigratedBounds("metric", map[string]any{"metrics": []any{}}); err == nil || !strings.Contains(err.Error(), "at least one metric") {
+		t.Fatalf("empty metrics were accepted: %v", err)
+	}
+}

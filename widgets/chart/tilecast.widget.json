@@ -1,0 +1,236 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "chart",
+  "version": 1,
+  "name": "Chart",
+  "description": "Plot up to four numeric series as bars, lines, or areas.",
+  "category": "Data display",
+  "icon": "chart",
+  "keywords": ["chart", "bar", "line", "area", "graph", "series"],
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "The records or time-series source to plot.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["records", "time_series"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "dataset",
+        "label": "Dataset",
+        "description": "The dataset within the source. Blank uses the first usable one.",
+        "control": "text",
+        "maxLength": 80,
+        "default": "",
+        "ui": { "section": "data", "order": 2 }
+      },
+      {
+        "key": "series",
+        "label": "Series",
+        "description": "One to four numeric series. Each names its own field.",
+        "control": "repeating_group",
+        "maximumItems": 4,
+        "default": [],
+        "itemFields": [
+          {
+            "key": "field",
+            "label": "Field",
+            "description": "The numeric field this series plots.",
+            "control": "data_source_field",
+            "dataSourceKey": "dataSourceId",
+            "dataSourceFieldTypes": [
+              "number",
+              "integer",
+              "percent",
+              "currency"
+            ],
+            "default": ""
+          },
+          {
+            "key": "label",
+            "label": "Label",
+            "description": "Legend text. Blank uses the field.",
+            "control": "text",
+            "maxLength": 80,
+            "default": ""
+          },
+          {
+            "key": "color",
+            "label": "Color",
+            "description": "Optional. Blank uses the default palette.",
+            "control": "color",
+            "default": ""
+          }
+        ],
+        "ui": { "section": "data", "order": 3 }
+      },
+      {
+        "key": "categoryField",
+        "label": "Category field",
+        "description": "Record labels along the axis. Blank numbers the points.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "default": "",
+        "ui": { "section": "data", "order": 4 }
+      },
+      {
+        "key": "timeField",
+        "label": "Time field",
+        "description": "Optional. Reads axis labels from a date field.",
+        "control": "data_source_field",
+        "dataSourceKey": "dataSourceId",
+        "dataSourceFieldTypes": ["date", "datetime"],
+        "default": "",
+        "ui": { "section": "data", "order": 5 }
+      },
+      {
+        "key": "style",
+        "label": "Style",
+        "description": "Bars suit counts. Lines and areas suit change over order or time. Screens whose Player predates these styles show lines for areas.",
+        "control": "select",
+        "default": "line",
+        "options": [
+          { "value": "bar", "label": "Bars" },
+          { "value": "line", "label": "Lines" },
+          { "value": "area", "label": "Areas" }
+        ],
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "showLegend",
+        "label": "Show legend",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "showAxes",
+        "label": "Show axes",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "minimum",
+        "label": "Minimum",
+        "description": "Optional. Fixes the axis lower bound.",
+        "control": "number",
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "maximum",
+        "label": "Maximum",
+        "description": "Optional. Fixes the axis upper bound.",
+        "control": "number",
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "control": "text",
+        "maxLength": 200,
+        "default": "",
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "chartType",
+        "label": "Legacy chart type",
+        "description": "Compatibility only. Saved rows keep their value; new Widgets use the style above.",
+        "control": "select",
+        "default": "line",
+        "options": [
+          { "value": "line", "label": "Line" },
+          { "value": "bar", "label": "Bar" },
+          { "value": "donut", "label": "Donut" }
+        ],
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "textScale",
+        "label": "Text scale",
+        "control": "integer",
+        "minimum": 25,
+        "maximum": 500,
+        "ui": { "hidden": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Content padding",
+        "control": "integer",
+        "minimum": 0,
+        "maximum": 40,
+        "ui": { "hidden": true }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "dataset": "",
+    "series": [],
+    "categoryField": "",
+    "timeField": "",
+    "style": "line",
+    "showLegend": true,
+    "showAxes": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "legacyEditor": true,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.chart",
+    "version": 1,
+    "tagName": "tc-widget-chart",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "dataset": { "$config": "dataset", "default": "" },
+      "series": { "$config": "series", "default": [] },
+      "categoryField": { "$config": "categoryField", "default": "" },
+      "timeField": { "$config": "timeField", "default": "" },
+      "style": { "$config": "style", "default": null },
+      "chartType": { "$config": "chartType", "default": "line" },
+      "showLegend": { "$config": "showLegend", "default": true },
+      "showAxes": { "$config": "showAxes", "default": true },
+      "minimum": { "$config": "minimum", "default": null },
+      "maximum": { "$config": "maximum", "default": null },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": { "$config": "emptyState", "default": "" }
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": { "fallback": "legacy" }
+}

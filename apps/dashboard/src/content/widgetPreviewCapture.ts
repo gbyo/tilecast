@@ -5,6 +5,12 @@ type CaptureT = TFunction<"content"> | undefined;
 const WIDGET_SNAPSHOT_WIDTH = 960;
 const WIDGET_SNAPSHOT_HEIGHT = 540;
 
+// Persisted alongside stored Widget previews. Bump this whenever the capture
+// representation changes in a way that requires existing thumbnails to be
+// regenerated. Keep in sync with WidgetPreviewCaptureVersion in
+// apps/server/internal/media/widgets.go.
+export const WIDGET_PREVIEW_CAPTURE_VERSION = 2;
+
 function blobToDataURL(blob: Blob, t: CaptureT) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -29,46 +35,72 @@ function blobToDataURL(blob: Blob, t: CaptureT) {
   });
 }
 
-async function inlineImages(
-  source: HTMLElement,
-  clone: HTMLElement,
-  t: CaptureT,
-) {
-  const originals = Array.from(source.querySelectorAll("img"));
-  const copies = Array.from(clone.querySelectorAll("img"));
+type CapturedImage = {
+  source: HTMLImageElement;
+  clone: HTMLImageElement;
+};
+
+async function inlineImages(images: CapturedImage[], t: CaptureT) {
   await Promise.all(
-    originals.map(async (image, index) => {
-      const copy = copies[index];
-      const sourceURL = image.currentSrc || image.src;
-      if (!copy || !sourceURL || sourceURL.startsWith("data:")) return;
+    images.map(async ({ source, clone }) => {
+      const sourceURL = source.currentSrc || source.src;
+      if (!sourceURL || sourceURL.startsWith("data:")) return;
       try {
         const response = await fetch(sourceURL, {
           credentials: "same-origin",
         });
-        if (response.ok)
-          copy.src = await blobToDataURL(await response.blob(), t);
+        if (!response.ok) {
+          clone.remove();
+          return;
+        }
+        clone.src = await blobToDataURL(await response.blob(), t);
       } catch {
-        copy.remove();
+        clone.remove();
       }
     }),
   );
 }
 
-function inlineComputedStyles(source: Element, clone: Element) {
+function inlineComputedStyle(source: Element, clone: Element) {
   const style = getComputedStyle(source);
-  const target = (clone as HTMLElement).style;
+  const target = (clone as HTMLElement | SVGElement).style;
+  if (!target) return;
   for (const property of style)
     target.setProperty(
       property,
       style.getPropertyValue(property),
       style.getPropertyPriority(property),
     );
-  const sourceChildren = Array.from(source.children);
-  const cloneChildren = Array.from(clone.children);
-  sourceChildren.forEach((child, index) => {
-    const copy = cloneChildren[index];
-    if (copy) inlineComputedStyles(child, copy);
-  });
+}
+
+/**
+ * Build the tree the browser is actually painting rather than merely cloning
+ * the light DOM. Widgets V2 render inside open Shadow DOM with adopted
+ * stylesheets; neither ShadowRoots nor their constructed stylesheets survive
+ * cloneNode/XMLSerializer. Flattening the composed tree and copying computed
+ * styles gives the foreignObject a self-contained representation of the same
+ * pixels without introducing a second Widget renderer.
+ */
+function cloneRenderedNode(source: Node, images: CapturedImage[]): Node {
+  if (!(source instanceof Element)) return source.cloneNode(true);
+
+  const clone = source.cloneNode(false) as Element;
+  inlineComputedStyle(source, clone);
+  if (source instanceof HTMLImageElement && clone instanceof HTMLImageElement)
+    images.push({ source, clone });
+
+  let children: Node[];
+  if (source instanceof HTMLSlotElement) {
+    const assigned = source.assignedNodes({ flatten: true });
+    children = assigned.length ? assigned : Array.from(source.childNodes);
+  } else if (source.shadowRoot) {
+    children = Array.from(source.shadowRoot.childNodes);
+  } else {
+    children = Array.from(source.childNodes);
+  }
+  for (const child of children)
+    clone.appendChild(cloneRenderedNode(child, images));
+  return clone;
 }
 
 function loadImage(url: string, t: CaptureT) {
@@ -123,9 +155,9 @@ async function captureRenderPreview(
   const frameWidth = Math.ceil(bounds.width);
   const frameHeight = Math.ceil(bounds.height);
   const background = getComputedStyle(element).backgroundColor;
-  const clone = element.cloneNode(true) as HTMLElement;
-  inlineComputedStyles(element, clone);
-  await inlineImages(element, clone, t);
+  const images: CapturedImage[] = [];
+  const clone = cloneRenderedNode(element, images) as HTMLElement;
+  await inlineImages(images, t);
   exclude.forEach((selector) =>
     clone.querySelectorAll(selector).forEach((child) => child.remove()),
   );

@@ -21,10 +21,14 @@ export {
 export {
   boundText,
   formatDate,
+  formatDisplayNumber,
   formatNumber,
   formatTime,
   formatWidgetValue,
+  toFiniteNumber,
   type DisplayValueOptions,
+  type NumericDisplayOptions,
+  type NumericDisplayStyle,
   localDayDifference,
   localDayKey,
   relativeDayLabel,
@@ -60,3 +64,12 @@ export {
   surfaceStyles,
   themeProperties,
 } from "./tokens.ts";
+export {
+  MAX_CONFIG_FIELD_LENGTH,
+  fieldRef,
+  fieldsByKey,
+  firstObjectValues,
+  optionalBoolean,
+  optionalFinite,
+  pickDataset,
+} from "./widget-data.ts";

@@ -21,6 +21,10 @@
       "types": "./dist/node/widgets/capabilities.gen.d.ts",
       "default": "./dist/node/widgets/capabilities.gen.js"
     },
+    "./presentation-capabilities": {
+      "types": "./dist/node/compat/projection/presentation-capabilities.gen.d.ts",
+      "default": "./dist/node/compat/projection/presentation-capabilities.gen.js"
+    },
     "./runtime-dir": "./runtime-dir.cjs",
     "./package.json": "./package.json"
   },

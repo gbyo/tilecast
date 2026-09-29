@@ -139,7 +139,7 @@ impl IpcHandler for DaemonIpc {
             }
             Event::PreviewResult(result) => {
                 if result.within_limits() {
-                    self.context.preview_waiters.complete(result.request_id, result.result);
+                    self.context.capture.complete(result.request_id, result.result);
                 }
             }
             Event::ShutdownAck(_) => {}

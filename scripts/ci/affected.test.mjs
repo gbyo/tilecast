@@ -164,6 +164,27 @@ test("activity ingestion, derivation and shared evidence select parity", () => {
   ])
     assert.equal(affected([path]).edge_activity, true, path);
 });
+test("player contract sources select every native consumer and their drift gate", () => {
+  for (const path of [
+    "packages/manifest-schema/presentation-capabilities.json",
+    "packages/player-contracts/fixtures/server-url-policy.json",
+    "scripts/generate-player-contracts.mjs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "ci",
+      "server",
+      "android",
+      "runtime",
+      "linux",
+      "edge_rust",
+      "edge_server",
+      "edge_wpe",
+      "edge_conformance",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+  }
+});
 test("shared schema contracts distinguish players from ordinary API consumers", () => {
   for (const path of [
     "packages/manifest-schema/schema-v16.json",
@@ -187,6 +208,15 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
   ])
     assert.deepEqual(selected([path]), ["docs"], path);
 });
+test("OpenAPI contract changes run server route parity", () => {
+  for (const path of ["docs/openapi/core.yaml", "docs/openapi.yaml"]) {
+    const result = affected([path]);
+    assert.equal(result.plugins, true, `${path}: plugins`);
+    assert.equal(result.cli, true, `${path}: cli`);
+    assert.equal(result.server, true, `${path}: server`);
+  }
+});
+
 test("documentation stays inexpensive", () => {
   assert.deepEqual(selected(["docs/deployment.md"]), ["docs"]);
   for (const path of [

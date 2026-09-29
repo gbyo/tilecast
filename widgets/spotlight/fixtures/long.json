@@ -1,0 +1,49 @@
+{
+  "name": "Long copy",
+  "description": "Very long titles and bodies clamp instead of overflowing.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "titleField": "title",
+    "subtitleField": "",
+    "bodyField": "body",
+    "badgeField": "status",
+    "metadataField": "",
+    "imageAssetId": "",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [
+            { "key": "title", "label": "Title", "type": "text" },
+            { "key": "body", "label": "Body", "type": "text" },
+            { "key": "status", "label": "Status", "type": "text" }
+          ],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Annual spring concert and fundraiser gala with the city symphonic band and three guest choirs"
+                },
+                "body": {
+                  "kind": "text",
+                  "text": "Doors open at half past five with a bake sale in the lobby. The overture begins at six. The second half features graduating seniors. A reception follows in the courtyard, weather permitting, with refreshments from local sponsors."
+                },
+                "status": { "kind": "text", "text": "Tickets open" }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

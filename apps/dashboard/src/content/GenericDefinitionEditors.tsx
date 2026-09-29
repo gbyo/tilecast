@@ -11,6 +11,7 @@ import type {
   Asset,
   DataSourceDefinition,
   DataSourceDetail,
+  SavedDataSource,
   WidgetDefinition,
 } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -294,7 +295,7 @@ export function GenericDataSourceEditor({
   csrf: string;
   readOnly?: boolean;
   onClose: () => void;
-  onSaved: (source: DataSourceDetail) => void;
+  onSaved: (source: SavedDataSource) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();

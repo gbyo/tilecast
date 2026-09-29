@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Airplay, Radio, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
@@ -145,6 +145,8 @@ export function AirPlayPresentDialog({
   const [session, setSession] = useState<AirplaySession | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const targetKey = `${targetType}:${targetId}`;
+  const previousTargetKey = useRef(targetKey);
 
   useEffect(() => {
     if (!open) return;
@@ -153,12 +155,15 @@ export function AirPlayPresentDialog({
   }, [open]);
 
   const create = useMutation({
-    mutationFn: () =>
-      api.createAirplaySession(
+    mutationFn: async (requestTargetKey: string) => ({
+      requestTargetKey,
+      value: await api.createAirplaySession(
         { targetType, targetId, durationMinutes, transport, audioMode },
         csrfToken,
       ),
-    onSuccess: (value) => {
+    }),
+    onSuccess: ({ requestTargetKey, value }) => {
+      if (requestTargetKey !== targetKey) return;
       toast.add({ title: "AirPlay session started.", type: "success" });
       setSession(value);
       setSessionId(value.id);
@@ -199,22 +204,28 @@ export function AirPlayPresentDialog({
     },
   });
   const stop = useMutation({
-    mutationFn: () => {
+    mutationFn: async (requestTargetKey: string) => {
       if (!sessionId) throw new Error(t("airplay.sessionUnavailable"));
-      return api.stopAirplaySession(sessionId, csrfToken);
+      return {
+        requestTargetKey,
+        value: await api.stopAirplaySession(sessionId, csrfToken),
+      };
     },
-    onSuccess: (value) => {
+    onSuccess: ({ requestTargetKey, value }) => {
+      if (requestTargetKey !== targetKey) return;
       toast.add({ title: "AirPlay session ended.", type: "success" });
       setSession(value);
       setSessionId(value.id);
     },
   });
   useEffect(() => {
-    if (!open) {
+    const targetChanged = previousTargetKey.current !== targetKey;
+    previousTargetKey.current = targetKey;
+    if (!open || targetChanged) {
       setSession(null);
       setSessionId(null);
     }
-  }, [open, targetId]);
+  }, [open, targetKey]);
   const live = current.data ?? session;
   const capabilitiesComplete =
     displayCount > 0 && allCapabilities.length === displayCount;
@@ -494,7 +505,7 @@ export function AirPlayPresentDialog({
               <Button
                 variant="default"
                 disabled={!canEnable || Boolean(sessionId)}
-                onClick={() => create.mutate()}
+                onClick={() => create.mutate(targetKey)}
               >
                 {create.isPending ? t("airplay.enabling") : t("airplay.enable")}
               </Button>
@@ -603,7 +614,7 @@ export function AirPlayPresentDialog({
                 disabled={["stopping", "ended", "expired", "failed"].includes(
                   live.status,
                 )}
-                onClick={() => stop.mutate()}
+                onClick={() => stop.mutate(targetKey)}
               >
                 {stop.isPending ? t("airplay.stopping") : t("airplay.stop")}
               </Button>

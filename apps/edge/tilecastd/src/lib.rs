@@ -27,6 +27,8 @@
 //! * [`activation`] — what the renderer shows, and evidence-gated promotion.
 //! * [`activity`], [`telemetry`] — proof of play and telemetry through the
 //!   bounded outbox; [`preview`] — the Studio live preview.
+//! * [`capture`] — the renderer-capture broker shared by preview and Watch
+//!   Live; [`live_stream`] — the Studio Watch Live coordinator.
 //! * [`display_control`] — HDMI-CEC and DDC/CI display control, scheduled
 //!   display actions and their readback (M9).
 //! * [`media`], [`media_channel`] — renderer media capabilities.
@@ -39,6 +41,7 @@
 pub mod activation;
 pub mod activity;
 pub mod capabilities;
+pub mod capture;
 pub mod command_handlers;
 pub mod commands;
 pub mod config;
@@ -51,6 +54,7 @@ pub mod idle_inhibit;
 pub mod ipc_handler;
 pub mod legacy_compat;
 pub mod legacy_import;
+pub mod live_stream;
 pub mod logging;
 pub mod manifest;
 pub mod manifest_sync;
@@ -60,6 +64,7 @@ pub mod network_task;
 pub mod pairing;
 pub mod player_config;
 pub mod presentation;
+pub mod presentation_capabilities;
 pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;

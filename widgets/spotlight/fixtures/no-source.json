@@ -1,0 +1,17 @@
+{
+  "name": "No source",
+  "description": "Spotlight with no connected source reports the empty state instead of failing.",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "subtitleField": "",
+    "bodyField": "",
+    "badgeField": "",
+    "metadataField": "",
+    "imageAssetId": "",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "expect": "empty"
+}

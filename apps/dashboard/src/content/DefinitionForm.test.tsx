@@ -260,6 +260,17 @@ describe("resolveDataSourceKey", () => {
       resolveDataSourceKey(field, [sourceField, secondSource, field]),
     ).toBeUndefined();
   });
+
+  it("falls back to the root single source for a nested keyless field", () => {
+    const nested: ContentDefinitionField = {
+      key: "valueField",
+      label: "Value",
+      control: "data_source_field",
+    };
+    expect(resolveDataSourceKey(nested, [nested], [sourceField])).toBe(
+      "primarySource",
+    );
+  });
 });
 
 describe("dataFormatGuideFor", () => {
@@ -344,6 +355,44 @@ describe("dataFormatGuideFor", () => {
     expect(guide.example).toEqual({
       start_time: "2026-08-24T09:03:00-04:00",
     });
+  });
+
+  it("includes nested repeating-group fields that read the same source", () => {
+    const fields: ContentDefinitionField[] = [
+      {
+        key: "dataSourceId",
+        label: "Metrics data",
+        control: "data_source",
+        acceptedDataSourceKinds: ["records"],
+      },
+      {
+        key: "metrics",
+        label: "Metrics",
+        control: "repeating_group",
+        itemFields: [
+          {
+            key: "valueField",
+            label: "Value field",
+            control: "data_source_field",
+            required: true,
+            default: "score",
+            dataSourceKey: "dataSourceId",
+            dataSourceFieldTypes: ["number"],
+          },
+        ],
+      },
+    ];
+
+    const guide = dataFormatGuideFor(fields[0]!, fields);
+
+    expect(guide.fields).toEqual([
+      {
+        key: "score",
+        label: "Value field",
+        types: ["number"],
+        required: true,
+      },
+    ]);
   });
 });
 

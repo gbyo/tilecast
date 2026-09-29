@@ -27,8 +27,11 @@ import {
   TableRow,
 } from "../components/ui/table";
 import {
+  getPlaybackCompliance,
+  type ComplianceDimension,
+} from "../api/domains/activity";
+import {
   activityParams,
-  activityRequest,
   ErrorNotice,
   formatDuration,
   humanize,
@@ -122,11 +125,16 @@ function formatMinutes(milliseconds: number) {
  */
 export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   const { t } = useTranslation("activity");
-  const [dimension, setDimension] = useState("screen");
+  const [dimension, setDimension] = useState<ComplianceDimension>("screen");
   const params = activityParams(range, { dimension });
   const query = useQuery({
     queryKey: ["activity", "compliance", params.toString()],
-    queryFn: () => activityRequest<ComplianceReport>(`/compliance?${params}`),
+    queryFn: () =>
+      getPlaybackCompliance({
+        from: range.from,
+        to: range.to,
+        dimension,
+      }),
   });
 
   if (query.isLoading) return <Loading />;

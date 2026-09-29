@@ -43,6 +43,7 @@ import {
 import { Kbd } from "./ui/kbd";
 import { SiteHeader } from "./studio/SiteHeader";
 import { MediaUploadDialog } from "./content-picker/MediaUploadDialog";
+import { installCommandPaletteFocus } from "../commandPaletteFocus";
 
 // Command categories are translation keys into palette.groups. Display names
 // are resolved with t() at render in groupCommandResults.
@@ -519,6 +520,8 @@ function CommandPalette({
     if (open) setQuery("");
   }, [open]);
 
+  useEffect(() => installCommandPaletteFocus(), []);
+
   const select = (result: CommandResult) => {
     onClose();
     if (result.action === "upload-media") {
@@ -536,7 +539,7 @@ function CommandPalette({
       }}
       title={t("palette.title")}
       description={t("palette.description")}
-      className="w-[min(42rem,calc(100vw-2rem))]"
+      className="command-palette-dialog w-[min(42rem,calc(100vw-2rem))]"
     >
       <Command
         className="min-h-72 p-1"

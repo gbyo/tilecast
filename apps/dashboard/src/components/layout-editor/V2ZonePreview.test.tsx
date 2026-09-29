@@ -17,6 +17,7 @@ import agendaManifest from "../../../../../widgets/agenda/tilecast.widget.json";
 import weatherManifest from "../../../../../widgets/weather/tilecast.widget.json";
 import newsManifest from "../../../../../widgets/news/tilecast.widget.json";
 import tickerManifest from "../../../../../widgets/ticker/tilecast.widget.json";
+import { studioWidgetDiscovery } from "../../content/studioWidgets";
 import { V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
@@ -351,8 +352,22 @@ describe("V2ZonePreview", () => {
     const frame = await screen.findByRole("img", {
       name: "Live Widget preview",
     });
-    await waitFor(() => frame.querySelector("tc-widget-clock"));
-    expect(container.querySelector("tc-widget-clock")).toBeInTheDocument();
+    const widget = await waitFor(() => frame.querySelector("tc-widget-clock"));
+    expect(widget).toBeInTheDocument();
+    const sharedDefinition = studioWidgetDiscovery.registry.lookup(
+      "tilecast.clock",
+      1,
+    );
+    expect(customElements.get("tc-widget-clock")).toBe(
+      sharedDefinition?.element as CustomElementConstructor,
+    );
+    const stage = frame.firstElementChild as HTMLElement;
+    const intrinsicFrame = stage.firstElementChild as HTMLElement;
+    expect(stage.style.width).toBe("480px");
+    expect(stage.style.height).toBe("270px");
+    expect(intrinsicFrame.style.width).toBe("480px");
+    expect(intrinsicFrame.style.height).toBe("270px");
+    expect(container.querySelector("tc-widget-clock")).toBe(widget);
   });
 
   it("mounts the real QR element for saved legacy provider content", async () => {
@@ -452,7 +467,6 @@ describe("V2ZonePreview", () => {
     vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
     vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
       configuration: {
-        calendars: [],
         displayMode: "upcoming",
         maxEvents: 20,
         fields: {
@@ -464,8 +478,6 @@ describe("V2ZonePreview", () => {
           descriptionExcerpt: false,
         },
         timezone: "America/Chicago",
-        refreshIntervalSeconds: 900,
-        stalenessLimitHours: 24,
         emptyState: "",
         data: {
           events: [
@@ -484,10 +496,11 @@ describe("V2ZonePreview", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
         },
       },
       diagnostics: {
-        assetId: "source-1",
+        dataSourceId: "source-1",
         parseStatus: "ok",
         availableEventCount: 1,
         availableItemCount: 0,

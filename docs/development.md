@@ -1,6 +1,12 @@
 # Development
 
-Install Go 1.24 or later, Node.js 22 or later, npm, and Docker. Then, run `make bootstrap`.
+Install the tool versions in `mise.toml`: Node.js 22, Go 1.26, and Java 17 (for the Android Player only). Install npm and Docker. Then, run `make bootstrap`. Run `make doctor` to see which tools are missing. Use `make doctor AREA=server|dashboard|edge|android|media|docs` to check only the tools that one area needs. Android tools are not required for other areas.
+
+## Toolchain versions
+
+`mise.toml` selects the versions that contributors and primary CI use. The Go version agrees with `go.work` and each `go.mod`. `apps/edge/rust-toolchain.toml` pins Rust.
+
+The production Docker builder images in `deploy/docker/Dockerfile` are a separate build environment. They can use newer, validated versions than `mise.toml`. Docker must not change the contributor baseline. To change any version, change it on purpose, and run the full checks for the affected areas.
 
 PostgreSQL is the only runtime dependency for Milestone 1.
 

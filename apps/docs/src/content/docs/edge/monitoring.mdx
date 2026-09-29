@@ -19,7 +19,7 @@ Edge reports Player health such as connection and playback state, renderer state
 
 Edge answers Studio's normal [Live preview](../../operations/live-preview/) with a snapshot from the renderer. Setup, pairing, and safe-mode screens aren't captured. If the renderer can't take a snapshot, Edge pauses previews for a while instead of risking playback.
 
-**Watch live** isn't available on Edge.
+**Watch live** works on Edge: while the live window is open, Edge sends bounded snapshots from the renderer over its existing server connection. Setup, pairing, and safe-mode screens aren't captured, and a slow connection drops frames instead of queueing video.
 
 ## Updates
 

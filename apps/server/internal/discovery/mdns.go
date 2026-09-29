@@ -13,19 +13,9 @@ import (
 type Server struct{ server *zeroconf.Server }
 
 func Advertise(identity devices.Identity, publicURL string) (*Server, error) {
-	parsed, err := url.Parse(publicURL)
-	if err != nil || parsed.Hostname() == "" {
-		return nil, fmt.Errorf("mDNS requires a valid TILECAST_PUBLIC_URL")
-	}
-	port := 80
-	if parsed.Scheme == "https" {
-		port = 443
-	}
-	if parsed.Port() != "" {
-		port, err = strconv.Atoi(parsed.Port())
-		if err != nil {
-			return nil, fmt.Errorf("parse public URL port: %w", err)
-		}
+	port, err := advertisedPort(publicURL)
+	if err != nil {
+		return nil, err
 	}
 	instance := strings.TrimSpace("Tilecast - " + identity.OrganizationName)
 	server, err := zeroconf.Register(instance, "_tilecast._tcp", "local.", port, []string{
@@ -38,6 +28,31 @@ func Advertise(identity devices.Identity, publicURL string) (*Server, error) {
 		return nil, fmt.Errorf("advertise Tilecast with mDNS: %w", err)
 	}
 	return &Server{server: server}, nil
+}
+
+func advertisedPort(publicURL string) (int, error) {
+	parsed, err := url.Parse(publicURL)
+	if err != nil || parsed.Hostname() == "" {
+		return 0, fmt.Errorf("mDNS requires a valid TILECAST_PUBLIC_URL")
+	}
+
+	var port int
+	switch parsed.Scheme {
+	case "http":
+		port = 80
+	case "https":
+		port = 443
+	default:
+		return 0, fmt.Errorf("mDNS requires TILECAST_PUBLIC_URL to use http or https")
+	}
+
+	if parsed.Port() != "" {
+		port, err = strconv.Atoi(parsed.Port())
+		if err != nil || port < 1 || port > 65535 {
+			return 0, fmt.Errorf("mDNS requires TILECAST_PUBLIC_URL to use a valid TCP port")
+		}
+	}
+	return port, nil
 }
 
 func (s *Server) Shutdown() {

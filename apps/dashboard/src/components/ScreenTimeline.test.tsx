@@ -224,13 +224,19 @@ describe("screen timeline", () => {
     );
     await user.click(screen.getByRole("button", { name: "7 days" }));
 
-    await waitFor(() =>
-      expect(
-        requested.some(
-          (url) => url.includes("range=7d") && url.includes("domain=commands"),
-        ),
-      ).toBe(true),
-    );
+    // The server windows on from/to; the period toggle must move the window
+    // while the domain filter survives.
+    await waitFor(() => {
+      const urls = requested.filter((url) => url.includes("domain=commands"));
+      expect(urls.length).toBeGreaterThan(0);
+      const params = new URL(urls[urls.length - 1]!, "http://localhost")
+        .searchParams;
+      const from = Date.parse(params.get("from") ?? "");
+      const to = Date.parse(params.get("to") ?? "");
+      expect(Number.isNaN(from)).toBe(false);
+      expect(Number.isNaN(to)).toBe(false);
+      expect(to - from).toBe(7 * 24 * 60 * 60 * 1000);
+    });
   });
 
   it("survives a server that marshals an empty timeline as null", async () => {

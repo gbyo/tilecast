@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "capabilities": [
+    {
+      "name": "binding.core",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "collection.conditional",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "collection.grouped_sections",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "collection.repeat",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.asset_image",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.badge",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "content.bar_chart",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.donut_chart",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.icon",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.line_chart",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.marquee",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "content.progress",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "content.qr_code",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "content.text",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "environment.time",
+      "version": 1,
+      "baseline": false
+    },
+    {
+      "name": "format.typed",
+      "version": 2,
+      "baseline": true
+    },
+    {
+      "name": "layout.box",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.column",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.divider",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.grid",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.row",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.spacer",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.stack",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "layout.surface",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "playback.auto_skip",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "selection.relative_date",
+      "version": 1,
+      "baseline": true
+    },
+    {
+      "name": "selection.temporal",
+      "version": 1,
+      "baseline": true
+    }
+  ]
+}

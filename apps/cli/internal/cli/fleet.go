@@ -71,9 +71,11 @@ func addScreenManageCommands(env *environment, screen *cobra.Command) {
 	screen.AddCommand(update, disable, enable, revoke)
 }
 
-func stringField(record screenRecord, key string) string {
-	value, _ := record[key].(string)
-	return value
+func screenLocationID(record screenRecord) string {
+	if record.LocationId == nil {
+		return ""
+	}
+	return record.LocationId.String()
 }
 
 func runScreenUpdate(cmd *cobra.Command, env *environment, ref string) error {
@@ -103,7 +105,7 @@ func runScreenUpdate(cmd *cobra.Command, env *environment, ref string) error {
 		return err
 	}
 	body := screenUpdateBody(current, name, locationID, clearLocation, roomName, roomNumber, description)
-	if err := confirmChange(cmd, fmt.Sprintf("update screen %q?", stringField(current, "name"))); err != nil {
+	if err := confirmChange(cmd, fmt.Sprintf("update screen %q?", current.Name)); err != nil {
 		return err
 	}
 	status, payload, err := transport.UpdateScreen(ctx, screenID(current), body)
@@ -131,18 +133,18 @@ func orDefault(flag, current string) string {
 // update command and the MCP screen_update tool.
 func screenUpdateBody(current screenRecord, name, locationID string, clearLocation bool, roomName, roomNumber, description string) map[string]any {
 	body := map[string]any{
-		"name":        orDefault(name, stringField(current, "name")),
-		"roomName":    orDefault(roomName, stringField(current, "roomName")),
-		"roomNumber":  orDefault(roomNumber, stringField(current, "roomNumber")),
-		"description": orDefault(description, stringField(current, "description")),
+		"name":        orDefault(name, current.Name),
+		"roomName":    orDefault(roomName, current.RoomName),
+		"roomNumber":  orDefault(roomNumber, current.RoomNumber),
+		"description": orDefault(description, current.Description),
 	}
 	switch {
 	case clearLocation:
 		body["locationId"] = nil
 	case locationID != "":
 		body["locationId"] = locationID
-	case stringField(current, "locationId") != "":
-		body["locationId"] = stringField(current, "locationId")
+	case screenLocationID(current) != "":
+		body["locationId"] = screenLocationID(current)
 	default:
 		body["locationId"] = nil
 	}
@@ -167,7 +169,7 @@ func runScreenEnabled(cmd *cobra.Command, env *environment, ref string, enabled 
 	if err != nil {
 		return err
 	}
-	if err := confirmChange(cmd, fmt.Sprintf("%s screen %q?", action, stringField(current, "name"))); err != nil {
+	if err := confirmChange(cmd, fmt.Sprintf("%s screen %q?", action, current.Name)); err != nil {
 		return err
 	}
 	status, payload, err := transport.SetScreenEnabled(ctx, screenID(current), enabled)
@@ -182,7 +184,7 @@ func runScreenEnabled(cmd *cobra.Command, env *environment, ref string, enabled 
 		past = "enabled"
 	}
 	return printData(cmd, map[string]string{"id": screenID(current), "enabled": fmt.Sprint(enabled)}, func() string {
-		return fmt.Sprintf("%s %s", past, stringField(current, "name"))
+		return fmt.Sprintf("%s %s", past, current.Name)
 	})
 }
 
@@ -201,7 +203,7 @@ func runScreenRevoke(cmd *cobra.Command, env *environment, ref string) error {
 	if err != nil {
 		return err
 	}
-	if err := confirmChange(cmd, fmt.Sprintf("permanently revoke %q's credential? The player disconnects and must re-pair.", stringField(current, "name"))); err != nil {
+	if err := confirmChange(cmd, fmt.Sprintf("permanently revoke %q's credential? The player disconnects and must re-pair.", current.Name)); err != nil {
 		return err
 	}
 	status, payload, err := transport.RevokeScreen(ctx, screenID(current), reason)
@@ -212,7 +214,7 @@ func runScreenRevoke(cmd *cobra.Command, env *environment, ref string) error {
 		return err
 	}
 	return printData(cmd, map[string]string{"id": screenID(current), "revoked": "true"}, func() string {
-		return fmt.Sprintf("revoked %s", stringField(current, "name"))
+		return fmt.Sprintf("revoked %s", current.Name)
 	})
 }
 

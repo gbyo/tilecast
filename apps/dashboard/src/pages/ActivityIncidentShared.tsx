@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
+import { ApiError } from "../api/errors";
+import { updateIncident, type IncidentAction } from "../api/domains/activity";
 import { translateKnown } from "../i18n";
 import { formatWhen, humanize, ResultBadge } from "./ActivityShared";
 import { screenActivityLink } from "./activityLinks";
@@ -55,7 +57,7 @@ export function isActivelyFailing(incident: Incident): boolean {
 // Action structures hold translation keys, never rendered text. Labels are
 // resolved with t() at render so rows follow language changes.
 export function actionsFor(status: IncidentStatus): {
-  action: string;
+  action: IncidentAction;
   labelKey:
     | "incidents.actions.acknowledge"
     | "incidents.actions.resolve"
@@ -126,35 +128,30 @@ export function useIncidentAction() {
   return useMutation({
     mutationFn: async (input: {
       id: string;
-      action: string;
+      action: IncidentAction;
       reason?: string;
       notes?: string;
       assignedTo?: string;
     }) => {
-      const response = await fetch(`/api/v1/activity/incidents/${input.id}`, {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRF-Token": auth.status?.csrfToken ?? "",
-        },
-        body: JSON.stringify({
-          action: input.action,
-          reason: input.reason,
-          notes: input.notes,
-          assignedTo: input.assignedTo,
-        }),
-      });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as {
-          error?: { message?: string };
-        };
+      try {
+        await updateIncident(
+          input.id,
+          {
+            action: input.action,
+            reason: input.reason,
+            notes: input.notes,
+            assignedTo: input.assignedTo,
+          },
+          auth.status?.csrfToken ?? "",
+        );
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
         throw new Error(
-          body.error?.message ??
-            translateKnown(
-              "activity:incidents.actionFailed",
-              "The action could not be applied.",
-            ),
+          translateKnown(
+            "activity:incidents.actionFailed",
+            "The action could not be applied.",
+          ),
+          { cause: error },
         );
       }
     },
@@ -378,7 +375,7 @@ export function IncidentActionButtons({
   pending,
 }: {
   incident: Incident;
-  onAct: (action: string) => void;
+  onAct: (action: IncidentAction) => void;
   pending: boolean;
 }) {
   const { t } = useTranslation("activity");

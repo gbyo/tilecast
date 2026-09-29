@@ -4,22 +4,32 @@
 
 **Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.
 
-A Widgets V2 Widget is a first-class presentation component of the shared Player Runtime. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in every shared-runtime host: Electron/Chromium, Tilecast Edge (WPE WebKit), Tilecast Studio preview, and, after the Android convergence (§12), the Android trusted local WebView.
+A Widgets V2 Widget is a first-class presentation component. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in Tilecast Studio preview and inside the shared Player Runtime hosted by Electron/Chromium, Tilecast Edge (WPE WebKit), and the converging Android trusted local WebView.
 
 If Weather looks wrong, there is one Weather renderer to fix.
 
+### Shared renderer terminology
+
+**Shared Widget renderer** means the Widget runtime module (the real Web Component) plus `WidgetMount` from `@tilecast/widget-sdk`. Studio, Storybook/fixtures, and the Player Runtime all use that boundary.
+
+**Shared Player Runtime** means the complete trusted playback document and engine in `@tilecast/player-runtime`: presentation lifecycle, occurrence staging, transitions, evidence, host capabilities and bridges, synchronized playback, remote-web surfaces, and playback failure policy. Electron, Edge/WPE, and Android host that runtime.
+
+Studio intentionally does **not** instantiate the complete Player Runtime for ordinary Widget authoring preview. It supplies preview-specific `WidgetContext`, `WidgetResources`, locally edited configuration, and intrinsic preview geometry directly to `WidgetMount`.
+
+The architectural invariant is: **one Widget component renders fullscreen, Layout zones, Studio, and Storybook.**
+
 ## 1. Architecture checkpoint (2026-09-26)
 
-| Item                     | Decision                                                                                                                                                                 |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                   |
-| #699 (Edge M11)          | Open draft. It changes Edge Rust and C code, one YouTube Layout rule and docs. It does not change `packages/player-runtime`, the manifest schema or content definitions. |
-| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                              |
-| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                               |
-| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                  |
-| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.        |
-| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                          |
-| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                      |
+| Item                     | Decision                                                                                                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                               |
+| #699 (Edge M11)          | Merged. It adds Edge remote-web isolation and the shared Player Runtime host-view path, plus the YouTube Layout rule. It does not change the manifest schema or content definitions. |
+| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                                          |
+| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                                           |
+| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                              |
+| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.                    |
+| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                                      |
+| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                                  |
 
 ### 1.1 CSP and Shadow DOM result
 

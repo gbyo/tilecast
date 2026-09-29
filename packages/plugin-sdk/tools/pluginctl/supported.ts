@@ -6,15 +6,24 @@
  * reads the composed document and derives its expectations from what it
  * finds there:
  *
+ * - a stable operationId on every /api/v1 operation (core plus fragments)
+ * - a useful description (description or summary) on every /api/v1
+ *   operation, so an undescribed operation can no longer stay outside
+ *   the surface by staying undescribed
  * - operationId uniqueness (global, core plus plugin fragments)
  * - typed path/query parameters wherever parameters are declared inline
  * - request schemas wherever request bodies exist
  * - response documentation and success schemas where appropriate
+ *   (a 101 Switching Protocols is the success case for upgrades)
  * - authentication evidence (a `security` declaration, a CSRF parameter,
  *   a documented 401, or an explicit auth description) on every
  *   non-public operation; operations that declare themselves public are
  *   exempt from the evidence rule
  * - every local `$ref` resolves inside the composed document
+ * - every object schema says what it holds: declared properties, an
+ *   explicit additionalProperties, or a composition. A bare
+ *   `type: object` generates a type that accepts no key at all, which
+ *   silently breaks a genuinely dynamic map
  * - every plugin fragment operation carries a stable operationId before
  *   automation can refer to it
  *
@@ -59,6 +68,9 @@ export const EXCLUDED_OPERATIONS: ExcludedOperation[] = [
       "Demo-mode introspection for the local demo stack only; not part of the supported management API.",
   },
 ];
+
+/** Minimum useful-description length, so a placeholder cannot pass. */
+export const MIN_DESCRIPTION_LENGTH = 12;
 
 /** Hard cap on exclusions so the exception set cannot become an allowlist. */
 export const MAX_EXCLUDED_OPERATIONS = 8;
@@ -148,9 +160,11 @@ function checkParameters(
     if (ref !== null) continue;
     const schema = findPair(item, "schema");
     const name = textOf(findPair(item, "name")) || "unknown";
+    const schemaRef =
+      isMap(schema) && typeof scalar(findPair(schema, "$ref")) === "string";
     if (
       !isMap(schema) ||
-      typeof scalar(findPair(schema, "type")) !== "string"
+      (!schemaRef && typeof scalar(findPair(schema, "type")) !== "string")
     ) {
       problems.push({
         file: COMPOSED_OPENAPI,
@@ -196,6 +210,8 @@ function checkRequestBody(
 
 function checkResponses(
   operation: YAMLMap,
+  method: string,
+  path: string,
   location: string,
   problems: Problem[],
 ): void {
@@ -207,28 +223,59 @@ function checkResponses(
     });
     return;
   }
+  // The authenticated Player socket is the only HTTP upgrade operation in
+  // the contract. Every ordinary operation must still document a 2xx success.
+  const allowsProtocolUpgrade =
+    method === "get" && path === "/api/v1/player/socket";
   const success = responses.items.find((pair) => {
     const code = scalar(pair.key);
-    return code !== null && code.startsWith("2");
+    return (
+      code !== null &&
+      (code.startsWith("2") || (allowsProtocolUpgrade && code === "101"))
+    );
   });
   if (success === undefined) {
     problems.push({
       file: COMPOSED_OPENAPI,
-      message: `${location} must document a 2xx response`,
+      message: allowsProtocolUpgrade
+        ? `${location} must document a 2xx response or the Player socket 101 upgrade`
+        : `${location} must document a 2xx response`,
     });
     return;
   }
-  if (!isMap(success.value)) return;
-  const content = findPair(success.value, "content");
-  if (content === null || !isMap(content)) return;
-  for (const media of content.items) {
-    const schema = isMap(media.value) ? findPair(media.value, "schema") : null;
-    if (!isMap(schema)) {
-      const mediaType = scalar(media.key) ?? "unknown";
+  // Every 2xx carries a described body, except 204 No Content (which is
+  // bodyless by definition) and HEAD responses (which describe headers,
+  // never a body).
+  for (const pair of responses.items) {
+    const code = scalar(pair.key);
+    if (code === null || !code.startsWith("2") || code === "204") continue;
+    if (method === "head") continue;
+    if (!isMap(pair.value)) {
       problems.push({
         file: COMPOSED_OPENAPI,
-        message: `${location} ${mediaType} success body needs a schema`,
+        message: `${location} ${code} success body needs content`,
       });
+      continue;
+    }
+    const content = findPair(pair.value, "content");
+    if (content === null || !isMap(content)) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} ${code} success body needs content`,
+      });
+      continue;
+    }
+    for (const media of content.items) {
+      const schema = isMap(media.value)
+        ? findPair(media.value, "schema")
+        : null;
+      if (!isMap(schema)) {
+        const mediaType = scalar(media.key) ?? "unknown";
+        problems.push({
+          file: COMPOSED_OPENAPI,
+          message: `${location} ${mediaType} success body needs a schema`,
+        });
+      }
     }
   }
 }
@@ -290,6 +337,62 @@ function collectLocalRefs(node: unknown, refs: string[]): void {
   }
 }
 
+function isObjectSchema(node: Record<string, unknown>): boolean {
+  const type = node.type;
+  return type === "object" || (Array.isArray(type) && type.includes("object"));
+}
+
+const OBJECT_SHAPE_KEYS = [
+  "properties",
+  "additionalProperties",
+  "patternProperties",
+  "allOf",
+  "oneOf",
+  "anyOf",
+  "$ref",
+];
+
+function collectBareObjects(
+  node: unknown,
+  path: string,
+  found: string[],
+): void {
+  if (Array.isArray(node)) {
+    node.forEach((item, index) =>
+      collectBareObjects(item, `${path}[${index}]`, found),
+    );
+    return;
+  }
+  if (typeof node !== "object" || node === null) return;
+  const record = node as Record<string, unknown>;
+  if (
+    isObjectSchema(record) &&
+    !OBJECT_SHAPE_KEYS.some((key) => key in record)
+  ) {
+    found.push(path);
+  }
+  for (const [key, value] of Object.entries(record)) {
+    collectBareObjects(value, `${path}.${key}`, found);
+  }
+}
+
+/**
+ * openapi-typescript renders `{ type: object }` with nothing else as
+ * `Record<string, never>`, so a schema that is meant to hold arbitrary
+ * keys must say `additionalProperties: true` (or a value schema). An
+ * intentionally empty object says `additionalProperties: false`.
+ */
+function checkObjectShapes(doc: Document, problems: Problem[]): void {
+  const found: string[] = [];
+  collectBareObjects(doc.toJS({ mapAsMap: false }), "", found);
+  for (const path of found) {
+    problems.push({
+      file: COMPOSED_OPENAPI,
+      message: `object schema at ${path} needs properties or an explicit additionalProperties`,
+    });
+  }
+}
+
 function checkReferences(doc: Document, problems: Problem[]): void {
   const refs: string[] = [];
   const root = doc.contents;
@@ -325,13 +428,14 @@ function checkReferences(doc: Document, problems: Problem[]): void {
  *
  * `composed` is the merged core-plus-fragments document: operationId
  * uniqueness and local reference resolution hold globally across it.
- * `core` carries the per-operation structural rules (typed parameters,
- * request/response schemas, authentication evidence). Plugin fragments
- * only owe stable operationIds at this layer — see
- * checkFragmentOperationIds — so describing a core operation opts it
- * into conformance, which is what makes the rule a ratchet instead of a
- * second contract. Operations without a description are not yet surface
- * and are skipped.
+ * `core` carries the per-operation rules: every /api/v1 operation owes a
+ * stable operationId and a useful description (description or summary),
+ * plus typed parameters, request/response schemas, and authentication
+ * evidence. Plugin fragments owe stable operationIds and useful
+ * descriptions at this layer — see checkFragmentOperationIds. There is
+ * no undescribed back door: adding an /api/v1 operation means
+ * describing it in OpenAPI, which is what makes the rule a ratchet
+ * instead of a second contract.
  */
 export function checkDerivedConformance(
   composed: Document,
@@ -351,24 +455,50 @@ export function checkDerivedConformance(
     }
   }
   for (const entry of collectOperations(core)) {
+    if (!entry.path.startsWith("/api/v1")) continue;
     const id = scalar(findPair(entry.operation, "operationId"));
+    const location =
+      id === null
+        ? `${entry.method.toUpperCase()} ${entry.path}`
+        : `${entry.method.toUpperCase()} ${entry.path} (${id})`;
+    if (id === null) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} needs a stable operationId`,
+      });
+    }
+    const description = textOf(findPair(entry.operation, "description")).trim();
+    const useful =
+      description || textOf(findPair(entry.operation, "summary")).trim();
+    if (useful.length < MIN_DESCRIPTION_LENGTH) {
+      problems.push({
+        file: COMPOSED_OPENAPI,
+        message: `${location} needs a useful description`,
+      });
+    }
     if (id === null) continue;
-    if (textOf(findPair(entry.operation, "description")) === "") continue;
-    const location = `${entry.method.toUpperCase()} ${entry.path} (${id})`;
     if (excluded.has(id)) continue;
     checkParameters(entry.operation, location, problems);
     checkRequestBody(entry.operation, location, problems);
-    checkResponses(entry.operation, location, problems);
+    checkResponses(
+      entry.operation,
+      entry.method,
+      entry.path,
+      location,
+      problems,
+    );
     checkAuth(entry.operation, location, problems);
   }
   checkReferences(composed, problems);
+  checkObjectShapes(composed, problems);
   return problems;
 }
 
 /**
  * Every plugin fragment operation needs a stable operationId before
- * automation can refer to it. Fragment operationIds share the global
- * uniqueness namespace with core, enforced on the composed document.
+ * automation can refer to it, and a useful description like every other
+ * /api/v1 operation. Fragment operationIds share the global uniqueness
+ * namespace with core, enforced on the composed document.
  */
 export function checkFragmentOperationIds(
   fragments: { plugin: string; file: string; text: string }[],
@@ -415,6 +545,18 @@ export function checkFragmentOperationIds(
         });
       } else {
         seen.set(id, `${fragment.plugin} ${location}`);
+      }
+      const description = textOf(
+        findPair(entry.operation, "description"),
+      ).trim();
+      const useful =
+        description || textOf(findPair(entry.operation, "summary")).trim();
+      if (useful.length < MIN_DESCRIPTION_LENGTH) {
+        problems.push({
+          plugin: fragment.plugin,
+          file: fragment.file,
+          message: `${location} needs a useful description`,
+        });
       }
     }
   }

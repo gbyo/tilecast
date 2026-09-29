@@ -85,38 +85,8 @@ pub mod profile {
     /// Declarative widget capabilities of the reference projection code the
     /// trusted runtime runs (the same versions the reference Linux player
     /// reports, because it is the same code).
-    pub const NATIVE_CAPABILITIES: &[(&str, u32)] = &[
-        ("layout.surface", 1),
-        ("layout.box", 1),
-        ("layout.row", 1),
-        ("layout.column", 1),
-        ("layout.stack", 1),
-        ("layout.grid", 1),
-        ("layout.spacer", 1),
-        ("layout.divider", 1),
-        ("content.text", 1),
-        ("content.icon", 2),
-        ("content.asset_image", 2),
-        ("content.badge", 1),
-        ("content.progress", 2),
-        ("content.qr_code", 1),
-        ("content.marquee", 1),
-        ("content.line_chart", 2),
-        ("content.bar_chart", 2),
-        ("content.donut_chart", 2),
-        ("collection.repeat", 2),
-        ("collection.conditional", 2),
-        ("collection.grouped_sections", 1),
-        ("binding.core", 2),
-        ("format.typed", 2),
-        ("selection.relative_date", 1),
-        ("selection.temporal", 1),
-        ("playback.auto_skip", 1),
-        // Clock, Date, Countdown and World Clock bind the current time. The
-        // runtime projects them as self-updating nodes (or, for a date, text
-        // that changes once a day), so re-projection never restarts playback.
-        ("environment.time", 1),
-    ];
+    pub const NATIVE_CAPABILITIES: &[(&str, u32)] =
+        crate::presentation_capabilities::SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES;
 
     /// The `web.remote` declarative capability: remote web in the isolated
     /// helper, shown through the renderer's remote web surface.

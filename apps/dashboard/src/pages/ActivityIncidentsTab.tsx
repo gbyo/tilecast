@@ -29,7 +29,6 @@ import {
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   activityParams,
-  activityRequest,
   ErrorNotice,
   formatDuration,
   formatWhen,
@@ -39,7 +38,7 @@ import {
   ResultBadge,
   TechnicalDetails,
 } from "./ActivityShared";
-import type { AuditRecord, ProofRecord, ScreenEvent } from "./ActivityShared";
+
 import {
   IncidentActionButtons,
   IncidentFacts,
@@ -50,24 +49,14 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
+import {
+  getIncident,
+  listIncidents,
+  normalizeScreenEvent,
+  type IncidentAction,
+  type IncidentFilters,
+} from "../api/domains/activity";
 import { screenActivityLink } from "./activityLinks";
-
-type IncidentTimelineEntry = {
-  id: string;
-  role: string;
-  occurredAt: string;
-  actorName?: string;
-  summary: string;
-};
-
-type IncidentDetail = Incident & {
-  timeline: IncidentTimelineEntry[];
-  screens: { screenId: string; screenName: string }[];
-  relatedEvents: ScreenEvent[];
-  proofSessions: ProofRecord[];
-  auditChanges: AuditRecord[];
-  recoveryPath: string;
-};
 
 /**
  * The Incidents report. Screen Events remains the raw diagnostic stream; this
@@ -102,7 +91,7 @@ export function IncidentsTab({
   const query = useQuery({
     queryKey: ["activity", "incidents", "tab", paramsKey],
     queryFn: () =>
-      activityRequest<{ items: Incident[] }>(`/incidents?${params}`),
+      listIncidents(Object.fromEntries(params.entries()) as IncidentFilters),
     refetchInterval: 30_000,
   });
 
@@ -199,14 +188,18 @@ function IncidentDrawer({
   onOpenChangeComplete: (open: boolean) => void;
   onClose: () => void;
   canAct: boolean;
-  onAct: (action: string) => void;
+  onAct: (action: IncidentAction) => void;
   pending: boolean;
   error?: string;
 }) {
   const { t } = useTranslation(["activity", "common"]);
   const query = useQuery({
     queryKey: ["activity", "incident", incident.id],
-    queryFn: () => activityRequest<IncidentDetail>(`/incidents/${incident.id}`),
+    queryFn: () =>
+      getIncident(incident.id).then((detail) => ({
+        ...detail,
+        relatedEvents: detail.relatedEvents.map(normalizeScreenEvent),
+      })),
   });
   const detail = query.data;
   const desktop = useDesktopLayout();

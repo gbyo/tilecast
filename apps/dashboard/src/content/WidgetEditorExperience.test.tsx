@@ -12,6 +12,7 @@ import type {
   WidgetPresentation,
 } from "../api/types";
 import { GenericWidgetEditor } from "./GenericDefinitionEditors";
+import * as sourceEditors from "./SourceEditors";
 import { WidgetProviderGallery } from "./SourceEditors";
 import { V2WidgetEditor } from "./V2WidgetEditor";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
@@ -199,6 +200,103 @@ describe("Widget editor experience", () => {
       screen.getByRole("button", { name: /Google Sheets — Display/ }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /ESPN/ })).toBeNull();
+  });
+
+  it("has no native-editor fallback left to recreate", () => {
+    // PR B deleted NativeAppEditor: every definition now routes to the V2
+    // editor (component present) or the generic manifest editor. This
+    // module-shape assertion makes re-adding a native routing path fail
+    // loudly instead of silently reviving provider-specific authoring.
+    expect("NativeAppEditor" in sourceEditors).toBe(false);
+  });
+
+  it("shows Metrics under Data display and hides superseded aliases", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [
+        {
+          id: "metric",
+          version: 1,
+          apiVersion: 1,
+          name: "Metrics",
+          description: "Show key numbers.",
+          category: "Data display",
+          icon: "metric",
+          runtime: "native",
+          configurationSchema: { fields: [] },
+          defaultConfiguration: {},
+          component: {
+            type: "tilecast.metrics",
+            version: 1,
+            tagName: "tc-widget-metrics",
+            entrypoint: "./runtime/index.ts",
+            configTemplate: {},
+            dataSourceFields: [],
+            empty: "render",
+          },
+          compatibility: { fallback: "legacy" },
+          presentationSchemaVersion: 1,
+          requiredCapabilities: {},
+          emptyStateBehavior: "text",
+        },
+        {
+          id: "stat_grid",
+          version: 1,
+          apiVersion: 1,
+          name: "Stat Grid",
+          description: "Superseded by Metrics.",
+          category: "Data display",
+          icon: "stat_grid",
+          runtime: "native",
+          configurationSchema: { fields: [] },
+          defaultConfiguration: {},
+          compatibility: { fallback: "legacy" },
+          deprecation: { deprecated: true, replacement: "metric" },
+          presentationSchemaVersion: 1,
+          requiredCapabilities: {},
+          emptyStateBehavior: "text",
+        },
+        {
+          id: "fundraising-thermometer",
+          version: 1,
+          apiVersion: 1,
+          name: "Fundraising Thermometer",
+          description: "Superseded by Progress.",
+          category: "Data display",
+          icon: "thermometer",
+          runtime: "native",
+          configurationSchema: { fields: [] },
+          defaultConfiguration: {},
+          compatibility: { fallback: "template" },
+          deprecation: { deprecated: true, replacement: "progress" },
+          presentationSchemaVersion: 1,
+          requiredCapabilities: {},
+          emptyStateBehavior: "text",
+        },
+      ],
+      dataSources: [],
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <WidgetProviderGallery onChoose={vi.fn()} onClose={vi.fn()} page />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Data display" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Metrics/ })).toBeTruthy();
+    // Superseded providers stay resolvable for saved content but leave
+    // new creation once their V2 replacement proves parity.
+    expect(screen.queryByRole("button", { name: /Stat Grid/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Fundraising Thermometer/ }),
+    ).toBeNull();
   });
 
   it("shows one QR Code for new creation once the legacy provider is superseded", async () => {

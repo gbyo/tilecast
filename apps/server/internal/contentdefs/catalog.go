@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 	datasources "github.com/tilecast/tilecast/data-sources"
 )
 
@@ -54,21 +55,8 @@ var supportedOutputFieldTypes = map[string]bool{
 	"boolean": true, "date": true, "datetime": true, "duration": true, "url": true, "asset": true,
 }
 
-// supportedCapabilities enumerates every presentation capability a Widget may require.
-// It must stay in agreement with the Player's declared native capabilities and the web
-// runtime capability; unknown names are rejected at startup.
-var supportedCapabilities = map[string]bool{
-	"layout.surface": true, "layout.box": true, "layout.row": true, "layout.column": true,
-	"layout.stack": true, "layout.grid": true, "layout.spacer": true, "layout.divider": true,
-	"content.text": true, "content.icon": true, "content.asset_image": true, "content.badge": true,
-	"content.progress": true, "content.qr_code": true, "content.marquee": true,
-	"content.line_chart": true, "content.bar_chart": true, "content.donut_chart": true,
-	"collection.repeat": true, "collection.conditional": true, "collection.grouped_sections": true,
-	"binding.core": true, "format.typed": true, "selection.relative_date": true,
-	"selection.temporal": true,
-	"playback.auto_skip": true,
-	"environment.time":   true, "web.remote": true,
-}
+// Declarative capability names and versions are owned by the manifest contract.
+// web.remote remains a separate web-runtime capability.
 
 // supportedBindingSources and supportedConditionOperators mirror the vocabularies the
 // Player enforces in ManifestSyncManager, keeping Server validation and Player playback
@@ -139,24 +127,29 @@ type ConfigurationSchema struct {
 }
 
 type FieldDefinition struct {
-	Key                     string                 `json:"key"`
-	Label                   string                 `json:"label"`
-	Description             string                 `json:"description,omitempty"`
-	Control                 string                 `json:"control"`
-	Required                bool                   `json:"required,omitempty"`
-	Default                 any                    `json:"default,omitempty"`
-	Minimum                 *float64               `json:"minimum,omitempty"`
-	Maximum                 *float64               `json:"maximum,omitempty"`
-	MinLength               int                    `json:"minLength,omitempty"`
-	MaxLength               int                    `json:"maxLength,omitempty"`
-	Options                 []SelectOption         `json:"options,omitempty"`
-	AcceptedDataSourceKinds []string               `json:"acceptedDataSourceKinds,omitempty"`
-	RequiredFields          map[string]string      `json:"requiredFields,omitempty"`
-	DataSourceFieldTypes    []string               `json:"dataSourceFieldTypes,omitempty"`
-	MediaTypes              []string               `json:"mediaTypes,omitempty"`
-	MaximumItems            int                    `json:"maximumItems,omitempty"`
-	ItemFields              []FieldDefinition      `json:"itemFields,omitempty"`
-	UI                      map[string]interface{} `json:"ui,omitempty"`
+	Key                     string            `json:"key"`
+	Label                   string            `json:"label"`
+	Description             string            `json:"description,omitempty"`
+	Control                 string            `json:"control"`
+	Required                bool              `json:"required,omitempty"`
+	Default                 any               `json:"default,omitempty"`
+	Minimum                 *float64          `json:"minimum,omitempty"`
+	Maximum                 *float64          `json:"maximum,omitempty"`
+	MinLength               int               `json:"minLength,omitempty"`
+	MaxLength               int               `json:"maxLength,omitempty"`
+	Options                 []SelectOption    `json:"options,omitempty"`
+	AcceptedDataSourceKinds []string          `json:"acceptedDataSourceKinds,omitempty"`
+	RequiredFields          map[string]string `json:"requiredFields,omitempty"`
+	DataSourceFieldTypes    []string          `json:"dataSourceFieldTypes,omitempty"`
+	// DataSourceKey names the data_source control whose selected source
+	// supplies the field list for a data_source_field control. An explicit
+	// key wins; a definition with exactly one data_source control may omit
+	// it. Nested repeating-group controls may point at a root source.
+	DataSourceKey string                 `json:"dataSourceKey,omitempty"`
+	MediaTypes    []string               `json:"mediaTypes,omitempty"`
+	MaximumItems  int                    `json:"maximumItems,omitempty"`
+	ItemFields    []FieldDefinition      `json:"itemFields,omitempty"`
+	UI            map[string]interface{} `json:"ui,omitempty"`
 }
 
 type SelectOption struct {
@@ -869,14 +862,20 @@ func validateFetchSpec(spec FetchSpec, schema ConfigurationSchema, output Output
 	return nil
 }
 
-// validateCapabilities rejects unknown capability names and versions below one.
+// validateCapabilities rejects unknown capability names and unsupported versions.
 func validateCapabilities(capabilities map[string]int) error {
 	for name, version := range capabilities {
-		if !supportedCapabilities[name] {
-			return fmt.Errorf("declares unknown capability %q", name)
-		}
 		if version < 1 {
 			return fmt.Errorf("capability %q must require version 1 or higher", name)
+		}
+		if name == "web.remote" {
+			continue
+		}
+		if !presentationcaps.Supports(name) {
+			return fmt.Errorf("declares unknown capability %q", name)
+		}
+		if maximum := presentationcaps.Version(name); version > maximum {
+			return fmt.Errorf("capability %q requires version %d but maximum supported is %d", name, version, maximum)
 		}
 	}
 	return nil
@@ -908,8 +907,15 @@ func validateIdentity(id string, version int, name, category string) error {
 }
 
 func validateSchema(schema ConfigurationSchema) error {
+	if err := validateSchemaFields(schema.Fields); err != nil {
+		return err
+	}
+	return validateDataSourceKeys(schema)
+}
+
+func validateSchemaFields(fields []FieldDefinition) error {
 	seen := map[string]bool{}
-	for _, field := range schema.Fields {
+	for _, field := range fields {
 		if field.Key == "" || seen[field.Key] {
 			return errors.New("configuration schema contains a missing or duplicate field key")
 		}
@@ -940,12 +946,51 @@ func validateSchema(schema ConfigurationSchema) error {
 			if len(field.ItemFields) == 0 {
 				return fmt.Errorf("repeating group %q declares no item fields", field.Key)
 			}
-			if err := validateSchema(ConfigurationSchema{Fields: field.ItemFields}); err != nil {
+			if err := validateSchemaFields(field.ItemFields); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// validateDataSourceKeys rejects a data_source_field whose explicit
+// dataSourceKey does not name a data_source control in the same
+// definition. A bad manifest must fail at load rather than silently
+// validate a nested selection against the wrong source. Nested
+// repeating-group controls may point at a root source, so keys are
+// collected at every level before any reference is checked.
+func validateDataSourceKeys(schema ConfigurationSchema) error {
+	sources := map[string]bool{}
+	var collect func(fields []FieldDefinition)
+	collect = func(fields []FieldDefinition) {
+		for _, field := range fields {
+			if field.Control == "data_source" {
+				sources[field.Key] = true
+			}
+			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
+				collect(field.ItemFields)
+			}
+		}
+	}
+	collect(schema.Fields)
+	var walk func(fields []FieldDefinition) error
+	walk = func(fields []FieldDefinition) error {
+		for _, field := range fields {
+			if field.Control == "data_source_field" && field.DataSourceKey != "" {
+				if !sources[field.DataSourceKey] {
+					return fmt.Errorf("field %q refers to unknown Data Source %q", field.Key, field.DataSourceKey)
+				}
+			}
+			if field.Control == "repeating_group" && len(field.ItemFields) > 0 {
+				if err := walk(field.ItemFields); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return walk(schema.Fields)
 }
 
 // validateFieldBounds rejects contradictory numeric and string bounds.

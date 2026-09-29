@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { Screen, ScreenStatus } from "../api/types";
-import type { ScreenPreview } from "../api/previews";
+import type { WireScreenPreview as ScreenPreview } from "../api/domains/screens";
 
 type ScreensT = TFunction<"screens"> | undefined;
 

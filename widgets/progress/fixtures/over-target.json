@@ -1,0 +1,41 @@
+{
+  "name": "Over target",
+  "description": "One hundred eighteen percent displays honestly with a full bar.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "valueField": "raised",
+    "targetField": "",
+    "staticTarget": 100,
+    "label": "Ticket sales",
+    "labelField": "",
+    "format": "integer",
+    "precision": 0,
+    "showPercent": true,
+    "completionText": "Sold out!",
+    "style": "bar",
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "records",
+          "kind": "records",
+          "fields": [{ "key": "raised", "label": "Raised", "type": "integer" }],
+          "records": [
+            {
+              "id": "r1",
+              "values": {
+                "raised": { "kind": "number", "integer": 118 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}

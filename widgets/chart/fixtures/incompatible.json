@@ -1,0 +1,36 @@
+{
+  "name": "Incompatible source",
+  "description": "A source with no records or time-series dataset fails instead of guessing.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "dataset": "",
+    "series": [{ "field": "value", "label": "Value", "color": "" }],
+    "categoryField": "",
+    "timeField": "",
+    "style": "line",
+    "showLegend": true,
+    "showAxes": true,
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "object",
+          "kind": "object",
+          "fields": [{ "key": "value", "label": "Value", "type": "number" }],
+          "value": {
+            "kind": "object",
+            "object": {
+              "value": { "kind": "number", "number": 7 }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expect": "error"
+}

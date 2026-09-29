@@ -201,6 +201,78 @@ describe("WidgetMount", () => {
     test.dispose();
   });
 
+  it("updates resources and context in place and re-resolves data", () => {
+    counter += 1;
+    const tagName = `tc-widget-resource-probe${counter}`;
+    const type = `tilecast.resource-probe${counter}`;
+    class ResourceProbe extends HTMLElement {
+      declare config: { source: string };
+      declare data: { attribution: string } | null;
+      declare empty: string | null;
+      declare context: WidgetContext;
+
+      connectedCallback() {
+        announceReady(this);
+      }
+    }
+    const definition = defineWidget<
+      { source: string },
+      { attribution: string }
+    >({
+      type,
+      version: 1,
+      tagName,
+      parseConfig(value) {
+        const source = (value as { source?: unknown } | null)?.source;
+        return typeof source === "string"
+          ? { ok: true, config: { source } }
+          : { ok: false, problem: "source" };
+      },
+      resolveData(config, resources) {
+        return ready({
+          attribution: resources.attribution(config.source) ?? "none",
+        });
+      },
+      element: ResourceProbe,
+    });
+    const resources = (attribution: string) =>
+      fixtureResources({
+        documents: {
+          source: {
+            schemaVersion: 1,
+            datasets: [
+              {
+                id: "rows",
+                kind: "records",
+                attribution,
+                records: [],
+              },
+            ],
+          },
+        },
+      });
+    const firstContext = createTestContext({ locale: "en-US" });
+    const secondContext = createTestContext({ locale: "fr-FR" });
+    const test = mountForTest(definition, {
+      config: { source: "source" },
+      resources: resources("First"),
+      context: firstContext,
+    });
+    const original = test.element as ResourceProbe;
+    expect(original.data).toEqual({ attribution: "First" });
+    expect(original.context).toBe(firstContext);
+
+    test.mount.update({
+      resources: resources("Second"),
+      context: secondContext,
+    });
+
+    expect(test.element).toBe(original);
+    expect(original.data).toEqual({ attribution: "Second" });
+    expect(original.context).toBe(secondContext);
+    test.dispose();
+  });
+
   it("removes the element, listeners and timers on dispose", () => {
     const clock = createManualClock();
     const test = mountForTest(makeDefinition(), {

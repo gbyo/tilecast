@@ -39,8 +39,10 @@ export function PersonalAccessTokensBlock() {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [name, setName] = useState("");
-  const [scopes, setScopes] = useState<string[]>(["read"]);
-  const [lifetime, setLifetime] = useState<number>(30);
+  const [scopes, setScopes] = useState<("read" | "write" | "admin")[]>([
+    "read",
+  ]);
+  const [lifetime, setLifetime] = useState<7 | 30 | 90 | 365>(30);
   const [created, setCreated] = useState<PersonalAccessTokenCreated | null>(
     null,
   );
@@ -70,7 +72,7 @@ export function PersonalAccessTokensBlock() {
     },
   });
 
-  const toggleScope = (scope: string) =>
+  const toggleScope = (scope: "read" | "write" | "admin") =>
     setScopes((current) =>
       current.includes(scope)
         ? current.filter((entry) => entry !== scope)
