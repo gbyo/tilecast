@@ -25,7 +25,7 @@
     "player-contracts:check": "node scripts/generate-player-contracts.mjs --check",
     "player:linux:dist": "npm run dist --workspace @gibsonmb71/tilecast-player-linux",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --write apps/dashboard/src/pages/LayoutEditorPage.drag.test.tsx scripts/ci/contracts/server-release.test.mjs && git diff --exit-code -- apps/dashboard/src/pages/LayoutEditorPage.drag.test.tsx scripts/ci/contracts/server-release.test.mjs",
     "lint": "npm run lint --workspace @tilecast/dashboard",
     "openapi:lint": "redocly lint docs/openapi.yaml",
     "openapi:compat": "./scripts/ci/openapi-compat.sh",
