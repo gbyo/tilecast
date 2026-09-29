@@ -1,13 +1,11 @@
 /**
  * Media, widgets, and data-source domain helpers over the typed
- * transport. Path, query, and body shapes come from the generated
- * OpenAPI contract. Asset library, content organization, data source
- * CRUD/diagnostics/inspection, and definition catalog success bodies are
- * contract-typed and inferred from the generated schemas; widgets,
- * uploads, and preview payloads still state their local Studio response
- * type explicitly until the contract gains schemas.
- * Blob/streaming upload paths stay on raw fetch in ../client.ts:
- * genuinely exceptional transports.
+ * transport. Path, query, body, and success shapes all come from the
+ * generated OpenAPI contract. Where a Studio view differs from the wire
+ * shape, a named normalizer in this module bridges the two, and the
+ * provider-dependent preview route is narrowed per shape by guard.
+ * Blob, chunked, and HEAD-inspection upload paths stay on raw fetch in
+ * ../client.ts: genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
 import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../errors";

@@ -3,9 +3,7 @@
  * presentation networks, plugins, AirPlay sessions, presentation
  * overrides, and screen groups. Location, presentation-network,
  * player-policy, group, span, and display-control success bodies are
- * contract-typed and inferred from the generated OpenAPI schemas;
- * other areas still state their local Studio response type explicitly
- * until the contract gains schemas.
+ * contract-typed and inferred from the generated OpenAPI schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
 import type { components } from "@tilecast/api-schema/generated/openapi";

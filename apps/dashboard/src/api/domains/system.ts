@@ -2,11 +2,10 @@
  * System administration domain helpers over the typed transport: player
  * releases, update deployments, takeovers, settings, users, preferences,
  * integration tokens, notifications, backups, and maintenance. Player
- * release, GitHub device-flow, settings, preference, takeover, and
- * notification success bodies are contract-typed and inferred from the
- * generated schemas; the remaining areas still state their local Studio
- * response type explicitly until the contract gains schemas. Takeover
- * list rows normalize wire nulls to absent optionals. Binary release uploads
+ * release, deployment, settings, preference, takeover, and notification
+ * success bodies are contract-typed and inferred from the generated
+ * schemas. Takeover and deployment rows normalize wire nulls to absent
+ * optionals. Binary release uploads
  * stay on XHR in ../client.ts: upload progress is an explicitly
  * exceptional transport.
  */
