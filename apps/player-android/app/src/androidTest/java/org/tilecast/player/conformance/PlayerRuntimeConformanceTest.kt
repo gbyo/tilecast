@@ -23,6 +23,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONObject
+import org.tilecast.player.runtime.TrustedRuntimeOrigin
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -210,9 +211,9 @@ class PlayerRuntimeConformanceTest {
         WebViewCompat.addDocumentStartJavaScript(
             webView,
             runnerScript,
-            setOf("https://appassets.androidplatform.net/*"),
+            setOf(TrustedRuntimeOrigin.origin),
         )
-        webView.loadUrl("https://appassets.androidplatform.net/assets/shared-runtime/index.html")
+        webView.loadUrl(TrustedRuntimeOrigin.entryUrl)
     }
 
     private class ConformanceBridge(
