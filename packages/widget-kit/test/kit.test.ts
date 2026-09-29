@@ -173,6 +173,34 @@ describe("ClockController", () => {
     test.dispose();
   });
 
+  it("rerenders when an explicit boundary fires without changing the key", async () => {
+    const start = Date.parse("2026-09-28T12:00:00.000Z");
+    const boundary = Date.parse("2026-09-28T12:00:05.000Z");
+    const clock = createManualClock(start);
+    const test = mountForTest(
+      tickingDefinition({
+        dayKey: true,
+        nextBoundary: (now) => (now < boundary ? boundary : null),
+      }),
+      {
+        config: { granularity: "minute" },
+        context: createTestContext({ clock, timeZone: "UTC" }),
+      },
+    );
+    const element = test.element as Ticking;
+    await element.updateComplete;
+    const before = element.renders;
+
+    clock.advance(boundary - start + 7);
+    expect(element.ticks.wakeups).toBe(0);
+    clock.advance(1);
+    await element.updateComplete;
+
+    expect(element.ticks.wakeups).toBe(1);
+    expect(element.renders).toBe(before + 1);
+    test.dispose();
+  });
+
   it("rerenders a keyed presentation only when its key changes", async () => {
     const clock = createManualClock(Date.parse("2026-09-28T23:58:00Z"));
     const test = mountForTest(tickingDefinition({ dayKey: true }), {

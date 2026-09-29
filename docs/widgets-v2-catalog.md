@@ -110,27 +110,27 @@ does not change.
 
 ### 3.3 Data display
 
-| Provider            | Name              | Fate     | Component        | Notes                                                       |
-| ------------------- | ----------------- | -------- | ---------------- | ----------------------------------------------------------- |
-| `list`              | List              | V2       | `tilecast.list`  | Shipped in #729.                                            |
-| `table`             | Table             | V2       | `tilecast.table` | Shipped in #729.                                            |
-| `cards`             | Cards             | V2       | `tilecast.cards` | Shipped in #729.                                            |
-| `recognition-board` | Recognition Board | Collapse | `tilecast.cards` | Name to title, note to body; legacy columns are not mapped. |
+| Provider                  | Name                    | Fate     | Component             | Notes                                                       |
+| ------------------------- | ----------------------- | -------- | --------------------- | ----------------------------------------------------------- |
+| `list`                    | List                    | V2       | `tilecast.list`       | Shipped in #729.                                            |
+| `table`                   | Table                   | V2       | `tilecast.table`      | Shipped in #729.                                            |
+| `cards`                   | Cards                   | V2       | `tilecast.cards`      | Shipped in #729.                                            |
+| `recognition-board`       | Recognition Board       | Collapse | `tilecast.cards`      | Name to title, note to body; legacy columns are not mapped. |
+| `menu`                    | Menu Board              | V2       | `tilecast.menu-board` | Shipped in #730.                                            |
+| `ticker`                  | Ticker                  | V2       | `tilecast.ticker`     | Shipped in #731.                                            |
+| `metric`                  | Metrics                 | V2       | `tilecast.metrics`    | One value or a grid of two to six values.                   |
+| `stat_grid`               | Stat Grid               | Collapse | `tilecast.metrics`    | Its `metrics` items keep their shape.                       |
+| `progress`                | Progress                | V2       | `tilecast.progress`   | Bar, ring, and thermometer styles.                          |
+| `fundraising-thermometer` | Fundraising Thermometer | Style    | `tilecast.progress`   | Thermometer style.                                          |
+| `spotlight`               | Spotlight               | V2       | `tilecast.spotlight`  | One featured record.                                        |
+| `chart`                   | Chart                   | V2       | `tilecast.chart`      | Bar, line, and area. A saved donut shows bars.              |
+| `timeline`                | Timeline                | V2       | `tilecast.timeline`   | Milestones. See §5.                                         |
 
 Recognition Board keeps its provider ID and saved configuration. Its
 component template maps `nameField` to Cards `titleField`, `noteField` to
 `bodyField`, `maxItems` to `maximumItems`, and preserves its heading, empty
 message, and colors. The old column count remains available only to the
 legacy template fallback.
-| `menu` | Menu Board | V2 | `tilecast.menu-board` | Shipped in #730. |
-| `ticker` | Ticker | V2 | `tilecast.ticker` | Shipped in #731. |
-| `metric` | Metrics | V2 | `tilecast.metrics` | One value or a grid of two to six values. |
-| `stat_grid` | Stat Grid | Collapse | `tilecast.metrics` | Its `metrics` items keep their shape. |
-| `progress` | Progress | V2 | `tilecast.progress` | Bar, ring, and thermometer styles. |
-| `fundraising-thermometer` | Fundraising Thermometer | Style | `tilecast.progress` | Thermometer style. |
-| `spotlight` | Spotlight | V2 | `tilecast.spotlight` | One featured record. |
-| `chart` | Chart | V2 | `tilecast.chart` | Bar, line, and area. A saved donut shows bars. |
-| `timeline` | Timeline | V2 | `tilecast.timeline` | Milestones. See §5. |
 
 The news Apps (`news-feed`, `espn`, `custom-rss`, `atom-feed`,
 `bbc-news`, `sky-news`, `the-guardian`) and `rss-ticker` are

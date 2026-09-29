@@ -896,8 +896,8 @@
             "default": "severity"
           },
           "updatedAtField": "updatedAt",
-          "effectiveAtField": "",
-          "expiresAtField": "",
+          "effectiveAtField": "effectiveAt",
+          "expiresAtField": "expiresAt",
           "showSeverity": true,
           "showUpdatedTime": { "$config": "showUpdatedTime", "default": true },
           "speed": "normal",
