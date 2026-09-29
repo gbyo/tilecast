@@ -81,10 +81,10 @@ For a local HTTP installation, keep:
 TILECAST_COOKIE_SECURE=false
 ```
 
-Then start Tilecast:
+Normal installs run a published Stable server image selected by `TILECAST_VERSION` in `deploy/docker/.env` (`stable` follows Stable releases; pin a release such as `0.11.0` for controlled upgrades). Then start Tilecast:
 
 ```sh
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
 ```
 
 Open [http://localhost:8080](http://localhost:8080) and follow the setup flow to create your organization and first Owner account.

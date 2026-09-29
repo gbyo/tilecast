@@ -194,7 +194,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
             <dl className="my-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Item
                 label={t("operations.system.fieldTilecast")}
-                value={`${s.tilecastVersion} · ${s.buildCommit}`}
+                value={`${s.tilecastVersion} · ${s.channel} · ${s.buildCommit}`}
               />
               <Item
                 label={t("operations.system.fieldUptime")}

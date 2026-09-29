@@ -10363,6 +10363,9 @@ components:
         organizationName: { type: string }
         installationId: { type: string }
         tilecastVersion: { type: string }
+        serverChannel: { type: string }
+        buildCommit: { type: string }
+        buildDate: { type: string }
         schemaVersion: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
         sizeBytes: { type: integer, minimum: 0 }
@@ -10486,6 +10489,7 @@ components:
       required:
         [
           tilecastVersion,
+          channel,
           buildCommit,
           buildDate,
           uptimeSeconds,
@@ -10500,6 +10504,7 @@ components:
         ]
       properties:
         tilecastVersion: { type: string }
+        channel: { type: string, enum: [stable, development] }
         buildCommit: { type: string }
         buildDate: { type: string }
         uptimeSeconds: { type: integer, minimum: 0 }
