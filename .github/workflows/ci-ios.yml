@@ -16,10 +16,10 @@ jobs:
     defaults:
       run:
         working-directory: apps/ios
-    env:
-      DERIVED_DATA: ${{ runner.temp }}/DerivedData
     steps:
       - uses: actions/checkout@v7
+      - name: Configure derived data path
+        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData" >> "$GITHUB_ENV"
         with:
           persist-credentials: false
       - name: Show toolchain
