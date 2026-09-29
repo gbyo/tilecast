@@ -138,7 +138,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching         |
 | 2         | Versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar |
-| 3         | Native API access, Keychain for native credentials, sign-out and revocation                                                      |
+| 3         | Native API access, Keychain for native credentials, sign-out and revocation                                                    |
 | 4         | Native presentation: frameless Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs           |
 | 5         | Native Pair Screen with scanning and manual code entry                                                                         |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                   |
