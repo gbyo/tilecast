@@ -117,6 +117,20 @@ describe("ContentPicker", () => {
     expect(screen.getByRole("dialog", { name: "Choose content" })).toBeTruthy();
   });
 
+  it("lets the dialog manage initial focus instead of focusing content search", async () => {
+    vi.spyOn(api, "assets").mockResolvedValue(listing([welcome]));
+    renderPicker();
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Choose content",
+    });
+    const search = screen.getByRole("searchbox", { name: "Search content" });
+    await waitFor(() =>
+      expect(dialog.contains(document.activeElement)).toBe(true),
+    );
+    expect(search).not.toHaveFocus();
+  });
+
   it("selects and confirms multiple reusable content items", async () => {
     vi.spyOn(api, "assets").mockResolvedValue(listing(items));
     const confirm = vi.fn().mockResolvedValue({ failures: [] });
