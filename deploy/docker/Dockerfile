@@ -15,6 +15,10 @@ COPY packages/widget-kit/package.json packages/widget-kit/package.json
 COPY packages/widget-sdk/package.json packages/widget-sdk/package.json
 RUN npm ci
 COPY apps/dashboard apps/dashboard
+# Studio imports the committed generated contract types
+# (@tilecast/api-schema/generated/openapi). They are copied, not regenerated,
+# so the image builds exactly the contract `make generated-check` pins.
+COPY packages/api-schema/generated packages/api-schema/generated
 # Studio discovers each bundled plugin's Studio code and manifest at build time.
 COPY packages/plugin-sdk packages/plugin-sdk
 # Studio builds the Widgets V2 runtimes and their manifests from these
