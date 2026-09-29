@@ -199,10 +199,12 @@ export function OperationsDashboard() {
           </div>
           <aside className="min-w-0 space-y-8">
             <ComingUp
+              isLoading={schedules.isLoading}
               schedulesError={schedules.isError}
               nextChange={nextChange}
             />
             <PlayerUpdates
+              isLoading={deployments.isLoading}
               isError={deployments.isError}
               latest={latestDeployment}
               actionCount={updateActions}
@@ -300,10 +302,12 @@ function NeedsAttention({ screens }: { screens: Screen[] }) {
   );
 }
 
-function ComingUp({
+export function ComingUp({
+  isLoading,
   schedulesError,
   nextChange,
 }: {
+  isLoading: boolean;
   schedulesError: boolean;
   nextChange?: { schedule: Schedule; at: Date };
 }) {
@@ -318,7 +322,16 @@ function ComingUp({
           {t("operations.comingDescription")}
         </p>
       </div>
-      {schedulesError ? (
+      {isLoading ? (
+        <div
+          role="status"
+          aria-label={t("operations.schedulesLoading")}
+          className="grid gap-2 py-2"
+        >
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      ) : schedulesError ? (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
           <AlertTitle>{t("operations.schedulesFailed")}</AlertTitle>
@@ -359,11 +372,13 @@ function ComingUp({
   );
 }
 
-function PlayerUpdates({
+export function PlayerUpdates({
+  isLoading,
   isError,
   latest,
   actionCount,
 }: {
+  isLoading: boolean;
   isError: boolean;
   latest?: UpdateDeployment;
   actionCount: number;
@@ -387,7 +402,15 @@ function PlayerUpdates({
           {t("operations.updateCenter")}
         </Link>
       </div>
-      {isError ? (
+      {isLoading ? (
+        <div
+          role="status"
+          aria-label={t("operations.updatesLoading")}
+          className="grid gap-2 py-2"
+        >
+          <Skeleton className="h-14 w-full" />
+        </div>
+      ) : isError ? (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
           <AlertTitle>{t("operations.updatesFailed")}</AlertTitle>
