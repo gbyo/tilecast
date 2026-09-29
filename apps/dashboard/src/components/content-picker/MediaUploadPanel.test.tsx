@@ -90,9 +90,7 @@ describe("MediaUploadPanel", () => {
       }),
     );
     const onAsset = vi.fn();
-    const rendered = render(
-      <MediaUploadPanel csrf="csrf" onAsset={onAsset} />,
-    );
+    const rendered = render(<MediaUploadPanel csrf="csrf" onAsset={onAsset} />);
     choose(clip());
 
     await waitFor(() => expect(api.completeUpload).toHaveBeenCalled());
