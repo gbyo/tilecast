@@ -33,22 +33,84 @@ import {
 } from "../../content/widgetPreviewSources";
 
 /**
- * Convert a Layout preview date (YYYY-MM-DD) to the fixed clock instant
- * (noon UTC, so the date holds across timezones). Returns null when the
- * input is absent or unparseable, which means the preview stays live.
+ * Convert a Layout preview date (YYYY-MM-DD) to local noon in the selected
+ * time zone. Returns null when the input is absent, invalid, or impossible
+ * in that time zone, which means the preview stays live.
  */
-export function layoutPreviewDateToMs(previewDate?: string): number | null {
+export function layoutPreviewDateToMs(
+  previewDate?: string,
+  timeZone = "UTC",
+): number | null {
   if (!previewDate) return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(previewDate);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  // Date.UTC normalizes overflow (month 13 becomes next January), so range
-  // checks come first: an impossible date means live, not a nearby date.
+  // Calendar checks come first so an impossible date means live, not a
+  // normalized nearby date.
   if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  if (day > new Date(Date.UTC(year, month, 0)).getUTCDate()) return null;
-  return Date.UTC(year, month - 1, day, 12);
+  const lastDay = new Date(0);
+  lastDay.setUTCFullYear(year, month, 0);
+  if (day > lastDay.getUTCDate()) return null;
+
+  const wallClock = new Date(0);
+  wallClock.setUTCFullYear(year, month - 1, day);
+  wallClock.setUTCHours(12, 0, 0, 0);
+  const target = wallClock.getTime();
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      calendar: "gregory",
+      numberingSystem: "latn",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    });
+  } catch {
+    return null;
+  }
+  const localWallClock = (instant: number): number => {
+    const parts = Object.fromEntries(
+      formatter
+        .formatToParts(new Date(instant))
+        .map((part) => [part.type, Number(part.value)]),
+    );
+    const year = parts["year"];
+    const month = parts["month"];
+    const day = parts["day"];
+    const hour = parts["hour"];
+    const minute = parts["minute"];
+    const second = parts["second"];
+    if (
+      year === undefined ||
+      month === undefined ||
+      day === undefined ||
+      hour === undefined ||
+      minute === undefined ||
+      second === undefined
+    )
+      return Number.NaN;
+    const local = new Date(0);
+    local.setUTCFullYear(year, month - 1, day);
+    local.setUTCHours(hour, minute, second, 0);
+    return local.getTime();
+  };
+
+  // Correct the UTC guess by the difference between its local wall clock and
+  // the requested one. Noon avoids the daylight-saving gaps around midnight.
+  let candidate = target;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const correction = target - localWallClock(candidate);
+    if (correction === 0) return candidate;
+    candidate += correction;
+  }
+  return null;
 }
 
 export function V2ZonePreview({
@@ -162,7 +224,7 @@ export function V2ZonePreview({
   const clock = useMemo(() => new PreviewClock(), []);
   // The Layout preview date drives the Widget's own clock in place: a fixed
   // date freezes it (no ticking, no remount), clearing the date goes live.
-  const fixedMs = layoutPreviewDateToMs(previewDate);
+  const fixedMs = layoutPreviewDateToMs(previewDate, regional.timezone);
   useEffect(() => {
     if (fixedMs == null) clock.setMode("live");
     else clock.setFixed(fixedMs);

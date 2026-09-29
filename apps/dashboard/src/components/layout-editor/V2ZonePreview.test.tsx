@@ -972,10 +972,23 @@ describe("V2ZonePreview", () => {
   });
 
   describe("layoutPreviewDateToMs", () => {
-    it("maps a preview date to noon UTC", () => {
-      expect(layoutPreviewDateToMs("2026-09-28")).toBe(
-        Date.UTC(2026, 8, 28, 12),
-      );
+    it.each([
+      ["Pacific/Kiritimati", "2026-09-27T22:00:00Z"],
+      ["America/Los_Angeles", "2026-09-28T19:00:00Z"],
+    ])("maps a preview date to local noon in %s", (timeZone, expected) => {
+      const instant = layoutPreviewDateToMs("2026-09-28", timeZone);
+      expect(instant).toBe(Date.parse(expected));
+      expect(
+        new Intl.DateTimeFormat("en-US", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        }).format(new Date(instant!)),
+      ).toContain("09/28/2026, 12:00");
     });
 
     it("stays live for missing or malformed input", () => {
@@ -988,7 +1001,9 @@ describe("V2ZonePreview", () => {
 
   it("freezes the Widget clock and date-selects sources for a preview date", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
-    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "settings").mockResolvedValue({
+      values: { "organization.timezone": "Pacific/Kiritimati" },
+    } as never);
     const sourcePreview = vi
       .spyOn(api, "previewSavedDataSource")
       .mockResolvedValue(emptyRecordsPayload());
@@ -1012,9 +1027,9 @@ describe("V2ZonePreview", () => {
     });
     await waitFor(() => frame.querySelector("tc-widget-list"));
     expect(container.querySelector("tc-widget-list")).toBeInTheDocument();
-    // The same instant drives the Widget clock and the Data Source preview,
-    // so time-sensitive Widgets agree with the Layout's text bindings.
-    expect(setFixed).toHaveBeenCalledWith(Date.UTC(2026, 8, 28, 12));
+    // The same screen-local date drives the Widget clock and Data Source
+    // preview, so both agree with the Layout's text bindings.
+    expect(setFixed).toHaveBeenCalledWith(Date.parse("2026-09-27T22:00:00Z"));
     expect(sourcePreview).toHaveBeenCalledWith("source-1", "2026-09-28");
   });
 

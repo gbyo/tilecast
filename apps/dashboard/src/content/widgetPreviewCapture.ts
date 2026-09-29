@@ -152,10 +152,17 @@ function cloneRenderedNode(source: Node, images: CapturedImage[]): Node {
 
   const clone = source.cloneNode(false) as Element;
   inlineComputedStyle(source, clone);
+  // The Layout editor draws selection handles and an outline with pseudo
+  // elements. Do not synthesize those editor-only boxes into the saved image.
+  const selectedPlacement =
+    source.classList.contains("layout-placement") &&
+    source.classList.contains("is-selected");
   if (source instanceof HTMLImageElement && clone instanceof HTMLImageElement)
     images.push({ source, clone });
 
-  const before = clonePseudoElement(source, "::before");
+  const before = selectedPlacement
+    ? null
+    : clonePseudoElement(source, "::before");
   if (before) clone.appendChild(before);
   let children: Node[];
   if (source instanceof HTMLSlotElement) {
@@ -168,7 +175,9 @@ function cloneRenderedNode(source: Node, images: CapturedImage[]): Node {
   }
   for (const child of children)
     clone.appendChild(cloneRenderedNode(child, images));
-  const after = clonePseudoElement(source, "::after");
+  const after = selectedPlacement
+    ? null
+    : clonePseudoElement(source, "::after");
   if (after) clone.appendChild(after);
   return clone;
 }

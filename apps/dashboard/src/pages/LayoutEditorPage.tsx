@@ -771,7 +771,17 @@ export function LayoutEditorPage() {
       initialPreviewAttemptedRef.current ||
       !document ||
       contentQuery.isLoading ||
+      definitionsQuery.isLoading ||
+      playlistsQuery.isLoading ||
       !layoutQuery.data
+    )
+      return;
+    // A failed metadata query means the canvas may still contain placeholder
+    // zones. Keep the preview stale until a retry can identify them safely.
+    if (
+      contentQuery.isError ||
+      definitionsQuery.isError ||
+      playlistsQuery.isError
     )
       return;
     // Regenerate missing previews and ones stored by an older capture
@@ -831,11 +841,16 @@ export function LayoutEditorPage() {
   }, [
     captureCoordinator,
     captureZoneIds,
+    contentQuery.isError,
     contentQuery.isLoading,
     csrf,
+    definitionsQuery.isError,
+    definitionsQuery.isLoading,
     document,
     id,
     layoutQuery.data,
+    playlistsQuery.isError,
+    playlistsQuery.isLoading,
     queryClient,
     tContent,
   ]);

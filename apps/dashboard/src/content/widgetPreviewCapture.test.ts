@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { captureWidgetPreview } from "./widgetPreviewCapture";
+import {
+  captureLayoutPreview,
+  captureWidgetPreview,
+} from "./widgetPreviewCapture";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -172,6 +175,84 @@ describe("captureWidgetPreview", () => {
     );
     // content:none/normal and url() generate no surrogate elements.
     expect(markup.match(/data-tc-captured-pseudo/g)).toHaveLength(2);
+  });
+
+  it("does not synthesize the Layout editor selection outline", async () => {
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: { ready: Promise.resolve() },
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 960,
+      height: 540,
+      top: 0,
+      right: 960,
+      bottom: 540,
+      left: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      fillStyle: "",
+      fillRect: vi.fn(),
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      (callback) => callback(new Blob(["jpeg"], { type: "image/jpeg" })),
+    );
+    let imageSource = "";
+    vi.stubGlobal(
+      "Image",
+      class {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        set src(value: string) {
+          imageSource = value;
+          queueMicrotask(() => this.onload?.());
+        }
+      },
+    );
+    const pseudoStyle = (entries: [string, string][]) => {
+      const map = new Map(entries);
+      return {
+        getPropertyValue: (name: string) => map.get(name) ?? "",
+        getPropertyPriority: () => "",
+        [Symbol.iterator]: function* () {
+          yield* map.keys();
+        },
+      } as unknown as CSSStyleDeclaration;
+    };
+    const preview = document.createElement("div");
+    const placement = document.createElement("div");
+    placement.className = "layout-placement is-selected";
+    placement.textContent = "Selected placement";
+    preview.appendChild(placement);
+    const selectedPseudoRead = vi.fn();
+    const realGetComputedStyle = window.getComputedStyle.bind(window);
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (element: Element, pseudo?: string | null) => {
+        if (element === placement && pseudo === "::after") {
+          selectedPseudoRead();
+          return pseudoStyle([
+            ["content", '""'],
+            ["border", "2px solid rgb(30, 100, 255)"],
+          ]);
+        }
+        return realGetComputedStyle(element, pseudo);
+      },
+    );
+
+    await expect(
+      captureLayoutPreview(preview, 1920, 1080),
+    ).resolves.toMatchObject({
+      type: "image/jpeg",
+    });
+    const markup = decodeURIComponent(imageSource.split(",", 2)[1]!);
+    expect(markup).toContain("Selected placement");
+    expect(selectedPseudoRead).not.toHaveBeenCalled();
+    expect(markup).not.toContain("data-tc-captured-pseudo");
+    expect(markup).not.toContain("rgb(30, 100, 255)");
   });
 
   it("captures rendered content from open Widget shadow roots", async () => {

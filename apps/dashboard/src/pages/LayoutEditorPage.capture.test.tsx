@@ -12,7 +12,14 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import * as authModule from "../auth/AuthProvider";
-import type { Layout, LayoutDocument } from "../api/types";
+import type {
+  Asset,
+  ContentDefinitionCatalog,
+  Layout,
+  LayoutDocument,
+  Playlist,
+  PlaylistList,
+} from "../api/types";
 import * as previewCapture from "../content/widgetPreviewCapture";
 import {
   LayoutCaptureCoordinator,
@@ -69,34 +76,47 @@ function mockAuth() {
   } as unknown as ReturnType<typeof authModule.useAuth>);
 }
 
-function renderLayoutEditor() {
-  const layout = buildLayout();
+function renderLayoutEditor(
+  options: {
+    layout?: Layout;
+    assets?: Asset[];
+    contentDefinitions?: Promise<ContentDefinitionCatalog>;
+    playlists?: Promise<PlaylistList>;
+  } = {},
+) {
+  const layout = options.layout ?? buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
   vi.spyOn(api, "assets").mockResolvedValue({
-    items: [],
-    total: 0,
+    items: options.assets ?? [],
+    total: options.assets?.length ?? 0,
     page: 1,
     pageSize: 100,
   });
-  vi.spyOn(api, "playlists").mockResolvedValue({
-    items: [],
-    total: 0,
-    page: 1,
-    pageSize: 100,
-  });
+  vi.spyOn(api, "playlists").mockReturnValue(
+    options.playlists ??
+      Promise.resolve({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 100,
+      }),
+  );
   vi.spyOn(api, "listDataSources").mockResolvedValue({
     items: [],
     total: 0,
     page: 1,
     pageSize: 100,
   });
-  vi.spyOn(api, "contentDefinitions").mockResolvedValue({
-    revision: "test",
-    compilerVersion: "test",
-    fingerprint: "test",
-    widgets: [],
-    dataSources: [],
-  });
+  vi.spyOn(api, "contentDefinitions").mockReturnValue(
+    options.contentDefinitions ??
+      Promise.resolve({
+        revision: "test",
+        compilerVersion: "test",
+        fingerprint: "test",
+        widgets: [],
+        dataSources: [],
+      }),
+  );
   // Autosave must never reach its own thumbnail capture: hang the draft save
   // so a save-triggered upload cannot masquerade as the initial-capture retry.
   vi.spyOn(api, "saveLayoutDraft").mockImplementation(
@@ -136,6 +156,153 @@ afterEach(() => {
 });
 
 describe("Layout editor initial preview capture", () => {
+  it("waits for Widget definitions and playlist metadata before capture", async () => {
+    mockAuth();
+    let resolveDefinitions!: (value: ContentDefinitionCatalog) => void;
+    let resolvePlaylists!: (value: PlaylistList) => void;
+    const definitions = new Promise<ContentDefinitionCatalog>((resolve) => {
+      resolveDefinitions = resolve;
+    });
+    const playlists = new Promise<PlaylistList>((resolve) => {
+      resolvePlaylists = resolve;
+    });
+    const layout = buildLayout();
+    layout.draft.placements = [
+      {
+        id: "direct-widget",
+        type: "widget",
+        name: "Clock",
+        x: 0,
+        y: 0,
+        width: 480,
+        height: 270,
+        layer: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        widgetId: "widget-1",
+      },
+      {
+        id: "playlist-zone",
+        type: "playlistZone",
+        name: "Lobby loop",
+        x: 500,
+        y: 0,
+        width: 480,
+        height: 270,
+        layer: 1,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        playlistId: "playlist-1",
+      },
+    ];
+    const asset = {
+      id: "widget-1",
+      name: "Clock",
+      type: "widget",
+      processingStatus: "ready",
+      widget: {
+        provider: "clock",
+        configVersion: 1,
+        configuration: {},
+        authorConfiguration: {},
+      },
+    } as unknown as Asset;
+    const playlist: Playlist = {
+      id: "playlist-1",
+      name: "Lobby loop",
+      description: "",
+      revision: 1,
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-01-01T00:00:00Z",
+      items: [
+        {
+          id: "playlist-item-1",
+          assetId: "widget-1",
+          position: 0,
+          fitMode: "contain",
+          transition: "none",
+          audioEnabled: false,
+          volume: 0,
+          deliveryPolicy: "download",
+          assetName: "Clock",
+          assetType: "widget",
+          widgetProvider: "clock",
+          assetStatus: "ready",
+          thumbnailUrl: "https://example.org/clock-preview.jpg",
+        },
+      ],
+      itemCount: 1,
+      warnings: [],
+      layoutUsage: [],
+    };
+    const catalog = {
+      revision: "test",
+      compilerVersion: "test",
+      fingerprint: "test",
+      widgets: [
+        {
+          id: "clock",
+          configurationSchema: { fields: [] },
+          component: {
+            type: "tilecast.clock",
+            version: 1,
+            configTemplate: {},
+            dataSourceFields: [],
+          },
+        },
+      ],
+      dataSources: [],
+    } as unknown as ContentDefinitionCatalog;
+    const waitForSettled = vi.spyOn(
+      LayoutCaptureCoordinator.prototype,
+      "waitForSettled",
+    );
+    let playlistImagesAtCapture = 0;
+    vi.spyOn(previewCapture, "captureLayoutPreview").mockImplementation(() => {
+      playlistImagesAtCapture = document.querySelectorAll(
+        ".layout-placement img.layout-asset-placement",
+      ).length;
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+    const upload = vi
+      .spyOn(api, "uploadLayoutPreview")
+      .mockResolvedValue(undefined);
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+
+    renderLayoutEditor({
+      layout,
+      assets: [asset],
+      contentDefinitions: definitions,
+      playlists,
+    });
+    await waitFor(() => {
+      expect(api.contentDefinitions).toHaveBeenCalledOnce();
+      expect(api.playlists).toHaveBeenCalledOnce();
+    });
+    expect(waitForSettled).not.toHaveBeenCalled();
+
+    resolveDefinitions(catalog);
+    await waitFor(() =>
+      expect(document.querySelector("tc-widget-clock")).toBeInTheDocument(),
+    );
+    expect(waitForSettled).not.toHaveBeenCalled();
+
+    resolvePlaylists({
+      items: [playlist],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    await waitFor(() => expect(upload).toHaveBeenCalledOnce());
+    expect(waitForSettled).toHaveBeenCalledWith(
+      ["direct-widget"],
+      expect.any(Number),
+    );
+    expect(playlistImagesAtCapture).toBe(1);
+  });
+
   it("retries with current inputs when an edit cancels the pending settle wait", async () => {
     mockAuth();
     let resolveFirstWait!: (result: LayoutCaptureWaitResult) => void;
