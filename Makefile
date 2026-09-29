@@ -35,6 +35,7 @@ check:
 # client and the TypeScript contract) generated from that contract.
 generate:
 	npm run player-contracts:generate
+	npm run ios:icons:generate
 	npm run extensions:generate
 	cd packages/api-client && go generate ./...
 	npm run generate --workspace @tilecast/api-schema

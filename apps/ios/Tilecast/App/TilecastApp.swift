@@ -6,9 +6,14 @@ struct TilecastApp: App {
     @State private var host = StudioHost.live()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        Typography.applyAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
+                .font(.geist(.body))
                 .environment(host)
                 .task { await host.start() }
         }

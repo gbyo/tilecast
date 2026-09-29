@@ -27,6 +27,12 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<!-- Geist, the Studio typeface, for native chrome. See Typography.swift. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Geist-Variable.ttf</string>
+		<string>Geist-Italic-Variable.ttf</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

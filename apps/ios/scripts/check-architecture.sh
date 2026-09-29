@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 sources=(Tilecast TilecastKit/Sources)
 bridge=TilecastKit/Sources/TilecastCore/Bridge
 # Icon tokens are a visual vocabulary shared with Studio, not destinations.
-icons=TilecastKit/Sources/TilecastCore/Navigation/NavigationIcon.swift
+icons=TilecastKit/Sources/TilecastCore/Navigation/NavigationIconImages.gen.swift
 
 routes='screens|display-groups|media|widgets|data-sources|playlists|layouts|campaigns|schedules|plugins|activity|settings|users|preferences|overview|fleet|assets|groups|account'
 if grep -rnE "\"/($routes)([/?\"]|$)" "${sources[@]}"; then

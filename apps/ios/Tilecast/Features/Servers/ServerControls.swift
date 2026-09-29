@@ -19,14 +19,14 @@ struct ServerMenuItems: View {
                 Task { await host.activate(server.id) }
             } label: {
                 if server.id == host.directory.activeServerID {
-                    Label(server.displayName, systemImage: "checkmark")
+                    Label(server.displayName, image: AppIcon.current)
                 } else {
                     Text(server.displayName)
                 }
             }
         }
         Divider()
-        Button("Add Server…", systemImage: "plus", action: actions.add)
-        Button("Manage Servers…", systemImage: "server.rack", action: actions.manage)
+        Button(action: actions.add) { Label("Add Server…", image: AppIcon.add) }
+        Button(action: actions.manage) { Label("Manage Servers…", image: AppIcon.server) }
     }
 }
