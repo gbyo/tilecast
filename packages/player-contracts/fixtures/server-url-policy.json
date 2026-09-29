@@ -67,6 +67,11 @@
       "accepted": false
     },
     {
+      "name": "IPv6-looking public hostname HTTP is rejected",
+      "input": "http://fdroid.example.org",
+      "accepted": false
+    },
+    {
       "name": "public IPv4 HTTP is rejected",
       "input": "http://8.8.8.8",
       "accepted": false
