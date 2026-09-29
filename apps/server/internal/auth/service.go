@@ -301,12 +301,21 @@ func (s *Service) IssueGrantSession(ctx context.Context, userID, grantID uuid.UU
 
 // RevokeUserSessions ends every dashboard session of a user, and revokes
 // each grant that backs one, because such a grant could otherwise mint a
-// replacement session. Callers use it when a password, factor, or account
-// change must sign the user out everywhere.
+// replacement session. It also revokes the user's Tilecast for iOS grants
+// that no session references: their refresh tokens could still start a new
+// Studio session, so leaving them would not sign the user out everywhere.
+// Callers use it when a password, factor, or account change must sign the
+// user out everywhere.
 func RevokeUserSessions(ctx context.Context, db querier, userID uuid.UUID) error {
 	if _, err := db.Exec(ctx, `UPDATE api_grants SET revoked_at=now()
 		WHERE revoked_at IS NULL AND id IN (SELECT api_grant_id FROM sessions WHERE user_id=$1 AND api_grant_id IS NOT NULL)`, userID); err != nil {
 		return fmt.Errorf("revoke session grants: %w", err)
+	}
+	// The client ID is oauth.ClientIOS spelled out: importing oauth here
+	// would cycle with its tests, which import auth.
+	if _, err := db.Exec(ctx, `UPDATE api_grants SET revoked_at=now()
+		WHERE revoked_at IS NULL AND user_id=$1 AND client_id='tilecast-ios'`, userID); err != nil {
+		return fmt.Errorf("revoke iOS grants: %w", err)
 	}
 	if _, err := db.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, userID); err != nil {
 		return fmt.Errorf("revoke sessions: %w", err)

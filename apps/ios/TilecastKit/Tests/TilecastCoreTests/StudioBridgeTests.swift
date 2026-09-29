@@ -250,6 +250,28 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
         #expect(await page.bridge.requestSignOut(timeout: .milliseconds(200)) == false)
     }
 
+    @Test func oneCallersTimeoutDoesNotResolveAnotherCaller() async throws {
+        let page = try makePage()
+        defer { page.close() }
+        try await load("""
+            <!doctype html><script>
+            window.tilecastNativeReceiver = (message) => message.type === "auth/sign-out-request";
+            </script>
+            """, in: page.webPage)
+        _ = try await page.webPage.callJavaScript("""
+            await window.webkit.messageHandlers.tilecastNative.postMessage(
+              { version: 1, type: "frontend/ready", payload: { capabilities: { authLifecycle: true } } });
+            """)
+        async let first = page.bridge.requestSignOut(timeout: .milliseconds(200))
+        async let second = page.bridge.requestSignOut(timeout: .seconds(5))
+        #expect(await first == false)
+        // The second request is still waiting; Studio answering now
+        // resolves it, which is only possible if the first timeout
+        // left it alone.
+        _ = page.bridge.replyValue(to: envelope("auth/signed-out"), from: .studio)
+        #expect(await second == true)
+    }
+
     @Test func aSubframeCannotUseTheBridge() async throws {
         let page = try makePage()
         defer { page.close() }

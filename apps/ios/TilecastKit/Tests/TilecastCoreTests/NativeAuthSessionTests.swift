@@ -178,6 +178,19 @@ import Testing
         #expect(!server.grantRevoked)
     }
 
+    @Test func aRotationWithoutACookieKeepsTheRotatedCredential() async throws {
+        do { _ = try await signedIn() }
+        let session = makeSession()
+        server.omitsStudioCookie = true
+        await #expect(throws: NativeAuthError.unavailable) { try await session.renewStudioSession() }
+        // The server retired tcr_refresh1; the rotated credential was
+        // kept, so native access continues and no token is presented twice.
+        #expect(try store.refreshToken(for: key) == "tcr_refresh2")
+        #expect(try await session.accessToken() == "tca_access2")
+        #expect(server.refreshCalls.count == 1)
+        #expect(!server.grantRevoked, "the retired token was never presented again")
+    }
+
     @Test func discardDeletesWithoutContactingTheServer() async throws {
         let session = try await signedIn()
         await session.discard()

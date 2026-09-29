@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 )
 
@@ -61,6 +62,11 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	code, err := s.oauth.Approve(r.Context(), principal.User.ID, req)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -72,7 +78,7 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]any{"scopes": req.Scopes},
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State, "iss": authorizationIssuer(r)}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State, "iss": issuer}),
 	}})
 }
 
@@ -88,8 +94,13 @@ func (s *server) oauthDeny(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State, "iss": authorizationIssuer(r)}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State, "iss": issuer}),
 	}})
 }
 
@@ -99,8 +110,10 @@ func (s *server) oauthDeny(w http.ResponseWriter, r *http.Request) {
 // approval screen, which the browser reports in Origin: approval requires
 // the session cookie and its CSRF token, so only a Studio page served from
 // this server can make the request, and a page cannot choose its own
-// Origin header. Forwarded headers are not consulted. The value is empty,
-// and iss is omitted, when the request carries no usable origin.
+// Origin header. Forwarded headers are not consulted. The value is empty
+// when the request carries no usable origin; Tilecast for iOS approvals
+// refuse the ceremony then instead of returning a redirect without iss,
+// so a current server never looks like one released before iss existed.
 func authorizationIssuer(r *http.Request) string {
 	origin := r.Header.Get("Origin")
 	parsed, err := url.Parse(origin)
@@ -268,9 +281,17 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 	}
 	// The tokens are not released until the account is known to be usable.
 	// Otherwise the grant is revoked, so a failed bootstrap leaves nothing
-	// behind that could be used later.
+	// behind that could be used later. Past this point a refresh has already
+	// retired the presented token, so its failures return the rotated
+	// credential without a session instead of losing it: answering 500
+	// would leave the app holding a dead refresh token whose next use
+	// looks like reuse and revokes the grant.
 	user, err := s.activeUser(r.Context(), grant.UserID)
 	if err != nil {
+		if body.GrantType == "refresh_token" {
+			writeIOSCredential(w, tokens, false)
+			return
+		}
 		s.internalError(w, r, err)
 		return
 	}
@@ -281,11 +302,19 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 	if issueSession {
 		pending, err := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
 		if err != nil {
+			if body.GrantType == "refresh_token" {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
 			s.internalError(w, r, err)
 			return
 		}
 		session, err := s.auth.IssueGrantSession(r.Context(), grant.UserID, grantID, "oauth", pending)
 		if err != nil {
+			if body.GrantType == "refresh_token" && !errors.Is(err, auth.ErrInactive) && !errors.Is(err, auth.ErrUnauthenticated) {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
 			s.revokeIOSGrant(w, r, grant)
 			return
 		}
@@ -304,8 +333,17 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 			Summary: summary,
 		})
 	}
+	writeIOSCredential(w, tokens, issueSession)
+}
+
+// writeIOSCredential answers an iOS bootstrap with the grant's native
+// credential. authenticated tells whether the response also set a Studio
+// session cookie: a refresh whose session could not start still returns
+// the rotated credential, so the app keeps working native state instead
+// of holding a retired refresh token.
+func writeIOSCredential(w http.ResponseWriter, tokens oauth.Tokens, authenticated bool) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"authenticated": issueSession,
+		"authenticated": authenticated,
 		"credential": map[string]any{
 			"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken,
 			"token_type": "Bearer", "expires_at": tokens.ExpiresAt,

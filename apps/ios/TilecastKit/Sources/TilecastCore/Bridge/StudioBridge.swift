@@ -73,7 +73,8 @@ public final class StudioBridge {
     /// page with no bridge support) must not inherit the previous
     /// document's navigation.
     private var negotiatedSinceNavigationStarted = true
-    private var signOutWaiters: [CheckedContinuation<Bool, Never>] = []
+    private var signOutWaiters: [UUID: CheckedContinuation<Bool, Never>] = [:]
+    private var signOutTimeouts: [UUID: Task<Void, Never>] = [:]
 
     /// Studio's receiver. Static source; the message is an argument.
     static let receiverScript = """
@@ -140,24 +141,37 @@ public final class StudioBridge {
     /// example when the server cannot be reached.
     public func requestSignOut(timeout: Duration = .seconds(5)) async -> Bool {
         guard context == .main, isFrontendReady, frontendCapabilities.authLifecycle else { return false }
+        let id = UUID()
         return await withCheckedContinuation { continuation in
-            signOutWaiters.append(continuation)
-            // Holds the bridge until the timeout so every waiter resumes.
-            Task { @MainActor in
+            signOutWaiters[id] = continuation
+            // Holds the bridge until this waiter resolves, so a send
+            // failure or timeout here never resolves another caller.
+            signOutTimeouts[id] = Task { @MainActor in
                 if await !self.send(NativeBridgeProtocol.signOutRequest()) {
-                    self.finishSignOut(false)
+                    self.resolveSignOut(id, false)
                     return
                 }
                 try? await Task.sleep(for: timeout)
-                self.finishSignOut(false)
+                self.resolveSignOut(id, false)
             }
         }
+    }
+
+    /// Resolves one waiter and stops its timeout. Resolving twice, or
+    /// after finishSignOut, does nothing.
+    private func resolveSignOut(_ id: UUID, _ signedOut: Bool) {
+        guard let waiter = signOutWaiters.removeValue(forKey: id) else { return }
+        signOutTimeouts.removeValue(forKey: id)?.cancel()
+        waiter.resume(returning: signedOut)
     }
 
     private func finishSignOut(_ signedOut: Bool) {
         let waiters = signOutWaiters
         signOutWaiters.removeAll()
-        for waiter in waiters { waiter.resume(returning: signedOut) }
+        let timeouts = signOutTimeouts
+        signOutTimeouts.removeAll()
+        for task in timeouts.values { task.cancel() }
+        for waiter in waiters.values { waiter.resume(returning: signedOut) }
     }
 
     /// Answers one message from the page. Public for tests; WebKit calls it
