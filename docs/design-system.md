@@ -265,24 +265,14 @@ vertical screen insets, and keeps remote controls at least 52 dp high.
 
 ### Motion
 
-| Token                  | Value    | Use                                    |
+| Token                  | Duration | Use                                    |
 | ---------------------- | -------- | -------------------------------------- |
 | `--tc-motion-fast`     | 120 ms   | Small hover or focus response          |
 | `--tc-motion-standard` | 180 ms   | Normal state transition                |
 | `--tc-motion-slow`     | 240 ms   | Larger but still restrained transition |
-| `--tc-ease-standard`   | `cubic-bezier(0.22, 1, 0.36, 1)` | State changes that should settle quickly without feeling abrupt |
 
-Motion explains a state change. It does not decorate idle UI. Use the shared
-duration and easing tokens for Tilecast-owned motion instead of page-specific
-timings or linear easing. Linear motion is reserved for continuous, repeating
-indicators such as an indeterminate spinner, where constant velocity conveys
-ongoing work. Honor the system `prefers-reduced-motion` setting and the user's
-reduced-motion preference.
-
-Generated shadcn Base UI Base Vega components remain the canonical primitives.
-When Studio needs product-specific motion that Vega does not provide, compose it
-around the generated primitive rather than replacing the primitive with custom
-focus, portal, dismissal, or state behavior.
+Motion explains a state change. It does not decorate idle UI. Honor the system
+`prefers-reduced-motion` setting and the user's reduced-motion preference.
 Loading indicators may rotate, but their accessible label must describe the
 work rather than the animation.
 
