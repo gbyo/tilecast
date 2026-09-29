@@ -114,6 +114,8 @@ export function GroupsPage() {
       toast.add({ title: "Display Group created.", type: "success" });
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
+    onError: () =>
+      toast.add({ title: t("groups.errors.create"), type: "error" }),
   });
 
   return (
@@ -220,8 +222,7 @@ export function GroupsPage() {
           pending={create.isPending}
           onClose={() => setCreateOpen(false)}
           onSave={(value) => {
-            create.mutate(value);
-            setCreateOpen(false);
+            create.mutate(value, { onSuccess: () => setCreateOpen(false) });
           }}
         />
       )}
@@ -285,6 +286,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Screen added to Display Group.", type: "success" });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.addScreen"), type: "error" }),
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
@@ -296,6 +299,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.removeScreen"), type: "error" }),
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -308,6 +313,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Display Group updated.", type: "success" });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.update"), type: "error" }),
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
@@ -315,6 +322,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Display Group deleted.", type: "success" });
         void navigate("/groups");
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.delete"), type: "error" }),
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -332,6 +341,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.assignment"), type: "error" }),
     });
   useEffect(() => {
     setSelectedPresentation(
@@ -422,8 +433,7 @@ export function GroupDetailPage() {
                 pending={update.isPending}
                 onClose={() => setEditOpen(false)}
                 onSave={(value) => {
-                  update.mutate(value);
-                  setEditOpen(false);
+                  update.mutate(value, { onSuccess: () => setEditOpen(false) });
                 }}
               />
             )}
@@ -916,7 +926,7 @@ function GroupDialog({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !pending) onClose();
       }}
     >
       <DialogContent>
@@ -958,7 +968,12 @@ function GroupDialog({
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose}>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={pending}
+              onClick={onClose}
+            >
               {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || pending}>

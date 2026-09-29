@@ -5,6 +5,14 @@
     "create": "Crear grupo de pantallas",
     "loading": "Cargando grupos de pantallas",
     "loadError": "No se pudieron cargar los grupos de pantallas. Intenta actualizar la página.",
+    "errors": {
+      "create": "No se pudo crear el grupo de pantallas.",
+      "update": "No se pudo actualizar el grupo de pantallas.",
+      "delete": "No se pudo eliminar el grupo de pantallas.",
+      "addScreen": "No se pudo agregar la pantalla al grupo.",
+      "removeScreen": "No se pudo quitar la pantalla del grupo.",
+      "assignment": "No se pudo actualizar la asignación del grupo de pantallas."
+    },
     "noDescription": "Sin descripción",
     "count_one": "{{count}} pantalla",
     "count_many": "{{count}} de pantallas",
