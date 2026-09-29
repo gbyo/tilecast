@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
+
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 
 test.beforeEach(async ({ page }) => {
@@ -19,7 +20,9 @@ async function expectNoPageOverflow(page: Page) {
     .toBe(true);
 }
 
-test("mobile overview keeps uptime rows inside the viewport", async ({ page }) => {
+test("mobile overview keeps uptime rows inside the viewport", async ({
+  page,
+}) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Needs attention" }),
@@ -27,9 +30,10 @@ test("mobile overview keeps uptime rows inside the viewport", async ({ page }) =
 
   const perScreen = page.getByRole("button", { name: /^Per screen ·/ });
   await perScreen.click();
-  await expect(page.getByRole("link", { name: "Cafeteria East" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Cafeteria East" }),
+  ).toBeVisible();
   await expectNoPageOverflow(page);
-
 });
 
 test("mobile activity keeps the long tab strip contained", async ({ page }) => {
@@ -45,7 +49,7 @@ test("mobile activity keeps the long tab strip contained", async ({ page }) => {
 
   await tabs.getByRole("tab", { name: "Proof of Play", exact: true }).click();
   await page.getByRole("button", { name: /more filters/i }).click();
-  const filters = page.getByRole("dialog").last();
+  const filters = page.locator('[data-slot="popover-content"]');
   await expect(filters).toBeVisible();
   const filterBounds = await filters.boundingBox();
   expect(filterBounds).not.toBeNull();
@@ -75,15 +79,15 @@ test("mobile layout editor moves secondary actions into the file menu", async ({
   await expect(page.getByRole("menuitem", { name: "Preview" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "History…" })).toBeVisible();
   await expectNoPageOverflow(page);
-
 });
-
 
 test("mobile content picker keeps tabs and create action reachable", async ({
   page,
 }) => {
   await page.goto(`/playlists/${ids.morningAnnouncements}`);
-  await expect(page.getByText("Add content", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("Add content", { exact: true }).first(),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Add content", exact: true }).click();
   const dialog = page.getByRole("dialog").last();
@@ -111,12 +115,12 @@ test("mobile dependency search popup stays inside the viewport", async ({
 
   const search = page.getByRole("combobox", { name: /search/i }).first();
   await search.fill("a");
-  await expect(page.getByRole("listbox")).toBeVisible();
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
   await expectNoPageOverflow(page);
 
-  const bounds = await page.getByRole("listbox").boundingBox();
+  const bounds = await listbox.boundingBox();
   expect(bounds).not.toBeNull();
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
-
 });
