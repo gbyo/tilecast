@@ -4,13 +4,13 @@
 // or a session cookie.
 //
 // The scope is deliberately small: authorization code flow with PKCE S256
-// only, loopback redirects for first-party clients, explicit per-grant user
+// only, fixed callbacks for first-party clients, explicit per-grant user
 // approval, opaque short-lived access tokens, and rotating refresh tokens
 // with reuse detection. This installation acts as authorization server only
 // for itself and its own clients; Tilecast is not a general OAuth or OIDC
 // provider, and there is no client registration of any kind.
 //
-// First-party OAuth client IDs (tilecast-cli, tilecast-mcp) are stable
+// First-party OAuth client IDs are stable
 // protocol constants, not database rows: the protocol sends
 // client_id=tilecast-cli and the server validates that exact string.
 // Display names are constants in code. Personal access tokens ride the
@@ -60,6 +60,7 @@ var Scopes = map[string]string{
 const (
 	ClientCLI = "tilecast-cli"
 	ClientMCP = "tilecast-mcp"
+	ClientIOS = "tilecast-ios"
 )
 
 // Display names for first-party clients. The client_id is the identity;
@@ -67,6 +68,7 @@ const (
 const (
 	ClientCLIDisplayName = "Tilecast CLI"
 	ClientMCPDisplayName = "Tilecast MCP"
+	ClientIOSDisplayName = "Tilecast for iOS"
 )
 
 // DisplayNameForClient returns the presentation name for a first-party
@@ -77,6 +79,8 @@ func DisplayNameForClient(clientID string) (string, bool) {
 		return ClientCLIDisplayName, true
 	case ClientMCP:
 		return ClientMCPDisplayName, true
+	case ClientIOS:
+		return ClientIOSDisplayName, true
 	}
 	return "", false
 }
@@ -203,6 +207,8 @@ func isLoopback(raw string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+const IOSRedirectURI = "tilecast-ios://oauth/callback"
+
 // ValidateAuthorize checks an authorization request without storing
 // anything. Approval and denial happen against the same validation. The
 // client ID must be a known first-party value; it is the protocol string,
@@ -212,8 +218,8 @@ func (s *Service) ValidateAuthorize(ctx context.Context, clientID, redirectURI, 
 	if !ok {
 		return AuthorizeRequest{}, ErrUnknownClient
 	}
-	if !isLoopback(redirectURI) {
-		return AuthorizeRequest{}, fmt.Errorf("%w: first-party clients use loopback IP literals only", ErrBadRedirect)
+	if (clientID == ClientIOS && redirectURI != IOSRedirectURI) || (clientID != ClientIOS && !isLoopback(redirectURI)) {
+		return AuthorizeRequest{}, fmt.Errorf("%w: invalid first-party callback", ErrBadRedirect)
 	}
 	scopes, err := ValidateScopes(scope)
 	if err != nil {

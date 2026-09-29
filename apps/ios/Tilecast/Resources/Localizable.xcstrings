@@ -1009,6 +1009,36 @@
         }
       }
     },
+    "Couldn’t Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "No se pudo iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось войти" } }
+      }
+    },
+    "Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти" } }
+      }
+    },
+    "Sign In to Tilecast": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión en Tilecast" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти в Tilecast" } }
+      }
+    },
+    "Sign in securely to %@ using the system browser.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Inicia sesión de forma segura en %@ con el navegador del sistema." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войдите на %@ безопасно через системный браузер." } }
+      }
+    },
+    "Try signing in again.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Intenta iniciar sesión de nuevo." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Попробуйте войти ещё раз." } }
+      }
+    },
     "Welcome to Tilecast": {
       "localizations": {
         "es": {

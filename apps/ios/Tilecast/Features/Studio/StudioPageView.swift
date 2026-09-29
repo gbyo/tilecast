@@ -1,6 +1,7 @@
 import SwiftUI
 import TilecastCore
 import WebKit
+import AuthenticationServices
 
 /// Displays the main Studio page and carries out what its navigation policy
 /// asks of the system.
@@ -9,6 +10,9 @@ struct StudioPageView: View {
     let page: StudioPage
     @Environment(\.openURL) private var openURL
     @State private var showingDownloadNotice = false
+    @State private var systemSignIn = SystemSignIn()
+    @State private var signingIn = false
+    @State private var signInFailed = false
 
     var body: some View {
         WebView(page.webPage)
@@ -19,10 +23,32 @@ struct StudioPageView: View {
             .webViewLinkPreviews(.disabled)
             .ignoresSafeArea(edges: .bottom)
             .overlay { phaseOverlay }
+            .overlay {
+                if page.signInRequired {
+                    ContentUnavailableView {
+                        Label("Sign In to Tilecast", systemImage: "person.crop.circle")
+                    } description: {
+                        Text("Sign in securely to \(page.address.host) using the system browser.")
+                    } actions: {
+                        if signingIn {
+                            ProgressView()
+                        } else {
+                            Button("Sign In") { beginSignIn() }
+                                .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.background)
+                }
+            }
             .onChange(of: page.pendingEvents, initial: true) { perform(page.takeEvents()) }
             // Route changes are infrequent; saving each one means a killed
             // app still reopens where the user was.
-            .onChange(of: page.webPage.url) { host.recordState() }
+            .onChange(of: page.webPage.url, initial: true) {
+                host.recordState()
+                page.requireSignInIfNeeded(at: page.webPage.url)
+            }
+            .onDisappear { systemSignIn.cancel() }
             .sheet(isPresented: auxiliaryPresented) {
                 if let auxiliary = page.auxiliaryPage {
                     AuxiliaryPageView(page: auxiliary) { page.closeAuxiliaryPage() }
@@ -32,6 +58,11 @@ struct StudioPageView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text("To download this file, open Tilecast Studio in Safari.")
+            }
+            .alert("Couldn’t Sign In", isPresented: $signInFailed) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Try signing in again.")
             }
     }
 
@@ -68,8 +99,27 @@ struct StudioPageView: View {
     private func perform(_ events: [StudioPageEvent]) {
         for event in events {
             switch event {
+            case .signIn: beginSignIn()
             case .openExternally(let url): openURL(url)
             case .unsupportedDownload: showingDownloadNotice = true
+            }
+        }
+    }
+
+    private func beginSignIn() {
+        guard !signingIn else { return }
+        signingIn = true
+        Task {
+            defer { signingIn = false }
+            do {
+                try await systemSignIn.authenticate(page: page)
+            } catch {
+                let nsError = error as NSError
+                let cancelled = nsError.domain == ASWebAuthenticationSessionError.errorDomain &&
+                    nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue
+                if !cancelled && (error as? IOSSignInError) != .accessDenied {
+                    signInFailed = true
+                }
             }
         }
     }

@@ -33,7 +33,7 @@ These rules apply to every change to the app and to every Studio change that aff
 | Build settings           | `apps/ios/Config/*.xcconfig`                    | All build settings; the project file holds none                                                    |
 | CI and repository checks | `apps/ios/scripts/`                             | Simulator selection, localization parity, architecture boundaries                                  |
 
-`TilecastCore` imports Foundation, Observation, and WebKit only. It holds no user-visible strings, so the app target maps each Core error value to localized text.
+`TilecastCore` holds no user-visible strings, so the app target maps each Core error value to localized text.
 
 ## Servers
 
@@ -110,18 +110,11 @@ If the web content process ends, for example while the app is in the background,
 
 ## Authentication
 
-In Milestone 1 the embedded Studio signs in with its own sign-in page. The HttpOnly session cookie and CSRF token stay in the server's WebKit data store. The app stores no credential.
+When Studio navigates to `/login`, the app starts `ASWebAuthenticationSession` at the configured server's real origin. iOS owns the consent sheet and browser. The server's own sign-in page handles passwords, authenticator codes, recovery codes, passkeys, and enrollment policy. The app does not imitate the consent sheet.
 
-Passkey sign-in does not work in the embedded page, because WebKit permits WebAuthn in an app only for domains in the app's Associated Domains entitlement, and a self-hosted installation can use any domain. Password, authenticator-code, and recovery-code sign-in work.
+The fixed first-party `tilecast-ios` client uses a PKCE S256 authorization code and the exact `tilecast-ios://oauth/callback` redirect. The app verifies callback state. The rate-limited `/api/v1/oauth/ios-session` endpoint consumes the code, revokes its temporary grant, and sets an ordinary HttpOnly Studio cookie. The app imports that cookie into only the configured server's isolated WebKit store, then reloads Studio. No OAuth access or refresh token is kept on the device or exposed to page JavaScript.
 
-Milestone 3 replaces this with the first-party `tilecast-ios` OAuth client:
-
-- authorization code flow with PKCE S256, in an external `ASWebAuthenticationSession`, so the server's own sign-in page handles passwords, authenticator codes, recovery codes, passkeys, and enrollment policy;
-- issuer validation, because one app talks to many unrelated authorization servers;
-- a rotating refresh credential in the Keychain;
-- a narrow endpoint that exchanges the native grant for a normal Studio session cookie, which the app puts into the server's WebKit store.
-
-The native bearer token and the Studio session cookie stay separate credential families. The bearer token is never visible to page JavaScript.
+The app checks installation identity before it opens Studio. The cookie handoff also checks the response origin. A changed installation must be accepted explicitly, which removes the old WebKit data before another sign-in starts. First-time server setup remains in Studio until the organization creates its Owner account.
 
 ## Transport security
 
@@ -145,7 +138,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching         |
 | 2         | Versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar |
-| 3         | `tilecast-ios` OAuth client, Keychain, native API access, Studio session bootstrap, sign-out and revocation                    |
+| 3         | Native API access, Keychain for native credentials, sign-out and revocation                                                      |
 | 4         | Native presentation: frameless Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs           |
 | 5         | Native Pair Screen with scanning and manual code entry                                                                         |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                   |
@@ -160,7 +153,7 @@ Everything not listed as native stays in Studio. After Milestone 8 most of the p
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - Studio keeps its own navigation, including the mobile sidebar, until native navigation arrives in Milestone 2. The native bar shows the server switcher above the Studio top bar.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
-- Passkey sign-in is not available in the embedded page. See [Authentication](#authentication).
+- Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
 
 ## Build and test
 
