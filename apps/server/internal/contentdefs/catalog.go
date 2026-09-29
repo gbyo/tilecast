@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	datasources "github.com/tilecast/tilecast/data-sources"
 	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
+	datasources "github.com/tilecast/tilecast/data-sources"
 )
 
 const CompilerVersion = "definition-compiler-v2"
@@ -862,14 +862,20 @@ func validateFetchSpec(spec FetchSpec, schema ConfigurationSchema, output Output
 	return nil
 }
 
-// validateCapabilities rejects unknown capability names and versions below one.
+// validateCapabilities rejects unknown capability names and unsupported versions.
 func validateCapabilities(capabilities map[string]int) error {
 	for name, version := range capabilities {
-		if name != "web.remote" && !presentationcaps.Supports(name) {
-			return fmt.Errorf("declares unknown capability %q", name)
-		}
 		if version < 1 {
 			return fmt.Errorf("capability %q must require version 1 or higher", name)
+		}
+		if name == "web.remote" {
+			continue
+		}
+		if !presentationcaps.Supports(name) {
+			return fmt.Errorf("declares unknown capability %q", name)
+		}
+		if maximum := presentationcaps.Version(name); version > maximum {
+			return fmt.Errorf("capability %q requires version %d but maximum supported is %d", name, version, maximum)
 		}
 	}
 	return nil
