@@ -9,7 +9,9 @@ import type { WidgetDataDocument } from "@tilecast/widget-sdk";
 import widget from "./index.ts";
 import {
   eventInstant,
+  agendaClockGranularity,
   formatAgendaCountdown,
+  formatAgendaCountdownLabel,
   groupAgendaEvents,
   isEnded,
   isNow,
@@ -258,6 +260,25 @@ describe("Agenda time model", () => {
     expect(formatAgendaCountdown(end, NOW)).toBe("1h 1m");
     expect(formatAgendaCountdown(NOW - 1, NOW)).toBe("0s");
   });
+
+  it("uses second cadence only for visible Schedule Board countdowns", () => {
+    expect(
+      agendaClockGranularity({ style: "schedule-board", showCountdown: true }),
+    ).toBe("second");
+    expect(
+      agendaClockGranularity({ style: "schedule-board", showCountdown: false }),
+    ).toBe("minute");
+    expect(
+      agendaClockGranularity({ style: "now-next", showCountdown: true }),
+    ).toBe("minute");
+  });
+
+  it("localizes Schedule Board countdown labels for supported screen locales", () => {
+    expect(formatAgendaCountdownLabel("start", "en-US")).toBe("Starts in");
+    expect(formatAgendaCountdownLabel("end", "es-MX")).toBe("Termina en");
+    expect(formatAgendaCountdownLabel("start", "ru-RU")).toBe("Начнётся через");
+    expect(formatAgendaCountdownLabel("end", "fr-FR")).toBe("Ends in");
+  });
 });
 
 describe("Agenda data resolution", () => {
@@ -404,8 +425,18 @@ describe("Agenda element", () => {
   });
 
   it("preserves source order for legacy Now and Next without usable time fields", async () => {
-    const sourceRecords = [records[1]!, records[2]!] as never;
-    const config = { ...base, style: "now-next" as const, startField: "" };
+    const sourceRecords = [
+      records[1]!,
+      records[2]!,
+      records[3]!,
+      records[4]!,
+    ] as never;
+    const config = {
+      ...base,
+      style: "now-next" as const,
+      startField: "",
+      upcomingCount: 2,
+    };
     const resolved = resolveAgendaData(
       config,
       fixtureResources({ documents: documentWith(sourceRecords) }),
@@ -415,33 +446,95 @@ describe("Agenda element", () => {
       data: { sourceOrderFallback: true },
     });
     const { root, test } = await render(
-      { style: "now-next", startField: "" },
+      { style: "now-next", startField: "", upcomingCount: 2 },
       documentWith(sourceRecords),
     );
-    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(2);
-    expect(root.querySelectorAll(".schedule-label").item(0)?.textContent).toBe(
+    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(1);
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
       "Now",
     );
-    expect(root.querySelectorAll(".schedule-title").item(0)?.textContent).toBe(
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
       "Morning standup",
     );
-    expect(root.querySelectorAll(".schedule-label").item(1)?.textContent).toBe(
-      "Next",
-    );
+    expect(
+      root.querySelector(".schedule-following-label")?.textContent?.trim(),
+    ).toBe("Next");
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Board meeting", "Choir rehearsal"]);
     test.dispose();
   });
 
-  it("shows the current and next temporal event in Now and Next", async () => {
+  it("shows the current event and a bounded list of following temporal events", async () => {
     const { root, test } = await render(
-      { style: "now-next" },
+      { style: "now-next", upcomingCount: 2 },
       documentWith([...records]),
     );
-    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(2);
-    expect(root.querySelectorAll(".schedule-title").item(0)?.textContent).toBe(
+    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(1);
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
       "Morning standup",
     );
-    expect(root.querySelectorAll(".schedule-title").item(1)?.textContent).toBe(
+    expect(
+      root.querySelector(".schedule-following-label")?.textContent?.trim(),
+    ).toBe("Next");
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Board meeting", "Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("features the next temporal event before listing the following records", async () => {
+    const upcomingOnly = [records[2]!, records[3]!] as never;
+    const { root, test } = await render(
+      { style: "now-next", upcomingCount: 1 },
+      documentWith(upcomingOnly),
+    );
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Next",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
       "Board meeting",
+    );
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("refreshes sub-minute countdowns each second", async () => {
+    const event = [
+      {
+        id: "ending-soon",
+        values: {
+          title: { kind: "text", text: "Closing soon" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(NOW - 60_000).toISOString(),
+          },
+          end: {
+            kind: "datetime",
+            datetime: new Date(NOW + 42_000).toISOString(),
+          },
+        },
+      },
+    ] as never;
+    const { root, test, element, clock } = await render(
+      { style: "schedule-board" },
+      documentWith(event),
+    );
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 42s",
+    );
+    clock.advance(1_008);
+    await element.updateComplete;
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 41s",
     );
     test.dispose();
   });

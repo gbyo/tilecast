@@ -10,9 +10,8 @@
  * Widget clock, so a disconnected Player reevaluates from the same time
  * as a connected one.
  *
- * A ClockController wakes the element once a minute (and at no other
- * cadence): the cheapest boundary that stays correct across time zones
- * and DST while keeping relative labels fresh.
+ * A ClockController wakes the element once a minute for Agenda and once a
+ * second only when Schedule Board shows a live countdown.
  */
 import { css, html, nothing, type TemplateResult } from "lit";
 import {
@@ -299,6 +298,29 @@ export function formatAgendaCountdown(targetMs: number, nowMs: number): string {
   return `${seconds}s`;
 }
 
+/** Locale-aware action label for a Schedule Board countdown. */
+export function formatAgendaCountdownLabel(
+  direction: "start" | "end",
+  locale: string,
+): string {
+  const language = locale.toLowerCase().split(/[-_]/u, 1)[0];
+  const labels: Record<string, { start: string; end: string }> = {
+    en: { start: "Starts in", end: "Ends in" },
+    es: { start: "Empieza en", end: "Termina en" },
+    ru: { start: "Начнётся через", end: "Закончится через" },
+  };
+  return (labels[language ?? ""] ?? labels.en)[direction];
+}
+
+/** Schedule Board countdowns change every second; other views change by minute. */
+export function agendaClockGranularity(
+  config: Pick<AgendaConfig, "style" | "showCountdown">,
+): "second" | "minute" {
+  return config.style === "schedule-board" && config.showCountdown
+    ? "second"
+    : "minute";
+}
+
 /** An event already finished at `nowMs`. Without an end, an event ends when its local day does. */
 export function isEnded(
   event: Pick<AgendaEvent, "startMs" | "endMs">,
@@ -569,11 +591,66 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         color: var(--tc-color-fg-muted);
         font-size: clamp(10px, min(3.5cqh, 2.4cqw), 40px);
       }
+      .schedule-following {
+        display: flex;
+        flex: 0 1 38%;
+        flex-direction: column;
+        gap: min(1.2cqh, 1.2cqw);
+        min-height: 0;
+        max-height: 38%;
+        overflow: hidden;
+      }
+      .schedule-following-label {
+        flex: none;
+        color: var(--tc-color-accent);
+        font-size: clamp(10px, min(4cqh, 2.8cqw), 48px);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .schedule-following-list {
+        display: grid;
+        gap: min(1cqh, 1cqw);
+        min-height: 0;
+        overflow: hidden;
+      }
+      .schedule-following-row {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        column-gap: min(1.5cqh, 1.5cqw);
+        row-gap: min(0.4cqh, 0.4cqw);
+        min-width: 0;
+        overflow: hidden;
+      }
+      .schedule-following-time {
+        color: var(--tc-color-fg-muted);
+        font-size: clamp(10px, min(3.5cqh, 2.4cqw), 40px);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .schedule-following-title {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--tc-color-fg);
+        font-size: clamp(12px, min(4.6cqh, 3.2cqw), 56px);
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .schedule-following-detail {
+        grid-column: 2;
+        overflow: hidden;
+        color: var(--tc-color-fg-muted);
+        font-size: clamp(10px, min(3.5cqh, 2.4cqw), 40px);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
 
       @container tc-widget (max-height: 150px) or (max-width: 200px) {
         .schedule-heading,
         .schedule-detail,
-        .schedule-timeline {
+        .schedule-timeline,
+        .schedule-following {
           display: none;
         }
         .schedule-title {
@@ -610,13 +687,17 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
   ];
 
   /**
-   * Agenda follows time at a one-minute cadence: relative labels stay
-   * fresh and ended events leave without any host timer.
+   * The cadence follows the active presentation, with exact event
+   * boundaries handled independently by ClockController.
    */
   private readonly ticks = new ClockController(this, {
-    granularity: () => "minute" as const,
+    granularity: () => agendaClockGranularity(this.config),
     nextBoundary: (now) =>
-      this.data ? nextAgendaBoundary(this.data.events, now) : null,
+      this.config.style === "schedule-board" && this.config.showCountdown
+        ? null
+        : this.data
+          ? nextAgendaBoundary(this.data.events, now)
+          : null,
   });
 
   protected override themeOverrides(config: AgendaConfig) {
@@ -781,11 +862,13 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
     const current = data.sourceOrderFallback
       ? visible[0]
       : visible.find((event) => isNow(event, nowMs, timeZone));
-    const upcoming = data.sourceOrderFallback
+    const future = data.sourceOrderFallback
       ? visible.slice(1)
       : visible.filter((event) => event.startMs > nowMs);
-    const next = upcoming[0];
-    const showNext = current ? next : upcoming[0];
+    const featured = current ?? future[0];
+    const following = (
+      data.sourceOrderFallback || current ? future : future.slice(1)
+    ).slice(0, this.config.upcomingCount);
     return html`<div
       class="now-next"
       data-style="now-next"
@@ -793,21 +876,38 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
     >
       ${this.config.heading ? html`<div class="schedule-heading">${this.config.heading}</div>` : nothing}
       ${
-        current
+        featured
           ? html`<section class="schedule-feature">
-              <div class="schedule-label">${this.config.nowLabel}</div>
-              <div class="schedule-title">${this.titleFor(current, data)}</div>
-              ${this.detailFor(current, data) ? html`<div class="schedule-detail">${this.detailFor(current, data)}</div>` : nothing}
+              <div class="schedule-label">
+                ${current ? this.config.nowLabel : this.config.nextLabel}
+              </div>
+              <div class="schedule-title">${this.titleFor(featured, data)}</div>
+              ${this.detailFor(featured, data) ? html`<div class="schedule-detail">${this.detailFor(featured, data)}</div>` : nothing}
             </section>`
           : nothing
       }
       ${
-        showNext
-          ? html`<section class="schedule-feature">
-              <div class="schedule-label">${this.config.nextLabel}</div>
-              <div class="schedule-title">${this.titleFor(showNext, data)}</div>
-              ${!data.sourceOrderFallback ? html`<div class="schedule-detail">${formatTime(showNext.startMs, { locale: this.context.locale, timeZone, hourCycle })}</div>` : nothing}
-              ${this.detailFor(showNext, data) ? html`<div class="schedule-detail">${this.detailFor(showNext, data)}</div>` : nothing}
+        following.length > 0
+          ? html`<section class="schedule-following">
+              ${
+                current
+                  ? html`<div class="schedule-following-label">
+                      ${this.config.nextLabel}
+                    </div>`
+                  : nothing
+              }
+              <div class="schedule-following-list">
+                ${following.map(
+                  (event) =>
+                    html`<article class="schedule-following-row">
+                      ${!data.sourceOrderFallback ? html`<div class="schedule-following-time">${formatTime(event.startMs, { locale: this.context.locale, timeZone, hourCycle })}</div>` : nothing}
+                      <div class="schedule-following-title">
+                        ${this.titleFor(event, data)}
+                      </div>
+                      ${this.detailFor(event, data) ? html`<div class="schedule-following-detail">${this.detailFor(event, data)}</div>` : nothing}
+                    </article>`,
+                )}
+              </div>
             </section>`
           : nothing
       }
@@ -839,7 +939,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
               </div>
               <div class="schedule-title">${this.titleFor(featured, data)}</div>
               ${this.detailFor(featured, data) ? html`<div class="schedule-detail">${this.detailFor(featured, data)}</div>` : nothing}
-              ${target !== null && this.config.showCountdown ? html`<div class="schedule-countdown">${current ? "Ends in" : "Starts in"} ${formatAgendaCountdown(target, nowMs)}</div>` : nothing}
+              ${target !== null && this.config.showCountdown ? html`<div class="schedule-countdown">${formatAgendaCountdownLabel(current ? "end" : "start", locale)} ${formatAgendaCountdown(target, nowMs)}</div>` : nothing}
             </section>`
           : nothing
       }
