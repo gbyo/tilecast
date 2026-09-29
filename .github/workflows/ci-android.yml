@@ -94,6 +94,10 @@ jobs:
           # mdpi 1280x720 display so screenshots compare at device scale 1.
           script: |
             adb root
+            # adb root restarts adbd; wait for the device to come back
+            # before issuing shell commands.
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1
             adb shell setprop persist.sys.timezone UTC
             adb shell wm size 1280x720
             adb shell wm density 160
