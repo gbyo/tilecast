@@ -156,11 +156,68 @@ pub async fn run(context: Arc<DaemonContext>) {
     let mut server = context.command_server.subscribe();
     let current: Arc<tokio::sync::Mutex<Option<LiveStreamSession>>> = Arc::new(tokio::sync::Mutex::new(None));
     let mut capture_task: Option<tokio::task::JoinHandle<()>> = None;
-    // A fresh sleep is scheduled after every pass: 5 s while streaming, 15 s
-    // idle, like the reference players. (A recreated interval would tick at
-    // once and reconcile in a tight loop.)
-    let mut delay = Duration::ZERO;
+
     loop {
+        // Reconcile before sleeping. This guarantees an immediate first poll
+        // once an authenticated server handle exists, and every wake leads to
+        // a fresh authoritative GET.
+        let delay = match server.borrow().clone() {
+            None => {
+                abort(&mut capture_task);
+                *current.lock().await = None;
+                context.live_frames.send_replace(None);
+                IDLE_RECONCILE
+            }
+            Some(api) => match api.live_stream_session().await {
+                Err(error) => {
+                    tracing::debug!(
+                        component = "live_stream",
+                        event = "reconcile_failed",
+                        reason = error.reason_code()
+                    );
+                    if current
+                        .lock()
+                        .await
+                        .as_ref()
+                        .is_some_and(|session| session.is_active_at(context.now().unix_millis()))
+                    {
+                        ACTIVE_RECONCILE
+                    } else {
+                        IDLE_RECONCILE
+                    }
+                }
+                Ok(session) => {
+                    let capture_running = capture_task.as_ref().is_some_and(|task| !task.is_finished());
+                    match reconcile_action(
+                        current.lock().await.clone().as_ref(),
+                        &session,
+                        context.now().unix_millis(),
+                        capture_running,
+                    ) {
+                        ReconcileAction::Stop => {
+                            abort(&mut capture_task);
+                            *current.lock().await = None;
+                            context.live_frames.send_replace(None);
+                            IDLE_RECONCILE
+                        }
+                        ReconcileAction::Keep => {
+                            *current.lock().await = Some(session);
+                            ACTIVE_RECONCILE
+                        }
+                        ReconcileAction::Restart => {
+                            *current.lock().await = Some(session);
+                            abort(&mut capture_task);
+                            let worker_context = Arc::clone(&context);
+                            let worker_current = Arc::clone(&current);
+                            capture_task =
+                                Some(tokio::spawn(async move { capture_loop(worker_context, worker_current).await }));
+                            ACTIVE_RECONCILE
+                        }
+                    }
+                }
+            },
+        };
+
         tokio::select! {
             () = context.shutdown.cancelled() => {
                 abort(&mut capture_task);
@@ -172,44 +229,6 @@ pub async fn run(context: Arc<DaemonContext>) {
                 return;
             },
             () = context.live_stream_wake.notified() => {}
-        }
-        let Some(api) = server.borrow().clone() else {
-            abort(&mut capture_task);
-            *current.lock().await = None;
-            context.live_frames.send_replace(None);
-            delay = IDLE_RECONCILE;
-            continue;
-        };
-        let Ok(session) = api.live_stream_session().await else {
-            tracing::debug!(component = "live_stream", event = "reconcile_failed");
-            delay = IDLE_RECONCILE;
-            continue;
-        };
-        let capture_running = capture_task.as_ref().is_some_and(|task| !task.is_finished());
-        match reconcile_action(
-            current.lock().await.clone().as_ref(),
-            &session,
-            context.now().unix_millis(),
-            capture_running,
-        ) {
-            ReconcileAction::Stop => {
-                abort(&mut capture_task);
-                *current.lock().await = None;
-                context.live_frames.send_replace(None);
-                delay = IDLE_RECONCILE;
-            }
-            ReconcileAction::Keep => {
-                *current.lock().await = Some(session);
-                delay = ACTIVE_RECONCILE;
-            }
-            ReconcileAction::Restart => {
-                *current.lock().await = Some(session);
-                abort(&mut capture_task);
-                let worker_context = Arc::clone(&context);
-                let worker_current = Arc::clone(&current);
-                capture_task = Some(tokio::spawn(async move { capture_loop(worker_context, worker_current).await }));
-                delay = ACTIVE_RECONCILE;
-            }
         }
     }
 }
