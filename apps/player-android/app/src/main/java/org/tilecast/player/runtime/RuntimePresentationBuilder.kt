@@ -157,6 +157,23 @@ object RuntimePresentationBuilder {
     fun isRuntimeRenderable(manifest: PlayerManifest, item: ManifestItem, rootLayout: ManifestLayout? = null): Boolean =
         buildItem(manifest, item, null, null, rootLayout).runtimeRenderable
 
+    data class RuntimeItemsSelection(val items: List<ManifestItem>, val hasUnsupportedItems: Boolean)
+
+    /** Skip invalid entries in ordinary playlists, while keeping synchronized
+     * groups fail-closed because removing an entry changes their shared timeline. */
+    fun selectRuntimeItems(
+        manifest: PlayerManifest,
+        items: List<ManifestItem>,
+        rootLayout: ManifestLayout? = null,
+    ): RuntimeItemsSelection {
+        val renderable = items.filter { isRuntimeRenderable(manifest, it, rootLayout) }
+        val hasUnsupportedItems = renderable.size != items.size
+        return RuntimeItemsSelection(
+            items = if (manifest.syncGroup != null && hasUnsupportedItems) emptyList() else renderable,
+            hasUnsupportedItems = hasUnsupportedItems,
+        )
+    }
+
     private fun branded(state: String, branding: PlayerBranding, logoSrc: String?): JsonObject =
         buildJsonObject {
             put("state", state)

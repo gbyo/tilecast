@@ -234,6 +234,23 @@ class RuntimePresentationBuilderTest {
         assertFalse(RuntimePresentationBuilder.isRuntimeRenderable(manifest, items[0]))
     }
 
+    @Test fun skipsUnsupportedItemsFromOrdinaryPlaylists() {
+        val items = listOf(item(), item("bad", "missing-asset", "missing-variant"))
+        val selection = RuntimePresentationBuilder.selectRuntimeItems(manifest(items), items)
+
+        assertEquals(listOf("i1"), selection.items.map { it.id })
+        assertTrue(selection.hasUnsupportedItems)
+    }
+
+    @Test fun doesNotChangeASynchronizedTimelineWhenAnItemIsUnsupported() {
+        val items = listOf(item(), item("bad", "missing-asset", "missing-variant"))
+        val grouped = manifest(items, syncGroup = ManifestSyncGroup("g1", "2026-09-01T12:00:00Z"))
+        val selection = RuntimePresentationBuilder.selectRuntimeItems(grouped, items)
+
+        assertTrue(selection.items.isEmpty())
+        assertTrue(selection.hasUnsupportedItems)
+    }
+
     @Test fun emitsSyncTimingForGroupedManifests() {
         val items = listOf(item(durationMs = 10_000), item("i2", "a1", "v1", "image", 20_000))
         val epoch = "2026-09-01T12:00:00Z"

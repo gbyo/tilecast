@@ -37,7 +37,10 @@ object RuntimeComponentProbe {
                     record(result)
                     onDone(result)
                 }
-            }.onFailure { onDone(false) }
+            }.onFailure {
+                record(false)
+                onDone(false)
+            }
         }
     }
 

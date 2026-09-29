@@ -466,7 +466,10 @@ class ManifestSyncManager(
 	}
 
 	private fun validateComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?){
-		validateWidgetComponentPresentation(presentation,dataSources,manifest)
+		validateWidgetComponentPresentation(
+			presentation,dataSources,manifest,
+			componentRuntimeSupported=org.tilecast.player.runtime.RuntimeComponentProbe.passed,
+		)
 	}
 }
 
@@ -477,13 +480,16 @@ class ManifestSyncManager(
  * mirror the Server contract (8 KiB encoded, depth 6, 64 keys, 200 items,
  * 2000-char strings, 8 Data Sources, 16 media grants).
  */
-internal fun validateWidgetComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?){
+internal fun validateWidgetComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?,componentRuntimeSupported:Boolean=true){
 	require(presentation.schemaVersion==2&&presentation.kind=="component"){ "Component presentation is invalid" }
+	require(componentRuntimeSupported){ "Component presentation runtime is unavailable" }
 	val component=presentation.component?:error("Component descriptor is missing")
 	require(component.type.length in 1..72&&componentTypePattern.matches(component.type)){ "Component type is invalid" }
 	require(component.version in 1..100){ "Component version is invalid" }
 	val expectedCapability="widget.${component.type}"
 	require(presentation.requiredCapabilities.size==1&&presentation.requiredCapabilities[expectedCapability]==component.version){ "Component capability is invalid" }
+	val supportedVersion=org.tilecast.player.runtime.WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES[expectedCapability]?:0
+	require(supportedVersion>=component.version){ "Missing presentation capability $expectedCapability@${component.version}" }
 	validateWidgetComponentConfig(component.config)
 	require(component.dataSources.size<=8){ "Component Data Sources are invalid" }
 	require(component.dataSources.toSet().size==component.dataSources.size){ "Component Data Sources are invalid" }

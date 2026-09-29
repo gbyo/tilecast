@@ -211,6 +211,45 @@ class ManifestSyncManagerTest {
     }
 
     @Test
+    fun rejectsComponentCapabilitiesThePlayerDoesNotAdvertise() {
+        val unsupported = listOf(
+            componentPresentation(
+                type = "tilecast.unknown",
+                requiredCapabilities = mapOf("widget.tilecast.unknown" to 1),
+            ),
+            componentPresentation(
+                type = "tilecast.clock",
+                version = 3,
+                requiredCapabilities = mapOf("widget.tilecast.clock" to 3),
+            ),
+        )
+
+        unsupported.forEach { presentation ->
+            try {
+                validateWidgetComponentPresentation(presentation, emptyMap(), null)
+                fail("expected unsupported component capability to fail")
+            } catch (error: IllegalArgumentException) {
+                assertTrue(error.message!!.contains("Missing presentation capability"))
+            }
+        }
+    }
+
+    @Test
+    fun rejectsCachedComponentWhenRuntimeProbeHasNotPassed() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(),
+                emptyMap(),
+                null,
+                componentRuntimeSupported = false,
+            )
+            fail("expected an unproven component runtime to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("runtime is unavailable"))
+        }
+    }
+
+    @Test
     fun rejectsAnUnknownComponentDataSource() {
         try {
             validateWidgetComponentPresentation(

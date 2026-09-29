@@ -66,6 +66,39 @@ private class StageRefs {
     var downloadPathByVariant: Map<String, String> = emptyMap()
 }
 
+/** Probes the packaged runtime as soon as the Player UI exists, independent
+ * of whether the server has assigned content that can mount the playback stage. */
+@Composable
+fun RuntimeCapabilityProbeHost(onComponentProbeDone: (Boolean) -> Unit) {
+    val latestProbeDone = rememberUpdatedState(onComponentProbeDone)
+    var instance by remember { mutableIntStateOf(0) }
+    val crashPolicy = remember { RuntimeCrashPolicy() }
+    key(instance) {
+        AndroidView(
+            modifier = Modifier.size(1.dp).alpha(0f),
+            factory = { viewContext ->
+                when (val endpoint = TrustedRuntimeWebView(
+                    viewContext,
+                    crashPolicy,
+                    onComponentProbeDone = { latestProbeDone.value(it) },
+                    onRendererGone = {
+                        crashPolicy.onRecreated()
+                        instance++
+                    },
+                ).create()) {
+                    is TrustedRuntimeEndpoint.Ready -> endpoint.webView.apply {
+                        isFocusable = false
+                        isFocusableInTouchMode = false
+                        isClickable = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    }
+                    is TrustedRuntimeEndpoint.Unsupported -> View(viewContext)
+                }
+            },
+        )
+    }
+}
+
 private class RemoteBridge(private val onEvent: (kind: String, code: String?) -> Unit) {
     @JavascriptInterface
     fun report(state: String, detail: String?) {

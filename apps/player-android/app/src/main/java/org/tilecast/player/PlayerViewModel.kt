@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.put
@@ -317,7 +319,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         mutableContent.value = mutableContent.value?.copy(serverUrl = url, credential = credential)
         emit(PlayerEvent.Enrolled(screenName))
         try {
-            api.heartbeat(url, credential, heartbeat())
+            sendHeartbeat(url, credential)
         } catch (error: ApiException) {
             if (error.code == "device_credential_revoked" || error.code == "device_credential_invalid") { revokeLocally(screenName); return }
             if (error.code == "screen_disabled") { emit(PlayerEvent.Disconnected(screenName, "This screen is disabled in Tilecast Studio")); return }
@@ -496,7 +498,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun verifyAfterAuthFailure(url: String, name: String, credential: String, epoch: Long) {
         if (!connectionEpoch.isCurrent(epoch)) return
-        try { api.heartbeat(url, credential, heartbeat()); if (connectionEpoch.isCurrent(epoch)) scheduleReconnect(url, name, credential, 1, "Connection interrupted", epoch) }
+		try { sendHeartbeat(url, credential); if (connectionEpoch.isCurrent(epoch)) scheduleReconnect(url, name, credential, 1, "Connection interrupted", epoch) }
         catch (error: CancellationException) { throw error }
         catch (error: ApiException) { if (!connectionEpoch.isCurrent(epoch)) return; if (error.code == "device_credential_revoked" || error.code == "device_credential_invalid") revokeLocally(name) else emit(PlayerEvent.Disconnected(name, error.message)) }
         catch (_: Exception) { if (connectionEpoch.isCurrent(epoch)) scheduleReconnect(url, name, credential, 1, "Connection interrupted", epoch) }
@@ -713,35 +715,58 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 			return index.takeIf { it >= 0 }?.let { org.tilecast.player.content.PlaybackCursor(it, 0) }
 		}
 		fun playbackError(message:String){lastPlaybackError=message;lastWatchdogFailure=message;executeRecovery(reliabilitySupervisor.recordFailure())}
+		fun unsupportedPlaybackContent(){lastPlaybackError="unsupported_content"}
 	fun websitePlaybackStatus(status:WebsitePlaybackStatus){
 		websiteStatus=status
 		if(status.assetId!=null&&status.state in setOf("loading","refreshing")) lastPlaybackProgressAt=Instant.now()
 		if(status.state=="loaded") recordPlaybackProgress()
 	}
 		fun widgetPlaybackStatus(status:WidgetPlaybackStatus){widgetStatus=status}
-	/** Re-advertises capabilities when the component probe passes.
+	/** Re-advertises capabilities when the component probe changes.
 	 *
 	 * The first capability heartbeat leaves before the playback WebView
 	 * exists, so a fresh process initially reports schema 1. A late probe
 	 * pass re-sends the heartbeat with the proven schemas/capabilities
 	 * and reconciles content, so a component-only assignment stops
 	 * waiting for capabilities the player already has. Acts only on the
-	 * false-to-true transition; renderer-death re-probes re-report the
-	 * same pass without restarting playback.
+	 * last successful heartbeat is tracked so renderer death can downgrade
+	 * capabilities and a later re-probe can advertise them again.
 	 */
-	private var lastAdvertisedProbePassed=false
+	private var lastAdvertisedProbePassed:Boolean?=null
+	private val heartbeatMutex=Mutex()
+	private suspend fun sendHeartbeat(url:String,credential:String)=heartbeatMutex.withLock{
+		val request=heartbeat()
+		api.heartbeat(url,credential,request)
+		lastAdvertisedProbePassed=2 in request.presentationSchemaVersions
+	}
 	fun onComponentProbeDone(passed:Boolean){
-		if(!passed||passed==lastAdvertisedProbePassed)return
-		lastAdvertisedProbePassed=passed
+		if(org.tilecast.player.runtime.RuntimeComponentProbe.passed!=passed||passed==lastAdvertisedProbePassed)return
 		val url=current?.serverUrl?:return;val credential=credentials.read()?:return
-		viewModelScope.launch{runCatching{api.heartbeat(url,credential,heartbeat())}}
-		scheduleContent?.let{activateScheduleSelection(it,url,credential)}
+		val epoch=connectionEpoch.capture()
+		viewModelScope.launch{
+			try {
+				if(org.tilecast.player.runtime.RuntimeComponentProbe.passed!=passed)return@launch
+				if(passed&&mutableContent.value==null){
+					val saved=current
+					if(saved?.screenId!=null){
+						try {
+							synchronizer.loadActive(url,selectedIdentity?.installationId?:saved.serverInstallationId,saved.screenId)?.let{active->
+								activeManifestVersion=active.manifest.manifestVersion
+								activateScheduleSelection(active,url,credential)
+							}
+						} catch(error:CancellationException) { throw error } catch(_:Exception) { }
+					}
+				}
+				sendHeartbeat(url,credential)
+				if(connectionEpoch.isCurrent(epoch))reconcileManifest(url,credential)
+			} catch(error:CancellationException) { throw error } catch(_:Exception) { }
+		}
 	}
 		fun recalculateSchedule(){evaluateActiveHours();val prepared=scheduleContent?:return;val url=current?.serverUrl?:return;val credential=credentials.read()?:return;activateScheduleSelection(prepared,url,credential)}
 		fun refreshCommissioning(){val cached=getApplication<Application>().getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE).getBoolean("cached-fallback-available",false);mutableCommissioning.value=commissioningController.status(current?.screenId,cached)}
 		fun setCommissioningPin(pin:CharArray){commissioningController.setPin(pin);refreshCommissioning()}
 		fun advanceCommissioning(){val screen=current?.screenId?:return;commissioningController.advance(screen,mutableCommissioning.value.step);refreshCommissioning()}
-		fun completeCommissioning(){viewModelScope.launch{val saved=configuration.getOrCreate();current=saved;val screen=saved.screenId?:return@launch;commissioningController.complete(screen);refreshCommissioning();socket?.send(Json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(),statusMessage()));lastStatusSentAt=System.currentTimeMillis();val url=saved.serverUrl;val credential=credentials.read();if(url!=null&&credential!=null)runCatching{api.heartbeat(url,credential,heartbeat())}}}
+		fun completeCommissioning(){viewModelScope.launch{val saved=configuration.getOrCreate();current=saved;val screen=saved.screenId?:return@launch;commissioningController.complete(screen);refreshCommissioning();socket?.send(Json.encodeToString(kotlinx.serialization.json.JsonObject.serializer(),statusMessage()));lastStatusSentAt=System.currentTimeMillis();val url=saved.serverUrl;val credential=credentials.read();if(url!=null&&credential!=null)runCatching{sendHeartbeat(url,credential)}}}
 		fun runSetupAgain(){val screen=current?.screenId?:return;commissioningController.runAgain(screen);refreshCommissioning()}
 		fun runSelfTest():String {val screen=current?.screenId?:return "not_paired";val result=commissioningController.runSelfTest(screen);refreshCommissioning();return result}
 		private fun recordPlaybackProgress(){val now=Instant.now();lastPlaybackProgressAt=now;val prefs=getApplication<Application>().getSharedPreferences("tilecast-reliability",Application.MODE_PRIVATE);prefs.edit().putLong("last-playback-progress-at",now.toEpochMilli()).apply();if(reliabilitySupervisor.recordHealthy(now)){recoveryCount=0;recoveryLevel=0;lastPlaybackError=null};prefs.edit().putLong("last-healthy-playback-at",now.toEpochMilli()).apply()}

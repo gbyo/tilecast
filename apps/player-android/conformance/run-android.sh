@@ -113,6 +113,9 @@ if [ -n "$ONLY" ]; then ARGS="$ARGS -e only $ONLY"; fi
 adb shell am instrument -w $ARGS \
   -e class org.tilecast.player.conformance.PlayerRuntimeConformanceTest \
   "$TEST_ID/androidx.test.runner.AndroidJUnitRunner"
+adb shell am instrument -w \
+  -e class org.tilecast.player.conformance.SecureHostPathTest \
+  "$TEST_ID/androidx.test.runner.AndroidJUnitRunner"
 
 echo "run-android: pulling results"
 TMP_OUT="$(mktemp -d)"

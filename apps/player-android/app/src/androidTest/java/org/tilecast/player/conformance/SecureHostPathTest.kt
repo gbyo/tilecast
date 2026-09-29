@@ -50,70 +50,82 @@ class SecureHostPathTest {
     }
 
     @Test
-    fun trustedHostServesCachedMediaWithRangeToTrustedPage() {
+    fun trustedHostServesCachedMediaToTrustedPageAndSupportsRanges() {
         check(TrustedRuntimeOrigin.isTrustedDocument(TrustedRuntimeOrigin.entryUrl)) {
             "production entry must stay inside the trusted runtime tree"
         }
-        val done = CountDownLatch(1)
+        val pageReady = CountDownLatch(1)
+        val mediaRequested = CountDownLatch(1)
         val failure = AtomicReference<String?>()
-        val full = AtomicReference<String?>()
-        val partial = AtomicReference<String?>()
+        val served = AtomicReference<TcMediaBridge.ResolvedMedia?>()
+        val pageRef = AtomicReference<WebView?>()
+        val localFiles = AtomicReference<Map<String, String>>()
+        val authorized = setOf(MediaAuthorization.AuthorizedMedia("a1", "v1"))
+        val mime = mapOf("v1" to "application/octet-stream")
         launchOnActivity { activity ->
             try {
                 val file = File(activity.cacheDir, "secure-host-v1.bin")
                 file.writeBytes(bytes)
-                val authorized = setOf(MediaAuthorization.AuthorizedMedia("a1", "v1"))
-                val localFiles = mapOf("v1" to file.absolutePath)
-                val mime = mapOf("v1" to "application/octet-stream")
+                localFiles.set(mapOf("v1" to file.absolutePath))
                 // Same interceptor shape as the production stage: verified
                 // cache first, authenticated server fallback after.
                 val owner = TrustedRuntimeWebView(
                     activity,
                     RuntimeCrashPolicy(),
                     mediaInterceptor = { url, range ->
-                        TcMediaBridge.resolve(url, authorized, localFiles, mime, range)
-                            ?.let(TcMediaBridge::toResponse)
+                        TcMediaBridge.resolve(url, authorized, localFiles.get().orEmpty(), mime, range)?.also {
+                            served.set(it)
+                            mediaRequested.countDown()
+                        }?.let(TcMediaBridge::toResponse)
+                    },
+                    onComponentProbeDone = {
+                        val page = pageRef.get()
+                        if (page == null) {
+                            failure.set("trusted page finished before its WebView was attached")
+                            pageReady.countDown()
+                        } else {
+                            // `img-src tcmedia:` is part of the production CSP. Fetch is
+                            // intentionally not used because `connect-src` is denied.
+                            page.evaluateJavascript(
+                                "(function(){var image=new Image();image.src='tcmedia://variant/a1/v1';document.body.appendChild(image);return image.src;})()",
+                            ) { result ->
+                                if (result.isNullOrBlank() || result == "null") failure.set("trusted page did not request cached media")
+                                pageReady.countDown()
+                            }
+                        }
                     },
                 )
                 when (val endpoint = owner.create()) {
                     is TrustedRuntimeEndpoint.Unsupported -> {
                         failure.set("secure bridge unsupported: ${endpoint.reason}")
-                        done.countDown()
+                        pageReady.countDown()
                         return@launchOnActivity
                     }
                     is TrustedRuntimeEndpoint.Ready -> {
                         val webView = endpoint.webView
+                        pageRef.set(webView)
                         webView.layoutParams = ViewGroup.LayoutParams(320, 180)
                         activity.container.addView(webView)
-                        webView.loadUrl(TrustedRuntimeOrigin.entryUrl)
-                        webView.postDelayed({
-                            fetchText(
-                                webView,
-                                "fetch('tcmedia://variant/a1/v1').then(function(r){return r.text().then(function(t){return r.status+' '+t;});}).catch(function(e){return 'ERR '+e;})",
-                            ) { full.set(it); fetchText(webView, rangeScript()) { partial.set(it); done.countDown() } }
-                        }, 3_000)
                     }
                 }
             } catch (error: Throwable) {
                 failure.set(error.toString())
-                done.countDown()
+                pageReady.countDown()
             }
         }
-        check(done.await(60, TimeUnit.SECONDS)) { "timed out: ${failure.get()}" }
+        check(pageReady.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted document: ${failure.get()}" }
+        check(mediaRequested.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted media request: ${failure.get()}" }
         failure.get()?.let { throw AssertionError(it) }
-        val expectedFull = "200 ${String(bytes)}"
-        check(full.get()?.contains(expectedFull) == true) { "full body mismatch: ${full.get()}" }
-        val expectedPartial = "206 ${String(bytes).substring(4)}"
-        check(partial.get()?.contains(expectedPartial) == true) { "range body mismatch: ${partial.get()}" }
-    }
+        val full = served.get() ?: error("trusted page did not reach the media interceptor")
+        check(full.statusCode == 200) { "full response status mismatch: ${full.statusCode}" }
+        check(TcMediaBridge.openStream(full)!!.use { String(it.readBytes()) } == String(bytes)) { "full body mismatch" }
 
-    private fun rangeScript(): String =
-        "fetch('tcmedia://variant/a1/v1',{headers:{Range:'bytes=4-'}}).then(function(r){return r.text().then(function(t){return r.status+' '+t;});}).catch(function(e){return 'ERR '+e;})"
-
-    private fun fetchText(webView: WebView, script: String, next: (String?) -> Unit) {
-        runCatching {
-            webView.evaluateJavascript(script, next)
-        }.onFailure { next(null) }
+        val partial = TcMediaBridge.resolve(
+            "tcmedia://variant/a1/v1", authorized, localFiles.get() ?: emptyMap(), mime, "bytes=4-",
+        ) ?: error("range request was not resolved")
+        check(partial.statusCode == 206) { "range response status mismatch: ${partial.statusCode}" }
+        check(partial.contentRange == "bytes 4-${bytes.lastIndex}/${bytes.size}") { "range header mismatch: ${partial.contentRange}" }
+        check(TcMediaBridge.openStream(partial)!!.use { String(it.readBytes()) } == String(bytes).substring(4)) { "range body mismatch" }
     }
 
     @Test

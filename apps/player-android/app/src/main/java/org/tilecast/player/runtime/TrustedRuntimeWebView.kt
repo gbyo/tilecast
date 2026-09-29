@@ -36,8 +36,8 @@ class TrustedRuntimeWebView(
     private val onRendererGone: (deadGeneration: Long) -> Unit = {},
     /**
      * Receives the Widget runtime feature-probe outcome. The first
-     * capability heartbeat leaves before this WebView exists, so a late
-     * pass must re-advertise capabilities (see the host's handler).
+     * capability heartbeat can leave before the startup WebView probe
+     * completes, so a late result must re-advertise capabilities.
      */
     private val onComponentProbeDone: (Boolean) -> Unit = {},
 ) {
@@ -122,6 +122,7 @@ class TrustedRuntimeWebView(
                 // Capabilities must be re-proven on the recreated WebView,
                 // never inherited from the dead renderer.
                 RuntimeComponentProbe.record(false)
+                onComponentProbeDone(false)
                 onRendererGone(dead)
                 view.post {
                     runCatching {

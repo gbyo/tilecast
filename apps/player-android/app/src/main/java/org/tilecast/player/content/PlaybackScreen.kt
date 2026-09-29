@@ -116,11 +116,12 @@ fun FullscreenPlayback(
     onWidgetStatus: (WidgetPlaybackStatus) -> Unit = {},
     onProgress: () -> Unit = {},
     onComponentProbeDone: (Boolean) -> Unit = {},
+    onUnsupportedContent: () -> Unit = {},
 ) {
     CompositionLocalProvider(
         LocalTilecastRegionalFormatting provides session.playbackDefaults?.regionalFormat,
     ) {
-        FullscreenPlaybackBody(session, onBoundary, onError, onWebsiteStatus, onWidgetStatus, onProgress, onComponentProbeDone)
+        FullscreenPlaybackBody(session, onBoundary, onError, onWebsiteStatus, onWidgetStatus, onProgress, onComponentProbeDone, onUnsupportedContent)
     }
 }
 
@@ -133,6 +134,7 @@ private fun FullscreenPlaybackBody(
     onWidgetStatus: (WidgetPlaybackStatus) -> Unit,
     onProgress: () -> Unit,
     onComponentProbeDone: (Boolean) -> Unit,
+    onUnsupportedContent: () -> Unit,
 ) {
     val takeoverDecision = TakeoverController.evaluate(
         session.content.serverNow(),
@@ -142,31 +144,31 @@ private fun FullscreenPlaybackBody(
     val activityReporter = rememberPlaybackActivityReporter(session, takeoverDecision)
     // Authoritative shared runtime: every presentation plays in the trusted
     // Player Runtime WebView. A selected root Layout plays as one layout
-    // reference through the same path. Anything the runtime cannot render
-    // fails closed with an explicit error; there is no second presentation
-    // implementation to fall back to. Media availability stays per-item in
-    // the projector, matching the reference hosts.
+    // reference through the same path. Ordinary playlists skip entries the
+    // runtime cannot render; synchronized groups fail closed to preserve their
+    // shared timeline. There is no second presentation implementation to fall
+    // back to. Media availability stays per-item in the projector.
     val sharedRuntimeItems = runtimePlaylistItems(session)
     val rootLayout = session.content.manifest.layout
     val runtimeItems = if (rootLayout != null) listOf(rootLayoutItem(rootLayout)) else sharedRuntimeItems
-    val renderable = runtimeItems.isNotEmpty() && runtimeItems.all { item ->
-        org.tilecast.player.runtime.RuntimePresentationBuilder.isRuntimeRenderable(
-            session.content.manifest, item, rootLayout,
-        )
+    val selection = org.tilecast.player.runtime.RuntimePresentationBuilder.selectRuntimeItems(
+        session.content.manifest, runtimeItems, rootLayout,
+    )
+    androidx.compose.runtime.LaunchedEffect(session.runtimeActivation.id, selection.hasUnsupportedItems) {
+        if (selection.hasUnsupportedItems) onUnsupportedContent()
     }
-    if (!renderable && runtimeItems.isNotEmpty()) {
-        androidx.compose.runtime.LaunchedEffect(runtimeItems) { onError("unsupported_content") }
+    if (runtimeItems.isNotEmpty() && selection.items.isEmpty()) {
         EmptyPlayback("Content not supported by this player")
         return
     }
-    if (renderable) {
+    if (selection.items.isNotEmpty()) {
         val runtimeManifest = session.content.manifest
         val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
         val runtimeActivationId = session.runtimeActivation.id
         val runtimeMessage = org.tilecast.player.runtime.RuntimePresentationBuilder.hostMessage(
             org.tilecast.player.runtime.RuntimeScreenState.Playing(
                 content = session.content,
-                items = runtimeItems,
+                items = selection.items,
                 fullscreenLayout = rootLayout,
                 playbackDefaults = session.playbackDefaults,
                 websitePolicy = session.websitePolicy,
@@ -181,7 +183,7 @@ private fun FullscreenPlaybackBody(
         val runtimeContext = androidx.compose.ui.platform.LocalContext.current
         org.tilecast.player.runtime.SharedRuntimePlayback(
             session = session,
-            items = runtimeItems,
+            items = selection.items,
             message = runtimeMessage,
             activationId = runtimeActivationId,
             hostVersion = org.tilecast.player.BuildConfig.VERSION_NAME,
