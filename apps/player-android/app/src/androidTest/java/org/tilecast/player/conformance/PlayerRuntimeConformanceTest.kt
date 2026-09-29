@@ -283,6 +283,7 @@ class PlayerRuntimeConformanceTest {
         activity.runOnUiThread(located)
         val sourceRect = located.get(10, TimeUnit.SECONDS)
         val visualStateReady = CountDownLatch(1)
+        val webViewDrawn = CountDownLatch(1)
         val frameCommitted = CountDownLatch(1)
         activity.runOnUiThread {
             webView.postVisualStateCallback(
@@ -292,24 +293,26 @@ class PlayerRuntimeConformanceTest {
                         visualStateReady.countDown()
                         val decorView = activity.window.decorView
                         val observer = decorView.viewTreeObserver
+                        val waitForFrameCommit =
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                decorView.isHardwareAccelerated
+                        if (waitForFrameCommit) {
+                            observer.registerFrameCommitCallback {
+                                frameCommitted.countDown()
+                            }
+                        }
                         var listenerRemovalPosted = false
                         val listener = object : ViewTreeObserver.OnDrawListener {
                             override fun onDraw() {
                                 if (listenerRemovalPosted) return
                                 listenerRemovalPosted = true
-                                if (
-                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                                    decorView.isHardwareAccelerated
-                                ) {
-                                    observer.registerFrameCommitCallback {
-                                        frameCommitted.countDown()
-                                    }
-                                } else {
-                                    decorView.postOnAnimation { frameCommitted.countDown() }
-                                }
                                 decorView.post {
                                     if (observer.isAlive) {
                                         observer.removeOnDrawListener(this)
+                                    }
+                                    decorView.postOnAnimation {
+                                        webViewDrawn.countDown()
+                                        if (!waitForFrameCommit) frameCommitted.countDown()
                                     }
                                 }
                             }
@@ -323,6 +326,9 @@ class PlayerRuntimeConformanceTest {
         }
         check(visualStateReady.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView visual state before $checkpoint screenshot"
+        }
+        check(webViewDrawn.await(10, TimeUnit.SECONDS)) {
+            "timed out waiting for WebView draw before $checkpoint screenshot"
         }
         check(frameCommitted.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView frame before $checkpoint screenshot"
