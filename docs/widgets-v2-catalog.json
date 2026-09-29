@@ -181,7 +181,7 @@
       "component": "tilecast.status",
       "creation": true,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "school-status-banner",
@@ -192,7 +192,7 @@
       "style": "panel",
       "creation": false,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "alert-banner",
@@ -203,7 +203,7 @@
       "style": "banner",
       "creation": false,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "agenda",
@@ -223,7 +223,7 @@
       "style": "now-next",
       "creation": false,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "schedule-board",
@@ -234,7 +234,7 @@
       "style": "schedule-board",
       "creation": false,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
     {
       "provider": "cards",
@@ -253,7 +253,7 @@
       "canonical": "cards",
       "creation": false,
       "pr": "C",
-      "status": "planned"
+      "status": "done"
     },
 
     {

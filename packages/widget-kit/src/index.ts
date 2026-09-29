@@ -45,6 +45,7 @@ export {
   FEED_FIELD_ROLES,
   fieldForRole,
   MENU_FIELD_ROLES,
+  STATUS_FIELD_ROLES,
   suggestFieldMapping,
   type FieldSlot,
   type MappableField,

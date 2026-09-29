@@ -231,6 +231,86 @@ func TestSchoolStatusBannerCompilesFromReleaseDefinition(t *testing.T) {
 	}
 }
 
+func TestInformationAliasesProjectIntoV2AndKeepTemplateFallbacks(t *testing.T) {
+	service := presentationTestService()
+	tests := []struct {
+		provider  string
+		config    string
+		component string
+		style     string
+	}{
+		{"status", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","style":"panel","statusField":"status","messageField":"message","severityField":"severity"}`, "tilecast.status", "panel"},
+		{"school-status-banner", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","heading":"District status","statusField":"status","messageField":"message","severityField":"severity","showUpdatedTime":true,"foregroundColor":"#ffffff","backgroundColor":"#17324d","emptyState":"Status unavailable"}`, "tilecast.status", "panel"},
+		{"alert-banner", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","messageField":"message","severityField":"severity","speed":"slow","showSeverity":true,"foregroundColor":"#ffffff","backgroundColor":"#7a1f1f","emptyState":"Waiting for an active NWS alert"}`, "tilecast.status", "banner"},
+		{"agenda", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","titleField":"title","startField":"start","endField":"end","style":"agenda"}`, "tilecast.agenda", "agenda"},
+		{"now-and-next", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","titleField":"title","detailField":"room","nowLabel":"Now","nextLabel":"Next","upcomingCount":3}`, "tilecast.agenda", "now-next"},
+		{"schedule-board", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","titleField":"title","startField":"startTime","endField":"endTime","locationField":"location","upcomingCount":4,"columns":3,"featuredTextSize":72,"countdownTextSize":40,"cardTitleTextSize":26,"cardDetailTextSize":18,"showCountdown":true,"showUpcomingTimeline":true,"foregroundColor":"#ffffff","backgroundColor":"#101f33","accentColor":"#5dd6c0","emptyState":"No events"}`, "tilecast.agenda", "schedule-board"},
+		{"recognition-board", `{"dataSourceId":"11111111-1111-1111-1111-111111111111","nameField":"person","noteField":"contribution","heading":"Recognition","columns":4,"maxItems":8,"foregroundColor":"#ffffff","backgroundColor":"#1b1733","emptyState":"No entries"}`, "tilecast.cards", ""},
+	}
+	for _, test := range tests {
+		t.Run(test.provider, func(t *testing.T) {
+			definition, ok := service.definitions.Widget(test.provider)
+			if !ok {
+				t.Fatal("catalog definition is missing")
+			}
+			configuration := make(map[string]any, len(definition.DefaultConfiguration))
+			for key, value := range definition.DefaultConfiguration {
+				configuration[key] = value
+			}
+			if err := json.Unmarshal([]byte(test.config), &configuration); err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := json.Marshal(configuration)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw := json.RawMessage(encoded)
+			component, err := service.compileWidgetComponent(test.provider, raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if component.Component.Type != test.component {
+				t.Fatalf("component = %q, want %q", component.Component.Type, test.component)
+			}
+			if test.style != "" && component.Component.Config["style"] != test.style {
+				t.Errorf("style = %#v, want %q", component.Component.Config["style"], test.style)
+			}
+			switch test.provider {
+			case "school-status-banner":
+				if component.Component.Config["heading"] != "District status" || component.Component.Config["showUpdatedTime"] != true {
+					t.Errorf("School Status settings were not mapped: %#v", component.Component.Config)
+				}
+			case "alert-banner":
+				if component.Component.Config["messageField"] != "message" || component.Component.Config["speed"] != "slow" || component.Component.Config["emptyText"] != "Waiting for an active NWS alert" {
+					t.Errorf("Alert Banner settings were not mapped: %#v", component.Component.Config)
+				}
+			case "now-and-next":
+				if component.Component.Config["startField"] != "" || component.Component.Config["descriptionField"] != "room" || component.Component.Config["nowLabel"] != "Now" {
+					t.Errorf("Now and Next settings were not mapped: %#v", component.Component.Config)
+				}
+			case "schedule-board":
+				if component.Component.Config["upcomingCount"] != float64(4) || component.Component.Config["accent"] != "#5dd6c0" {
+					t.Errorf("Schedule Board settings were not mapped: %#v", component.Component.Config)
+				}
+				if _, exists := component.Component.Config["columns"]; exists {
+					t.Errorf("legacy column count leaked into the component config: %#v", component.Component.Config)
+				}
+			case "recognition-board":
+				if component.Component.Config["titleField"] != "person" || component.Component.Config["bodyField"] != "contribution" || component.Component.Config["maximumItems"] != float64(8) {
+					t.Errorf("Recognition Board settings were not mapped: %#v", component.Component.Config)
+				}
+				if _, exists := component.Component.Config["columns"]; exists {
+					t.Errorf("legacy column count leaked into Cards config: %#v", component.Component.Config)
+				}
+			}
+			fallback, err := service.compileWidgetPresentation(test.provider, raw)
+			if err != nil || fallback == nil || fallback.Native == nil {
+				t.Fatalf("compatibility fallback = %+v, err = %v", fallback, err)
+			}
+		})
+	}
+}
+
 func TestCountdownPresentationCompilesRecurrenceAndLayouts(t *testing.T) {
 	configuration := func(layout string) json.RawMessage {
 		return json.RawMessage(`{"target":"2026-12-01T09:00","timezone":"America/New_York","mode":"countdown","recurrence":"weekly","layout":"` + layout + `","label":"Board meeting","completionAction":"completed_text","completionText":"Started","showDays":true,"showHours":true,"showMinutes":true,"showSeconds":false,"foregroundColor":"#ffffff","backgroundColor":"#000000"}`)

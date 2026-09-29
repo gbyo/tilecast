@@ -105,13 +105,41 @@
         "ui": { "section": "content", "order": 1 }
       },
       {
+        "key": "style",
+        "label": "Style",
+        "control": "select",
+        "options": [
+          { "value": "agenda", "label": "Agenda" },
+          { "value": "now-next", "label": "Now and next" },
+          { "value": "schedule-board", "label": "Schedule board" }
+        ],
+        "default": "agenda",
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "nowLabel",
+        "label": "Now label",
+        "control": "text",
+        "maxLength": 80,
+        "default": "Now",
+        "ui": { "section": "content", "order": 6 }
+      },
+      {
+        "key": "nextLabel",
+        "label": "Next label",
+        "control": "text",
+        "maxLength": 80,
+        "default": "Next",
+        "ui": { "section": "content", "order": 7 }
+      },
+      {
         "key": "maximumItems",
         "label": "Maximum items",
         "control": "integer",
         "minimum": 1,
         "maximum": 100,
         "default": 20,
-        "ui": { "section": "content", "order": 2 }
+        "ui": { "section": "content", "order": 8 }
       },
       {
         "key": "groupByDay",
@@ -119,7 +147,7 @@
         "description": "Collect events under one heading per local day.",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 3 }
+        "ui": { "section": "content", "order": 9 }
       },
       {
         "key": "hideEnded",
@@ -127,7 +155,30 @@
         "description": "Remove events that already finished, reevaluated every minute from the Widget clock.",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 4 }
+        "ui": { "section": "content", "order": 10 }
+      },
+      {
+        "key": "upcomingCount",
+        "label": "Upcoming events",
+        "control": "integer",
+        "minimum": 1,
+        "maximum": 8,
+        "default": 4,
+        "ui": { "section": "content", "order": 11 }
+      },
+      {
+        "key": "showCountdown",
+        "label": "Show countdown",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 12 }
+      },
+      {
+        "key": "showUpcomingTimeline",
+        "label": "Show upcoming timeline",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 13 }
       },
       {
         "key": "emptyText",
@@ -136,21 +187,35 @@
         "control": "text",
         "maxLength": 200,
         "default": "",
-        "ui": { "section": "content", "order": 5 }
+        "ui": { "section": "content", "order": 14 }
       },
       {
         "key": "backgroundColor",
         "label": "Background color",
         "control": "color",
         "default": "",
-        "ui": { "section": "appearance", "order": 1 }
+        "ui": { "section": "appearance", "order": 2 }
       },
       {
         "key": "foregroundColor",
         "label": "Text color",
         "control": "color",
         "default": "",
-        "ui": { "section": "appearance", "order": 2 }
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "accentColor",
+        "label": "Accent color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 4 }
+      },
+      {
+        "key": "cardBackgroundColor",
+        "label": "Schedule card background",
+        "control": "color",
+        "default": "",
+        "ui": { "hidden": true }
       },
       {
         "key": "textScale",
@@ -179,12 +244,20 @@
     "descriptionField": "",
     "categoryField": "",
     "heading": "",
+    "style": "agenda",
+    "nowLabel": "Now",
+    "nextLabel": "Next",
     "maximumItems": 20,
+    "upcomingCount": 4,
+    "showCountdown": true,
+    "showUpcomingTimeline": true,
     "groupByDay": true,
     "hideEnded": true,
     "emptyText": "",
     "backgroundColor": "",
-    "foregroundColor": ""
+    "foregroundColor": "",
+    "accentColor": "",
+    "cardBackgroundColor": ""
   },
   "presentationSchemaVersion": 1,
   "requiredCapabilities": {
@@ -227,7 +300,16 @@
       },
       "categoryField": { "$config": "categoryField", "default": "" },
       "heading": { "$config": "heading", "default": "" },
+      "style": { "$config": "style", "default": "agenda" },
+      "nowLabel": { "$config": "nowLabel", "default": "Now" },
+      "nextLabel": { "$config": "nextLabel", "default": "Next" },
       "maximumItems": { "$config": "maximumItems", "default": 20 },
+      "upcomingCount": { "$config": "upcomingCount", "default": 4 },
+      "showCountdown": { "$config": "showCountdown", "default": true },
+      "showUpcomingTimeline": {
+        "$config": "showUpcomingTimeline",
+        "default": true
+      },
       "groupByDay": { "$config": "groupByDay", "default": true },
       "hideEnded": { "$config": "hideEnded", "default": true },
       "emptyText": {
@@ -235,7 +317,9 @@
         "default": { "$config": "emptyState", "default": "" }
       },
       "background": { "$config": "backgroundColor", "default": "" },
-      "foreground": { "$config": "foregroundColor", "default": "" }
+      "foreground": { "$config": "foregroundColor", "default": "" },
+      "accent": { "$config": "accentColor", "default": "" },
+      "cardBackground": { "$config": "cardBackgroundColor", "default": "" }
     },
     "dataSourceFields": ["dataSourceId"],
     "empty": "skip-eligible"
