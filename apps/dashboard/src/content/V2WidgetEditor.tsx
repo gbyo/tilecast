@@ -323,10 +323,11 @@ export function V2WidgetEditor({
       }) as Asset,
     [definition.id, configuration, managedDataSourceId],
   );
-  const runCanonicalSave = async () => {
-    const element = canonicalRef.current;
-    if (!element) throw new Error(t("widgets.errors.previewWait"));
-    const previewImage = await captureWidgetPreview(element, t);
+  const runCanonicalSave = async ({
+    skipPreview = false,
+  }: {
+    skipPreview?: boolean;
+  } = {}) => {
     const input = {
       provider: definition.id,
       name,
@@ -336,11 +337,23 @@ export function V2WidgetEditor({
     const saved = asset
       ? await api.updateWidget(asset.id, input, csrf)
       : await api.createWidget(input, csrf);
-    await api.uploadWidgetPreview(saved.id, previewImage, csrf);
-    return {
-      ...saved,
-      thumbnailUrl: `/api/v1/assets/${encodeURIComponent(saved.id)}/thumbnail`,
-    };
+
+    if (skipPreview) return saved;
+
+    const element = canonicalRef.current;
+    if (!element) return saved;
+    try {
+      const previewImage = await captureWidgetPreview(element, t);
+      await api.uploadWidgetPreview(saved.id, previewImage, csrf);
+      return {
+        ...saved,
+        thumbnailUrl: `/api/v1/assets/${encodeURIComponent(saved.id)}/thumbnail`,
+      };
+    } catch {
+      // The Widget itself is durable. Thumbnail capture/upload is secondary
+      // artwork and must never turn a successful save into a failed one.
+      return saved;
+    }
   };
   const save = useMutation({
     mutationFn: runCanonicalSave,
@@ -374,8 +387,12 @@ export function V2WidgetEditor({
       captureStarted.current = true;
       save.mutate();
     } else if (state.state === "error") {
+      // The hidden preview can fail independently of Widget persistence.
+      // Save the Widget and let preview backfill recover the artwork later.
       setCanonicalCapture(false);
       setCaptureError(t("widgets.editors.v2.captureFailed"));
+      captureStarted.current = true;
+      save.mutate({ skipPreview: true });
     }
   };
 
