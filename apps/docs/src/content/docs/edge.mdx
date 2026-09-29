@@ -14,7 +14,7 @@ hero:
 
 import { Aside, Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. The Edge software milestones, M1 to M10, are merged into Tilecast. The next milestone, M11, tests Edge on real displays and computers and adds isolated website playback.
+Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. The Edge software milestones M1 to M10 and the M11 remote-web implementation are merged into Tilecast. M11 now focuses on qualifying that software on real displays and computers.
 
 Until a Tilecast release lists your hardware as supported, use the [stable Linux Player](../players/install-linux/) on production screens.
 
@@ -40,9 +40,9 @@ WPE WebKit renderer
 
 <CardGrid>
   <Card title="Content and schedules" icon="document">
-    Images, downloaded video, Layouts, native Widgets, playlists, schedules,
-    Quick Present, Takeover, synchronized Display Groups, and unrotated Span
-    walls.
+    Images, downloaded video, Layouts, native and remote web Widgets,
+    Websites, YouTube, playlists, schedules, Quick Present, Takeover,
+    synchronized Display Groups, and unrotated Span walls.
   </Card>
   <Card title="Offline playback" icon="approve-check-circle">
     Plays prepared content through server and network outages, and after a
@@ -53,8 +53,8 @@ WPE WebKit renderer
     telemetry, live preview, and Watch live.
   </Card>
   <Card title="Linux hardware" icon="setting">
-    HDMI-CEC and DDC/CI Display Control, Presentation Network, and the Noise
-    Meter through the host's audio input.
+    HDMI-CEC and DDC/CI Display Control, Presentation Network, and the
+    systemd-logind idle inhibitor.
   </Card>
   <Card title="Signed updates" icon="cloud-download">
     Installs signed releases from Studio beside the current one, and returns to
@@ -70,11 +70,11 @@ Every feature above passes automated tests, including tests with a real Tilecast
 
 - DRM/KMS and Wayland output, display rotation, and display ownership on real computers;
 - video codecs and hardware decoding;
-- CEC on real TVs, DDC/CI on real monitors, and real microphones;
-- Presentation Network on supported Wi-Fi hardware;
+- CEC on real TVs and DDC/CI on real monitors;
+- Presentation Network on supported Wi-Fi hardware and idle inhibition in the real kiosk session;
 - long playback runs, restarts, and power cuts;
 - updates and rollbacks on reference hardware;
-- remote Website and YouTube content through the isolated helper (needs hardware testing).
+- remote Website and YouTube content through the isolated helper, including the GPU frame path, physical audio routing, and a real YouTube smoke test.
 
 </Aside>
 
