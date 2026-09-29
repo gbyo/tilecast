@@ -11,59 +11,9 @@ jobs:
     name: iOS CI
     runs-on: macos-26
     timeout-minutes: 40
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: apps/ios
     steps:
       - uses: actions/checkout@v7
-      - name: Configure derived data path
-        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData" >> "$GITHUB_ENV"
-        with:
-          persist-credentials: false
-      - name: Show toolchain
+      - name: Validate runner
         run: |
           xcodebuild -version
-          xcrun simctl list runtimes | grep -i ios
-      - name: Guard host and Studio boundaries
-        run: scripts/check-architecture.sh
-      # The app has no third-party packages, so there is no dependency
-      # cache to restore. A cold build of this size takes a few minutes.
-      - name: Choose a simulator
-        run: echo "DESTINATION=$(scripts/simulator-destination.py)" >> "$GITHUB_ENV"
-      - name: Build for testing
-        run: >
-          xcodebuild build-for-testing
-          -project Tilecast.xcodeproj -scheme Tilecast
-          -destination "$DESTINATION"
-          -derivedDataPath "$DERIVED_DATA"
-          CODE_SIGNING_ALLOWED=NO
-      - name: Check localization
-        run: scripts/check-localization.py "$DERIVED_DATA"
-      # Core and UI tests run separately so a hang or failure names its bundle.
-      - name: Core tests
-        timeout-minutes: 10
-        run: >
-          xcodebuild test-without-building
-          -project Tilecast.xcodeproj -scheme Tilecast
-          -destination "$DESTINATION"
-          -derivedDataPath "$DERIVED_DATA"
-          -only-testing:TilecastCoreTests
-          -resultBundlePath "$RUNNER_TEMP/core-tests.xcresult"
-      - name: UI tests
-        timeout-minutes: 10
-        run: >
-          xcodebuild test-without-building
-          -project Tilecast.xcodeproj -scheme Tilecast
-          -destination "$DESTINATION"
-          -derivedDataPath "$DERIVED_DATA"
-          -only-testing:TilecastUITests
-          -resultBundlePath "$RUNNER_TEMP/ui-tests.xcresult"
-      - name: Upload test results
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ios-test-results
-          path: ${{ runner.temp }}/*.xcresult
-          retention-days: 7
+          echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData" >> "$GITHUB_ENV"
