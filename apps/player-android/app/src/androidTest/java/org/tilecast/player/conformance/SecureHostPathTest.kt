@@ -43,9 +43,16 @@ import org.tilecast.player.runtime.TrustedRuntimeWebView
 class SecureHostPathTest {
     private val bytes = "tilecast-secure-host-media".toByteArray()
 
-    private fun launchOnActivity(block: (ConformanceActivity) -> Unit) {
-        ActivityScenario.launch(ConformanceActivity::class.java).use { scenario ->
+    private fun launchOnActivity(
+        block: (ConformanceActivity) -> Unit,
+    ): ActivityScenario<ConformanceActivity> {
+        val scenario = ActivityScenario.launch(ConformanceActivity::class.java)
+        return try {
             scenario.onActivity(block)
+            scenario
+        } catch (error: Throwable) {
+            scenario.close()
+            throw error
         }
     }
 
@@ -62,7 +69,7 @@ class SecureHostPathTest {
         val localFiles = AtomicReference<Map<String, String>>()
         val authorized = setOf(MediaAuthorization.AuthorizedMedia("a1", "v1"))
         val mime = mapOf("v1" to "application/octet-stream")
-        launchOnActivity { activity ->
+        val scenario = launchOnActivity { activity ->
             try {
                 val file = File(activity.cacheDir, "secure-host-v1.bin")
                 file.writeBytes(bytes)
@@ -113,19 +120,23 @@ class SecureHostPathTest {
                 pageReady.countDown()
             }
         }
-        check(pageReady.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted document: ${failure.get()}" }
-        check(mediaRequested.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted media request: ${failure.get()}" }
-        failure.get()?.let { throw AssertionError(it) }
-        val full = served.get() ?: error("trusted page did not reach the media interceptor")
-        check(full.statusCode == 200) { "full response status mismatch: ${full.statusCode}" }
-        check(TcMediaBridge.openStream(full)!!.use { String(it.readBytes()) } == String(bytes)) { "full body mismatch" }
+        try {
+            check(pageReady.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted document: ${failure.get()}" }
+            check(mediaRequested.await(60, TimeUnit.SECONDS)) { "timed out waiting for trusted media request: ${failure.get()}" }
+            failure.get()?.let { throw AssertionError(it) }
+            val full = served.get() ?: error("trusted page did not reach the media interceptor")
+            check(full.statusCode == 200) { "full response status mismatch: ${full.statusCode}" }
+            check(TcMediaBridge.openStream(full)!!.use { String(it.readBytes()) } == String(bytes)) { "full body mismatch" }
 
-        val partial = TcMediaBridge.resolve(
-            "tcmedia://variant/a1/v1", authorized, localFiles.get() ?: emptyMap(), mime, "bytes=4-",
-        ) ?: error("range request was not resolved")
-        check(partial.statusCode == 206) { "range response status mismatch: ${partial.statusCode}" }
-        check(partial.contentRange == "bytes 4-${bytes.lastIndex}/${bytes.size}") { "range header mismatch: ${partial.contentRange}" }
-        check(TcMediaBridge.openStream(partial)!!.use { String(it.readBytes()) } == String(bytes).substring(4)) { "range body mismatch" }
+            val partial = TcMediaBridge.resolve(
+                "tcmedia://variant/a1/v1", authorized, localFiles.get() ?: emptyMap(), mime, "bytes=4-",
+            ) ?: error("range request was not resolved")
+            check(partial.statusCode == 206) { "range response status mismatch: ${partial.statusCode}" }
+            check(partial.contentRange == "bytes 4-${bytes.lastIndex}/${bytes.size}") { "range header mismatch: ${partial.contentRange}" }
+            check(TcMediaBridge.openStream(partial)!!.use { String(it.readBytes()) } == String(bytes).substring(4)) { "range body mismatch" }
+        } finally {
+            scenario.close()
+        }
     }
 
     @Test
@@ -133,7 +144,7 @@ class SecureHostPathTest {
         val done = CountDownLatch(1)
         val failure = AtomicReference<String?>()
         val outcome = AtomicReference<Boolean?>()
-        launchOnActivity { activity ->
+        val scenario = launchOnActivity { activity ->
             try {
                 val owner = TrustedRuntimeWebView(
                     activity,
@@ -160,11 +171,15 @@ class SecureHostPathTest {
                 done.countDown()
             }
         }
-        check(done.await(60, TimeUnit.SECONDS)) { "probe timed out: ${failure.get()}" }
-        failure.get()?.let { throw AssertionError(it) }
-        // Either verdict is device truth; the plumbing must record it.
-        check(outcome.get() != null) { "probe produced no verdict" }
-        check(RuntimeComponentProbe.passed == outcome.get()) { "probe verdict was not recorded" }
+        try {
+            check(done.await(60, TimeUnit.SECONDS)) { "probe timed out: ${failure.get()}" }
+            failure.get()?.let { throw AssertionError(it) }
+            // Either verdict is device truth; the plumbing must record it.
+            check(outcome.get() != null) { "probe produced no verdict" }
+            check(RuntimeComponentProbe.passed == outcome.get()) { "probe verdict was not recorded" }
+        } finally {
+            scenario.close()
+        }
     }
 
     @Test

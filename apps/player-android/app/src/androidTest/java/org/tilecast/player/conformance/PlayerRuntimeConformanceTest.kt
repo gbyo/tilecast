@@ -248,6 +248,15 @@ class PlayerRuntimeConformanceTest {
         val located = java.util.concurrent.FutureTask { webView.getLocationOnScreen(rect) }
         activity.runOnUiThread(located)
         located.get(10, TimeUnit.SECONDS)
+        val visualStateReady = CountDownLatch(1)
+        activity.runOnUiThread {
+            webView.postVisualStateCallback(System.nanoTime()) {
+                visualStateReady.countDown()
+            }
+        }
+        check(visualStateReady.await(10, TimeUnit.SECONDS)) {
+            "timed out waiting for WebView visual state before $checkpoint screenshot"
+        }
         val full = instrumentation.uiAutomation.takeScreenshot()
             ?: error("screenshot unavailable")
         val x = rect[0].coerceIn(0, full.width - 1)

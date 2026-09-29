@@ -5,7 +5,7 @@
  *   node conformance/run.mjs --engine electron --out DIR [--only a,b]
  *   node conformance/run.mjs --engine wpe --out DIR --wpe-runner BIN \
  *     --gst-plugin-dir DIR [--only a,b]
- *   node conformance/run.mjs --engine android --out DIR [--only a,b]
+ *   node conformance/run.mjs --engine android --out DIR [--only a,b] [--media-dir DIR]
  *
  * The android engine delegates to apps/player-android/conformance/run-android.sh,
  * which drives the instrumentation suite on an attached device or a running
@@ -66,15 +66,26 @@ for (const required of [
 
 const engineDir = path.join(out, engine);
 fs.rmSync(engineDir, { recursive: true, force: true });
-const mediaDir = path.join(engineDir, "media");
-const media = spawnSync(
-  process.execPath,
-  [path.join(here, "media.mjs"), mediaDir],
-  {
-    stdio: "inherit",
-  },
+const mediaDir = path.resolve(
+  args.get("media-dir") ?? path.join(engineDir, "media"),
 );
-if (media.status !== 0) process.exit(media.status ?? 1);
+if (args.has("media-dir")) {
+  if (!fs.existsSync(path.join(mediaDir, "media.json"))) {
+    console.error(
+      `run: shared media directory is missing media.json: ${mediaDir}`,
+    );
+    process.exit(66);
+  }
+} else {
+  const media = spawnSync(
+    process.execPath,
+    [path.join(here, "media.mjs"), mediaDir],
+    {
+      stdio: "inherit",
+    },
+  );
+  if (media.status !== 0) process.exit(media.status ?? 1);
+}
 const { video, media: objects } = JSON.parse(
   fs.readFileSync(path.join(mediaDir, "media.json"), "utf8"),
 );
