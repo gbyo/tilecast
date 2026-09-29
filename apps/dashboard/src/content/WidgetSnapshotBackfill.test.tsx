@@ -191,9 +191,7 @@ describe("WidgetSnapshotBackfill", () => {
       captureWidgetPreview.mockImplementationOnce(
         (captureRoot: HTMLElement) => {
           expect(captureRoot.querySelector("tc-widget-list")).toBe(widget);
-          return Promise.resolve(
-            new Blob(["preview"], { type: "image/jpeg" }),
-          );
+          return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
         },
       );
 
