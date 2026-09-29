@@ -143,14 +143,21 @@ func foundationJSON(_ data: Data) throws -> Any {
         let tokens = try #require(document["tokens"] as? [String])
         #expect(!tokens.isEmpty)
         for token in tokens {
-            #expect(NavigationIcon.symbols[token] != nil, "\(token) has no symbol")
+            #expect(NavigationIcon.images[token] != nil, "\(token) has no icon")
         }
-        #expect(Set(NavigationIcon.symbols.keys) == Set(tokens), "the app maps only the shared vocabulary")
+        #expect(Set(NavigationIcon.images.keys) == Set(tokens), "the app maps only the shared vocabulary")
     }
 
-    @Test func showsTheGenericSymbolForAnUnknownToken() {
-        #expect(NavigationIcon.systemImage(for: "door-calendar") == NavigationIcon.generic)
-        #expect(NavigationIcon.systemImage(for: "") == NavigationIcon.generic)
-        #expect(NavigationIcon.systemImage(for: "settings") != NavigationIcon.generic)
+    @Test func showsTheGenericIconForAnUnknownToken() {
+        #expect(NavigationIcon.imageName(for: "door-calendar") == NavigationIcon.generic)
+        #expect(NavigationIcon.imageName(for: "") == NavigationIcon.generic)
+        #expect(NavigationIcon.imageName(for: "settings") != NavigationIcon.generic)
+    }
+
+    @Test func everyIconIsInTheAssetCatalog() throws {
+        for name in Set(NavigationIcon.images.values).union([NavigationIcon.generic]) {
+            let contents = try repositoryFile("apps/ios/Tilecast/Resources/Assets.xcassets/\(name).imageset/Contents.json")
+            #expect(!contents.isEmpty, "\(name) has no asset")
+        }
     }
 }

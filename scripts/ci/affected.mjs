@@ -20,7 +20,8 @@ export const graph = {
   // The iOS host embeds Studio at runtime from the configured server, so a
   // Studio change never requires an iOS build. Its build inputs are its own
   // sources and the contracts it compiles or tests against: the server
-  // address corpus and the native bridge schema. Add an edge here only when
+  // address corpus, the native bridge schema, and Studio's navigation icon
+  // mapping, from which its icons are generated. Add an edge here only when
   // the app starts consuming a new contract at build time.
   ios: [],
   docs: [],
@@ -46,6 +47,8 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // The iOS app's navigation icons are generated from Studio's icon mapping.
+  [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
   // Studio's own bridge code is ordinary dashboard code.
   [/^packages\/native-bridge-schema\//, ["dashboard", "ios"]],
