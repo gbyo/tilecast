@@ -156,6 +156,7 @@ class ManifestSyncManagerTest {
                 widget.presentation!!,
                 emptyMap(),
                 manifest,
+                componentRuntimeSupported = true,
             )
             fail("multi-dot component type must be rejected")
         } catch (error: IllegalArgumentException) {
@@ -193,6 +194,7 @@ class ManifestSyncManagerTest {
             componentPresentation(),
             mapOf("source-1" to dataSource("source-1")),
             manifestWithAssets(listOf(ManifestAsset("asset-1", "variant-1", "image/png", "hash", 10, downloadPath = "/dl"))),
+            componentRuntimeSupported = true,
         )
     }
 
@@ -203,6 +205,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(requiredCapabilities = mapOf("widget.tilecast.clock" to 2)),
                 emptyMap(),
                 null,
+                componentRuntimeSupported = true,
             )
             fail("expected capability mismatch to fail")
         } catch (error: IllegalArgumentException) {
@@ -226,7 +229,7 @@ class ManifestSyncManagerTest {
 
         unsupported.forEach { presentation ->
             try {
-                validateWidgetComponentPresentation(presentation, emptyMap(), null)
+                validateWidgetComponentPresentation(presentation, emptyMap(), null, componentRuntimeSupported = true)
                 fail("expected unsupported component capability to fail")
             } catch (error: IllegalArgumentException) {
                 assertTrue(error.message!!.contains("Missing presentation capability"))
@@ -256,6 +259,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(dataSources = listOf("missing")),
                 emptyMap(),
                 null,
+                componentRuntimeSupported = true,
             )
             fail("expected unknown Data Source to fail")
         } catch (error: IllegalArgumentException) {
@@ -270,6 +274,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(media = listOf(org.tilecast.player.network.ComponentMediaRef("asset-1", "variant-9"))),
                 emptyMap(),
                 manifestWithAssets(listOf(ManifestAsset("asset-1", "variant-1", "image/png", "hash", 10, downloadPath = "/dl"))),
+                componentRuntimeSupported = true,
             )
             fail("expected unknown media grant to fail")
         } catch (error: IllegalArgumentException) {
@@ -284,6 +289,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(dataSources = listOf("source-1", "source-1")),
                 mapOf("source-1" to dataSource("source-1")),
                 null,
+                componentRuntimeSupported = true,
             )
             fail("expected duplicates to fail")
         } catch (error: IllegalArgumentException) {
@@ -298,6 +304,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(config = kotlinx.serialization.json.buildJsonObject { put("note", "x".repeat(2001)) }),
                 emptyMap(),
                 null,
+                componentRuntimeSupported = true,
             )
             fail("expected oversized config to fail")
         } catch (error: IllegalArgumentException) {
@@ -312,6 +319,7 @@ class ManifestSyncManagerTest {
                 componentPresentation(type = "Clock"),
                 emptyMap(),
                 null,
+                componentRuntimeSupported = true,
             )
             fail("expected bad type to fail")
         } catch (error: IllegalArgumentException) {

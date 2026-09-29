@@ -478,9 +478,10 @@ class ManifestSyncManager(
  * The config stays opaque JSON: Android never defines per-Widget config
  * classes and never interprets executable values or URLs from it. Bounds
  * mirror the Server contract (8 KiB encoded, depth 6, 64 keys, 200 items,
- * 2000-char strings, 8 Data Sources, 16 media grants).
+ * 2000-char strings, 8 Data Sources, 16 media grants. The caller supplies
+ * whether the installed runtime has passed its startup capability probe.
  */
-internal fun validateWidgetComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?,componentRuntimeSupported:Boolean=true){
+internal fun validateWidgetComponentPresentation(presentation:org.tilecast.player.network.WidgetPresentation,dataSources:Map<String,org.tilecast.player.network.ManifestDataSource>,manifest:org.tilecast.player.network.PlayerManifest?,componentRuntimeSupported:Boolean){
 	require(presentation.schemaVersion==2&&presentation.kind=="component"){ "Component presentation is invalid" }
 	require(componentRuntimeSupported){ "Component presentation runtime is unavailable" }
 	val component=presentation.component?:error("Component descriptor is missing")
