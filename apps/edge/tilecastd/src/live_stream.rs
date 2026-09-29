@@ -161,7 +161,8 @@ pub async fn run(context: Arc<DaemonContext>) {
         // Reconcile before sleeping. This guarantees an immediate first poll
         // once an authenticated server handle exists, and every wake leads to
         // a fresh authoritative GET.
-        let delay = match server.borrow().clone() {
+        let api = { server.borrow().clone() };
+        let delay = match api {
             None => {
                 abort(&mut capture_task);
                 *current.lock().await = None;
