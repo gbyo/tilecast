@@ -333,6 +333,8 @@ export function GroupDetailPage() {
         return refresh();
       },
     });
+  const mutationError =
+    add.error ?? remove.error ?? deleteGroup.error ?? assignContent.error;
   useEffect(() => {
     setSelectedPresentation(
       group.data?.layoutId
@@ -457,19 +459,9 @@ export function GroupDetailPage() {
           </div>
         )}
       </header>
-      {(add.error ||
-        remove.error ||
-        deleteGroup.error ||
-        assignContent.error) && (
+      {mutationError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {(
-              add.error ??
-              remove.error ??
-              deleteGroup.error ??
-              assignContent.error
-            )?.message}
-          </AlertDescription>
+          <AlertDescription>{mutationError.message}</AlertDescription>
         </Alert>
       )}
       <AirPlayPresentDialog
