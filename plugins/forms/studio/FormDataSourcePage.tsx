@@ -214,9 +214,13 @@ export function FormDataSourcePage() {
         onValueChange={(value) => setTab(value as TabValue)}
         className="grid gap-4"
       >
-        <TabsList variant="line" aria-label={t("detail.sectionsLabel")}>
+        <TabsList
+          variant="line"
+          aria-label={t("detail.sectionsLabel")}
+          className="w-full justify-start overflow-x-auto"
+        >
           {permittedTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
+            <TabsTrigger key={tab.value} value={tab.value} className="flex-none">
               {t(tab.labelKey)}
             </TabsTrigger>
           ))}
