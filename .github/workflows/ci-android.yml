@@ -117,9 +117,7 @@ jobs:
             adb shell wm size 1280x720
             adb shell wm density 160
             mkdir -p "$RUNNER_TEMP/conformance"
-            node packages/player-runtime/conformance/run.mjs \
-              --engine android --out "$RUNNER_TEMP/conformance" \
-              --media-dir "$RUNNER_TEMP/conformance/electron/media"
+            node packages/player-runtime/conformance/run.mjs --engine android --out "$RUNNER_TEMP/conformance" --media-dir "$RUNNER_TEMP/conformance/electron/media"
       - name: Compare with the reference engine
         run: |
           node packages/player-runtime/conformance/compare.mjs \
