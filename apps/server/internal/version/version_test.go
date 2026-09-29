@@ -5,22 +5,45 @@ import (
 	"testing"
 )
 
-func TestDisplayMarksDevelopmentBuilds(t *testing.T) {
-	t.Cleanup(func() { Channel = ChannelDevelopment })
+func TestDefaultBuildIsUnmistakablyDevelopment(t *testing.T) {
+	t.Cleanup(func() {
+		Version = DevelopmentVersion
+		Channel = ChannelDevelopment
+	})
+	Version = DevelopmentVersion
 	Channel = ChannelDevelopment
-	if got := Display(); got != Version+"-dev" {
-		t.Fatalf("development display = %q, want %q", got, Version+"-dev")
+	if Display() != DevelopmentVersion {
+		t.Fatalf("default display = %q, want %q", Display(), DevelopmentVersion)
 	}
-	if Display() == Version {
-		t.Fatal("development build must not present itself as the bare release version")
+	if !strings.HasSuffix(Display(), "-dev") {
+		t.Fatalf("default display %q must carry a -dev suffix", Display())
 	}
 }
 
-func TestDisplayReportsBareVersionForStable(t *testing.T) {
-	t.Cleanup(func() { Channel = ChannelDevelopment })
+func TestDisplayMarksDevelopmentBuilds(t *testing.T) {
+	t.Cleanup(func() {
+		Version = DevelopmentVersion
+		Channel = ChannelDevelopment
+	})
+	Channel = ChannelDevelopment
+	// Even if a development build somehow carries a bare version string,
+	// it must never present itself as a Stable release.
+	Version = "0.11.0"
+	if got := Display(); got != "0.11.0-dev" {
+		t.Fatalf("development display = %q, want %q", got, "0.11.0-dev")
+	}
+}
+
+func TestDisplayReportsInjectedVersionForStable(t *testing.T) {
+	t.Cleanup(func() {
+		Version = DevelopmentVersion
+		Channel = ChannelDevelopment
+	})
+	// The release workflow injects the tag version with channel=stable.
+	Version = "0.11.0"
 	Channel = ChannelStable
-	if got := Display(); got != Version {
-		t.Fatalf("stable display = %q, want %q", got, Version)
+	if got := Display(); got != "0.11.0" {
+		t.Fatalf("stable display = %q, want %q", got, "0.11.0")
 	}
 }
 
@@ -56,13 +79,5 @@ func TestParseReleaseTag(t *testing.T) {
 		if version != tc.version {
 			t.Errorf("ParseReleaseTag(%q) = %q, want %q", tc.tag, version, tc.version)
 		}
-	}
-}
-
-func TestVersionIsBareSemver(t *testing.T) {
-	// The release workflow compares the tag version against this constant,
-	// so it must never carry a suffix itself.
-	if strings.ContainsAny(Version, "-+") || strings.Count(Version, ".") != 2 {
-		t.Fatalf("Version %q must be a bare major.minor.patch release line", Version)
 	}
 }

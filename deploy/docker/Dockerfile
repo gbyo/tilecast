@@ -34,6 +34,8 @@ FROM golang:1.27-alpine AS server
 RUN apk add --no-cache ca-certificates git
 # Build identity injected into apps/server/internal/version. Development is
 # the default so an unparameterized local build can never claim to be Stable.
+# Stable releases inject VERSION_NUMBER from the server-vX.Y.Z tag.
+ARG VERSION_NUMBER=0.0.0-dev
 ARG VERSION_CHANNEL=development
 ARG VERSION_COMMIT=local
 ARG VERSION_DATE=development
@@ -55,7 +57,7 @@ COPY data-sources data-sources
 COPY apps/server apps/server
 COPY --from=dashboard /src/apps/dashboard/dist/ apps/server/internal/web/static/
 WORKDIR /src/apps/server
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/tilecast/tilecast/apps/server/internal/version.Channel=${VERSION_CHANNEL} -X github.com/tilecast/tilecast/apps/server/internal/version.Commit=${VERSION_COMMIT} -X github.com/tilecast/tilecast/apps/server/internal/version.Date=${VERSION_DATE}" -o /out/tilecast-server ./cmd/tilecast-server
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/tilecast/tilecast/apps/server/internal/version.Version=${VERSION_NUMBER} -X github.com/tilecast/tilecast/apps/server/internal/version.Channel=${VERSION_CHANNEL} -X github.com/tilecast/tilecast/apps/server/internal/version.Commit=${VERSION_COMMIT} -X github.com/tilecast/tilecast/apps/server/internal/version.Date=${VERSION_DATE}" -o /out/tilecast-server ./cmd/tilecast-server
 
 FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata ffmpeg && addgroup -S tilecast && adduser -S -G tilecast tilecast

@@ -1,26 +1,22 @@
 // Package version exposes the Tilecast server release identity used in API
 // responses and backup manifests.
 //
-// Version is the release line in source. A Stable release tag server-vX.Y.Z
-// must match it exactly; the server release workflow enforces that before it
-// publishes anything. Channel, Commit, and Date are build metadata injected
-// with -ldflags at image build time:
+// The server-vX.Y.Z release tag is the authoritative Stable version. Release
+// builds inject it with -ldflags at image build time:
 //
-//	go build -ldflags="-X .../version.Channel=stable -X .../version.Commit=<sha> -X .../version.Date=<rfc3339>"
+//	go build -ldflags="-X .../version.Version=X.Y.Z -X .../version.Channel=stable -X .../version.Commit=<sha> -X .../version.Date=<rfc3339>"
 //
-// The zero values below describe a local development build. Development
-// builds always report Version with a -dev suffix so they can never present
-// themselves as exactly the same version as a published Stable release.
+// The zero values below describe a local development build. No
+// source-version-bump commit is needed to cut a release: tagging main is
+// enough, and anything that is not a Stable release build keeps
+// Development identity.
 package version
 
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
-
-// Version is the Tilecast server release line. Bump it in the change that
-// prepares a Stable release so the release tag and the source agree.
-const Version = "0.10.0"
 
 // Release channels. Tilecast Server ships exactly two: Stable for normal
 // self-hosted installs and Development tracking main.
@@ -29,7 +25,14 @@ const (
 	ChannelDevelopment = "development"
 )
 
+// DevelopmentVersion is the version reported by builds that did not receive
+// a release version at build time: local builds and Development images.
+const DevelopmentVersion = "0.0.0-dev"
+
 var (
+	// Version is the server version, injected at build time for Stable
+	// releases. Every other build keeps the Development default.
+	Version = DevelopmentVersion
 	// Channel is the release channel of this build, injected at build time.
 	Channel = ChannelDevelopment
 	// Commit is the full git commit this build was produced from.
@@ -39,10 +42,13 @@ var (
 )
 
 // Display reports the server version as shown to operators and stamped into
-// backups. Stable builds report the bare release version; anything else is
-// unmistakably a development build.
+// backups. Stable builds report the bare release version from their tag;
+// anything else is unmistakably a development build.
 func Display() string {
 	if Channel == ChannelStable {
+		return Version
+	}
+	if strings.HasSuffix(Version, "-dev") {
 		return Version
 	}
 	return Version + "-dev"
