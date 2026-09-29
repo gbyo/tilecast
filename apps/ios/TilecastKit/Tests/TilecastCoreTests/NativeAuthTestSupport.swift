@@ -57,6 +57,9 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
     /// Answers a sign-in without a credential, as a server released before
     /// native API access does.
     var issuesCredentials = true
+    /// Answers a studio-session rotation without a cookie, as when the
+    /// server could rotate but not start a Studio session.
+    var omitsStudioCookie = false
     /// Holds each refresh until opened.
     var refreshGate: Gate?
     /// The access-token lifetime this server grants.
@@ -118,7 +121,7 @@ final class FakeSessionServer: IOSSessionExchanging, @unchecked Sendable {
                 _revoked = true
                 return .failure(.rejected)
             }
-            return .success(IOSSessionGrant(cookie: studioSession ? studioCookie(host: host, value: "renewed") : nil, credential: issue()))
+            return .success(IOSSessionGrant(cookie: studioSession && !omitsStudioCookie ? studioCookie(host: host, value: "renewed") : nil, credential: issue()))
         }
         return try result.get()
     }

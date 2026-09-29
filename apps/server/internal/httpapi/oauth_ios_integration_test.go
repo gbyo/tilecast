@@ -535,6 +535,29 @@ func TestIOSBootstrapForAnInactiveAccountLeavesNoGrant(t *testing.T) {
 	})
 }
 
+func TestIOSRefreshForAnInactiveAccountRevokesTheGrant(t *testing.T) {
+	withIOSHarness(t, func(h *iosHarness) {
+		response := h.bootstrap()
+		refresh := tokenString(response.credential(), "refresh_token")
+		if _, err := h.env.pool.Exec(t.Context(), `UPDATE users SET active=FALSE WHERE id=$1`, h.userID); err != nil {
+			t.Fatal(err)
+		}
+		// A refresh meets the same answer as a bootstrap: the grant is
+		// revoked, not rotated into a credential for a dead account.
+		renewed := h.refresh(refresh, true)
+		if renewed.status != http.StatusUnauthorized || renewed.errorCode() != "authentication_required" ||
+			len(renewed.cookies) != 0 || renewed.credential() != nil {
+			t.Fatalf("inactive refresh: %d %v %v", renewed.status, renewed.body, renewed.cookies)
+		}
+		if h.liveIOSGrants() != 0 {
+			t.Fatal("an inactive account kept a live iOS grant")
+		}
+		if again := h.refresh(refresh, false); again.status != http.StatusBadRequest {
+			t.Fatalf("refresh after revocation: %d", again.status)
+		}
+	})
+}
+
 func TestIOSGrantEndsWhenTheUserIsSignedOutEverywhere(t *testing.T) {
 	withIOSHarness(t, func(h *iosHarness) {
 		response := h.bootstrap()
@@ -550,6 +573,49 @@ func TestIOSGrantEndsWhenTheUserIsSignedOutEverywhere(t *testing.T) {
 		}
 		if again := h.refresh(refresh, true); again.status != http.StatusBadRequest || len(again.cookies) != 0 {
 			t.Fatalf("refresh after revocation: %d %v", again.status, again.body)
+		}
+	})
+}
+
+func TestIOSGrantWithoutSessionEndsWhenTheUserIsSignedOutEverywhere(t *testing.T) {
+	withIOSHarness(t, func(h *iosHarness) {
+		response := h.bootstrap()
+		refresh := tokenString(response.credential(), "refresh_token")
+		// The Studio session is gone, as after expiry cleanup, but the
+		// native credential still rotates.
+		if _, err := h.env.pool.Exec(t.Context(), `DELETE FROM sessions WHERE api_grant_id IS NOT NULL`); err != nil {
+			t.Fatal(err)
+		}
+		rotated := h.refresh(refresh, false)
+		if rotated.status != http.StatusOK {
+			t.Fatalf("refresh without a session: %d %v", rotated.status, rotated.body)
+		}
+		refresh = tokenString(rotated.credential(), "refresh_token")
+		// A CLI grant cannot mint a session, so signing out everywhere
+		// leaves it alone.
+		redirect := "http://127.0.0.1:8471/callback"
+		callback := h.approve(oauth.ClientCLI, redirect, h.router.URL)
+		issued := h.do(http.MethodPost, "/api/v1/oauth/token", map[string]string{
+			"grant_type": "authorization_code", "client_id": oauth.ClientCLI,
+			"code": callback.Get("code"), "redirect_uri": redirect, "code_verifier": iosVerifier,
+		}, nil)
+		cliRefresh, _ := issued.data()["refresh_token"].(string)
+		if issued.status != http.StatusOK || cliRefresh == "" {
+			t.Fatalf("CLI exchange: %d %v", issued.status, issued.body)
+		}
+
+		if err := auth.RevokeUserSessions(t.Context(), h.env.pool, h.userID); err != nil {
+			t.Fatal(err)
+		}
+		if h.liveIOSGrants() != 0 {
+			t.Fatal("the session-less iOS grant survived signing the user out everywhere")
+		}
+		if again := h.refresh(refresh, false); again.status != http.StatusBadRequest || len(again.cookies) != 0 {
+			t.Fatalf("iOS refresh after revocation: %d %v", again.status, again.body)
+		}
+		cliRotated := h.do(http.MethodPost, "/api/v1/oauth/token", map[string]string{"grant_type": "refresh_token", "refresh_token": cliRefresh}, nil)
+		if cliRotated.status != http.StatusOK {
+			t.Fatalf("CLI refresh after signing out everywhere: %d %v", cliRotated.status, cliRotated.body)
 		}
 	})
 }

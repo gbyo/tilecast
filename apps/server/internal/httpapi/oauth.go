@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 )
 
@@ -280,9 +281,17 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 	}
 	// The tokens are not released until the account is known to be usable.
 	// Otherwise the grant is revoked, so a failed bootstrap leaves nothing
-	// behind that could be used later.
+	// behind that could be used later. Past this point a refresh has already
+	// retired the presented token, so its failures return the rotated
+	// credential without a session instead of losing it: answering 500
+	// would leave the app holding a dead refresh token whose next use
+	// looks like reuse and revokes the grant.
 	user, err := s.activeUser(r.Context(), grant.UserID)
 	if err != nil {
+		if body.GrantType == "refresh_token" {
+			writeIOSCredential(w, tokens, false)
+			return
+		}
 		s.internalError(w, r, err)
 		return
 	}
@@ -293,11 +302,19 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 	if issueSession {
 		pending, err := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
 		if err != nil {
+			if body.GrantType == "refresh_token" {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
 			s.internalError(w, r, err)
 			return
 		}
 		session, err := s.auth.IssueGrantSession(r.Context(), grant.UserID, grantID, "oauth", pending)
 		if err != nil {
+			if body.GrantType == "refresh_token" && !errors.Is(err, auth.ErrInactive) && !errors.Is(err, auth.ErrUnauthenticated) {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
 			s.revokeIOSGrant(w, r, grant)
 			return
 		}
@@ -316,8 +333,17 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 			Summary: summary,
 		})
 	}
+	writeIOSCredential(w, tokens, issueSession)
+}
+
+// writeIOSCredential answers an iOS bootstrap with the grant's native
+// credential. authenticated tells whether the response also set a Studio
+// session cookie: a refresh whose session could not start still returns
+// the rotated credential, so the app keeps working native state instead
+// of holding a retired refresh token.
+func writeIOSCredential(w http.ResponseWriter, tokens oauth.Tokens, authenticated bool) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"authenticated": issueSession,
+		"authenticated": authenticated,
 		"credential": map[string]any{
 			"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken,
 			"token_type": "Bearer", "expires_at": tokens.ExpiresAt,

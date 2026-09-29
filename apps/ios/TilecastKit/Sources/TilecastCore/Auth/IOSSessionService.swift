@@ -82,9 +82,11 @@ public struct IOSSessionClient: IOSSessionExchanging {
             refreshToken: refreshToken,
             studioSession: studioSession
         ))
-        // A rotation without a new credential leaves nothing usable.
+        // A rotation without a new credential leaves nothing usable. A
+        // missing cookie is returned, not thrown: the server already
+        // retired the presented token, so the caller must persist the
+        // rotated credential before reporting the missing session.
         guard grant.credential != nil else { throw .unavailable }
-        if studioSession, grant.cookie == nil { throw .missingCookie }
         return grant
     }
 
