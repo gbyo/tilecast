@@ -234,6 +234,20 @@ describe("PlaylistWidgetPreview", () => {
     expect(onReady).not.toHaveBeenCalled();
   });
 
+  it("reports a failed definitions query as an item error", async () => {
+    const asset = widgetAsset("clock");
+    vi.spyOn(api, "asset").mockResolvedValue(asset);
+    vi.spyOn(api, "contentDefinitions").mockRejectedValue(
+      new Error("definitions unavailable"),
+    );
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const onReady = vi.fn();
+    const onError = vi.fn();
+    frame({ asset, onReady, onError });
+    await waitFor(() => expect(onError).toHaveBeenCalled());
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
   it("disposes the Widget mount on unmount", async () => {
     vi.spyOn(api, "asset").mockResolvedValue(widgetAsset("clock"));
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());

@@ -784,39 +784,46 @@ export function LayoutEditorPage() {
       )
     )
       return;
-    initialPreviewAttemptedRef.current = true;
     // Wait for embedded V2 Widgets to settle (ready, intentional empty, or
     // an explicitly handled failure) instead of capturing after a fixed
     // delay. A failure or timeout skips the capture: the Layout keeps its
     // honest missing-preview state instead of a half-rendered thumbnail.
+    // The attempt flag is set only when the async attempt runs to
+    // completion. If the inputs change mid-attempt, cleanup cancels it and
+    // leaves the flag unset so the effect retries with the current zones
+    // instead of suppressing the capture forever.
     const revision = revisionRef.current;
     const zones = captureZoneIds(document);
     const { width, height } = document.canvas;
     let cancelled = false;
     void (async () => {
-      const { ok } = await captureCoordinator.waitForSettled(
-        zones,
-        LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
-      );
-      if (cancelled || !ok) return;
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const image = await captureLayoutPreview(
-        canvas,
-        width,
-        height,
-        tContent,
-      ).catch(() => undefined);
-      if (!image || cancelled) return;
-      // The draft may have been edited or saved while the Widgets settled;
-      // never let a stale capture overwrite a newer revision's thumbnail.
-      if (revision !== revisionRef.current) return;
-      await api
-        .uploadLayoutPreview(id, revision, image, csrf)
-        .catch(() => undefined);
-      if (cancelled) return;
-      void queryClient.invalidateQueries({ queryKey: ["layout", id] });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      try {
+        const { ok } = await captureCoordinator.waitForSettled(
+          zones,
+          LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
+        );
+        if (cancelled || !ok) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const image = await captureLayoutPreview(
+          canvas,
+          width,
+          height,
+          tContent,
+        ).catch(() => undefined);
+        if (!image || cancelled) return;
+        // The draft may have been edited or saved while the Widgets settled;
+        // never let a stale capture overwrite a newer revision's thumbnail.
+        if (revision !== revisionRef.current) return;
+        await api
+          .uploadLayoutPreview(id, revision, image, csrf)
+          .catch(() => undefined);
+        if (cancelled) return;
+        void queryClient.invalidateQueries({ queryKey: ["layout", id] });
+        void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      } finally {
+        if (!cancelled) initialPreviewAttemptedRef.current = true;
+      }
     })();
     return () => {
       cancelled = true;

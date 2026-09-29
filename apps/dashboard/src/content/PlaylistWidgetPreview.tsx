@@ -110,6 +110,7 @@ export function PlaylistWidgetPreview({
       onReady();
     else if (
       (widgetQuery.isError ||
+        definitionsQuery.isError ||
         presentationQuery.isError ||
         (Boolean(dataSourceId) && sourceQuery.isError)) &&
       active
@@ -119,6 +120,7 @@ export function PlaylistWidgetPreview({
     active,
     dataSourceId,
     v2,
+    definitionsQuery.isError,
     onError,
     onReady,
     presentationQuery.data,
