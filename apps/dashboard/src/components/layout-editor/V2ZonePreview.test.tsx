@@ -452,7 +452,6 @@ describe("V2ZonePreview", () => {
     vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
     vi.spyOn(api, "previewSavedDataSource").mockResolvedValue({
       configuration: {
-        calendars: [],
         displayMode: "upcoming",
         maxEvents: 20,
         fields: {
@@ -464,8 +463,6 @@ describe("V2ZonePreview", () => {
           descriptionExcerpt: false,
         },
         timezone: "America/Chicago",
-        refreshIntervalSeconds: 900,
-        stalenessLimitHours: 24,
         emptyState: "",
         data: {
           events: [
@@ -484,10 +481,11 @@ describe("V2ZonePreview", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
         },
       },
       diagnostics: {
-        assetId: "source-1",
+        dataSourceId: "source-1",
         parseStatus: "ok",
         availableEventCount: 1,
         availableItemCount: 0,

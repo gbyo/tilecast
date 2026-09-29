@@ -33,6 +33,10 @@ const asset = (status: Asset["processingStatus"]): Asset => ({
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
   variants: [],
+  playlistUsage: 0,
+  layoutUsage: [],
+  tags: [],
+  collectionIds: [],
 });
 
 const clip = () => new File(["12345678"], "Clip.mp4", { type: "video/mp4" });

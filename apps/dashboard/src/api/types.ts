@@ -1319,9 +1319,9 @@ export type PlayerRelease = {
   id: string;
   tag: string;
   platform: PlayerPlatform;
-  playerFamily?: PlayerFamily;
+  playerFamily: PlayerFamily;
   /** The CPU architecture of an Edge release; empty for the other families. */
-  architecture?: string;
+  architecture: string;
   source: "github" | "upload";
   channel: "stable" | "beta";
   versionCode: number;
@@ -1572,14 +1572,14 @@ export type Asset = {
   thumbnailUrl?: string;
   website?: WebsiteConfig;
   widget?: Widget;
-  playlistUsage?: number;
+  playlistUsage: number;
   // Identified playlists containing this asset. The list endpoint reports only the
   // playlistUsage count; the detail endpoint populates this so Studio can link through.
   playlistsUsing?: { id: string; name: string }[];
-  layoutUsage?: { id: string; name: string; published: boolean }[];
+  layoutUsage: { id: string; name: string; published: boolean }[];
   folderId?: string;
-  tags?: ContentTag[];
-  collectionIds?: string[];
+  tags: ContentTag[];
+  collectionIds: string[];
 };
 export type ContentFolder = {
   id: string;
@@ -1836,52 +1836,12 @@ export type ProviderCatalog = {
   revision: number;
   providers: ProviderCatalogEntry[];
 };
-export type PresentationBinding = {
-  source: "literal" | "dataset" | "repeat" | "repeat_index" | "environment";
-  dataset?: string;
-  path?: string;
-  selector?: "all" | "current" | "next" | "upcoming" | "current_or_next";
-  startField?: string;
-  endField?: string;
-  value?: string;
-  fields?: string[];
-  format?: string;
-  precision?: number;
-  prefix?: string;
-  suffix?: string;
-  fallback?: string;
-  separator?: string;
-};
-export type PresentationNode = {
-  id?: string;
-  type: string;
-  props?: Record<string, unknown>;
-  binding?: PresentationBinding;
-  repeat?: {
-    dataset: string;
-    limit: number;
-    offset?: number;
-    selector?: "all" | "current" | "next" | "upcoming" | "current_or_next";
-    startField?: string;
-    endField?: string;
-  };
-  condition?: {
-    binding: PresentationBinding;
-    op:
-      | "equals"
-      | "not_equals"
-      | "empty"
-      | "not_empty"
-      | "greater_than"
-      | "greater_or_equal"
-      | "less_than"
-      | "less_or_equal"
-      | "before"
-      | "after";
-    value?: string;
-  };
-  children?: PresentationNode[];
-};
+/** A presentation binding; the contract owns the wire shape. */
+export type PresentationBinding =
+  components["schemas"]["CompiledPresentationBinding"];
+/** A compiled presentation node; the contract owns the wire shape. */
+export type PresentationNode =
+  components["schemas"]["CompiledPresentationNode"];
 /** A compiled Widget presentation; the contract owns the wire shape. */
 export type WidgetPresentation =
   components["schemas"]["CompiledWidgetPresentation"];
@@ -2335,8 +2295,8 @@ export type WebsiteConfig = {
   backgroundColor: string;
   failureBehavior: "last_success" | "placeholder" | "fallback_image" | "skip";
   fallbackImageAssetId?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 export type WebsiteInput = {
   name: string;
