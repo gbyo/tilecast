@@ -327,7 +327,8 @@ p {
 }
 
 .layout-playlist-preview--fade {
-  animation: layout-preview-fade-in var(--tc-motion-slow) var(--tc-ease-standard);
+  animation:
+    layout-preview-fade-in var(--tc-motion-slow) var(--tc-ease-standard);
 }
 
 @keyframes layout-preview-fade-in {
