@@ -51,7 +51,6 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
 import org.tilecast.player.content.PlaybackSession
 import org.tilecast.player.content.WebsiteNavigationPolicy
-import org.tilecast.player.content.youtubeHTML
 import org.tilecast.player.network.ManifestItem
 import org.tilecast.player.network.ManifestWebsite
 import org.tilecast.player.network.YouTubeSourceConfig
@@ -100,12 +99,17 @@ fun SharedRuntimePlayback(
     onFirstFrame: (itemId: String) -> Unit = {},
     onItemTransition: (itemId: String) -> Unit = {},
     onPlaybackError: (itemId: String?, message: String) -> Unit = { _, _ -> },
+    onWidgetStatus: (org.tilecast.player.content.WidgetPlaybackStatus) -> Unit = {},
+    onWebsiteStatus: (org.tilecast.player.content.WebsitePlaybackStatus) -> Unit = {},
 ) {
     val manifest = session.content.manifest
     // Recreated only on renderer death; new presentations reuse the WebView
     // and arrive through state replay plus a numeric nudge.
     var instance by remember { mutableIntStateOf(0) }
     val crashPolicy = remember { RuntimeCrashPolicy() }
+    // Status identity comes from the verified manifest, never the page.
+    val widgetProviders = manifest.widgets.associate { it.assetId to it.provider }
+    val websiteAssets = manifest.websites.map { it.assetId }.toSet()
     key(instance) {
         val rendererGeneration = crashPolicy.currentGeneration()
         val latestBoundary = rememberUpdatedState(onBoundary)
@@ -114,6 +118,8 @@ fun SharedRuntimePlayback(
         val latestFirstFrame = rememberUpdatedState(onFirstFrame)
         val latestTransition = rememberUpdatedState(onItemTransition)
         val latestPlaybackError = rememberUpdatedState(onPlaybackError)
+        val latestWidgetStatus = rememberUpdatedState(onWidgetStatus)
+        val latestWebsiteStatus = rememberUpdatedState(onWebsiteStatus)
         val runtimeSession = remember(rendererGeneration) {
             RuntimeHostSession(
                 hostVersion, engineVersion,
@@ -125,6 +131,9 @@ fun SharedRuntimePlayback(
                 { itemId -> latestFirstFrame.value(itemId) },
                 { itemId -> latestTransition.value(itemId) },
                 { itemId, message -> latestPlaybackError.value(itemId, message) },
+                { status -> latestWidgetStatus.value(status) },
+                { status -> latestWebsiteStatus.value(status) },
+                widgetProviders, websiteAssets,
                 crashPolicy,
             )
         }
@@ -153,6 +162,8 @@ fun SharedRuntimePlayback(
                 message = message,
                 activationId = activationId,
                 items = items,
+                widgetProviders = widgetProviders,
+                websiteAssets = websiteAssets,
                 instance = instance,
                 refs = refs,
                 crashPolicy = crashPolicy,
@@ -187,6 +198,8 @@ private fun RuntimeStageBody(
     message: JsonObject,
     activationId: String,
     items: List<ManifestItem>,
+    widgetProviders: Map<String, String>,
+    websiteAssets: Set<String>,
     instance: Int,
     refs: StageRefs,
     crashPolicy: RuntimeCrashPolicy,
@@ -209,7 +222,7 @@ private fun RuntimeStageBody(
                 onError("shared presentation refused")
                 return@LaunchedEffect
             }
-            runtimeSession.updatePresentation(items, activationId)
+            runtimeSession.updatePresentation(items, activationId, widgetProviders, websiteAssets)
             runtimeSession.offer(parsed)
             refs.webView?.let { refs.owner?.nudge(it, runtimeSession.currentStateGeneration()) }
         }
@@ -562,4 +575,25 @@ private fun YouTubeRemoteView(
             container.removeAllViews()
         },
     )
+}
+
+/** Host-view YouTube surface document (runtime remote-web path). */
+private fun YouTubeSourceConfig.loadTimeoutSeconds() = 30_000L
+
+internal fun youtubeHTML(
+    config: YouTubeSourceConfig,
+    origin: String,
+    startOffsetMs: Long = 0,
+): String {
+    val id = if (config.kind == "playlist") config.playlistId.orEmpty() else config.videoId.orEmpty()
+    val listOptions = if (config.kind == "playlist") "listType:'playlist',list:'$id'," else "videoId:'$id',"
+    val loopPlaylist = if (config.loop && config.kind == "video") ",playlist:'$id'" else ""
+    val captions = if (config.captions) "cc_load_policy:1,cc_lang_pref:'${config.captionLanguage}'," else "cc_load_policy:0,"
+    val end = config.endSeconds?.let { "end:$it," }.orEmpty()
+    val synchronizedStartSeconds = config.startSeconds + startOffsetMs.coerceAtLeast(0) / 1000.0
+    return """<!doctype html><html><head><meta name="referrer" content="origin"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><style>html,body,#player,iframe{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;border:0}</style></head><body><div id="player"></div><script src="https://www.youtube.com/iframe_api"></script><script>
+      var player; var tilecastMuted=${if (config.muted) "true" else "false"}; function send(s,d){try{Tilecast.report(s,d||null)}catch(e){}}
+      window.tilecastSetMuted=function(m){tilecastMuted=!!m;if(player){if(tilecastMuted){player.mute();}else{player.unMute();}}};
+      function onYouTubeIframeAPIReady(){player=new YT.Player('player',{width:'100%',height:'100%',${listOptions}playerVars:{autoplay:1,playsinline:1,controls:${if (config.controls) 1 else 0},disablekb:1,fs:0,rel:0,start:$synchronizedStartSeconds,${end}loop:${if (config.loop) 1 else 0}$loopPlaylist,origin:'$origin',$captions},events:{onReady:function(e){if(tilecastMuted){e.target.mute();}else{e.target.unMute();}e.target.setVolume(${config.volume});e.target.playVideo();send('ready')},onStateChange:function(e){var m={0:'ended',1:'playing',2:'paused',3:'buffering',5:'ready'};send(m[e.data]||'waiting')},onError:function(e){send('player_error','youtube_'+e.data)}}});}
+    </script></body></html>"""
 }
