@@ -254,15 +254,17 @@ public final class StudioHost {
         page.resumeAfterSignIn()
     }
 
-    /// Signs the app out of the active server: Studio's own logout when
-    /// Studio supports the request, then the native credential, then this
-    /// server's session cookies. Local deletion does not wait for the
-    /// server, so signing out works offline. Other website data stays.
+    /// Signs the app out of the active server: the native credential
+    /// first, then Studio's own logout when Studio supports the request,
+    /// then this server's session cookies. The local credential is deleted
+    /// before waiting on Studio, so ending the app during the bridge wait
+    /// still leaves the user signed out. Studio logout and remote
+    /// revocation are best effort. Other website data stays.
     public func signOut() async {
         guard let page else { return }
         directory.recordSignOut(page.serverID)
-        _ = await page.bridge.requestSignOut()
         if let nativeAuth, nativeAuth.key.serverID == page.serverID { await nativeAuth.signOut() }
+        _ = await page.bridge.requestSignOut()
         guard page === self.page, !page.isClosed else { return }
         let cookies = page.websiteDataStore.httpCookieStore
         for cookie in await cookies.allCookies() where Self.cookie(cookie, belongsTo: page.address) {

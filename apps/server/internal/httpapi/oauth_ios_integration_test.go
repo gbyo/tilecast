@@ -288,11 +288,31 @@ func TestIOSApprovalIssuerFollowsTheApprovalOrigin(t *testing.T) {
 		if iss := h.approve(oauth.ClientIOS, oauth.IOSRedirectURI, "https://studio.example.org").Get("iss"); iss != "https://studio.example.org" {
 			t.Fatalf("iss = %q", iss)
 		}
-		if iss := h.approve(oauth.ClientIOS, oauth.IOSRedirectURI, "").Get("iss"); iss != "" {
-			t.Fatalf("iss without Origin = %q", iss)
+		// Without a usable browser Origin there is no issuer to report, and
+		// the app accepts a missing iss for servers released before it
+		// existed. Refuse the ceremony instead of looking like one.
+		for name, origin := range map[string]string{
+			"missing Origin": "",
+			"opaque origin":  "null",
+			"not an origin":  "https://studio.example.org/oauth/approve",
+		} {
+			approval := h.do(http.MethodPost, "/api/v1/oauth/approve", map[string]string{
+				"client": oauth.ClientIOS, "redirectUri": oauth.IOSRedirectURI, "scope": "read write admin",
+				"state": "ios-state", "challenge": pkcePair(iosVerifier), "method": "S256",
+			}, h.withBrowser(origin))
+			if approval.status != http.StatusBadRequest || approval.errorCode() != "invalid_request" {
+				t.Fatalf("%s: approve = %d %v", name, approval.status, approval.body)
+			}
+			denied := h.do(http.MethodPost, "/api/v1/oauth/deny", map[string]string{
+				"client": oauth.ClientIOS, "redirectUri": oauth.IOSRedirectURI, "scope": "read",
+				"state": "ios-state", "challenge": pkcePair(iosVerifier), "method": "S256",
+			}, h.withBrowser(origin))
+			if denied.status != http.StatusBadRequest || denied.errorCode() != "invalid_request" {
+				t.Fatalf("%s: deny = %d %v", name, denied.status, denied.body)
+			}
 		}
-		if iss := h.approve(oauth.ClientIOS, oauth.IOSRedirectURI, "null").Get("iss"); iss != "" {
-			t.Fatalf("iss for an opaque origin = %q", iss)
+		if h.liveIOSGrants() != 1 {
+			t.Fatalf("live iOS grants = %d, want only the approval with a valid Origin", h.liveIOSGrants())
 		}
 		denied := h.do(http.MethodPost, "/api/v1/oauth/deny", map[string]string{
 			"client": oauth.ClientIOS, "redirectUri": oauth.IOSRedirectURI, "scope": "read",

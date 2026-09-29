@@ -619,7 +619,9 @@ paths:
         X-CSRF-Token header, and refuses bearer grants. Records the grant
         and returns the validated redirect carrying the single-use
         authorization code, the state, and iss (RFC 9207): the origin of the
-        approval page as the browser reports it in Origin.
+        approval page as the browser reports it in Origin. A tilecast-ios
+        approval without a usable Origin is refused instead of returning a
+        redirect without iss.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -648,7 +650,8 @@ paths:
       description: >-
         Requires an enrolled dashboard session and the X-CSRF-Token header.
         Records nothing and returns the redirect carrying access_denied, the
-        state, and iss.
+        state, and iss. A tilecast-ios denial without a usable Origin is
+        refused instead of returning a redirect without iss.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:

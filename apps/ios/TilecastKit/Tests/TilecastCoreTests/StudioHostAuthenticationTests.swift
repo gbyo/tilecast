@@ -183,6 +183,59 @@ import WebKit
         page.close()
     }
 
+    /// Studio supports the lifecycle but never answers, as when the server
+    /// is offline. The refresh token is already deleted while sign-out
+    /// still waits on Studio, so ending the app in that window still
+    /// leaves the user signed out.
+    static let hangingStudio = """
+        <!doctype html><script>
+        window.tilecastNativeReceiver = (message) => {
+          window.received = true;
+          return message.type === "auth/sign-out-request";
+        };
+        </script>
+        """
+
+    @Test func nativeSignOutDeletesTheCredentialBeforeStudioAnswers() async throws {
+        let profile = try addServer("a.example.org")
+        let host = makeHost()
+        await host.activate(profile.id)
+        let page = try await signIn(host)
+        for try await _ in page.webPage.load(html: Self.hangingStudio, baseURL: page.address.url) {}
+        // The page monitor must have processed the commit before Studio
+        // negotiates, or it would reset the negotiation.
+        for _ in 0..<500 {
+            if page.phase == .ready { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(page.phase == .ready)
+        let studio = BridgeSender(isMainFrame: true, isPageWorld: true, origin: page.address.origin)
+        _ = page.bridge.replyValue(to: envelope("config/get"), from: studio)
+        _ = page.bridge.replyValue(to: envelope("frontend/ready", ["capabilities": ["authLifecycle": true]]), from: studio)
+
+        let task = Task { await host.signOut() }
+        // Wait until Studio received the request, so sign-out is inside
+        // the bridge wait when the credential is checked.
+        var received = false
+        for _ in 0..<500 {
+            if try await page.webPage.callJavaScript("return window.received === true") as? Bool == true {
+                received = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(received)
+        #expect(try credentials.storedKeys().isEmpty, "the refresh token is deleted before waiting on Studio")
+
+        // Studio finally answers; sign-out completes.
+        _ = page.bridge.replyValue(to: envelope("auth/signed-out"), from: studio)
+        await task.value
+        #expect(directory.server(withID: profile.id)?.signedOutAt != nil)
+        #expect(await cookies(page).isEmpty)
+        #expect(await host.resumeSession(for: page) == .waitForUser)
+        page.close()
+    }
+
     @Test func anExpiredStudioSessionRenewsFromTheNativeCredential() async throws {
         let profile = try addServer("a.example.org")
         let host = makeHost()

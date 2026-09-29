@@ -61,6 +61,11 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	code, err := s.oauth.Approve(r.Context(), principal.User.ID, req)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -72,7 +77,7 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]any{"scopes": req.Scopes},
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State, "iss": authorizationIssuer(r)}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State, "iss": issuer}),
 	}})
 }
 
@@ -88,8 +93,13 @@ func (s *server) oauthDeny(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State, "iss": authorizationIssuer(r)}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State, "iss": issuer}),
 	}})
 }
 
@@ -99,8 +109,10 @@ func (s *server) oauthDeny(w http.ResponseWriter, r *http.Request) {
 // approval screen, which the browser reports in Origin: approval requires
 // the session cookie and its CSRF token, so only a Studio page served from
 // this server can make the request, and a page cannot choose its own
-// Origin header. Forwarded headers are not consulted. The value is empty,
-// and iss is omitted, when the request carries no usable origin.
+// Origin header. Forwarded headers are not consulted. The value is empty
+// when the request carries no usable origin; Tilecast for iOS approvals
+// refuse the ceremony then instead of returning a redirect without iss,
+// so a current server never looks like one released before iss existed.
 func authorizationIssuer(r *http.Request) string {
 	origin := r.Header.Get("Origin")
 	parsed, err := url.Parse(origin)
