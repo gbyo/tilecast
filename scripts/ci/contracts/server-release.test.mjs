@@ -164,6 +164,21 @@ test("the ancestry predicate accepts main tags and rejects side branches", () =>
   }
 });
 
+test("server release notes compare only against the previous server release", () => {
+  const raw = readFileSync(".github/workflows/server-release.yml", "utf8");
+
+  assert.ok(raw.includes('previous_tag_name="$previous_tag"'));
+  assert.ok(
+    raw.includes('test("^server-v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$")'),
+  );
+  assert.ok(raw.includes('notes="First Stable Tilecast Server release."'));
+
+  const scoped = raw.indexOf('if [ -n "$previous_tag" ]');
+  const generated = raw.indexOf("releases/generate-notes");
+  const firstRelease = raw.indexOf("First Stable Tilecast Server release.");
+  assert.ok(scoped >= 0 && scoped < generated && generated < firstRelease);
+});
+
 test("the release caller grants every called validation its permissions", () => {
   const release = workflow("server-release.yml");
   const rank = { read: 1, write: 2 };
