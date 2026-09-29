@@ -1894,8 +1894,12 @@ export function LayoutEditorPage() {
         popup.close();
         return;
       }
+      const date = new Date().toISOString().slice(0, 10);
       popup.location.replace(
-        "/layouts/" + encodeURIComponent(id) + "/preview",
+        "/layouts/" +
+          encodeURIComponent(id) +
+          "/preview?date=" +
+          encodeURIComponent(date),
       );
       popup.focus();
     })();
