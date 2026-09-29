@@ -3,6 +3,7 @@
     {
       "id": "alert-banner",
       "version": 1,
+      "apiVersion": 1,
       "name": "Alert Banner",
       "description": "Show a severity badge and scrolling message from a status Data Source.",
       "category": "Information",
@@ -162,7 +163,45 @@
           "Add the Widget to a Layout band rather than fullscreen."
         ]
       },
-      "deprecation": {}
+      "legacyEditor": false,
+      "component": {
+        "type": "tilecast.status",
+        "version": 1,
+        "tagName": "tc-widget-status",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "style": "banner",
+          "heading": "",
+          "statusField": "",
+          "messageField": { "$config": "messageField", "default": "message" },
+          "severityField": {
+            "$config": "severityField",
+            "default": "severity"
+          },
+          "updatedAtField": "",
+          "effectiveAtField": "",
+          "expiresAtField": "",
+          "showSeverity": { "$config": "showSeverity", "default": true },
+          "showUpdatedTime": false,
+          "speed": { "$config": "speed", "default": "normal" },
+          "emptyText": {
+            "$config": "emptyState",
+            "default": "No active alerts"
+          },
+          "background": { "$config": "backgroundColor", "default": "#7a1f1f" },
+          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
+          "accent": ""
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "template" },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "status",
+        "message": "Use Status with the Banner style for new Widgets."
+      }
     },
     {
       "id": "fundraising-thermometer",
@@ -387,6 +426,7 @@
     {
       "id": "now-and-next",
       "version": 1,
+      "apiVersion": 1,
       "name": "Now and Next",
       "description": "Feature the current record and list the ones that follow it.",
       "category": "Schedules",
@@ -637,11 +677,52 @@
           "Choose how many upcoming rows fit your screen."
         ]
       },
-      "deprecation": {}
+      "legacyEditor": false,
+      "component": {
+        "type": "tilecast.agenda",
+        "version": 1,
+        "tagName": "tc-widget-agenda",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "titleField": { "$config": "titleField", "default": "title" },
+          "startField": "",
+          "endField": "",
+          "locationField": "",
+          "descriptionField": { "$config": "detailField", "default": "" },
+          "categoryField": "",
+          "heading": "",
+          "maximumItems": 100,
+          "groupByDay": false,
+          "hideEnded": true,
+          "emptyText": {
+            "$config": "emptyState",
+            "default": "Nothing scheduled"
+          },
+          "style": "now-next",
+          "nowLabel": { "$config": "nowLabel", "default": "Now" },
+          "nextLabel": { "$config": "nextLabel", "default": "Next" },
+          "upcomingCount": { "$config": "upcomingCount", "default": 3 },
+          "showCountdown": false,
+          "showUpcomingTimeline": true,
+          "background": { "$config": "backgroundColor", "default": "#101f33" },
+          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
+          "accent": ""
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "template" },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "agenda",
+        "message": "Use Agenda with the Now and next style for new Widgets."
+      }
     },
     {
       "id": "recognition-board",
       "version": 1,
+      "apiVersion": 1,
       "name": "Recognition Board",
       "description": "Display names and short notes in a card grid.",
       "category": "Information",
@@ -854,7 +935,36 @@
           "Pick a column count that matches your screen size."
         ]
       },
-      "deprecation": {}
+      "legacyEditor": false,
+      "component": {
+        "type": "tilecast.cards",
+        "version": 1,
+        "tagName": "tc-widget-cards",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "titleField": { "$config": "nameField", "default": "title" },
+          "subtitleField": "",
+          "bodyField": { "$config": "noteField", "default": "description" },
+          "imageField": "",
+          "badgeField": "",
+          "metadataField": "",
+          "heading": { "$config": "heading", "default": "Recognition" },
+          "maximumItems": { "$config": "maxItems", "default": 8 },
+          "emptyText": { "$config": "emptyState", "default": "No entries yet" },
+          "density": "comfortable",
+          "background": { "$config": "backgroundColor", "default": "#1b1733" },
+          "foreground": { "$config": "foregroundColor", "default": "#ffffff" }
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "skip-eligible"
+      },
+      "compatibility": { "fallback": "template" },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "cards",
+        "message": "Use Cards for new record card displays."
+      }
     }
   ],
   "dataSources": [

@@ -60,6 +60,7 @@ export abstract class TilecastWidgetElement<Config, Data>
   declare context: WidgetContext;
 
   private appliedTheme = "";
+  private lastPresentationState = "";
 
   /** The theme after this Widget's permitted author overrides. */
   protected get theme(): WidgetTheme {
@@ -119,8 +120,19 @@ export abstract class TilecastWidgetElement<Config, Data>
   }
 
   protected override updated(changed: PropertyValues): void {
-    if (!INPUTS.some((input) => changed.has(input))) return;
+    const inputsChanged = INPUTS.some((input) => changed.has(input));
     const state = this.presentationState();
+    const stateKey =
+      state.state === "ready"
+        ? "ready"
+        : state.state === "empty"
+          ? `empty:${state.reason}`
+          : `error:${state.code}`;
+    // ClockController calls requestUpdate at presentation boundaries. A
+    // time-sensitive Widget can therefore report a changed ready/empty state
+    // without repeating the same event at every clock tick.
+    if (!inputsChanged && stateKey === this.lastPresentationState) return;
+    this.lastPresentationState = stateKey;
     if (state.state === "empty") announceEmpty(this, state.reason);
     else if (state.state === "error") announceError(this, state.code);
     else announceReady(this);

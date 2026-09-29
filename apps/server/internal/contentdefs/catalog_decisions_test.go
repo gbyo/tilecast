@@ -12,6 +12,7 @@ type catalogDecision struct {
 	Component string `json:"component"`
 	Canonical string `json:"canonical"`
 	Creation  bool   `json:"creation"`
+	PR        string `json:"pr"`
 	Status    string `json:"status"`
 }
 
@@ -48,7 +49,7 @@ func TestCatalogDecisions(t *testing.T) {
 	}
 	for _, decision := range table.Providers {
 		if decision.Status != "done" {
-			continue
+			t.Errorf("%s is still %q; the final catalog cannot ship with planned entries", decision.Provider, decision.Status)
 		}
 		definition, ok := catalog.Widget(decision.Provider)
 		if !ok {
@@ -75,6 +76,17 @@ func TestCatalogDecisions(t *testing.T) {
 				if definition.Deprecation.Replacement != "" && definition.Deprecation.Replacement != decision.Canonical {
 					t.Errorf("%s: deprecation replacement %s is not the canonical %s", decision.Provider, definition.Deprecation.Replacement, decision.Canonical)
 				}
+				if !definition.Deprecation.Deprecated {
+					t.Errorf("%s is an alias but is not marked deprecated", decision.Provider)
+				}
+				if !definition.HasFallback() {
+					t.Errorf("%s must keep a compatibility presentation", decision.Provider)
+				}
+				if decision.PR == "C" && (definition.Compatibility == nil || definition.Compatibility.Fallback != "template") {
+					t.Errorf("%s must keep a compiled template fallback", decision.Provider)
+				}
+			} else if decision.Fate == "v2" && definition.Deprecation.Deprecated {
+				t.Errorf("%s is canonical but marked deprecated", decision.Provider)
 			}
 		default:
 			t.Errorf("%s has unknown fate %q", decision.Provider, decision.Fate)

@@ -1,0 +1,23 @@
+{
+  "name": "No source",
+  "description": "A Status without a connected source reports the configured empty state.",
+  "configuration": {
+    "dataSourceId": "",
+    "style": "panel",
+    "heading": "",
+    "statusField": "status",
+    "messageField": "message",
+    "severityField": "severity",
+    "updatedAtField": "updatedAt",
+    "effectiveAtField": "effectiveAt",
+    "expiresAtField": "expiresAt",
+    "showSeverity": true,
+    "showUpdatedTime": false,
+    "speed": "normal",
+    "emptyText": "Connect a Status Message source",
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "accentColor": ""
+  },
+  "expect": "empty"
+}

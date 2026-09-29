@@ -58,6 +58,7 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Progress                | `progress`                | widget | Data display               | native  | `widgets/progress`     |
 | QR Code                 | `qr-code`                 | widget | Essentials                 | native  | `widgets/qr-code`      |
 | Spotlight               | `spotlight`               | widget | Data display               | native  | `widgets/spotlight`    |
+| Status                  | `status`                  | widget | Information                | native  | `widgets/status`       |
 | Table                   | `table`                   | widget | Data display               | native  | `widgets/table`        |
 | Text                    | `text`                    | widget | Essentials                 | native  | `widgets/text`         |
 | Ticker                  | `ticker`                  | widget | Data display               | native  | `widgets/ticker`       |
@@ -80,6 +81,7 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | CAP Alerts          | `cap_alerts`        | Live Information | records     | cap_alerts     | `catalog.json`               |
 | Air Quality         | `air_quality`       | Live Information | time_series | air_quality    | `catalog.json`               |
 | School Status       | `school-status`     | Information      | object      | manual_object  | `catalog.json`               |
+| Status Message      | `status-message`    | Information      | object      | manual_object  | `catalog.json`               |
 | Form                | `form`              | Interactive      | records     | form_records   | `catalog.json`               |
 | Google Sheet        | `google-sheet`      | Structured       | records     | http_records   | `guided-feeds.json`          |
 | US Weather Alerts   | `weather-alerts-us` | Live Information | records     | http_records   | `guided-feeds.json`          |

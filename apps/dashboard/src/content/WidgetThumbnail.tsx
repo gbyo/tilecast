@@ -276,6 +276,12 @@ const THUMBNAILS: Record<string, Shape[]> = {
       bar(38, 28 + index * 24, 48, 4, 0.22),
     ]),
   ],
+  status: [
+    bar(20, 17, 44, 5, 0.3),
+    { t: "r", x: 20, y: 29, w: 32, h: 12, a: true, rx: 6 },
+    accent(20, 48, 92, 12),
+    bar(20, 66, 120, 5, 0.24),
+  ],
   "now-and-next": [
     bar(14, 12, 22, 5, 0.3),
     accent(14, 21, 96, 16),

@@ -29,3 +29,35 @@ func TestSchoolStatusDefinitionValidationIsGeneric(t *testing.T) {
 		t.Fatal("unknown key or invalid enum was accepted")
 	}
 }
+
+func TestStatusMessageDefinitionAndRolesAreGeneric(t *testing.T) {
+	catalog := contentdefs.MustLoad()
+	status, ok := catalog.DataSource("status-message")
+	if !ok || status.AdapterID != "manual_object" {
+		t.Fatalf("Status Message must use the generic manual_object adapter: %+v", status)
+	}
+	old, ok := catalog.DataSource("school-status")
+	if !ok || !old.Deprecation.Deprecated || old.Deprecation.Replacement != "status-message" {
+		t.Fatalf("School Status must remain available as a deprecated source: %+v", old)
+	}
+	roles := map[string]string{}
+	for _, field := range status.OutputSchema.Fields {
+		roles[field.Key] = field.Role
+	}
+	for key, want := range map[string]string{
+		"status": "status", "message": "message", "severity": "severity",
+		"effectiveAt": "effective_at", "expiresAt": "expires_at", "updatedAt": "updated_at",
+	} {
+		if roles[key] != want {
+			t.Errorf("field %q role = %q, want %q", key, roles[key], want)
+		}
+	}
+	fields := outputDataSourceFields(status.OutputSchema, nil)
+	projected := map[string]string{}
+	for _, field := range fields {
+		projected[field.Key] = field.Role
+	}
+	if projected["status"] != "status" || projected["updatedAt"] != "updated_at" {
+		t.Fatalf("field discovery dropped semantic roles: %#v", projected)
+	}
+}

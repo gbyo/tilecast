@@ -9,10 +9,14 @@ import type { WidgetDataDocument } from "@tilecast/widget-sdk";
 import widget from "./index.ts";
 import {
   eventInstant,
+  agendaClockGranularity,
+  formatAgendaCountdown,
+  formatAgendaCountdownLabel,
   groupAgendaEvents,
   isEnded,
   isNow,
   nowLabel,
+  nextAgendaBoundary,
   parseAgendaConfig,
   resolveAgendaData,
   type AgendaConfig,
@@ -35,12 +39,20 @@ const base: AgendaConfig = {
   descriptionField: "",
   categoryField: "",
   heading: "Coming up",
+  style: "agenda",
+  nowLabel: "Now",
+  nextLabel: "Next",
   maximumItems: 20,
+  upcomingCount: 4,
+  showCountdown: true,
+  showUpcomingTimeline: true,
   groupByDay: true,
   hideEnded: true,
   emptyText: "",
   background: null,
   foreground: null,
+  accent: null,
+  cardBackground: null,
 };
 
 function documentWith(
@@ -145,8 +157,12 @@ describe("Agenda configuration", () => {
         titleField: "",
         startField: "",
         maximumItems: 20,
+        style: "agenda",
+        upcomingCount: 4,
         groupByDay: true,
         hideEnded: true,
+        showCountdown: true,
+        showUpcomingTimeline: true,
         background: null,
         foreground: null,
       },
@@ -163,6 +179,8 @@ describe("Agenda configuration", () => {
     [{ dataSourceId: SOURCE, groupByDay: "yes" }],
     [{ dataSourceId: SOURCE, hideEnded: 1 }],
     [{ dataSourceId: SOURCE, startField: "x".repeat(121) }],
+    [{ dataSourceId: SOURCE, style: "unknown" }],
+    [{ dataSourceId: SOURCE, upcomingCount: 9 }],
   ])("rejects %j", (value) => {
     expect(parseAgendaConfig(value).ok).toBe(false);
   });
@@ -229,6 +247,91 @@ describe("Agenda time model", () => {
     expect(nowLabel("es")).not.toBe("now");
     expect(nowLabel("es")).not.toBe("");
     expect(nowLabel("ru")).not.toBe("now");
+  });
+
+  it("selects exact start and end boundaries and formats a bounded countdown", () => {
+    const start = NOW + 90_000;
+    const end = NOW + 3_660_000;
+    expect(
+      nextAgendaBoundary([{ startMs: start, endMs: end } as never], NOW),
+    ).toBe(start);
+    expect(
+      nextAgendaBoundary([{ startMs: start, endMs: end } as never], start),
+    ).toBe(end);
+    expect(formatAgendaCountdown(end, NOW)).toBe("1h 1m");
+    expect(formatAgendaCountdown(NOW - 1, NOW)).toBe("0s");
+  });
+
+  it("uses second cadence only for visible Schedule Board countdowns", () => {
+    expect(
+      agendaClockGranularity({ style: "schedule-board", showCountdown: true }),
+    ).toBe("second");
+    expect(
+      agendaClockGranularity({ style: "schedule-board", showCountdown: false }),
+    ).toBe("minute");
+    expect(
+      agendaClockGranularity({ style: "now-next", showCountdown: true }),
+    ).toBe("minute");
+  });
+
+  it("localizes Schedule Board countdown labels for supported screen locales", () => {
+    expect(formatAgendaCountdownLabel("start", "en-US")).toBe("Starts in");
+    expect(formatAgendaCountdownLabel("end", "es-MX")).toBe("Termina en");
+    expect(formatAgendaCountdownLabel("start", "ru-RU")).toBe("Начнётся через");
+    expect(formatAgendaCountdownLabel("end", "fr-FR")).toBe("Ends in");
+  });
+
+  it("uses a following event as the end of an open-ended Schedule Board event", async () => {
+    const nextStart = NOW + 30 * 60_000;
+    const items = [
+      {
+        id: "open-current",
+        values: {
+          title: { kind: "text", text: "All day event" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(NOW - 60_000).toISOString(),
+          },
+        },
+      },
+      {
+        id: "next",
+        values: {
+          title: { kind: "text", text: "Next event" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(nextStart).toISOString(),
+          },
+          end: {
+            kind: "datetime",
+            datetime: new Date(nextStart + 60_000).toISOString(),
+          },
+        },
+      },
+    ] as never;
+    const { root, test, element, clock } = await render(
+      { style: "schedule-board", cardBackground: "#19324d" },
+      documentWith(items),
+    );
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 30m",
+    );
+    expect(
+      root.querySelector(".schedule-card")?.getAttribute("style"),
+    ).toContain("#19324d");
+
+    clock.advance(nextStart - NOW + 8);
+    await element.updateComplete;
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Next event",
+    );
+    test.dispose();
   });
 });
 
@@ -373,5 +476,195 @@ describe("Agenda element", () => {
     expect(text(".tc-empty-title")).toBe("Nothing upcoming.");
     expect(test.states).toEqual([{ state: "empty", reason: "no_records" }]);
     test.dispose();
+  });
+
+  it("preserves source order for legacy Now and Next without usable time fields", async () => {
+    const sourceRecords = [
+      records[1]!,
+      records[2]!,
+      records[3]!,
+      records[4]!,
+    ] as never;
+    const config = {
+      ...base,
+      style: "now-next" as const,
+      startField: "",
+      upcomingCount: 2,
+    };
+    const resolved = resolveAgendaData(
+      config,
+      fixtureResources({ documents: documentWith(sourceRecords) }),
+    );
+    expect(resolved).toMatchObject({
+      state: "ready",
+      data: { sourceOrderFallback: true },
+    });
+    const { root, test } = await render(
+      { style: "now-next", startField: "", upcomingCount: 2 },
+      documentWith(sourceRecords),
+    );
+    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(1);
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Morning standup",
+    );
+    expect(
+      root.querySelector(".schedule-following-label")?.textContent?.trim(),
+    ).toBe("Next");
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Board meeting", "Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("shows the current event and a bounded list of following temporal events", async () => {
+    const { root, test } = await render(
+      { style: "now-next", upcomingCount: 2 },
+      documentWith([...records]),
+    );
+    expect(root.querySelectorAll(".schedule-feature")).toHaveLength(1);
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Morning standup",
+    );
+    expect(
+      root.querySelector(".schedule-following-label")?.textContent?.trim(),
+    ).toBe("Next");
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Board meeting", "Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("formats a Now and Next datetime detail in the screen time zone", async () => {
+    const source = [
+      {
+        id: "detail",
+        values: {
+          title: { kind: "text", text: "Doors open" },
+          detail: { kind: "datetime", datetime: "2026-09-28T05:30:00Z" },
+        },
+      },
+    ] as never;
+    const { root, test } = await render(
+      {
+        style: "now-next",
+        locationField: "",
+        startField: "",
+        descriptionField: "detail",
+      },
+      documentWith(source),
+    );
+    expect(root.querySelector(".schedule-detail")?.textContent?.trim()).toBe(
+      "Sep 28, 2026, 12:30 AM",
+    );
+    test.dispose();
+  });
+
+  it("features the next temporal event before listing the following records", async () => {
+    const upcomingOnly = [records[2]!, records[3]!] as never;
+    const { root, test } = await render(
+      { style: "now-next", upcomingCount: 1 },
+      documentWith(upcomingOnly),
+    );
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Next",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Board meeting",
+    );
+    expect(
+      Array.from(root.querySelectorAll(".schedule-following-title")).map(
+        (node) => node.textContent?.trim(),
+      ),
+    ).toEqual(["Choir rehearsal"]);
+    test.dispose();
+  });
+
+  it("refreshes sub-minute countdowns each second", async () => {
+    const event = [
+      {
+        id: "ending-soon",
+        values: {
+          title: { kind: "text", text: "Closing soon" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(NOW - 60_000).toISOString(),
+          },
+          end: {
+            kind: "datetime",
+            datetime: new Date(NOW + 42_000).toISOString(),
+          },
+        },
+      },
+    ] as never;
+    const { root, test, element, clock } = await render(
+      { style: "schedule-board" },
+      documentWith(event),
+    );
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 42s",
+    );
+    clock.advance(1_008);
+    await element.updateComplete;
+    expect(root.querySelector(".schedule-countdown")?.textContent).toBe(
+      "Ends in 41s",
+    );
+    test.dispose();
+  });
+
+  it("moves the Schedule Board at an event end boundary and empties after the last event", async () => {
+    const end = Date.parse("2026-09-28T06:00:00Z");
+    const { root, test, element, clock } = await render(
+      { style: "schedule-board" },
+      documentWith([...records]),
+    );
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Now",
+    );
+    expect(root.querySelector(".schedule-countdown")?.textContent).toContain(
+      "Ends in 30m",
+    );
+    clock.advance(end - NOW + 8);
+    await element.updateComplete;
+    expect(root.querySelector(".schedule-label")?.textContent?.trim()).toBe(
+      "Next",
+    );
+    expect(root.querySelector(".schedule-title")?.textContent).toBe(
+      "Board meeting",
+    );
+    test.dispose();
+
+    const lastEnd = NOW + 5_000;
+    const finalRecords = [
+      {
+        id: "final",
+        values: {
+          title: { kind: "text", text: "Last event" },
+          start: {
+            kind: "datetime",
+            datetime: new Date(NOW - 60_000).toISOString(),
+          },
+          end: { kind: "datetime", datetime: new Date(lastEnd).toISOString() },
+        },
+      },
+    ] as never;
+    const expires = await render(
+      { style: "schedule-board", emptyText: "Schedule finished" },
+      documentWith(finalRecords),
+    );
+    expires.clock.advance(lastEnd - NOW + 8);
+    await expires.element.updateComplete;
+    expect(expires.text(".tc-empty-title")).toBe("Schedule finished");
+    expect(expires.test.states.at(-1)).toMatchObject({
+      state: "empty",
+      reason: "no_records",
+    });
+    expires.test.dispose();
   });
 });
