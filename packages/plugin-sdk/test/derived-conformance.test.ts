@@ -50,7 +50,7 @@ responses:
     description: Things
     content:
       application/json:
-        schema: { type: object }
+        schema: { type: object, additionalProperties: true }
   "401": { description: Dashboard authentication required }`),
       ),
     );
@@ -66,12 +66,12 @@ paths:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
   /api/v1/b:
     get:
       operationId: same
       description: Requires an authenticated dashboard session.
-      responses: { "200": { description: ok } }
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
 `),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -79,21 +79,139 @@ paths:
     ]);
   });
 
-  it("skips described operations without an operationId", () => {
+  it("requires a stable operationId on /api/v1 operations", () => {
     const problems = checkDerivedConformance(
       doc(
-        OPERATION(`description: Undocumented legacy endpoint.
-responses: { "200": { description: ok } }`),
+        OPERATION(`description: Requires an authenticated dashboard session.
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things needs a stable operationId",
+    ]);
+  });
+
+  it("requires a useful description on /api/v1 operations", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+responses:
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object, additionalProperties: true }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things (getThings) needs a useful description",
+    ]);
+  });
+
+  it("accepts a summary as the useful description", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+summary: List things.
+responses:
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object, additionalProperties: true }
+  "401": { description: Dashboard authentication required }`),
       ),
     );
     expect(problems).toEqual([]);
   });
 
-  it("skips operations without a description: undescribed is not surface", () => {
+  it("falls back to summary when description is whitespace", () => {
     const problems = checkDerivedConformance(
       doc(
         OPERATION(`operationId: getThings
-responses: { "200": { description: ok } }`),
+description: "   "
+summary: List things from the dashboard.
+responses:
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object, additionalProperties: true }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it("rejects placeholder descriptions", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: TODO.
+responses:
+  "200":
+    description: ok
+    content:
+      application/json:
+        schema: { type: object, additionalProperties: true }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toEqual([
+      "GET /api/v1/things (getThings) needs a useful description",
+    ]);
+  });
+
+  it("accepts a 101 upgrade for the Player socket", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(
+          `operationId: playerSocket
+description: Requires an authenticated player credential.
+security: [{ deviceBearer: [] }]
+responses:
+  "101": { description: Player WebSocket connected }
+  "401": { description: Credential invalid or revoked }`,
+          "/api/v1/player/socket",
+          "get",
+        ),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it("does not accept 101 as success for ordinary operations", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(
+          `operationId: updateThing
+description: Requires an authenticated dashboard session.
+responses:
+  "101": { description: Unexpected protocol switch }
+  "401": { description: Dashboard authentication required }`,
+          "/api/v1/things/{id}",
+          "post",
+        ),
+      ),
+    );
+    expect(problems.map((p) => p.message)).toContain(
+      "POST /api/v1/things/{id} (updateThing) must document a 2xx response",
+    );
+  });
+
+  it("accepts a referenced parameter schema", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+parameters:
+  - { name: type, in: query, required: false, schema: { $ref: "#/components/schemas/ThingType" } }
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`) +
+          `components:
+  schemas:
+    ThingType: { type: string }
+`,
       ),
     );
     expect(problems).toEqual([]);
@@ -106,7 +224,7 @@ responses: { "200": { description: ok } }`),
 description: Requires an authenticated dashboard session.
 parameters:
   - { name: q, in: query, required: false }
-responses: { "200": { description: ok } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -124,7 +242,7 @@ requestBody:
   required: true
   content:
     application/json: {}
-responses: { "200": { description: ok } }`,
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`,
           "/api/v1/things/{id}",
           "patch",
         ),
@@ -152,7 +270,7 @@ description: Requires an authenticated dashboard session.`),
       doc(
         OPERATION(`operationId: getThings
 description: Returns things.
-responses: { "200": { description: ok } }`),
+responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }`),
       ),
     );
     expect(problems.map((p) => p.message)).toEqual([
@@ -170,7 +288,54 @@ responses:
     description: Identity
     content:
       application/json:
-        schema: { type: object }`),
+        schema: { type: object, additionalProperties: true }`),
+      ),
+    );
+    expect(problems).toEqual([]);
+  });
+
+  it("rejects a bare object schema", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+responses:
+  "200":
+    description: Things
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [data]
+          properties:
+            data: { type: object }
+  "401": { description: Dashboard authentication required }`),
+      ),
+    );
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.message).toContain("properties.data");
+    expect(problems[0]?.message).toContain("additionalProperties");
+  });
+
+  it("accepts open, closed-empty, and composed object schemas", () => {
+    const problems = checkDerivedConformance(
+      doc(
+        OPERATION(`operationId: getThings
+description: Requires an authenticated dashboard session.
+responses:
+  "200":
+    description: Things
+    content:
+      application/json:
+        schema:
+          type: object
+          required: [open, empty, either, nullable]
+          properties:
+            open: { type: object, additionalProperties: true }
+            empty: { type: object, additionalProperties: false }
+            either: { oneOf: [{ type: object, properties: { a: { type: string } } }, { type: "null" }] }
+            nullable: { type: [object, "null"], additionalProperties: { type: string } }
+  "401": { description: Dashboard authentication required }`),
       ),
     );
     expect(problems).toEqual([]);
@@ -205,8 +370,8 @@ paths:
   /api/v1/demo:
     get:
       operationId: ${excluded!.operationId}
-      description: Demo only.
-      responses: { "200": { description: ok } }
+      description: Demo-only endpoint for tests.
+      responses: { "200": { description: ok, content: { application/json: { schema: { type: object, additionalProperties: true } } } } }
 `),
     );
     expect(problems).toEqual([]);
@@ -214,7 +379,7 @@ paths:
 });
 
 describe("fragment operationIds", () => {
-  it("requires stable IDs and uniqueness", () => {
+  it("requires stable IDs, descriptions, and uniqueness", () => {
     const problems = checkFragmentOperationIds([
       {
         plugin: "a",
@@ -234,8 +399,21 @@ describe("fragment operationIds", () => {
     ]);
     expect(problems.map((p) => p.message)).toEqual([
       "GET /api/v1/a needs a stable operationId before automation can refer to it",
+      "GET /api/v1/b needs a useful description",
       "operationId dup is also used by b GET /api/v1/b",
+      "GET /api/v1/c needs a useful description",
     ]);
+  });
+
+  it("falls back to summary when a fragment description is whitespace", () => {
+    const problems = checkFragmentOperationIds([
+      {
+        plugin: "a",
+        file: "plugins/a/api/openapi.yaml",
+        text: "openapi: 3.1.0\ninfo: {title: A, version: 1.0.0}\npaths:\n  /api/v1/a:\n    get:\n      operationId: listA\n      description: '   '\n      summary: List plugin resources.\n      responses:\n        '200': {description: ok}\n",
+      },
+    ]);
+    expect(problems).toEqual([]);
   });
 });
 
@@ -250,6 +428,8 @@ describe("no second source of truth", () => {
     }
   });
 
+  // Regenerates the composed contract and runs full conformance: seconds of
+  // YAML work even unloaded, so it gets an explicit budget instead of the 5s default.
   it("keeps the exclusion set small, justified, and live", async () => {
     expect(EXCLUDED_OPERATIONS.length).toBeLessThanOrEqual(
       MAX_EXCLUDED_OPERATIONS,
@@ -277,5 +457,5 @@ describe("no second source of truth", () => {
     }
     const core = doc(readFileSync(join(repoRoot(), CORE_OPENAPI), "utf8"));
     expect(checkDerivedConformance(doc(composed!), core)).toEqual([]);
-  });
+  }, 30000);
 });
