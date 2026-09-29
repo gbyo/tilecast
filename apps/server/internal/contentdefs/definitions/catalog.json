@@ -670,6 +670,7 @@
     {
       "id": "school-status-banner",
       "version": 1,
+      "apiVersion": 1,
       "name": "School Status Banner",
       "description": "Displays a school status, severity, message, and update time.",
       "category": "Information",
@@ -878,7 +879,45 @@
       },
       "emptyStateBehavior": "configured_text",
       "requiresManifestV13": true,
-      "deprecation": {}
+      "legacyEditor": false,
+      "component": {
+        "type": "tilecast.status",
+        "version": 1,
+        "tagName": "tc-widget-status",
+        "entrypoint": "./runtime/index.ts",
+        "configTemplate": {
+          "dataSourceId": { "$config": "dataSourceId", "default": "" },
+          "style": "panel",
+          "heading": { "$config": "heading", "default": "School Status" },
+          "statusField": { "$config": "statusField", "default": "status" },
+          "messageField": { "$config": "messageField", "default": "message" },
+          "severityField": {
+            "$config": "severityField",
+            "default": "severity"
+          },
+          "updatedAtField": "updatedAt",
+          "effectiveAtField": "effectiveAt",
+          "expiresAtField": "expiresAt",
+          "showSeverity": true,
+          "showUpdatedTime": { "$config": "showUpdatedTime", "default": true },
+          "speed": "normal",
+          "emptyText": {
+            "$config": "emptyState",
+            "default": "Status is unavailable"
+          },
+          "background": { "$config": "backgroundColor", "default": "#17324d" },
+          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
+          "accent": ""
+        },
+        "dataSourceFields": ["dataSourceId"],
+        "empty": "render"
+      },
+      "compatibility": { "fallback": "template" },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "status",
+        "message": "Use Status for new Widgets. Saved School Status Banner Widgets keep working."
+      }
     }
   ],
   "dataSources": [
@@ -1128,35 +1167,41 @@
             "key": "status",
             "label": "Status",
             "type": "text",
-            "required": true
+            "required": true,
+            "role": "status"
           },
           {
             "key": "message",
             "label": "Message",
             "type": "text",
-            "required": true
+            "required": true,
+            "role": "message"
           },
           {
             "key": "severity",
             "label": "Severity",
             "type": "text",
-            "required": true
+            "required": true,
+            "role": "severity"
           },
           {
             "key": "effectiveAt",
             "label": "Effective time",
-            "type": "datetime"
+            "type": "datetime",
+            "role": "effective_at"
           },
           {
             "key": "expiresAt",
             "label": "Expiration time",
-            "type": "datetime"
+            "type": "datetime",
+            "role": "expires_at"
           },
           {
             "key": "updatedAt",
             "label": "Updated time",
             "type": "datetime",
-            "required": true
+            "required": true,
+            "role": "updated_at"
           }
         ]
       },
@@ -1169,7 +1214,128 @@
         "steps": [
           "Enter the current status, message, and severity.",
           "Optionally set effective and expiration times.",
-          "Save and select it in a School Status Banner Widget."
+          "Save and select it in a Status Widget."
+        ]
+      },
+      "deprecation": {
+        "deprecated": true,
+        "replacement": "status-message",
+        "message": "Use Status Message for new sources."
+      }
+    },
+    {
+      "id": "status-message",
+      "version": 1,
+      "name": "Status Message",
+      "description": "Maintain a current status, message, and severity for Status Widgets.",
+      "category": "Information",
+      "icon": "alert",
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "status",
+            "label": "Status",
+            "control": "text",
+            "required": true,
+            "minLength": 1,
+            "maxLength": 120,
+            "default": "Open"
+          },
+          {
+            "key": "message",
+            "label": "Message",
+            "control": "multiline_text",
+            "required": true,
+            "maxLength": 1000,
+            "default": "Operations are normal."
+          },
+          {
+            "key": "severity",
+            "label": "Severity",
+            "control": "select",
+            "required": true,
+            "default": "normal",
+            "options": [
+              { "value": "normal", "label": "Normal" },
+              { "value": "notice", "label": "Notice" },
+              { "value": "warning", "label": "Warning" },
+              { "value": "critical", "label": "Critical" }
+            ]
+          },
+          {
+            "key": "effectiveAt",
+            "label": "Effective time",
+            "control": "datetime"
+          },
+          {
+            "key": "expiresAt",
+            "label": "Expiration time",
+            "control": "datetime"
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "status": "Open",
+        "message": "Operations are normal.",
+        "severity": "normal",
+        "effectiveAt": "",
+        "expiresAt": ""
+      },
+      "outputSchema": {
+        "kind": "object",
+        "fields": [
+          {
+            "key": "status",
+            "label": "Status",
+            "type": "text",
+            "required": true,
+            "role": "status"
+          },
+          {
+            "key": "message",
+            "label": "Message",
+            "type": "text",
+            "required": true,
+            "role": "message"
+          },
+          {
+            "key": "severity",
+            "label": "Severity",
+            "type": "text",
+            "required": true,
+            "role": "severity"
+          },
+          {
+            "key": "effectiveAt",
+            "label": "Effective time",
+            "type": "datetime",
+            "role": "effective_at"
+          },
+          {
+            "key": "expiresAt",
+            "label": "Expiration time",
+            "type": "datetime",
+            "role": "expires_at"
+          },
+          {
+            "key": "updatedAt",
+            "label": "Updated time",
+            "type": "datetime",
+            "required": true,
+            "role": "updated_at"
+          }
+        ]
+      },
+      "adapterId": "manual_object",
+      "refreshBehavior": "manual",
+      "requiresManifestV13": true,
+      "setup": {
+        "eyebrow": "Release-defined information",
+        "tip": "Set effective and expiration times when a status should only apply for part of the day.",
+        "steps": [
+          "Enter a status, message, and severity.",
+          "Optionally set effective and expiration times.",
+          "Connect this source to a Status Widget."
         ]
       },
       "deprecation": {}

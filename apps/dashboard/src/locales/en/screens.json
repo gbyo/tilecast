@@ -905,6 +905,10 @@
       "captureError": {
         "label": "Capture error",
         "description": "Use Refresh to request another capture."
+      },
+      "imageError": {
+        "label": "Image unavailable",
+        "description": "Use Refresh to request another preview image."
       }
     },
     "overlay": {
@@ -913,6 +917,7 @@
       "offline": "The player is offline.",
       "stale": "The latest preview is stale.",
       "captureError": "The player could not capture its window.",
+      "imageError": "The preview image could not be loaded.",
       "unknown": "Preview unavailable."
     },
     "unavailable": {

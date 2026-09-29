@@ -26,6 +26,9 @@ import {
 
 const LEASE_RENEWAL_MILLIS = 30_000;
 const METADATA_REFRESH_MILLIS = 5_000;
+type LivePreviewDisplayState =
+  ReturnType<typeof livePreviewState> | "image-error";
+
 const captureAgeToneClasses = {
   fresh: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   aging: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
@@ -37,8 +40,12 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const [renewalError, setRenewalError] = useState<string | null>(null);
+  const [manualRefreshError, setManualRefreshError] = useState<string | null>(
+    null,
+  );
   const [now, setNow] = useState(Date.now);
   const [watchingLive, setWatchingLive] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const screen = useQuery({
     queryKey: ["screens", screenId],
     queryFn: () => api.screen(screenId),
@@ -81,20 +88,42 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
-      if (!csrfToken) throw new Error("Your Studio session has expired.");
+      if (!csrfToken) throw new Error(t("livePreview.sessionFailed"));
       await api.renewScreenPreview(screenId, true, csrfToken);
     },
     onSuccess: async () => {
-      setRenewalError(null);
+      setManualRefreshError(null);
       await preview.refetch();
+    },
+    onError: (error) => {
+      setManualRefreshError(
+        error instanceof Error ? error.message : t("livePreview.sessionFailed"),
+      );
     },
   });
 
   const state = livePreviewState(screen.data, preview.data);
   const imageUrl = useMemo(() => {
     if (!preview.data?.imageAvailable) return null;
-    return api.screenPreviewImageUrl(screenId, preview.data.updatedAt);
-  }, [preview.data?.imageAvailable, preview.data?.updatedAt, screenId]);
+    return api.screenPreviewImageUrl(
+      screenId,
+      preview.data.capturedAt ?? preview.data.updatedAt,
+    );
+  }, [
+    preview.data?.capturedAt,
+    preview.data?.imageAvailable,
+    preview.data?.updatedAt,
+    screenId,
+  ]);
+
+  useEffect(() => {
+    setImageLoadFailed(false);
+  }, [preview.data?.capturedAt]);
+
+  const displayState: LivePreviewDisplayState =
+    imageLoadFailed && imageUrl && (state === "live" || state === "stale")
+      ? "image-error"
+      : state;
   const capturedAt = preview.data?.capturedAt
     ? new Date(preview.data.capturedAt)
     : null;
@@ -127,7 +156,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
             size="sm"
             variant="outline"
             onClick={() => manualRefresh.mutate()}
-            disabled={manualRefresh.isPending}
+            disabled={manualRefresh.isPending || !csrfToken}
           >
             <RefreshCw aria-hidden="true" />
             {manualRefresh.isPending
@@ -146,21 +175,24 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
       </header>
 
       <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
-        {(state === "live" || state === "stale") && imageUrl ? (
+        {!imageLoadFailed &&
+        (state === "live" || state === "stale") &&
+        imageUrl ? (
           <img
             className="size-full bg-black object-contain"
             src={imageUrl}
             alt={t("livePreview.imageAlt", {
               name: screen.data?.name ?? t("livePreview.unknownScreen"),
             })}
+            onError={() => setImageLoadFailed(true)}
           />
         ) : (
           <PreviewState
-            state={state}
+            state={displayState}
             failureStatus={preview.data?.captureFailureStatus}
           />
         )}
-        {imageUrl && captureAge && (
+        {imageUrl && !imageLoadFailed && captureAge && (
           <span
             className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
             title={
@@ -178,10 +210,14 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
 
       <div className="grid gap-1" aria-live="polite">
         <strong className="text-sm font-medium">
-          {t(stateLabelKeys[state])}
+          {t(stateLabelKeys[displayState])}
         </strong>
         <span className="text-sm text-muted-foreground">
-          {stateDescription(state, renewalError, t)}
+          {stateDescription(
+            displayState,
+            manualRefreshError ?? renewalError,
+            t,
+          )}
         </span>
       </div>
 
@@ -238,6 +274,7 @@ const stateLabelKeys = {
   stale: "livePreview.states.stale.label",
   unavailable: "livePreview.states.unavailable.label",
   "capture-error": "livePreview.states.captureError.label",
+  "image-error": "livePreview.states.imageError.label",
 } as const;
 
 const stateDescriptionKeys = {
@@ -247,13 +284,14 @@ const stateDescriptionKeys = {
   stale: "livePreview.states.stale.description",
   unavailable: "livePreview.states.unavailable.description",
   "capture-error": "livePreview.states.captureError.description",
+  "image-error": "livePreview.states.imageError.description",
 } as const;
 
 function PreviewState({
   state,
   failureStatus,
 }: {
-  state: ReturnType<typeof livePreviewState>;
+  state: LivePreviewDisplayState;
   failureStatus?: string;
 }) {
   const { t } = useTranslation("screens");
@@ -263,6 +301,7 @@ function PreviewState({
     stale: [Clock3, "livePreview.overlay.stale"],
     unavailable: [ShieldAlert, null],
     "capture-error": [AlertTriangle, "livePreview.overlay.captureError"],
+    "image-error": [ImageOff, "livePreview.overlay.imageError"],
     live: [Monitor, "livePreview.overlay.live"],
   } as const;
   const [Icon, messageKey] = content[state] ?? [
@@ -270,7 +309,7 @@ function PreviewState({
     "livePreview.overlay.unknown",
   ];
   const stateClasses =
-    state === "capture-error"
+    state === "capture-error" || state === "image-error"
       ? "bg-destructive/10 text-destructive"
       : state === "offline" || state === "unavailable"
         ? "bg-muted"
@@ -290,7 +329,7 @@ function PreviewState({
 }
 
 function stateDescription(
-  state: ReturnType<typeof livePreviewState>,
+  state: LivePreviewDisplayState,
   renewalError: string | null,
   t: TFunction<["screens", "common"]>,
 ) {

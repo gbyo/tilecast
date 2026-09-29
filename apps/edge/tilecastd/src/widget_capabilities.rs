@@ -23,6 +23,7 @@ pub const WIDGET_COMPONENTS: &[(&str, u32)] = &[
     ("widget.tilecast.progress", 1),
     ("widget.tilecast.qr-code", 1),
     ("widget.tilecast.spotlight", 1),
+    ("widget.tilecast.status", 1),
     ("widget.tilecast.table", 1),
     ("widget.tilecast.text", 1),
     ("widget.tilecast.ticker", 1),

@@ -210,12 +210,66 @@ describe("Widget editor experience", () => {
     expect("NativeAppEditor" in sourceEditors).toBe(false);
   });
 
-  it("shows Metrics under Data display and hides superseded aliases", async () => {
+  it("shows canonical Status once and hides superseded catalog aliases", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue({
       revision: "1",
       compilerVersion: "1",
       fingerprint: "test",
       widgets: [
+        {
+          id: "status",
+          version: 1,
+          apiVersion: 1,
+          name: "Status",
+          description: "Show a status and message.",
+          category: "Information",
+          icon: "status",
+          runtime: "native",
+          configurationSchema: { fields: [] },
+          defaultConfiguration: {},
+          component: {
+            type: "tilecast.status",
+            version: 1,
+            tagName: "tc-widget-status",
+            entrypoint: "./runtime/index.ts",
+            configTemplate: {},
+            dataSourceFields: [],
+            empty: "render",
+          },
+          compatibility: { fallback: "template" },
+          presentationSchemaVersion: 1,
+          requiredCapabilities: {},
+          emptyStateBehavior: "text",
+        },
+        ...["school-status-banner", "alert-banner"].map(
+          (id): WidgetDefinition => ({
+            id,
+            version: 1,
+            apiVersion: 1,
+            name:
+              id === "alert-banner" ? "Alert Banner" : "School Status Banner",
+            description: "Saved alias.",
+            category: "Information",
+            icon: id,
+            runtime: "native",
+            configurationSchema: { fields: [] },
+            defaultConfiguration: {},
+            component: {
+              type: "tilecast.status",
+              version: 1,
+              tagName: "tc-widget-status",
+              entrypoint: "./runtime/index.ts",
+              configTemplate: {},
+              dataSourceFields: [],
+              empty: "render",
+            },
+            compatibility: { fallback: "template" },
+            deprecation: { deprecated: true, replacement: "status" },
+            presentationSchemaVersion: 1,
+            requiredCapabilities: {},
+            emptyStateBehavior: "text",
+          }),
+        ),
         {
           id: "metric",
           version: 1,
@@ -288,8 +342,13 @@ describe("Widget editor experience", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Data display" }),
+      await screen.findByRole("heading", { name: "Information" }),
     ).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: /Status/ })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Alert Banner/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /School Status Banner/ }),
+    ).toBeNull();
     expect(screen.getByRole("button", { name: /Metrics/ })).toBeTruthy();
     // Superseded providers stay resolvable for saved content but leave
     // new creation once their V2 replacement proves parity.
@@ -380,6 +439,113 @@ describe("Widget editor experience", () => {
     expect(
       screen.queryByRole("switch", { name: "Show date" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens a saved Alert Banner in the generic Status component editor", async () => {
+    const definition: WidgetDefinition = {
+      id: "alert-banner",
+      version: 1,
+      apiVersion: 1,
+      name: "Alert Banner",
+      description: "Show an alert message.",
+      category: "Information",
+      icon: "alert",
+      runtime: "native",
+      configurationSchema: {
+        fields: [
+          { key: "dataSourceId", label: "Data Source", control: "data_source" },
+          {
+            key: "messageField",
+            label: "Message field",
+            control: "data_source_field",
+            dataSourceFieldTypes: ["text"],
+          },
+          {
+            key: "severityField",
+            label: "Severity field",
+            control: "data_source_field",
+            dataSourceFieldTypes: ["text"],
+          },
+          {
+            key: "speed",
+            label: "Speed",
+            control: "select",
+            options: [{ value: "normal", label: "Normal" }],
+          },
+        ],
+      },
+      defaultConfiguration: {
+        dataSourceId: "",
+        messageField: "message",
+        severityField: "severity",
+        speed: "normal",
+        showSeverity: true,
+        foregroundColor: "#ffffff",
+        backgroundColor: "#7a1f1f",
+        emptyState: "No active alerts",
+      },
+      component: {
+        type: "tilecast.status",
+        version: 1,
+        tagName: "tc-widget-status",
+        entrypoint: "./runtime/index.ts",
+        configTemplate: {
+          dataSourceId: { $config: "dataSourceId", default: "" },
+          style: "banner",
+          heading: "",
+          statusField: "",
+          messageField: { $config: "messageField", default: "message" },
+          severityField: { $config: "severityField", default: "severity" },
+          updatedAtField: "",
+          effectiveAtField: "",
+          expiresAtField: "",
+          showSeverity: { $config: "showSeverity", default: true },
+          showUpdatedTime: false,
+          speed: { $config: "speed", default: "normal" },
+          emptyText: { $config: "emptyState", default: "No active alerts" },
+          background: { $config: "backgroundColor", default: "#7a1f1f" },
+          foreground: { $config: "foregroundColor", default: "#ffffff" },
+          accent: "",
+        },
+        dataSourceFields: ["dataSourceId"],
+        empty: "skip-eligible",
+      },
+      compatibility: { fallback: "template" },
+      deprecation: { deprecated: true, replacement: "status" },
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "text",
+    };
+    const asset = {
+      id: "asset-alert",
+      name: "Weather alert",
+      widget: {
+        provider: "alert-banner",
+        configuration: definition.defaultConfiguration,
+      },
+    } as unknown as Parameters<typeof V2WidgetEditor>[0]["asset"];
+    renderEditor(
+      <V2WidgetEditor
+        definition={definition}
+        catalog={{
+          revision: "test",
+          compilerVersion: "99",
+          fingerprint: "test",
+          widgets: [definition],
+          dataSources: [],
+        }}
+        asset={asset}
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /Edit Alert Banner/ }),
+    ).toBeTruthy();
+    const preview = await screen.findByRole("img", { name: "Live preview" });
+    expect(preview.querySelector("tc-widget-status")).toBeTruthy();
   });
 
   it("edits saved legacy QR content through the generic V2 editor", async () => {

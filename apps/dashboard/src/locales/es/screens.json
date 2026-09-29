@@ -933,6 +933,10 @@
       "captureError": {
         "label": "Error de captura",
         "description": "Usa Actualizar para solicitar otra captura."
+      },
+      "imageError": {
+        "label": "Imagen no disponible",
+        "description": "Usa Actualizar para solicitar otra imagen de vista previa."
       }
     },
     "overlay": {
@@ -941,6 +945,7 @@
       "offline": "El reproductor está sin conexión.",
       "stale": "La última vista previa está desactualizada.",
       "captureError": "El reproductor no pudo capturar su ventana.",
+      "imageError": "No se pudo cargar la imagen de vista previa.",
       "unknown": "Vista previa no disponible."
     },
     "unavailable": {

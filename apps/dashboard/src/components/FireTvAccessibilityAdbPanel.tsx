@@ -8,12 +8,18 @@ import { toast } from "./ui/toast";
 const ACCESSIBILITY_COMPONENT =
   "org.tilecast.player/org.tilecast.player.reliability.TilecastAccessibilityService";
 
+export const fireTvAdbTarget = (address?: string) => {
+  const value = address?.trim();
+  if (!value) return "FIRE_TV_IP:5555";
+  if (/^[^:]+:\d+$/.test(value)) return value;
+  if (/^\[[^\]]+\]:\d+$/.test(value)) return value;
+  if (/^\[[^\]]+\]$/.test(value)) return `${value}:5555`;
+  if (value.includes(":")) return `[${value}]:5555`;
+  return `${value}:5555`;
+};
+
 export const fireTvAccessibilityCommands = (address?: string) => {
-  const target = address
-    ? address.includes(":")
-      ? `[${address}]:5555`
-      : `${address}:5555`
-    : "FIRE_TV_IP:5555";
+  const target = fireTvAdbTarget(address);
   const enable = `adb shell 'component="${ACCESSIBILITY_COMPONENT}"; current=$(settings get secure enabled_accessibility_services); [ "$current" = "null" ] && current=""; case ":$current:" in *":$component:"*) ;; *) current="\${current:+$current:}$component" ;; esac; settings put secure enabled_accessibility_services "$current"; settings put secure accessibility_enabled 1'`;
   return {
     connect: `adb connect ${target}`,
@@ -61,12 +67,12 @@ export function FireTvAccessibilityAdbPanel({
     try {
       await navigator.clipboard.writeText(commands.combined);
       setCopyState("copied");
-      toast.add({ title: "ADB commands copied.", type: "success" });
+      toast.add({ title: t("detail.fireTv.copiedNote"), type: "success" });
       window.setTimeout(() => setCopyState("idle"), 2_000);
     } catch {
       setCopyState("error");
       toast.add({
-        title: "ADB commands could not be copied.",
+        title: t("detail.fireTv.copyFail"),
         type: "error",
       });
     }

@@ -49,10 +49,21 @@ export const FEED_FIELD_ROLES = [
   "image",
 ] as const;
 
+/** Status concepts used by the object-based Status Widget. */
+export const STATUS_FIELD_ROLES = [
+  "status",
+  "message",
+  "severity",
+  "updated_at",
+  "effective_at",
+  "expires_at",
+] as const;
+
 export type SemanticFieldRole =
   | (typeof MENU_FIELD_ROLES)[number]
   | (typeof AGENDA_FIELD_ROLES)[number]
-  | (typeof FEED_FIELD_ROLES)[number];
+  | (typeof FEED_FIELD_ROLES)[number]
+  | (typeof STATUS_FIELD_ROLES)[number];
 
 /** The field shape mapping needs: a key, a type, an optional role. */
 export interface MappableField {

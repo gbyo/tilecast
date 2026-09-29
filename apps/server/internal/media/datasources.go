@@ -809,7 +809,7 @@ func outputDataSourceFields(schema contentdefs.OutputSchema, configuration map[s
 			}
 		}
 		fields = append(fields, DataSourceField{
-			Key: field.Key, Label: field.Label, Type: field.Type, Currency: currency,
+			Key: field.Key, Label: field.Label, Type: field.Type, Currency: currency, Role: field.Role,
 		})
 	}
 	return fields

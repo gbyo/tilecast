@@ -122,6 +122,7 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
+              className="relative"
               aria-label={
                 notifications.count
                   ? t("header.notificationsWithCount", {

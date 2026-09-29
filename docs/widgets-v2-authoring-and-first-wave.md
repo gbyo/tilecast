@@ -588,8 +588,10 @@ Initial roles should exist only because a first-wave Widget consumes them.
 
 ### General roles
 
-Do not invent roles for every possible field. Generic List/Table/Cards can use
-ordinary type-compatible field pickers.
+Status fields use `status`, `message`, `severity`, `updated_at`,
+`effective_at`, and `expires_at`. Do not invent roles for every possible
+field. Generic List/Table/Cards can use ordinary type-compatible field
+pickers.
 
 ### 4.1 Automatic mapping
 

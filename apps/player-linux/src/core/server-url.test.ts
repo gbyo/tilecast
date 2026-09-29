@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { normalizeServerUrl } from "./server-url";
 
@@ -69,5 +70,28 @@ describe("normalizeServerUrl", () => {
   it("rejects junk", () => {
     expect(normalizeServerUrl("   ").ok).toBe(false);
     expect(normalizeServerUrl("ftp://host.org").ok).toBe(false);
+  });
+  it("matches the shared server URL policy fixtures", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../../packages/player-contracts/fixtures/server-url-policy.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ) as {
+      cases: Array<{
+        name: string;
+        input: string;
+        accepted: boolean;
+        normalized?: string;
+      }>;
+    };
+    for (const entry of fixture.cases) {
+      const result = normalizeServerUrl(entry.input);
+      expect(result.ok, entry.name).toBe(entry.accepted);
+      if (entry.accepted) expect(result.url, entry.name).toBe(entry.normalized);
+    }
   });
 });

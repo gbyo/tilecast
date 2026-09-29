@@ -20,12 +20,14 @@ function isPrivateOrLocalHost(host: string): boolean {
   if (h === "localhost" || h.endsWith(".local") || h.endsWith(".localhost")) {
     return true;
   }
-  // IPv6 loopback / unique-local / link-local.
+  // IPv6 loopback / unique-local / link-local. Hostnames can begin
+  // with these same letters, so only apply the range checks to IPv6 literals.
   if (
-    h === "::1" ||
-    h.startsWith("fc") ||
-    h.startsWith("fd") ||
-    h.startsWith("fe80")
+    h.includes(":") &&
+    (h === "::1" ||
+      h.startsWith("fc") ||
+      h.startsWith("fd") ||
+      h.startsWith("fe80"))
   ) {
     return true;
   }
