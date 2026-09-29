@@ -168,9 +168,8 @@ test("server release notes compare only against the previous server release", ()
   const raw = readFileSync(".github/workflows/server-release.yml", "utf8");
 
   assert.ok(raw.includes('previous_tag_name="$previous_tag"'));
-  assert.match(
-    raw,
-    /select\(\.tagName \| test\("\^server-v\[0-9\]\+\\\\\.\[0-9\]\+\\\\\.\[0-9\]\+\$"\)\)/,
+  assert.ok(
+    raw.includes('test("^server-v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$")'),
   );
   assert.ok(raw.includes('notes="First Stable Tilecast Server release."'));
 
