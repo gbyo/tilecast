@@ -261,23 +261,28 @@ class PlayerRuntimeConformanceTest {
                 object : WebView.VisualStateCallback() {
                     override fun onComplete(requestId: Long) {
                         visualStateReady.countDown()
-                        val observer = webView.viewTreeObserver
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && webView.isHardwareAccelerated) {
+                        val decorView = activity.window.decorView
+                        val observer = decorView.viewTreeObserver
+                        if (
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                                decorView.isHardwareAccelerated
+                        ) {
                             observer.registerFrameCommitCallback {
                                 frameCommitted.countDown()
                             }
-                        } else {
-                            val listener = object : ViewTreeObserver.OnDrawListener {
-                                override fun onDraw() {
-                                    if (observer.isAlive) {
-                                        observer.removeOnDrawListener(this)
-                                    }
-                                    webView.post { frameCommitted.countDown() }
-                                }
-                            }
-                            observer.addOnDrawListener(listener)
                         }
+                        val listener = object : ViewTreeObserver.OnDrawListener {
+                            override fun onDraw() {
+                                if (observer.isAlive) {
+                                    observer.removeOnDrawListener(this)
+                                }
+                                // Run after this traversal's draw has finished.
+                                decorView.postOnAnimation { frameCommitted.countDown() }
+                            }
+                        }
+                        observer.addOnDrawListener(listener)
                         webView.invalidate()
+                        decorView.invalidate()
                     }
                 },
             )
