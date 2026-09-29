@@ -284,8 +284,8 @@ func (s *Service) ResetFactors(ctx context.Context, userID uuid.UUID, actorID *u
 	}
 	// Existing sessions kept their access through a factor that no longer
 	// exists, so they are revoked rather than left running.
-	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, userID); err != nil {
-		return fmt.Errorf("revoke sessions: %w", err)
+	if err := RevokeUserSessions(ctx, tx, userID); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id) VALUES ($1,$2,'auth.mfa.reset','user',$3)`, uuid.New(), actorID, userID.String()); err != nil {
 		return fmt.Errorf("record factor reset audit log: %w", err)
