@@ -978,7 +978,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         )}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[min(90dvh,54rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("takeover.title")}</DialogTitle>
             <DialogDescription>{t("takeover.dialogBody")}</DialogDescription>
