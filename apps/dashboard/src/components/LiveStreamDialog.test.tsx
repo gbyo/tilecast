@@ -56,6 +56,10 @@ describe("LiveStreamDialog", () => {
     );
     fireEvent.load(image);
     expect(screen.getByText("Live")).toBeTruthy();
+
+    fireEvent.error(image);
+    expect(screen.queryByText("Live")).toBeNull();
+    expect(screen.getByText("Stream unavailable")).toBeTruthy();
     expect(
       screen.getByText(/never saved to snapshots, live preview/i),
     ).toBeTruthy();
