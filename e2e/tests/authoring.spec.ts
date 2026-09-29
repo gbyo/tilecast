@@ -93,6 +93,96 @@ test("create a Layout, edit its canvas and persist the draft", async ({
   await expect(page.locator(".layout-preview-frame")).toBeVisible();
 });
 
+test("backfills a real rendered Widget thumbnail for the library", async ({
+  page,
+}) => {
+  const clockId = "de30000a-0000-4000-8000-000000000009";
+  const uploaded = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/v1/widgets/${clockId}/preview-image`) &&
+      response.request().method() === "PUT",
+  );
+  await page.goto("/widgets");
+  expect((await uploaded).ok()).toBe(true);
+
+  const card = page
+    .getByRole("article")
+    .filter({ hasText: "Lobby Clock" })
+    .first();
+  const image = card.locator("img");
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate(
+        (node: HTMLImageElement) =>
+          node.complete && node.naturalWidth === 960 && node.naturalHeight === 540,
+      ),
+    )
+    .toBe(true);
+
+  // A 960x540 JPEG existing is not enough: the old Shadow-DOM-blind capture
+  // produced a valid but visually blank file. Verify the stored browser image
+  // has meaningful contrast from the real Widget render.
+  const luminanceRange = await image.evaluate((node: HTMLImageElement) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = node.naturalWidth;
+    canvas.height = node.naturalHeight;
+    const context = canvas.getContext("2d");
+    if (!context) return 0;
+    context.drawImage(node, 0, 0);
+    const pixels = context.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    ).data;
+    let minimum = 255;
+    let maximum = 0;
+    // Sample every 16th pixel: enough to hit the large Clock glyphs without
+    // making this smoke assertion expensive.
+    for (let index = 0; index < pixels.length; index += 4 * 16) {
+      const luminance =
+        pixels[index]! * 0.2126 +
+        pixels[index + 1]! * 0.7152 +
+        pixels[index + 2]! * 0.0722;
+      minimum = Math.min(minimum, luminance);
+      maximum = Math.max(maximum, luminance);
+    }
+    return maximum - minimum;
+  });
+  expect(luminanceRange).toBeGreaterThan(40);
+
+  const stored = await page.request.get(`/api/v1/assets/${clockId}`);
+  expect(stored.ok()).toBe(true);
+  expect((await stored.json()).data.metadata.widgetPreviewCaptureVersion).toBe(
+    2,
+  );
+});
+
+test("renders the real V2 Widget on the editable Layout canvas", async ({
+  page,
+}) => {
+  const lobbyPortrait = "de300006-0000-4000-8000-000000000002";
+  await page.goto(`/layouts/${lobbyPortrait}`);
+  const widget = page.locator(".layout-canvas [data-tilecast-widget]").first();
+  await expect(widget).toHaveCount(1);
+  await expect
+    .poll(() =>
+      widget.evaluate(
+        (element) => element.shadowRoot?.textContent?.trim() ?? "",
+      ),
+    )
+    .not.toBe("");
+  await expect
+    .poll(() =>
+      widget.evaluate((element: HTMLElement) => ({
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+      })),
+    )
+    .toEqual({ width: 1080, height: 480 });
+});
+
 test("save a Widget through the real authoring form and renderer", async ({
   page,
 }) => {
