@@ -6,7 +6,9 @@ import { api } from "../api/client";
 import type { Asset, LayoutDocument, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { DateInput } from "../components/date-picker";
-import { LayoutPlacementView } from "../components/layout-editor/LayoutPlacementView";
+import {
+  LayoutPlacementView,
+} from "../components/layout-editor/LayoutPlacementView";
 import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { Button } from "../components/ui/button";
@@ -295,7 +297,8 @@ export function LayoutPreviewPage() {
         }}
       >
         {document.canvas.backgroundAssetId &&
-          assetsById.get(document.canvas.backgroundAssetId)?.type === "image" && (
+          assetsById.get(document.canvas.backgroundAssetId)?.type ===
+            "image" && (
             <img
               className="layout-preview-background"
               src={api.assetPreviewUrl(document.canvas.backgroundAssetId)}
