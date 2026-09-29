@@ -396,7 +396,9 @@ describe("Layout editor chrome", () => {
     await user.click(
       screen.getByRole("button", { name: "Layout file actions" }),
     );
-    await user.click(await screen.findByRole("menuitem", { name: /Save now/ }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: /Save now/ }),
+    );
     await waitFor(() => expect(saveStatus()).toHaveTextContent("Saved"));
   });
 });
@@ -453,7 +455,9 @@ describe("Layout editor layers and zoom controls", () => {
     // History and secondary editor actions live in the compact file menu.
     expect(screen.queryByRole("button", { name: "History" })).toBeNull();
     await user.click(fileActions);
-    await user.click(await screen.findByRole("menuitem", { name: "History…" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "History…" }),
+    );
     expect(
       await screen.findByRole("dialog", { name: "Published revisions" }),
     ).toBeInTheDocument();
