@@ -189,9 +189,11 @@ describe("WidgetSnapshotBackfill", () => {
       expect(captureWidgetPreview).not.toHaveBeenCalled();
 
       captureWidgetPreview.mockImplementationOnce(
-        async (captureRoot: HTMLElement) => {
+        (captureRoot: HTMLElement) => {
           expect(captureRoot.querySelector("tc-widget-list")).toBe(widget);
-          return new Blob(["preview"], { type: "image/jpeg" });
+          return Promise.resolve(
+            new Blob(["preview"], { type: "image/jpeg" }),
+          );
         },
       );
 
