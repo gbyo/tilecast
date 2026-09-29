@@ -1,7 +1,9 @@
 package org.tilecast.player.content
 
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.tilecast.player.network.LayoutCanvas
 import org.tilecast.player.network.LayoutDocument
@@ -102,6 +104,132 @@ class ManifestSyncManagerTest {
         assertTrue(result.localFiles.isEmpty())
         assertTrue(!result.complete)
     }
+
+    @Test
+    fun acceptsAValidComponentPresentation() {
+        validateWidgetComponentPresentation(
+            componentPresentation(),
+            mapOf("source-1" to dataSource("source-1")),
+            manifestWithAssets(listOf(ManifestAsset("asset-1", "variant-1", "image/png", "hash", 10, downloadPath = "/dl"))),
+        )
+    }
+
+    @Test
+    fun rejectsAMismatchedComponentCapability() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(requiredCapabilities = mapOf("widget.tilecast.clock" to 2)),
+                emptyMap(),
+                null,
+            )
+            fail("expected capability mismatch to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("capability"))
+        }
+    }
+
+    @Test
+    fun rejectsAnUnknownComponentDataSource() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(dataSources = listOf("missing")),
+                emptyMap(),
+                null,
+            )
+            fail("expected unknown Data Source to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("Data Source"))
+        }
+    }
+
+    @Test
+    fun rejectsAnUnknownComponentMediaGrant() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(media = listOf(org.tilecast.player.network.ComponentMediaRef("asset-1", "variant-9"))),
+                emptyMap(),
+                manifestWithAssets(listOf(ManifestAsset("asset-1", "variant-1", "image/png", "hash", 10, downloadPath = "/dl"))),
+            )
+            fail("expected unknown media grant to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("media"))
+        }
+    }
+
+    @Test
+    fun rejectsDuplicateComponentDataSources() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(dataSources = listOf("source-1", "source-1")),
+                mapOf("source-1" to dataSource("source-1")),
+                null,
+            )
+            fail("expected duplicates to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("Data Source"))
+        }
+    }
+
+    @Test
+    fun rejectsAnOversizedComponentConfigString() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(config = kotlinx.serialization.json.buildJsonObject { put("note", "x".repeat(2001)) }),
+                emptyMap(),
+                null,
+            )
+            fail("expected oversized config to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("configuration"))
+        }
+    }
+
+    @Test
+    fun rejectsAnInvalidComponentType() {
+        try {
+            validateWidgetComponentPresentation(
+                componentPresentation(type = "Clock"),
+                emptyMap(),
+                null,
+            )
+            fail("expected bad type to fail")
+        } catch (error: IllegalArgumentException) {
+            assertTrue(error.message!!.contains("type"))
+        }
+    }
+
+    @Test
+    fun preservesUnknownEnvelopeFieldsLosslessly() {
+        val raw = projectionManifestFromEnvelope(
+            """{"data":{"schemaVersion":16,"widgets":[],"futureSection":{"nested":true}}}""",
+        )
+        assertTrue(raw.containsKey("futureSection"))
+    }
+
+    private fun componentPresentation(
+        type: String = "tilecast.clock",
+        version: Int = 1,
+        config: kotlinx.serialization.json.JsonObject = kotlinx.serialization.json.buildJsonObject {},
+        dataSources: List<String> = emptyList(),
+        media: List<org.tilecast.player.network.ComponentMediaRef> = emptyList(),
+        requiredCapabilities: Map<String, Int> = mapOf("widget.tilecast.clock" to 1),
+    ) = org.tilecast.player.network.WidgetPresentation(
+        schemaVersion = 2,
+        kind = "component",
+        requiredCapabilities = requiredCapabilities,
+        component = org.tilecast.player.network.ComponentPresentation(type, version, config, dataSources, media),
+    )
+
+    private fun dataSource(id: String) = org.tilecast.player.network.ManifestDataSource(id, "Source")
+
+    private fun manifestWithAssets(assets: List<ManifestAsset>) = PlayerManifest(
+        schemaVersion = 16,
+        manifestVersion = 1,
+        screenId = "screen",
+        generatedAt = "2026-09-01T00:00:00Z",
+        mode = "presentation",
+        assets = assets,
+    )
 
     private fun cachedAsset(variantId: String, required: Boolean) = CachedAsset(
         variantId = variantId,
