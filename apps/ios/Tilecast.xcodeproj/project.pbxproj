@@ -22,18 +22,18 @@
 
 /* Begin PBXFileReference section */
 		02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TilecastUITests.xcconfig; sourceTree = "<group>"; };
-		064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TilecastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		17C24CC145F21ACFB46C834F /* Local.xcconfig.example */ = {isa = PBXFileReference; path = Local.xcconfig.example; sourceTree = "<group>"; };
-		23D4CC096BF02644976B36C4 /* TilecastKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = TilecastKit; path = TilecastKit; sourceTree = SOURCE_ROOT; };
+		064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TilecastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		17C24CC145F21ACFB46C834F /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Local.xcconfig.example; sourceTree = "<group>"; };
+		23D4CC096BF02644976B36C4 /* TilecastKit */ = {isa = PBXFileReference; lastKnownFileType = folder; path = TilecastKit; sourceTree = SOURCE_ROOT; };
 		67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Tilecast.xcconfig; sourceTree = "<group>"; };
 		AA8FBF69EFE12BEA4FF85A42 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		C66DE3D082F5162179243024 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
-		F406C608DADC63E5251026A3 /* Tilecast.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Tilecast.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F406C608DADC63E5251026A3 /* Tilecast.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tilecast.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		FFEF5E552CD4056055BC8236 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		3A3B0B6A978015B857EE9DE4 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		3A3B0B6A978015B857EE9DE4 /* Exceptions for "Tilecast" folder in "Tilecast" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -46,21 +46,13 @@
 		C51B4ABB26689EED0D4FA5C2 /* Tilecast */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				3A3B0B6A978015B857EE9DE4 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
-			);
-			explicitFileTypes = {
-			};
-			explicitFolders = (
+				3A3B0B6A978015B857EE9DE4 /* Exceptions for "Tilecast" folder in "Tilecast" target */,
 			);
 			path = Tilecast;
 			sourceTree = "<group>";
 		};
 		E4CD350141089EF361253F36 /* TilecastUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			explicitFileTypes = {
-			};
-			explicitFolders = (
-			);
 			path = TilecastUITests;
 			sourceTree = "<group>";
 		};

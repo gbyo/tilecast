@@ -1,29 +1,53 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "NSLocalNetworkUsageDescription": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tilecast connects to Tilecast servers on your local network."
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tilecast"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Tilecast"
+          }
+        }
+      }
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast connects to Tilecast servers on your local network."
           }
         },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tilecast se conecta a servidores de Tilecast en tu red local."
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast se conecta a servidores de Tilecast en tu red local."
           }
         },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tilecast подключается к серверам Tilecast в вашей локальной сети."
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast подключается к серверам Tilecast в вашей локальной сети."
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }
