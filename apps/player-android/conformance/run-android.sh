@@ -67,6 +67,9 @@ if [ "$DENSITY" != "160" ]; then
   echo "run-android: e.g. adb shell wm size 1280x720 && adb shell wm density 160" >&2
   exit 69
 fi
+# The immersive-mode confirmation is delayed and can cover a later screenshot.
+# Confirm it on the test emulator so system UI does not enter conformance frames.
+adb shell settings put secure immersive_mode_confirmations confirmed
 
 echo "run-android: assembling test APKs (syncs the exact dist/runtime artifact)"
 (cd "$PROJECT" && ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --console=plain -q)
