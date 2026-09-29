@@ -189,12 +189,12 @@ pub async fn run(context: Arc<DaemonContext>) {
                 }
                 Ok(session) => {
                     let capture_running = capture_task.as_ref().is_some_and(|task| !task.is_finished());
-                    match reconcile_action(
-                        current.lock().await.clone().as_ref(),
-                        &session,
-                        context.now().unix_millis(),
-                        capture_running,
-                    ) {
+                    // Snapshot without holding the guard: the match arms below
+                    // relock `current`, and temporaries in a match scrutinee
+                    // would keep the guard alive until the end of the match
+                    // (a self-deadlock on this non-reentrant mutex).
+                    let existing = current.lock().await.clone();
+                    match reconcile_action(existing.as_ref(), &session, context.now().unix_millis(), capture_running) {
                         ReconcileAction::Stop => {
                             abort(&mut capture_task);
                             *current.lock().await = None;
