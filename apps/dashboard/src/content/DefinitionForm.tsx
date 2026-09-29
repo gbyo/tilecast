@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { suggestFieldMapping } from "@tilecast/widget-kit";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -130,31 +130,53 @@ export function DefinitionForm({
     (field) =>
       field.control === "data_source" || field.control === "data_source_field",
   );
-  const dataSources = useQuery({
+  const dataSources = useInfiniteQuery({
     queryKey: ["definition-form-data-sources"],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       api.listDataSources(
-        new URLSearchParams({ page: "1", pageSize: "100", sort: "name" }),
+        new URLSearchParams({
+          page: String(pageParam),
+          pageSize: "100",
+          sort: "name",
+        }),
       ),
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.pageSize < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
     enabled: needsDataSources,
   });
   const definitions = useQuery({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
-  const assets = useQuery({
+  const assets = useInfiniteQuery({
     queryKey: ["definition-form-media-assets"],
-    queryFn: () =>
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       api.assets(
         new URLSearchParams({
-          page: "1",
+          page: String(pageParam),
           pageSize: "100",
           status: "ready",
           sort: "name",
         }),
       ),
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.pageSize < lastPage.total
+        ? lastPage.page + 1
+        : undefined,
     enabled: fields.some((field) => field.control === "media_asset"),
   });
+  const sourceItems = useMemo(
+    () => dataSources.data?.pages.flatMap((page) => page.items) ?? [],
+    [dataSources.data],
+  );
+  const assetItems = useMemo(
+    () => assets.data?.pages.flatMap((page) => page.items) ?? [],
+    [assets.data],
+  );
   const set = (key: string, next: unknown) =>
     onChange({ ...value, [key]: next });
 
@@ -172,9 +194,15 @@ export function DefinitionForm({
           setValue={(next) => set(field.key, next)}
           readOnly={readOnly}
           csrf={csrf}
-          dataSources={dataSources.data?.items ?? []}
+          dataSources={sourceItems}
+          dataSourcesHasMore={dataSources.hasNextPage ?? false}
+          dataSourcesLoadingMore={dataSources.isFetchingNextPage}
+          loadMoreDataSources={() => void dataSources.fetchNextPage()}
           dataSourceDefinitions={definitions.data?.dataSources ?? []}
-          assets={assets.data?.items ?? []}
+          assets={assetItems}
+          assetsHasMore={assets.hasNextPage ?? false}
+          assetsLoadingMore={assets.isFetchingNextPage}
+          loadMoreAssets={() => void assets.fetchNextPage()}
         />
       ))}
     </div>
@@ -393,8 +421,14 @@ function DefinitionControl({
   readOnly,
   csrf,
   dataSources,
+  dataSourcesHasMore,
+  dataSourcesLoadingMore,
+  loadMoreDataSources,
   dataSourceDefinitions,
   assets,
+  assetsHasMore,
+  assetsLoadingMore,
+  loadMoreAssets,
 }: {
   field: ContentDefinitionField;
   fields: ContentDefinitionField[];
@@ -407,8 +441,14 @@ function DefinitionControl({
   readOnly: boolean;
   csrf?: string;
   dataSources: DataSource[];
+  dataSourcesHasMore: boolean;
+  dataSourcesLoadingMore: boolean;
+  loadMoreDataSources: () => void;
   dataSourceDefinitions: DataSourceDefinition[];
   assets: { id: string; name: string; type: string }[];
+  assetsHasMore: boolean;
+  assetsLoadingMore: boolean;
+  loadMoreAssets: () => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
   // A field picker resolves against the source chosen by its own `data_source` control, not a
@@ -422,10 +462,25 @@ function DefinitionControl({
   const fieldSourceID = fieldSourceKey
     ? fieldText(values[fieldSourceKey]) || fieldText(rootValues[fieldSourceKey])
     : "";
+  const selectedSourceID =
+    field.control === "data_source" ? fieldText(value) : fieldSourceID;
+  const selectedAssetID =
+    field.control === "media_asset" ? fieldText(value) : "";
+  const selectedAssetInPage = assets.some(
+    (asset) => asset.id === selectedAssetID,
+  );
   const fieldSource = useQuery({
-    queryKey: ["definition-form-data-source", fieldSourceID],
-    queryFn: () => api.getDataSource(fieldSourceID),
-    enabled: Boolean(fieldSourceID),
+    queryKey: ["definition-form-data-source", selectedSourceID],
+    queryFn: () => api.getDataSource(selectedSourceID),
+    enabled:
+      Boolean(selectedSourceID) &&
+      (field.control === "data_source_field" ||
+        !dataSources.some((source) => source.id === selectedSourceID)),
+  });
+  const selectedAsset = useQuery({
+    queryKey: ["definition-form-media-asset", selectedAssetID],
+    queryFn: () => api.asset(selectedAssetID),
+    enabled: Boolean(selectedAssetID) && !selectedAssetInPage,
   });
   // Automatic semantic mapping (§4.1): when a source is connected, an empty
   // field picker fills from declared roles, then legacy keys, then
@@ -478,6 +533,32 @@ function DefinitionControl({
     disabled: readOnly,
     required: field.required,
   };
+  const compatibleDataSources = compatibleSources(
+    field,
+    dataSources,
+    dataSourceDefinitions,
+  );
+  if (
+    field.control === "data_source" &&
+    fieldSource.data &&
+    !compatibleDataSources.some((source) => source.id === fieldSource.data.id)
+  ) {
+    const definition = dataSourceDefinitions.find(
+      (candidate) => candidate.id === fieldSource.data.provider,
+    );
+    if (definition && acceptsDefinition(field, definition))
+      compatibleDataSources.push(fieldSource.data);
+  }
+  const mediaAssets = [...assets];
+  if (
+    field.control === "media_asset" &&
+    selectedAsset.data &&
+    !mediaAssets.some((asset) => asset.id === selectedAsset.data.id) &&
+    (!field.mediaTypes?.length ||
+      field.mediaTypes.includes(selectedAsset.data.type))
+  ) {
+    mediaAssets.push(selectedAsset.data);
+  }
   const requiredMark = field.required ? " *" : "";
   const labelText = `${field.label}${requiredMark}`;
   if (field.control === "currency_code")
@@ -505,7 +586,10 @@ function DefinitionControl({
         label={field.label}
         description={field.description}
         value={fieldText(value)}
-        sources={compatibleSources(field, dataSources, dataSourceDefinitions)}
+        sources={compatibleDataSources}
+        hasMoreSources={dataSourcesHasMore}
+        loadingMoreSources={dataSourcesLoadingMore}
+        onLoadMoreSources={loadMoreDataSources}
         createProviders={creatableProviders(field, dataSourceDefinitions)}
         formatGuide={dataFormatGuideFor(field, fields, t)}
         csrf={csrf}
@@ -567,7 +651,7 @@ function DefinitionControl({
                 value: sourceField.key,
                 label: `${sourceField.label} (${sourceField.type})`,
               }))
-          : assets
+          : mediaAssets
               .filter(
                 (asset) =>
                   !field.mediaTypes?.length ||
@@ -600,6 +684,17 @@ function DefinitionControl({
             ))}
           </SelectContent>
         </Select>
+        {field.control === "media_asset" && assetsHasMore && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={assetsLoadingMore}
+            onClick={loadMoreAssets}
+          >
+            {t("widgets.form.loadMoreChoices")}
+          </Button>
+        )}
         {field.description && (
           <FieldDescription>{field.description}</FieldDescription>
         )}

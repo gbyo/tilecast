@@ -479,6 +479,7 @@
     },
     "form": {
       "addItem": "Add item",
+      "loadMoreChoices": "Load more choices",
       "selectPlaceholder": "Select…",
       "selectSourceFirst": "Select a Data Source first",
       "removeItem": "Remove {{label}} item {{index}}",
@@ -987,6 +988,7 @@
         "weatherSummary": "Use a Weather Data Source; Tilecast supplies its typed forecast fields."
       },
       "missingAlert": "The Data Source this was built with is no longer available. Choose another to keep this content working.",
+      "moreResultsHint": "No compatible Data Sources appear in the loaded results yet.",
       "noData": "No data",
       "noDataHint": "Leave this Widget disconnected.",
       "noMatch": "No compatible sources match “{{query}}”.",

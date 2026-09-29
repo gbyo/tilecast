@@ -387,6 +387,9 @@ export function DataSourcePicker({
   description,
   value,
   sources,
+  hasMoreSources = false,
+  loadingMoreSources = false,
+  onLoadMoreSources,
   csrf,
   disabled = false,
   required = false,
@@ -402,6 +405,9 @@ export function DataSourcePicker({
   value: string;
   // Sources already narrowed to those compatible with the consuming Widget or binding.
   sources: DataSource[];
+  hasMoreSources?: boolean;
+  loadingMoreSources?: boolean;
+  onLoadMoreSources?: () => void;
   csrf?: string;
   disabled?: boolean;
   required?: boolean;
@@ -454,7 +460,7 @@ export function DataSourcePicker({
       {/* With no compatible sources the empty state is the whole control — unless something is
           still referenced, in which case the picker must stay so the missing reference is visible
           rather than replaced by a "nothing here yet" message. */}
-      {sources.length === 0 && !missing ? (
+      {sources.length === 0 && !missing && !hasMoreSources ? (
         <ConnectDataNotice
           message={emptyMessage}
           createProviders={createProviders}
@@ -549,6 +555,9 @@ export function DataSourcePicker({
             open={choosing}
             value={value}
             sources={sources}
+            hasMoreSources={hasMoreSources}
+            loadingMoreSources={loadingMoreSources}
+            onLoadMoreSources={onLoadMoreSources}
             allowEmpty={allowEmpty}
             canCreate={canCreate}
             onSelect={(id) => {
@@ -572,6 +581,9 @@ function DataSourceSelectionDialog({
   open,
   value,
   sources,
+  hasMoreSources,
+  loadingMoreSources,
+  onLoadMoreSources,
   allowEmpty,
   canCreate,
   onSelect,
@@ -581,6 +593,9 @@ function DataSourceSelectionDialog({
   open: boolean;
   value: string;
   sources: DataSource[];
+  hasMoreSources: boolean;
+  loadingMoreSources: boolean;
+  onLoadMoreSources?: () => void;
   allowEmpty: boolean;
   canCreate: boolean;
   onSelect: (id: string) => void;
@@ -706,11 +721,26 @@ function DataSourceSelectionDialog({
             {t("dataSources.picker.noMatch", { query })}
           </p>
         )}
+        {sources.length === 0 && hasMoreSources && (
+          <p className="text-sm text-muted-foreground">
+            {t("dataSources.picker.moreResultsHint")}
+          </p>
+        )}
         <DialogFooter>
           {canCreate && (
             <Button type="button" onClick={onConnect}>
               <Plus size={15} aria-hidden="true" />{" "}
               {t("dataSources.picker.connectButton")}
+            </Button>
+          )}
+          {hasMoreSources && onLoadMoreSources && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loadingMoreSources}
+              onClick={onLoadMoreSources}
+            >
+              {t("widgets.form.loadMoreChoices")}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose}>

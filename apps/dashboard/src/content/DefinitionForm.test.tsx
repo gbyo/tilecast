@@ -13,6 +13,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type {
+  Asset,
   ContentDefinitionCatalog,
   ContentDefinitionField,
   DataSource,
@@ -397,6 +398,99 @@ describe("dataFormatGuideFor", () => {
 });
 
 describe("DefinitionForm data source controls", () => {
+  it("loads more Data Sources after a page contains only incompatible providers", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("csv", [{ key: "title", label: "Title", type: "text" }]),
+        definition("weather", [
+          { key: "temperature", label: "Temperature", type: "number" },
+        ]),
+      ]),
+    );
+    const incompatible = Array.from({ length: 100 }, (_, index) =>
+      source(`csv-${index}`, "csv", `CSV ${index}`),
+    );
+    const lateSource = source("weather-late", "weather", "Campus weather");
+    const listSources = vi
+      .spyOn(api, "listDataSources")
+      .mockImplementation((params) => {
+        const page = Number(params?.get("page") ?? "1");
+        return Promise.resolve({
+          items: page === 1 ? incompatible : [lateSource],
+          total: 101,
+          page,
+          pageSize: 100,
+        });
+      });
+
+    form([
+      {
+        key: "dataSourceId",
+        label: "Data",
+        control: "data_source",
+        requiredFields: { temperature: "number" },
+      },
+    ]);
+
+    await waitFor(() => expect(listSources).toHaveBeenCalled());
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Data: / }),
+    );
+    const chooser = await screen.findByRole("dialog", { name: "Choose data" });
+    expect(
+      within(chooser).getByText(
+        "No compatible Data Sources appear in the loaded results yet.",
+      ),
+    ).toBeTruthy();
+    await userEvent.click(
+      within(chooser).getByRole("button", { name: "Load more choices" }),
+    );
+
+    expect(await within(chooser).findByText("Campus weather")).toBeTruthy();
+    expect(
+      listSources.mock.calls.some(([params]) => params?.get("page") === "2"),
+    ).toBe(true);
+  });
+
+  it("loads media assets beyond page one even when that page has no matching type", async () => {
+    const asset = (id: string, type: "image" | "video", name: string) =>
+      ({ id, type, name }) as Asset;
+    const incompatible = Array.from({ length: 100 }, (_, index) =>
+      asset(`video-${index}`, "video", `Video ${index}`),
+    );
+    const lateImage = asset("late-image", "image", "Campus poster");
+    const listAssets = vi.spyOn(api, "assets").mockImplementation((params) => {
+      const page = Number(params.get("page") ?? "1");
+      return Promise.resolve({
+        items: page === 1 ? incompatible : [lateImage],
+        total: 101,
+        page,
+        pageSize: 100,
+      });
+    });
+
+    form([
+      {
+        key: "imageAssetId",
+        label: "Poster",
+        control: "media_asset",
+        mediaTypes: ["image"],
+      },
+    ]);
+
+    await waitFor(() => expect(listAssets).toHaveBeenCalled());
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Load more choices" }),
+    );
+    await waitFor(() =>
+      expect(
+        listAssets.mock.calls.some(([params]) => params.get("page") === "2"),
+      ).toBe(true),
+    );
+
+    expect(await optionsFor("Poster")).toContain("Campus poster");
+  });
+
   it("offers only Data Sources whose output schema the field accepts", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue(
       catalog([

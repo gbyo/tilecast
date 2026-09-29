@@ -495,6 +495,7 @@
     },
     "form": {
       "addItem": "Añadir elemento",
+      "loadMoreChoices": "Cargar más opciones",
       "selectPlaceholder": "Seleccionar…",
       "selectSourceFirst": "Selecciona primero una fuente de datos.",
       "removeItem": "Quitar elemento {{index}} de {{label}}",
@@ -1009,6 +1010,7 @@
         "weatherSummary": "Usa una fuente de datos meteorológica; Tilecast proporciona sus campos de pronóstico tipados."
       },
       "missingAlert": "La fuente de datos con la que se creó esto ya no está disponible. Elige otra para que este contenido siga funcionando.",
+      "moreResultsHint": "Aún no hay fuentes de datos compatibles en los resultados cargados.",
       "noData": "Sin datos",
       "noDataHint": "Deja este widget desconectado.",
       "noMatch": "Ninguna fuente compatible coincide con “{{query}}”.",
