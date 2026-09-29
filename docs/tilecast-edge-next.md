@@ -210,6 +210,8 @@ Every event and telemetry sample is written to the SQLite outbox (`edge-state` m
 
 The live preview is driven by `GET /api/v1/player/preview-session`, polled every 15 s. While a lease is active the daemon asks the renderer for a snapshot every 20 s, or at once on `captureNow`, and uploads it. Setup, pairing and safe mode are never captured.
 
+Watch Live reuses the same live-stream protocol as the other players. While Studio holds a lease, `tilecastd/src/live_stream.rs` reconciles `GET /api/v1/player/live-stream-session` (every 15 s idle, every 5 s active, at once on the `live_stream.session_changed` push and on socket open), captures the visible output through the shared capture broker at the leased cadence (125 ms target, 640×360, 100 KiB), and hands bounded TCLS v1 frames to `server_link.rs` — the sole owner of the authenticated WebSocket — through a capacity-one latest-frame channel for the server's MJPEG endpoint. A replaced, expired, or ended session stops captures; a capture that finishes after its session was replaced or after the screen entered a protected state is discarded. A failed capture drops its frame and never engages the preview's suspension. Physical WPE/DRM qualification is M11.
+
 | Scenario                                        | Expected                                                              | Test                                                                             |
 | ----------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Loop, takeover, schedule, safe mode, errors     | Edge emits the Electron player's events                               | `tests/activity_parity.rs`; `player-parity.test.ts`                              |
@@ -218,6 +220,7 @@ The live preview is driven by `GET /api/v1/player/preview-session`, polled every
 | Outage longer than the bound                    | The newest 500 events are kept and the drop is reported               | `a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count`        |
 | The real Electron player and Edge on one server | The same root and item sessions, endings, outage flush and compliance | `ci/run-activity-parity.sh`                                                      |
 | Studio preview lease                            | A renderer JPEG within 960×540 and 500 KiB reaches Studio             | `a_studio_preview_lease_uploads_the_renderer_capture`; real-server e2e `preview` |
+| Studio Watch Live lease                         | Bounded TCLS frames reach Studio's MJPEG endpoint while the lease is held, and stop when it ends | `tests/playback.rs` Watch Live scenarios; real-server e2e `live` |
 
 Fixed while building the parity test, and not Edge-specific: every takeover returned 500 because `takeoverScreens` bound an unused `$1` (`apps/server/internal/httpapi/operations.go`, `takeover_targets_integration_test.go`), and the Electron player sent fractional values in integer telemetry fields, which the server rejects (`apps/player-linux/src/core/telemetry.ts`).
 

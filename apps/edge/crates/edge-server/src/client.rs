@@ -13,6 +13,7 @@
 //! `device_credential_invalid` or `device_credential_revoked`, never on
 //! network errors, 5xx or `screen_disabled`, matching the Linux player.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -30,6 +31,7 @@ use crate::url_policy::normalize_server_url;
 
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub const PLAYER_SOCKET_ACTIVITY_TIMEOUT: Duration = Duration::from_secs(95);
+const LIVE_STREAM_FRAME_SEND_TIMEOUT: Duration = Duration::from_secs(1);
 
 // Response body bounds (docs/tilecast-edge.md §17.5: every network read is
 // bounded). Each is far above what its endpoint legitimately returns and far
@@ -291,6 +293,10 @@ pub enum PlayerSocketEvent {
     ManifestChanged,
     ConfigChanged,
     CommandsAvailable,
+    /// A live-stream lease changed. This is only a wake-up: the
+    /// authenticated `GET /api/v1/player/live-stream-session` endpoint stays
+    /// authoritative.
+    LiveStreamSessionChanged,
     Closed,
     Other,
 }
@@ -307,32 +313,39 @@ impl std::fmt::Debug for PlayerSocket {
     }
 }
 
+/// Classifies one inbound text message. A live-stream lease change is only a
+/// wake-up; the HTTP session endpoint stays authoritative.
+fn classify_socket_text(text: &str) -> Result<PlayerSocketEvent, ServerError> {
+    if text.len() > 64 * 1024 {
+        return Err(ServerError::Decode);
+    }
+    let value: serde_json::Value = serde_json::from_str(text).map_err(|_| ServerError::Decode)?;
+    Ok(match value.get("type").and_then(serde_json::Value::as_str) {
+        Some("server.hello") => PlayerSocketEvent::Hello,
+        Some("server.ping") => PlayerSocketEvent::Ping(
+            value.get("timestamp").and_then(serde_json::Value::as_str).unwrap_or("").chars().take(40).collect(),
+        ),
+        Some("manifest.changed") => PlayerSocketEvent::ManifestChanged,
+        Some("config.changed") => PlayerSocketEvent::ConfigChanged,
+        Some("commands.available") => PlayerSocketEvent::CommandsAvailable,
+        Some("live_stream.session_changed") => PlayerSocketEvent::LiveStreamSessionChanged,
+        _ => PlayerSocketEvent::Other,
+    })
+}
+
+async fn bounded_live_stream_send<F>(remaining: Duration, send: F) -> Result<(), ServerError>
+where
+    F: Future<Output = Result<(), tokio_tungstenite::tungstenite::Error>>,
+{
+    let timeout = remaining.min(LIVE_STREAM_FRAME_SEND_TIMEOUT);
+    tokio::time::timeout(timeout, send).await.map_err(|_| ServerError::Network)?.map_err(|_| ServerError::Network)
+}
+
 impl PlayerSocket {
     pub async fn next_event(&mut self) -> Result<PlayerSocketEvent, ServerError> {
         let Some(message) = self.stream.next().await else { return Ok(PlayerSocketEvent::Closed) };
         let event = match message.map_err(|_| ServerError::Network)? {
-            Message::Text(text) => {
-                if text.len() > 64 * 1024 {
-                    return Err(ServerError::Decode);
-                }
-                let value: serde_json::Value = serde_json::from_str(&text).map_err(|_| ServerError::Decode)?;
-                Ok(match value.get("type").and_then(serde_json::Value::as_str) {
-                    Some("server.hello") => PlayerSocketEvent::Hello,
-                    Some("server.ping") => PlayerSocketEvent::Ping(
-                        value
-                            .get("timestamp")
-                            .and_then(serde_json::Value::as_str)
-                            .unwrap_or("")
-                            .chars()
-                            .take(40)
-                            .collect(),
-                    ),
-                    Some("manifest.changed") => PlayerSocketEvent::ManifestChanged,
-                    Some("config.changed") => PlayerSocketEvent::ConfigChanged,
-                    Some("commands.available") => PlayerSocketEvent::CommandsAvailable,
-                    _ => PlayerSocketEvent::Other,
-                })
-            }
+            Message::Text(text) => classify_socket_text(&text),
             Message::Close(_) => Ok(PlayerSocketEvent::Closed),
             _ => Ok(PlayerSocketEvent::Other),
         }?;
@@ -352,6 +365,19 @@ impl PlayerSocket {
             "type": "player.status", "protocolVersion": 1, "playerVersion": version, "payload": heartbeat,
         }))
         .await
+    }
+
+    /// Sends one encoded TCLS live-stream frame on this socket. The socket
+    /// stays single-owner in `server_link.rs`: callers hand frames to it
+    /// through the bounded latest-frame channel and never touch the socket.
+    /// The existing inbound message limits are unchanged: they bound what
+    /// the server may send, not what the player may emit.
+    pub async fn send_live_stream_frame(&mut self, frame: Vec<u8>) -> Result<(), ServerError> {
+        if frame.len() > crate::live_stream::TCLS_HEADER_LEN + crate::live_stream::MAX_FRAME_BYTES {
+            return Err(ServerError::Decode);
+        }
+        let remaining = PLAYER_SOCKET_ACTIVITY_TIMEOUT.saturating_sub(self.last_activity.elapsed());
+        bounded_live_stream_send(remaining, self.stream.send(Message::Binary(frame.into()))).await
     }
 
     async fn send_json(&mut self, value: serde_json::Value) -> Result<(), ServerError> {
@@ -640,6 +666,19 @@ impl AuthenticatedServer {
         Ok(crate::player_api::TelemetryOutcome::Accepted)
     }
 
+    /// `GET /player/live-stream-session`: whether Studio holds a Watch Live
+    /// lease. An inactive, expired, malformed, or incomplete session fails
+    /// closed to no streaming rather than affecting playback.
+    pub async fn live_stream_session(&self) -> Result<crate::live_stream::LiveStreamSession, ServerError> {
+        let response = self
+            .request(reqwest::Method::GET, "/api/v1/player/live-stream-session")
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(crate::live_stream::live_stream_session(&data))
+    }
+
     /// `GET /player/preview-session`: whether Studio holds a preview lease.
     pub async fn preview_session(&self) -> Result<crate::player_api::PreviewSession, ServerError> {
         let response = self
@@ -684,5 +723,37 @@ impl AuthenticatedServer {
             }
         }
         request.send().await.map_err(|_| ServerError::Network)
+    }
+}
+
+#[cfg(test)]
+mod socket_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_blocked_live_stream_write_is_dropped_quickly() {
+        assert_eq!(LIVE_STREAM_FRAME_SEND_TIMEOUT, Duration::from_secs(1));
+        let blocked = std::future::pending::<Result<(), tokio_tungstenite::tungstenite::Error>>();
+        let result = tokio::time::timeout(
+            Duration::from_millis(250),
+            bounded_live_stream_send(Duration::from_millis(5), blocked),
+        )
+        .await
+        .expect("the dedicated live-frame deadline must finish before the outer test bound");
+        assert_eq!(result, Err(ServerError::Network));
+    }
+
+    #[test]
+    fn a_live_stream_lease_change_is_a_wake_up_not_a_session() {
+        assert_eq!(
+            classify_socket_text(r#"{"type":"live_stream.session_changed"}"#),
+            Ok(PlayerSocketEvent::LiveStreamSessionChanged)
+        );
+        assert_eq!(classify_socket_text(r#"{"type":"manifest.changed"}"#), Ok(PlayerSocketEvent::ManifestChanged));
+        assert_eq!(classify_socket_text(r#"{"type":"config.changed"}"#), Ok(PlayerSocketEvent::ConfigChanged));
+        assert_eq!(classify_socket_text(r#"{"type":"commands.available"}"#), Ok(PlayerSocketEvent::CommandsAvailable));
+        assert_eq!(classify_socket_text(r#"{"type":"future.unknown"}"#), Ok(PlayerSocketEvent::Other));
+        assert_eq!(classify_socket_text(r#"{}"#), Ok(PlayerSocketEvent::Other));
+        assert!(classify_socket_text("not json").is_err());
     }
 }

@@ -126,8 +126,17 @@ pub struct DaemonContext {
     pub activity: crate::activity::Handle,
     /// Asks the activity task to flush the outbox now.
     pub report_wake: tokio::sync::Notify,
-    /// Live-preview requests waiting for the renderer.
-    pub preview_waiters: crate::preview::Waiters,
+    /// Renderer captures waiting for the renderer's answer, shared by
+    /// periodic Live Preview and Watch Live (one capture in flight).
+    pub capture: crate::capture::CaptureBroker,
+    /// Periodic Live Preview health (its renderer-fault suspension only).
+    pub preview_health: crate::preview::PreviewHealth,
+    /// Wakes the Watch Live reconciler (a socket push arrived).
+    pub live_stream_wake: tokio::sync::Notify,
+    /// Latest encoded Watch Live frame for the WebSocket owner to send.
+    /// Capacity-one: a newer frame supersedes an unsent older frame, so a
+    /// slow or disconnected network drops frames instead of queueing video.
+    pub live_frames: tokio::sync::watch::Sender<Option<crate::live_stream::LiveFrame>>,
     /// Renderer commands that report a result (`clear_website_data`).
     pub renderer_commands: crate::remote_web::Waiters,
     /// Display Control (M9).
@@ -365,7 +374,10 @@ impl Daemon {
             shutdown: CancellationToken::new(),
             activity,
             report_wake: tokio::sync::Notify::new(),
-            preview_waiters: crate::preview::Waiters::default(),
+            capture: crate::capture::CaptureBroker::default(),
+            preview_health: crate::preview::PreviewHealth::default(),
+            live_stream_wake: tokio::sync::Notify::new(),
+            live_frames: tokio::sync::watch::Sender::new(None),
             renderer_commands: crate::remote_web::Waiters::default(),
             display: Arc::new(crate::display_control::DisplayControl::new(&config_for_display)),
             display_wake: tokio::sync::Notify::new(),
@@ -472,6 +484,7 @@ impl Daemon {
         tasks.spawn(crate::activity::run(Arc::clone(&context), self.activity_signals));
         tasks.spawn(crate::telemetry::run(Arc::clone(&context)));
         tasks.spawn(crate::preview::run(Arc::clone(&context)));
+        tasks.spawn(crate::live_stream::run(Arc::clone(&context)));
         tasks.spawn(crate::display_control::run(Arc::clone(&context)));
         tasks.spawn(crate::network_task::run(Arc::clone(&context)));
         tasks.spawn(crate::idle_inhibit::run(Arc::clone(&context)));

@@ -139,6 +139,28 @@ struct FakeServer {
     /// Uploaded preview forms, as text (the JPEG bytes are replaced by their
     /// length).
     previews: Mutex<Vec<String>>,
+    /// A Studio Watch Live lease is open for this session ID.
+    live_active: AtomicBool,
+    live_id: Mutex<String>,
+    /// Seconds from now the served lease expires (negative: already expired).
+    live_expires_in_secs: AtomicI64,
+    /// Watch Live reconciliations, to prove a push woke the task.
+    live_session_requests: AtomicUsize,
+    /// Bumped to send `live_stream.session_changed` on open sockets.
+    live_push_generation: AtomicUsize,
+    /// Binary TCLS frames the player sent on its socket.
+    live_frames: Mutex<Vec<LiveFrameRecord>>,
+}
+
+/// One binary TCLS frame the fake socket received.
+#[derive(Debug)]
+struct LiveFrameRecord {
+    session_id: String,
+    width: u32,
+    height: u32,
+    jpeg_len: usize,
+    /// SOI-first, EOI-last, and within the 100 KiB bound.
+    complete: bool,
 }
 
 impl FakeServer {
@@ -170,6 +192,12 @@ impl FakeServer {
             telemetry: Mutex::new(Vec::new()),
             preview_active: AtomicBool::new(false),
             previews: Mutex::new(Vec::new()),
+            live_active: AtomicBool::new(false),
+            live_id: Mutex::new(uuid::Uuid::nil().to_string()),
+            live_expires_in_secs: AtomicI64::new(15),
+            live_session_requests: AtomicUsize::new(0),
+            live_push_generation: AtomicUsize::new(0),
+            live_frames: Mutex::new(Vec::new()),
         })
     }
 
@@ -283,6 +311,20 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
         "/api/v1/player/preview-session" => Ok(data(json!({
             "active": fake.preview_active.load(Ordering::SeqCst), "captureIntervalSeconds": 20, "captureNow": true,
         }))),
+        "/api/v1/player/live-stream-session" => {
+            fake.live_session_requests.fetch_add(1, Ordering::SeqCst);
+            let expires =
+                Timestamp::from_unix_millis(now_ms() + fake.live_expires_in_secs.load(Ordering::SeqCst) * 1000)
+                    .unwrap()
+                    .to_string();
+            Ok(data(json!({
+                "id": fake.live_id.lock().unwrap().clone(),
+                "active": fake.live_active.load(Ordering::SeqCst),
+                "expiresAt": expires,
+                "frameIntervalMillis": 125,
+                "maxWidth": 640, "maxHeight": 360, "maxFrameBytes": 102400,
+            })))
+        }
         "/api/v1/player/preview" => {
             let bytes = request.into_body().collect().await.map_err(std::io::Error::other)?.to_bytes();
             let text = String::from_utf8_lossy(&bytes).into_owned();
@@ -500,12 +542,21 @@ async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
         return;
     }
     let mut ping = tokio::time::interval(Duration::from_millis(200));
+    let mut push_seen = fake.live_push_generation.load(Ordering::SeqCst);
     loop {
         tokio::select! {
             _ = ping.tick() => {
                 if fake.socket_generation.load(Ordering::SeqCst) != generation {
                     // Dropped without a close frame, as a lost connection is.
                     return;
+                }
+                let push_now = fake.live_push_generation.load(Ordering::SeqCst);
+                if push_now != push_seen {
+                    push_seen = push_now;
+                    let wake = json!({"type": "live_stream.session_changed"}).to_string();
+                    if socket.send(Message::Text(wake.into())).await.is_err() {
+                        return;
+                    }
                 }
                 let server_now = now_ms() + fake.server_clock_ahead_ms.load(Ordering::SeqCst);
                 let timestamp = Timestamp::from_unix_millis(server_now).unwrap().to_string();
@@ -515,14 +566,52 @@ async fn player_socket(fake: Arc<FakeServer>, stream: tokio::net::TcpStream) {
                 }
             }
             received = socket.next() => {
-                let Some(Ok(Message::Text(text))) = received else { return };
-                let value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
-                if value["type"] == "player.status" {
-                    fake.socket_statuses.lock().unwrap().push(value["payload"].clone());
+                match received {
+                    Some(Ok(Message::Binary(frame))) => record_live_frame(&fake, &frame),
+                    Some(Ok(Message::Text(text))) => {
+                        let value: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+                        if value["type"] == "player.status" {
+                            fake.socket_statuses.lock().unwrap().push(value["payload"].clone());
+                        }
+                    }
+                    _ => return,
                 }
             }
         }
     }
+}
+
+/// Records one binary TCLS frame the player sent, as the server's
+/// `ParseBinaryFrame` would read it.
+fn record_live_frame(fake: &FakeServer, frame: &[u8]) {
+    let mut record =
+        LiveFrameRecord { session_id: "malformed".to_owned(), width: 0, height: 0, jpeg_len: 0, complete: false };
+    if frame.len() >= 37
+        && &frame[0..4] == b"TCLS"
+        && frame[4] == 1
+        && let Ok(id) = uuid::Uuid::from_slice(&frame[5..21])
+    {
+        let width = u16::from_be_bytes([frame[29], frame[30]]) as u32;
+        let height = u16::from_be_bytes([frame[31], frame[32]]) as u32;
+        let jpeg = &frame[33..];
+        record = LiveFrameRecord {
+            session_id: id.to_string(),
+            width,
+            height,
+            jpeg_len: jpeg.len(),
+            complete: width > 0
+                && width <= 640
+                && height > 0
+                && height <= 360
+                && jpeg.len() <= 100 * 1024
+                && jpeg.len() >= 4
+                && jpeg[0] == 0xFF
+                && jpeg[1] == 0xD8
+                && jpeg[jpeg.len() - 2] == 0xFF
+                && jpeg[jpeg.len() - 1] == 0xD9,
+        };
+    }
+    fake.live_frames.lock().unwrap().push(record);
 }
 
 // ------------------------------------------------------------ content
@@ -611,6 +700,8 @@ struct RendererLog {
     plugins: Vec<PluginState>,
     identify: Vec<(String, u32)>,
     commands: Vec<edge_protocol::ipc::event::RendererCommandKind>,
+    /// Answer captures as unavailable, as a failing renderer would.
+    answer_unavailable: bool,
 }
 
 struct FakeRenderer {
@@ -662,17 +753,24 @@ impl FakeRenderer {
                             .push((identify.name.as_str().to_owned(), identify.duration_seconds)),
                         Event::RendererCommand(command) => log.lock().unwrap().commands.push(command.command),
                         Event::PreviewRequest(request) => {
-                            // A tiny JPEG: the signature and a few bytes.
-                            let jpeg =
-                                base64::engine::general_purpose::STANDARD.encode([0xFF, 0xD8, 0xFF, 0xE0, 0, 16]);
+                            let result = if log.lock().unwrap().answer_unavailable {
+                                edge_protocol::ipc::event::PreviewOutcome::Unavailable {
+                                    code: ShortToken::new("snapshot_failed").unwrap(),
+                                }
+                            } else {
+                                // A tiny but complete JPEG: SOI, a few bytes, EOI.
+                                let jpeg = base64::engine::general_purpose::STANDARD
+                                    .encode([0xFF, 0xD8, 0xFF, 0xE0, 0, 16, 0xFF, 0xD9]);
+                                edge_protocol::ipc::event::PreviewOutcome::Captured {
+                                    jpeg_base64: jpeg,
+                                    width: request.max_width.min(640),
+                                    height: request.max_height.min(360),
+                                }
+                            };
                             let _ = client
                                 .send_event(Event::PreviewResult(edge_protocol::ipc::event::PreviewResult {
                                     request_id: request.request_id,
-                                    result: edge_protocol::ipc::event::PreviewOutcome::Captured {
-                                        jpeg_base64: jpeg,
-                                        width: request.max_width.min(640),
-                                        height: request.max_height.min(360),
-                                    },
+                                    result,
                                 }))
                                 .await;
                         }
@@ -727,6 +825,10 @@ impl FakeRenderer {
 
     fn stop(self) {
         self.task.abort();
+    }
+
+    fn set_answer_unavailable(&self, unavailable: bool) {
+        self.log.lock().unwrap().answer_unavailable = unavailable;
     }
 }
 
@@ -2624,6 +2726,270 @@ async fn a_studio_preview_lease_uploads_the_renderer_capture() {
     assert!(form.contains("name=\"preview\"; filename=\"preview.jpg\""), "{form}");
     assert!(form.contains("name=\"width\"\r\n\r\n640\r\n") && form.contains("name=\"height\"\r\n\r\n360\r\n"));
     assert!(!form.contains("unavailable"));
+    renderer.stop();
+    player.stop().await;
+}
+
+fn live_frames_for(fake: &FakeServer, session: &str) -> usize {
+    fake.live_frames.lock().unwrap().iter().filter(|f| f.session_id == session).count()
+}
+
+fn open_live_session_with_expiry(fake: &FakeServer, expires_in_secs: i64) -> String {
+    let id = uuid::Uuid::new_v4().to_string();
+    *fake.live_id.lock().unwrap() = id.clone();
+    fake.live_expires_in_secs.store(expires_in_secs, Ordering::SeqCst);
+    fake.live_active.store(true, Ordering::SeqCst);
+    fake.live_push_generation.fetch_add(1, Ordering::SeqCst);
+    id
+}
+
+fn open_live_session(fake: &FakeServer) -> String {
+    open_live_session_with_expiry(fake, 15)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_streams_bounded_frames_while_preview_still_captures() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    // A periodic preview lease is open at the same time: both callers share
+    // the capture broker without starving each other.
+    harness.fake.preview_active.store(true, Ordering::SeqCst);
+    let session = open_live_session(&harness.fake);
+    wait_long("repeated live frames", 60, async || live_frames_for(&harness.fake, &session) >= 3).await;
+    for frame in harness.fake.live_frames.lock().unwrap().iter() {
+        assert_eq!(frame.session_id, session);
+        assert!(frame.complete, "every frame is a bounded complete JPEG: {frame:?}");
+        assert!(frame.width <= 640 && frame.height <= 360);
+        assert!(frame.jpeg_len <= 100 * 1024);
+    }
+    wait_long("a preview upload beside the stream", 60, async || {
+        harness.fake.previews.lock().unwrap().iter().any(|form| form.contains("filename=\"preview.jpg\""))
+    })
+    .await;
+    // Ending the lease stops captures: no frame buildup, no late video. The
+    // request counter proves the reconciler saw the end before stability is
+    // asserted, so a slow final poll cannot flake the comparison.
+    harness.fake.live_active.store(false, Ordering::SeqCst);
+    let reconciled = harness.fake.live_session_requests.load(Ordering::SeqCst);
+    wait_long("the end-of-lease reconcile", 15, async || {
+        harness.fake.live_session_requests.load(Ordering::SeqCst) > reconciled
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let frames = harness.fake.live_frames.lock().unwrap().len();
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(harness.fake.live_frames.lock().unwrap().len(), frames, "no frames after the session ended");
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_replacement_discards_the_old_session_and_expiry_stops_captures() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-replace", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let first = open_live_session(&harness.fake);
+    wait_long("frames for the first session", 60, async || live_frames_for(&harness.fake, &first) >= 2).await;
+    // Studio replaces the lease: only the new session may produce frames.
+    let second = open_live_session(&harness.fake);
+    wait_long("frames for the replacement", 60, async || live_frames_for(&harness.fake, &second) >= 2).await;
+    let first_count = live_frames_for(&harness.fake, &first);
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert_eq!(live_frames_for(&harness.fake, &first), first_count, "the replaced session emits nothing more");
+    // An expired lease fails closed to no streaming.
+    harness.fake.live_expires_in_secs.store(-15, Ordering::SeqCst);
+    let reconciled = harness.fake.live_session_requests.load(Ordering::SeqCst);
+    wait_long("the expiry reconcile", 15, async || {
+        harness.fake.live_session_requests.load(Ordering::SeqCst) > reconciled
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let total = harness.fake.live_frames.lock().unwrap().len();
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(harness.fake.live_frames.lock().unwrap().len(), total, "an expired lease emits nothing");
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_same_id_renewal_restarts_a_finished_capture_task() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-renew", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+
+    // The first observed lease expires before the normal five-second active
+    // reconciliation. The capture worker exits while the reconciler still
+    // remembers this session ID.
+    let session = open_live_session_with_expiry(&harness.fake, 1);
+    wait_long("a frame before the short lease expires", 30, async || live_frames_for(&harness.fake, &session) >= 1)
+        .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let before = live_frames_for(&harness.fake, &session);
+
+    // Studio renewed the same server session. A finished worker must restart
+    // even though the UUID did not change.
+    harness.fake.live_expires_in_secs.store(15, Ordering::SeqCst);
+    harness.fake.live_push_generation.fetch_add(1, Ordering::SeqCst);
+    wait_long("frames after the same-ID renewal", 30, async || live_frames_for(&harness.fake, &session) > before).await;
+
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_push_wakes_reconciliation() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-push", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    // The push only arrives on an open socket; a new connection never replays
+    // an older generation.
+    wait_long("the player socket", 60, async || harness.fake.socket_connections.load(Ordering::SeqCst) >= 1).await;
+    // Two idle reconciliations pass with no lease: the next natural poll is
+    // then ~15 s out, so a quick follow-up proves the push woke the task.
+    wait_long("idle live reconciliations", 60, async || harness.fake.live_session_requests.load(Ordering::SeqCst) >= 2)
+        .await;
+    let before = harness.fake.live_session_requests.load(Ordering::SeqCst);
+    open_live_session(&harness.fake);
+    wait_long("the push-triggered reconcile", 8, async || {
+        harness.fake.live_session_requests.load(Ordering::SeqCst) > before
+    })
+    .await;
+    wait_long("frames after the push", 60, async || !harness.fake.live_frames.lock().unwrap().is_empty()).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_renderer_outage_drops_frames_without_suspending_preview() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-outage", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    renderer.set_answer_unavailable(true);
+    harness.fake.preview_active.store(true, Ordering::SeqCst);
+    open_live_session(&harness.fake);
+    wait_long("the unavailable preview upload", 60, async || {
+        harness.fake.previews.lock().unwrap().iter().any(|form| form.contains("unavailable"))
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert!(harness.fake.live_frames.lock().unwrap().is_empty(), "a failed capture drops its frame");
+    let capability =
+        player.context.preview_health.lock().unwrap().capability(player.context.now()).expect("preview capability");
+    assert_ne!(
+        capability.state,
+        edge_protocol::capability::CapabilityState::Blocked,
+        "a Watch Live failure never suspends periodic preview"
+    );
+    // Recovery serves both callers again.
+    renderer.set_answer_unavailable(false);
+    wait_long("live frames after recovery", 60, async || !harness.fake.live_frames.lock().unwrap().is_empty()).await;
+    wait_long("a preview image after recovery", 60, async || {
+        harness.fake.previews.lock().unwrap().iter().any(|form| form.contains("filename=\"preview.jpg\""))
+    })
+    .await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_drops_queued_frames_across_a_protected_reconnect() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-protected-reconnect", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let session = open_live_session(&harness.fake);
+    wait_long("live frames before disconnect", 60, async || live_frames_for(&harness.fake, &session) >= 2).await;
+
+    // Drop the socket and refuse reconnects while the producer keeps running,
+    // so a latest frame can remain pending in the watch slot.
+    let connections = harness.fake.socket_connections.load(Ordering::SeqCst);
+    harness.fake.socket_enabled.store(false, Ordering::SeqCst);
+    harness.fake.socket_generation.fetch_add(1, Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // Enter safe mode while disconnected. The producer must remove any frame
+    // captured before the privacy boundary became active.
+    let mut at = now_ms() + 10 * 60_000;
+    for _ in 0..40 {
+        let mut engine = player.context.presentation.lock().await;
+        engine.tick(at);
+        if engine.is_safe_mode() {
+            break;
+        }
+        drop(engine);
+        at += 100_000;
+    }
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    let queued = player.context.live_frames.subscribe();
+    wait_long("the pending live frame to be cleared", 10, async || queued.borrow().is_none()).await;
+    let before_reconnect = live_frames_for(&harness.fake, &session);
+
+    // Reconnect while still protected. The socket owner checks the current
+    // presentation again at the send boundary, so no old frame may leak.
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    player.context.server_wake.notify_one();
+    wait_long("the player socket to reconnect", 30, async || {
+        harness.fake.socket_connections.load(Ordering::SeqCst) > connections
+    })
+    .await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    assert_eq!(
+        live_frames_for(&harness.fake, &session),
+        before_reconnect,
+        "reconnecting in a protected state must not flush an older queued frame"
+    );
+
+    let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
+    wait_long("live frames after leaving safe mode", 60, async || {
+        live_frames_for(&harness.fake, &session) > before_reconnect
+    })
+    .await;
+
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn watch_live_safe_mode_emits_no_frames() {
+    let harness = Harness::new().await;
+    harness.fake.socket_enabled.store(true, Ordering::SeqCst);
+    let image = Asset::new("live-safe", "image/png");
+    let (player, renderer) = harness.committed(&image, 3).await;
+    let session = open_live_session(&harness.fake);
+    wait_long("live frames before safe mode", 60, async || live_frames_for(&harness.fake, &session) >= 2).await;
+    // Drive the recovery ladder into safe mode with synthetic time.
+    let mut at = now_ms() + 10 * 60_000;
+    for _ in 0..40 {
+        let mut engine = player.context.presentation.lock().await;
+        engine.tick(at);
+        if engine.is_safe_mode() {
+            break;
+        }
+        drop(engine);
+        at += 100_000;
+    }
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    let frames = live_frames_for(&harness.fake, &session);
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    assert_eq!(live_frames_for(&harness.fake, &session), frames, "safe mode emits no frames");
+    let exit = harness.fake.offer("exit_safe_mode", uuid::Uuid::new_v4(), json!({}));
+    player.context.command_wake.notify_one();
+    wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
+    wait_long("live frames after safe mode", 60, async || live_frames_for(&harness.fake, &session) > frames).await;
     renderer.stop();
     player.stop().await;
 }
