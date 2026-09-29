@@ -127,7 +127,7 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
 
 /// Exercises the bridge in real WebKit pages: what JavaScript can reach.
 @MainActor
-@Suite(.serialized) struct StudioBridgeWebKitTests {
+@Suite(.serialized, .timeLimit(.minutes(1))) struct StudioBridgeWebKitTests {
     func makePage() throws -> StudioPage {
         let directory = ServerDirectory(storage: InMemoryServerDirectoryStorage())
         let profile = try directory.add(address: address("signage.example.org"), identity: identity("A"))
