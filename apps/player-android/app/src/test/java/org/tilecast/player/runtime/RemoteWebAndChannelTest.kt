@@ -214,26 +214,19 @@ class RuntimeEvidenceRouterTest {
         assertEquals(listOf("i1" to "boom"), sink.itemErrors)
     }
 
-    @Test fun cutoverStaysOffUntilValidated() {
+    @Test fun authoritativeRoutingCoversEveryPresentableKind() {
+        // No cutover gate remains: renderability alone decides, and anything
+        // else fails closed with an explicit error upstream.
         val manifest = PlayerManifest(
             15, 1, "s", "t", "single-zone",
             assets = listOf(ManifestAsset("a1", "v1", "image/png", "sha", 100, downloadPath = "/dl")),
         )
-        val cached = org.tilecast.player.content.PreparedContent(manifest, mapOf("v1" to "/tmp/v1"))
-        val uncached = org.tilecast.player.content.PreparedContent(manifest, emptyMap())
-        assertFalse(RuntimeCutover.enabled)
-        assertFalse(RuntimeCutover.useSharedRuntime(cached, items))
-        RuntimeCutover.enabled = true
-        try {
-            assertTrue(RuntimeCutover.useSharedRuntime(cached, items))
-            assertFalse(RuntimeCutover.useSharedRuntime(uncached, items))
-            assertFalse(RuntimeCutover.useSharedRuntime(cached, emptyList()))
-        } finally {
-            RuntimeCutover.enabled = false
+        for (item in items) {
+            assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, item))
         }
     }
 
-    @Test fun cutoverRoutesRootLayoutsWithoutPlaylistMedia() {
+    @Test fun authoritativeRoutingResolvesThreadedRootLayouts() {
         val document = org.tilecast.player.network.LayoutDocument(
             schemaVersion = 1,
             canvas = org.tilecast.player.network.LayoutCanvas(1920, 1080, "landscape", "#000000"),
@@ -245,18 +238,12 @@ class RuntimeEvidenceRouterTest {
             layout = layout,
             layouts = listOf(layout),
         )
-        val content = org.tilecast.player.content.PreparedContent(manifest, emptyMap())
         val rootItems = listOf(org.tilecast.player.content.rootLayoutItem(layout))
-        RuntimeCutover.enabled = true
-        try {
-            // No finite duration and no cached media required: the reference
-            // persists until replacement and zones project what is cached.
-            assertTrue(RuntimeCutover.useSharedRuntime(content, rootItems, layout))
-            assertFalse(RuntimeCutover.useSharedRuntime(content, rootItems, null))
-            val other = layout.copy(id = "l2")
-            assertFalse(RuntimeCutover.useSharedRuntime(content, rootItems, other))
-        } finally {
-            RuntimeCutover.enabled = false
-        }
+        // The threaded Layout wins on id match so selected roots outside
+        // manifest.layouts resolve; anything else falls back to the list.
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0], layout))
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0]))
+        val other = layout.copy(id = "l2")
+        assertTrue(RuntimePresentationBuilder.isRuntimeRenderable(manifest, rootItems[0], other))
     }
 }

@@ -1,51 +1,7 @@
 package org.tilecast.player.runtime
 
-import org.tilecast.player.content.PreparedContent
 import org.tilecast.player.network.ManifestItem
-import org.tilecast.player.network.ManifestLayout
 import org.tilecast.player.runtime.RuntimeBridgeProtocol.RuntimeReport
-
-/** Feature gate for the shared-runtime presentation cutover.
- *
- * PR2 routes a playlist to the runtime only when every item is renderable
- * there; widget/Layout-majority playlists stay on the legacy Compose stack
- * until the PR3 deletion gate passes. Emulator/hardware validation flips
- * [enabled] once the runtime proves itself on device.
- *
- * A selected root Layout takes the same runtime path as a single layout
- * reference with no finite duration: it persists until schedule, manifest,
- * takeover, or presentation replacement creates a new session.
- */
-object RuntimeCutover {
-    @Volatile
-    var enabled: Boolean = false
-
-    fun useSharedRuntime(
-        content: PreparedContent,
-        items: List<ManifestItem>,
-        rootLayout: ManifestLayout? = null,
-    ): Boolean {
-        if (!enabled) return false
-        val manifest = content.manifest
-        if (manifest.layout != null) {
-            // The threaded Layout must be the selected root Layout (which
-            // may live outside manifest.layouts, e.g. a direct fallback);
-            // the builder resolves playlist Layout items from the list.
-            return rootLayout != null && rootLayout.id == manifest.layout.id &&
-                items.all { item -> RuntimePresentationBuilder.isRuntimeRenderable(manifest, item, rootLayout) }
-        }
-        if (items.isEmpty()) return false
-        return items.all { item ->
-            if (!RuntimePresentationBuilder.isRuntimeRenderable(manifest, item)) return@all false
-            val variantId = item.variantId ?: return@all true
-            val isMedia = manifest.assets.any { it.variantId == variantId }
-            // tcmedia: has deliberately no authenticated network fallback.
-            // A stream-policy or uncached automatic asset stays on legacy
-            // playback, which can fetch it from the server.
-            !isMedia || content.localFiles.containsKey(variantId)
-        }
-    }
-}
 
 /** Translates shared-runtime reports into the existing native reporting pipeline.
  *

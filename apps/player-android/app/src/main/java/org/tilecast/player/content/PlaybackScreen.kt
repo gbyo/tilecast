@@ -184,15 +184,26 @@ private fun FullscreenPlaybackBody(
         true,
     )
     val activityReporter = rememberPlaybackActivityReporter(session, takeoverDecision)
-    // Shared-runtime cutover (PR2): fully runtime-renderable playlists play
-    // in the trusted Player Runtime WebView. The gate defaults off until
-    // device validation flips it; everything else keeps the legacy path.
+    // Authoritative shared runtime: every presentation plays in the trusted
+    // Player Runtime WebView. A selected root Layout plays as one layout
+    // reference through the same path. Anything the runtime cannot render
+    // fails closed with an explicit error; there is no second presentation
+    // implementation to fall back to. Media availability stays per-item in
+    // the projector, matching the reference hosts.
     val sharedRuntimeItems = runtimePlaylistItems(session)
-    // A selected root Layout plays as one layout reference through the same
-    // shared-runtime path; playlists keep the existing cutover behavior.
     val rootLayout = session.content.manifest.layout
     val runtimeItems = if (rootLayout != null) listOf(rootLayoutItem(rootLayout)) else sharedRuntimeItems
-    if (org.tilecast.player.runtime.RuntimeCutover.useSharedRuntime(session.content, runtimeItems, rootLayout)) {
+    val renderable = runtimeItems.isNotEmpty() && runtimeItems.all { item ->
+        org.tilecast.player.runtime.RuntimePresentationBuilder.isRuntimeRenderable(
+            session.content.manifest, item, rootLayout,
+        )
+    }
+    if (!renderable && runtimeItems.isNotEmpty()) {
+        androidx.compose.runtime.LaunchedEffect(runtimeItems) { onError("unsupported_content") }
+        EmptyPlayback("Content not supported by this player")
+        return
+    }
+    if (renderable) {
         val runtimeManifest = session.content.manifest
         val runtimeActivity = rememberRuntimeActivityTracker(activityReporter, session)
         val runtimeActivationId = session.runtimeActivation.id
