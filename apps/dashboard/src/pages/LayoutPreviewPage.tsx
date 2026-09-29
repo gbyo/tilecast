@@ -179,8 +179,11 @@ export function LayoutPreviewPage() {
     queryFn: () => api.layout(id),
     enabled: Boolean(id && auth.status?.authenticated),
   });
-  const [previewDate, setPreviewDate] = useState(
-    new Date().toISOString().slice(0, 10),
+  const requestedDate = new URLSearchParams(location.search).get("date");
+  const [previewDate, setPreviewDate] = useState(() =>
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+      ? requestedDate
+      : new Date().toISOString().slice(0, 10),
   );
   const [previewData, setPreviewData] = useState<LayoutPreviewData>({
     assets: [],
