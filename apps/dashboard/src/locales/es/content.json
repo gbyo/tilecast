@@ -299,6 +299,10 @@
       "itemCount_one": "{{count}} elemento",
       "itemCount_other": "{{count}} elementos",
       "layoutRevision": "Diseño · revisión {{revision}}",
+      "tagDrivenItemCount_many": "{{count}} de elementos · por etiquetas",
+      "tagDrivenItemCount_one": "{{count}} elemento · por etiquetas",
+      "tagDrivenItemCount_other": "{{count}} elementos · por etiquetas",
+      "selected": "Seleccionado",
       "layoutsLoadError": "No se pudieron cargar los diseños.",
       "loadingLayouts": "Cargando diseños",
       "loadingPlaylists": "Cargando listas de reproducción",
@@ -315,7 +319,6 @@
       "searchLayouts": "Buscar diseños",
       "searchPlaylists": "Buscar listas de reproducción",
       "searchPresentations": "Buscar presentaciones",
-      "tagDriven": " · por etiquetas",
       "clearSearchPresentations": "Borrar la búsqueda de presentaciones",
       "clearSearchLayouts": "Borrar la búsqueda de diseños",
       "clearSearchPlaylists": "Borrar la búsqueda de listas de reproducción"

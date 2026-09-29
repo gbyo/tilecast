@@ -256,15 +256,23 @@ export function PlaylistPicker({
                       </ItemTitle>
                       <ItemDescription className="truncate">
                         {choice.kind === "layout"
-                          ? `Layout · revision ${choice.layout.publishedRevision}`
-                          : `${choice.playlist.itemCount} item${
-                              choice.playlist.itemCount === 1 ? "" : "s"
-                            }${tagDriven ? " · tag-driven" : ""}`}
+                          ? t("picker.playlist.layoutRevision", {
+                              revision: choice.layout.publishedRevision,
+                            })
+                          : t(
+                              tagDriven
+                                ? "picker.playlist.tagDrivenItemCount"
+                                : "picker.playlist.itemCount",
+                              { count: choice.playlist.itemCount },
+                            )}
                       </ItemDescription>
                     </ItemContent>
                     {id === chosen && (
                       <ItemActions>
-                        <Check size={17} aria-label="Selected" />
+                        <Check
+                          size={17}
+                          aria-label={t("picker.playlist.selected")}
+                        />
                       </ItemActions>
                     )}
                   </Item>
