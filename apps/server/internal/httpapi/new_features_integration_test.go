@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"log/slog"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -291,6 +292,78 @@ func TestNewFeatureQueries(t *testing.T) {
 			t.Error("the approved revision is not reported as approved")
 		}
 		t.Logf("queue %d, approved revision %d", len(queue), review.Revision)
+	})
+
+	t.Run("command quota serializes concurrent inserts", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `DELETE FROM player_commands WHERE screen_id=$1`, screenA); err != nil {
+			t.Fatal(err)
+		}
+		commandServer := &server{
+			db: pool, devices: deviceService,
+			operations: OperationsConfig{MaxPendingCommands: 1, DefaultCommandExpiryMinutes: 5},
+		}
+		results := make(chan error, 8)
+		for range 8 {
+			go func() {
+				_, _, queueErr := commandServer.queueCommand(ctx, screenA, owner.User.ID, "sync_now", []byte(`{}`), uuid.New())
+				results <- queueErr
+			}()
+		}
+		succeeded, limited := 0, 0
+		for range 8 {
+			switch queueErr := <-results; queueErr {
+			case nil:
+				succeeded++
+			case errCommandLimit:
+				limited++
+			default:
+				t.Fatalf("queue command: %v", queueErr)
+			}
+		}
+		if succeeded != 1 || limited != 7 {
+			t.Fatalf("concurrent queue results: succeeded=%d limited=%d, want 1/7", succeeded, limited)
+		}
+		var pending int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM player_commands WHERE screen_id=$1 AND state='pending'`, screenA).Scan(&pending); err != nil {
+			t.Fatal(err)
+		}
+		if pending != 1 {
+			t.Fatalf("pending commands=%d, want 1", pending)
+		}
+		if _, err := pool.Exec(ctx, `DELETE FROM player_commands WHERE screen_id=$1`, screenA); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("takeover list does not claim expiration", func(t *testing.T) {
+		takeoverID := uuid.New()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO takeovers(id,organization_id,name,playlist_id,status,activated_by,activated_at,expires_at,created_at)
+			VALUES($1,$2,'Expired but unreconciled',$3,'active',$4,now()-interval '2 hours',now()-interval '1 hour',now()-interval '3 hours')`,
+			takeoverID, org, playlist.ID, owner.User.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state)
+			VALUES($1,$2,1,'active')`, takeoverID, screenA); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(), `DELETE FROM takeovers WHERE id=$1`, takeoverID)
+		})
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest("GET", "/api/v1/takeovers", nil)
+		(&server{db: pool}).listTakeovers(recorder, request)
+		if recorder.Code != 200 {
+			t.Fatalf("list takeovers status=%d body=%s", recorder.Code, recorder.Body.String())
+		}
+		var status string
+		if err := pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, takeoverID).Scan(&status); err != nil {
+			t.Fatal(err)
+		}
+		if status != "active" {
+			t.Fatalf("list read changed takeover status to %q, want active for canonical reconciler", status)
+		}
 	})
 
 	t.Run("screen scopes", func(t *testing.T) {
