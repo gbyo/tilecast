@@ -36,7 +36,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="$HERE/.."
 APP_ID="org.tilecast.player"
 TEST_ID="$APP_ID.test"
-DEVICE_BASE="/sdcard/Android/data/$APP_ID/files/conformance"
+DEVICE_BASE=""
 
 command -v adb >/dev/null || { echo "run-android: adb is not on PATH" >&2; exit 69; }
 [ -f "$HOST_SCRIPT" ] || { echo "run-android: host script missing: $HOST_SCRIPT" >&2; exit 66; }
@@ -76,14 +76,25 @@ TEST_APK="$(ls "$PROJECT/app/build/outputs/apk/androidTest/debug/app-debug-andro
 adb install -r -t "$APK" >/dev/null
 adb install -r -t "$TEST_APK" >/dev/null
 
-echo "run-android: pushing fixtures, host script, and media store"
-adb shell "rm -rf $DEVICE_BASE && mkdir -p $DEVICE_BASE/in $DEVICE_BASE/cas" >/dev/null
-adb push "$HOST_SCRIPT" "$DEVICE_BASE/in/conformance-host.js" >/dev/null
-adb push "$CAS_ROOT/." "$DEVICE_BASE/cas/" >/dev/null
+DEVICE_DATA="$(adb shell run-as "$APP_ID" pwd | tr -d '\r')"
+DEVICE_BASE="$DEVICE_DATA/files/conformance"
+
+echo "run-android: copying fixtures, host script, and media store into app-private storage"
+# Android 11+ prevents adb shell from writing under /sdcard/Android/data.
+# Use the debuggable test build's run-as identity so instrumentation and the
+# host driver can exchange files without relying on scoped-storage exceptions.
+adb shell "run-as $APP_ID sh -c 'rm -rf files/conformance && mkdir -p files/conformance/in files/conformance/cas'" >/dev/null
+push_to_app() {
+  local source="$1"
+  local destination="$2"
+  adb shell -T "run-as $APP_ID sh -c 'cat > \"$destination\"'" < "$source" >/dev/null
+}
+push_to_app "$HOST_SCRIPT" "files/conformance/in/conformance-host.js"
+tar -C "$CAS_ROOT" -cf - . | adb shell -T "run-as $APP_ID tar -xf - -C files/conformance/cas"
 for fixture in "$FIXTURES"/*/fixture.json; do
   name="$(basename "$(dirname "$fixture")")"
   if [ -n "$ONLY" ] && ! echo ",$ONLY," | grep -q ",$name,"; then continue; fi
-  adb push "$fixture" "$DEVICE_BASE/in/$name.fixture.json" >/dev/null
+  push_to_app "$fixture" "files/conformance/in/$name.fixture.json"
 done
 
 echo "run-android: recording engine versions"
@@ -105,7 +116,7 @@ adb shell am instrument -w $ARGS \
 
 echo "run-android: pulling results"
 TMP_OUT="$(mktemp -d)"
-adb pull "$DEVICE_BASE/out/." "$TMP_OUT/" >/dev/null
+adb exec-out run-as "$APP_ID" tar -cf - -C files/conformance/out . | tar -C "$TMP_OUT" -xf -
 for dir in "$TMP_OUT"/*/; do
   name="$(basename "$dir")"
   mkdir -p "$OUT/$name"

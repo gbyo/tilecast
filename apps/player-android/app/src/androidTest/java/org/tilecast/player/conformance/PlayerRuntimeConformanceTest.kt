@@ -60,10 +60,7 @@ class PlayerRuntimeConformanceTest {
 
         val hostSource = File(root, "in/conformance-host.js").readText()
         val casRoot = File(root, "cas")
-        val outRoot = File(
-            instrumentation.targetContext.getExternalFilesDir("conformance"),
-            "out",
-        )
+        val outRoot = File(instrumentation.targetContext.filesDir, "conformance/out")
         val fixtures = (File(root, "in").listFiles { file ->
             file.isFile && file.name.endsWith(".fixture.json")
         } ?: emptyArray())
