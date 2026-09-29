@@ -59,6 +59,44 @@ class RuntimeSupportTest {
         assertEquals(legacy, RuntimeSupportAssessment.nativeCapabilitiesFor(compatOnly, legacy, generated))
     }
 
+    @Test fun probeResultParsesOnlyFullPasses() {
+        val allTrue = "\"" +
+            "{\"customElements\":true,\"shadowDOM\":true,\"adoptedStyleSheets\":true," +
+            "\"containerQueries\":true,\"containerUnits\":true,\"cspBlocksInlineStyle\":true," +
+            "\"cssomStyle\":true,\"webAnimations\":true}" + "\""
+        assertTrue(RuntimeComponentProbe.parseResult(allTrue))
+        val oneFalse = "\"" +
+            "{\"customElements\":true,\"shadowDOM\":false,\"adoptedStyleSheets\":true," +
+            "\"containerQueries\":true,\"containerUnits\":true,\"cspBlocksInlineStyle\":true," +
+            "\"cssomStyle\":true,\"webAnimations\":true}" + "\""
+        assertFalse(RuntimeComponentProbe.parseResult(oneFalse))
+        assertFalse(RuntimeComponentProbe.parseResult(null))
+        assertFalse(RuntimeComponentProbe.parseResult("null"))
+        assertFalse(RuntimeComponentProbe.parseResult("\"not-json\""))
+        assertFalse(RuntimeComponentProbe.parseResult("\"{}\""))
+    }
+
+    @Test fun probeOutcomeGatesComponentAdvertisement() {
+        RuntimeComponentProbe.record(false)
+        var support = RuntimeSupportAssessment.assess(
+            isFeatureSupported = { true },
+            componentProbePassed = RuntimeComponentProbe.passed,
+        )
+        assertFalse(support.componentRuntimeSupported)
+        assertEquals(listOf(1), RuntimeSupportAssessment.schemasFor(support))
+        RuntimeComponentProbe.record(true)
+        try {
+            support = RuntimeSupportAssessment.assess(
+                isFeatureSupported = { true },
+                componentProbePassed = RuntimeComponentProbe.passed,
+            )
+            assertTrue(support.componentRuntimeSupported)
+            assertEquals(listOf(1, 2), RuntimeSupportAssessment.schemasFor(support))
+        } finally {
+            RuntimeComponentProbe.record(false)
+        }
+    }
+
     @Test fun generatedCapabilitiesMatchWidgetDiscovery() {
         val caps = WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES
         assertTrue(caps.isNotEmpty())

@@ -99,8 +99,23 @@ class TrustedRuntimeWebView(
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
                 shouldBlockTopLevelNavigation(view, url)
 
+            override fun onPageFinished(view: WebView, url: String) {
+                super.onPageFinished(view, url)
+                // Prove the installed WebView runs the Widget runtime
+                // contract before its capabilities are ever advertised.
+                if (!probeDispatched && url == TrustedRuntimeOrigin.entryUrl) {
+                    probeDispatched = true
+                    RuntimeComponentProbe.run(view)
+                }
+            }
+
+            private var probeDispatched = false
+
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 val dead = crashPolicy.onRendererGone()
+                // Capabilities must be re-proven on the recreated WebView,
+                // never inherited from the dead renderer.
+                RuntimeComponentProbe.record(false)
                 onRendererGone(dead)
                 view.post {
                     runCatching {
