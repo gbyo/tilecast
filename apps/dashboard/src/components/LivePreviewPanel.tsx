@@ -121,9 +121,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   }, [preview.data?.capturedAt]);
 
   const displayState: LivePreviewDisplayState =
-    imageLoadFailed &&
-    imageUrl &&
-    (state === "live" || state === "stale")
+    imageLoadFailed && imageUrl && (state === "live" || state === "stale")
       ? "image-error"
       : state;
   const capturedAt = preview.data?.capturedAt
