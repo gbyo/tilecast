@@ -1,10 +1,6 @@
 import { cn } from "cn";
 import type { ComponentProps } from "react";
-import {
-  ChevronDown,
-  ChevronRight,
-  type LucideProps,
-} from "lucide-react";
+import { ChevronDown, ChevronRight, type LucideProps } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent as VegaCollapsibleContent,
