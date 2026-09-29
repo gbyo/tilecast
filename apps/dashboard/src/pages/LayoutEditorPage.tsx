@@ -3375,7 +3375,6 @@ export function LayoutEditorPage() {
                   }
                   assetsById={previewContentByID}
                   previewValues={previewValues}
-                  live={liveData}
                   playbackPreview
                 />
               ))}
@@ -3464,7 +3463,6 @@ function PlacementView({
   playlist,
   assetsById,
   previewValues,
-  live,
   playbackPreview = false,
   selected = false,
   onPointerDown,
@@ -3477,7 +3475,6 @@ function PlacementView({
   playlist?: Playlist;
   assetsById?: Map<string, Asset>;
   previewValues?: Record<string, Record<string, string>>;
-  live?: LivePreviewData;
   playbackPreview?: boolean;
   selected?: boolean;
   onPointerDown?: (event: ReactPointerEvent) => void;
@@ -3553,7 +3550,7 @@ function PlacementView({
           </div>
         )
       ) : item.type === "widget" ? (
-        live && content?.widget ? (
+        content?.widget ? (
           <WidgetLivePreview asset={content} item={item} />
         ) : (
           <AppPlacementPreview asset={content} item={item} />
