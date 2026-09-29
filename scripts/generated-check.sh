@@ -17,6 +17,10 @@ set -- \
   widgets/plugin_widgets.gen.go \
   data-sources/plugin_sources.gen.go \
   packages/player-runtime/src/widgets/capabilities.gen.ts \
+  packages/player-runtime/src/compat/projection/presentation-capabilities.gen.ts \
+  apps/edge/tilecastd/src/presentation_capabilities.rs \
+  apps/player-android/app/src/main/java/org/tilecast/player/network/PresentationCapabilities.gen.kt \
+  apps/server/internal/presentationcaps/capabilities.gen.go \
   packages/api-client/internal/generated \
   packages/api-schema/generated
 

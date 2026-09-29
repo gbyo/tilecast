@@ -25,11 +25,7 @@ import kotlinx.serialization.SerialName
 )
 object PlayerPresentationSupport {
     val schemas = listOf(1)
-    val native = mapOf(
-        "layout.surface" to 1, "layout.box" to 1, "layout.row" to 1, "layout.column" to 1, "layout.stack" to 1, "layout.grid" to 1, "layout.spacer" to 1, "layout.divider" to 1,
-        "content.text" to 1, "content.icon" to 2, "content.asset_image" to 2, "content.badge" to 1, "content.progress" to 2, "content.qr_code" to 1, "content.marquee" to 1, "content.line_chart" to 2, "content.bar_chart" to 2, "content.donut_chart" to 2,
-        "collection.repeat" to 2, "collection.conditional" to 2, "collection.grouped_sections" to 1, "binding.core" to 2, "format.typed" to 2, "selection.relative_date" to 1, "selection.temporal" to 1, "playback.auto_skip" to 1,
-    )
+    val native = PresentationCapabilities.BASELINE_DECLARATIVE_PRESENTATION_CAPABILITIES
     const val webRuntimeVersion = 2
     const val webBundleLimitBytes = 20L * 1024 * 1024
 }

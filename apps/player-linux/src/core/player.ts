@@ -107,6 +107,7 @@ import {
   renderWidget,
 } from "@tilecast/player-runtime/projection";
 import { WIDGET_COMPONENT_CAPABILITIES } from "@tilecast/player-runtime/widget-capabilities";
+import { SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES } from "@tilecast/player-runtime/presentation-capabilities";
 import type { RuntimeWidgetComponentPayload } from "@tilecast/player-runtime/host-contract";
 import {
   renderLayout,
@@ -2752,37 +2753,8 @@ export class PlayerRuntime {
       // 1: declarative presentations; 2: first-class Widget components.
       presentationSchemaVersions: [1, 2],
       nativePresentationCapabilities: {
-        "layout.surface": 1,
-        "layout.box": 1,
-        "layout.row": 1,
-        "layout.column": 1,
-        "layout.stack": 1,
-        "layout.grid": 1,
-        "layout.spacer": 1,
-        "layout.divider": 1,
-        "content.text": 1,
-        "content.icon": 2,
-        "content.asset_image": 2,
-        "content.badge": 1,
-        "content.progress": 2,
-        "content.qr_code": 1,
-        "content.marquee": 1,
-        "content.line_chart": 2,
-        "content.bar_chart": 2,
-        "content.donut_chart": 2,
-        "collection.repeat": 2,
-        "collection.conditional": 2,
-        "collection.grouped_sections": 1,
-        "binding.core": 2,
-        "format.typed": 2,
-        "selection.relative_date": 1,
-        "selection.temporal": 1,
-        "playback.auto_skip": 1,
-        // The shared projection keeps Clock, Countdown and World Clock
-        // ticking in place, so time-bound widgets are supported.
-        "environment.time": 1,
-        // widget.<type> for every Widget the bundled runtime renders
-        // (generated from widgets/*/tilecast.widget.json).
+        ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
+        // widget.<type> stays generated from Widget manifests by widgetctl.
         ...WIDGET_COMPONENT_CAPABILITIES,
       },
       webRuntimeVersion: 2,

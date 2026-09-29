@@ -68,6 +68,7 @@ pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;
 pub mod schedule;
+pub mod presentation_capabilities;
 pub mod self_test;
 pub mod server_link;
 pub mod supervisor;
