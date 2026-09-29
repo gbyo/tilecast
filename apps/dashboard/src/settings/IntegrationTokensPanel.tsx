@@ -153,7 +153,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
         csrf,
       ),
     onSuccess: (data) => {
-      toast.add({ title: "Integration token created.", type: "success" });
+      toast.add({ title: t("integrations.created"), type: "success" });
       setSecret(data.secret);
       setNotice(data.notice);
       setName("");
@@ -175,7 +175,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
       return api.revokeIntegrationToken(token.id, csrf);
     },
     onSuccess: () => {
-      toast.add({ title: "Integration token revoked.", type: "success" });
+      toast.add({ title: t("integrations.revoked"), type: "success" });
       return refresh();
     },
   });

@@ -1181,7 +1181,9 @@
     "loadingSources": "Loading Data Sources…",
     "noSources": "No Manual Table Data Sources exist yet.",
     "creating": "Creating…",
-    "createAction": "Create token"
+    "createAction": "Create token",
+    "created": "Integration token created.",
+    "revoked": "Integration token revoked."
   },
   "locations": {
     "searchLabel": "Search locations",

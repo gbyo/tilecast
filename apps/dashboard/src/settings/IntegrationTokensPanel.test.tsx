@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { IntegrationTokensPanel } from "./IntegrationTokensPanel";
 import { api } from "../api/client";
+import { i18n } from "../i18n";
+import { toast } from "../components/ui/toast";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({ status: { csrfToken: "csrf", user: { role: "owner" } } }),
@@ -34,9 +42,10 @@ describe("Integration tokens", () => {
       }),
     );
   });
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("keeps token management to the Owner", () => {
@@ -172,6 +181,70 @@ describe("Integration tokens", () => {
     expect(await screen.findByText("Expired")).toBeTruthy();
     expect(screen.queryByText("Revoked")).toBe(null);
     expect(screen.getByText(/Expiry /)).toBeTruthy();
+  });
+
+  it("announces token creation in the active locale", async () => {
+    await i18n.changeLanguage("es");
+    const add = vi.spyOn(toast, "add");
+    vi.spyOn(api, "createIntegrationToken").mockResolvedValue({
+      token: {
+        id: "t1",
+        name: "Menu importer",
+        publicId: "abc",
+        scopes: ["data_source:write"],
+        dataSourceIds: [],
+        createdAt: "2026-03-04T12:00:00Z",
+      },
+      secret: "tci_abc.secret",
+      notice: "",
+    });
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText("Nombre"), "Menu importer");
+    await user.click(screen.getByRole("button", { name: "Crear token" }));
+
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Token de integración creado.",
+          type: "success",
+        }),
+      ),
+    );
+  });
+
+  it("announces token revocation in the active locale", async () => {
+    await i18n.changeLanguage("es");
+    const add = vi.spyOn(toast, "add");
+    vi.spyOn(api, "integrationTokens").mockResolvedValue([
+      {
+        id: "t1",
+        name: "Old importer",
+        publicId: "abc",
+        scopes: ["data_source:write"],
+        dataSourceIds: [],
+        createdAt: "2026-03-01T12:00:00Z",
+      },
+    ]);
+    vi.spyOn(api, "revokeIntegrationToken").mockResolvedValue(undefined);
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Revocar Old importer" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Revocar" }));
+
+    await waitFor(() =>
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Token de integración revocado.",
+          type: "success",
+        }),
+      ),
+    );
   });
 
   it("sends the named Data Source limits with a write token", async () => {
