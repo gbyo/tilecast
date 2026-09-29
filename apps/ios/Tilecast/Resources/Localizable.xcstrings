@@ -1021,6 +1021,12 @@
         "ru": { "stringUnit": { "state": "translated", "value": "Войти" } }
       }
     },
+    "Sign Out": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Cerrar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
+      }
+    },
     "Sign In to Tilecast": {
       "localizations": {
         "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión en Tilecast" } },

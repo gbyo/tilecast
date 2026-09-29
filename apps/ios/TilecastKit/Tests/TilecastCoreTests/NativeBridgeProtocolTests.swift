@@ -27,6 +27,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         let outcome: String
         let destinationIDs: [String]?
         let encodes: String?
+        let frontendCapabilities: [String: Bool]?
         let message: Any
         var testDescription: String { name }
     }
@@ -45,6 +46,7 @@ func foundationJSON(_ data: Data) throws -> Any {
                 outcome: entry["outcome"] as? String ?? "",
                 destinationIDs: entry["destinationIds"] as? [String],
                 encodes: entry["encodes"] as? String,
+                frontendCapabilities: entry["frontendCapabilities"] as? [String: Bool],
                 message: entry["message"] ?? NSNull()
             )
         }
@@ -78,6 +80,13 @@ func foundationJSON(_ data: Data) throws -> Any {
             }
             #expect(catalog.destinations.map(\.id) == expected)
         }
+        if let expected = entry.frontendCapabilities {
+            guard case .accept(.frontendReady(let capabilities), _) = decoded else {
+                Issue.record("\(entry.name) should decode as frontend/ready")
+                return
+            }
+            #expect(capabilities.authLifecycle == expected["authLifecycle"])
+        }
     }
 
     /// Messages the app sends must match the corpus exactly, so Studio's
@@ -86,7 +95,11 @@ func foundationJSON(_ data: Data) throws -> Any {
     func encodesLikeTheSharedCorpus(_ entry: FixtureCase) throws {
         let encoded: JSONValue = switch entry.encodes {
         case "navigationRequest": NativeBridgeProtocol.navigationRequest(destinationID: "layouts")
-        case "configGetReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(nativeNavigation: true))
+        case "signOutRequest": NativeBridgeProtocol.signOutRequest()
+        case "configGetReply": NativeBridgeProtocol.reply(
+            id: nil,
+            payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)
+        )
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])
         case "unknownTypeReply": NativeBridgeProtocol.reply(id: nil, error: .unknownType)
         case "unsupportedVersionReply": NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion)
@@ -129,6 +142,29 @@ func foundationJSON(_ data: Data) throws -> Any {
     @Test func refusesValuesThatAreNotJSON() {
         #expect(NativeBridgeProtocol.decode(["version": 1, "type": "config/get", "payload": ["when": Date()]]) == .malformed(type: nil, id: nil))
         #expect(NativeBridgeProtocol.decode(["version": Double.nan, "type": "config/get", "payload": [:]]) == .malformed(type: nil, id: nil))
+    }
+
+    /// Everything the app can put on the bridge. None of it may carry a
+    /// credential, whatever state the app is in.
+    @Test func nativeMessagesCarryNoCredentials() throws {
+        let messages: [JSONValue] = [
+            NativeBridgeProtocol.signOutRequest(),
+            NativeBridgeProtocol.navigationRequest(destinationID: "alpha"),
+            NativeBridgeProtocol.reply(id: "c1", payload: NativeBridgeProtocol.configPayload(nativeNavigation: true, authLifecycle: true)),
+            NativeBridgeProtocol.reply(id: nil, payload: [:]),
+            NativeBridgeProtocol.reply(id: nil, error: .forbidden),
+        ]
+        for message in messages {
+            let json = try #require(String(data: JSONSerialization.data(withJSONObject: message.foundation), encoding: .utf8))
+            for forbidden in ["tca_", "tcr_", "token", "cookie", "csrf", "password", "secret", "Bearer"] {
+                #expect(!json.localizedCaseInsensitiveContains(forbidden), "\(json) mentions \(forbidden)")
+            }
+        }
+    }
+
+    @Test func treatsOnlyTrueAsAFrontendCapability() {
+        let decoded = NativeBridgeProtocol.decode(["version": 1, "type": "frontend/ready", "payload": ["capabilities": ["authLifecycle": "yes"]]])
+        #expect(decoded == .accept(.frontendReady(.init(authLifecycle: false)), id: nil))
     }
 
     @Test func echoesAValidRequestID() {

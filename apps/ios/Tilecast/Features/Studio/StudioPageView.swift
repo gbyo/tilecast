@@ -35,6 +35,7 @@ struct StudioPageView: View {
                         } else {
                             Button("Sign In") { beginSignIn() }
                                 .buttonStyle(.borderedProminent)
+                                .accessibilityIdentifier("studio.signIn")
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -99,10 +100,22 @@ struct StudioPageView: View {
     private func perform(_ events: [StudioPageEvent]) {
         for event in events {
             switch event {
-            case .signIn: beginSignIn()
+            case .signIn: resumeSession()
             case .openExternally(let url): openURL(url)
             case .unsupportedDownload: showingDownloadNotice = true
             }
+        }
+    }
+
+    /// Studio needs a session. The host renews it from the native credential
+    /// when it can, and waits for the user after an explicit sign-out.
+    private func resumeSession() {
+        guard !signingIn else { return }
+        signingIn = true
+        Task {
+            let step = await host.resumeSession(for: page)
+            signingIn = false
+            if step == .presentBrowser { beginSignIn() }
         }
     }
 
@@ -112,7 +125,7 @@ struct StudioPageView: View {
         Task {
             defer { signingIn = false }
             do {
-                try await systemSignIn.authenticate(page: page)
+                try await systemSignIn.authenticate(page: page, host: host)
             } catch {
                 let nsError = error as NSError
                 let cancelled = nsError.domain == ASWebAuthenticationSessionError.errorDomain &&

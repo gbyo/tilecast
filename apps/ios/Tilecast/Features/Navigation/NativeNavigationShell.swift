@@ -114,6 +114,7 @@ struct MoreView: View {
                 Button("Add Server…", systemImage: "plus", action: actions.add)
                 Button("Manage Servers…", systemImage: "gearshape", action: actions.manage)
                 Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                SignOutButton(page: page)
             }
         }
         .navigationTitle(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"))
@@ -143,6 +144,7 @@ struct NativeSidebarNavigation: View {
                         ServerMenuItems(actions: actions)
                         Divider()
                         Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                        SignOutButton(page: page)
                     } label: {
                         Label(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"), systemImage: "server.rack")
                     }
