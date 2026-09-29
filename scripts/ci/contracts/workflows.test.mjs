@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { parse } from "yaml";
+
+const aggregateEnv = (validations, overrides = {}) => {
+  const env = { ...process.env, CHANGES_RESULT: "success" };
+  for (const job of validations.filter((job) => job !== "changes")) {
+    const prefix = job.toUpperCase();
+    env[`${prefix}_SELECTED`] = "false";
+    env[`${prefix}_RESULT`] = "skipped";
+  }
+  return { ...env, ...overrides };
+};
 
 test("workflow YAML and aggregate dependencies stay complete", () => {
   for (const file of readdirSync(".github/workflows").filter((file) =>
@@ -21,16 +32,63 @@ test("workflow YAML and aggregate dependencies stay complete", () => {
       `${file}: aggregate must include every job`,
     );
     assert.equal(jobs.required.if, "always()");
-    const check = jobs.required.steps.find((step) => step.env?.SELECTIONS);
-    assert.ok(
-      check,
-      `${file}: aggregate must verify selected jobs, including skipped results`,
+    const check = jobs.required.steps.find(
+      (step) => step.env?.CHANGES_RESULT && step.run,
     );
-    for (const job of validations.filter((job) => job !== "changes"))
+    assert.ok(check, `${file}: aggregate must verify selected jobs`);
+    for (const job of validations.filter((job) => job !== "changes")) {
+      const prefix = job.toUpperCase();
       assert.ok(
-        check.env.SELECTIONS.includes(`"${job}":`),
+        Object.hasOwn(check.env, `${prefix}_SELECTED`),
         `${file}: missing ${job} selection`,
       );
+      assert.ok(
+        Object.hasOwn(check.env, `${prefix}_RESULT`),
+        `${file}: missing ${job} result`,
+      );
+      assert.match(
+        check.run,
+        new RegExp(`check ${job} `),
+        `${file}: aggregate does not check ${job}`,
+      );
+    }
+
+    const passing = spawnSync("bash", ["-c", check.run], {
+      env: aggregateEnv(validations),
+      encoding: "utf8",
+    });
+    assert.equal(
+      passing.status,
+      0,
+      `${file}: unselected skipped jobs should pass\n${passing.stderr}`,
+    );
+
+    const selectedJob = validations.find((job) => job !== "changes");
+    if (selectedJob) {
+      const prefix = selectedJob.toUpperCase();
+      const selectedSkip = spawnSync("bash", ["-c", check.run], {
+        env: aggregateEnv(validations, {
+          [`${prefix}_SELECTED`]: "true",
+          [`${prefix}_RESULT`]: "skipped",
+        }),
+        encoding: "utf8",
+      });
+      assert.notEqual(
+        selectedSkip.status,
+        0,
+        `${file}: a selected skipped job must fail closed`,
+      );
+    }
+
+    const detectorFailure = spawnSync("bash", ["-c", check.run], {
+      env: aggregateEnv(validations, { CHANGES_RESULT: "failure" }),
+      encoding: "utf8",
+    });
+    assert.notEqual(
+      detectorFailure.status,
+      0,
+      `${file}: detector failure must fail the aggregate`,
+    );
   }
 });
 
@@ -45,17 +103,23 @@ test("reusable jobs resolve to a workflow_call contract", () => {
   }
 });
 
-test("change detectors need no npm install or workflow-YAML dependencies", () => {
+test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
     const steps = workflow.jobs.changes.steps;
     assert.ok(
-      steps.some((step) => step.run === "node --test scripts/ci/*.test.mjs"),
+      steps.some(
+        (step) => step.run === "node --test scripts/ci/affected.test.mjs",
+      ),
       file,
     );
     assert.ok(
       !steps.some((step) => /npm\s+(ci|install)/.test(step.run ?? "")),
       file,
+    );
+    assert.ok(
+      !steps.some((step) => /doctor\.test|required\.test/.test(step.run ?? "")),
+      `${file}: non-classifier helper tests must not delay fan-out`,
     );
   }
   const pr = parse(readFileSync(".github/workflows/pr-validation.yml", "utf8"));
@@ -63,9 +127,15 @@ test("change detectors need no npm install or workflow-YAML dependencies", () =>
   assert.ok(pr.jobs.required.needs.includes("ci_contract"));
   const contract = parse(readFileSync(pr.jobs.ci_contract.uses, "utf8"));
   const steps = contract.jobs.validate.steps;
+  const helperTests = steps.findIndex(
+    (step) =>
+      /doctor\.test\.mjs/.test(step.run ?? "") &&
+      /required\.test\.mjs/.test(step.run ?? ""),
+  );
   const install = steps.findIndex((step) => /npm ci/.test(step.run ?? ""));
   const tests = steps.findIndex((step) =>
     /scripts\/ci\/contracts\//.test(step.run ?? ""),
   );
+  assert.ok(helperTests >= 0 && helperTests < install);
   assert.ok(install >= 0 && tests > install);
 });
