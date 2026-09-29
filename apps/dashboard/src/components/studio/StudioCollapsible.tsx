@@ -1,4 +1,5 @@
 import { cn } from "cn";
+import type { ComponentProps } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -13,7 +14,7 @@ import {
 function CollapsibleTrigger({
   className,
   ...props
-}: React.ComponentProps<typeof VegaCollapsibleTrigger>) {
+}: ComponentProps<typeof VegaCollapsibleTrigger>) {
   return (
     <VegaCollapsibleTrigger
       className={cn("group/studio-collapsible-trigger", className)}
@@ -25,7 +26,7 @@ function CollapsibleTrigger({
 function CollapsibleContent({
   className,
   ...props
-}: React.ComponentProps<typeof VegaCollapsibleContent>) {
+}: ComponentProps<typeof VegaCollapsibleContent>) {
   return (
     <VegaCollapsibleContent
       className={cn(
