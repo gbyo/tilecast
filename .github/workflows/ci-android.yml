@@ -73,7 +73,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build --workspace @tilecast/player-runtime
+      - name: Build the shared runtime and Electron reference host
+        # The Linux Player workspace prebuilds Player Runtime, then emits the
+        # runtime-protocol module imported by the Electron conformance runner.
+        run: npm run build --workspace @gibsonmb71/tilecast-player-linux
       - name: Build Electron image (reference engine)
         uses: ./.github/actions/edge-images
         with:
