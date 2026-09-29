@@ -20,8 +20,9 @@ test("development images never claim a stable alias", () => {
   assert.deepEqual(image.on.push.tags ?? [], []);
   assert.deepEqual(image.on.push.branches, ["main"]);
 
-  const tags = image.jobs.build.steps.find((step) => step.id === "meta").with
-    .tags;
+  const tags = image.jobs.build.steps.find(
+    (step) => step.id === "meta",
+  ).with.tags;
   assert.match(tags, /value=development/);
   assert.match(tags, /type=sha/);
   assert.doesNotMatch(raw, /value=latest/);
