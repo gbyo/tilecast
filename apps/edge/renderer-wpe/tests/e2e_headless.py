@@ -443,13 +443,13 @@ def scenario_website(args):
             # without this phase barrier the helper can be killed during the
             # fullscreen Website, whose failure retry can legitimately keep the
             # playlist there long enough to make the image assertion flaky.
-            phase_mark = log_lines(stack)
+            #
+            # Use the live status surface rather than evidence_accepted logs:
+            # those logs intentionally record most (item, kind) pairs only once
+            # per activation, while currentItemId changes on every item start.
             wait_for(
-                "a Layout item start before the helper crash",
-                lambda: [
-                    e for e in accepted_evidence(stack, phase_mark)
-                    if e[0] == "item_started" and e[1] == "item-layout"
-                ],
+                "the Layout item before the helper crash",
+                lambda: stack.status()["renderer"].get("currentItemId") == "item-layout",
                 timeout=30,
                 interval=0.25,
             )
