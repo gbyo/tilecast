@@ -134,6 +134,10 @@ func (s *server) oauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 	switch body.GrantType {
 	case "authorization_code":
+		if body.ClientID == oauth.ClientIOS {
+			writeError(w, http.StatusBadRequest, "invalid_request", "Use the iOS session endpoint for this client.")
+			return
+		}
 		tokens, grantID, err := s.oauth.Exchange(r.Context(), body.ClientID, body.Code, body.RedirectURI, body.Verifier)
 		if err != nil {
 			writeOAuthTokenError(w, err)
@@ -180,6 +184,56 @@ func (s *server) oauthToken(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusBadRequest, "unsupported_grant_type", "Only authorization_code and refresh_token are supported.")
 	}
+}
+
+// oauthIOSSession turns a one-time iOS authorization code into a normal
+// dashboard cookie. The temporary OAuth grant is revoked before the cookie
+// leaves the server; the app never stores an API credential.
+func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
+	var body oauthTokenRequest
+	if err := decodeJSON(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if body.GrantType != "authorization_code" || body.ClientID != oauth.ClientIOS || body.RedirectURI != oauth.IOSRedirectURI || body.RefreshToken != "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "An iOS authorization code is required.")
+		return
+	}
+	_, grantID, err := s.oauth.Exchange(r.Context(), body.ClientID, body.Code, body.RedirectURI, body.Verifier)
+	if err != nil {
+		writeOAuthTokenError(w, err)
+		return
+	}
+	grant, err := s.oauth.GrantByID(r.Context(), grantID)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if err := s.oauth.RevokeGrant(r.Context(), grant.UserID, grantID); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	user, err := s.activeUser(r.Context(), grant.UserID)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if !user.Active {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "The account is no longer active.")
+		return
+	}
+	pending, err := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	session, err := s.auth.IssueSessionWithEnrollment(r.Context(), grant.UserID, "oauth", pending)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "The account is no longer active.")
+		return
+	}
+	s.setSessionCookie(w, session)
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"authenticated": true}})
 }
 
 // oauthRevoke revokes the grant behind a presented credential.

@@ -13,6 +13,7 @@ public enum StudioLoadFailure: Equatable, Sendable {
 
 /// Side effects the navigation policy asks the host UI to perform.
 public enum StudioPageEvent: Equatable, Sendable {
+    case signIn
     case openExternally(URL)
     case unsupportedDownload
 }
@@ -76,9 +77,12 @@ public final class StudioPage {
     public let serverID: UUID
     public let address: ServerAddress
     public let webPage: WebPage
+    public let websiteDataStore: WKWebsiteDataStore
     /// The native bridge. Only this main page has one.
     public let bridge: StudioBridge
     public private(set) var phase: Phase = .loading
+    public private(set) var signInRequired = false
+    public private(set) var isClosed = false
     /// A same-origin page Studio asked to open in a new window. At most one
     /// exists; it shares this server's data store and navigation policy.
     public private(set) var auxiliaryPage: WebPage?
@@ -88,7 +92,6 @@ public final class StudioPage {
     @ObservationIgnored private var monitor: Task<Void, Never>?
     @ObservationIgnored private var recentTerminations: [Date] = []
     @ObservationIgnored private let initialURL: URL
-    @ObservationIgnored private let dataStore: WKWebsiteDataStore
     @ObservationIgnored private let applicationName: String
     @ObservationIgnored private let policy: StudioNavigationPolicy
 
@@ -96,7 +99,9 @@ public final class StudioPage {
     public init(profile: ServerProfile, dataStore: WKWebsiteDataStore, applicationName: String) {
         serverID = profile.id
         address = profile.address
-        initialURL = profile.lastStudioPath.flatMap { profile.address.url(forPath: $0) } ?? profile.address.url
+        websiteDataStore = dataStore
+        let restored = profile.lastStudioPath.flatMap { profile.address.url(forPath: $0) }
+        initialURL = restored?.path == "/login" ? profile.address.url : (restored ?? profile.address.url)
 
         let bridge = StudioBridge(origin: profile.address.origin)
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
@@ -104,7 +109,6 @@ public final class StudioPage {
 
         let policy = StudioNavigationPolicy(origin: profile.address.origin)
         let sink = StudioNavigationSink()
-        self.dataStore = dataStore
         self.applicationName = applicationName
         self.policy = policy
         self.bridge = bridge
@@ -149,9 +153,24 @@ public final class StudioPage {
         }
     }
 
+    public func resumeAfterSignIn() {
+        signInRequired = false
+        phase = .loading
+        webPage.load(initialURL)
+    }
+
+    /// React Router can reach /login with history.pushState, which does not
+    /// create a WebKit navigation action for the decider to intercept.
+    public func requireSignInIfNeeded(at url: URL?) {
+        guard let url, WebOrigin(url) == address.origin, url.path == "/login", !signInRequired else { return }
+        signInRequired = true
+        pendingEvents.append(.signIn)
+    }
+
     /// Stops loading and releases WebKit work. Call before the data store is
     /// deleted or when the server stops being active.
     public func close() {
+        isClosed = true
         monitor?.cancel()
         monitor = nil
         webPage.stopLoading()
@@ -180,6 +199,9 @@ public final class StudioPage {
     func handle(_ decision: StudioNavigationDecision) {
         switch decision {
         case .allow, .cancel: break
+        case .signIn:
+            signInRequired = true
+            pendingEvents.append(.signIn)
         case .openExternally(let url): pendingEvents.append(.openExternally(url))
         case .openAuxiliary(let url): openAuxiliaryPage(url)
         case .unsupportedDownload: pendingEvents.append(.unsupportedDownload)
@@ -197,7 +219,7 @@ public final class StudioPage {
         // privileged bridge belongs to the main page only.
         let sink = StudioNavigationSink()
         let page = WebPage(
-            configuration: Self.configuration(dataStore: dataStore, applicationName: applicationName),
+            configuration: Self.configuration(dataStore: websiteDataStore, applicationName: applicationName),
             navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
         )
         sink.page = self

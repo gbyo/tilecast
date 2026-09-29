@@ -49,9 +49,12 @@ swift test
 
 The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them on an iPhone and an iPad simulator whenever a pull request changes `apps/ios/` or the native bridge contract. The UI tests use a small local stand-in server, so they don't need a real Tilecast server or the internet.
 
+## Sign in
+
+On sign-in, iOS shows its system authentication consent sheet for the configured server, then opens that server in the system authentication browser. Passwords, passkeys, authenticator codes, and recovery codes stay on the server's real origin. After approval, the app receives an ordinary Studio session for that server. See the [iOS authentication contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#authentication).
+
 ## Known limitations
 
-- You sign in inside the embedded Studio page. Passkey sign-in doesn't work there yet. Native sign-in arrives in a later milestone.
 - Layout and Playlist previews, which Studio opens in a new window, don't open in the app yet.
 - Downloads, such as a settings export, aren't supported. Use Safari.
 - The app has one window.
