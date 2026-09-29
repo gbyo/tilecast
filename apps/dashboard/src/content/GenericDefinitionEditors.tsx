@@ -166,18 +166,24 @@ export function GenericWidgetEditor({
           : api.createWidget(input, csrf);
       }
 
-      if (!previewRef.current || !compiledPreview.data || sourcesLoading)
-        throw new Error(t("widgets.errors.previewWait"));
-      const previewImage = await captureWidgetPreview(previewRef.current, t);
-      const saved = asset
+      const result = await (asset
         ? api.updateWidget(asset.id, input, csrf)
-        : api.createWidget(input, csrf);
-      const result = await saved;
-      await api.uploadWidgetPreview(result.id, previewImage, csrf);
-      return {
-        ...result,
-        thumbnailUrl: `/api/v1/assets/${encodeURIComponent(result.id)}/thumbnail`,
-      };
+        : api.createWidget(input, csrf));
+
+      if (!previewRef.current || !compiledPreview.data || sourcesLoading)
+        return result;
+      try {
+        const previewImage = await captureWidgetPreview(previewRef.current, t);
+        await api.uploadWidgetPreview(result.id, previewImage, csrf);
+        return {
+          ...result,
+          thumbnailUrl: `/api/v1/assets/${encodeURIComponent(result.id)}/thumbnail`,
+        };
+      } catch {
+        // The saved Widget is authoritative; preview artwork can be rebuilt by
+        // the existing backfill path without making Retry duplicate a create.
+        return result;
+      }
     },
     onSuccess: (saved) => {
       toast.add({
