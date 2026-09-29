@@ -52,6 +52,7 @@
   },
   "demo": {
     "title": "Modo de demostración",
-    "description": "Esta instalación contiene datos de ejemplo y puede restablecerse automáticamente."
+    "description": "Esta instalación contiene datos de ejemplo y puede restablecerse automáticamente.",
+    "badge": "Demo"
   }
 }

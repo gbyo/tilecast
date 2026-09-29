@@ -611,9 +611,13 @@ function CommandPalette({
 export function StudioTopbar({
   user,
   csrfToken = "",
+  editor = false,
+  demoMode = false,
 }: {
   user?: User;
   csrfToken?: string;
+  editor?: boolean;
+  demoMode?: boolean;
 }) {
   const routes = useStudioRoutes();
   const location = useLocation();
@@ -656,6 +660,8 @@ export function StudioTopbar({
         breadcrumbs={breadcrumbs}
         notifications={notifications}
         onSearch={() => setPaletteOpen(true)}
+        editor={editor}
+        demoMode={demoMode}
       />
       <CommandPalette
         open={paletteOpen}

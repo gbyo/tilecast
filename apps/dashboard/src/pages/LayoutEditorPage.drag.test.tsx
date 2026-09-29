@@ -31,6 +31,16 @@ const canvas: LayoutDocument["canvas"] = {
   safeAreaPercent: 5,
 };
 const defaultMatchMedia = window.matchMedia.bind(window);
+// cmdk (the Add menu) measures and scrolls items, which jsdom lacks.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+if (!Element.prototype.scrollIntoView)
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    value: () => {},
+  });
 
 // A width/height that is not a multiple of 10 so `canvas.width - width` and
 // `canvas.height - height` are not multiples of 10 either. This is what
@@ -168,6 +178,13 @@ function mockDesktop() {
   });
 }
 
+async function openLayers() {
+  fireEvent.click(screen.getByRole("button", { name: "Layers" }));
+  return within(await screen.findByRole("dialog", { name: "Layers" }));
+}
+
+const saveStatus = () => screen.getAllByRole("status")[0]!;
+
 describe("Layout editor drag: snap-then-clamp", () => {
   it("keeps a dragged item fully inside the canvas even when snapping would push it out of bounds", async () => {
     mockAuth();
@@ -220,7 +237,7 @@ describe("Layout editor drag: snap-then-clamp", () => {
     const placement = await screen.findByText("New text");
     const placementEl = placement.closest(".layout-placement")!;
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Snap" }));
+    fireEvent.click(screen.getByRole("button", { name: "Snap" }));
 
     // Same delta as the snapping test, but now expect the exact unrounded
     // position: 100 + 23 = 123, 100 + 27 = 127.
@@ -282,43 +299,42 @@ describe("Layout editor drag: snap-then-clamp", () => {
       } as Asset,
     ]);
 
-    const addButton = await screen.findByTitle("Add Poster");
-    expect(addButton.querySelector("img")).toHaveAttribute(
-      "draggable",
-      "false",
-    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Add to canvas" }));
+    const recent = await screen.findByTitle("Add Poster");
+    expect(recent).toHaveAttribute("draggable", "true");
+    expect(recent.querySelector("img")).toHaveAttribute("draggable", "false");
   });
 });
 
 describe("Layout editor chrome", () => {
-  it("keeps three stable panes and shows Layout settings when nothing is selected", async () => {
+  it("shows Layout settings from the dock and the inspector card for a selection", async () => {
     mockAuth();
     mockDesktop();
     renderLayoutEditor();
     await screen.findByText("New text");
 
-    const panes = screen.getByRole("group", {
-      name: "Layout library, canvas, and inspector",
-    });
-    expect(panes.querySelectorAll("[data-panel]")).toHaveLength(3);
+    expect(screen.queryByRole("complementary")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Layout settings" }));
     const settings = screen.getByRole("complementary", {
       name: "Layout settings",
     });
     expect(
       within(settings).getByRole("combobox", { name: "Canvas preset" }),
     ).toBeInTheDocument();
-    // The canvas settings are not duplicated in the library pane.
-    expect(screen.queryByRole("tab", { name: "Settings" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    const layers = await openLayers();
+    fireEvent.click(layers.getByRole("button", { name: "Text" }));
     expect(
       await screen.findByRole("complementary", { name: "Layer inspector" }),
     ).toHaveTextContent("1 selected");
-    expect(panes.querySelectorAll("[data-panel]")).toHaveLength(3);
     expect(
       screen.queryByRole("complementary", { name: "Layout settings" }),
     ).toBeNull();
+    expect(
+      screen.getByRole("toolbar", { name: "Selection actions" }),
+    ).toBeInTheDocument();
   });
 
   it("groups Undo and Redo and keeps file commands in the Menubar", async () => {
@@ -355,17 +371,15 @@ describe("Layout editor chrome", () => {
     renderLayoutEditor();
     const placement = await screen.findByText("New text");
 
-    expect(screen.getByRole("status")).toHaveTextContent("Saved");
+    expect(saveStatus()).toHaveTextContent("Saved");
     expect(screen.queryByRole("button", { name: /Saved/ })).toBeNull();
 
     dragBy(placement.closest(".layout-placement")!, 20, 20);
-    expect(screen.getByRole("status")).toHaveTextContent("Unsaved");
+    expect(saveStatus()).toHaveTextContent("Unsaved");
     await waitFor(() => expect(api.saveLayoutDraft).toHaveBeenCalled(), {
       timeout: 2_000,
     });
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved"),
-    );
+    await waitFor(() => expect(saveStatus()).toHaveTextContent("Saved"));
   });
 
   it("offers a retry when a save fails", async () => {
@@ -375,14 +389,11 @@ describe("Layout editor chrome", () => {
     const placement = await screen.findByText("New text");
 
     dragBy(placement.closest(".layout-placement")!, 20, 20);
-    await waitFor(
-      () => expect(screen.getByRole("status")).toHaveTextContent("Not saved"),
-      { timeout: 2_000 },
-    );
+    await waitFor(() => expect(saveStatus()).toHaveTextContent("Not saved"), {
+      timeout: 2_000,
+    });
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Saved"),
-    );
+    await waitFor(() => expect(saveStatus()).toHaveTextContent("Saved"));
   });
 });
 
@@ -459,9 +470,9 @@ describe("Layout editor layers and zoom controls", () => {
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Select all/ }),
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = await openLayers();
 
-    expect(screen.getAllByRole("button", { name: "Text" })[0]).toHaveAttribute(
+    expect(layers.getByRole("button", { name: "Text" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -471,9 +482,9 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = await openLayers();
 
-    const hide = await screen.findByRole("button", {
+    const hide = await layers.findByRole("button", {
       name: "Hide Text",
     });
     expect(hide.tagName).toBe("BUTTON");
@@ -495,9 +506,9 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = await openLayers();
 
-    const row = screen
+    const row = layers
       .getByRole("button", { name: "Text" })
       .closest("[data-layer-row]")!;
     fireEvent.contextMenu(row);
@@ -525,8 +536,8 @@ describe("Layout editor layers and zoom controls", () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Text" }));
+    const layers = await openLayers();
+    fireEvent.click(layers.getByRole("button", { name: "Text" }));
 
     expect(await screen.findByText("Position & size")).toBeInTheDocument();
     expect(screen.getByText("Appearance")).toBeInTheDocument();
@@ -536,30 +547,46 @@ describe("Layout editor layers and zoom controls", () => {
     expect(screen.getByLabelText("Layer name")).toBeInTheDocument();
   });
 
-  it("switches library sections as tabs and keeps the picker until it closes", async () => {
+  it("opens choosers from the Add menu and keeps the picker until it closes", async () => {
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
     const user = userEvent.setup();
 
-    const playlistsTab = screen.getByRole("tab", { name: "Playlists" });
-    await user.click(playlistsTab);
-    expect(playlistsTab).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("tab", { name: "Media" })).toHaveAttribute(
-      "aria-selected",
-      "false",
-    );
-
-    const browse = screen.getByRole("button", { name: "Browse playlists" });
-    await user.click(browse);
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    const openPlaylists = async () => {
+      await user.click(screen.getByRole("button", { name: "Add to canvas" }));
+      await user.click(await screen.findByText("Playlist…"));
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    };
+    await openPlaylists();
     await user.keyboard("{Escape}");
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
 
     // A fresh open works after the previous picker finished closing.
-    await user.click(screen.getByRole("button", { name: "Browse playlists" }));
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await openPlaylists();
+  });
+
+  it("filters the Add menu and arms a drawing tool", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    await screen.findByText("New text");
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add to canvas" }));
+    await user.type(
+      await screen.findByPlaceholderText("Add to canvas…"),
+      "rect",
+    );
+    expect(screen.queryByText("Media…")).toBeNull();
+    await user.click(await screen.findByText("Rectangle"));
+    expect(
+      await screen.findByText(/Click or drag on the canvas/),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByText(/Click or drag on the canvas/)).toBeNull(),
+    );
   });
 });
