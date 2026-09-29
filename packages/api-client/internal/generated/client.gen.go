@@ -7201,6 +7201,7 @@ type Layout struct {
 	Id                    openapi_types.UUID  `json:"id"`
 	Name                  string              `json:"name"`
 	Orientation           LayoutOrientation   `json:"orientation"`
+	PreviewCaptureVersion *int                `json:"previewCaptureVersion,omitempty"`
 	PreviewImageUrl       *string             `json:"previewImageUrl,omitempty"`
 	PublishedAt           *time.Time          `json:"publishedAt,omitempty"`
 	PublishedRevision     *int64              `json:"publishedRevision,omitempty"`
@@ -7408,6 +7409,7 @@ type LayoutSummary struct {
 	Id                    openapi_types.UUID       `json:"id"`
 	Name                  string                   `json:"name"`
 	Orientation           LayoutSummaryOrientation `json:"orientation"`
+	PreviewCaptureVersion *int                     `json:"previewCaptureVersion,omitempty"`
 	PreviewImageUrl       *string                  `json:"previewImageUrl,omitempty"`
 	PublishedAt           *time.Time               `json:"publishedAt,omitempty"`
 	PublishedRevision     *int64                   `json:"publishedRevision,omitempty"`

@@ -21,6 +21,8 @@ export interface PreviewFrame {
   readonly height: number;
 }
 
+export type PreviewFit = "shrink" | "fill";
+
 export function WidgetPreviewHost({
   component,
   resources,
@@ -28,6 +30,7 @@ export function WidgetPreviewHost({
   frame,
   label,
   onState,
+  fit = "shrink",
 }: {
   /** Compiled component config; form edits update it in place. */
   component: WidgetComponentRef;
@@ -37,6 +40,13 @@ export function WidgetPreviewHost({
   frame: PreviewFrame;
   label: string;
   onState?: (state: WidgetMountState) => void;
+  /**
+   * Shrink-only (the standalone authoring editor: a 960px Widget scales
+   * down into a narrow column but never up) or fill (a Layout zone: the
+   * surface scales both below and above 1 to match the displayed zone
+   * while the Widget keeps its logical intrinsic geometry).
+   */
+  fit?: PreviewFit;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -78,7 +88,8 @@ export function WidgetPreviewHost({
 
     const fitToWidth = (availableWidth: number) => {
       if (availableWidth <= 0) return;
-      const nextScale = Math.min(1, availableWidth / frame.width);
+      const ratio = availableWidth / frame.width;
+      const nextScale = fit === "fill" ? ratio : Math.min(1, ratio);
       setPreviewScale((current) =>
         Math.abs(current - nextScale) < 0.001 ? current : nextScale,
       );
@@ -100,25 +111,37 @@ export function WidgetPreviewHost({
     });
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [frame.width]);
+  }, [frame.width, fit]);
 
   // Keep the Widget at the selected intrinsic frame size so its container
   // queries match playback, then scale that whole surface down when the Studio
   // column is narrower. Shrinking only the outer box would crop a 960px Widget
-  // inside a ~600px editor column.
+  // inside a ~600px editor column. Fill mode instead stretches the outer box
+  // to the displayed zone and scales both ways, so a Layout shown above 100%
+  // zoom still fills its placement.
   return (
     <div
       ref={viewportRef}
       role="img"
       aria-label={label}
-      style={{
-        width: `${frame.width}px`,
-        maxWidth: "100%",
-        aspectRatio: `${frame.width} / ${frame.height}`,
-        overflow: "hidden",
-        position: "relative",
-        background: "#000",
-      }}
+      style={
+        fit === "fill"
+          ? {
+              width: "100%",
+              aspectRatio: `${frame.width} / ${frame.height}`,
+              overflow: "hidden",
+              position: "relative",
+              background: "#000",
+            }
+          : {
+              width: `${frame.width}px`,
+              maxWidth: "100%",
+              aspectRatio: `${frame.width} / ${frame.height}`,
+              overflow: "hidden",
+              position: "relative",
+              background: "#000",
+            }
+      }
     >
       <div
         style={{

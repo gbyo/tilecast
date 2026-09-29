@@ -186,7 +186,8 @@
       "image": "Imagen",
       "video": "Video",
       "websiteWidget": "Widget de sitio web",
-      "youtubeWidget": "Widget de YouTube"
+      "youtubeWidget": "Widget de YouTube",
+      "widget": "Widget"
     },
     "upload": {
       "activeCount_one": "{{count}} activa",
@@ -636,6 +637,8 @@
         "statusReady": "Vista previa lista.",
         "statusEmpty": "La vista previa está vacía: {{reason}}",
         "statusError": "La vista previa no se puede mostrar: {{code}}",
+        "sourceError": "Una Fuente de datos conectada no se pudo cargar, por lo que esta vista previa no se puede mostrar. Vuelve a conectar la fuente o inténtalo de nuevo.",
+        "captureFailed": "La vista previa del Widget no se pudo mostrar, por lo que no se guardó nada. Inténtalo de nuevo.",
         "sections": {
           "data": "Datos",
           "content": "Contenido",

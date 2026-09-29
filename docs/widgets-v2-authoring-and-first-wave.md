@@ -1235,7 +1235,21 @@ Widget thumbnails stored for saved V2 Widgets are captured from the real
 `WidgetPreviewHost` only after `WidgetMount` reports `ready` or the
 defined empty state.
 
+Capture from a hidden surface that renders the Widget at the canonical
+960x540 frame. Do not rasterize the author's selected preview size and
+then stretch, crop, or letterbox it: container queries answer differently
+at different geometries, so the thumbnail must be its own real render.
+
+Distinguish failure from emptiness. A Widget with no connected source, or
+with a source that returns a valid empty dataset, keeps its defined empty
+state and stays capturable. A granted connected source that cannot be
+loaded is a preview error: it blocks save and capture, and it is never
+stored as a blank Widget.
+
 Do not capture while source previews are loading.
+
+Generated `::before`/`::after` content is part of the Widget's pixels.
+Preserve it in captures with its computed style.
 
 A snapshot is a library thumbnail, not another renderer.
 

@@ -30,6 +30,7 @@ type Layout struct {
 	CreatedAt             time.Time    `json:"createdAt"`
 	UpdatedAt             time.Time    `json:"updatedAt"`
 	PreviewImageURL       string       `json:"previewImageUrl,omitempty"`
+	PreviewCaptureVersion *int         `json:"previewCaptureVersion,omitempty"`
 	Dependencies          []Dependency `json:"dependencies"`
 	Usage                 Usage        `json:"usage"`
 }
@@ -58,6 +59,7 @@ type Summary struct {
 	CreatedAt             time.Time  `json:"createdAt"`
 	UpdatedAt             time.Time  `json:"updatedAt"`
 	PreviewImageURL       string     `json:"previewImageUrl,omitempty"`
+	PreviewCaptureVersion *int       `json:"previewCaptureVersion,omitempty"`
 }
 
 type PreviewImage struct {

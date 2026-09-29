@@ -8523,6 +8523,7 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
       previewImageUrl?: string;
+      previewCaptureVersion?: number;
       dependencies: components["schemas"]["LayoutDependency"][];
       usage: components["schemas"]["LayoutUsage"];
     };
@@ -8550,6 +8551,7 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
       previewImageUrl?: string;
+      previewCaptureVersion?: number;
     };
     LayoutList: {
       items: components["schemas"]["LayoutSummary"][];

@@ -30,9 +30,14 @@ type PickerT = TFunction<["content", "common"]>;
 
 export function contentTypeLabel(asset: Asset, t: PickerT) {
   if (asset.type === "widget") {
-    return asset.widget?.provider === "youtube"
-      ? t("media.type.youtubeWidget")
-      : t("media.type.websiteWidget");
+    // Only the two remote-web providers keep their specific labels. Native
+    // V2 Widgets (built-in or plugin-provided) share the generic Widget
+    // label so a Clock or Weather entry is never called a Website Widget.
+    if (asset.widget?.provider === "youtube")
+      return t("media.type.youtubeWidget");
+    if (asset.widget?.provider === "website")
+      return t("media.type.websiteWidget");
+    return t("media.type.widget");
   }
   return asset.type === "image" ? t("media.type.image") : t("media.type.video");
 }

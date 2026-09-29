@@ -7,12 +7,19 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { Asset, WidgetPresentation } from "../api/types";
+import type {
+  Asset,
+  ContentDefinitionField,
+  WidgetDefinition,
+  WidgetPresentation,
+} from "../api/types";
 import * as authModule from "../auth/AuthProvider";
+import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import {
   DeclarativePresentationPreview,
   formatCountdownPreview,
@@ -25,6 +32,36 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
+
+function clockComponentDefinition(): WidgetDefinition {
+  return {
+    id: "clock",
+    version: 1,
+    apiVersion: 1,
+    name: "Clock",
+    description: "Show live local time in a configured timezone.",
+    category: "Essentials",
+    icon: "clock",
+    runtime: "native",
+    configurationSchema: clockManifest.configurationSchema as {
+      fields: ContentDefinitionField[];
+    },
+    defaultConfiguration: clockManifest.defaultConfiguration,
+    component: {
+      type: "tilecast.clock",
+      version: 1,
+      tagName: "tc-widget-clock",
+      entrypoint: "./runtime/index.ts",
+      configTemplate: clockManifest.component.configTemplate,
+      dataSourceFields: [],
+      empty: "render",
+    },
+    compatibility: { fallback: "legacy" },
+    presentationSchemaVersion: 1,
+    requiredCapabilities: {},
+    emptyStateBehavior: "text",
+  };
+}
 
 it("renders only ready playlist items in the popup player", async () => {
   vi.spyOn(authModule, "useAuth").mockReturnValue({
@@ -265,27 +302,15 @@ it("loads the saved configuration and renders a native Clock Widget", async () =
       },
     },
   } satisfies Asset);
-  vi.spyOn(api, "compileWidgetPreview").mockResolvedValue({
-    schemaVersion: 1,
-    kind: "native",
-    requiredCapabilities: {},
-    native: {
-      root: {
-        type: "surface",
-        props: { backgroundColor: "#111111", padding: 10 },
-        children: [
-          {
-            type: "text",
-            props: { color: "#ffffff", role: "metric" },
-            binding: {
-              source: "environment",
-              format: "time:24:true:UTC",
-            },
-          },
-        ],
-      },
-    },
+  vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+    revision: "test",
+    compilerVersion: "99",
+    fingerprint: "test",
+    widgets: [clockComponentDefinition()],
+    dataSources: [],
   });
+  vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+  const compile = vi.spyOn(api, "compileWidgetPreview");
   const router = createMemoryRouter(
     [{ path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> }],
     { initialEntries: ["/playlists/p1/preview"] },
@@ -301,18 +326,20 @@ it("loads the saved configuration and renders a native Clock Widget", async () =
     </QueryClientProvider>,
   );
 
-  expect(
-    await screen.findByText((value) => /^\d{2}:\d{2}:\d{2}$/.test(value)),
-  ).toBeInTheDocument();
-  expect(api.asset).toHaveBeenCalledWith("clock-asset");
-  expect(api.compileWidgetPreview).toHaveBeenCalledWith(
-    "clock",
-    expect.objectContaining({ timezone: "UTC", showSeconds: true }),
-    "token",
+  // A migrated Widget renders its real Web Component through the shared
+  // preview surface — the same element the editor, Layout zones, and the
+  // Player mount — never a server-compiled declarative drawing.
+  await waitFor(() =>
+    expect(document.querySelector("tc-widget-clock")).toBeInTheDocument(),
   );
-  expect(
-    document.querySelector<HTMLElement>(".presentation-preview__surface"),
-  ).toHaveStyle({ background: "#111111" });
+  const clock = document.querySelector("tc-widget-clock") as Element;
+  await waitFor(() =>
+    expect(clock.shadowRoot?.textContent?.replace(/\s+/g, "")).toMatch(
+      /([01]\d|2[0-3]):[0-5]\d/,
+    ),
+  );
+  expect(api.asset).toHaveBeenCalledWith("clock-asset");
+  expect(compile).not.toHaveBeenCalled();
   expect(
     screen.queryByText("This item could not be previewed in Studio."),
   ).not.toBeInTheDocument();
