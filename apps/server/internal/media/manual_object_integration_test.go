@@ -36,7 +36,9 @@ func districtNoteCatalog(t *testing.T) *contentdefs.Catalog {
 			{Key: "updatedAt", Label: "Updated time", Type: "datetime", Required: true},
 		}},
 	}
-	catalog, err := contentdefs.New(nil, []contentdefs.DataSourceDefinition{source})
+	builtin := contentdefs.MustLoad()
+	dataSources := append(append([]contentdefs.DataSourceDefinition(nil), builtin.DataSources...), source)
+	catalog, err := contentdefs.New(builtin.Widgets, dataSources)
 	if err != nil {
 		t.Fatalf("build district-note catalog: %v", err)
 	}
@@ -108,6 +110,62 @@ func TestManualObjectSourceIsGeneric(t *testing.T) {
 	}
 	if values["updatedAt"] == "" {
 		t.Fatal("declared generated field updatedAt was not populated")
+	}
+
+	// 2a. The generic Status Message definition projects an object document and
+	//     exposes semantic roles without a source-specific adapter branch.
+	statusRaw, _ := json.Marshal(map[string]any{
+		"status": "Delayed", "message": "Opening at ten.", "severity": "warning",
+		"effectiveAt": "", "expiresAt": "",
+	})
+	statusSource, err := service.CreateDataSource(ctx, user, DataSourceInput{Provider: "status-message", Name: "Status Message", Configuration: statusRaw})
+	if err != nil {
+		t.Fatalf("create Status Message source: %v", err)
+	}
+	statusProjected, err := service.PlayerTypedDataSourceConfiguration(ctx, statusSource.ID, "status-message", statusSource.Configuration)
+	if err != nil {
+		t.Fatalf("project Status Message payload: %v", err)
+	}
+	var statusPayload TypedDatasetPayload
+	if err := json.Unmarshal(statusProjected, &statusPayload); err != nil {
+		t.Fatal(err)
+	}
+	if got := statusPayload.Datasets[0].Values["message"]; got != "Opening at ten." {
+		t.Fatalf("Status Message projection lost its message: %q", got)
+	}
+	statusDetail, err := service.GetDataSourceDetail(ctx, statusSource.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := map[string]string{}
+	for _, field := range statusDetail.Fields {
+		roles[field.Key] = field.Role
+	}
+	for key, want := range map[string]string{"status": "status", "message": "message", "severity": "severity", "updatedAt": "updated_at"} {
+		if roles[key] != want {
+			t.Errorf("Status Message field %q role = %q, want %q", key, roles[key], want)
+		}
+	}
+
+	// Saved School Status uses the same generic projector after deprecation.
+	schoolRaw, _ := json.Marshal(map[string]any{
+		"status": "Open", "message": "School is operating normally.", "severity": "normal",
+		"effectiveAt": "", "expiresAt": "",
+	})
+	schoolSource, err := service.CreateDataSource(ctx, user, DataSourceInput{Provider: "school-status", Name: "Saved School Status", Configuration: schoolRaw})
+	if err != nil {
+		t.Fatalf("preserve School Status source: %v", err)
+	}
+	schoolProjected, err := service.PlayerTypedDataSourceConfiguration(ctx, schoolSource.ID, "school-status", schoolSource.Configuration)
+	if err != nil {
+		t.Fatalf("project saved School Status source: %v", err)
+	}
+	var schoolPayload TypedDatasetPayload
+	if err := json.Unmarshal(schoolProjected, &schoolPayload); err != nil {
+		t.Fatal(err)
+	}
+	if got := schoolPayload.Datasets[0].Values["status"]; got != "Open" {
+		t.Fatalf("saved School Status projection failed: %q", got)
 	}
 
 	// 3. Studio preview by id returns the same typed payload.

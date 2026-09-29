@@ -1,0 +1,248 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "status",
+  "version": 1,
+  "name": "Status",
+  "description": "Show a current status, message, and severity from an object Data Source.",
+  "category": "Information",
+  "icon": "status",
+  "thumbnail": "status",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "Choose an object source with status information.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["object"],
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "style",
+        "label": "Style",
+        "control": "select",
+        "options": [
+          { "value": "panel", "label": "Panel" },
+          { "value": "banner", "label": "Banner" }
+        ],
+        "default": "panel",
+        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "control": "text",
+        "maxLength": 120,
+        "default": "",
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "statusField",
+        "label": "Status field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "status",
+        "ui": { "section": "data", "order": 2, "semanticRole": "status" }
+      },
+      {
+        "key": "messageField",
+        "label": "Message field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "message",
+        "ui": { "section": "data", "order": 3, "semanticRole": "message" }
+      },
+      {
+        "key": "severityField",
+        "label": "Severity field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "severity",
+        "ui": { "section": "data", "order": 4, "semanticRole": "severity" }
+      },
+      {
+        "key": "updatedAtField",
+        "label": "Updated time field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["date", "datetime"],
+        "default": "updatedAt",
+        "ui": { "section": "data", "order": 5, "semanticRole": "updated_at" }
+      },
+      {
+        "key": "effectiveAtField",
+        "label": "Effective time field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["date", "datetime"],
+        "default": "effectiveAt",
+        "ui": { "section": "data", "order": 6, "semanticRole": "effective_at" }
+      },
+      {
+        "key": "expiresAtField",
+        "label": "Expiration time field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["date", "datetime"],
+        "default": "expiresAt",
+        "ui": { "section": "data", "order": 7, "semanticRole": "expires_at" }
+      },
+      {
+        "key": "showSeverity",
+        "label": "Show severity",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "showUpdatedTime",
+        "label": "Show updated time",
+        "control": "boolean",
+        "default": false,
+        "ui": { "section": "content", "order": 3 }
+      },
+      {
+        "key": "speed",
+        "label": "Banner speed",
+        "control": "select",
+        "options": [
+          { "value": "slow", "label": "Slow" },
+          { "value": "normal", "label": "Normal" },
+          { "value": "fast", "label": "Fast" }
+        ],
+        "default": "normal",
+        "ui": { "section": "behavior", "order": 1 }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "control": "text",
+        "maxLength": 200,
+        "default": "Status is unavailable",
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 2 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 3 }
+      },
+      {
+        "key": "accentColor",
+        "label": "Accent color",
+        "control": "color",
+        "default": "",
+        "ui": { "section": "appearance", "order": 4 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "style": "panel",
+    "heading": "",
+    "statusField": "status",
+    "messageField": "message",
+    "severityField": "severity",
+    "updatedAtField": "updatedAt",
+    "effectiveAtField": "effectiveAt",
+    "expiresAtField": "expiresAt",
+    "showSeverity": true,
+    "showUpdatedTime": false,
+    "speed": "normal",
+    "emptyText": "Status is unavailable",
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "accentColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.column": 1,
+    "content.text": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "text",
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.status",
+    "version": 1,
+    "tagName": "tc-widget-status",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "style": { "$config": "style", "default": "panel" },
+      "heading": { "$config": "heading", "default": "" },
+      "statusField": { "$config": "statusField", "default": "status" },
+      "messageField": { "$config": "messageField", "default": "message" },
+      "severityField": { "$config": "severityField", "default": "severity" },
+      "updatedAtField": { "$config": "updatedAtField", "default": "updatedAt" },
+      "effectiveAtField": {
+        "$config": "effectiveAtField",
+        "default": "effectiveAt"
+      },
+      "expiresAtField": { "$config": "expiresAtField", "default": "expiresAt" },
+      "showSeverity": { "$config": "showSeverity", "default": true },
+      "showUpdatedTime": { "$config": "showUpdatedTime", "default": false },
+      "speed": { "$config": "speed", "default": "normal" },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": "Status is unavailable"
+      },
+      "background": { "$config": "backgroundColor", "default": "" },
+      "foreground": { "$config": "foregroundColor", "default": "" },
+      "accent": { "$config": "accentColor", "default": "" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "render"
+  },
+  "compatibility": { "fallback": "template" },
+  "presentationTemplate": {
+    "type": "surface",
+    "props": {
+      "backgroundColor": { "$config": "backgroundColor" },
+      "padding": 16
+    },
+    "children": [
+      {
+        "type": "column",
+        "props": { "gap": 8 },
+        "children": [
+          {
+            "type": "text",
+            "props": {
+              "role": "title",
+              "color": { "$config": "foregroundColor" }
+            },
+            "binding": {
+              "source": "dataset",
+              "dataset": { "$config": "dataSourceId", "suffix": ":object" },
+              "path": { "$config": "statusField" },
+              "fallback": { "$config": "emptyText" }
+            }
+          },
+          {
+            "type": "text",
+            "props": {
+              "role": "body",
+              "color": { "$config": "foregroundColor" }
+            },
+            "binding": {
+              "source": "dataset",
+              "dataset": { "$config": "dataSourceId", "suffix": ":object" },
+              "path": { "$config": "messageField" },
+              "fallback": ""
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

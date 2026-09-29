@@ -209,6 +209,7 @@ type OutputField struct {
 	Key               string `json:"key"`
 	Label             string `json:"label"`
 	Type              string `json:"type"`
+	Role              string `json:"role,omitempty"`
 	Currency          string `json:"currency,omitempty"`
 	CurrencyConfigKey string `json:"currencyConfigKey,omitempty"`
 	Required          bool   `json:"required,omitempty"`
