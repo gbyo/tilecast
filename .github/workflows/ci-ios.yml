@@ -16,12 +16,12 @@ jobs:
     defaults:
       run:
         working-directory: apps/ios
-    env:
-      DERIVED_DATA: ${{ runner.temp }}/DerivedData
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Configure derived data path
+        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData" >> "$GITHUB_ENV"
       - name: Show toolchain
         run: |
           xcodebuild -version
@@ -60,10 +60,3 @@ jobs:
           -derivedDataPath "$DERIVED_DATA"
           -only-testing:TilecastUITests
           -resultBundlePath "$RUNNER_TEMP/ui-tests.xcresult"
-      - name: Upload test results
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ios-test-results
-          path: ${{ runner.temp }}/*.xcresult
-          retention-days: 7
