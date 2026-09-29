@@ -2,7 +2,9 @@ package org.tilecast.player.conformance
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.os.Build
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -193,10 +195,13 @@ class PlayerRuntimeConformanceTest {
             }
         }
 
+        val visualCheckpoints = visualCheckpoints(fixtureJson)
         val bridge = ConformanceBridge(
             fixtureJson = fixtureJson,
             onSnapshot = { checkpoint ->
-                snapshotCheckpoint(activity, webView, outDir, checkpoint)
+                if (checkpoint in visualCheckpoints) {
+                    snapshotCheckpoint(activity, webView, outDir, checkpoint)
+                }
             },
             onFinish = onFinish,
         )
@@ -249,18 +254,39 @@ class PlayerRuntimeConformanceTest {
         activity.runOnUiThread(located)
         located.get(10, TimeUnit.SECONDS)
         val visualStateReady = CountDownLatch(1)
+        val frameCommitted = CountDownLatch(1)
         activity.runOnUiThread {
             webView.postVisualStateCallback(
                 System.nanoTime(),
                 object : WebView.VisualStateCallback() {
                     override fun onComplete(requestId: Long) {
                         visualStateReady.countDown()
+                        val observer = webView.viewTreeObserver
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && webView.isHardwareAccelerated) {
+                            observer.registerFrameCommitCallback {
+                                frameCommitted.countDown()
+                            }
+                        } else {
+                            val listener = object : ViewTreeObserver.OnDrawListener {
+                                override fun onDraw() {
+                                    if (observer.isAlive) {
+                                        observer.removeOnDrawListener(this)
+                                    }
+                                    webView.post { frameCommitted.countDown() }
+                                }
+                            }
+                            observer.addOnDrawListener(listener)
+                        }
+                        webView.invalidate()
                     }
                 },
             )
         }
         check(visualStateReady.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView visual state before $checkpoint screenshot"
+        }
+        check(frameCommitted.await(10, TimeUnit.SECONDS)) {
+            "timed out waiting for WebView frame before $checkpoint screenshot"
         }
         val full = instrumentation.uiAutomation.takeScreenshot()
             ?: error("screenshot unavailable")
@@ -274,6 +300,18 @@ class PlayerRuntimeConformanceTest {
         }
         cropped.recycle()
         if (cropped !== full) full.recycle()
+    }
+
+    private fun visualCheckpoints(fixtureJson: String): Set<String> {
+        val steps = JSONObject(fixtureJson).getJSONArray("steps")
+        return buildSet {
+            for (index in 0 until steps.length()) {
+                val step = steps.optJSONObject(index) ?: continue
+                if (step.optBoolean("visual") && step.has("checkpoint")) {
+                    add(step.getString("checkpoint"))
+                }
+            }
+        }
     }
 
     /** Serves pushed CAS bytes for tcmedia: URIs, with basic Range support. */
