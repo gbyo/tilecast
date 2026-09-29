@@ -6,9 +6,7 @@ import { api } from "../api/client";
 import type { Asset, LayoutDocument, Playlist } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { DateInput } from "../components/date-picker";
-import {
-  LayoutPlacementView,
-} from "../components/layout-editor/LayoutPlacementView";
+import { LayoutPlacementView } from "../components/layout-editor/LayoutPlacementView";
 import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { Button } from "../components/ui/button";
@@ -29,12 +27,12 @@ const widgetDataSourceId = (asset?: Asset): string | undefined => {
 };
 
 async function loadLayoutPreviewData(
-  document: LayoutDocument,
+  layoutDocument: LayoutDocument,
   date: string,
 ): Promise<LayoutPreviewData> {
   const playlistIds = Array.from(
     new Set(
-      document.placements
+      layoutDocument.placements
         .map((placement) => placement.playlistId)
         .filter((value): value is string => Boolean(value)),
     ),
@@ -49,7 +47,7 @@ async function loadLayoutPreviewData(
   const assetIds = new Set<string>();
   if (layoutDocument.canvas.backgroundAssetId)
     assetIds.add(layoutDocument.canvas.backgroundAssetId);
-  document.placements.forEach((placement) => {
+  layoutDocument.placements.forEach((placement) => {
     if (placement.assetId) assetIds.add(placement.assetId);
     if (placement.widgetId) assetIds.add(placement.widgetId);
   });
@@ -66,7 +64,7 @@ async function loadLayoutPreviewData(
   let previewValues: Record<string, Record<string, string>> = {};
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const dataSourceIds = new Set<string>();
-  document.placements.forEach((placement) => {
+  layoutDocument.placements.forEach((placement) => {
     const bindingId = placement.primitive?.binding?.dataSourceId;
     if (bindingId) dataSourceIds.add(bindingId);
     const widgetSourceId = placement.widgetId
@@ -288,10 +286,14 @@ export function LayoutPreviewPage() {
         className="layout-preview-frame"
         style={{
           aspectRatio:
-            String(layoutDocument.canvas.width) + "/" + String(layoutDocument.canvas.height),
+            String(layoutDocument.canvas.width) +
+            "/" +
+            String(layoutDocument.canvas.height),
           maxWidth:
             "calc((100dvh - 96px) * " +
-            String(layoutDocument.canvas.width / layoutDocument.canvas.height) +
+            String(
+              layoutDocument.canvas.width / layoutDocument.canvas.height,
+            ) +
             ")",
           backgroundColor: layoutDocument.canvas.backgroundColor,
         }}
