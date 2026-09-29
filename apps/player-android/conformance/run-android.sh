@@ -46,6 +46,15 @@ if [ "$(echo "$DEVICES" | wc -l)" -ne 1 ]; then
   echo "run-android: exactly one adb device is required (got: $DEVICES)" >&2
   exit 69
 fi
+# CI configures the display as root, but files pushed over a root adbd end
+# up root-owned and the test app cannot read them (EACCES on
+# conformance-host.js). Drop back to shell so pushed fixtures land with
+# app-readable ownership.
+if [ "$(adb shell id -u 2>/dev/null | tr -d '\r')" = "0" ]; then
+  echo "run-android: dropping root adb before pushing fixtures"
+  adb unroot
+  adb wait-for-device
+fi
 # Screenshots compare at device scale 1: the display must be mdpi.
 # Prefer the override density when one is set: after `wm density 160` the
 # output carries both physical and override lines.
