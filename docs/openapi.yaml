@@ -13068,6 +13068,7 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         previewImageUrl: { type: string }
+        previewCaptureVersion: { type: integer, minimum: 1 }
         dependencies:
           type: array
           items: { $ref: "#/components/schemas/LayoutDependency" }
@@ -13105,6 +13106,7 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         previewImageUrl: { type: string }
+        previewCaptureVersion: { type: integer, minimum: 1 }
     LayoutList:
       type: object
       additionalProperties: false

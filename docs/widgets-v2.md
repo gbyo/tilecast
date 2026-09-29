@@ -257,6 +257,19 @@ toolbars. The Widget owns only what appears on the display. The gallery keeps
 its lightweight schematic thumbnails (`WidgetThumbnail.tsx`); they are
 navigation, not playback previews.
 
+Studio keeps one production `WidgetMount` adapter, `WidgetPreviewHost`, and
+every V2 preview surface reuses it: the Widget editor, Layout zones
+(`V2ZonePreview`), saved Widget thumbnails, Layout thumbnails, and playlist
+preview. Fitting is explicit per host. The standalone editor shrinks a
+surface into a narrow column but never upscales it. Layout zones fill the
+displayed placement and scale both ways with Studio zoom, while the Widget
+keeps its logical intrinsic geometry. Hidden capture surfaces keep
+deterministic intrinsic geometry and never inherit editor zoom.
+
+A Layout preview date freezes the Widget's own clock and date-selects its
+Data Source previews, so time-sensitive Widgets agree with the Layout's
+text bindings. Without a selected date the preview stays live.
+
 The binding Studio editor redesign, source-connection flow, shared preview
 host, and first-wave Widget migration are defined in
 [Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md).

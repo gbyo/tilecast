@@ -54,9 +54,13 @@ const contentTypes: readonly {
 function assetDetail(asset: Asset, t: TFunction<"alerts">) {
   if (asset.type === "image") return t("quickPresent.assetTypes.image");
   if (asset.type === "video") return t("quickPresent.assetTypes.video");
-  return asset.widget?.provider === "youtube"
-    ? t("quickPresent.assetTypes.youtube")
-    : t("quickPresent.assetTypes.website");
+  // Only the two remote-web providers keep their specific labels. Native
+  // V2 Widgets (built-in or plugin-provided) share the generic Widget label.
+  if (asset.widget?.provider === "youtube")
+    return t("quickPresent.assetTypes.youtube");
+  if (asset.widget?.provider === "website")
+    return t("quickPresent.assetTypes.website");
+  return t("quickPresent.assetTypes.widget");
 }
 
 export function QuickPresentDialog({

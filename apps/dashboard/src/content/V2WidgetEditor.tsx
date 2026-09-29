@@ -49,7 +49,11 @@ import { PreviewClock } from "./previewClock";
 import { studioWidgetComponent } from "./studioWidgets";
 import { WidgetPreviewHost, type PreviewFrame } from "./WidgetPreviewHost";
 import { useWidgetPreviewResources } from "./widgetPreviewResources";
-import { captureWidgetPreview } from "./widgetPreviewCapture";
+import {
+  captureWidgetPreview,
+  WIDGET_THUMBNAIL_FRAME,
+} from "./widgetPreviewCapture";
+import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
@@ -206,11 +210,19 @@ export function V2WidgetEditor({
     previewConfiguration,
     managedDataSourceId,
   );
-  const { resources, loading: sourcesLoading } = useWidgetPreviewResources(
+  const {
+    resources,
+    loading: sourcesLoading,
+    failedIds,
+  } = useWidgetPreviewResources(
     dataSourceIds,
     dataSourceIds,
     previewMedia.media,
   );
+  // A granted source that cannot be loaded is a preview error, not a valid
+  // settled empty: Save and capture stay disabled until it loads or the
+  // author disconnects it.
+  const sourcesFailed = failedIds.length > 0;
 
   // Ordinary form edits compile the component config locally and update the
   // mounted element in place. The Server is not involved until Save, which
@@ -280,7 +292,10 @@ export function V2WidgetEditor({
     name !== (asset?.name ?? definition.name) ||
     description !== (asset?.description ?? definition.description);
   const previewBlocked =
-    !component || compiled.problem !== undefined || sourcesLoading;
+    !component ||
+    compiled.problem !== undefined ||
+    sourcesLoading ||
+    sourcesFailed;
   const saveDisabled =
     readOnly ||
     previewBlocked ||
@@ -288,26 +303,47 @@ export function V2WidgetEditor({
     mountState.state === "error" ||
     !name.trim();
 
+  // Save captures the canonical thumbnail frame, never the author's
+  // selected preview size: a hidden surface renders the real Widget AT
+  // 960x540 (container queries included) so a portrait/strip/custom
+  // selection cannot stretch the stored library artwork. The visible
+  // preview is untouched — no jump, no remount.
+  const [canonicalCapture, setCanonicalCapture] = useState(false);
+  const [captureError, setCaptureError] = useState("");
+  const canonicalRef = useRef<HTMLDivElement>(null);
+  const captureStarted = useRef(false);
+  const canonicalAsset = useMemo(
+    () =>
+      ({
+        widget: {
+          provider: definition.id,
+          authorConfiguration: configuration,
+          managedDataSourceId,
+        },
+      }) as Asset,
+    [definition.id, configuration, managedDataSourceId],
+  );
+  const runCanonicalSave = async () => {
+    const element = canonicalRef.current;
+    if (!element) throw new Error(t("widgets.errors.previewWait"));
+    const previewImage = await captureWidgetPreview(element, t);
+    const input = {
+      provider: definition.id,
+      name,
+      description,
+      configuration,
+    };
+    const saved = asset
+      ? await api.updateWidget(asset.id, input, csrf)
+      : await api.createWidget(input, csrf);
+    await api.uploadWidgetPreview(saved.id, previewImage, csrf);
+    return {
+      ...saved,
+      thumbnailUrl: `/api/v1/assets/${encodeURIComponent(saved.id)}/thumbnail`,
+    };
+  };
   const save = useMutation({
-    mutationFn: async () => {
-      const input = {
-        provider: definition.id,
-        name,
-        description,
-        configuration,
-      };
-      if (!previewWrapRef.current)
-        throw new Error(t("widgets.errors.previewWait"));
-      const previewImage = await captureWidgetPreview(previewWrapRef.current);
-      const saved = asset
-        ? await api.updateWidget(asset.id, input, csrf)
-        : await api.createWidget(input, csrf);
-      await api.uploadWidgetPreview(saved.id, previewImage, csrf);
-      return {
-        ...saved,
-        thumbnailUrl: `/api/v1/assets/${encodeURIComponent(saved.id)}/thumbnail`,
-      };
-    },
+    mutationFn: runCanonicalSave,
     onSuccess: (saved) => {
       touched.current = false;
       toast.add({
@@ -317,9 +353,31 @@ export function V2WidgetEditor({
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
+      setCanonicalCapture(false);
       onSaved(saved);
     },
+    onError: () => {
+      setCanonicalCapture(false);
+    },
+    onSettled: () => {
+      captureStarted.current = false;
+    },
   });
+  const beginCanonicalSave = () => {
+    setCaptureError("");
+    captureStarted.current = false;
+    setCanonicalCapture(true);
+  };
+  const handleCanonicalState = (state: WidgetMountState) => {
+    if (!canonicalCapture || captureStarted.current || save.isPending) return;
+    if (state.state === "ready" || state.state === "empty") {
+      captureStarted.current = true;
+      save.mutate();
+    } else if (state.state === "error") {
+      setCanonicalCapture(false);
+      setCaptureError(t("widgets.editors.v2.captureFailed"));
+    }
+  };
 
   if (!component) {
     return (
@@ -364,10 +422,10 @@ export function V2WidgetEditor({
           )}
           {!readOnly && (
             <Button
-              disabled={save.isPending || saveDisabled}
-              onClick={() => save.mutate()}
+              disabled={save.isPending || canonicalCapture || saveDisabled}
+              onClick={beginCanonicalSave}
             >
-              {save.isPending
+              {save.isPending || canonicalCapture
                 ? t("common:actions.saving")
                 : t("widgets.editors.generic.saveWidget")}
             </Button>
@@ -379,6 +437,11 @@ export function V2WidgetEditor({
           <AlertDescription>
             {widgetSaveErrorMessage(t, save.error)}
           </AlertDescription>
+        </Alert>
+      )}
+      {captureError && (
+        <Alert variant="destructive">
+          <AlertDescription>{captureError}</AlertDescription>
         </Alert>
       )}
       <div className="v2-editor__layout">
@@ -393,7 +456,9 @@ export function V2WidgetEditor({
             <PreviewTimeControl value={previewTime} onChange={setPreviewTime} />
           </div>
           <div ref={previewWrapRef} className="v2-editor__frame">
-            {compiled.ref ? (
+            {sourcesFailed ? (
+              <p role="alert">{t("widgets.editors.v2.sourceError")}</p>
+            ) : compiled.ref ? (
               <WidgetPreviewHost
                 component={compiled.ref}
                 resources={resources}
@@ -467,6 +532,19 @@ export function V2WidgetEditor({
           ))}
         </div>
       </div>
+      {canonicalCapture && (
+        <div className="widget-snapshot-backfill" aria-hidden="true">
+          <div ref={canonicalRef}>
+            <V2ZonePreview
+              provider={definition.id}
+              asset={canonicalAsset}
+              width={WIDGET_THUMBNAIL_FRAME.width}
+              height={WIDGET_THUMBNAIL_FRAME.height}
+              onState={handleCanonicalState}
+            />
+          </div>
+        </div>
+      )}
     </section>
   );
 }

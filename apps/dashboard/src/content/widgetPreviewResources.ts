@@ -268,7 +268,14 @@ export interface PreviewResources {
   readonly resources: WidgetResources;
   /** True while a connected source preview is still loading. */
   readonly loading: boolean;
-  /** Connected source IDs whose preview failed. */
+  /**
+   * Connected source IDs the presentation grants that could not be loaded.
+   * A missing Data Document is ambiguous on its own: the Widget also
+   * reports empty when the author connected nothing. Callers must treat a
+   * non-empty failedIds as an explicit preview error (never as a valid
+   * settled empty) so a failed fetch cannot be saved or captured as an
+   * intentionally empty Widget.
+   */
   readonly failedIds: readonly string[];
 }
 
@@ -283,26 +290,36 @@ export function useWidgetPreviewResources(
   declaredDataSources: readonly string[] = dataSourceIds,
   /** Media the preview grants; each maps to the asset's preview image. */
   declaredMedia: readonly { assetId: string; variantId: string }[] = [],
+  /**
+   * Layout-selected preview date (YYYY-MM-DD). Part of the query key so a
+   * changed date refetches date-selected records instead of reusing the
+   * live instant's documents.
+   */
+  previewDate?: string,
 ): PreviewResources {
   const previews = useQueries({
     queries: dataSourceIds.map((id) => ({
-      queryKey: ["widget-v2-source-preview", id],
-      queryFn: () => api.previewSavedDataSource(id),
+      queryKey: ["widget-v2-source-preview", id, previewDate ?? null],
+      queryFn: () => api.previewSavedDataSource(id, previewDate),
       retry: false,
     })),
   });
   const documents = new Map<string, WidgetDataDocument>();
   const failedIds: string[] = [];
+  // Only failures inside the presentation's grants count: a connected source
+  // the Widget cannot see is invisible to it, while a granted source that
+  // cannot be loaded must surface as an error, never as an empty Widget.
+  const granted = new Set(declaredDataSources);
   previews.forEach((preview, index) => {
     const id = dataSourceIds[index];
     if (!id || preview.isLoading) return;
     if (preview.isError || !preview.data) {
-      failedIds.push(id);
+      if (granted.has(id)) failedIds.push(id);
       return;
     }
     const document = previewToDataDocument(preview.data);
     if (document) documents.set(id, document);
-    else failedIds.push(id);
+    else if (granted.has(id)) failedIds.push(id);
   });
   const media = new Map(
     declaredMedia.map((ref) => [

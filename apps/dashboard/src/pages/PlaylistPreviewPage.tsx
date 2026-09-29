@@ -22,7 +22,7 @@ import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
 import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { useAuth } from "../auth/AuthProvider";
-import { DeclarativePresentationPreview } from "../content/SourceEditors";
+import { PlaylistWidgetPreview } from "../content/PlaylistWidgetPreview";
 import { Button } from "../components/ui/button";
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 
@@ -114,49 +114,8 @@ function PreviewMedia({
   onDone: () => void;
   onError: () => void;
 }) {
-  const { t } = useTranslation("playlists");
   const videoRef = useRef<HTMLVideoElement>(null);
   const widgetItem = item.assetType === "widget";
-  const widgetQuery = useQuery({
-    queryKey: ["assets", item.assetId, "playlist-preview"],
-    queryFn: () => api.asset(item.assetId),
-    enabled: widgetItem,
-    retry: false,
-  });
-  const savedWidget = widgetQuery.data?.widget;
-  const presentationQuery = useQuery({
-    queryKey: [
-      "compiled-widget-preview",
-      savedWidget?.provider,
-      savedWidget?.configuration,
-    ],
-    queryFn: () =>
-      api.compileWidgetPreview(
-        savedWidget!.provider,
-        savedWidget!.configuration,
-        csrfToken,
-      ),
-    enabled: widgetItem && Boolean(savedWidget),
-    retry: false,
-  });
-  const dataSourceId =
-    savedWidget?.configuration &&
-    "dataSourceId" in savedWidget.configuration &&
-    typeof savedWidget.configuration.dataSourceId === "string"
-      ? savedWidget.configuration.dataSourceId
-      : "";
-  const imageAssetId =
-    savedWidget?.configuration &&
-    "imageAssetId" in savedWidget.configuration &&
-    typeof savedWidget.configuration.imageAssetId === "string"
-      ? savedWidget.configuration.imageAssetId
-      : "";
-  const sourceQuery = useQuery({
-    queryKey: ["widget-data-source-preview", dataSourceId],
-    queryFn: () => api.previewSavedDataSource(dataSourceId),
-    enabled: Boolean(dataSourceId),
-    retry: false,
-  });
 
   useEffect(() => {
     const video = videoRef.current;
@@ -164,33 +123,6 @@ function PreviewMedia({
     if (paused) video.pause();
     else void video.play().catch(() => undefined);
   }, [paused]);
-  useEffect(() => {
-    if (!widgetItem) return;
-    if (
-      presentationQuery.data?.kind === "native" &&
-      (!dataSourceId || (!sourceQuery.isLoading && !sourceQuery.isError))
-    )
-      onReady();
-    else if (
-      (widgetQuery.isError ||
-        presentationQuery.isError ||
-        (Boolean(dataSourceId) && sourceQuery.isError)) &&
-      active
-    )
-      onError();
-  }, [
-    active,
-    dataSourceId,
-    widgetItem,
-    onError,
-    onReady,
-    presentationQuery.data,
-    presentationQuery.isError,
-    sourceQuery.isError,
-    sourceQuery.isLoading,
-    widgetQuery.data,
-    widgetQuery.isError,
-  ]);
   if (item.assetType === "video") {
     return (
       <video
@@ -224,23 +156,15 @@ function PreviewMedia({
 
   if (widgetItem) {
     return (
-      <div
-        className={`${className} grid place-items-stretch overflow-hidden declarative-widget-preview`}
-      >
-        {presentationQuery.data ? (
-          <DeclarativePresentationPreview
-            presentation={presentationQuery.data}
-            source={sourceQuery.data}
-            regional={regional}
-            assetImageUrl={
-              imageAssetId ? api.assetPreviewUrl(imageAssetId) : undefined
-            }
-            onWebReady={onReady}
-          />
-        ) : (
-          <span>{t("preview.preparingWidget")}</span>
-        )}
-      </div>
+      <PlaylistWidgetPreview
+        item={item}
+        active={active}
+        csrfToken={csrfToken}
+        regional={regional}
+        className={className}
+        onReady={onReady}
+        onError={onError}
+      />
     );
   }
 

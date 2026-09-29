@@ -70,6 +70,13 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 	if err != nil || len(listed.Items) != 1 || listed.Items[0].PreviewImageURL == "" {
 		t.Fatalf("listed Layout preview: %#v err=%v", listed, err)
 	}
+	if listed.Items[0].PreviewCaptureVersion == nil || *listed.Items[0].PreviewCaptureVersion != LayoutPreviewCaptureVersion {
+		t.Fatalf("listed Layout preview generation: %#v", listed.Items[0].PreviewCaptureVersion)
+	}
+	detailed, err := service.Get(ctx, layout.ID)
+	if err != nil || detailed.PreviewImageURL == "" || detailed.PreviewCaptureVersion == nil || *detailed.PreviewCaptureVersion != LayoutPreviewCaptureVersion {
+		t.Fatalf("detailed Layout preview generation: %#v err=%v", detailed, err)
+	}
 	if preview, previewErr := service.PreviewImage(ctx, layout.ID); previewErr != nil || preview.Width != 960 || preview.Height != 540 {
 		t.Fatalf("stored Layout preview: %#v err=%v", preview, previewErr)
 	}
@@ -84,6 +91,10 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 	}
 	if _, err = service.PreviewImage(ctx, layout.ID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("draft change did not clear the stale Layout preview: %v", err)
+	}
+	cleared, err := service.Get(ctx, layout.ID)
+	if err != nil || cleared.PreviewImageURL != "" || cleared.PreviewCaptureVersion != nil {
+		t.Fatalf("draft change did not clear the preview generation: %#v err=%v", cleared, err)
 	}
 	if _, err = service.SaveDraft(ctx, layout.ID, owner.User.ID, 1, document); !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected conflict, got %v", err)

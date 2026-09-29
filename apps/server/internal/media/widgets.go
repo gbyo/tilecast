@@ -40,7 +40,7 @@ const MaxWidgetPreviewBytes = 500 * 1024
 // Persisted in assets.metadata with each stored preview. Bump when the browser
 // capture representation changes and existing thumbnails must be regenerated.
 // Keep in sync with WIDGET_PREVIEW_CAPTURE_VERSION in Studio.
-const WidgetPreviewCaptureVersion = 2
+const WidgetPreviewCaptureVersion = 3
 
 type WidgetPreviewImage struct {
 	Data        []byte
