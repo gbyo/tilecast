@@ -250,9 +250,14 @@ class PlayerRuntimeConformanceTest {
         located.get(10, TimeUnit.SECONDS)
         val visualStateReady = CountDownLatch(1)
         activity.runOnUiThread {
-            webView.postVisualStateCallback(System.nanoTime()) {
-                visualStateReady.countDown()
-            }
+            webView.postVisualStateCallback(
+                System.nanoTime(),
+                object : WebView.VisualStateCallback() {
+                    override fun onComplete(requestId: Long) {
+                        visualStateReady.countDown()
+                    }
+                },
+            )
         }
         check(visualStateReady.await(10, TimeUnit.SECONDS)) {
             "timed out waiting for WebView visual state before $checkpoint screenshot"
