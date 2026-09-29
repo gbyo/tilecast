@@ -74,6 +74,11 @@ jobs:
         uses: ./.github/actions/edge-images
         with:
           targets: electron
+      - name: Electron reference run
+        run: |
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
+            tilecast-conformance-electron \
+            node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
       # Required by android-emulator-runner: without KVM group permission the
       # action disables hardware acceleration and the emulator never boots
       # under software emulation before adb gives up.
@@ -103,11 +108,6 @@ jobs:
             adb shell wm density 160
             mkdir -p "$RUNNER_TEMP/conformance"
             node packages/player-runtime/conformance/run.mjs --engine android --out "$RUNNER_TEMP/conformance"
-      - name: Electron reference run
-        run: |
-          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/conformance:/results" \
-            tilecast-conformance-electron \
-            node /src/packages/player-runtime/conformance/run.mjs --engine electron --out /results
       - name: Compare with the reference engine
         run: |
           node packages/player-runtime/conformance/compare.mjs \
