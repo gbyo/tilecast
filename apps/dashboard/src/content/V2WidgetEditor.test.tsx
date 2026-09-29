@@ -19,14 +19,20 @@ import type {
   WidgetDefinition,
 } from "../api/types";
 import { V2WidgetEditor } from "./V2WidgetEditor";
+import { captureWidgetPreview } from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import { parsePreviewTimeInput, previewTimeInputValue } from "./previewTime";
 
-vi.mock("./widgetPreviewCapture", () => ({
-  captureWidgetPreview: vi.fn(() =>
-    Promise.resolve(new Blob(["preview"], { type: "image/jpeg" })),
-  ),
-}));
+vi.mock("./widgetPreviewCapture", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./widgetPreviewCapture")>();
+  return {
+    ...actual,
+    captureWidgetPreview: vi.fn(() =>
+      Promise.resolve(new Blob(["preview"], { type: "image/jpeg" })),
+    ),
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -112,6 +118,10 @@ beforeEach(() => {
   vi.spyOn(api, "previewSavedDataSource").mockRejectedValue(
     new Error("no sources connected"),
   );
+  // The canonical save surface resolves its component through the same
+  // definitions query as every other V2 zone preview.
+  const definition = clockDefinition();
+  vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog(definition));
 });
 
 describe("V2WidgetEditor", () => {
@@ -261,6 +271,93 @@ describe("V2WidgetEditor", () => {
       ),
     );
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  async function saveWithSelectedSize(
+    selectSize: () => Promise<void>,
+    visibleFrameWidth: string,
+  ) {
+    const created = { id: "asset-1", name: "Lobby clock", description: "" };
+    vi.spyOn(api, "createWidget").mockResolvedValue(created as never);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue(undefined);
+    // Hold the capture gate open so the hidden canonical surface can be
+    // inspected while the save is in flight.
+    let releaseCapture!: (blob: Blob) => void;
+    vi.mocked(captureWidgetPreview).mockImplementationOnce(
+      () =>
+        new Promise<Blob>((resolve) => {
+          releaseCapture = resolve;
+        }),
+    );
+    const onSaved = vi.fn();
+    const { container } = editor({ onSaved });
+    await screen.findByRole("img", { name: "Live preview" });
+    await selectSize();
+    fireEvent.change(screen.getByLabelText("Widget name"), {
+      target: { value: "Lobby clock" },
+    });
+    const save = screen.getByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+    // The authoring preview shows the selected geometry...
+    const visibleFrame = container.querySelector(".v2-editor__frame");
+    const visibleStage = visibleFrame?.firstElementChild as HTMLElement | null;
+    expect(visibleStage?.style.width).toBe(visibleFrameWidth);
+    // ...while the save captures a hidden surface at the canonical frame.
+    const hidden = await waitFor(() => {
+      const surface = container.querySelector(".widget-snapshot-backfill");
+      expect(surface).not.toBeNull();
+      return surface as HTMLElement;
+    });
+    const hiddenHost = hidden.querySelector('[role="img"]');
+    expect(hiddenHost).not.toBeNull();
+    const hiddenStage = hiddenHost?.firstElementChild as HTMLElement | null;
+    const hiddenFrame = hiddenStage?.firstElementChild as HTMLElement | null;
+    expect(hiddenStage?.style.width).toBe("960px");
+    expect(hiddenStage?.style.height).toBe("540px");
+    expect(hiddenFrame?.style.width).toBe("960px");
+    expect(hiddenFrame?.style.height).toBe("540px");
+    releaseCapture(new Blob(["preview"], { type: "image/jpeg" }));
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "asset-1",
+        expect.any(Blob),
+        "test-csrf",
+      ),
+    );
+    expect(onSaved).toHaveBeenCalled();
+    // The captured element is the canonical surface, never the selected frame.
+    // (The mock accumulates calls across tests, so read this test's capture.)
+    const captured = vi.mocked(captureWidgetPreview).mock.calls.at(-1)?.[0];
+    expect(captured).toBeInstanceOf(HTMLElement);
+    expect(hidden.contains(captured as Node)).toBe(true);
+    expect(visibleFrame?.contains(captured as Node)).toBe(false);
+  }
+
+  it("saves a canonical thumbnail when portrait is selected", async () => {
+    await saveWithSelectedSize(async () => {
+      await userEvent.click(
+        screen.getByRole("button", { name: "Portrait 9:16" }),
+      );
+    }, "540px");
+  });
+
+  it("saves a canonical thumbnail when a wide strip is selected", async () => {
+    await saveWithSelectedSize(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Wide strip" }));
+    }, "960px");
+  });
+
+  it("saves a canonical thumbnail for a custom non-16:9 frame", async () => {
+    await saveWithSelectedSize(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Custom" }));
+      fireEvent.change(screen.getByLabelText("Custom width (px)"), {
+        target: { value: "400" },
+      });
+      fireEvent.change(screen.getByLabelText("Custom height (px)"), {
+        target: { value: "400" },
+      });
+    }, "400px");
   });
 
   it("switches Clock modes with their own controls", async () => {

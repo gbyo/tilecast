@@ -159,7 +159,8 @@
       "image": "Изображение",
       "video": "Видео",
       "youtube": "Виджет YouTube",
-      "website": "Виджет сайта"
+      "website": "Виджет сайта",
+      "widget": "Виджет"
     }
   },
   "airplay": {

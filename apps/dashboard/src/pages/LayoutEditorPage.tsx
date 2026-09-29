@@ -103,6 +103,12 @@ import {
 } from "../components/layout-editor/WidgetLivePreview";
 import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
+import {
+  LayoutCaptureCoordinator,
+  LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
+  layoutPreviewNeedsCapture,
+} from "../components/layout-editor/layoutCaptureReadiness";
+import { studioWidgetComponent } from "../content/studioWidgets";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlignCenterHorizontal,
@@ -640,6 +646,37 @@ export function LayoutEditorPage() {
     queryFn: () => api.layoutRevisions(id),
     enabled: false,
   });
+  // One capture-readiness coordinator per editor instance. Live V2 zones on
+  // the canvas register by placement id; thumbnail triggers wait through it
+  // instead of racing Widget loads with an arbitrary delay.
+  const captureCoordinator = useMemo(() => new LayoutCaptureCoordinator(), []);
+  const definitionsQuery = useQuery({
+    queryKey: ["content-definitions"],
+    queryFn: () => api.contentDefinitions(),
+  });
+  // Placement ids whose V2 Widgets a thumbnail must wait for: visible,
+  // directly placed Widgets with a migrated component. Playlist zones join
+  // the wait through the coordinator when they currently show a V2 Widget.
+  const captureZoneIds = useCallback(
+    (doc: LayoutDocument): string[] => {
+      const assets = new Map(
+        (contentQuery.data?.items ?? []).map((asset) => [asset.id, asset]),
+      );
+      return doc.placements
+        .filter((item) => item.visible !== false && item.type === "widget")
+        .filter((item) => {
+          const provider = item.widgetId
+            ? assets.get(item.widgetId)?.widget?.provider
+            : undefined;
+          return (
+            provider != null &&
+            studioWidgetComponent(definitionsQuery.data, provider) != null
+          );
+        })
+        .map((item) => item.id);
+    },
+    [contentQuery.data?.items, definitionsQuery.data],
+  );
   const [document, setDocument] = useState<LayoutDocument>();
   const [selection, setSelection] = useState(new Set<string>());
   const [past, setPast] = useState<LayoutDocument[]>([]);
@@ -732,37 +769,61 @@ export function LayoutEditorPage() {
   useEffect(() => {
     if (
       initialPreviewAttemptedRef.current ||
-      layoutQuery.data?.previewImageUrl ||
       !document ||
-      contentQuery.isLoading
+      contentQuery.isLoading ||
+      !layoutQuery.data
+    )
+      return;
+    // Regenerate missing previews and ones stored by an older capture
+    // pipeline (stale generations may show blank Widget zones). Fresh
+    // previews are trusted; lists never trigger regeneration.
+    if (
+      !layoutPreviewNeedsCapture(
+        layoutQuery.data.previewImageUrl,
+        layoutQuery.data.previewCaptureVersion,
+      )
     )
       return;
     initialPreviewAttemptedRef.current = true;
-    const timer = window.setTimeout(() => {
+    // Wait for embedded V2 Widgets to settle (ready, intentional empty, or
+    // an explicitly handled failure) instead of capturing after a fixed
+    // delay. A failure or timeout skips the capture: the Layout keeps its
+    // honest missing-preview state instead of a half-rendered thumbnail.
+    const revision = revisionRef.current;
+    const zones = captureZoneIds(document);
+    const { width, height } = document.canvas;
+    let cancelled = false;
+    void (async () => {
+      const { ok } = await captureCoordinator.waitForSettled(
+        zones,
+        LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
+      );
+      if (cancelled || !ok) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
-      void captureLayoutPreview(
+      const image = await captureLayoutPreview(
         canvas,
-        document.canvas.width,
-        document.canvas.height,
+        width,
+        height,
         tContent,
-      )
-        .then((image) =>
-          api.uploadLayoutPreview(
-            id,
-            layoutQuery.data!.draftRevision,
-            image,
-            csrf,
-          ),
-        )
-        .then(() => {
-          void queryClient.invalidateQueries({ queryKey: ["layout", id] });
-          void queryClient.invalidateQueries({ queryKey: ["layouts"] });
-        })
+      ).catch(() => undefined);
+      if (!image || cancelled) return;
+      // The draft may have been edited or saved while the Widgets settled;
+      // never let a stale capture overwrite a newer revision's thumbnail.
+      if (revision !== revisionRef.current) return;
+      await api
+        .uploadLayoutPreview(id, revision, image, csrf)
         .catch(() => undefined);
-    }, 250);
-    return () => window.clearTimeout(timer);
+      if (cancelled) return;
+      void queryClient.invalidateQueries({ queryKey: ["layout", id] });
+      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
+    captureCoordinator,
+    captureZoneIds,
     contentQuery.isLoading,
     csrf,
     document,
@@ -858,34 +919,39 @@ export function LayoutEditorPage() {
       const previewVersion = changeVersionRef.current;
       const previewRevision = revisionRef.current;
       const previewDocument = clone(documentRef.current);
+      const zones = captureZoneIds(previewDocument);
       const canvas = canvasRef.current;
       if (canvas) {
-        void captureLayoutPreview(
-          canvas,
-          previewDocument.canvas.width,
-          previewDocument.canvas.height,
-          tContent,
-        )
-          .then((previewImage) => {
-            if (
-              previewVersion !== changeVersionRef.current ||
-              previewRevision !== revisionRef.current
-            )
-              return;
-            return api.uploadLayoutPreview(
-              id,
-              previewRevision,
-              previewImage,
-              csrf,
-            );
-          })
-          .then(() => {
-            void queryClient.invalidateQueries({ queryKey: ["layouts"] });
-          })
-          // Thumbnail capture can fail because of browser canvas/CORS support. The
-          // server draft is already safely persisted, so do not report this as a
-          // draft-save failure or prevent publishing.
-          .catch(() => undefined);
+        void (async () => {
+          // Settle first: an edit saved while a Widget is still loading must
+          // not be immortalized as a half-rendered thumbnail. Failure and
+          // timeout skip the upload; the saved draft is unaffected and the
+          // next save retries.
+          const { ok } = await captureCoordinator.waitForSettled(
+            zones,
+            LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
+          );
+          if (!ok) return;
+          const previewImage = await captureLayoutPreview(
+            canvas,
+            previewDocument.canvas.width,
+            previewDocument.canvas.height,
+            tContent,
+          ).catch(() => undefined);
+          if (!previewImage) return;
+          if (
+            previewVersion !== changeVersionRef.current ||
+            previewRevision !== revisionRef.current
+          )
+            return;
+          await api
+            .uploadLayoutPreview(id, previewRevision, previewImage, csrf)
+            // Thumbnail capture can fail because of browser canvas/CORS support. The
+            // server draft is already safely persisted, so do not report this as a
+            // draft-save failure or prevent publishing.
+            .catch(() => undefined);
+          void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+        })();
       }
     } catch (error) {
       setSaveState(
@@ -896,7 +962,7 @@ export function LayoutEditorPage() {
     } finally {
       savingRef.current = false;
     }
-  }, [csrf, id, queryClient, tContent]);
+  }, [captureCoordinator, captureZoneIds, csrf, id, queryClient, tContent]);
   useEffect(() => {
     if (saveState !== "unsaved") return;
     const timer = window.setTimeout(() => void save(), 900);
@@ -2662,6 +2728,7 @@ export function LayoutEditorPage() {
                   }
                   assetsById={contentByID}
                   canvas={document.canvas}
+                  captureCoordinator={captureCoordinator}
                   selected={selection.has(item.id)}
                   onPointerDown={(event) => beginMove(event, item)}
                   onResize={(event) => beginMove(event, item, true)}
@@ -3388,6 +3455,7 @@ export function LayoutEditorPage() {
                   assetsById={previewContentByID}
                   previewValues={previewValues}
                   playbackPreview
+                  previewDate={previewDate}
                 />
               ))}
           </div>
@@ -3476,6 +3544,8 @@ function PlacementView({
   assetsById,
   previewValues,
   playbackPreview = false,
+  previewDate,
+  captureCoordinator,
   selected = false,
   onPointerDown,
   onResize,
@@ -3488,6 +3558,13 @@ function PlacementView({
   assetsById?: Map<string, Asset>;
   previewValues?: Record<string, Record<string, string>>;
   playbackPreview?: boolean;
+  /** Layout-selected preview date (YYYY-MM-DD) for V2 Widget zones. */
+  previewDate?: string;
+  /**
+   * Capture coordinator owned by the editor canvas. Only the canvas passes
+   * it: dialog and playlist previews are never rasterized into thumbnails.
+   */
+  captureCoordinator?: LayoutCaptureCoordinator;
   selected?: boolean;
   onPointerDown?: (event: ReactPointerEvent) => void;
   onResize?: (event: ReactPointerEvent) => void;
@@ -3518,6 +3595,12 @@ function PlacementView({
             placement={item}
             playlist={playlist}
             assetsById={assetsById ?? new Map()}
+            previewDate={previewDate}
+            captureTracking={
+              captureCoordinator
+                ? { coordinator: captureCoordinator, zoneId: item.id }
+                : undefined
+            }
           />
         ) : playlist?.items?.[0]?.thumbnailUrl ? (
           <img
@@ -3563,7 +3646,16 @@ function PlacementView({
         )
       ) : item.type === "widget" ? (
         content?.widget ? (
-          <WidgetLivePreview asset={content} item={item} />
+          <WidgetLivePreview
+            asset={content}
+            item={item}
+            previewDate={previewDate}
+            captureTracking={
+              captureCoordinator
+                ? { coordinator: captureCoordinator, zoneId: item.id }
+                : undefined
+            }
+          />
         ) : (
           <AppPlacementPreview asset={content} item={item} />
         )

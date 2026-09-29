@@ -147,7 +147,6 @@ describe("WidgetPreviewHost", () => {
         disconnect = vi.fn();
       },
     );
-
     render(
       <WidgetPreviewHost
         component={component(FULL_CONFIG)}
@@ -212,11 +211,13 @@ describe("WidgetPreviewHost", () => {
         />,
       );
 
-      const region = screen.getByRole("img", { name: "Clock preview" });
-      const stage = region.firstElementChild as HTMLElement;
+      const listedRegion = screen.getByRole("img", { name: "Clock preview" });
+      const stage = listedRegion.firstElementChild as HTMLElement;
       const intrinsicFrame = stage.firstElementChild as HTMLElement;
       expect(container.querySelector("tc-widget-clock")).toBe(before);
-      expect(region.style.aspectRatio).toBe(`${frame.width} / ${frame.height}`);
+      expect(listedRegion.style.aspectRatio).toBe(
+        `${frame.width} / ${frame.height}`,
+      );
       expect(stage.style.width).toBe(`${frame.width}px`);
       expect(stage.style.height).toBe(`${frame.height}px`);
       expect(intrinsicFrame.style.width).toBe(`${frame.width}px`);
@@ -228,6 +229,86 @@ describe("WidgetPreviewHost", () => {
           }
         ).context.locale,
       ).toBe("fr-FR");
+    },
+  );
+
+  function stubResizeObserver() {
+    let resize: ResizeObserverCallback | undefined;
+    const observe = vi.fn();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          resize = callback;
+        }
+
+        observe = observe;
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      },
+    );
+    return {
+      observe,
+      fire: (width: number) =>
+        act(() => {
+          resize?.(
+            [{ contentRect: { width } } as ResizeObserverEntry],
+            {} as ResizeObserver,
+          );
+        }),
+    };
+  }
+
+  it("never upscales the standalone editor surface above its frame", async () => {
+    const { fire } = stubResizeObserver();
+    render(
+      <WidgetPreviewHost
+        component={component(FULL_CONFIG)}
+        resources={createWidgetResources({ documents: new Map() }, {})}
+        context={context(new PreviewClock())}
+        frame={{ width: 960, height: 540 }}
+        label="Clock preview"
+      />,
+    );
+    const region = screen.getByRole("img", { name: "Clock preview" });
+    await waitFor(() => region.querySelector("tc-widget-clock"));
+    // A viewport wider than the frame (roomy Studio column) keeps 1:1.
+    fire(1440);
+    const stage = region.firstElementChild as HTMLElement;
+    const intrinsicFrame = stage.firstElementChild as HTMLElement;
+    expect(stage.style.transform).toBe("scale(1)");
+    expect(intrinsicFrame.style.width).toBe("960px");
+    expect(intrinsicFrame.style.height).toBe("540px");
+  });
+
+  it.each([
+    { available: 540, scale: "scale(0.5)" },
+    { available: 1080, scale: "scale(1)" },
+    { available: 1620, scale: "scale(1.5)" },
+  ])(
+    "fill mode scales a Layout zone to $available px ($scale) without changing intrinsic geometry",
+    async ({ available, scale }) => {
+      const { fire } = stubResizeObserver();
+      render(
+        <WidgetPreviewHost
+          component={component(FULL_CONFIG)}
+          resources={createWidgetResources({ documents: new Map() }, {})}
+          context={context(new PreviewClock())}
+          frame={{ width: 1080, height: 270 }}
+          label="Zone preview"
+          fit="fill"
+        />,
+      );
+      const region = screen.getByRole("img", { name: "Zone preview" });
+      await waitFor(() => region.querySelector("tc-widget-clock"));
+      fire(available);
+      const stage = region.firstElementChild as HTMLElement;
+      const intrinsicFrame = stage.firstElementChild as HTMLElement;
+      // The Widget itself always sees the logical 1080x270 placement;
+      // only the outer presentation scales to the displayed zone.
+      expect(stage.style.transform).toBe(scale);
+      expect(intrinsicFrame.style.width).toBe("1080px");
+      expect(intrinsicFrame.style.height).toBe("270px");
     },
   );
 

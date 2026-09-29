@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
+import { PreviewClock } from "../../content/previewClock";
 import type {
   Asset,
   ContentDefinitionCatalog,
@@ -18,7 +20,7 @@ import weatherManifest from "../../../../../widgets/weather/tilecast.widget.json
 import newsManifest from "../../../../../widgets/news/tilecast.widget.json";
 import tickerManifest from "../../../../../widgets/ticker/tilecast.widget.json";
 import { studioWidgetDiscovery } from "../../content/studioWidgets";
-import { V2ZonePreview } from "./V2ZonePreview";
+import { layoutPreviewDateToMs, V2ZonePreview } from "./V2ZonePreview";
 
 afterEach(() => {
   cleanup();
@@ -810,6 +812,29 @@ describe("V2ZonePreview", () => {
     );
   });
 
+  it.each([{ fit: "shrink" }, { fit: "fill" }] as const)(
+    "passes fit=$fit through to the shared preview host",
+    async ({ fit }) => {
+      vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+      vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+      const client = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      render(
+        <QueryClientProvider client={client}>
+          <V2ZonePreview provider="clock" width={480} height={270} fit={fit} />
+        </QueryClientProvider>,
+      );
+      const frame = await screen.findByRole("img", {
+        name: "Live Widget preview",
+      });
+      await waitFor(() => frame.querySelector("tc-widget-clock"));
+      // Shrink keeps the intrinsic frame width; fill stretches to the zone
+      // while the mounted Widget keeps its logical geometry either way.
+      expect(frame.style.width).toBe(fit === "fill" ? "100%" : "480px");
+    },
+  );
+
   it("renders nothing while definitions load or the provider is unknown", () => {
     vi.spyOn(api, "contentDefinitions").mockReturnValue(new Promise(() => {}));
     vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
@@ -822,5 +847,275 @@ describe("V2ZonePreview", () => {
       </QueryClientProvider>,
     );
     expect(container.querySelector("tc-widget-clock")).toBeNull();
+  });
+
+  function listAsset(
+    authorConfiguration: Record<string, unknown>,
+    managedDataSourceId?: string,
+  ): Asset {
+    return {
+      widget: {
+        authorConfiguration,
+        ...(managedDataSourceId ? { managedDataSourceId } : null),
+      },
+    } as unknown as Asset;
+  }
+
+  function emptyRecordsPayload() {
+    return {
+      fields: [{ key: "title", label: "Title", type: "text" }],
+      records: [],
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      attribution: "Projects sheet",
+      unavailable: false,
+    };
+  }
+
+  it("surfaces a failed required source as an error instead of an empty Widget", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockRejectedValue(
+      new Error("source unavailable"),
+    );
+    const states: WidgetMountState[] = [];
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+          onState={(state) => states.push(state)}
+        />
+      </QueryClientProvider>,
+    );
+    // The failure must be visible and reported: without this the mount
+    // would resolve the missing document to empty("no_source") and a
+    // capture would store the failure as a blank Widget.
+    await screen.findByRole("alert");
+    expect(container.querySelector("tc-widget-list")).toBeNull();
+    await waitFor(() =>
+      expect(
+        states.some(
+          (state) =>
+            state.state === "error" && state.code === "source_unavailable",
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("still mounts a valid empty source as an intentional empty", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockResolvedValue(
+      emptyRecordsPayload(),
+    );
+    const states: WidgetMountState[] = [];
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+          onState={(state) => states.push(state)}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-list"));
+    expect(container.querySelector("tc-widget-list")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      states.some(
+        (state) =>
+          state.state === "error" && state.code === "source_unavailable",
+      ),
+    ).toBe(false);
+  });
+
+  it("mounts with no configured source and reports no failure", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const preview = vi
+      .spyOn(api, "previewSavedDataSource")
+      .mockResolvedValue(emptyRecordsPayload());
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({})}
+          width={480}
+          height={270}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-list"));
+    expect(container.querySelector("tc-widget-list")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(preview).not.toHaveBeenCalled();
+  });
+
+  describe("layoutPreviewDateToMs", () => {
+    it("maps a preview date to noon UTC", () => {
+      expect(layoutPreviewDateToMs("2026-09-28")).toBe(
+        Date.UTC(2026, 8, 28, 12),
+      );
+    });
+
+    it("stays live for missing or malformed input", () => {
+      expect(layoutPreviewDateToMs(undefined)).toBeNull();
+      expect(layoutPreviewDateToMs("")).toBeNull();
+      expect(layoutPreviewDateToMs("next Friday")).toBeNull();
+      expect(layoutPreviewDateToMs("2026-13-40")).toBeNull();
+    });
+  });
+
+  it("freezes the Widget clock and date-selects sources for a preview date", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const sourcePreview = vi
+      .spyOn(api, "previewSavedDataSource")
+      .mockResolvedValue(emptyRecordsPayload());
+    const setFixed = vi.spyOn(PreviewClock.prototype, "setFixed");
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+          previewDate="2026-09-28"
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-list"));
+    expect(container.querySelector("tc-widget-list")).toBeInTheDocument();
+    // The same instant drives the Widget clock and the Data Source preview,
+    // so time-sensitive Widgets agree with the Layout's text bindings.
+    expect(setFixed).toHaveBeenCalledWith(Date.UTC(2026, 8, 28, 12));
+    expect(sourcePreview).toHaveBeenCalledWith("source-1", "2026-09-28");
+  });
+
+  it("keeps the Widget clock live without a preview date", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const sourcePreview = vi
+      .spyOn(api, "previewSavedDataSource")
+      .mockResolvedValue(emptyRecordsPayload());
+    const setFixed = vi.spyOn(PreviewClock.prototype, "setFixed");
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+        />
+      </QueryClientProvider>,
+    );
+    const frame = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    await waitFor(() => frame.querySelector("tc-widget-list"));
+    expect(setFixed).not.toHaveBeenCalled();
+    expect(sourcePreview).toHaveBeenCalledWith("source-1", undefined);
+  });
+
+  it("refetches sources when the preview date changes", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    const sourcePreview = vi
+      .spyOn(api, "previewSavedDataSource")
+      .mockResolvedValue(emptyRecordsPayload());
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { rerender } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+          previewDate="2026-09-28"
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("img", { name: "Live Widget preview" });
+    expect(sourcePreview).toHaveBeenCalledWith("source-1", "2026-09-28");
+    rerender(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-1" })}
+          width={480}
+          height={270}
+          previewDate="2026-10-05"
+        />
+      </QueryClientProvider>,
+    );
+    await waitFor(() =>
+      expect(sourcePreview).toHaveBeenCalledWith("source-1", "2026-10-05"),
+    );
+  });
+
+  it("reports an error when one of several connected sources fails", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog());
+    vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+    vi.spyOn(api, "previewSavedDataSource").mockImplementation((id: string) =>
+      id === "source-b"
+        ? Promise.reject(new Error("source unavailable"))
+        : Promise.resolve(emptyRecordsPayload() as never),
+    );
+    const states: WidgetMountState[] = [];
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <V2ZonePreview
+          provider="list"
+          asset={listAsset({ dataSourceId: "source-b" }, "source-a")}
+          width={480}
+          height={270}
+          onState={(state) => states.push(state)}
+        />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("alert");
+    expect(container.querySelector("tc-widget-list")).toBeNull();
+    await waitFor(() =>
+      expect(
+        states.some(
+          (state) =>
+            state.state === "error" && state.code === "source_unavailable",
+        ),
+      ).toBe(true),
+    );
   });
 });

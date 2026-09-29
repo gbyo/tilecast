@@ -20,6 +20,13 @@ import (
 
 const MaxPreviewImageBytes = 500 * 1024
 
+// LayoutPreviewCaptureVersion is the current Layout thumbnail pipeline:
+// lifecycle-aware capture that waits for embedded V2 Widgets to settle.
+// Persisted beside each stored preview; a missing or older version counts
+// as stale so Studio regenerates the thumbnail once. Keep in sync with
+// LAYOUT_PREVIEW_CAPTURE_VERSION in Studio.
+const LayoutPreviewCaptureVersion = 1
+
 type Notifier interface{ ManifestChanged(uuid.UUID, int64) }
 type ManifestInvalidator interface {
 	LayoutChanged(context.Context, uuid.UUID, string) error
@@ -99,7 +106,7 @@ func (s *Service) List(ctx context.Context, search string, page, pageSize int) (
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM layouts WHERE deleted_at IS NULL AND($1='' OR name ILIKE '%'||$1||'%')`, search).Scan(&result.Total); err != nil {
 		return result, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT l.id,l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_revision,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id WHERE l.deleted_at IS NULL AND($1='' OR l.name ILIKE '%'||$1||'%') ORDER BY l.updated_at DESC,l.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
+	rows, err := s.db.Query(ctx, `SELECT l.id,l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_revision,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL,l.preview_capture_version FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id WHERE l.deleted_at IS NULL AND($1='' OR l.name ILIKE '%'||$1||'%') ORDER BY l.updated_at DESC,l.id LIMIT $2 OFFSET $3`, search, pageSize, (page-1)*pageSize)
 	if err != nil {
 		return result, err
 	}
@@ -108,7 +115,7 @@ func (s *Service) List(ctx context.Context, search string, page, pageSize int) (
 	for rows.Next() {
 		var item Summary
 		var hasPreview bool
-		if err = rows.Scan(&item.ID, &item.Name, &item.Description, &item.Orientation, &item.CanvasWidth, &item.CanvasHeight, &item.DraftRevision, &item.PublishedRevision, &item.PublishedAt, &item.HasUnpublishedChanges, &item.CreatedAt, &item.UpdatedAt, &hasPreview); err != nil {
+		if err = rows.Scan(&item.ID, &item.Name, &item.Description, &item.Orientation, &item.CanvasWidth, &item.CanvasHeight, &item.DraftRevision, &item.PublishedRevision, &item.PublishedAt, &item.HasUnpublishedChanges, &item.CreatedAt, &item.UpdatedAt, &hasPreview, &item.PreviewCaptureVersion); err != nil {
 			return result, err
 		}
 		if hasPreview {
@@ -124,7 +131,7 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Layout, error) {
 	var raw []byte
 	result.ID = id
 	var hasPreview bool
-	err := s.db.QueryRow(ctx, `SELECT l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_document,l.draft_revision,l.published_revision_id,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id WHERE l.id=$1 AND l.deleted_at IS NULL`, id).Scan(&result.Name, &result.Description, &result.Orientation, &result.CanvasWidth, &result.CanvasHeight, &raw, &result.DraftRevision, &result.PublishedRevisionID, &result.PublishedRevision, &result.PublishedAt, &result.HasUnpublishedChanges, &result.CreatedAt, &result.UpdatedAt, &hasPreview)
+	err := s.db.QueryRow(ctx, `SELECT l.name,l.description,l.orientation,l.canvas_width,l.canvas_height,l.draft_document,l.draft_revision,l.published_revision_id,r.revision,r.published_at,CASE WHEN r.id IS NULL THEN FALSE ELSE l.draft_document IS DISTINCT FROM r.document END,l.created_at,l.updated_at,l.preview_image IS NOT NULL,l.preview_capture_version FROM layouts l LEFT JOIN layout_revisions r ON r.id=l.published_revision_id WHERE l.id=$1 AND l.deleted_at IS NULL`, id).Scan(&result.Name, &result.Description, &result.Orientation, &result.CanvasWidth, &result.CanvasHeight, &raw, &result.DraftRevision, &result.PublishedRevisionID, &result.PublishedRevision, &result.PublishedAt, &result.HasUnpublishedChanges, &result.CreatedAt, &result.UpdatedAt, &hasPreview, &result.PreviewCaptureVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Layout{}, ErrNotFound
 	}
@@ -228,7 +235,7 @@ func (s *Service) SaveDraft(ctx context.Context, id, userID uuid.UUID, expected 
 		return Layout{}, err
 	}
 	defer tx.Rollback(ctx)
-	command, err := tx.Exec(ctx, `UPDATE layouts SET draft_document=$1,draft_revision=draft_revision+1,orientation=$2,canvas_width=$3,canvas_height=$4,preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL,updated_by=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL AND draft_revision=$7`, encoded, document.Canvas.Orientation, document.Canvas.Width, document.Canvas.Height, userID, id, expected)
+	command, err := tx.Exec(ctx, `UPDATE layouts SET draft_document=$1,draft_revision=draft_revision+1,orientation=$2,canvas_width=$3,canvas_height=$4,preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL,preview_capture_version=NULL,updated_by=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL AND draft_revision=$7`, encoded, document.Canvas.Orientation, document.Canvas.Width, document.Canvas.Height, userID, id, expected)
 	if err != nil {
 		return Layout{}, err
 	}
@@ -283,7 +290,7 @@ func (s *Service) StorePreviewImage(ctx context.Context, id, userID uuid.UUID, e
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	tag, err := tx.Exec(ctx, `UPDATE layouts SET preview_image=$2,preview_content_type='image/jpeg',preview_width=$3,preview_height=$4,preview_updated_at=now() WHERE id=$1 AND deleted_at IS NULL AND draft_revision=$5`, id, data, width, height, expectedRevision)
+	tag, err := tx.Exec(ctx, `UPDATE layouts SET preview_image=$2,preview_content_type='image/jpeg',preview_width=$3,preview_height=$4,preview_updated_at=now(),preview_capture_version=$6 WHERE id=$1 AND deleted_at IS NULL AND draft_revision=$5`, id, data, width, height, expectedRevision, LayoutPreviewCaptureVersion)
 	if err != nil {
 		return err
 	}

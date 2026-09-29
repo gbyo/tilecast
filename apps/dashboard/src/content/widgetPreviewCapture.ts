@@ -5,11 +5,27 @@ type CaptureT = TFunction<"content"> | undefined;
 const WIDGET_SNAPSHOT_WIDTH = 960;
 const WIDGET_SNAPSHOT_HEIGHT = 540;
 
+/**
+ * The one canonical library thumbnail frame. Saved Widget artwork is always
+ * rendered AT this geometry — never a stretched, cropped, or letterboxed
+ * reinterpretation of whatever preview size the author had selected.
+ */
+export const WIDGET_THUMBNAIL_FRAME = {
+  width: WIDGET_SNAPSHOT_WIDTH,
+  height: WIDGET_SNAPSHOT_HEIGHT,
+} as const;
+
 // Persisted alongside stored Widget previews. Bump this whenever the capture
 // representation changes in a way that requires existing thumbnails to be
 // regenerated. Keep in sync with WidgetPreviewCaptureVersion in
 // apps/server/internal/media/widgets.go.
-export const WIDGET_PREVIEW_CAPTURE_VERSION = 2;
+export const WIDGET_PREVIEW_CAPTURE_VERSION = 3;
+
+// The current Layout thumbnail pipeline: lifecycle-aware capture that waits
+// for embedded V2 Widgets to settle. Persisted beside each stored Layout
+// preview; a missing or older version counts as stale. Keep in sync with
+// LayoutPreviewCaptureVersion in apps/server/internal/layouts/service.go.
+export const LAYOUT_PREVIEW_CAPTURE_VERSION = 1;
 
 function blobToDataURL(blob: Blob, t: CaptureT) {
   return new Promise<string>((resolve, reject) => {
@@ -74,6 +90,56 @@ function inlineComputedStyle(source: Element, clone: Element) {
 }
 
 /**
+ * Read the resolved string of a generated box, or null when there is no
+ * visible box. `none` and `normal` generate nothing; anything that is not a
+ * quoted string (a url(), an image, an unresolved counter) is skipped
+ * rather than trusted as markup.
+ */
+function pseudoTextContent(style: CSSStyleDeclaration): string | null {
+  const content = style.getPropertyValue("content");
+  if (!content || content === "none" || content === "normal") return null;
+  const quote = content[0];
+  if (
+    content.length < 2 ||
+    (quote !== '"' && quote !== "'") ||
+    !content.endsWith(quote)
+  )
+    return null;
+  return content.slice(1, -1).replace(/\\(.)/g, "$1");
+}
+
+/**
+ * Generated ::before/::after boxes have no DOM node for cloneNode to copy,
+ * so Widgets that draw through them (Timeline's line and dots) lose those
+ * pixels in thumbnails. Synthesize a real element carrying the resolved
+ * text content and the pseudo box's computed style, so positioning,
+ * dimensions, backgrounds, borders, transforms, and opacity survive the
+ * capture. Only string content is reproduced, as a text node — generated
+ * content is never executed or parsed as markup.
+ */
+function clonePseudoElement(
+  source: Element,
+  pseudo: "::before" | "::after",
+): Element | null {
+  const style = getComputedStyle(source, pseudo);
+  const text = pseudoTextContent(style);
+  if (text == null) return null;
+  const surrogate = document.createElement("span");
+  surrogate.setAttribute("data-tc-captured-pseudo", pseudo);
+  if (text) surrogate.textContent = text;
+  const target = surrogate.style;
+  for (const property of style) {
+    if (property === "content") continue;
+    target.setProperty(
+      property,
+      style.getPropertyValue(property),
+      style.getPropertyPriority(property),
+    );
+  }
+  return surrogate;
+}
+
+/**
  * Build the tree the browser is actually painting rather than merely cloning
  * the light DOM. Widgets V2 render inside open Shadow DOM with adopted
  * stylesheets; neither ShadowRoots nor their constructed stylesheets survive
@@ -89,6 +155,8 @@ function cloneRenderedNode(source: Node, images: CapturedImage[]): Node {
   if (source instanceof HTMLImageElement && clone instanceof HTMLImageElement)
     images.push({ source, clone });
 
+  const before = clonePseudoElement(source, "::before");
+  if (before) clone.appendChild(before);
   let children: Node[];
   if (source instanceof HTMLSlotElement) {
     const assigned = source.assignedNodes({ flatten: true });
@@ -100,6 +168,8 @@ function cloneRenderedNode(source: Node, images: CapturedImage[]): Node {
   }
   for (const child of children)
     clone.appendChild(cloneRenderedNode(child, images));
+  const after = clonePseudoElement(source, "::after");
+  if (after) clone.appendChild(after);
   return clone;
 }
 

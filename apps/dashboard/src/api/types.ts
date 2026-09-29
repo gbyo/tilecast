@@ -519,6 +519,7 @@ export type Layout = {
   createdAt: string;
   updatedAt: string;
   previewImageUrl?: string;
+  previewCaptureVersion?: number;
   dependencies: LayoutDependency[];
   usage: {
     screens: { id: string; name: string }[];
