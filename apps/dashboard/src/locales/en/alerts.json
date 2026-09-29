@@ -3,6 +3,7 @@
     "library": {
       "title": "Campaigns",
       "description": "Coordinate immutable content releases across screens and groups. A release reuses the scheduler and never changes what is live until it is published.",
+      "loadError": "Campaigns could not be loaded.",
       "createButton": "Create campaign",
       "emptyTitle": "No campaigns yet",
       "emptyBody": "Create a campaign to coordinate content and destinations in one reviewed release.",
