@@ -135,7 +135,14 @@ class SecureHostPathTest {
         val outcome = AtomicReference<Boolean?>()
         launchOnActivity { activity ->
             try {
-                val owner = TrustedRuntimeWebView(activity, RuntimeCrashPolicy())
+                val owner = TrustedRuntimeWebView(
+                    activity,
+                    RuntimeCrashPolicy(),
+                    onComponentProbeDone = { passed ->
+                        outcome.set(passed)
+                        done.countDown()
+                    },
+                )
                 when (val endpoint = owner.create()) {
                     is TrustedRuntimeEndpoint.Unsupported -> {
                         failure.set("secure bridge unsupported: ${endpoint.reason}")
@@ -146,13 +153,6 @@ class SecureHostPathTest {
                         val webView = endpoint.webView
                         webView.layoutParams = ViewGroup.LayoutParams(320, 180)
                         activity.container.addView(webView)
-                        webView.loadUrl(TrustedRuntimeOrigin.entryUrl)
-                        webView.postDelayed({
-                            RuntimeComponentProbe.run(webView) { passed ->
-                                outcome.set(passed)
-                                done.countDown()
-                            }
-                        }, 3_000)
                     }
                 }
             } catch (error: Throwable) {

@@ -58,9 +58,9 @@ fi
 # Screenshots compare at device scale 1: the display must be mdpi.
 # Prefer the override density when one is set: after `wm density 160` the
 # output carries both physical and override lines.
-DENSITY="$(adb shell wm density | grep -i 'override density' | grep -o '[0-9]*' | head -n 1)"
+DENSITY="$(adb shell wm density | grep -i 'override density' | grep -o '[0-9]*' | head -n 1 || true)"
 if [ -z "$DENSITY" ]; then
-  DENSITY="$(adb shell wm density | grep -o '[0-9]*' | head -n 1)"
+  DENSITY="$(adb shell wm density | grep -o '[0-9]*' | head -n 1 || true)"
 fi
 if [ "$DENSITY" != "160" ]; then
   echo "run-android: display density must be 160 (mdpi) for scale-1 screenshots, got: $DENSITY" >&2
