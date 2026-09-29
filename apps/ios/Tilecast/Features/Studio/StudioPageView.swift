@@ -115,8 +115,9 @@ struct StudioPageView: View {
                 try await systemSignIn.authenticate(page: page)
             } catch {
                 let nsError = error as NSError
-                if nsError.domain != ASWebAuthenticationSessionError.errorDomain ||
-                    nsError.code != ASWebAuthenticationSessionError.canceledLogin.rawValue {
+                let cancelled = nsError.domain == ASWebAuthenticationSessionError.errorDomain &&
+                    nsError.code == ASWebAuthenticationSessionError.canceledLogin.rawValue
+                if !cancelled && (error as? IOSSignInError) != .accessDenied {
                     signInFailed = true
                 }
             }
