@@ -52,6 +52,14 @@ Studio sends the app its navigation catalog through the native bridge. The app r
 
 The app shows the one Studio web view through `StudioOverlay`. A `WebPage` can have only one `WebView`, so a layout marks where Studio goes with `StudioSlotView` and never creates a `WebView` itself.
 
+## Typography
+
+Native text uses Geist, the Studio typeface. Use `Font.geist(.body)`, `Font.geist(.footnote)`, and so on, not a system text style. Read [Typography](../../docs/ios-app.md#typography) for the parts of UIKit chrome that `Typography.applyAppearance()` covers and the system surfaces that keep the system font.
+
+## Navigation icons
+
+Tabs, the More list, and the iPad sidebar use Studio's Lucide icons. The icon assets and their Swift maps are generated from Studio. Do not edit them. Run `npm run ios:icons:generate` from the repository root after you change `apps/dashboard/src/navigation/NavigationIcon.tsx` or update `lucide-react`. Read [Icons](../../docs/ios-app.md#icons).
+
 ## Localization
 
 Add user-visible text as a SwiftUI literal or with `String(localized:)`. Then add the key, with Spanish and Russian translations, to `Tilecast/Resources/Localizable.xcstrings`. `scripts/check-localization.py` fails when a translation is missing.

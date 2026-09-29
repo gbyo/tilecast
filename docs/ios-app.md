@@ -234,7 +234,17 @@ Studio also falls back by itself. If negotiation fails, times out, or reports no
 
 ### Icons
 
-`icon` is advisory. `NavigationIcon` maps the tokens in `icon-tokens.json` to SF Symbols, and Studio maps them to Lucide icons. Any other token gets the generic symbol. A new Studio destination can use a new token without an app release.
+`icon` is advisory. The app shows the same Lucide icon for each token as the Studio sidebar. Any other token gets Studio's generic icon. A new Studio destination can use a new token without an app release.
+
+`apps/ios/scripts/generate-navigation-icons.mjs` generates the icons from Studio. It reads the token mapping in `apps/dashboard/src/navigation/NavigationIcon.tsx` and the icon geometry from the `lucide-react` version in `package-lock.json`. It writes these files:
+
+- one vector template image for each icon in `apps/ios/Tilecast/Resources/Assets.xcassets/Lucide/`;
+- the token-to-asset map in `TilecastCore/Navigation/NavigationIconImages.gen.swift`;
+- `Tilecast/App/AppIcon.gen.swift`, the icons for the app's own navigation controls, such as More, the server list, and Reload.
+
+Do not edit these files. After you change the Studio mapping or update `lucide-react`, run `npm run ios:icons:generate`. `make generated-check` fails when the files are out of date. The Lucide ISC license ships in the app bundle in `Resources/Licenses/`.
+
+Tabs, the More list, the iPad sidebar, and the server menus use these icons. Other native views, such as connection errors, keep SF Symbols.
 
 ### Plugins
 
@@ -328,6 +338,17 @@ The app follows App Transport Security with one exception, `NSAllowsLocalNetwork
 - Plain HTTP is for trusted local networks only. The add-server flow shows that the connection is not encrypted before the user confirms.
 - A connection to a local network address requires the Local Network privacy permission. The app declares `NSLocalNetworkUsageDescription`. When a local server cannot be reached, the error text tells the user to check that permission and opens Settings.
 - Loopback addresses need no permission. They are useful in the iOS Simulator only.
+
+## Typography
+
+Native chrome uses Geist, the Studio typeface, so that the app and the Studio page look like one interface. Studio uses monospaced text in the system monospaced font, so native monospaced text also stays in the system font.
+
+- The app bundles the Geist variable fonts from the [Geist project](https://github.com/vercel/geist-font), version 1.7.2, in `apps/ios/Tilecast/Resources/Fonts/`. `Info.plist` registers them in `UIAppFonts`. The SIL Open Font License, `Resources/Licenses/Geist-OFL.txt`, ships in the bundle with the fonts.
+- `Font.geist(_:)` in `apps/ios/Tilecast/App/Typography.swift` gives Geist at the size of a system text style. The size follows Dynamic Type. `.headline` is semibold, as in the system style.
+- The app root sets `.geist(.body)` as the default font. A view that sets a font must use `Font.geist(_:)`, not a system text style such as `.footnote`.
+- Section headers, section footers, and `ContentUnavailableView` titles set their own font, so each one sets `Font.geist(_:)` explicitly.
+- `Typography.applyAppearance()` sets Geist on UIKit chrome that the SwiftUI font environment does not reach: navigation bar titles, bar buttons, tab bar items, segmented controls, and search fields. For navigation bars, it changes only the font attributes. The iOS 26 tab bar reads item fonts only from a `UITabBarAppearance`, so the app sets a default tab bar appearance with Geist item titles.
+- Alerts, confirmation dialogs, menus, context menus, and swipe actions use the system font. iOS does not let an app change their font.
 
 ## Localization
 

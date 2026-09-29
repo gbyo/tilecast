@@ -41,6 +41,10 @@ Each server keeps its own sign-in and website data, so you can add several insta
 
 To run on a device, copy `apps/ios/Config/Local.xcconfig.example` to `Local.xcconfig` and set your Apple team.
 
+The app's native text uses Geist, the same typeface as Studio. When you set a font in a native view, use `Font.geist(.body)` or another text style instead of a system font. See [Typography](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#typography) for details.
+
+Tabs and the iPad sidebar show the same Lucide icons as Studio's sidebar. The icons are generated from Studio's icon mapping, so if you change an icon in `NavigationIcon.tsx`, run `npm run ios:icons:generate` and commit the result.
+
 ## Test
 
 ```sh title="apps/ios/TilecastKit · Core tests on the Mac"

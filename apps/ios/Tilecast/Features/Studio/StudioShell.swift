@@ -50,7 +50,10 @@ struct StudioShell: View {
     @ViewBuilder private var content: some View {
         switch host.connection {
         case .noServer:
-            ContentUnavailableView("Choose a Server", systemImage: "server.rack")
+            ContentUnavailableView {
+                Label("Choose a Server", systemImage: "server.rack")
+                    .font(.geist(.title2).weight(.bold))
+            }
         case .verifying(let server):
             ProgressView("Connecting to \(server.displayName)…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -88,9 +91,11 @@ struct ServerUnavailableView: View {
     var body: some View {
         ContentUnavailableView {
             Label(error.title, systemImage: error.systemImage)
+                .font(.geist(.title2).weight(.bold))
         } description: {
             VStack(spacing: 8) {
                 Text(error.message(for: server.address))
+                    .font(.geist(.body))
                 Text(server.address.displayString)
                     .font(.footnote.monospaced())
                     .foregroundStyle(.secondary)
@@ -118,8 +123,10 @@ struct IdentityChangedView: View {
     var body: some View {
         ContentUnavailableView {
             Label("Different Tilecast Server", systemImage: "exclamationmark.shield")
+                .font(.geist(.title2).weight(.bold))
         } description: {
             Text("\(server.address.displayString) now belongs to a different Tilecast installation (\(found.organizationName)). Tilecast didn’t open it, so your sign-in for \(server.displayName) wasn’t sent to it.")
+                .font(.geist(.body))
         } actions: {
             Button("Use New Server…") { confirmingTrust = true }
                 .buttonStyle(.borderedProminent)

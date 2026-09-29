@@ -85,14 +85,16 @@ import WebKit
         _ = try await signIn(host)
         try credentials.setRefreshToken("tcr_other", for: NativeCredentialKey(profile: b))
 
+        // B is not connected, so its installation is not verified now.
+        await host.remove(b.id)
+        #expect(try credentials.storedKeys() == [NativeCredentialKey(profile: a)])
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(servers["b.example.org"].revokedTokens.isEmpty, "an unverified server is never sent a credential")
+
         await host.remove(a.id)
-        #expect(try credentials.storedKeys() == [NativeCredentialKey(profile: b)])
+        #expect(try credentials.storedKeys().isEmpty)
         try await Task.sleep(for: .milliseconds(50))
         #expect(servers["a.example.org"].revokedTokens == ["tcr_refresh1"], "revoked at the verified server")
-
-        await host.remove(b.id)
-        #expect(try credentials.storedKeys().isEmpty)
-        #expect(servers["b.example.org"].revokedTokens.isEmpty, "an unverified server is never sent a credential")
     }
 
     @Test func acceptingANewInstallationDeletesTheOldCredentialFirst() async throws {

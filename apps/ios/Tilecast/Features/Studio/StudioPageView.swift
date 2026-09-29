@@ -27,8 +27,10 @@ struct StudioPageView: View {
                 if page.signInRequired {
                     ContentUnavailableView {
                         Label("Sign In to Tilecast", systemImage: "person.crop.circle")
+                            .font(.geist(.title2).weight(.bold))
                     } description: {
                         Text("Sign in securely to \(page.address.host) using the system browser.")
+                            .font(.geist(.body))
                     } actions: {
                         if signingIn {
                             ProgressView()
@@ -79,8 +81,10 @@ struct StudioPageView: View {
         case .failed(let failure):
             ContentUnavailableView {
                 Label(failure.title, systemImage: failure.systemImage)
+                    .font(.geist(.title2).weight(.bold))
             } description: {
                 Text(failure.message)
+                    .font(.geist(.body))
             } actions: {
                 Button("Try Again") { page.reload() }
                     .buttonStyle(.borderedProminent)
