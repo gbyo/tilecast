@@ -47,8 +47,8 @@ async function loadLayoutPreviewData(
   );
 
   const assetIds = new Set<string>();
-  if (layoutDocument.canvas.backgroundAssetId)
-    assetIds.add(layoutDocument.canvas.backgroundAssetId);
+  if (document.canvas.backgroundAssetId)
+    assetIds.add(document.canvas.backgroundAssetId);
   document.placements.forEach((placement) => {
     if (placement.assetId) assetIds.add(placement.assetId);
     if (placement.widgetId) assetIds.add(placement.widgetId);
