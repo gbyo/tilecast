@@ -284,13 +284,17 @@ func (b *mcpBackend) pairingResolve(ctx context.Context, args map[string]any) (a
 }
 
 func (b *mcpBackend) pairingApprove(ctx context.Context, args map[string]any) (any, error) {
-	if err := requireArgs(args, "sessionId", "name", "roomName", "roomNumber", "description"); err != nil {
+	if err := requireArgs(args, "sessionId"); err != nil {
 		return nil, err
+	}
+	replaceHardware := boolArg(args, "replaceHardware")
+	if !replaceHardware && strings.TrimSpace(strArg(args, "name")) == "" {
+		return nil, fmt.Errorf("pairing_approve needs name unless replaceHardware is true")
 	}
 	body := map[string]any{
 		"name": args["name"], "roomName": args["roomName"], "roomNumber": args["roomNumber"], "description": args["description"],
 		"replaceExistingCredential": boolArg(args, "replaceExistingCredential"),
-		"replaceHardware":           boolArg(args, "replaceHardware"),
+		"replaceHardware":           replaceHardware,
 	}
 	if location := strArg(args, "locationId"); location != "" {
 		body["locationId"] = location
@@ -302,7 +306,7 @@ func (b *mcpBackend) pairingApprove(ctx context.Context, args map[string]any) (a
 	} else {
 		body["replacementScreenId"] = nil
 	}
-	if boolArg(args, "replaceHardware") && strArg(args, "replacementScreenId") == "" {
+	if replaceHardware && strArg(args, "replacementScreenId") == "" {
 		return nil, fmt.Errorf("replaceHardware needs replacementScreenId")
 	}
 	status, payload, err := b.transport.ApprovePairing(ctx, strArg(args, "sessionId"), body)
@@ -795,10 +799,10 @@ func coreMCPTools() []mcpToolDef {
 		{name: "pairing_approve", description: "Approve a pairing session and name its screen", risk: "sensitive",
 			params: []mcpParam{
 				{name: "sessionId", description: "Pairing session UUID", required: true},
-				{name: "name", description: "Screen name", required: true},
-				{name: "roomName", description: "Room name", required: true},
-				{name: "roomNumber", description: "Room number", required: true},
-				{name: "description", description: "Screen description", required: true},
+				{name: "name", description: "Screen name; required unless replaceHardware is true"},
+				{name: "roomName", description: "Room name"},
+				{name: "roomNumber", description: "Room number"},
+				{name: "description", description: "Screen description"},
 				{name: "locationId", description: "Location UUID"},
 				{name: "replaceExistingCredential", description: "Authorize credential rotation after enrollment"},
 				{name: "replaceHardware", description: "Assign the player to an existing screen"},
