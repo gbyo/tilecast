@@ -63,6 +63,21 @@ class RuntimeSupportTest {
         assertEquals(legacy, RuntimeSupportAssessment.nativeCapabilitiesFor(compatOnly, legacy, generated))
     }
 
+    @Test fun unsupportedRuntimeAdvertisesNothing() {
+        // No fallback renderer exists: claiming schema 1 here would let
+        // the server negotiate content this build cannot render.
+        val unsupported = RuntimeSupport(trustedRuntimeSupported = false, componentRuntimeSupported = false)
+        assertEquals(emptyList<Int>(), RuntimeSupportAssessment.schemasFor(unsupported))
+        assertEquals(
+            emptyMap<String, Int>(),
+            RuntimeSupportAssessment.nativeCapabilitiesFor(
+                unsupported,
+                mapOf("layout.surface" to 1),
+                mapOf("widget.tilecast.clock" to 1),
+            ),
+        )
+    }
+
     @Test fun probeResultParsesOnlyFullPasses() {
         // evaluateJavascript delivers the script result JSON-encoded, so the
         // outer string carries escaped quotes; encode the same way here.

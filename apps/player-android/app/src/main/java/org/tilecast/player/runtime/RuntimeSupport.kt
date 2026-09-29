@@ -33,13 +33,20 @@ object RuntimeSupportAssessment {
         )
     }
 
+    /**
+     * No fallback renderer exists, so an untrusted runtime advertises
+     * nothing: the server must not negotiate content this build cannot
+     * render.
+     */
     fun schemasFor(support: RuntimeSupport): List<Int> =
-        if (support.componentRuntimeSupported) listOf(1, 2) else listOf(1)
+        if (!support.trustedRuntimeSupported) emptyList()
+        else if (support.componentRuntimeSupported) listOf(1, 2) else listOf(1)
 
     fun nativeCapabilitiesFor(
         support: RuntimeSupport,
         legacy: Map<String, Int> = org.tilecast.player.network.PlayerPresentationSupport.native,
         generated: Map<String, Int> = WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES,
     ): Map<String, Int> =
-        if (support.componentRuntimeSupported) legacy + generated else legacy
+        if (!support.trustedRuntimeSupported) emptyMap()
+        else if (support.componentRuntimeSupported) legacy + generated else legacy
 }
