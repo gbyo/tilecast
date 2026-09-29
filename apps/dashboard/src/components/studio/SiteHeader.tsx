@@ -5,6 +5,7 @@ import {
   Search,
   TriangleAlert,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type {
@@ -67,6 +68,8 @@ export function SiteHeader({
   onSearch,
   editor = false,
   demoMode = false,
+  navigationTrigger = true,
+  accountMenu,
 }: {
   breadcrumbs: StudioBreadcrumb[];
   notifications: NotificationFeed;
@@ -74,6 +77,10 @@ export function SiteHeader({
   /** Layout editor: one compact header that also hosts the editor's controls. */
   editor?: boolean;
   demoMode?: boolean;
+  /** False when a native host provides navigation instead of the sidebar. */
+  navigationTrigger?: boolean;
+  /** The account menu, when the sidebar that normally holds it is absent. */
+  accountMenu?: ReactNode;
 }) {
   const { t } = useTranslation(["navigation", "common"]);
   const slots = useEditorHeaderSlots();
@@ -84,8 +91,10 @@ export function SiteHeader({
         editor ? "h-13 gap-2 pr-2.5 pl-3" : "h-14 gap-3 px-4 md:px-6",
       )}
     >
-      <SidebarTrigger aria-label={t("header.toggleNavigation")} />
-      {editor && (
+      {navigationTrigger && (
+        <SidebarTrigger aria-label={t("header.toggleNavigation")} />
+      )}
+      {navigationTrigger && editor && (
         <Separator orientation="vertical" className="h-4 self-center" />
       )}
       {breadcrumbs.length > 0 ? (
@@ -289,6 +298,7 @@ export function SiteHeader({
         </PopoverContent>
       </Popover>
       {editor && <div ref={slots?.setRight} className="contents" />}
+      {accountMenu}
     </header>
   );
 }
