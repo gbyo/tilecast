@@ -52,6 +52,24 @@ On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no re
 
 Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
 
+## Fast local iteration
+
+Use changed tests while iterating, then use the full suite required by CI before merge. Fetch the comparison ref first:
+
+```sh
+git fetch origin main
+git merge-base origin/main HEAD >/dev/null 2>&1 || {
+  printf 'Fetch a base that shares history with HEAD, or run the full suite.\n' >&2
+  exit 1
+}
+npm test --workspace @tilecast/dashboard -- --changed=origin/main --passWithNoTests
+npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main --passWithNoTests
+cd apps/server
+go test ./internal/devices
+```
+
+Vitest follows its test dependency graph from changes since `origin/main`. Changes to its config or `package.json` run the full suite. `--passWithNoTests` lets documentation-only changes finish when no tests are related. For a different base, replace `origin/main` in both the merge-base check and Vitest command. The check stops when the ref is missing or unrelated; fetch a valid base or run the full suite. Run `go test` in each package that contains changed Go source. List each affected package when a change spans packages. These commands help with local iteration and do not replace CI's full test jobs.
+
 ## Real application tests
 
 The browser tests use the production Studio bundle, the server, PostgreSQL migrations, real domain services, and simulated players. They do not replace API responses. See [Demo Mode](demo-mode.md) for the reset API and the fixed record IDs.
