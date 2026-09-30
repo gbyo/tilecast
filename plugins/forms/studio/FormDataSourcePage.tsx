@@ -450,7 +450,59 @@ function ResponsesTab({
         </Empty>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="grid gap-2 md:hidden">
+            {items.map((record) => (
+              <article
+                key={record.id}
+                className="grid gap-3 rounded-xl border border-border p-3"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={recordHref(record.id)}
+                      className="block truncate font-medium text-primary hover:underline"
+                    >
+                      {record.displayTitle || t("detail.untitled")}
+                    </Link>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {record.submitterName || t("detail.unknown")}
+                    </p>
+                  </div>
+                  <Badge
+                    {...formToneBadgeProps(
+                      stateTone(form.workflow, record.state),
+                    )}
+                  >
+                    {stateLabel(form.workflow, record.state)}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>{t("detail.table.priority")}: {record.priority}</span>
+                  <span>
+                    {new Date(record.updatedAt).toLocaleString(locale)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {displayWindow(
+                    record.displayAt,
+                    record.expiresAt,
+                    t,
+                    locale,
+                  )}
+                </p>
+                <Link
+                  to={recordHref(record.id)}
+                  aria-label={t("detail.reviewLink", {
+                    title: record.displayTitle || t("detail.untitledLink"),
+                  })}
+                  className="w-fit font-medium text-primary hover:underline"
+                >
+                  {t("detail.table.reviewAction")}
+                </Link>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
             <Table className="min-w-[48rem]">
               <TableHeader>
                 <TableRow>
