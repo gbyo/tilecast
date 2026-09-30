@@ -249,6 +249,8 @@ export class LayoutSurface implements MediaSurface {
     let video: HTMLVideoElement | null = null;
     const release = () => {
       if (!video) return;
+      video.onloadedmetadata = null;
+      video.ontimeupdate = null;
       video.onended = null;
       video.onerror = null;
       video.pause();
@@ -270,7 +272,7 @@ export class LayoutSurface implements MediaSurface {
       const { entry, loop } = current;
       if (entry.kind === "video") {
         const next = document.createElement("video");
-        next.src = entry.src;
+        const startOffsetMs = entry.videoStartOffsetMs;
         next.muted = entry.muted;
         next.volume = Math.min(Math.max(entry.volume, 0), 1);
         next.autoplay = true;
@@ -279,11 +281,26 @@ export class LayoutSurface implements MediaSurface {
         next.style.width = "100%";
         next.style.height = "100%";
         next.style.objectFit = objectFit(entry.fit);
+        if (startOffsetMs && startOffsetMs > 0) {
+          next.onloadedmetadata = () => {
+            next.currentTime = startOffsetMs / 1_000;
+          };
+        }
         next.onended = () => actor.send({ type: "MEDIA_ENDED", shown });
+        next.ontimeupdate = () => {
+          if (
+            entry.videoEndOffsetMs !== null &&
+            entry.videoEndOffsetMs !== undefined &&
+            next.currentTime >= entry.videoEndOffsetMs / 1_000
+          ) {
+            actor.send({ type: "NEXT", shown });
+          }
+        };
         next.onerror = () => actor.send({ type: "MEDIA_FAILED", shown });
         release();
         video = next;
         container.replaceChildren(next);
+        next.src = entry.src;
         void next
           .play()
           .catch(() => actor.send({ type: "MEDIA_FAILED", shown }));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,12 @@ import { V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
+import {
+  defaultImageDurationMsForPlayback,
+  fallbackDurationMsFor,
+  playbackDefaultsFromSettings,
+  resolvePlaybackItemSettings,
+} from "@tilecast/player-runtime/playback-settings";
 import type {
   Asset,
   CalendarEvent,
@@ -78,9 +84,21 @@ export function AssetPlaybackPreview({
   return <img {...common} alt="" draggable={false} />;
 }
 
-export function playlistPreviewDuration(item: PlaylistItem) {
-  if (item.durationMs && item.durationMs > 0) return item.durationMs;
-  return item.assetType === "video" ? undefined : 10_000;
+export function playlistPreviewDuration(
+  item: PlaylistItem,
+  playback?: Record<string, unknown>,
+) {
+  // Videos advance at the authored end offset or the media's natural end.
+  if (item.assetType === "video") return undefined;
+  const settings = resolvePlaybackItemSettings(
+    item,
+    playback,
+    fallbackDurationMsFor(
+      item.assetType,
+      defaultImageDurationMsForPlayback(playback),
+    ),
+  );
+  return settings.durationMs ?? undefined;
 }
 
 export function nextPlaylistPreviewIndex(
@@ -116,6 +134,14 @@ export function PlaylistZonePreview({
   captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.settings,
+  });
+  const playback = useMemo(
+    () => playbackDefaultsFromSettings(settingsQuery.data?.values),
+    [settingsQuery.data?.values],
+  );
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
   const [index, setIndex] = useState(0);
   const current = items[index % Math.max(1, items.length)];
@@ -133,12 +159,12 @@ export function PlaylistZonePreview({
   );
   useEffect(() => setIndex(0), [playlist.id, playlist.revision]);
   useEffect(() => {
-    if (!current) return;
-    const duration = playlistPreviewDuration(current);
-    if (!duration) return;
-    const timer = window.setTimeout(advance, duration);
+    if (!current || !settingsQuery.isFetched) return;
+    const duration = playlistPreviewDuration(current, playback);
+    if (duration === undefined) return;
+    const timer = window.setTimeout(advance, Math.max(0, duration));
     return () => window.clearTimeout(timer);
-  }, [advance, current]);
+  }, [advance, current, playback, settingsQuery.isFetched]);
 
   if (!current)
     return (
@@ -148,6 +174,14 @@ export function PlaylistZonePreview({
         <span>{t("preview.zoneEmpty")}</span>
       </div>
     );
+  const itemPlayback = resolvePlaybackItemSettings(
+    current,
+    playback,
+    fallbackDurationMsFor(
+      current.assetType,
+      defaultImageDurationMsForPlayback(playback),
+    ),
+  );
   if (!asset)
     return (
       <div className="layout-placement-placeholder">
@@ -155,7 +189,7 @@ export function PlaylistZonePreview({
         <span>{current.assetName}</span>
       </div>
     );
-  const fit = placement.playback?.fit ?? current.fitMode;
+  const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${current.transition === "fade" || current.transition === "crossfade" ? " layout-playlist-preview--fade" : ""}`;
   if (asset.type === "widget")
@@ -182,10 +216,10 @@ export function PlaylistZonePreview({
         style={assetPreviewStyle(fit, radius)}
         autoPlay
         playsInline
-        muted={(placement.playback?.muted ?? true) || !current.audioEnabled}
+        muted={placement.playback?.muted ?? !itemPlayback.audioEnabled}
         preload="auto"
         onLoadedMetadata={(event) => {
-          event.currentTarget.volume = current.volume;
+          event.currentTarget.volume = itemPlayback.volume;
           if (current.videoStartOffsetMs)
             event.currentTarget.currentTime = current.videoStartOffsetMs / 1000;
         }}

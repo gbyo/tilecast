@@ -61,12 +61,14 @@ export const zoneMachine = setup({
     schedule: ({ context, self }) => {
       context.timers.cancelAll();
       const current = zoneEntry(context);
+      // Images use playlist timing. Videos advance from their authored end
+      // offset or the media element's ended event, as fullscreen playback does.
       if (!current || current.entry.kind !== "image") return;
       if (context.items.length <= 1) return;
+      const durationMs = current.entry.durationMs ?? ZONE_IMAGE_DEFAULT_MS;
       const shown = context.shown;
-      context.timers.after(
-        current.entry.durationMs ?? ZONE_IMAGE_DEFAULT_MS,
-        () => self.send({ type: "NEXT", shown }),
+      context.timers.after(durationMs, () =>
+        self.send({ type: "NEXT", shown }),
       );
     },
     retryLater: ({ context, self }) => {

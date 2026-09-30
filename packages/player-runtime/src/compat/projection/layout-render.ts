@@ -40,6 +40,7 @@ import type {
   RenderNode,
 } from "./render-tree";
 import {
+  defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
 } from "./playback-defaults";
@@ -354,13 +355,7 @@ function buildZoneItems(
     const settings = resolvePlaybackItemSettings(
       item,
       playback,
-      fallbackDurationMsFor(
-        kind,
-        Number.isFinite(Number(playback?.defaultImageDurationSeconds)) &&
-          Number(playback?.defaultImageDurationSeconds) > 0
-          ? Number(playback?.defaultImageDurationSeconds) * 1_000
-          : 10_000,
-      ),
+      fallbackDurationMsFor(kind, defaultImageDurationMsForPlayback(playback)),
     );
     items.push({
       id: item.id,
@@ -371,6 +366,8 @@ function buildZoneItems(
       muted: placement.playback?.muted ?? !settings.audioEnabled,
       volume: settings.volume,
       loop: playlist.items.length === 1,
+      videoStartOffsetMs: item.videoStartOffsetMs ?? null,
+      videoEndOffsetMs: item.videoEndOffsetMs ?? null,
     });
   }
   return items;

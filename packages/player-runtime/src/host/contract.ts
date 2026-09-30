@@ -277,6 +277,8 @@ export interface RuntimeLayoutZonePlaylistItem {
   muted: boolean;
   volume: number;
   loop: boolean;
+  videoStartOffsetMs?: number | null;
+  videoEndOffsetMs?: number | null;
 }
 
 export interface RuntimeLayoutZone {

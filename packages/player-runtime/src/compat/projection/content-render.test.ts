@@ -819,6 +819,17 @@ describe("renderLayout", () => {
   it("applies player defaults to playlist zones and skips unavailable items", () => {
     const playlistManifest = {
       ...manifest,
+      assets: [
+        ...manifest.assets,
+        {
+          assetId: "video",
+          variantId: "v1",
+          mimeType: "video/mp4",
+          sha256: "z",
+          fileSize: 14,
+          downloadPath: "/api/v1/player/assets/video/variants/v1",
+        },
+      ],
       playlists: [
         {
           id: "p1",
@@ -849,6 +860,20 @@ describe("renderLayout", () => {
               volume: 1,
               deliveryPolicy: "download",
               usePlayerDefaults: true,
+            },
+            {
+              id: "clip",
+              assetId: "video",
+              variantId: "v1",
+              assetType: "video",
+              durationMs: 5_000,
+              fitMode: "contain",
+              transition: "none",
+              audioEnabled: false,
+              volume: 0,
+              deliveryPolicy: "download",
+              videoStartOffsetMs: 1_000,
+              videoEndOffsetMs: 4_000,
             },
           ],
         },
@@ -900,6 +925,13 @@ describe("renderLayout", () => {
         fit: "cover",
         muted: true,
         volume: 0.25,
+      },
+      {
+        id: "clip",
+        kind: "video",
+        durationMs: 5_000,
+        videoStartOffsetMs: 1_000,
+        videoEndOffsetMs: 4_000,
       },
     ]);
   });

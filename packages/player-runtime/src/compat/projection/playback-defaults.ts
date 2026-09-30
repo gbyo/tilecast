@@ -1,5 +1,28 @@
 import type { ManifestItem } from "./types";
 
+/** Map Studio's settings document to the PlayerConfig playback shape. */
+export function playbackDefaultsFromSettings(
+  values: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!values) return {};
+  return {
+    defaultFitMode: values["player.playback.default_fit_mode"],
+    defaultVolume: values["player.playback.default_volume"],
+    defaultImageDurationSeconds:
+      values["player.playback.default_image_duration_seconds"],
+    defaultTransition: values["player.playback.default_transition"],
+    defaultAudioEnabled: values["player.playback.default_audio_enabled"],
+  };
+}
+
+/** The Player's image-duration default, including its unset/invalid fallback. */
+export function defaultImageDurationMsForPlayback(
+  playback: Record<string, unknown> | undefined,
+): number {
+  const seconds = Number(playback?.["defaultImageDurationSeconds"]);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1_000 : 10_000;
+}
+
 /**
  * The duration an item falls back to when it does not carry one of its own.
  *
@@ -36,8 +59,8 @@ export function resolvePlaybackItemSettings(
   fallbackDurationMs: number | null,
 ): {
   durationMs: number | null;
-  fitMode: string;
-  transition: string;
+  fitMode: "contain" | "cover" | "stretch";
+  transition: "none" | "fade" | "crossfade";
   audioEnabled: boolean;
   volume: number;
 } {
@@ -52,9 +75,7 @@ export function resolvePlaybackItemSettings(
       : item.fitMode || playback?.["defaultFitMode"] || "contain",
   );
   const configuredFit =
-    fitMode === "contain" || fitMode === "cover" || fitMode === "stretch"
-      ? fitMode
-      : "contain";
+    fitMode === "cover" ? "cover" : fitMode === "stretch" ? "stretch" : "contain";
   const transition = String(
     usePlayerDefaults
       ? playback?.["defaultTransition"] || "none"
@@ -65,14 +86,15 @@ export function resolvePlaybackItemSettings(
     : Number.isFinite(item.volume)
       ? Math.max(0, Math.min(1, item.volume))
       : Math.max(0, Math.min(1, numberConfig("defaultVolume", 0.5)));
+  const configuredTransition =
+    transition === "fade" ? "fade" : transition === "crossfade" ? "crossfade" : "none";
   return {
     durationMs:
       usePlayerDefaults && item.assetType === "image"
         ? fallbackDurationMs
         : (item.durationMs ?? fallbackDurationMs),
     fitMode: configuredFit,
-    transition:
-      transition === "fade" || transition === "crossfade" ? transition : "none",
+    transition: configuredTransition,
     audioEnabled: usePlayerDefaults
       ? playback?.["defaultAudioEnabled"] !== false
       : typeof item.audioEnabled === "boolean"
