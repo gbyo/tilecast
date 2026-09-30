@@ -66,7 +66,8 @@ for (const [name, path, ready] of states) {
         .filter({ hasText: "Lobby Clock" })
         .first()
         .locator("img");
-      await expect(preview).toBeVisible();
+      // The capture runs in a real headless renderer, which is slower on CI.
+      await expect(preview).toBeVisible({ timeout: 30_000 });
       await expect
         .poll(() =>
           preview.evaluate(
