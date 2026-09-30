@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 sources=(Tilecast TilecastKit/Sources)
 bridge=TilecastKit/Sources/TilecastCore/Bridge
 # Icon tokens are a visual vocabulary shared with Studio, not destinations.
-icons=TilecastKit/Sources/TilecastCore/Navigation/NavigationIcon.swift
+icons=TilecastKit/Sources/TilecastCore/Navigation/NavigationIconImages.gen.swift
 
 routes='screens|display-groups|media|widgets|data-sources|playlists|layouts|campaigns|schedules|plugins|activity|settings|users|preferences|overview|fleet|assets|groups|account'
 if grep -rnE "\"/($routes)([/?\"]|$)" "${sources[@]}"; then
@@ -23,6 +23,13 @@ fi
 destinations='overview|screens|display-groups|media|widgets|data-sources|playlists|layouts|campaigns|schedules|plugins|activity|settings|fleet'
 if grep -rnE --include='*.swift' "\"($destinations)\"" "${sources[@]}" | grep -v "^$icons:"; then
   echo "check-architecture: Swift sources name a Studio destination. Destination ids are opaque; render the catalog." >&2
+  exit 1
+fi
+
+# The app knows only the presentation root. Studio owns every child route,
+# so a new presentation needs no Swift change.
+if grep -rnE "__native/modal/[A-Za-z0-9]" "${sources[@]}"; then
+  echo "check-architecture: Swift sources name a presentation route. Only the root /__native/modal is allowed." >&2
   exit 1
 fi
 
@@ -49,7 +56,7 @@ fi
 
 # The bridge carries presentation and navigation only: no credentials,
 # cookies, or file access.
-if grep -rnE "SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|FileManager|URLSession|UserDefaults" "$bridge"; then
+if grep -rnE "SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|FileManager|URLSession|UserDefaults|NativeAuthSession" "$bridge" TilecastKit/Sources/TilecastCore/Presentation TilecastKit/Sources/TilecastCore/Web/PresentationPage.swift; then
   echo "check-architecture: the native bridge must not reach credentials, cookies, or files." >&2
   exit 1
 fi

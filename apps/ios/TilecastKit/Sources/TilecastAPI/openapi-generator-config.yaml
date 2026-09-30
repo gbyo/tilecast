@@ -1,0 +1,11 @@
+# Generates the Tilecast API client from the composed contract at build
+# time. openapi.yaml is a symbolic link to docs/openapi.yaml; there is no
+# second copy of the contract. Do not filter operations here: the client
+# follows the whole contract, and native features choose what they call.
+generate:
+  - types
+  - client
+accessModifier: public
+namingStrategy: idiomatic
+additionalFileComments:
+  - "swift-format-ignore-file"
