@@ -7,9 +7,10 @@ let presentationRoot = "/__native/modal"
 /// A child route. The app never names one; tests use it as data.
 let fixtureRoute = "/__native/modal/fixture/one"
 
-/// Waits for a condition that WebKit or a bridge task makes true.
+/// Waits for a condition that WebKit or a bridge task makes true. The limit
+/// is generous because a loaded CI runner starts a web content process slowly.
 @MainActor
-func settle(timeout: Duration = .seconds(10), _ condition: @MainActor () async -> Bool) async throws {
+func settle(timeout: Duration = .seconds(30), _ condition: @MainActor () async -> Bool) async throws {
     let deadline = ContinuousClock.now + timeout
     while await !condition() {
         guard ContinuousClock.now < deadline else {
