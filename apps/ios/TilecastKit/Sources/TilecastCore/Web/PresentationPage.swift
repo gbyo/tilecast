@@ -57,7 +57,13 @@ public final class PresentationPage {
     @ObservationIgnored private var monitor: Task<Void, Never>?
     @ObservationIgnored private var readyDeadline: Task<Void, Never>?
 
-    public init(address: ServerAddress, dataStore: WKWebsiteDataStore, applicationName: String, policy: StudioNavigationPolicy) {
+    public init(
+        address: ServerAddress,
+        dataStore: WKWebsiteDataStore,
+        applicationName: String,
+        policy: StudioNavigationPolicy,
+        system: SystemIntegrationHandlers = SystemIntegrationHandlers()
+    ) {
         websiteDataStore = dataStore
         rootURL = address.url(forPath: PresentationPaths.root)
         let bridge = StudioBridge(origin: address.origin, context: .presentation)
@@ -71,6 +77,7 @@ public final class PresentationPage {
         bridge.attach(to: webPage)
         sink.handler = { [weak self] in self?.handle($0) }
         bridge.onPresentationMessage = { [weak self] message in self?.receive(message) }
+        system.install(on: bridge)
     }
 
     /// Loads the presentation root. A `WebPage` loads without a view, so

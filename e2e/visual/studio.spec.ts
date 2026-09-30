@@ -107,6 +107,11 @@ test("overview", async ({ page }) => {
     page.getByRole("heading", { name: "Needs attention" }),
   ).toBeVisible();
   await snapshot(page, "overview", [
+    // Coming up shows how far away each change is and its date, both relative
+    // to the real clock.
+    page
+      .locator("p")
+      .filter({ hasText: /^(in \d+ (minutes?|hours?|days?)|tomorrow)/ }),
     page.locator(".recharts-wrapper"),
     page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
     page.getByRole("button", { name: /^Per screen ·/ }).locator("span"),
