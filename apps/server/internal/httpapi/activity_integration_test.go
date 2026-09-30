@@ -361,18 +361,28 @@ func TestLayoutPlaylistZoneAndFailedWidgetPreserveRootSession(t *testing.T) {
 func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		now := time.Now().UTC().Truncate(time.Microsecond)
+		lastContact := now.Add(-5 * time.Minute)
 		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
 			{ID: uuid.New(), Sequence: 1, EventType: "presentation.started", OccurredAt: now.Add(-10 * time.Minute), PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "morning-announcements", ActivitySessionID: "gap-root", Result: "playing"},
-			{ID: uuid.New(), Sequence: 2, EventType: "heartbeat.gap_detected", OccurredAt: now.Add(-5 * time.Minute), PlayerTimezone: "UTC", Result: "unknown", FailureCode: "heartbeat_gap", FailureMessage: "Player reporting stopped for more than three minutes."},
-			{ID: uuid.New(), Sequence: 3, EventType: "connection.restored", OccurredAt: now.Add(-time.Minute), PlayerTimezone: "UTC", Result: "recovered"},
 		}}, http.StatusAccepted)
+		if _, err := env.pool.Exec(context.Background(), `UPDATE screens SET last_heartbeat_at=$2 WHERE id=$1`, env.screenID, lastContact); err != nil {
+			t.Fatal(err)
+		}
+		principal := devices.DevicePrincipal{ScreenID: env.screenID, ScreenName: "Cafeteria TV", Enabled: true}
+		heartbeatRequest := httptest.NewRequest(http.MethodPost, "/api/v1/player/heartbeat", strings.NewReader(`{"screenWidth":1920,"screenHeight":1080,"playerVersion":"1.0","playbackState":"playing"}`))
+		heartbeatRequest = heartbeatRequest.WithContext(context.WithValue(heartbeatRequest.Context(), deviceContextKey, principal))
+		heartbeatResponse := httptest.NewRecorder()
+		env.server.playerHeartbeatWithActivity(heartbeatResponse, heartbeatRequest)
+		if heartbeatResponse.Code != http.StatusOK {
+			t.Fatalf("heartbeat status=%d body=%s", heartbeatResponse.Code, heartbeatResponse.Body.String())
+		}
 
 		var result string
 		var endedAt time.Time
 		if err := env.pool.QueryRow(context.Background(), `SELECT result,ended_at FROM playback_sessions WHERE activity_session_id='gap-root'`).Scan(&result, &endedAt); err != nil {
 			t.Fatal(err)
 		}
-		if result != "unknown" || endedAt.IsZero() {
+		if result != "unknown" || !endedAt.Equal(lastContact) {
 			t.Fatalf("gap session result=%q endedAt=%v", result, endedAt)
 		}
 

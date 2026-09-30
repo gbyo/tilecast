@@ -26,6 +26,8 @@ For a screen using a multi-zone Layout, **confirmed screen playback** counts wal
 
 **Session completion rate** describes how playback sessions ended. It is not a measure of whether scheduled content played. For that, use **Playback compliance**, which compares Player-confirmed screen time with expected windows Tilecast recorded when a selection became effective. Takeover time and intentionally cancelled windows are reported separately and excluded from the percentage. If there is no measurable expected time, Studio shows **No data**, not `0%`.
 
+A short network outage does not end a playback session when the Player reconnects. If a screen stops reporting for more than three minutes, Tilecast closes the session at the last confirmed heartbeat and records the gap as unknown. See the [Activity event contract](https://github.com/gbyo/tilecast/blob/main/docs/activity-event-contract.md) for the exact derivation rules.
+
 Expected windows are not reconstructed from today's schedules. Compliance has no historical expectation for periods before Tilecast began recording those windows.
 
 ## Follow an incident

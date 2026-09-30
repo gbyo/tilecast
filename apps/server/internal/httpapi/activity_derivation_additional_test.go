@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestPlaybackReplacementAndReconnectClassifyIncompleteSessions(t *testing.T) {
+func TestPlaybackReplacementAndReconnectPreserveOpenSessions(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
 		parent := "layout-root-replacement"
@@ -38,8 +38,8 @@ func TestPlaybackReplacementAndReconnectClassifyIncompleteSessions(t *testing.T)
 			if err := env.pool.QueryRow(context.Background(), `SELECT result,ended_at FROM playback_sessions WHERE activity_session_id=$1`, sessionID).Scan(&result, &ended); err != nil {
 				t.Fatal(err)
 			}
-			if result != "unknown" || ended == nil {
-				t.Fatalf("reconnect session %s result=%q ended=%v", sessionID, result, ended)
+			if result != "playing" || ended != nil {
+				t.Fatalf("reconnect changed session %s to result=%q ended=%v", sessionID, result, ended)
 			}
 		}
 	})
