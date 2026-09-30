@@ -50,6 +50,14 @@ public final class StudioHost {
     public private(set) var connection: Connection = .noServer
     /// The native API credential lifecycle for the connected server.
     public private(set) var nativeAuth: NativeAuthSession?
+    /// What the app does for Studio's haptic and share requests. The app
+    /// target fills it in; every Studio page of the host uses it.
+    public let system = SystemIntegrationHandlers()
+    /// Native media intake for the connected server.
+    public let mediaIntake: MediaIntakeCoordinator
+    /// Why the last deep link could not be opened, for the app to tell the
+    /// person. Cleared by `dismissDeepLinkNotice()`.
+    public private(set) var deepLinkNotice: DeepLinkNotice?
 
     @ObservationIgnored private let dataStores: any WebsiteDataStoreManaging
     @ObservationIgnored private let identityClient: any InstallationIdentityFetching
@@ -60,6 +68,18 @@ public final class StudioHost {
     /// server the user already left cannot build a page.
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var nativeAuthEvents: Task<Void, Never>?
+    /// A deep link waiting for its installation's Studio to be ready.
+    @ObservationIgnored private var pendingDeepLink: PendingDeepLink?
+    /// Whether launch finished choosing a server, so a link that arrives
+    /// during launch does not start a second connection.
+    @ObservationIgnored private var hasStarted = false
+    @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private var isDeliveringDeepLink = false
+    /// Sends a validated path to a page's Studio. Tests replace it to see
+    /// what the host delivers, and when.
+    @ObservationIgnored var deepLinkDelivery: @MainActor (StudioPage, String) async -> Bool = { page, path in
+        await page.bridge.openDeepLinkPath(path)
+    }
 
     public init(
         directory: ServerDirectory,
@@ -67,8 +87,12 @@ public final class StudioHost {
         identityClient: any InstallationIdentityFetching,
         credentials: any NativeCredentialStore,
         sessionService: @escaping @Sendable (ServerAddress) -> any IOSSessionExchanging = { IOSSessionClient(address: $0) },
-        applicationName: String
+        applicationName: String,
+        mediaIntake: MediaIntakeCoordinator = MediaIntakeCoordinator(),
+        now: @escaping @Sendable () -> Date = { .now }
     ) {
+        self.mediaIntake = mediaIntake
+        self.now = now
         self.directory = directory
         self.dataStores = dataStores
         self.identityClient = identityClient
@@ -84,14 +108,20 @@ public final class StudioHost {
     /// Opens the directory's active server, if any.
     public func start() async {
         sweepOrphanedCredentials()
+        mediaIntake.sweepStaging()
         await sweepOrphanedDataStores()
-        if let id = directory.activeServerID { await activate(id) } else { connection = .noServer }
+        // A link that opened the app names the server to open.
+        if let id = pendingDeepLink?.serverID ?? directory.activeServerID { await activate(id) } else { connection = .noServer }
+        hasStarted = true
+        deliverPendingDeepLink()
     }
 
     /// Makes `id` the active server and loads its Studio page.
     public func activate(_ id: UUID) async {
         guard let profile = directory.server(withID: id) else { return }
         if let page, page.serverID == id { return }
+        // A link waits for its own server only. Opening another one ends it.
+        if pendingDeepLink?.serverID != id { pendingDeepLink = nil }
         closePage()
         directory.activate(id)
         await connect(profile)
@@ -108,6 +138,7 @@ public final class StudioHost {
     /// next server opens.
     public func remove(_ id: UUID) async {
         let wasActive = directory.activeServerID == id
+        if pendingDeepLink?.serverID == id { pendingDeepLink = nil }
         // The grant is revoked only through a session whose installation was
         // verified in this connection; other credentials are deleted locally.
         if let nativeAuth, nativeAuth.key.serverID == id { await nativeAuth.signOut() }
@@ -192,7 +223,8 @@ public final class StudioHost {
             let page = StudioPage(
                 profile: current,
                 dataStore: dataStores.dataStore(for: current.websiteDataStoreID),
-                applicationName: applicationName
+                applicationName: applicationName,
+                system: system
             )
             let auth = NativeAuthSession(
                 key: NativeCredentialKey(profile: current),
@@ -205,6 +237,8 @@ public final class StudioHost {
             }
             nativeAuth = auth
             watch(auth, page: page)
+            mediaIntake.attach(bridge: page.bridge, auth: auth)
+            page.bridge.onReadinessChange = { [weak self] in self?.deliverPendingDeepLink() }
             connection = .connected(page)
             page.start()
         }
@@ -263,6 +297,7 @@ public final class StudioHost {
     public func signOut() async {
         guard let page else { return }
         page.presentations.discard()
+        endSessionScopedWork()
         directory.recordSignOut(page.serverID)
         if let nativeAuth, nativeAuth.key.serverID == page.serverID { await nativeAuth.signOut() }
         _ = await page.bridge.requestSignOut()
@@ -284,6 +319,7 @@ public final class StudioHost {
     func studioSignedOut(_ page: StudioPage) {
         guard page === self.page else { return }
         page.presentations.discard()
+        endSessionScopedWork()
         directory.recordSignOut(page.serverID)
         if let nativeAuth { Task { await nativeAuth.signOut() } }
     }
@@ -300,10 +336,98 @@ public final class StudioHost {
                 case .authenticationLost:
                     guard !page.signInRequired else { continue }
                     page.presentations.discard()
+                    endSessionScopedWork()
                     directory.recordSignOut(page.serverID)
                     if await !page.bridge.requestSignOut(), page === self.page { page.reload() }
                 }
             }
+        }
+    }
+
+    /// What signing out ends: an upload that the credential authorized, and a
+    /// link that waited for the session it just lost. Temporary media is removed.
+    private func endSessionScopedWork() {
+        mediaIntake.cancelActive()
+        pendingDeepLink = nil
+    }
+
+    // MARK: Deep links
+
+    private struct PendingDeepLink {
+        let id = UUID()
+        let link: DeepLink
+        let serverID: UUID
+        let expiresAt: Date
+    }
+
+    /// How long a link waits for its Studio, for example while the person signs in.
+    static let deepLinkLifetime: TimeInterval = 300
+
+    public func dismissDeepLinkNotice() {
+        deepLinkNotice = nil
+    }
+
+    /// Opens a URL the system gave the app. The OAuth callback and any
+    /// other URL that does not ask to open something are ignored here.
+    public func open(_ url: URL) async {
+        switch DeepLink.parse(url) {
+        case .notForOpening: return
+        case .invalid: deepLinkNotice = .unopenable
+        case .link(let link): await open(link)
+        }
+    }
+
+    /// Opens a link in the installation it names: the one entry point for a
+    /// URL, a notification, and an App Intent alike. It never contacts a
+    /// server the app has no profile for, and it never adds one.
+    ///
+    /// The link waits until the installation's identity is verified and its
+    /// main Studio page is signed in and ready. The path then reaches
+    /// React Router through the bridge, so unsaved-change blockers apply.
+    /// The page's URL is never loaded for it.
+    public func open(_ link: DeepLink) async {
+        guard let profile = directory.servers.first(where: { $0.installationID == link.installationID }) else {
+            deepLinkNotice = .notConfigured
+            return
+        }
+        deepLinkNotice = nil
+        pendingDeepLink = PendingDeepLink(link: link, serverID: profile.id, expiresAt: now().addingTimeInterval(Self.deepLinkLifetime))
+        // Launch chooses the server first, then delivers what waits.
+        guard hasStarted else { return }
+        if page?.serverID == profile.id {
+            deliverPendingDeepLink()
+        } else if case .verifying(let verifying) = connection, verifying.id == profile.id {
+            // The connection in progress delivers it when Studio is ready.
+        } else {
+            await activate(profile.id)
+            // The installation did not verify, or the server is unreachable.
+            // The link does not wait on a page that will not come.
+            if page == nil { pendingDeepLink = nil }
+        }
+    }
+
+    /// Hands a waiting link to Studio when its page can take it.
+    private func deliverPendingDeepLink() {
+        guard let pending = pendingDeepLink, let page, page.serverID == pending.serverID else { return }
+        guard pending.expiresAt > now() else {
+            pendingDeepLink = nil
+            return
+        }
+        guard page.bridge.canReceiveDeepLink, !isDeliveringDeepLink else { return }
+        isDeliveringDeepLink = true
+        Task { [weak self, weak page] in
+            // Studio may report ready a moment before its router listens.
+            var accepted = false
+            for attempt in 0..<10 {
+                guard let page, !page.isClosed else { break }
+                accepted = await self?.deepLinkDelivery(page, pending.link.path) ?? false
+                if accepted { break }
+                try? await Task.sleep(for: .milliseconds(200 * (attempt + 1)))
+                guard self?.pendingDeepLink?.id == pending.id else { break }
+            }
+            guard let self else { return }
+            isDeliveringDeepLink = false
+            if accepted, pendingDeepLink?.id == pending.id { pendingDeepLink = nil }
         }
     }
 
@@ -312,6 +436,7 @@ public final class StudioHost {
         nativeAuthEvents?.cancel()
         nativeAuthEvents = nil
         nativeAuth = nil
+        mediaIntake.detach()
         guard let page else { return }
         directory.recordStudioPath(page.currentStudioPath, for: page.serverID)
         page.close()
