@@ -84,7 +84,18 @@
       "dialogNameLabel": "Group name",
       "dialogDescriptionLabel": "Description",
       "dialogDescriptionHint": "Screens in this group share fallback content, schedules, and playback position.",
-      "dialogCreateAction": "Create group"
+      "dialogCreateAction": "Create group",
+      "tabsLabel": "Display Group details",
+      "tabOverview": "Overview",
+      "tabMembers": "Members",
+      "tabContent": "Content",
+      "tabDisplay": "Display",
+      "tabPolicy": "Policy",
+      "unsavedBadge": "Unsaved",
+      "discardTitle": "Discard unsaved group settings?",
+      "discardBody": "Your group policy edits have not been saved. Discard them and continue?",
+      "keepEditing": "Keep editing",
+      "discardAction": "Discard changes"
     }
   },
   "shared": {
@@ -723,7 +734,10 @@
     "groups": "Display Groups",
     "noGroups": "No Display Groups exist.",
     "saved": "Screen scope saved.",
-    "saveAction": "Save screen scope"
+    "saveAction": "Save screen scope",
+    "searchLabel": "Search places",
+    "searchPlaceholder": "Filter locations and Display Groups",
+    "noMatch": "No places match this search."
   },
   "archive": {
     "title": "Screen archive",
