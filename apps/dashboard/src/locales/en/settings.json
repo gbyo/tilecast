@@ -1101,6 +1101,7 @@
     "invalidType": "Choose a PNG, JPEG, WebP, or SVG image.",
     "uploadFailed": "Upload failed.",
     "unavailable": "The selected image is unavailable. Upload a replacement.",
+    "loadError": "Could not load the selected image.",
     "uploading": "Uploading {{progress}}%",
     "replace": "Replace image",
     "upload": "Upload image",

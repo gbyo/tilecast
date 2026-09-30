@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { ApiError } from "../api/errors";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button } from "../components/ui/button";
@@ -148,7 +149,16 @@ function BrandingAssetUpload({
     enabled: Boolean(value) && uploadedAsset?.id !== value,
     retry: false,
   });
-  const asset = uploadedAsset?.id === value ? uploadedAsset : existing.data;
+  const missingAsset =
+    existing.error instanceof ApiError &&
+    existing.error.status === 404 &&
+    existing.error.code === "not_found";
+  const asset =
+    uploadedAsset?.id === value
+      ? uploadedAsset
+      : missingAsset
+        ? undefined
+        : existing.data;
 
   useEffect(
     () => () => {
@@ -244,7 +254,7 @@ function BrandingAssetUpload({
               {asset.name || asset.originalFilename}
             </small>
           )}
-          {value && !asset && !existing.isLoading && (
+          {value && !asset && (missingAsset || existing.isSuccess) && (
             <small className="text-sm text-destructive">
               {t("branding.unavailable")}
             </small>
@@ -294,6 +304,22 @@ function BrandingAssetUpload({
             </Button>
           )}
         </div>
+        {value && existing.isError && !missingAsset && (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>{t("branding.loadError")}</span>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={existing.isFetching}
+                onClick={() => void existing.refetch()}
+              >
+                {t("common:actions.retry")}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
         {(error || actionError) && (
           <Alert variant="destructive">
             <AlertDescription>{error ?? actionError}</AlertDescription>

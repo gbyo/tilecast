@@ -1101,6 +1101,7 @@
     "invalidType": "Elige una imagen PNG, JPEG, WebP o SVG.",
     "uploadFailed": "La subida falló.",
     "unavailable": "La imagen elegida no está disponible. Sube un reemplazo.",
+    "loadError": "No se pudo cargar la imagen seleccionada.",
     "uploading": "Subiendo {{progress}}%",
     "replace": "Reemplazar imagen",
     "upload": "Subir imagen",
