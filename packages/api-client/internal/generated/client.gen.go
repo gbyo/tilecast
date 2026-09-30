@@ -9738,6 +9738,9 @@ type StructuredPlayerPreviewConfig struct {
 type StructuredPreview struct {
 	Configuration StructuredPlayerPreviewConfig `json:"configuration"`
 	Diagnostics   DataSourceDiagnostics         `json:"diagnostics"`
+
+	// FieldSchema Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives.
+	FieldSchema *[]DataSourceField `json:"fieldSchema,omitempty"`
 }
 
 // StructuredPreviewData defines model for StructuredPreviewData.

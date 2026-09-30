@@ -200,4 +200,11 @@ func TestPreviewDataSourceByIDUsesUploadedCSV(t *testing.T) {
 	if len(records) != 1 || records[0].Title != "Grilled Cheese" || records[0].Values["option_2"] != "Veggie Wrap" {
 		t.Fatalf("records=%#v", records)
 	}
+	fieldTypes := map[string]string{}
+	for _, field := range structured.FieldSchema {
+		fieldTypes[field.Key] = field.Type
+	}
+	if fieldTypes["title"] != "text" || fieldTypes["option_2"] != "text" {
+		t.Fatalf("fieldSchema=%#v", structured.FieldSchema)
+	}
 }

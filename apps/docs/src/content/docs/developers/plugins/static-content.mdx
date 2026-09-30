@@ -21,6 +21,8 @@ npm run widgets:new -- scoreboard --plugin athletics
 
 The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime entry point, and fixtures. No second Widget type exists, and Plugin API v1 does not change.
 
+Studio Widget previews preserve the field types of connected Structured Data Sources, so developers see the same numbers, dates, and links that playback receives. The [API contract](https://github.com/gbyo/tilecast/blob/main/docs/api.md) describes the preview's `fieldSchema`.
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:
