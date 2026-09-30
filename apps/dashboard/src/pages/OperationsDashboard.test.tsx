@@ -173,9 +173,8 @@ describe("Overview fleet status", () => {
     expect(within(attention).getByText("Library")).toBeInTheDocument();
     expect(within(attention).getByText("Offline")).toBeInTheDocument();
     expect(within(attention).getByText("Stale")).toBeInTheDocument();
-    // A disabled screen is an administrator's decision: counted, not alarming.
+    // A disabled screen is an administrator's decision, not an alarm.
     expect(within(attention).queryByText("Old TV")).not.toBeInTheDocument();
-    expect(screen.getByText(/Disabled 1/)).toBeInTheDocument();
   });
 
   it("says an online player failed to update instead of showing an unexplained badge", async () => {
@@ -245,7 +244,7 @@ describe("Overview fleet status", () => {
 });
 
 describe("Overview on air", () => {
-  it("lists what online screens are set to show and links each to its screen", async () => {
+  it("groups online screens by what they are set to show", async () => {
     mockAll({
       screens: [
         screenFixture({
@@ -254,18 +253,23 @@ describe("Overview on air", () => {
           nowPlayingName: "Morning",
           nowPlayingType: "playlist",
         }),
-        screenFixture({ id: "b", name: "Hall" }),
+        screenFixture({
+          id: "b",
+          name: "Hall",
+          nowPlayingName: "Morning",
+          nowPlayingType: "playlist",
+        }),
+        screenFixture({ id: "c", name: "Gym" }),
       ],
     });
     renderPage();
     const onAir = await region("On air now");
-    const link = await within(onAir).findByRole("link", { name: /Lobby/ });
-    expect(link).toHaveAttribute("href", "/screens/a");
+    const link = await within(onAir).findByRole("link", { name: /Morning/ });
+    expect(link).toHaveAttribute("href", "/screens");
+    expect(within(link).getByText("Hall, Lobby")).toBeInTheDocument();
+    expect(within(link).getByText("2 screens")).toBeInTheDocument();
     expect(
-      await within(onAir).findByText("Playlist · Morning"),
-    ).toBeInTheDocument();
-    expect(
-      await within(onAir).findByText("1 online screen has nothing assigned."),
+      within(onAir).getByText("2 assigned · 1 unassigned"),
     ).toBeInTheDocument();
   });
 
@@ -298,13 +302,13 @@ describe("Overview on air", () => {
     ).toBeInTheDocument();
   });
 
-  it("caps the list and points to the rest", async () => {
+  it("caps the groups and counts the rest", async () => {
     mockAll({
-      screens: Array.from({ length: 7 }, (_, index) =>
+      screens: Array.from({ length: 6 }, (_, index) =>
         screenFixture({
           id: `s${index}`,
           name: `Screen ${index}`,
-          nowPlayingName: "Loop",
+          nowPlayingName: `Loop ${index}`,
           nowPlayingType: "playlist",
         }),
       ),
@@ -312,13 +316,11 @@ describe("Overview on air", () => {
     renderPage();
     const onAir = await region("On air now");
     expect(
-      await within(onAir).findAllByRole("link", { name: /Screen/ }),
+      await within(onAir).findAllByRole("link", { name: /Loop/ }),
     ).toHaveLength(4);
     expect(
-      await within(onAir).findByRole("link", {
-        name: "3 more online screens have content assigned.",
-      }),
-    ).toHaveAttribute("href", "/screens");
+      within(onAir).getByText("6 assigned · 0 unassigned · 2 more"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -437,7 +439,7 @@ describe("Overview coming up", () => {
     renderPage();
     const card = await region("Coming up");
     const link = await within(card).findByRole("link", {
-      name: /Starts · Lunch menu/,
+      name: /Lunch menu.*Starts/,
     });
     expect(link).toHaveAttribute("href", "/schedules/schedule-1");
     expect(within(card).getByText(/Lunch loop · Lobby/)).toBeInTheDocument();
