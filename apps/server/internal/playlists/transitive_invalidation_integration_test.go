@@ -96,6 +96,12 @@ func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *test
 	if _, err = layoutService.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err != nil {
 		t.Fatal(err)
 	}
+	// Baseline the revision assertion on the published setup state: the
+	// pre-publish snapshot still carries a nil published revision.
+	layout, err = layoutService.Get(ctx, layout.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	root, err := service.Create(ctx, owner.User.ID, "Root playlist", "", "static")
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +190,7 @@ func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *test
 		t.Fatal(err)
 	}
 	storePreview()
-	mediaService := media.NewService(pool, nil, media.Config{})
+	mediaService := media.NewService(pool, nil, media.Config{SourceFetch: media.SourceFetchPolicy{AllowPrivateNetworks: true, Timeout: 5 * time.Second, MaximumBytes: 1 << 20, MaximumRedirects: 3, MinimumRefresh: 5 * time.Minute, MaximumRefresh: 24 * time.Hour}})
 	mediaService.SetAssetInvalidator(service)
 	if _, err = mediaService.UpdateWidget(ctx, widgetID, owner.User.ID, media.WidgetInput{
 		Provider:      "clock",
