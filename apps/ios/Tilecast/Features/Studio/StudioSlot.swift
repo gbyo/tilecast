@@ -84,9 +84,6 @@ struct StudioOverlay: View {
                     .id(ObjectIdentifier(page))
                     .safeAreaPadding(.bottom, slot.coveredBottom)
                     .frame(width: frame.width, height: frame.height)
-                    // The tab bar floats over the bottom strip. Studio shows
-                    // through it, but touches there belong to the tab bar.
-                    .contentShape(.interaction, AboveCoveredEdge(covered: slot.coveredBottom))
                     .offset(x: frame.minX - origin.x, y: frame.minY - origin.y)
                     .opacity(visible ? 1 : 0)
                     .allowsHitTesting(visible)
@@ -94,14 +91,5 @@ struct StudioOverlay: View {
             }
         }
         .ignoresSafeArea()
-    }
-}
-
-/// Everything except the bottom `covered` points.
-nonisolated private struct AboveCoveredEdge: Shape {
-    var covered: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        Path(CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: max(0, rect.height - covered)))
     }
 }

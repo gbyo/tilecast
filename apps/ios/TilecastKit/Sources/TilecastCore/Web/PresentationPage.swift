@@ -73,7 +73,11 @@ public final class PresentationPage {
         bridge.install(into: &configuration)
         let sink = StudioNavigationSink()
         self.bridge = bridge
-        webPage = WebPage(configuration: configuration, navigationDecider: StudioNavigationDecider(policy: policy, sink: sink))
+        webPage = WebPage(
+            configuration: configuration,
+            navigationDecider: StudioNavigationDecider(policy: policy, sink: sink),
+            dialogPresenter: StudioDialogPresenter(origin: address.origin, system: system)
+        )
         bridge.attach(to: webPage)
         sink.handler = { [weak self] in self?.handle($0) }
         bridge.onPresentationMessage = { [weak self] message in self?.receive(message) }
