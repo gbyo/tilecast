@@ -21,7 +21,14 @@ export default defineConfig({
       caret: "hide",
     },
   },
-  projects: [{ name: "chromium" }],
+  projects: [
+    { name: "chromium", testIgnore: /mobile\.spec\.ts/ },
+    {
+      name: "chromium-mobile",
+      testMatch: /mobile\.spec\.ts/,
+      use: { viewport: { width: 375, height: 812 } },
+    },
+  ],
   use: {
     ...functional.use,
     browserName: "chromium",

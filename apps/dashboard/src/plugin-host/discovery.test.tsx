@@ -435,5 +435,22 @@ describe("plugin secondary navigation", () => {
     expect(() =>
       collectSecondaryNavItems([forms([navItem("", "/approvals")])], []),
     ).toThrow(/without an id/);
+    // The id becomes part of an opaque native destination id.
+    expect(() =>
+      collectSecondaryNavItems(
+        [forms([navItem("My Inbox", "/approvals")])],
+        [],
+      ),
+    ).toThrow(/lowercase letters, digits, and hyphens/);
+    expect(() =>
+      collectSecondaryNavItems(
+        [
+          forms([
+            { ...navItem("approvals", "/approvals"), iconToken: "Inbox Tray" },
+          ]),
+        ],
+        [],
+      ),
+    ).toThrow(/invalid iconToken/);
   });
 });

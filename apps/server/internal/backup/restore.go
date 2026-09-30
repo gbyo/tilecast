@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
+	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
 
 // preRestoreSchema holds the previous database contents from schema rename
@@ -72,7 +73,7 @@ type ApplyOptions struct {
 	UpdatesRoot             string
 	BackupRoot              string
 	ArchivePath             string
-	TilecastVersion         string
+	Build                   version.Build
 	ReservedFreeBytes       int64
 	Limits                  Limits
 	SkipPreRestoreBackup    bool
@@ -140,7 +141,7 @@ func Apply(ctx context.Context, opts ApplyOptions) (ApplyResult, error) {
 			UpdatesRoot:       opts.UpdatesRoot,
 			BackupRoot:        opts.BackupRoot,
 			Kind:              KindPreRestore,
-			TilecastVersion:   opts.TilecastVersion,
+			Build:             opts.Build,
 			ReservedFreeBytes: opts.ReservedFreeBytes,
 			Limits:            opts.Limits,
 		})

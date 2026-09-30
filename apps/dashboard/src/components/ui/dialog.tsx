@@ -4,6 +4,7 @@ import { cn } from "cn";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { GrowNativePresentation } from "@/native-presentation/presentationContext";
 import { XIcon } from "lucide-react";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -58,6 +59,7 @@ function DialogContent({
         )}
         {...props}
       >
+        <GrowNativePresentation />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
