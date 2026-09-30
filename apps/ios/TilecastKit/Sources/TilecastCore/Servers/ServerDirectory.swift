@@ -177,6 +177,17 @@ public final class ServerDirectory {
         return removed
     }
 
+    /// Records an explicit sign-out, so the app does not start a new
+    /// sign-in until the user asks for one.
+    public func recordSignOut(_ id: UUID, now: Date = .now) {
+        update(id) { $0.signedOutAt = now }
+    }
+
+    public func recordSignIn(_ id: UUID) {
+        guard server(withID: id)?.signedOutAt != nil else { return }
+        update(id) { $0.signedOutAt = nil }
+    }
+
     public func recordStudioPath(_ path: String?, for id: UUID) {
         guard server(withID: id)?.lastStudioPath != path else { return }
         update(id) { $0.lastStudioPath = path }
@@ -197,12 +208,18 @@ public final class ServerDirectory {
             profile.organizationName = identity.organizationName
             profile.websiteDataStoreID = UUID()
             profile.lastStudioPath = nil
+            profile.signedOutAt = nil
         }
         return oldStore
     }
 
     public var knownDataStoreIDs: Set<UUID> {
         Set(servers.map(\.websiteDataStoreID))
+    }
+
+    /// The native credential each profile may own.
+    public var knownCredentialKeys: Set<NativeCredentialKey> {
+        Set(servers.map(NativeCredentialKey.init(profile:)))
     }
 
     private func update(_ id: UUID, _ change: (inout ServerProfile) -> Void) {

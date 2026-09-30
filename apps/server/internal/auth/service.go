@@ -234,6 +234,10 @@ type querier interface {
 }
 
 func (s *Service) createSession(ctx context.Context, db querier, user User, method string, enrollmentPending bool) (Session, error) {
+	return s.createGrantSession(ctx, db, user, nil, method, enrollmentPending)
+}
+
+func (s *Service) createGrantSession(ctx context.Context, db querier, user User, grantID *uuid.UUID, method string, enrollmentPending bool) (Session, error) {
 	token, err := randomToken(32)
 	if err != nil {
 		return Session{}, err
@@ -244,8 +248,8 @@ func (s *Service) createSession(ctx context.Context, db querier, user User, meth
 	}
 	expires := time.Now().UTC().Add(s.sessionTTL)
 	hash := sha256.Sum256([]byte(token))
-	if _, err := db.Exec(ctx, `INSERT INTO sessions (id,user_id,token_hash,csrf_token,expires_at,auth_method,enrollment_pending) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		uuid.New(), user.ID, hash[:], csrf, expires, method, enrollmentPending); err != nil {
+	if _, err := db.Exec(ctx, `INSERT INTO sessions (id,user_id,token_hash,csrf_token,expires_at,auth_method,enrollment_pending,api_grant_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+		uuid.New(), user.ID, hash[:], csrf, expires, method, enrollmentPending, grantID); err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
 	return Session{User: user, Token: token, CSRFToken: csrf, ExpiresAt: expires, AuthMethod: method, EnrollmentPending: enrollmentPending}, nil
@@ -262,20 +266,78 @@ func (s *Service) IssueSession(ctx context.Context, userID uuid.UUID, method str
 // IssueSessionWithEnrollment preserves the current MFA enrollment gate when
 // a browser authorization is exchanged after the policy changes.
 func (s *Service) IssueSessionWithEnrollment(ctx context.Context, userID uuid.UUID, method string, enrollmentPending bool) (Session, error) {
+	user, err := s.sessionUser(ctx, userID)
+	if err != nil {
+		return Session{}, err
+	}
+	return s.createSession(ctx, s.db, user, method, enrollmentPending)
+}
+
+// IssueGrantSession starts the one Studio session that belongs to an API
+// grant, replacing any earlier session of the same grant. The session ends
+// when the grant is revoked, and signing it out revokes the grant.
+func (s *Service) IssueGrantSession(ctx context.Context, userID, grantID uuid.UUID, method string, enrollmentPending bool) (Session, error) {
+	user, err := s.sessionUser(ctx, userID)
+	if err != nil {
+		return Session{}, err
+	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("begin grant session: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE api_grant_id=$1`, grantID); err != nil {
+		return Session{}, fmt.Errorf("replace grant session: %w", err)
+	}
+	session, err := s.createGrantSession(ctx, tx, user, &grantID, method, enrollmentPending)
+	if err != nil {
+		return Session{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Session{}, fmt.Errorf("commit grant session: %w", err)
+	}
+	return session, nil
+}
+
+// RevokeUserSessions ends every dashboard session of a user, and revokes
+// each grant that backs one, because such a grant could otherwise mint a
+// replacement session. It also revokes the user's Tilecast for iOS grants
+// that no session references: their refresh tokens could still start a new
+// Studio session, so leaving them would not sign the user out everywhere.
+// Callers use it when a password, factor, or account change must sign the
+// user out everywhere.
+func RevokeUserSessions(ctx context.Context, db querier, userID uuid.UUID) error {
+	if _, err := db.Exec(ctx, `UPDATE api_grants SET revoked_at=now()
+		WHERE revoked_at IS NULL AND id IN (SELECT api_grant_id FROM sessions WHERE user_id=$1 AND api_grant_id IS NOT NULL)`, userID); err != nil {
+		return fmt.Errorf("revoke session grants: %w", err)
+	}
+	// The client ID is oauth.ClientIOS spelled out: importing oauth here
+	// would cycle with its tests, which import auth.
+	if _, err := db.Exec(ctx, `UPDATE api_grants SET revoked_at=now()
+		WHERE revoked_at IS NULL AND user_id=$1 AND client_id='tilecast-ios'`, userID); err != nil {
+		return fmt.Errorf("revoke iOS grants: %w", err)
+	}
+	if _, err := db.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, userID); err != nil {
+		return fmt.Errorf("revoke sessions: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) sessionUser(ctx context.Context, userID uuid.UUID) (User, error) {
 	var user User
 	err := s.db.QueryRow(ctx, `SELECT id,name,username,role,active,created_at,last_login_at FROM users WHERE id=$1`, userID).Scan(
 		&user.ID, &user.Name, &user.Username, &user.Role, &user.Active, &user.CreatedAt, &user.LastLoginAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Session{}, ErrUnauthenticated
+		return User{}, ErrUnauthenticated
 	}
 	if err != nil {
-		return Session{}, fmt.Errorf("find session user: %w", err)
+		return User{}, fmt.Errorf("find session user: %w", err)
 	}
 	if !user.Active {
-		return Session{}, ErrInactive
+		return User{}, ErrInactive
 	}
-	return s.createSession(ctx, s.db, user, method, enrollmentPending)
+	return user, nil
 }
 
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
@@ -287,7 +349,8 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 	err := s.db.QueryRow(ctx, `
 		SELECT u.id,u.name,u.username,u.role,u.active,u.created_at,u.last_login_at,s.csrf_token,s.expires_at,s.auth_method,s.enrollment_pending
 		FROM sessions s JOIN users u ON u.id=s.user_id
-		WHERE s.token_hash=$1 AND s.expires_at>now()`, hash[:]).Scan(
+		LEFT JOIN api_grants g ON g.id=s.api_grant_id
+		WHERE s.token_hash=$1 AND s.expires_at>now() AND g.revoked_at IS NULL`, hash[:]).Scan(
 		&session.User.ID, &session.User.Name, &session.User.Username, &session.User.Role, &session.User.Active,
 		&session.User.CreatedAt, &session.User.LastLoginAt, &session.CSRFToken, &session.ExpiresAt,
 		&session.AuthMethod, &session.EnrollmentPending,
@@ -313,8 +376,24 @@ func (s *Service) Logout(ctx context.Context, token string, userID uuid.UUID) er
 		return fmt.Errorf("begin logout: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE token_hash=$1`, hash[:]); err != nil {
+	var grantID *uuid.UUID
+	err = tx.QueryRow(ctx, `DELETE FROM sessions WHERE token_hash=$1 RETURNING api_grant_id`, hash[:]).Scan(&grantID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("delete session: %w", err)
+	}
+	// Signing out of a session that an app authorization produced signs the
+	// app out as well, so its native credential cannot mint a new session.
+	if grantID != nil {
+		revoked, err := tx.Exec(ctx, `UPDATE api_grants SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`, *grantID)
+		if err != nil {
+			return fmt.Errorf("revoke session grant: %w", err)
+		}
+		if revoked.RowsAffected() > 0 {
+			if _, err := tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id,api_grant_id) VALUES ($1,$2,'oauth.grant_revoked','oauth_grant',$3,$4)`,
+				uuid.New(), userID, grantID.String(), *grantID); err != nil {
+				return fmt.Errorf("record grant revocation audit log: %w", err)
+			}
+		}
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id) VALUES ($1,$2,'auth.logout','session',NULL)`, uuid.New(), userID); err != nil {
 		return fmt.Errorf("record logout audit log: %w", err)

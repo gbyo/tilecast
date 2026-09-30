@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly.",
+  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation.",
   "schemaVersion": 1,
   "cases": [
     {
@@ -23,7 +23,61 @@
       "name": "frontend/ready",
       "direction": "frontendToNative",
       "outcome": "accept",
+      "frontendCapabilities": { "authLifecycle": false },
       "message": { "version": 1, "type": "frontend/ready", "payload": {} }
+    },
+    {
+      "name": "frontend/ready with the capabilities Studio supports",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "frontendReady",
+      "frontendCapabilities": {
+        "authLifecycle": true,
+        "nativePresentations": true,
+        "nativeAlerts": true
+      },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": {
+          "capabilities": {
+            "authLifecycle": true,
+            "nativePresentations": true,
+            "nativeAlerts": true
+          }
+        }
+      }
+    },
+    {
+      "name": "frontend/ready with a capability the host does not know",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": { "authLifecycle": true },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": {
+          "capabilities": { "authLifecycle": true, "nativeSheets": true }
+        }
+      }
+    },
+    {
+      "name": "frontend/ready with an unavailable capability",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": { "authLifecycle": false },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": { "capabilities": { "authLifecycle": false } }
+      }
+    },
+    {
+      "name": "auth/signed-out",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "signedOut",
+      "message": { "version": 1, "type": "auth/signed-out", "payload": {} }
     },
     {
       "name": "catalog with headed and unheaded groups",
@@ -434,13 +488,23 @@
       }
     },
     {
+      "name": "frontend/ready with capabilities that are not an object",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": { "capabilities": true }
+      }
+    },
+    {
       "name": "a message type this version does not define",
       "direction": "frontendToNative",
       "outcome": "unknownType",
       "message": {
         "version": 1,
-        "type": "presentation/open",
-        "payload": { "route": "/layouts/abc123/preview" }
+        "type": "clipboard/write",
+        "payload": { "text": "hello" }
       }
     },
     {
@@ -454,6 +518,16 @@
       }
     },
     {
+      "name": "auth/sign-out-request sent to the native host",
+      "direction": "frontendToNative",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "auth/sign-out-request",
+        "payload": {}
+      }
+    },
+    {
       "name": "protocol version 2",
       "direction": "frontendToNative",
       "outcome": "unsupportedVersion",
@@ -464,6 +538,1067 @@
       "direction": "frontendToNative",
       "outcome": "unsupportedVersion",
       "message": { "version": 2, "kind": "hello" }
+    },
+    {
+      "name": "presentation/open",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "presentationOpen",
+      "presentation": {
+        "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "path": "/__native/modal/live-stream/screen-1",
+        "title": "Live stream · Lobby",
+        "subtitle": "Lobby",
+        "size": "full",
+        "dismissible": true
+      },
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Live stream · Lobby",
+          "subtitle": "Lobby",
+          "size": "full",
+          "dismissible": true
+        }
+      }
+    },
+    {
+      "name": "presentation/open with only the required properties",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "presentation": {
+        "presentationId": "p-1",
+        "path": "/__native/modal/fixture",
+        "title": "Fixture",
+        "size": "full",
+        "dismissible": true
+      },
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/fixture",
+          "title": "Fixture"
+        }
+      }
+    },
+    {
+      "name": "presentation/open that is compact and cannot be dismissed",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "presentation": {
+        "presentationId": "p-2",
+        "path": "/__native/modal/fixture?step=2",
+        "title": "Fixture",
+        "size": "compact",
+        "dismissible": false
+      },
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-2",
+          "path": "/__native/modal/fixture?step=2",
+          "title": "Fixture",
+          "size": "compact",
+          "dismissible": false
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a size the host does not know",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "presentation": {
+        "presentationId": "p-3",
+        "path": "/__native/modal",
+        "title": "Fixture",
+        "size": "full",
+        "dismissible": true
+      },
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-3",
+          "path": "/__native/modal",
+          "title": "Fixture",
+          "size": "sidebar"
+        }
+      }
+    },
+    {
+      "name": "presentation/ready",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "presentationReady",
+      "message": {
+        "version": 1,
+        "type": "presentation/ready",
+        "payload": {}
+      }
+    },
+    {
+      "name": "presentation/update with a complete header",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "presentationUpdate",
+      "headerActionIds": ["refresh"],
+      "headerMenuIds": ["open-screen", "history"],
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "subtitle": "Screen",
+            "navigation": "close",
+            "navigationLabel": "Close",
+            "actions": [
+              {
+                "id": "refresh",
+                "label": "Refresh",
+                "icon": "activity"
+              }
+            ],
+            "menuLabel": "More",
+            "menu": [
+              {
+                "id": "open-screen",
+                "label": "Open screen",
+                "icon": "screens"
+              },
+              {
+                "id": "history",
+                "label": "History",
+                "disabled": true
+              }
+            ]
+          },
+          "size": "full",
+          "dismissible": true
+        }
+      }
+    },
+    {
+      "name": "presentation/update with only a size",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "size": "compact"
+        }
+      }
+    },
+    {
+      "name": "presentation/update with a header that has no actions",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "headerActionIds": [],
+      "headerMenuIds": [],
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [],
+            "menu": []
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with an icon token no host knows",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "headerActionIds": ["bookings"],
+      "headerMenuIds": [],
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "navigation": "back",
+            "actions": [
+              {
+                "id": "bookings",
+                "label": "Bookings",
+                "icon": "door-calendar"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update ignores properties it does not know, such as a token",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "headerActionIds": ["refresh"],
+      "headerMenuIds": [],
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "accessToken": "tca_not-a-real-token",
+          "header": {
+            "title": "Lobby",
+            "cookie": "tilecast_session=x",
+            "actions": [
+              {
+                "id": "refresh",
+                "label": "Refresh",
+                "icon": "activity",
+                "csrfToken": "x"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/close",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "presentationClose",
+      "message": {
+        "version": 1,
+        "type": "presentation/close",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "presentationNavigate",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/screens/screen-1?tab=activity"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate to the root",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/"
+        }
+      }
+    },
+    {
+      "name": "presentation/open without a presentation id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an empty presentation id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an oversized presentation id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a presentation id outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "P 1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open without a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": { "presentationId": "p-1", "title": "Lobby" }
+      }
+    },
+    {
+      "name": "presentation/open with a Studio path outside the presentation tree",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/screens/screen-1",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a path that only starts like the tree",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modals/x",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an absolute URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "https://evil.example/__native/modal",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a protocol-relative URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "//evil.example/__native/modal",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a javascript URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "javascript:alert(1)",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a file URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "file:///etc/passwd",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a custom scheme",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "tilecast-ios://oauth/callback",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a backslash",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/\\evil.example",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with whitespace",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/a b",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with dot segments that leave the tree",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/../screens",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with encoded dot segments",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/%2e%2E/screens",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an oversized path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "title": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/open without a title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an empty title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": ""
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a numeric size",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby",
+          "size": 3
+        }
+      }
+    },
+    {
+      "name": "presentation/open with an empty size",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby",
+          "size": ""
+        }
+      }
+    },
+    {
+      "name": "presentation/open with a size outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby",
+          "size": "Full Screen"
+        }
+      }
+    },
+    {
+      "name": "presentation/open with dismissible as a string",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/open",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal/live-stream/screen-1",
+          "title": "Lobby",
+          "dismissible": "no"
+        }
+      }
+    },
+    {
+      "name": "presentation/update without a presentation id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": { "header": { "title": "Lobby" } }
+      }
+    },
+    {
+      "name": "presentation/update with a header without a title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": { "subtitle": "Screen" }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with a header that is not an object",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": "Lobby"
+        }
+      }
+    },
+    {
+      "name": "presentation/update with too many actions",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [
+              {
+                "id": "a0",
+                "label": "A",
+                "icon": "home"
+              },
+              {
+                "id": "a1",
+                "label": "A",
+                "icon": "home"
+              },
+              {
+                "id": "a2",
+                "label": "A",
+                "icon": "home"
+              },
+              {
+                "id": "a3",
+                "label": "A",
+                "icon": "home"
+              },
+              {
+                "id": "a4",
+                "label": "A",
+                "icon": "home"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with too many menu items",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "menu": [
+              {
+                "id": "m0",
+                "label": "M"
+              },
+              {
+                "id": "m1",
+                "label": "M"
+              },
+              {
+                "id": "m2",
+                "label": "M"
+              },
+              {
+                "id": "m3",
+                "label": "M"
+              },
+              {
+                "id": "m4",
+                "label": "M"
+              },
+              {
+                "id": "m5",
+                "label": "M"
+              },
+              {
+                "id": "m6",
+                "label": "M"
+              },
+              {
+                "id": "m7",
+                "label": "M"
+              },
+              {
+                "id": "m8",
+                "label": "M"
+              },
+              {
+                "id": "m9",
+                "label": "M"
+              },
+              {
+                "id": "m10",
+                "label": "M"
+              },
+              {
+                "id": "m11",
+                "label": "M"
+              },
+              {
+                "id": "m12",
+                "label": "M"
+              },
+              {
+                "id": "m13",
+                "label": "M"
+              },
+              {
+                "id": "m14",
+                "label": "M"
+              },
+              {
+                "id": "m15",
+                "label": "M"
+              },
+              {
+                "id": "m16",
+                "label": "M"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with actions that are not an array",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": { "id": "a" }
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with an action without an icon",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [
+              {
+                "id": "a",
+                "label": "A"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with an action icon outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [
+              {
+                "id": "a",
+                "label": "A",
+                "icon": "Bad Icon"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with an action id that looks like a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [
+              {
+                "id": "/screens",
+                "label": "A",
+                "icon": "home"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with a duplicate action id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "actions": [
+              {
+                "id": "a",
+                "label": "A",
+                "icon": "home"
+              }
+            ],
+            "menu": [
+              {
+                "id": "a",
+                "label": "Again"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with a numeric navigation",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "Lobby",
+            "navigation": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with an oversized title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "header": {
+            "title": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL"
+          }
+        }
+      }
+    },
+    {
+      "name": "presentation/update with a malformed size",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "size": ["full"]
+        }
+      }
+    },
+    {
+      "name": "presentation/close without a presentation id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/close",
+        "payload": {}
+      }
+    },
+    {
+      "name": "presentation/navigate without a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate to another origin",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "https://evil.example/"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate to a protocol-relative URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "//evil.example/screens"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate with user information",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "//user@evil.example/"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate to a javascript URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "javascript:alert(1)"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate with a backslash",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/\\evil.example"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate with dot segments",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/screens/../../settings"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate into the presentation tree",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/__native/modal/live-stream/screen-1"
+        }
+      }
+    },
+    {
+      "name": "presentation/navigate with a control character",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/navigate",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/screens\u0000"
+        }
+      }
+    },
+    {
+      "name": "presentation/show sent to the native host",
+      "direction": "frontendToNative",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/__native/modal/live-stream/screen-1"
+        }
+      }
+    },
+    {
+      "name": "navigation/open-path sent to the native host",
+      "direction": "frontendToNative",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "navigation/open-path",
+        "payload": { "path": "/screens" }
+      }
     },
     {
       "name": "navigation/request",
@@ -484,6 +1619,17 @@
         "version": 1,
         "type": "navigation/request",
         "payload": { "destinationId": "plugin:forms:approvals" }
+      }
+    },
+    {
+      "name": "auth/sign-out-request",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "signOutRequest",
+      "message": {
+        "version": 1,
+        "type": "auth/sign-out-request",
+        "payload": {}
       }
     },
     {
@@ -518,9 +1664,15 @@
       "outcome": "unknownType",
       "message": {
         "version": 1,
-        "type": "presentation/dismiss",
+        "type": "share/open",
         "payload": {}
       }
+    },
+    {
+      "name": "auth/signed-out sent to Studio",
+      "direction": "nativeToFrontend",
+      "outcome": "unknownType",
+      "message": { "version": 1, "type": "auth/signed-out", "payload": {} }
     },
     {
       "name": "a native message from protocol version 3",
@@ -533,16 +1685,245 @@
       }
     },
     {
+      "name": "presentation/show",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "presentationShow",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/__native/modal/live-stream/screen-1"
+        }
+      }
+    },
+    {
+      "name": "presentation/show for the idle root",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-1",
+          "path": "/__native/modal"
+        }
+      }
+    },
+    {
+      "name": "presentation/action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "presentationAction",
+      "message": {
+        "version": 1,
+        "type": "presentation/action",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "actionId": "refresh"
+        }
+      }
+    },
+    {
+      "name": "presentation/dismissed",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "presentationDismissed",
+      "message": {
+        "version": 1,
+        "type": "presentation/dismissed",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "presentation/ended",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "presentationEnded",
+      "message": {
+        "version": 1,
+        "type": "presentation/ended",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "navigation/open-path",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "openPath",
+      "message": {
+        "version": 1,
+        "type": "navigation/open-path",
+        "payload": { "path": "/screens/screen-1?tab=activity" }
+      }
+    },
+    {
+      "name": "presentation/show without a presentation id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "path": "/__native/modal/live-stream/screen-1"
+        }
+      }
+    },
+    {
+      "name": "presentation/show outside the presentation tree",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/settings/users"
+        }
+      }
+    },
+    {
+      "name": "presentation/show with an absolute URL",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "https://evil.example/__native/modal"
+        }
+      }
+    },
+    {
+      "name": "presentation/show with dot segments",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "presentation/show",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "path": "/__native/modal/../settings"
+        }
+      }
+    },
+    {
+      "name": "presentation/action without an action id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/action",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "presentation/action with an action id that looks like a path",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/action",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "actionId": "/settings"
+        }
+      }
+    },
+    {
+      "name": "presentation/dismissed with an oversized presentation id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/dismissed",
+        "payload": {
+          "presentationId": "p-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "presentation/ended with an oversized presentation id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "presentation/ended",
+        "payload": {
+          "presentationId": "p-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "navigation/open-path to another origin",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/open-path",
+        "payload": { "path": "https://evil.example/" }
+      }
+    },
+    {
+      "name": "navigation/open-path to a protocol-relative URL",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/open-path",
+        "payload": { "path": "//evil.example" }
+      }
+    },
+    {
+      "name": "navigation/open-path into the presentation tree",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "navigation/open-path",
+        "payload": { "path": "/__native/modal" }
+      }
+    },
+    {
+      "name": "presentation/update sent to Studio",
+      "direction": "nativeToFrontend",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "presentation/update",
+        "payload": {
+          "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
       "name": "config/get reply",
       "direction": "reply",
       "outcome": "accept",
       "encodes": "configGetReply",
+      "hostContext": "main",
       "message": {
         "version": 1,
         "ok": true,
         "payload": {
           "protocolVersion": 1,
-          "capabilities": { "nativeNavigation": true }
+          "context": "main",
+          "capabilities": {
+            "nativeNavigation": true,
+            "authLifecycle": true,
+            "nativePresentations": true,
+            "nativeAlerts": true
+          }
         }
       }
     },
@@ -557,7 +1938,7 @@
           "protocolVersion": 1,
           "capabilities": {
             "nativeNavigation": true,
-            "nativePresentation": true
+            "nativeShare": true
           }
         }
       }
@@ -614,6 +1995,484 @@
       "direction": "reply",
       "outcome": "unsupportedVersion",
       "message": { "version": 2, "ok": true, "payload": {} }
+    },
+    {
+      "name": "config/get reply for a presentation page",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "configGetPresentationReply",
+      "hostContext": "presentation",
+      "message": {
+        "version": 1,
+        "ok": true,
+        "payload": {
+          "protocolVersion": 1,
+          "context": "presentation",
+          "capabilities": {
+            "nativeNavigation": false,
+            "authLifecycle": false,
+            "nativePresentations": true,
+            "nativeAlerts": true
+          }
+        }
+      }
+    },
+    {
+      "name": "config/get reply from a host before presentations",
+      "direction": "reply",
+      "outcome": "accept",
+      "hostContext": "main",
+      "message": {
+        "version": 1,
+        "ok": true,
+        "payload": {
+          "protocolVersion": 1,
+          "capabilities": {
+            "nativeNavigation": true,
+            "authLifecycle": true
+          }
+        }
+      }
+    },
+    {
+      "name": "config/get reply with a context Studio does not know",
+      "direction": "reply",
+      "outcome": "accept",
+      "hostContext": null,
+      "message": {
+        "version": 1,
+        "ok": true,
+        "payload": {
+          "protocolVersion": 1,
+          "context": "widget",
+          "capabilities": {
+            "nativePresentations": true
+          }
+        }
+      }
+    },
+    {
+      "name": "forbidden reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "forbiddenReply",
+      "message": {
+        "version": 1,
+        "ok": false,
+        "error": { "code": "forbidden" }
+      }
+    },
+    {
+      "name": "unavailable reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "unavailableReply",
+      "message": {
+        "version": 1,
+        "ok": false,
+        "error": { "code": "unavailable" }
+      }
+    },
+    {
+      "name": "alert/present",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "alertPresent",
+      "alert": {
+        "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "title": "Delete this schedule?",
+        "message": "Screens stop following it at once.",
+        "actions": [
+          {
+            "id": "cancel",
+            "label": "Cancel",
+            "role": "cancel"
+          },
+          {
+            "id": "confirm",
+            "label": "Delete",
+            "role": "destructive"
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "Delete this schedule?",
+          "message": "Screens stop following it at once.",
+          "actions": [
+            {
+              "id": "cancel",
+              "label": "Cancel",
+              "role": "cancel"
+            },
+            {
+              "id": "confirm",
+              "label": "Delete",
+              "role": "destructive"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present without a message or roles",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "alert": {
+        "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "title": "Discard changes?",
+        "actions": [
+          {
+            "id": "ok",
+            "label": "OK"
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "Discard changes?",
+          "actions": [
+            {
+              "id": "ok",
+              "label": "OK"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an unknown role",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "A",
+              "role": "primary"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with no buttons",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": []
+        }
+      }
+    },
+    {
+      "name": "alert/present with four buttons",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "A"
+            },
+            {
+              "id": "b",
+              "label": "B"
+            },
+            {
+              "id": "c",
+              "label": "C"
+            },
+            {
+              "id": "d",
+              "label": "D"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with repeated button ids",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "A"
+            },
+            {
+              "id": "a",
+              "label": "B"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an oversized message",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "message": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+          "actions": [
+            {
+              "id": "a",
+              "label": "A"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an oversized button label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an alert id outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "A B",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "A"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/cancel",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "alertCancel",
+      "message": {
+        "version": 1,
+        "type": "alert/cancel",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "alert/cancel with an oversized alert id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/cancel",
+        "payload": {
+          "alertId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "alert/action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "alertAction",
+      "message": {
+        "version": 1,
+        "type": "alert/action",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "actionId": "confirm"
+        }
+      }
+    },
+    {
+      "name": "alert/action without an action id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/action",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "frontend/ready with the alert capability alone",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": {
+        "authLifecycle": false,
+        "nativePresentations": false,
+        "nativeAlerts": true
+      },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": {
+          "capabilities": {
+            "nativeAlerts": true
+          }
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "navigationChrome",
+      "chrome": {
+        "title": "Lobby north",
+        "backLabel": "Fleet"
+      },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby north",
+          "back": {
+            "label": "Fleet"
+          }
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome without back",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": {
+        "title": "Fleet"
+      },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Fleet"
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with no fields",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": {},
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {}
+      }
+    },
+    {
+      "name": "navigation/chrome with an empty title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": ""
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with a back that has no label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby",
+          "back": {}
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby",
+          "back": {
+            "label": "Fleet",
+            "path": "/screens"
+          }
+        }
+      }
+    },
+    {
+      "name": "navigation/back",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "navigationBack",
+      "message": {
+        "version": 1,
+        "type": "navigation/back",
+        "payload": {}
+      }
+    },
+    {
+      "name": "navigation/back with a payload",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "navigation/back",
+        "payload": {
+          "path": "/screens"
+        }
+      }
     }
   ]
 }
