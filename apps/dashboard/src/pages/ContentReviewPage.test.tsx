@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
@@ -10,6 +16,10 @@ import { api } from "../api/client";
 import type { ContentReviewItem } from "../api/types";
 import { i18n } from "../i18n";
 import { formatLocale } from "../i18n/languages";
+
+// The page renders a card list for narrow screens and a table from lg up,
+// and hides one with CSS. jsdom applies no CSS, so tests read the table.
+const desktop = async () => within(await screen.findByRole("table"));
 
 let role = "editor";
 vi.mock("../auth/AuthProvider", () => ({
@@ -76,9 +86,10 @@ describe("Content review", () => {
       items: [pending],
     });
     renderPage();
-    expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
-    expect(screen.getByText(/Already on 3 screens/)).toBeTruthy();
-    expect(screen.getByText(/revision 7/)).toBeTruthy();
+    const table = await desktop();
+    expect(await table.findByText("Cafeteria Menu")).toBeTruthy();
+    expect(table.getByText(/Already on 3 screens/)).toBeTruthy();
+    expect(table.getByText(/revision 7/)).toBeTruthy();
   });
 
   it("sends the revision that was reviewed, so a later edit cannot inherit the approval", async () => {
@@ -91,7 +102,9 @@ describe("Content review", () => {
       .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      await (await desktop()).findByRole("button", { name: "Review" }),
+    );
     await user.click(await screen.findByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(decide).toHaveBeenCalled());
@@ -110,7 +123,9 @@ describe("Content review", () => {
       .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      await (await desktop()).findByRole("button", { name: "Review" }),
+    );
     await user.click(await screen.findByRole("button", { name: "Send back" }));
     const dialog = await screen.findByRole("dialog");
     const note = await screen.findByLabelText("Note");
@@ -133,7 +148,7 @@ describe("Content review", () => {
       items: [pending],
     });
     renderPage();
-    expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
+    expect(await (await desktop()).findByText("Cafeteria Menu")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Review" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Approve" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Send back" })).toBe(null);
