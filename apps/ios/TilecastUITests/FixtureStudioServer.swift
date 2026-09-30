@@ -106,6 +106,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
         <p id="opened"></p>
         <p id="ended">Ended 0</p>
+        <p><button id="ask" type="button">Delete fixture</button></p>
+        <p id="chosen"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const paths = {
@@ -146,6 +148,10 @@ final class FixtureStudioServer: @unchecked Sendable {
             document.getElementById("ended").textContent = `Ended ${++ended}`;
             return true;
           }
+          if (message?.type === "alert/action") {
+            document.getElementById("chosen").textContent = `Chose ${message.payload.actionId}`;
+            return true;
+          }
           const path = message?.type === "navigation/request" ? paths[message.payload.destinationId]
             : message?.type === "navigation/open-path" ? message.payload.path : undefined;
           if (!path) return false;
@@ -153,6 +159,16 @@ final class FixtureStudioServer: @unchecked Sendable {
           void publish();
           return true;
         };
+        // Studio's confirmations use a native alert when the app offers one.
+        document.getElementById("ask").addEventListener("click", async () => {
+          await send("alert/present", {
+            alertId: "a-main-1", title: "Delete this fixture?", message: "This cannot be undone.",
+            actions: [
+              { id: "cancel", label: "Cancel", role: "cancel" },
+              { id: "confirm", label: "Delete", role: "destructive" },
+            ],
+          });
+        });
         let presentations = 0;
         document.getElementById("open-sheet").addEventListener("click", async () => {
           const reply = handler && await send("presentation/open", {
@@ -170,7 +186,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
-          await send("frontend/ready", { capabilities: { nativePresentations: true } });
+          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
           await publish();
@@ -195,6 +211,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="action"></p>
         <p><button id="close" type="button">Close from page</button></p>
         <p><button id="leave" type="button">Go to Layouts</button></p>
+        <p><button id="ask" type="button">Ask from sheet</button></p>
+        <p id="chosen"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const handler = window.webkit?.messageHandlers?.tilecastNative;
@@ -226,6 +244,9 @@ final class FixtureStudioServer: @unchecked Sendable {
               if (payload.presentationId !== current) return false;
               text("action", `Action ${payload.actionId}`);
               return true;
+            case "alert/action":
+              text("chosen", `Sheet chose ${payload.actionId}`);
+              return true;
             case "presentation/dismissed":
               if (payload.presentationId === current) current = null;
               history.replaceState(null, "", "/__native/modal");
@@ -238,6 +259,12 @@ final class FixtureStudioServer: @unchecked Sendable {
         document.getElementById("close").addEventListener("click", () => {
           if (current) void send("presentation/close", { presentationId: current });
         });
+        document.getElementById("ask").addEventListener("click", () => {
+          void send("alert/present", {
+            alertId: "a-sheet-1", title: "Discard this fixture?",
+            actions: [{ id: "keep", label: "Keep", role: "cancel" }, { id: "discard", label: "Discard", role: "destructive" }],
+          });
+        });
         document.getElementById("leave").addEventListener("click", () => {
           if (current) void send("presentation/navigate", { presentationId: current, path: "/layouts" });
         });
@@ -245,7 +272,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.context !== "presentation") return;
-          await send("frontend/ready", { capabilities: { nativePresentations: true } });
+          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
           await send("presentation/ready", {});
         })();
         </script>

@@ -64,6 +64,8 @@ public final class StudioBridge {
     var onPresentationMessage: (@MainActor (PresentationPageMessage) -> Void)?
     /// Readiness, capabilities, or navigation availability changed.
     var onStateChange: (@MainActor () -> Void)?
+    /// Where this page's alerts show. Both kinds of page may ask for one.
+    weak var alerts: NativeAlertCenter?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -120,6 +122,8 @@ public final class StudioBridge {
 
     func mainFrameNavigationStarted() {
         negotiatedSinceNavigationStarted = false
+        // An alert belongs to the document that asked for it.
+        alerts?.withdraw(from: self)
     }
 
     /// A new document replaced the old one.
@@ -128,6 +132,7 @@ public final class StudioBridge {
     }
 
     private func reset() {
+        alerts?.withdraw(from: self)
         isFrontendReady = false
         frontendCapabilities = .init()
         navigation.reset()
@@ -225,6 +230,13 @@ public final class StudioBridge {
                       onPresentationOpen?(presentation) == true else {
                     return NativeBridgeProtocol.reply(id: id, error: .unavailable)
                 }
+            case .alertPresent(let alert):
+                guard isFrontendReady, frontendCapabilities.nativeAlerts,
+                      alerts?.present(alert, from: self) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .alertCancel(let alertID):
+                alerts?.withdraw(alertID: alertID, from: self)
             case .presentationReady:
                 onPresentationMessage?(.ready)
             case .presentationUpdate(let update):

@@ -29,6 +29,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         let encodes: String?
         let frontendCapabilities: [String: Bool]?
         let presentation: [String: Any]?
+        let alert: [String: Any]?
         let headerActionIDs: [String]?
         let headerMenuIDs: [String]?
         let message: Any
@@ -51,6 +52,7 @@ func foundationJSON(_ data: Data) throws -> Any {
                 encodes: entry["encodes"] as? String,
                 frontendCapabilities: entry["frontendCapabilities"] as? [String: Bool],
                 presentation: entry["presentation"] as? [String: Any],
+                alert: entry["alert"] as? [String: Any],
                 headerActionIDs: entry["headerActionIds"] as? [String],
                 headerMenuIDs: entry["headerMenuIds"] as? [String],
                 message: entry["message"] ?? NSNull()
@@ -93,6 +95,7 @@ func foundationJSON(_ data: Data) throws -> Any {
             }
             #expect(capabilities.authLifecycle == expected["authLifecycle"])
             #expect(capabilities.nativePresentations == (expected["nativePresentations"] ?? false))
+            #expect(capabilities.nativeAlerts == (expected["nativeAlerts"] ?? false))
         }
         if let expected = entry.presentation {
             guard case .accept(.presentationOpen(let presentation), _) = decoded else {
@@ -106,6 +109,19 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(presentation.size.rawValue == expected["size"] as? String)
             #expect(presentation.isDismissible == expected["dismissible"] as? Bool)
             #expect(presentation.header.actions.isEmpty && presentation.header.menu.isEmpty)
+        }
+        if let expected = entry.alert {
+            guard case .accept(.alertPresent(let alert), _) = decoded else {
+                Issue.record("\(entry.name) should decode as alert/present")
+                return
+            }
+            #expect(alert.id == expected["alertId"] as? String)
+            #expect(alert.title == expected["title"] as? String)
+            #expect(alert.message == expected["message"] as? String)
+            let buttons = expected["actions"] as? [[String: Any]] ?? []
+            #expect(alert.buttons.map(\.id) == buttons.compactMap { $0["id"] as? String })
+            #expect(alert.buttons.map(\.label) == buttons.compactMap { $0["label"] as? String })
+            #expect(alert.buttons.map(\.role) == buttons.map { .init(token: $0["role"] as? String) })
         }
         if let actions = entry.headerActionIDs {
             guard case .accept(.presentationUpdate(let update), _) = decoded, let header = update.header else {
@@ -141,6 +157,10 @@ func foundationJSON(_ data: Data) throws -> Any {
         )
         case "presentationEnded": NativeBridgeProtocol.presentationEnded(
             presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        )
+        case "alertAction": NativeBridgeProtocol.alertAction(
+            alertID: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+            actionID: "confirm"
         )
         case "openPath": NativeBridgeProtocol.openPath("/screens/screen-1?tab=activity")
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])

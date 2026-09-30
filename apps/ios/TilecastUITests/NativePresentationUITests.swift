@@ -111,6 +111,33 @@ final class NativePresentationUITests: XCTestCase {
     }
 
     @MainActor
+    func testStudioConfirmationsAreNativeAlerts() throws {
+        launchWithFixtureServer()
+        app.webViews.buttons["Delete fixture"].tap()
+        let alert = app.alerts["Delete this fixture?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10), "SwiftUI shows Studio's alert, not a web dialog")
+        XCTAssertTrue(alert.staticTexts["This cannot be undone."].exists)
+        XCTAssertTrue(alert.buttons["Cancel"].exists)
+        alert.buttons["Delete"].tap()
+        XCTAssertTrue(alert.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(webText("Chose confirm").waitForExistence(timeout: 10), "Studio hears which button")
+    }
+
+    @MainActor
+    func testAnAlertFromASheetShowsOverTheSheet() throws {
+        launchWithFixtureServer()
+        openSheet()
+        let ask = app.webViews.buttons["Ask from sheet"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 20))
+        ask.tap()
+        let alert = app.alerts["Discard this fixture?"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        alert.buttons["Keep"].tap()
+        XCTAssertTrue(webText("Sheet chose keep").waitForExistence(timeout: 10), "the sheet's page hears it, not the main page")
+        XCTAssertTrue(sheetTitle.exists, "the sheet stays open")
+    }
+
+    @MainActor
     func testPresentationWithLargeTextAndRightToLeftLayout() throws {
         launchWithFixtureServer(extraArguments: [
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXL",

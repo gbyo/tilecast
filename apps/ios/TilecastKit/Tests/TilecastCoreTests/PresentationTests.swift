@@ -35,7 +35,7 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
             "protocolVersion": .number(1),
             "context": .string("presentation"),
             "capabilities": .object([
-                "nativeNavigation": .bool(false), "authLifecycle": .bool(false), "nativePresentations": .bool(true),
+                "nativeNavigation": .bool(false), "authLifecycle": .bool(false), "nativePresentations": .bool(true), "nativeAlerts": .bool(true),
             ]),
         ]))
     }
@@ -431,6 +431,26 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
         #expect((relayed.first?["payload"] as? [String: Any])?["presentationId"] as? String == "p-1")
         main.presentations.dismiss(presentationID: "p-1")
         #expect(try await received(in: main.webPage).count == 1, "a repeated dismissal ends nothing")
+    }
+
+    @Test func endingAPresentationWithdrawsItsAlertButNotTheMainPages() async throws {
+        let main = try makeMainPage()
+        defer { main.close() }
+        useFixture(in: main)
+        negotiate(main)
+        let page = try #require(main.presentations.page)
+        try await settle { page.phase == .ready }
+        _ = open(main, "p-1")
+        try await settle { main.presentations.contentState == .ready }
+
+        _ = page.bridge.replyValue(to: envelope("frontend/ready", ["capabilities": ["nativeAlerts": true]]), from: .studio)
+        #expect(page.bridge.replyValue(to: envelope("alert/present", alertPayload("a-1")), from: .studio)
+            == NativeBridgeProtocol.reply(id: nil, payload: [:]))
+        #expect(main.alerts.alert(for: .presentation)?.id == "a-1")
+        #expect(main.alerts.alert(for: .main) == nil, "the sheet shows its own alert")
+
+        main.presentations.dismiss(presentationID: "p-1")
+        #expect(main.alerts.current == nil, "the alert does not outlive its presentation")
     }
 
     @Test func aMemoryWarningDiscardsOnlyAHiddenPage() async throws {

@@ -98,10 +98,13 @@ public enum NativeBridgeProtocol {
         /// Studio has the presentation routes and messages, and handles
         /// `navigation/open-path`.
         public var nativePresentations: Bool
+        /// Studio handles `alert/action`, so the app may show its alert.
+        public var nativeAlerts: Bool
 
-        public init(authLifecycle: Bool = false, nativePresentations: Bool = false) {
+        public init(authLifecycle: Bool = false, nativePresentations: Bool = false, nativeAlerts: Bool = false) {
             self.authLifecycle = authLifecycle
             self.nativePresentations = nativePresentations
+            self.nativeAlerts = nativeAlerts
         }
     }
 
@@ -121,11 +124,15 @@ public enum NativeBridgeProtocol {
         case presentationClose(presentationID: String)
         /// Dismiss, then have the main page navigate to `path`.
         case presentationNavigate(presentationID: String, path: String)
+        /// Either page asks for a native alert.
+        case alertPresent(NativeAlert)
+        /// Either page withdraws an alert it presented.
+        case alertCancel(alertID: String)
 
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
-            case .configGet, .frontendReady: nil
+            case .configGet, .frontendReady, .alertPresent, .alertCancel: nil
             case .navigationCatalog, .navigationState, .authSignedOut, .presentationOpen: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
             }
@@ -186,6 +193,8 @@ public enum NativeBridgeProtocol {
             guard let presentationID = opaqueID(payload["presentationId"]),
                   let path = payload["path"]?.string, PresentationPaths.isStudioPath(path) else { message = nil; break }
             message = .presentationNavigate(presentationID: presentationID, path: path)
+        case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
+        case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
         default: return .unknownType(type, id: requestID)
         }
         guard let message else { return .malformed(type: type, id: requestID) }
@@ -218,6 +227,7 @@ public enum NativeBridgeProtocol {
                 "nativeNavigation": .bool(context == .main),
                 "authLifecycle": .bool(context == .main),
                 "nativePresentations": .bool(true),
+                "nativeAlerts": .bool(true),
             ]),
         ]
     }
@@ -243,6 +253,12 @@ public enum NativeBridgeProtocol {
     /// presentation may have changed. The presentation had its own query cache.
     static func presentationEnded(presentationID: String) -> JSONValue {
         message("presentation/ended", ["presentationId": .string(presentationID)])
+    }
+
+    /// The user chose a button of an alert. `actionID` is one of the ids
+    /// Studio sent.
+    static func alertAction(alertID: String, actionID: String) -> JSONValue {
+        message("alert/action", ["alertId": .string(alertID), "actionId": .string(actionID)])
     }
 
     /// Relays a presentation's navigation to the main page's router.
@@ -276,7 +292,8 @@ public enum NativeBridgeProtocol {
         case .object(let capabilities)?:
             return FrontendCapabilities(
                 authLifecycle: capabilities["authLifecycle"] == .bool(true),
-                nativePresentations: capabilities["nativePresentations"] == .bool(true)
+                nativePresentations: capabilities["nativePresentations"] == .bool(true),
+                nativeAlerts: capabilities["nativeAlerts"] == .bool(true)
             )
         default: return nil
         }
@@ -299,6 +316,35 @@ public enum NativeBridgeProtocol {
             size: size ?? .full,
             isDismissible: dismissible ?? true
         )
+    }
+
+    private static func alertPresent(_ payload: [String: JSONValue]) -> NativeAlert? {
+        guard Set(payload.keys).isSubset(of: ["alertId", "title", "message", "actions"]),
+              let id = opaqueID(payload["alertId"]),
+              let title = payload["title"]?.string, isBounded(title, 200),
+              case .array(let rawButtons)? = payload["actions"],
+              (1...NativeAlert.maximumButtons).contains(rawButtons.count) else { return nil }
+        let message: String?
+        switch payload["message"] {
+        case nil: message = nil
+        case .string(let text)? where isBounded(text, 1000): message = text
+        default: return nil
+        }
+        var seen = Set<String>()
+        var buttons: [NativeAlert.Button] = []
+        for raw in rawButtons {
+            guard let button = raw.object, Set(button.keys).isSubset(of: ["id", "label", "role"]),
+                  let buttonID = opaqueID(button["id"]), seen.insert(buttonID).inserted,
+                  let label = button["label"]?.string, isBounded(label, 60) else { return nil }
+            let role: String?
+            switch button["role"] {
+            case nil: role = nil
+            case .string(let token)? where ["default", "cancel", "destructive"].contains(token): role = token
+            default: return nil
+            }
+            buttons.append(NativeAlert.Button(id: buttonID, label: label, role: .init(token: role)))
+        }
+        return NativeAlert(id: id, title: title, message: message, buttons: buttons)
     }
 
     private static func presentationUpdate(_ payload: [String: JSONValue]) -> PresentationUpdate? {

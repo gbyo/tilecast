@@ -17,12 +17,15 @@ export type NativeCapabilities = {
   authLifecycle: boolean;
   /** The host presents /__native/modal routes in a native sheet. */
   nativePresentations: boolean;
+  /** The host shows a native alert for alert/present, on either page. */
+  nativeAlerts: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
   nativeNavigation: false,
   authLifecycle: false,
   nativePresentations: false,
+  nativeAlerts: false,
 };
 
 /**
@@ -36,15 +39,17 @@ export type BridgeContext = "main" | "presentation";
 export type FrontendCapabilities = {
   authLifecycle?: boolean;
   nativePresentations?: boolean;
+  nativeAlerts?: boolean;
 };
 
 /**
- * What this Studio supports: it handles auth/sign-out-request, and it has
- * the presentation routes and messages.
+ * What this Studio supports: it handles auth/sign-out-request, it has the
+ * presentation routes and messages, and it handles alert/action.
  */
 export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
   nativePresentations: true,
+  nativeAlerts: true,
 };
 
 /** The one presentation route root a host knows. Studio owns its children. */
@@ -90,6 +95,22 @@ export type PresentationUpdatePayload = {
   dismissible?: boolean;
 };
 
+export type AlertButton = {
+  id: string;
+  /** Already localized. */
+  label: string;
+  /** Advisory. The host styles cancel and destructive; anything else is default. */
+  role?: "default" | "cancel" | "destructive";
+};
+
+export type AlertPresentPayload = {
+  alertId: string;
+  title: string;
+  message?: string;
+  /** One to three buttons. */
+  actions: AlertButton[];
+};
+
 export type NavigationCatalogPayload = {
   groups: {
     id: string;
@@ -124,6 +145,10 @@ export type FrontendToNativePayloads = {
   "presentation/close": { presentationId: string };
   /** Dismiss, then navigate the main Studio page to path. */
   "presentation/navigate": { presentationId: string; path: string };
+  /** Either page: show a native alert. The host answers alert/action. */
+  "alert/present": AlertPresentPayload;
+  /** Either page: withdraw an alert this page presented. */
+  "alert/cancel": { alertId: string };
 };
 
 export type FrontendToNativeType = keyof FrontendToNativePayloads;
@@ -143,6 +168,8 @@ export type NativeToFrontendPayloads = {
   "presentation/dismissed": { presentationId: string };
   /** Main page: a presentation ended, so what it changed may be stale. */
   "presentation/ended": { presentationId: string };
+  /** The user chose a button of an alert this page presented. */
+  "alert/action": { alertId: string; actionId: string };
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -366,6 +393,21 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "alert/action":
+      if (!isOpaqueId(payload.alertId) || !isOpaqueId(payload.actionId)) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            alertId: payload.alertId,
+            actionId: payload.actionId,
+          },
+        },
+      };
     case "presentation/dismissed":
     case "presentation/ended":
       if (!isOpaqueId(payload.presentationId)) return { outcome: "malformed" };
@@ -457,6 +499,7 @@ export function decodeHostConfig(
       nativeNavigation: capabilities.nativeNavigation === true,
       authLifecycle: capabilities.authLifecycle === true,
       nativePresentations: capabilities.nativePresentations === true,
+      nativeAlerts: capabilities.nativeAlerts === true,
     },
   };
 }
