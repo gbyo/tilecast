@@ -85,11 +85,24 @@ function mockAuth() {
 function renderLayoutEditor(assets: Asset[] = []) {
   const layout = buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
-  vi.spyOn(api, "assets").mockResolvedValue({
-    items: assets,
-    total: assets.length,
-    page: 1,
-    pageSize: 100,
+  // Mirror the server's type filter: the unfiltered resolution page sees
+  // every asset while each Recent-shelf pool sees only its own section.
+  vi.spyOn(api, "assets").mockImplementation((params) => {
+    const type = params.get("type");
+    const items =
+      type === null
+        ? assets
+        : assets.filter((asset) =>
+            type === "widget"
+              ? asset.type === "widget"
+              : asset.type === "image" || asset.type === "video",
+          );
+    return Promise.resolve({
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: 100,
+    });
   });
   vi.spyOn(api, "playlists").mockResolvedValue({
     items: [],
@@ -527,6 +540,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("groups zoom as minus, percent, plus, and fit", async () => {
+    // The minus, percent, plus, and fit group is the desktop toolbar.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -542,6 +557,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps related inspector sections independently expandable", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -603,6 +620,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps deletion local to focused inputs and editable controls", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     const placement = await screen.findByText("New text");
