@@ -122,9 +122,11 @@ describe("MyAccountPage", () => {
       }),
     ).toBeInTheDocument();
     await screen.findByRole("heading", { name: "Authenticator app" });
+    // The sections share a tab strip and stay mounted, so the inactive ones
+    // are hidden but keep their place under the group heading.
     for (const name of ["Authenticator app", "Passkeys", "Recovery codes"]) {
       expect(
-        screen.getByRole("heading", { level: 3, name }),
+        screen.getByRole("heading", { level: 3, name, hidden: true }),
       ).toBeInTheDocument();
     }
   });
@@ -132,7 +134,10 @@ describe("MyAccountPage", () => {
   // Panels inside panels are the thing this page was rebuilt to stop doing.
   it("does not put a panel inside a panel", async () => {
     const { container } = renderPage();
-    await screen.findByRole("heading", { name: "Recovery codes" });
+    await screen.findByRole("heading", {
+      name: "Recovery codes",
+      hidden: true,
+    });
     expect(container.querySelector(".panel .panel")).toBeNull();
   });
 
