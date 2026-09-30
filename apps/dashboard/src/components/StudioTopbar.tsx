@@ -1,3 +1,4 @@
+import { useNativeNavigationChrome } from "@/native-host/useNativeNavigationChrome";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
@@ -636,6 +637,11 @@ export function StudioTopbar({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const breadcrumbs = useBreadcrumbs(routes, location.pathname);
+  // A native host draws the trail as a navigation bar with a back button.
+  const trailIsNative = useNativeNavigationChrome(
+    breadcrumbs,
+    Boolean(nativeNavigation),
+  );
   const screens = useQuery({
     queryKey: ["screens"],
     queryFn: api.screens,
@@ -668,7 +674,7 @@ export function StudioTopbar({
   return (
     <>
       <SiteHeader
-        breadcrumbs={breadcrumbs}
+        breadcrumbs={trailIsNative ? [] : breadcrumbs}
         notifications={notifications}
         onSearch={() => setPaletteOpen(true)}
         editor={editor}
