@@ -1,6 +1,7 @@
 import Foundation
 import HTTPTypes
 import OpenAPIRuntime
+import OpenAPIURLSession
 import Testing
 import TilecastAPI
 @testable import TilecastCore
@@ -101,7 +102,14 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
 }
 
 func stubTransport() -> any ClientTransport {
-    NativeAPITransport.makeTransport(session: NativeAPITransport.makeSession(protocolClasses: [StubProtocol.self]))
+    // Buffered, not the platform streaming default: with
+    // uploadTask(withStreamedRequest:) the request body reaches a
+    // URLProtocol asynchronously, so StubProtocol's synchronous read races
+    // the writer and usually sees nothing on a loaded runner.
+    URLSessionTransport(configuration: .init(
+        session: NativeAPITransport.makeSession(protocolClasses: [StubProtocol.self]),
+        httpBodyProcessingMode: .buffered
+    ))
 }
 
 let grantsBody = #"{"data":{"grants":[{"id":"8f1c7f5e-3a3b-4a53-9a57-9b1c1f0a7f3e","client":"Tilecast for iOS","scopes":["read","write","admin"],"createdAt":"2026-09-29T21:30:00.123456789Z","lastUsedAt":null,"revokedAt":null}]}}"#

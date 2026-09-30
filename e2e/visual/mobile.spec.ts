@@ -50,7 +50,8 @@ test("mobile activity keeps the long tab strip contained", async ({ page }) => {
     .toBe(true);
 
   await tabs.getByRole("tab", { name: "Proof of Play", exact: true }).click();
-  await page.getByRole("button", { name: /more filters/i }).click();
+  // The trigger shows "More filters" but announces the popover it opens.
+  await page.getByRole("button", { name: "Advanced filters" }).click();
   const filters = page.locator('[data-slot="popover-content"]');
   await expect(filters).toBeVisible();
   const filterBounds = await filters.boundingBox();

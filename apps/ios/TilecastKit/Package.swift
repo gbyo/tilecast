@@ -44,6 +44,7 @@ let package = Package(
                 "TilecastAPI",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
+                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession"),
             ]
         ),
     ],
