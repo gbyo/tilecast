@@ -126,6 +126,13 @@ describe("screen management", () => {
   });
 
   it("renders live device status and accessible screen links", () => {
+    // The table view is the desktop layout; narrow screens always get cards.
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 1024px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
     const item: Screen = {
       id: "screen-1",
       name: "Lobby",
@@ -148,11 +155,18 @@ describe("screen management", () => {
       hasActiveCredential: true,
     };
     render(
-      <MemoryRouter>
-        <ScreenListContent screens={[item]} loading={false} canManage />
-      </MemoryRouter>,
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent screens={[item]} loading={false} canManage />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
-    const link = screen.getByRole("link", { name: /Lobby/ });
+    const table = within(screen.getByRole("table"));
+    const link = table.getByRole("link", { name: /Lobby/ });
     expect(link).toHaveAttribute("href", "/screens/screen-1");
     // Only the screen name is a link. Device metadata sits outside the anchor so
     // location, platform, and resolution are not presented as separate targets.
@@ -187,19 +201,27 @@ describe("screen management", () => {
       hasActiveCredential: true,
     };
     render(
-      <MemoryRouter>
-        <ScreenListContent screens={[item]} loading={false} canManage />
-      </MemoryRouter>,
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent screens={[item]} loading={false} canManage />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     const summary = screen.getByRole("group", { name: "Fleet summary" });
     // Each measure pairs its own count with its own label, so no reading of the
     // summary produces "0 need attention".
-    expect(
-      within(summary).getByRole("button", { name: "0 Needs attention" }),
-    ).toHaveAttribute("aria-pressed", "false");
-    expect(
-      within(summary).getByRole("button", { name: "1 Online" }),
-    ).toBeInTheDocument();
+    const measure = (text: string) =>
+      within(summary).getByText(
+        (_, element) =>
+          element?.getAttribute("data-slot") === "badge" &&
+          element.textContent === text,
+      );
+    expect(measure("0 Needs attention")).toBeInTheDocument();
+    expect(measure("1 Online")).toBeInTheDocument();
   });
 
   it("requests a fresh preview for a visible grid card and shows its age", async () => {
