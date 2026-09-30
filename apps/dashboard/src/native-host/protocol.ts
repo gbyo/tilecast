@@ -25,6 +25,8 @@ export type NativeCapabilities = {
   nativeMediaIntake: boolean;
   /** The host can deliver a deep link's path with navigation/open-path. */
   deepLinks: boolean;
+  /** The host shows a native alert for alert/present, on either page. */
+  nativeAlerts: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
@@ -35,6 +37,7 @@ export const noNativeCapabilities: NativeCapabilities = {
   systemHaptics: false,
   nativeMediaIntake: false,
   deepLinks: false,
+  nativeAlerts: false,
 };
 
 /**
@@ -50,18 +53,20 @@ export type FrontendCapabilities = {
   nativePresentations?: boolean;
   nativeMediaIntake?: boolean;
   deepLinks?: boolean;
+  nativeAlerts?: boolean;
 };
 
 /**
  * What this Studio supports: it handles auth/sign-out-request, it has the
  * presentation routes and messages, it handles system/media-intake-completed,
- * and it navigates for a deep link.
+ * it navigates for a deep link, and it handles alert/action.
  */
 export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
   nativePresentations: true,
   nativeMediaIntake: true,
   deepLinks: true,
+  nativeAlerts: true,
 };
 
 /** The one presentation route root a host knows. Studio owns its children. */
@@ -145,6 +150,32 @@ export type MediaIntakeCompletedPayload = {
   uploadedCount: number;
 };
 
+export type AlertButton = {
+  id: string;
+  /** Already localized. */
+  label: string;
+  /** Advisory. The host styles cancel and destructive; anything else is default. */
+  role?: "default" | "cancel" | "destructive";
+};
+
+export type AlertPresentPayload = {
+  alertId: string;
+  title: string;
+  message?: string;
+  /** One to three buttons. */
+  actions: AlertButton[];
+};
+
+/**
+ * The chrome of the current page. With back, the host shows a native
+ * navigation bar: a back button labelled with the previous page, and the
+ * title. Studio's router decides where back goes, so no path is sent.
+ */
+export type NavigationChromePayload = {
+  title?: string;
+  back?: { label: string };
+};
+
 export type NavigationCatalogPayload = {
   groups: {
     id: string;
@@ -187,6 +218,12 @@ export type FrontendToNativePayloads = {
   "system/media-intake-status": Record<string, never>;
   /** Main page: choose media with system pickers and upload it natively. */
   "system/media-intake": MediaIntakePayload;
+  /** Either page: show a native alert. The host answers alert/action. */
+  "alert/present": AlertPresentPayload;
+  /** Either page: withdraw an alert this page presented. */
+  "alert/cancel": { alertId: string };
+  /** Main page: describe the native navigation bar for this page. */
+  "navigation/chrome": NavigationChromePayload;
 };
 
 export type FrontendToNativeType = keyof FrontendToNativePayloads;
@@ -208,6 +245,10 @@ export type NativeToFrontendPayloads = {
   "presentation/ended": { presentationId: string };
   /** Main page: native media intake finished. Studio refetches its media. */
   "system/media-intake-completed": MediaIntakeCompletedPayload;
+  /** The user chose a button of an alert this page presented. */
+  "alert/action": { alertId: string; actionId: string };
+  /** Main page: the user tapped the native back button. */
+  "navigation/back": Record<string, never>;
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -548,6 +589,24 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "navigation/back":
+      if (Object.keys(payload).length > 0) return { outcome: "malformed" };
+      return { outcome: "accept", message: { type, ...withId, payload: {} } };
+    case "alert/action":
+      if (!isOpaqueId(payload.alertId) || !isOpaqueId(payload.actionId)) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            alertId: payload.alertId,
+            actionId: payload.actionId,
+          },
+        },
+      };
     case "system/media-intake-completed":
       if (
         !isOpaqueId(payload.requestId) ||
@@ -667,6 +726,7 @@ export function decodeHostConfig(
       systemHaptics: capabilities.systemHaptics === true,
       nativeMediaIntake: capabilities.nativeMediaIntake === true,
       deepLinks: capabilities.deepLinks === true,
+      nativeAlerts: capabilities.nativeAlerts === true,
     },
   };
 }

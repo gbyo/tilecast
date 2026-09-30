@@ -34,6 +34,7 @@
       "frontendCapabilities": {
         "authLifecycle": true,
         "nativePresentations": true,
+        "nativeAlerts": true,
         "nativeMediaIntake": true,
         "deepLinks": true
       },
@@ -44,6 +45,7 @@
           "capabilities": {
             "authLifecycle": true,
             "nativePresentations": true,
+            "nativeAlerts": true,
             "nativeMediaIntake": true,
             "deepLinks": true
           }
@@ -1774,6 +1776,7 @@
             "nativeNavigation": true,
             "authLifecycle": true,
             "nativePresentations": true,
+            "nativeAlerts": true,
             "systemShare": true,
             "systemHaptics": true,
             "nativeMediaIntake": true,
@@ -1870,6 +1873,7 @@
             "nativeNavigation": false,
             "authLifecycle": false,
             "nativePresentations": true,
+            "nativeAlerts": true,
             "systemShare": true,
             "systemHaptics": true,
             "nativeMediaIntake": false,
@@ -1929,6 +1933,309 @@
         "version": 1,
         "ok": false,
         "error": { "code": "unavailable" }
+      }
+    },
+    {
+      "name": "alert/present",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "alertPresent",
+      "alert": {
+        "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "title": "Delete this schedule?",
+        "message": "Screens stop following it at once.",
+        "actions": [
+          { "id": "cancel", "label": "Cancel", "role": "cancel" },
+          { "id": "confirm", "label": "Delete", "role": "destructive" }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "Delete this schedule?",
+          "message": "Screens stop following it at once.",
+          "actions": [
+            { "id": "cancel", "label": "Cancel", "role": "cancel" },
+            { "id": "confirm", "label": "Delete", "role": "destructive" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present without a message or roles",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "alert": {
+        "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "title": "Discard changes?",
+        "actions": [{ "id": "ok", "label": "OK" }]
+      },
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "Discard changes?",
+          "actions": [{ "id": "ok", "label": "OK" }]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an unknown role",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [{ "id": "a", "label": "A", "role": "primary" }]
+        }
+      }
+    },
+    {
+      "name": "alert/present with no buttons",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": []
+        }
+      }
+    },
+    {
+      "name": "alert/present with four buttons",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            { "id": "a", "label": "A" },
+            { "id": "b", "label": "B" },
+            { "id": "c", "label": "C" },
+            { "id": "d", "label": "D" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with repeated button ids",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            { "id": "a", "label": "A" },
+            { "id": "a", "label": "B" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an oversized message",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "message": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+          "actions": [{ "id": "a", "label": "A" }]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an oversized button label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "title": "T",
+          "actions": [
+            {
+              "id": "a",
+              "label": "lllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "alert/present with an alert id outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/present",
+        "payload": {
+          "alertId": "A B",
+          "title": "T",
+          "actions": [{ "id": "a", "label": "A" }]
+        }
+      }
+    },
+    {
+      "name": "alert/cancel",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "alertCancel",
+      "message": {
+        "version": 1,
+        "type": "alert/cancel",
+        "payload": { "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "alert/cancel with an oversized alert id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/cancel",
+        "payload": {
+          "alertId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "alert/action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "alertAction",
+      "message": {
+        "version": 1,
+        "type": "alert/action",
+        "payload": {
+          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "actionId": "confirm"
+        }
+      }
+    },
+    {
+      "name": "alert/action without an action id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "alert/action",
+        "payload": { "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "frontend/ready with the alert capability alone",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": {
+        "authLifecycle": false,
+        "nativePresentations": false,
+        "nativeAlerts": true
+      },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": { "capabilities": { "nativeAlerts": true } }
+      }
+    },
+    {
+      "name": "navigation/chrome",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "navigationChrome",
+      "chrome": { "title": "Lobby north", "backLabel": "Fleet" },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": { "title": "Lobby north", "back": { "label": "Fleet" } }
+      }
+    },
+    {
+      "name": "navigation/chrome without back",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": { "title": "Fleet" },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": { "title": "Fleet" }
+      }
+    },
+    {
+      "name": "navigation/chrome with no fields",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": {},
+      "message": { "version": 1, "type": "navigation/chrome", "payload": {} }
+    },
+    {
+      "name": "navigation/chrome with an empty title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": { "title": "" }
+      }
+    },
+    {
+      "name": "navigation/chrome with a back that has no label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": { "title": "Lobby", "back": {} }
+      }
+    },
+    {
+      "name": "navigation/chrome with a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby",
+          "back": { "label": "Fleet", "path": "/screens" }
+        }
+      }
+    },
+    {
+      "name": "navigation/back",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "navigationBack",
+      "message": { "version": 1, "type": "navigation/back", "payload": {} }
+    },
+    {
+      "name": "navigation/back with a payload",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "navigation/back",
+        "payload": { "path": "/screens" }
       }
     },
     {

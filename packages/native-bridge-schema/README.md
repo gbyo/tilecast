@@ -50,6 +50,10 @@ Destination and group identifiers are opaque. Only Studio knows what they mean. 
 
 After Studio handles a `navigation/request`, it sends `navigation/state` even when the location did not change, for example because an unsaved-changes prompt stopped the navigation. The host uses that message to reconcile its selection.
 
+The alert messages (`alert/present`, `alert/cancel`, and `alert/action`) need the `nativeAlerts` capability on both sides. Either page can present an alert, and the host reports the choice to the page that asked.
+
+`navigation/chrome` tells the host when the page is a drill-in, with a title and the name of the page back leads to. The host then shows a native navigation bar, and its back button sends `navigation/back`. Neither message carries a path. A host that answers `unknown_type` to `navigation/chrome` leaves Studio with its own breadcrumbs.
+
 The presentation messages (`presentation/*` and `navigation/open-path`) need the `nativePresentations` capability on both sides. Presentation paths are in the reserved `/__native/modal` tree. A host knows only that root. See `docs/ios-app.md`.
 
 ## System messages

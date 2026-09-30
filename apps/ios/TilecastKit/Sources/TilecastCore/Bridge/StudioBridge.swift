@@ -78,6 +78,8 @@ public final class StudioBridge {
     /// The main page asks to choose media natively. Returns whether the app
     /// began. Studio uses its own uploader when it did not.
     public var onMediaIntake: (@MainActor (MediaIntakeRequest) -> Bool)?
+    /// Where this page's alerts show. Both kinds of page may ask for one.
+    weak var alerts: NativeAlertCenter?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -102,6 +104,9 @@ public final class StudioBridge {
         navigation = NativeNavigationModel()
         navigation.requestNavigation = { [weak self] id in
             Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
+        }
+        navigation.requestBack = { [weak self] in
+            Task { await self?.send(NativeBridgeProtocol.navigationBack()) }
         }
     }
 
@@ -144,6 +149,8 @@ public final class StudioBridge {
 
     func mainFrameNavigationStarted() {
         negotiatedSinceNavigationStarted = false
+        // An alert belongs to the document that asked for it.
+        alerts?.withdraw(from: self)
     }
 
     /// A new document replaced the old one.
@@ -152,6 +159,7 @@ public final class StudioBridge {
     }
 
     private func reset() {
+        alerts?.withdraw(from: self)
         isFrontendReady = false
         frontendCapabilities = .init()
         navigation.reset()
@@ -244,6 +252,8 @@ public final class StudioBridge {
                 notifyStateChange()
             case .navigationState(let state):
                 navigation.apply(state)
+            case .navigationChrome(let chrome):
+                navigation.apply(chrome)
             case .presentationOpen(let presentation):
                 guard isFrontendReady, frontendCapabilities.nativePresentations,
                       onPresentationOpen?(presentation) == true else {
@@ -268,6 +278,13 @@ public final class StudioBridge {
                       onMediaIntake?(request) == true else {
                     return NativeBridgeProtocol.reply(id: id, error: .unavailable)
                 }
+            case .alertPresent(let alert):
+                guard isFrontendReady, frontendCapabilities.nativeAlerts,
+                      alerts?.present(alert, from: self) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .alertCancel(let alertID):
+                alerts?.withdraw(alertID: alertID, from: self)
             case .presentationReady:
                 onPresentationMessage?(.ready)
             case .presentationUpdate(let update):

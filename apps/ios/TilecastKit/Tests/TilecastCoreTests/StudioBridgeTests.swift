@@ -39,6 +39,7 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
                     "nativeNavigation": .bool(true), "authLifecycle": .bool(true), "nativePresentations": .bool(true),
                     "systemShare": .bool(true), "systemHaptics": .bool(true),
                     "nativeMediaIntake": .bool(true), "deepLinks": .bool(true),
+                    "nativeAlerts": .bool(true),
                 ]),
             ]),
         ]))

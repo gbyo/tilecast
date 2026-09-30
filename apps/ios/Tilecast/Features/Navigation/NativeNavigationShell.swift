@@ -46,8 +46,11 @@ struct NativeTabNavigation: View {
                         MoreView(page: page, actions: actions)
                     }
                     if navigation.frontendTab == .more {
-                        StudioSlotView(extendsBelowTabBar: true)
-                            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                        NavigationStack {
+                            StudioSlotView(extendsBelowTabBar: true)
+                                .studioBackBar(navigation)
+                        }
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
                     }
                 }
             } label: {
@@ -59,10 +62,14 @@ struct NativeTabNavigation: View {
     /// Studio appears in exactly one tab at a time. Its slot reaches beneath
     /// the floating tab bar, so the glass samples the page itself.
     @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
-        if navigation.frontendTab == tab {
-            StudioSlotView(extendsBelowTabBar: true)
-        } else {
-            Color.clear
+        NavigationStack {
+            if navigation.frontendTab == tab {
+                StudioSlotView(extendsBelowTabBar: true)
+                    .studioBackBar(navigation)
+            } else {
+                Color.clear
+                    .toolbar(.hidden, for: .navigationBar)
+            }
         }
     }
 }
@@ -169,7 +176,7 @@ struct NativeSidebarNavigation: View {
         } detail: {
             StudioSlotView()
                 .ignoresSafeArea(edges: .bottom)
-                .toolbar(.hidden, for: .navigationBar)
+                .studioBackBar(navigation)
         }
         .navigationSplitViewStyle(.balanced)
     }

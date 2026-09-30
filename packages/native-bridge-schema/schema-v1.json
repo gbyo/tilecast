@@ -134,6 +134,10 @@
               "description": "Studio has the /__native/modal presentation routes, handles the presentation messages, and handles navigation/open-path.",
               "type": "boolean"
             },
+            "nativeAlerts": {
+              "description": "Studio handles alert/action, so a host may show its alert for an alert/present.",
+              "type": "boolean"
+            },
             "nativeMediaIntake": {
               "description": "Studio handles system/media-intake-completed. A host sends it only to a Studio that reported this.",
               "type": "boolean"
@@ -141,6 +145,25 @@
             "deepLinks": {
               "description": "Studio handles navigation/open-path that a host sends for a deep link, and refuses the reserved authentication paths.",
               "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "navigationChromePayload": {
+      "description": "The chrome of the page Studio shows in the main page. When back is present the page is a drill-in, and the host shows a native navigation bar with a back button and the title. Without back the host shows no bar. The host learns no path: it sends navigation/back, and Studio's router decides where that goes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/title" },
+        "back": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": {
+            "label": {
+              "description": "The name of the page back leads to, already localized.",
+              "$ref": "#/$defs/title"
             }
           }
         }
@@ -172,6 +195,10 @@
             },
             "nativePresentations": {
               "description": "The host can present /__native/modal routes in a native sheet. On the main page it accepts presentation/open; on the presentation page it sends presentation/show.",
+              "type": "boolean"
+            },
+            "nativeAlerts": {
+              "description": "The host can show a native alert for alert/present, on the main page and on the presentation page.",
               "type": "boolean"
             },
             "systemShare": {
@@ -313,6 +340,57 @@
         "dismissible": { "type": "boolean" }
       }
     },
+    "alertId": {
+      "description": "An opaque identifier Studio creates for one alert. A host reports the choice for that alert only, and Studio ignores a choice for an alert it does not know.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "alertButton": {
+      "description": "One button of a native alert. label is already localized. role is advisory: cancel and destructive get the platform's styling, and any other value is default.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/actionId" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "role": { "enum": ["default", "cancel", "destructive"] }
+      }
+    },
+    "alertPresentPayload": {
+      "description": "Studio asks the host to show an alert with one to three buttons. The host answers ok when it shows the alert, and unavailable when it cannot, for example because another alert is showing. Studio then shows its own dialog.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alertId", "title", "actions"],
+      "properties": {
+        "alertId": { "$ref": "#/$defs/alertId" },
+        "title": { "$ref": "#/$defs/title" },
+        "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "actions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/alertButton" }
+        }
+      }
+    },
+    "alertIdPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alertId"],
+      "properties": { "alertId": { "$ref": "#/$defs/alertId" } }
+    },
+    "alertActionPayload": {
+      "description": "The user chose a button. actionId is one of the ids Studio sent.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alertId", "actionId"],
+      "properties": {
+        "alertId": { "$ref": "#/$defs/alertId" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
+    },
     "presentationIdPayload": {
       "type": "object",
       "required": ["presentationId"],
@@ -366,6 +444,9 @@
                 "presentation/update",
                 "presentation/close",
                 "presentation/navigate",
+                "alert/present",
+                "alert/cancel",
+                "navigation/chrome",
                 "system/haptic",
                 "system/share",
                 "system/media-intake-status",
@@ -448,6 +529,31 @@
           }
         },
         {
+          "description": "Main page only. Describes the native navigation bar for the current page. A host that does not know this message answers unknown_type, and Studio keeps its own breadcrumbs.",
+          "if": { "properties": { "type": { "const": "navigation/chrome" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/navigationChromePayload" }
+            }
+          }
+        },
+        {
+          "description": "Either page. Shows a native alert, so a confirmation matches the platform. The page that sent it receives alert/action.",
+          "if": { "properties": { "type": { "const": "alert/present" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/alertPresentPayload" }
+            }
+          }
+        },
+        {
+          "description": "Either page. Withdraws an alert the page presented, for example when the dialog's owner went away. A host ignores an alert that is not showing.",
+          "if": { "properties": { "type": { "const": "alert/cancel" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/alertIdPayload" } }
+          }
+        },
+        {
           "description": "Presentation page only. The host dismisses the presentation, then relays the path to the main page with navigation/open-path.",
           "if": {
             "properties": { "type": { "const": "presentation/navigate" } }
@@ -513,6 +619,8 @@
                 "presentation/action",
                 "presentation/dismissed",
                 "presentation/ended",
+                "alert/action",
+                "navigation/back",
                 "system/media-intake-completed"
               ]
             }
@@ -566,6 +674,22 @@
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/presentationIdPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The user tapped the native back button. Studio navigates to the previous page of its trail with React Router, so unsaved-change blockers apply. Sent only after Studio sent navigation/chrome with back.",
+          "if": { "properties": { "type": { "const": "navigation/back" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+          }
+        },
+        {
+          "description": "The user chose a button of an alert this page presented.",
+          "if": { "properties": { "type": { "const": "alert/action" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/alertActionPayload" }
             }
           }
         },

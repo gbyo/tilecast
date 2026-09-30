@@ -44,8 +44,12 @@ public final class PresentationCoordinator {
     @ObservationIgnored private weak var mainBridge: StudioBridge?
     @ObservationIgnored private var isClosed = false
 
-    init(mainBridge: StudioBridge, makePage: @escaping @MainActor () -> PresentationPage) {
+    /// Where a presentation page's alerts show.
+    @ObservationIgnored public let alerts: NativeAlertCenter
+
+    init(mainBridge: StudioBridge, alerts: NativeAlertCenter, makePage: @escaping @MainActor () -> PresentationPage) {
         self.mainBridge = mainBridge
+        self.alerts = alerts
         self.makePage = makePage
         mainBridge.onPresentationOpen = { [weak self] request in self?.open(request) ?? false }
         mainBridge.onStateChange = { [weak self] in self?.mainStudioChanged() }
@@ -81,6 +85,7 @@ public final class PresentationCoordinator {
     @discardableResult
     private func buildPage() -> PresentationPage {
         let page = makePage()
+        page.bridge.alerts = alerts
         pagesBuilt += 1
         page.onEvent = { [weak self, weak page] event in
             guard let self, let page else { return }
@@ -191,6 +196,8 @@ public final class PresentationCoordinator {
         // stale in the main page until Studio refetches. This is generic: the
         // app never knows what a presentation changed.
         relayEnded(ended.id)
+        // An alert the presentation asked for goes with it.
+        alerts.withdraw(context: .presentation)
         guard let page else { return }
         if page.phase == .ready {
             // Transient work in the page, such as a stream lease, ends now.

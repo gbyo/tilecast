@@ -98,6 +98,8 @@ public enum NativeBridgeProtocol {
         /// Studio has the presentation routes and messages, and handles
         /// `navigation/open-path`.
         public var nativePresentations: Bool
+        /// Studio handles `alert/action`, so the app may show its alert.
+        public var nativeAlerts: Bool
         /// Studio handles `system/media-intake-completed`.
         public var nativeMediaIntake: Bool
         /// Studio navigates for a deep link's `navigation/open-path`, and
@@ -107,11 +109,13 @@ public enum NativeBridgeProtocol {
         public init(
             authLifecycle: Bool = false,
             nativePresentations: Bool = false,
+            nativeAlerts: Bool = false,
             nativeMediaIntake: Bool = false,
             deepLinks: Bool = false
         ) {
             self.authLifecycle = authLifecycle
             self.nativePresentations = nativePresentations
+            self.nativeAlerts = nativeAlerts
             self.nativeMediaIntake = nativeMediaIntake
             self.deepLinks = deepLinks
         }
@@ -140,12 +144,18 @@ public enum NativeBridgeProtocol {
         /// The main page asks whether native media intake can start now.
         case mediaIntakeStatus
         case mediaIntake(MediaIntakeRequest)
+        /// Main page: the chrome of the page Studio shows.
+        case navigationChrome(NavigationChrome)
+        /// Either page asks for a native alert.
+        case alertPresent(NativeAlert)
+        /// Either page withdraws an alert it presented.
+        case alertCancel(alertID: String)
 
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
-            case .configGet, .frontendReady, .systemHaptic, .systemShare: nil
-            case .navigationCatalog, .navigationState, .authSignedOut, .presentationOpen,
+            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel: nil
+            case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
                  .mediaIntakeStatus, .mediaIntake: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
             }
@@ -210,6 +220,9 @@ public enum NativeBridgeProtocol {
             guard let presentationID = opaqueID(payload["presentationId"]),
                   let path = payload["path"]?.string, PresentationPaths.isStudioPath(path) else { message = nil; break }
             message = .presentationNavigate(presentationID: presentationID, path: path)
+        case "navigation/chrome": message = navigationChrome(payload).map(FrontendMessage.navigationChrome)
+        case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
+        case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
         default: return .unknownType(type, id: requestID)
         }
         guard let message else { return .malformed(type: type, id: requestID) }
@@ -246,6 +259,7 @@ public enum NativeBridgeProtocol {
                 "systemHaptics": .bool(true),
                 "nativeMediaIntake": .bool(context == .main),
                 "deepLinks": .bool(context == .main),
+                "nativeAlerts": .bool(true),
             ]),
         ]
     }
@@ -283,6 +297,18 @@ public enum NativeBridgeProtocol {
         ])
     }
 
+    /// The user tapped the native back button. It carries no path: Studio's
+    /// router decides where back goes.
+    static func navigationBack() -> JSONValue {
+        message("navigation/back", [:])
+    }
+
+    /// The user chose a button of an alert. `actionID` is one of the ids
+    /// Studio sent.
+    static func alertAction(alertID: String, actionID: String) -> JSONValue {
+        message("alert/action", ["alertId": .string(alertID), "actionId": .string(actionID)])
+    }
+
     /// Relays a presentation's navigation to the main page's router.
     static func openPath(_ path: String) -> JSONValue {
         message("navigation/open-path", ["path": .string(path)])
@@ -315,6 +341,7 @@ public enum NativeBridgeProtocol {
             return FrontendCapabilities(
                 authLifecycle: capabilities["authLifecycle"] == .bool(true),
                 nativePresentations: capabilities["nativePresentations"] == .bool(true),
+                nativeAlerts: capabilities["nativeAlerts"] == .bool(true),
                 nativeMediaIntake: capabilities["nativeMediaIntake"] == .bool(true),
                 deepLinks: capabilities["deepLinks"] == .bool(true)
             )
@@ -369,6 +396,54 @@ public enum NativeBridgeProtocol {
             size: size ?? .full,
             isDismissible: dismissible ?? true
         )
+    }
+
+    private static func navigationChrome(_ payload: [String: JSONValue]) -> NavigationChrome? {
+        guard Set(payload.keys).isSubset(of: ["title", "back"]) else { return nil }
+        let title: String?
+        switch payload["title"] {
+        case nil: title = nil
+        case .string(let text)? where isBounded(text, 200): title = text
+        default: return nil
+        }
+        let backLabel: String?
+        switch payload["back"] {
+        case nil: backLabel = nil
+        case .object(let back)? where Set(back.keys) == ["label"]:
+            guard let label = back["label"]?.string, isBounded(label, 200) else { return nil }
+            backLabel = label
+        default: return nil
+        }
+        return NavigationChrome(title: title, backLabel: backLabel)
+    }
+
+    private static func alertPresent(_ payload: [String: JSONValue]) -> NativeAlert? {
+        guard Set(payload.keys).isSubset(of: ["alertId", "title", "message", "actions"]),
+              let id = opaqueID(payload["alertId"]),
+              let title = payload["title"]?.string, isBounded(title, 200),
+              case .array(let rawButtons)? = payload["actions"],
+              (1...NativeAlert.maximumButtons).contains(rawButtons.count) else { return nil }
+        let message: String?
+        switch payload["message"] {
+        case nil: message = nil
+        case .string(let text)? where isBounded(text, 1000): message = text
+        default: return nil
+        }
+        var seen = Set<String>()
+        var buttons: [NativeAlert.Button] = []
+        for raw in rawButtons {
+            guard let button = raw.object, Set(button.keys).isSubset(of: ["id", "label", "role"]),
+                  let buttonID = opaqueID(button["id"]), seen.insert(buttonID).inserted,
+                  let label = button["label"]?.string, isBounded(label, 60) else { return nil }
+            let role: String?
+            switch button["role"] {
+            case nil: role = nil
+            case .string(let token)? where ["default", "cancel", "destructive"].contains(token): role = token
+            default: return nil
+            }
+            buttons.append(NativeAlert.Button(id: buttonID, label: label, role: .init(token: role)))
+        }
+        return NativeAlert(id: id, title: title, message: message, buttons: buttons)
     }
 
     private static func presentationUpdate(_ payload: [String: JSONValue]) -> PresentationUpdate? {

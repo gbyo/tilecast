@@ -147,6 +147,7 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="document"></p>
         <p id="metrics"></p>
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
+        <p><button id="drill" type="button">Open screen detail</button></p>
         <p id="opened"></p>
         <p id="ended">Ended 0</p>
         <p>
@@ -157,6 +158,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="system-result"></p>
         <p><button id="upload-media" type="button">Upload media</button></p>
         <p id="intake"></p>
+        <p><button id="ask" type="button">Delete fixture</button></p>
+        <p id="chosen"></p>
         <section id="rows"></section>
         <p><button id="bottom-action" type="button">Bottom action</button></p>
         <p id="bottom-pressed"></p>
@@ -187,7 +190,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         const tall = new Set(["fleet", "media"]);
         const render = () => {
           const id = active();
-          document.getElementById("page").textContent = id ? `${titles[id]} page` : "No destination";
+          document.getElementById("page").textContent = location.pathname === "/fleet/screen-1" ? "Screen detail page"
+            : id ? `${titles[id]} page` : "No destination";
           document.getElementById("document").textContent = `Document ${documentId}`;
           document.getElementById("rows").replaceChildren(...(tall.has(id) ? Array.from({ length: 60 }, (_, index) => {
             const row = document.createElement("div");
@@ -204,10 +208,18 @@ final class FixtureStudioServer: @unchecked Sendable {
         });
         const handler = window.webkit?.messageHandlers?.tilecastNative;
         const send = (type, payload) => handler.postMessage({ version: 1, type, payload });
-        const publish = () => {
+        // A drill-in page describes its trail, as Studio does from its breadcrumbs.
+        const chrome = () => location.pathname === "/fleet/screen-1"
+          ? { title: "Lobby north", back: { label: "Fleet" } } : { title: titles[active()] ?? "Fleet" };
+        const publish = async () => {
           render();
-          return send("navigation/state", { activeDestinationId: active(), path: location.pathname });
+          await send("navigation/state", { activeDestinationId: active(), path: location.pathname });
+          await send("navigation/chrome", chrome());
         };
+        document.getElementById("drill").addEventListener("click", () => {
+          history.pushState(null, "", "/fleet/screen-1");
+          void publish();
+        });
         // A presentation is its own document with its own data, so Studio
         // refetches when one ends. The fixture just counts.
         let ended = 0;
@@ -220,6 +232,15 @@ final class FixtureStudioServer: @unchecked Sendable {
           }
           if (message?.type === "presentation/ended") {
             document.getElementById("ended").textContent = `Ended ${++ended}`;
+            return true;
+          }
+          if (message?.type === "alert/action") {
+            document.getElementById("chosen").textContent = `Chose ${message.payload.actionId}`;
+            return true;
+          }
+          if (message?.type === "navigation/back") {
+            history.pushState(null, "", "/fleet");
+            void publish();
             return true;
           }
           const path = message?.type === "navigation/request" ? paths[message.payload.destinationId]
@@ -258,6 +279,16 @@ final class FixtureStudioServer: @unchecked Sendable {
             intake.textContent = "Web uploader";
           }
         });
+        // Studio's confirmations use a native alert when the app offers one.
+        document.getElementById("ask").addEventListener("click", async () => {
+          await send("alert/present", {
+            alertId: "a-main-1", title: "Delete this fixture?", message: "This cannot be undone.",
+            actions: [
+              { id: "cancel", label: "Cancel", role: "cancel" },
+              { id: "confirm", label: "Delete", role: "destructive" },
+            ],
+          });
+        });
         let presentations = 0;
         document.getElementById("open-sheet").addEventListener("click", async () => {
           const reply = handler && await send("presentation/open", {
@@ -276,7 +307,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           const config = await send("config/get", {});
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
           await send("frontend/ready", {
-            capabilities: { nativePresentations: true, nativeMediaIntake: true, deepLinks: true },
+            capabilities: { nativePresentations: true, nativeAlerts: true, nativeMediaIntake: true, deepLinks: true },
           });
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
@@ -304,6 +335,9 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="leave" type="button">Go to Layouts</button></p>
         <p><button id="share" type="button">Share from sheet</button></p>
         <p id="system-result"></p>
+        <p><button id="ask" type="button">Ask from sheet</button></p>
+        <p><button id="grow" type="button">Grow sheet</button></p>
+        <p id="chosen"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const handler = window.webkit?.messageHandlers?.tilecastNative;
@@ -335,6 +369,9 @@ final class FixtureStudioServer: @unchecked Sendable {
               if (payload.presentationId !== current) return false;
               text("action", `Action ${payload.actionId}`);
               return true;
+            case "alert/action":
+              text("chosen", `Sheet chose ${payload.actionId}`);
+              return true;
             case "presentation/dismissed":
               if (payload.presentationId === current) current = null;
               history.replaceState(null, "", "/__native/modal");
@@ -351,6 +388,19 @@ final class FixtureStudioServer: @unchecked Sendable {
           const reply = await send("system/share", { title: "From the sheet", url: "https://example.org/sheet" });
           text("system-result", reply?.ok ? "Share ok" : `Share ${reply?.error?.code ?? "unavailable"}`);
         });
+        // A dialog inside a compact presentation asks the sheet for the full
+        // height, as Studio's dialog primitives do.
+        document.getElementById("grow").addEventListener("click", async () => {
+          if (!current) return;
+          await send("presentation/update", { presentationId: current, size: "full" });
+          text("action", "Grew");
+        });
+        document.getElementById("ask").addEventListener("click", () => {
+          void send("alert/present", {
+            alertId: "a-sheet-1", title: "Discard this fixture?",
+            actions: [{ id: "keep", label: "Keep", role: "cancel" }, { id: "discard", label: "Discard", role: "destructive" }],
+          });
+        });
         document.getElementById("leave").addEventListener("click", () => {
           if (current) void send("presentation/navigate", { presentationId: current, path: "/layouts" });
         });
@@ -358,7 +408,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.context !== "presentation") return;
-          await send("frontend/ready", { capabilities: { nativePresentations: true } });
+          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
           await send("presentation/ready", {});
         })();
         </script>
