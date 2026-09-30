@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check quick test watch-dashboard watch-linux
 
 bootstrap:
 	npm install
@@ -102,10 +102,28 @@ android-check:
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
 dev-dashboard:
-	npm run dev
+	npm run dev --workspace @tilecast/dashboard -- --host 127.0.0.1
 
 dev-server:
 	cd apps/server && go run ./cmd/tilecast-server
+
+dev-server-watch:
+	go run github.com/air-verse/air@v1.67.3 -c .air.toml
+
+dev:
+	node scripts/dev.mjs
+
+dev-down:
+	docker compose -f deploy/docker/compose.local-dev.yml down
+
+watch-dashboard:
+	npm run test:watch --workspace @tilecast/dashboard
+
+watch-linux:
+	npm run test:watch --workspace @gibsonmb71/tilecast-player-linux
+
+quick:
+	node scripts/quick-tests.mjs
 
 format:
 	npm run format
@@ -114,6 +132,11 @@ format:
 test:
 	npm test
 	npm test --workspace @tilecast/plugin-sdk
+	npm test --workspace @tilecast/widget-sdk
+	npm test --workspace @tilecast/widget-kit
+	npm test --workspace @tilecast/data-source-sdk
+	npm test --workspace @tilecast/player-runtime
+	npm test --workspace @gibsonmb71/tilecast-player-linux
 	cd apps/server && go test ./... $(PLUGIN_GO_PACKAGES)
 	cd apps/cli && go test ./...
 	python3 -m unittest discover -s apps/player-linux/helper

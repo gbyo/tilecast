@@ -39,6 +39,14 @@ Manifest, layout, and Player configuration JSON schemas select Player consumers.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
 
+## Local iteration
+
+Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
+
+Run `make quick` to run tests selected from changed paths. It uses Vitest's changed-file mode for Studio, Linux Player, and Player Runtime tests. It runs Go tests for changed packages. It also checks Android unit tests, CI contracts, or documentation when those paths change. Set `TILECAST_DEV_BASE` when the comparison ref is not `origin/main`.
+
+Use `make test` for the full unit suites. Use `make check` for merge-grade validation. The quick command does not replace either command.
+
 ## Required checks
 
 Require these stable check names in the branch ruleset:
