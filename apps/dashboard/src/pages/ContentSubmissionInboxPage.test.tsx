@@ -14,6 +14,8 @@ import { MemoryRouter } from "react-router";
 import { ContentSubmissionInboxPage } from "./ContentSubmissionInboxPage";
 import { api } from "../api/client";
 import type { ContentSubmission } from "../api/types";
+import { i18n } from "../i18n";
+import { formatLocale } from "../i18n/languages";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -60,9 +62,10 @@ function renderPage() {
 }
 
 describe("Content submission inbox", () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("lists submissions in a table and approves from the review sheet", async () => {
@@ -176,5 +179,30 @@ describe("Content submission inbox", () => {
 
     await user.click(screen.getByRole("button", { name: "All history" }));
     await waitFor(() => expect(list).toHaveBeenCalledWith(""));
+  });
+
+  it("formats table and sheet dates in the selected Studio locale", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [submission],
+    });
+    renderPage();
+    const expected = new Date(submission.submittedAt).toLocaleString(
+      formatLocale("es"),
+    );
+    const table = await screen.findByRole("table");
+    expect(table.textContent).toContain(expected);
+
+    const user = userEvent.setup();
+    await user.click(
+      within(table).getByRole("button", {
+        name: i18n.t("review:submissions.table.reviewAction"),
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(expected);
   });
 });
