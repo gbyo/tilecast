@@ -106,6 +106,7 @@ pub enum PresentationFeature {
     RemoteWebV1,
     Website,
     Youtube,
+    SpanViewportV1,
 }
 
 impl PresentationFeature {
@@ -114,6 +115,7 @@ impl PresentationFeature {
             Self::RemoteWebV1 => "remote-web-v1",
             Self::Website => "website",
             Self::Youtube => "youtube",
+            Self::SpanViewportV1 => "span-viewport-v1",
         }
     }
 }
@@ -233,11 +235,11 @@ impl PresentationDocument {
             for feature in requires {
                 add(feature.as_str());
             }
-            if *synchronized && !features.contains(&"synchronized-playback-v1") {
-                features.push("synchronized-playback-v1");
+            if *synchronized {
+                add("synchronized-playback-v1");
             }
             if items.iter().any(|item| item.viewport.is_some()) {
-                features.push("span-viewport-v1");
+                add("span-viewport-v1");
             }
         }
         features

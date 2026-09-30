@@ -235,6 +235,26 @@ describe("DataSourcePicker", () => {
     ).toBeTruthy();
   });
 
+  it("keeps sources beyond the first hundred searchable and selectable", async () => {
+    const sources = Array.from({ length: 101 }, (_, index) => ({
+      ...existing,
+      id: `source-${index + 1}`,
+      name: `Source ${index + 1}`,
+    }));
+    const { onChange } = picker(sources);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Data Source: Choose data" }),
+    );
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "Search compatible sources" }),
+      "Source 101",
+    );
+    expect(screen.queryByRole("button", { name: /Source 1[^0-9]/ })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Source 101/ }));
+    expect(onChange).toHaveBeenCalledWith("source-101");
+  });
+
   it("omits the empty option when a binding must always reference a source", async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },

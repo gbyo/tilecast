@@ -16,7 +16,8 @@ import {
   createMemoryRouter,
   type RouteObject,
 } from "react-router";
-import { StudioSessionProvider } from "@tilecast/studio/testing";
+import { ApiError } from "@tilecast/studio";
+import { i18n, StudioSessionProvider } from "@tilecast/studio/testing";
 import { formsApi } from "./api";
 
 import type { FormCapability, FormDataSource } from "./types";
@@ -364,5 +365,58 @@ describe("Form responses table", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByText("No responses")).not.toBeInTheDocument();
+  });
+});
+
+describe("Form outputs errors", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("presents output load failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "getFormOutputs").mockRejectedValue(
+      new ApiError("Server-provided outputs failure.", 429, "rate_limited"),
+    );
+    renderAt("/plugins/forms/f1?tab=outputs", "owner");
+
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Server-provided outputs failure.")).toBe(null);
+  });
+
+  it("presents output rebuild failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "getFormOutputs").mockResolvedValue({
+      views: [],
+      lastSuccessAt: null,
+      nextRefreshAt: null,
+      usingCachedData: false,
+      errorCode: null,
+      stale: false,
+    });
+    vi.spyOn(formsApi, "rebuildFormOutputs").mockRejectedValue(
+      new ApiError("Server-provided rebuild failure.", 429, "rate_limited"),
+    );
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/f1?tab=outputs", "owner");
+
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Перестроить выходные данные",
+      }),
+    );
+
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Server-provided rebuild failure.")).toBe(null);
   });
 });
