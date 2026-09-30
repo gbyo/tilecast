@@ -6,6 +6,7 @@ import type { ScreenScope } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
+import { Input } from "../components/ui/input";
 import {
   Field,
   FieldLabel,
@@ -46,6 +47,21 @@ export function ScreenScopeEditor({
 
   const [selected, setSelected] = useState<ScreenScope[]>([]);
   const [saved, setSaved] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLowerCase();
+  const allLocations = locations.data?.items ?? [];
+  const allGroups = groups.data?.items ?? [];
+  const showSearch = allLocations.length + allGroups.length > 8;
+  const visibleLocations = normalizedSearch
+    ? allLocations.filter((location) =>
+        location.name.toLowerCase().includes(normalizedSearch),
+      )
+    : allLocations;
+  const visibleGroups = normalizedSearch
+    ? allGroups.filter((group) =>
+        group.name.toLowerCase().includes(normalizedSearch),
+      )
+    : allGroups;
   useEffect(() => {
     // A response without the array must not take the dialog down with it: this
     // editor is embedded in the account editor, which has its own work to do.
@@ -88,14 +104,28 @@ export function ScreenScopeEditor({
         <p className="text-sm text-muted-foreground">{t("scope.loading")}</p>
       ) : (
         <>
+          {showSearch && (
+            <Field>
+              <FieldLabel htmlFor="screen-scope-search">
+                {t("scope.searchLabel")}
+              </FieldLabel>
+              <Input
+                id="screen-scope-search"
+                type="search"
+                value={search}
+                placeholder={t("scope.searchPlaceholder")}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </Field>
+          )}
           <FieldSet className="grid gap-2">
             <FieldLegend variant="label">{t("scope.locations")}</FieldLegend>
-            {!locations.data?.items?.length ? (
+            {!visibleLocations.length ? (
               <p className="text-sm text-muted-foreground">
-                {t("scope.noLocations")}
+                {normalizedSearch ? t("scope.noMatch") : t("scope.noLocations")}
               </p>
             ) : (
-              locations.data.items.map((location) => {
+              visibleLocations.map((location) => {
                 const id = `screen-scope-location-${location.id}`;
                 return (
                   <Field
@@ -124,12 +154,12 @@ export function ScreenScopeEditor({
 
           <FieldSet className="grid gap-2">
             <FieldLegend variant="label">{t("scope.groups")}</FieldLegend>
-            {!groups.data?.items?.length ? (
+            {!visibleGroups.length ? (
               <p className="text-sm text-muted-foreground">
-                {t("scope.noGroups")}
+                {normalizedSearch ? t("scope.noMatch") : t("scope.noGroups")}
               </p>
             ) : (
-              groups.data.items.map((group) => {
+              visibleGroups.map((group) => {
                 const id = `screen-scope-group-${group.id}`;
                 return (
                   <Field

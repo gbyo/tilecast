@@ -11,6 +11,7 @@ import { Link } from "react-router";
 import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
+import { useFormatLocale } from "../i18n";
 import type {
   ContentSubmission,
   SubmissionFilter,
@@ -93,6 +94,7 @@ const columnHelper = createColumnHelper<typeof features, ContentSubmission>();
 
 export function ContentSubmissionInboxPage() {
   const { t } = useTranslation(["review", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const role = auth.status?.user?.role ?? "viewer";
@@ -251,7 +253,7 @@ export function ContentSubmissionInboxPage() {
                   {submissionMeta(
                     t,
                     item,
-                    new Date(item.submittedAt).toLocaleString(),
+                    new Date(item.submittedAt).toLocaleString(formatLocale),
                   )}
                 </span>
               </div>
@@ -299,7 +301,7 @@ export function ContentSubmissionInboxPage() {
           ),
         }),
       ]),
-    [t],
+    [formatLocale, t],
   );
   const table = useTable({
     features,
@@ -407,7 +409,7 @@ export function ContentSubmissionInboxPage() {
                       {submissionMeta(
                         t,
                         item,
-                        new Date(item.submittedAt).toLocaleString(),
+                        new Date(item.submittedAt).toLocaleString(formatLocale),
                       )}
                     </p>
                   </div>
@@ -497,7 +499,7 @@ export function ContentSubmissionInboxPage() {
                 {submissionMeta(
                   t,
                   selected,
-                  new Date(selected.submittedAt).toLocaleString(),
+                  new Date(selected.submittedAt).toLocaleString(formatLocale),
                 )}
               </SheetDescription>
             </SheetHeader>

@@ -135,7 +135,7 @@
       "removeTag": "Quitar {{name}}",
       "restore": "Restaurar",
       "sectionLabel": "Organización del contenido",
-      "selectPage": "Seleccionar página",
+      "selectLoaded": "Seleccionar cargados",
       "tagChange": "Cambio de etiquetas"
     },
     "organizer": {
@@ -498,6 +498,13 @@
       "addItem": "Añadir elemento",
       "selectPlaceholder": "Seleccionar…",
       "selectSourceFirst": "Selecciona primero una fuente de datos.",
+      "mediaAsset": {
+        "none": "Ningún medio seleccionado",
+        "clear": "Borrar la selección de medios",
+        "pickerTitle": "Elegir medio",
+        "pickerDescription": "Busca o explora toda la biblioteca de medios.",
+        "pickerConfirm": "Seleccionar medio"
+      },
       "removeItem": "Quitar elemento {{index}} de {{label}}",
       "guide": {
         "shapeRecords": "filas de registros",

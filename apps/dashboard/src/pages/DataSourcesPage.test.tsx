@@ -184,6 +184,39 @@ describe("Data Source card actions", () => {
     expect(screen.queryByText("Staff announcements")).toBeNull();
   });
 
+  it("shows only the load error when the list query fails", async () => {
+    vi.spyOn(api, "listDataSourcesPage").mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [],
+    });
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [],
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <DataSourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText("Data Sources could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No Data Sources yet")).toBeNull();
+  });
+
   it("confirms in a dialog before deleting a Data Source", async () => {
     const remove = vi
       .spyOn(api, "deleteDataSource")
