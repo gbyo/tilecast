@@ -20,9 +20,10 @@ export const graph = {
   // The iOS host embeds Studio at runtime from the configured server, so a
   // Studio change never requires an iOS build. Its build inputs are its own
   // sources and the contracts it compiles or tests against: the server
-  // address corpus, the native bridge schema, and Studio's navigation icon
-  // mapping, from which its icons are generated. Add an edge here only when
-  // the app starts consuming a new contract at build time.
+  // address corpus, the native bridge schema, Studio's navigation icon
+  // mapping, from which its icons are generated, and the OpenAPI contract.
+  // Add an edge here only when the app starts consuming a new contract at
+  // build time.
   ios: [],
   docs: [],
   container: [],
@@ -162,7 +163,8 @@ const rules = [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
     ["docs"],
   ],
-  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server"]],
+  // The iOS app generates its API client from the composed contract.
+  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server", "ios"]],
   [
     /^(package(-lock)?\.json|go\.work(\.sum)?|Makefile|\.github\/CODEOWNERS)$|^\.github\/(workflows|actions)\/|^scripts\/ci\//,
     areas,

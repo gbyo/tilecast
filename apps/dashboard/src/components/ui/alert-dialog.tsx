@@ -3,6 +3,7 @@ import { AlertDialog as AlertDialogPrimitive } from "@base-ui/react/alert-dialog
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
+import { GrowNativePresentation } from "@/native-presentation/presentationContext";
 
 function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
   return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
@@ -39,6 +40,7 @@ function AlertDialogOverlay({
 function AlertDialogContent({
   className,
   size = "default",
+  children,
   ...props
 }: AlertDialogPrimitive.Popup.Props & {
   size?: "default" | "sm";
@@ -54,7 +56,10 @@ function AlertDialogContent({
           className,
         )}
         {...props}
-      />
+      >
+        <GrowNativePresentation />
+        {children}
+      </AlertDialogPrimitive.Popup>
     </AlertDialogPortal>
   );
 }
