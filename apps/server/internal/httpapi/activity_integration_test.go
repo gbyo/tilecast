@@ -803,6 +803,11 @@ func TestArchivedScreensAreExcludedFromActivityEventsAndTimeline(t *testing.T) {
 
 func postActivityBatch(t *testing.T, env activityTestEnvironment, input playerActivityBatchInput, expected int) {
 	t.Helper()
+	_ = postActivityBatchResult(t, env, input, expected)
+}
+
+func postActivityBatchResult(t *testing.T, env activityTestEnvironment, input playerActivityBatchInput, expected int) playerActivityBatchResult {
+	t.Helper()
 	body, _ := json.Marshal(input)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/player/activity-events", bytes.NewReader(body))
 	request = request.WithContext(context.WithValue(request.Context(), deviceContextKey, devices.DevicePrincipal{ScreenID: env.screenID, Enabled: true}))
@@ -811,6 +816,16 @@ func postActivityBatch(t *testing.T, env activityTestEnvironment, input playerAc
 	if response.Code != expected {
 		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
 	}
+	if expected != http.StatusAccepted {
+		return playerActivityBatchResult{}
+	}
+	var envelope struct {
+		Data playerActivityBatchResult `json:"data"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode activity response: %v", err)
+	}
+	return envelope.Data
 }
 
 func TestActivitySequenceResetPreservesNewEvent(t *testing.T) {
