@@ -204,6 +204,28 @@ fn outbox_is_bounded_oldest_first_with_counters() {
     assert_eq!(next, MAX_ROWS + 8);
 }
 
+#[test]
+fn outbox_evicts_new_telemetry_before_older_activity_when_full() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    use repo::outbox::{MAX_ROWS, OutboxKind, enqueue_activity, enqueue_telemetry, pending, stats};
+    let id = |i: i64| format!("{:08x}-0000-4000-8000-{:012x}", i, i);
+
+    for i in 0..MAX_ROWS {
+        db.run_blocking(|c| enqueue_activity(c, &id(i), now(), |seq| format!("{{\"sequence\":{seq}}}")))
+            .expect("activity");
+    }
+    db.run_blocking(|c| enqueue_telemetry(c, &id(100_000), "{}", now())).expect("telemetry");
+
+    let stats = db.run_blocking(|c| stats(c)).expect("stats");
+    assert_eq!(stats.queued_activity, MAX_ROWS as u64);
+    assert_eq!(stats.queued_telemetry, 0);
+    assert_eq!(stats.dropped_activity, 0);
+    assert_eq!(stats.dropped_telemetry, 1);
+    let oldest = db.run_blocking(|c| pending(c, OutboxKind::ActivityEvent, 1)).expect("pending");
+    assert_eq!(oldest[0].body, "{\"sequence\":1}");
+}
+
 #[tokio::test]
 async fn async_access_runs_on_blocking_pool() {
     let (_dir, path) = temp_db();

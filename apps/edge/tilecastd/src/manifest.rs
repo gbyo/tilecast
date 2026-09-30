@@ -514,7 +514,11 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     if document.get("syncGroup").is_some_and(|group| {
         !group.is_null()
             && (group.get("id").and_then(Value::as_str).is_none_or(|id| id.is_empty() || id.len() > 64)
-                || group.get("playbackEpoch").and_then(Value::as_str).is_none())
+                || group
+                    .get("playbackEpoch")
+                    .and_then(Value::as_str)
+                    .and_then(|epoch| epoch.parse::<jiff::Timestamp>().ok())
+                    .is_none())
     }) {
         push(Incompatibility::SynchronizedPlayback);
     }
@@ -919,6 +923,9 @@ impl Candidate {
             };
             let (projection, content) = self.projection(now_ms, config)?;
             let mut requires = Vec::new();
+            if span_viewport(&self.document).ok().flatten().is_some() {
+                requires.push(PresentationFeature::SpanViewportV1);
+            }
             self.layout_requires(&layout_id.to_string(), &mut requires);
             let document = PresentationDocument::Playing {
                 items: vec![item],
@@ -949,11 +956,14 @@ impl Candidate {
         let mut items = Vec::with_capacity(source_items.len());
         let mut content_by_digest = BTreeMap::new();
         let mut needs_projection = false;
+        let span = span_viewport(&self.document).ok().flatten();
         let mut requires = Vec::new();
+        if span.is_some() {
+            requires.push(PresentationFeature::SpanViewportV1);
+        }
         // Images are cropped to the panel, as on Electron; Layouts are
         // clipped by the shared projector; Span video is a server-made panel
         // variant and is played as it is.
-        let span = span_viewport(&self.document).ok().flatten();
         for item in source_items {
             if !available_at(item, now_ms)? {
                 continue;
@@ -1544,6 +1554,10 @@ mod tests {
                 Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM})),
                 "presentation_incompatible_synchronized_playback",
             ),
+            (
+                Box::new(|v| v["syncGroup"] = serde_json::json!({"id": ITEM, "playbackEpoch": "not-a-timestamp"})),
+                "presentation_incompatible_synchronized_playback",
+            ),
             (Box::new(|v| v["viewport"] = serde_json::json!({"x": 0})), "presentation_incompatible_span"),
             (
                 Box::new(|v| {
@@ -1677,7 +1691,10 @@ mod tests {
     #[test]
     fn a_layout_with_a_web_widget_placement_requires_remote_web() {
         let mut value = manifest();
-        value["schemaVersion"] = serde_json::json!(13);
+        value["schemaVersion"] = serde_json::json!(15);
+        value["canvas"] = serde_json::json!({"width": 3840, "height": 1080});
+        value["viewport"] =
+            serde_json::json!({"x": 1920, "y": 0, "width": 1920, "height": 1080, "rotation": 0, "order": 1});
         value["widgets"] = serde_json::json!([
             {"assetId": WIDGET, "name": "Clip", "provider": "youtube", "configVersion": 1,
              "configuration": {"kind": "video", "videoId": "M7lc1UVf-VE"}}]);
@@ -1690,8 +1707,13 @@ mod tests {
         value["playlist"]["items"] = serde_json::json!([{"id": ITEM, "assetId": LAYOUT, "layoutId": LAYOUT,
             "assetType": "layout", "deliveryPolicy": "stream", "durationMs": 30000}]);
         let resolved = parse(value).unwrap().presentation(1_000).unwrap();
-        let PresentationDocument::Playing { requires, .. } = &resolved.document else { panic!("playing") };
-        assert_eq!(requires, &vec![PresentationFeature::RemoteWebV1, PresentationFeature::Youtube]);
+        let PresentationDocument::Playing { items, requires, .. } = &resolved.document else { panic!("playing") };
+        assert!(items[0].viewport.is_none(), "Layout items carry their clipping in the shared projection");
+        assert_eq!(
+            requires,
+            &vec![PresentationFeature::SpanViewportV1, PresentationFeature::RemoteWebV1, PresentationFeature::Youtube]
+        );
+        assert!(resolved.document.required_features().contains(&"span-viewport-v1"));
     }
 
     #[test]
