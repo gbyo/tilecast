@@ -248,8 +248,17 @@ describe("SettingsShell mobile section picker", () => {
     expect(users).toHaveAccessibleDescription(
       i18n.t("settings:shell.unsavedBadge"),
     );
+    // Only the current section's group starts open; Retention lives under
+    // Operations.
     await user.click(
-      sheet.getByRole("link", { name: i18n.t("settings:nav.items.retention") }),
+      sheet.getByRole("button", {
+        name: new RegExp(i18n.t("settings:nav.groups.operations")),
+      }),
+    );
+    await user.click(
+      await sheet.findByRole("link", {
+        name: i18n.t("settings:nav.items.retention"),
+      }),
     );
     expect(onNavigate).toHaveBeenCalledWith("retention");
     expect(screen.getByLabelText("location")).toHaveTextContent(
