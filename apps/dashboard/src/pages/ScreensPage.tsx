@@ -1424,8 +1424,46 @@ export function ScreenListContent({
   // Only the filters put away inside "More filters" are chipped. Search, status,
   // location, platform, and now playing each show their own value in the toolbar
   // directly above, so chipping them restated the whole row back to the reader.
-  const chippedFilters: { facet: string; value: string; remove: () => void }[] =
-    [];
+  const chippedFilters: {
+    facet: string;
+    value: string;
+    remove: () => void;
+    narrowOnly?: boolean;
+  }[] = [];
+  if (status)
+    chippedFilters.push({
+      facet: t("list.statusFilter"),
+      value: statusLabel(status, t),
+      remove: () => setStatus(""),
+      narrowOnly: true,
+    });
+  if (location)
+    chippedFilters.push({
+      facet: t("list.locationFilter"),
+      value:
+        locationItems.find((item) => item.id === location)?.name ?? location,
+      remove: () => setLocation(""),
+      narrowOnly: true,
+    });
+  if (platform)
+    chippedFilters.push({
+      facet: t("list.platformFilter"),
+      value: platformLabel(platform, t),
+      remove: () => setPlatform(""),
+      narrowOnly: true,
+    });
+  if (playing)
+    chippedFilters.push({
+      facet: t("list.playingFilter"),
+      value:
+        playing === "presentation"
+          ? t("list.playingOptions.presentation")
+          : playing === "playlist"
+            ? t("list.playingOptions.playlist")
+            : t("shared.nothingAssigned"),
+      remove: () => setPlaying(""),
+      narrowOnly: true,
+    });
   if (syncGroup)
     chippedFilters.push({
       facet: t("list.groupFilter"),
@@ -1447,7 +1485,18 @@ export function ScreenListContent({
       value: updateLabel(update, t),
       remove: () => setUpdate(""),
     });
-  const advancedFilterCount = chippedFilters.length;
+  const advancedFilterCount = [syncGroup, orientation, update].filter(
+    Boolean,
+  ).length;
+  const disclosedFilterCount = [
+    status,
+    location,
+    platform,
+    playing,
+    syncGroup,
+    orientation,
+    update,
+  ].filter(Boolean).length;
   const anyFilterActive = Boolean(
     search ||
     status ||
@@ -1564,7 +1613,7 @@ export function ScreenListContent({
     );
   return (
     <section className="min-w-0 space-y-4" aria-label={t("list.sectionLabel")}>
-      <ScreenSummary screens={screens} status={status} onStatus={setStatus} />
+      <ScreenSummary screens={screens} />
       <div className="space-y-3">
         <div
           className="flex flex-wrap items-center gap-2"
@@ -1581,6 +1630,7 @@ export function ScreenListContent({
             label={t("list.statusFilter")}
             value={status}
             onChange={setStatus}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.statusOptions.all") },
               { value: "online", label: t("status.online") },
@@ -1594,6 +1644,7 @@ export function ScreenListContent({
             label={t("list.locationFilter")}
             value={location}
             onChange={setLocation}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.allLocations") },
               ...locationItems.map((item) => ({
@@ -1606,6 +1657,7 @@ export function ScreenListContent({
             label={t("list.platformFilter")}
             value={platform}
             onChange={setPlatform}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.allPlatforms") },
               ...[...new Set(screens.map((item) => item.platform))]
@@ -1620,6 +1672,7 @@ export function ScreenListContent({
             label={t("list.playingFilter")}
             value={playing}
             onChange={setPlaying}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.playingOptions.any") },
               {
@@ -1634,20 +1687,92 @@ export function ScreenListContent({
             <PopoverTrigger
               render={<Button variant="outline" />}
               aria-label={
-                advancedFilterCount > 0
+                disclosedFilterCount > 0
                   ? t("list.moreFiltersActive", {
-                      count: advancedFilterCount,
+                      count: disclosedFilterCount,
                     })
                   : t("list.moreFiltersLabel")
               }
             >
               <SlidersHorizontal aria-hidden="true" /> {t("list.moreFilters")}
+              {disclosedFilterCount > 0 && (
+                <Badge variant="secondary" className="lg:hidden">
+                  {disclosedFilterCount}
+                </Badge>
+              )}
               {advancedFilterCount > 0 && (
-                <Badge variant="secondary">{advancedFilterCount}</Badge>
+                <Badge variant="secondary" className="hidden lg:inline-flex">
+                  {advancedFilterCount}
+                </Badge>
               )}
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 gap-3">
+            <PopoverContent
+              align="end"
+              className="w-[min(22rem,calc(100vw-2rem))] gap-3"
+            >
               <h3 className="text-sm font-medium">{t("list.moreFilters")}</h3>
+              <div className="grid gap-3 lg:hidden">
+                <FleetFilterSelect
+                  label={t("list.statusFilter")}
+                  value={status}
+                  onChange={setStatus}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.statusOptions.all") },
+                    { value: "online", label: t("status.online") },
+                    { value: "offline", label: t("status.offline") },
+                    { value: "attention", label: t("status.attention") },
+                    { value: "updating", label: t("status.updating") },
+                    { value: "syncing", label: t("status.syncing") },
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.locationFilter")}
+                  value={location}
+                  onChange={setLocation}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.allLocations") },
+                    ...locationItems.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.platformFilter")}
+                  value={platform}
+                  onChange={setPlatform}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.allPlatforms") },
+                    ...[...new Set(screens.map((item) => item.platform))]
+                      .sort()
+                      .map((item) => ({
+                        value: item,
+                        label: platformLabel(item, t),
+                      })),
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.playingFilter")}
+                  value={playing}
+                  onChange={setPlaying}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.playingOptions.any") },
+                    {
+                      value: "presentation",
+                      label: t("list.playingOptions.presentation"),
+                    },
+                    {
+                      value: "playlist",
+                      label: t("list.playingOptions.playlist"),
+                    },
+                    { value: "nothing", label: t("shared.nothingAssigned") },
+                  ]}
+                />
+              </div>
               <FleetFilterSelect
                 label={t("list.groupFilter")}
                 value={syncGroup}
@@ -1722,7 +1847,10 @@ export function ScreenListContent({
                 <Badge
                   key={filter.facet}
                   variant="secondary"
-                  className="gap-1.5"
+                  className={cn(
+                    "gap-1.5",
+                    filter.narrowOnly && "lg:hidden",
+                  )}
                 >
                   <span>
                     {filter.facet}: {filter.value}
@@ -2076,15 +2204,7 @@ function FleetFilterSelect({
   );
 }
 
-function ScreenSummary({
-  screens,
-  status,
-  onStatus,
-}: {
-  screens: Screen[];
-  status: string;
-  onStatus: (value: string) => void;
-}) {
+function ScreenSummary({ screens }: { screens: Screen[] }) {
   const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
@@ -2094,7 +2214,6 @@ function ScreenSummary({
   return (
     <div
       className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
-      role="group"
       aria-label={t("list.summaryGroup")}
     >
       <span className="mr-2 text-sm text-muted-foreground">
@@ -2103,23 +2222,13 @@ function ScreenSummary({
           locations: t("list.locationCount", { count: locations }),
         })}
       </span>
-      <Button
-        variant={status === "online" ? "secondary" : "ghost"}
-        size="sm"
-        aria-pressed={status === "online"}
-        onClick={() => onStatus(status === "online" ? "" : "online")}
-      >
+      <Badge variant="outline">
         <strong className="tabular-nums">{online}</strong> {t("status.online")}
-      </Button>
-      <Button
-        variant={status === "attention" ? "secondary" : "ghost"}
-        size="sm"
-        aria-pressed={status === "attention"}
-        onClick={() => onStatus(status === "attention" ? "" : "attention")}
-      >
+      </Badge>
+      <Badge variant={attention > 0 ? "destructive" : "outline"}>
         <strong className="tabular-nums">{attention}</strong>{" "}
         {t("status.attention")}
-      </Button>
+      </Badge>
     </div>
   );
 }
