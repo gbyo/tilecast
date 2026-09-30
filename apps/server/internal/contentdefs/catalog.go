@@ -216,9 +216,9 @@ type OutputField struct {
 }
 
 type WidgetDefinition struct {
-	ID      string `json:"id"`
+	ID string `json:"id"`
 	// Version tracks the release-owned Widget definition.
-	Version int    `json:"version"`
+	Version int `json:"version"`
 	// ConfigVersion is the version of the persisted Widget configuration.
 	// Omitted legacy definitions use version 1.
 	ConfigVersion *int `json:"configVersion,omitempty"`

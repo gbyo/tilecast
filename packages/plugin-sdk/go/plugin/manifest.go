@@ -151,7 +151,7 @@ var (
 	slugPattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9/-]{0,119}$`)
 	pathPattern       = regexp.MustCompile(`^\.(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$`)
 	maintainerPattern = regexp.MustCompile(`^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$`)
-	hostnamePattern = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
+	hostnamePattern   = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
 	categories       = set("Display", "Automation", "Workflow", "Hardware")
 	requirementKinds = set("platform", "hardware", "region", "network", "provider", "player")

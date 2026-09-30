@@ -1,9 +1,12 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
 
 bootstrap:
 	npm install
 	cd apps/server && go mod download
 	cd apps/cli && go mod download
+
+gofmt-check:
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
 
 build:
 	npm run build
@@ -23,10 +26,11 @@ check:
 	npm run format:check
 	npm run lint
 	npm test
-	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
-	cd apps/cli && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
-	cd packages/api-client && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
-	cd data-sources && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
+	$(MAKE) gofmt-check
+	cd apps/server && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/cli && go vet ./... && go test ./...
+	cd packages/api-client && go vet ./... && go test ./...
+	cd data-sources && go vet ./... && go test ./...
 	$(MAKE) helper-check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
