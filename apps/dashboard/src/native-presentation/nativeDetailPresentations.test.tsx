@@ -325,10 +325,12 @@ describe("update deployment status as a native presentation", () => {
   });
 
   it("retries a failed screen and cancels the deployment", async () => {
-    const retry = vi.spyOn(api, "retryUpdateScreen").mockResolvedValue({});
+    const retry = vi
+      .spyOn(api, "retryUpdateScreen")
+      .mockResolvedValue({ state: "pending" });
     const cancel = vi
       .spyOn(api, "cancelUpdateDeployment")
-      .mockResolvedValue({});
+      .mockResolvedValue({ id: "d1", status: "cancelled" });
     const host = installNativeHost("presentation");
     renderPresentationRoutes(children);
     await show(host, "/__native/modal/update-deployment/d1");
