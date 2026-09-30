@@ -745,7 +745,10 @@
     "groups": "Grupos de pantallas",
     "noGroups": "No existen grupos de pantallas.",
     "saved": "Alcance de pantalla guardado.",
-    "saveAction": "Guardar alcance de pantalla"
+    "saveAction": "Guardar alcance de pantalla",
+    "searchLabel": "Buscar lugares",
+    "searchPlaceholder": "Filtrar ubicaciones y grupos de pantallas",
+    "noMatch": "Ningún lugar coincide con esta búsqueda."
   },
   "archive": {
     "title": "Archivo de pantallas",
