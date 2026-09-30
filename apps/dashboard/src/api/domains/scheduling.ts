@@ -6,6 +6,7 @@
  * the shapes Studio owns.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
+import { fetchAllPages } from "../pagination";
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Campaign,
@@ -23,10 +24,14 @@ import type {
   SubmissionFilter,
 } from "../types";
 
-export function listSchedules(search = "") {
+export function listSchedulesPage(search = "", page = 1) {
   return apiGet("/api/v1/schedules", {
-    params: { query: { page: 1, pageSize: 100, search } },
+    params: { query: { page, pageSize: 100, search } },
   });
+}
+
+export function listSchedules(search = "") {
+  return fetchAllPages((page) => listSchedulesPage(search, page));
 }
 
 export function getSchedule(id: string) {
@@ -82,10 +87,17 @@ export function previewSchedule(
   });
 }
 
-export function listCampaigns(search = ""): Promise<CampaignList> {
+export function listCampaignsPage(
+  search = "",
+  page = 1,
+): Promise<CampaignList> {
   return apiGet("/api/v1/campaigns", {
-    params: { query: { page: 1, pageSize: 100, search } },
+    params: { query: { page, pageSize: 100, search } },
   });
+}
+
+export function listCampaigns(search = ""): Promise<CampaignList> {
+  return fetchAllPages((page) => listCampaignsPage(search, page));
 }
 
 export function getCampaign(id: string): Promise<Campaign> {

@@ -46,6 +46,7 @@ import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
 } from "./widgetPreviewSources";
+import { uploadWidgetPreviewInBackground } from "./widgetPreviewUpload";
 
 export function GenericWidgetEditor({
   definition,
@@ -161,30 +162,57 @@ export function GenericWidgetEditor({
       // before that transaction necessarily depicts the old or empty source. Let the snapshot
       // backfill capture the saved App after its managed source exists and has been reconnected.
       if (isAppRecipe) {
-        return asset
+        const saved = asset
           ? api.updateWidget(asset.id, input, csrf)
           : api.createWidget(input, csrf);
+        return {
+          saved: await saved,
+          previewImage: undefined,
+          previewFailed: false,
+        };
       }
 
-      if (!previewRef.current || !compiledPreview.data || sourcesLoading)
-        throw new Error(t("widgets.errors.previewWait"));
-      const previewImage = await captureWidgetPreview(previewRef.current, t);
-      const saved = asset
+      let previewImage: Blob | undefined;
+      let previewFailed = false;
+      try {
+        if (!previewRef.current || !compiledPreview.data || sourcesLoading)
+          throw new Error(t("widgets.errors.previewWait"));
+        previewImage = await captureWidgetPreview(previewRef.current, t);
+      } catch {
+        previewFailed = true;
+      }
+      const result = await (asset
         ? api.updateWidget(asset.id, input, csrf)
-        : api.createWidget(input, csrf);
-      const result = await saved;
-      await api.uploadWidgetPreview(result.id, previewImage, csrf);
+        : api.createWidget(input, csrf));
       return {
-        ...result,
-        thumbnailUrl: `/api/v1/assets/${encodeURIComponent(result.id)}/thumbnail`,
+        saved: result,
+        previewImage,
+        previewFailed,
       };
     },
-    onSuccess: (saved) => {
+    onSuccess: ({ saved, previewImage, previewFailed }) => {
       toast.add({
         title: asset ? "Widget updated." : "Widget created.",
         type: "success",
       });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
+      const notifyPreviewFailure = () =>
+        toast.add({
+          title: t("widgets.editors.generic.previewUpdateFailed"),
+          description: t("widgets.editors.generic.previewUpdateFailedHint"),
+          type: "warning",
+        });
+      if (previewImage) {
+        uploadWidgetPreviewInBackground(
+          saved.id,
+          previewImage,
+          csrf,
+          queryClient,
+          notifyPreviewFailure,
+        );
+      } else if (previewFailed) {
+        notifyPreviewFailure();
+      }
       onSaved(saved);
     },
   });

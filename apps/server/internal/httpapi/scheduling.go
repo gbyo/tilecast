@@ -20,8 +20,64 @@ type groupBody struct {
 func (s *server) listScreenGroups(w http.ResponseWriter, r *http.Request) {
 	p, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	z, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	x, e := s.scheduling.ListGroups(r.Context(), r.URL.Query().Get("search"), p, z)
-	s.scheduleResponse(w, r, x, e, http.StatusOK)
+	search := r.URL.Query().Get("search")
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if !scoped {
+		x, e := s.scheduling.ListGroups(r.Context(), search, p, z)
+		s.scheduleResponse(w, r, x, e, http.StatusOK)
+		return
+	}
+	if p < 1 {
+		p = 1
+	}
+	if z < 1 || z > 100 {
+		z = 50
+	}
+	visible := []scheduling.Group{}
+	for scanPage := 1; ; scanPage++ {
+		batch, e := s.scheduling.ListGroups(r.Context(), search, scanPage, 100)
+		if e != nil {
+			s.scheduleResponse(w, r, batch, e, http.StatusOK)
+			return
+		}
+		for _, group := range batch.Items {
+			screens := make([]uuid.UUID, 0, len(group.Screens))
+			for _, screen := range group.Screens {
+				screens = append(screens, screen.ID)
+			}
+			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, nil)
+			if scopeErr != nil {
+				s.internalError(w, r, scopeErr)
+				return
+			}
+			if allowed {
+				visible = append(visible, group)
+			}
+		}
+		if scanPage*batch.PageSize >= batch.Total {
+			break
+		}
+	}
+	start := (p - 1) * z
+	if start > len(visible) {
+		start = len(visible)
+	}
+	end := start + z
+	if end > len(visible) {
+		end = len(visible)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": scheduling.GroupList{
+		Items: visible[start:end], Total: len(visible), Page: p, PageSize: z,
+	}})
 }
 func (s *server) getScreenGroup(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
@@ -93,6 +149,9 @@ func (s *server) addScreenGroupMember(w http.ResponseWriter, r *http.Request) {
 	}
 	if e := decodeJSON(w, r, &b); e != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
+		return
+	}
+	if !s.authorizeScreenList(w, r, []uuid.UUID{b.ScreenID}, nil) {
 		return
 	}
 	principal, ok := principalOf(r)
@@ -191,8 +250,75 @@ func (s *server) unassignSyncGroupPlaylist(w http.ResponseWriter, r *http.Reques
 func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	p, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	z, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	x, e := s.scheduling.List(r.Context(), r.URL.Query().Get("search"), p, z)
-	s.scheduleResponse(w, r, x, e, http.StatusOK)
+	search := r.URL.Query().Get("search")
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if !scoped {
+		x, e := s.scheduling.List(r.Context(), search, p, z)
+		s.scheduleResponse(w, r, x, e, http.StatusOK)
+		return
+	}
+	if p < 1 {
+		p = 1
+	}
+	if z < 1 || z > 100 {
+		z = 50
+	}
+	visible := []scheduling.Record{}
+	defaultTimezone := ""
+	for scanPage := 1; ; scanPage++ {
+		batch, e := s.scheduling.List(r.Context(), search, scanPage, 100)
+		if e != nil {
+			s.scheduleResponse(w, r, batch, e, http.StatusOK)
+			return
+		}
+		defaultTimezone = batch.DefaultTimezone
+		for _, record := range batch.Items {
+			screens, groups := scheduleTargetIDs(record.Targets)
+			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, groups)
+			if scopeErr != nil {
+				s.internalError(w, r, scopeErr)
+				return
+			}
+			if allowed {
+				visible = append(visible, record)
+			}
+		}
+		if scanPage*batch.PageSize >= batch.Total {
+			break
+		}
+	}
+	start := (p - 1) * z
+	if start > len(visible) {
+		start = len(visible)
+	}
+	end := start + z
+	if end > len(visible) {
+		end = len(visible)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": scheduling.List{
+		Items: visible[start:end], Total: len(visible), Page: p, PageSize: z, DefaultTimezone: defaultTimezone,
+	}})
+}
+
+func scheduleTargetIDs(targets []scheduling.Target) ([]uuid.UUID, []uuid.UUID) {
+	screens, groups := []uuid.UUID{}, []uuid.UUID{}
+	for _, target := range targets {
+		if target.Type == "screen" {
+			screens = append(screens, target.ID)
+		} else if target.Type == "group" {
+			groups = append(groups, target.ID)
+		}
+	}
+	return screens, groups
 }
 func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
@@ -206,6 +332,10 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 	var b scheduling.Input
 	if e := decodeJSON(w, r, &b); e != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
+		return
+	}
+	screens, groups := scheduleTargetIDs(b.Targets)
+	if !s.authorizeScreenList(w, r, screens, groups) {
 		return
 	}
 	if err := s.validateSchedulePresentation(r, b); err != nil {
@@ -229,6 +359,10 @@ func (s *server) updateSchedule(w http.ResponseWriter, r *http.Request) {
 	var b scheduling.Input
 	if e := decodeJSON(w, r, &b); e != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
+		return
+	}
+	screens, groups := scheduleTargetIDs(b.Targets)
+	if !s.authorizeScreenList(w, r, screens, groups) {
 		return
 	}
 	if err := s.validateSchedulePresentation(r, b); err != nil {
@@ -311,6 +445,15 @@ func (s *server) previewSchedule(w http.ResponseWriter, r *http.Request) {
 	if e := decodeJSON(w, r, &b); e != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
+	}
+	if !s.authorizeScreen(w, r, b.ScreenID) {
+		return
+	}
+	if b.Proposed != nil {
+		screens, groups := scheduleTargetIDs(b.Proposed.Targets)
+		if !s.authorizeScreenList(w, r, screens, groups) {
+			return
+		}
 	}
 	at := time.Now()
 	if b.Timestamp != nil {

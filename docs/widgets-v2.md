@@ -91,6 +91,8 @@ widgets/                      one directory for each V2 Widget; also a Go module
 
 `tilecast.widget.json` is the single catalog source for a V2 Widget. The Server reads it through the `widgets` Go module. The Player Runtime and Studio discover it with `import.meta.glob`. No second registry lists V2 Widgets.
 
+The top-level `configVersion` field identifies the saved Widget configuration schema. It is separate from the definition `version` and `component.version`. The Server stores it when it creates or updates a Widget. If a legacy definition omits `configVersion`, the Server stores version 1.
+
 ## 4. The Widget definition
 
 ```ts
@@ -163,6 +165,8 @@ The context has no size. The element measures its own box with CSS container que
 Time-sensitive Widgets use the `ClockController` from `@tilecast/widget-kit`. It schedules against `context.clock`, can wake once at a declared future boundary, then returns to its normal second or minute cadence. A Widget must not create its own timer or read wall-clock time.
 
 `WidgetResources` answers only for Data Sources and media variants that the component presentation declares (§6). Every other lookup returns `null`. The resources object has no network, file, storage or host access.
+
+Before the SDK returns a prepared Data Document to a Widget, it freezes the document and its nested values. A Widget must create its own objects when it needs to transform data. This keeps one Widget from changing data that another reader shares. The SDK skips objects that it already froze, so repeated lookups do not traverse the same resource graph again.
 
 ## 6. Manifest v16 component presentation
 

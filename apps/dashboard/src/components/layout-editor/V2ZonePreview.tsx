@@ -201,14 +201,6 @@ export function V2ZonePreview({
   // empty Widget: without this the mount would resolve a missing document
   // to empty("no_source") and captures would store the failure as blank.
   const sourcesFailed = failedIds.length > 0;
-  const errorReported = useRef(false);
-  useEffect(() => {
-    if (sourcesFailed && !errorReported.current) {
-      errorReported.current = true;
-      onState?.({ state: "error", code: "source_unavailable" });
-    }
-    if (!sourcesFailed) errorReported.current = false;
-  }, [sourcesFailed, onState]);
   const compiled = useMemo((): WidgetComponentRef | null => {
     if (!component) return null;
     try {
@@ -221,6 +213,26 @@ export function V2ZonePreview({
       return null;
     }
   }, [component, configuration]);
+  const setupError =
+    definitions.isError && !definitions.data
+      ? "definitions_unavailable"
+      : !definitions.isLoading && definitions.data && !component
+        ? "component_unavailable"
+        : component && !compiled
+          ? "configuration_invalid"
+          : sourcesFailed
+            ? "source_unavailable"
+            : undefined;
+  const reportedSetupError = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!setupError) {
+      reportedSetupError.current = undefined;
+      return;
+    }
+    if (!onState || reportedSetupError.current === setupError) return;
+    reportedSetupError.current = setupError;
+    onState({ state: "error", code: setupError });
+  }, [setupError, onState]);
   const clock = useMemo(() => new PreviewClock(), []);
   // The Layout preview date drives the Widget's own clock in place: a fixed
   // date freezes it (no ticking, no remount), clearing the date goes live.

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { api } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import type { TFunction } from "i18next";
@@ -29,9 +29,10 @@ import {
 } from "../components/ui/input-group";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Switch } from "../components/ui/switch";
 
@@ -382,11 +383,7 @@ export function PlayerPolicyEditor({
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
                     {t("policies.overrides", { count: sectionOverrideCount })}
-                    <ChevronDown
-                      size={18}
-                      aria-hidden="true"
-                      className={open ? "rotate-180" : undefined}
-                    />
+                    <CollapsibleChevron size={18} />
                   </span>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="grid gap-1 border-t border-border px-4 py-3">
@@ -447,7 +444,7 @@ export function PlayerPolicyEditor({
         <Collapsible>
           <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {t("policies.advancedDetails")}
-            <ChevronDown size={16} aria-hidden="true" />
+            <CollapsibleChevron size={16} />
           </CollapsibleTrigger>
           <CollapsibleContent>
             <p className="mt-1 text-sm text-muted-foreground">

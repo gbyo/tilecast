@@ -6,6 +6,7 @@
  * acquisition is an explicitly exceptional transport.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import { fetchAllPages } from "../pagination";
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Layout,
@@ -79,28 +80,19 @@ export function normalizeLayoutList(
 
 const PAGE_SIZE = 100;
 
-export async function listLayouts(search = ""): Promise<LayoutList> {
-  const result = normalizeLayoutList(
+export async function listLayoutsPage(
+  search = "",
+  page = 1,
+): Promise<LayoutList> {
+  return normalizeLayoutList(
     await apiGet("/api/v1/layouts", {
-      params: { query: { search, page: 1, pageSize: PAGE_SIZE } },
+      params: { query: { search, page, pageSize: PAGE_SIZE } },
     }),
   );
-  const pageCount = Math.ceil(result.total / PAGE_SIZE);
-  if (pageCount <= 1) return result;
+}
 
-  const remainingPages = await Promise.all(
-    Array.from({ length: pageCount - 1 }, (_, index) =>
-      apiGet("/api/v1/layouts", {
-        params: {
-          query: { search, page: index + 2, pageSize: PAGE_SIZE },
-        },
-      }).then(normalizeLayoutList),
-    ),
-  );
-  return {
-    ...result,
-    items: [result, ...remainingPages].flatMap((page) => page.items),
-  };
+export function listLayouts(search = ""): Promise<LayoutList> {
+  return fetchAllPages((page) => listLayoutsPage(search, page));
 }
 
 export async function getLayout(id: string): Promise<Layout> {

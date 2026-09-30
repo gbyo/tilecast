@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("QuickPresentDialog", () => {
   it("presents ready content with an explicit duration and destination", async () => {
-    vi.spyOn(api, "playlists").mockResolvedValue({
+    vi.spyOn(api, "playlistPage").mockResolvedValue({
       items: [
         {
           id: "playlist-1",
@@ -44,7 +44,7 @@ describe("QuickPresentDialog", () => {
       page: 1,
       pageSize: 100,
     } satisfies PlaylistList);
-    vi.spyOn(api, "layouts").mockResolvedValue({
+    vi.spyOn(api, "layoutPage").mockResolvedValue({
       items: [],
       total: 0,
       page: 1,
@@ -115,6 +115,12 @@ describe("QuickPresentDialog", () => {
         />
       </QueryClientProvider>,
     );
+
+    const dialogContent = document.body.querySelector<HTMLElement>(
+      '[data-slot="dialog-content"]',
+    );
+    expect(dialogContent).toHaveClass("max-h-[min(90dvh,54rem)]");
+    expect(dialogContent).not.toHaveClass("max-h-[min(90vh,54rem)]");
 
     await user.click(screen.getByRole("button", { name: "Choose playlist" }));
     await user.click(await screen.findByRole("button", { name: /Open house/ }));

@@ -149,6 +149,8 @@ function WidgetSnapshotCapture({
     queryFn: api.contentDefinitions,
   });
   if (definitions.isLoading) return null;
+  if (definitions.isError && !definitions.data)
+    return <SnapshotSetupFailure onSettled={onSettled} />;
   const provider = asset.widget!.provider;
   // A Widgets V2 Widget is captured from its real element, the same one the
   // editor previews and the Player mounts.
@@ -157,6 +159,16 @@ function WidgetSnapshotCapture({
   ) : (
     <CompatibilitySnapshotCapture asset={asset} onSettled={onSettled} />
   );
+}
+
+function SnapshotSetupFailure({ onSettled }: { onSettled: () => void }) {
+  const settled = useRef(false);
+  useEffect(() => {
+    if (settled.current) return;
+    settled.current = true;
+    onSettled();
+  }, [onSettled]);
+  return null;
 }
 
 function V2SnapshotCapture({

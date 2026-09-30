@@ -437,6 +437,22 @@ def scenario_website(args):
 
             # The helper ends: web surfaces fail over, other content plays on,
             # and the trusted renderer is never restarted or reloaded.
+            #
+            # Synchronize the crash to the Layout item. Waiting for both remote
+            # zones can span more than one playlist cycle on a loaded runner;
+            # without this phase barrier the helper can be killed during the
+            # fullscreen Website, whose failure retry can legitimately keep the
+            # playlist there long enough to make the image assertion flaky.
+            #
+            # Use the live status surface rather than evidence_accepted logs:
+            # those logs intentionally record most (item, kind) pairs only once
+            # per activation, while currentItemId changes on every item start.
+            wait_for(
+                "the Layout item before the helper crash",
+                lambda: stack.status()["renderer"].get("currentItemId") == "item-layout",
+                timeout=30,
+                interval=0.25,
+            )
             renderer_pid = stack.renderer.pid
             mark = log_lines(stack)
             stack.web_helper.send_signal(signal.SIGKILL)

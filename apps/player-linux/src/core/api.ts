@@ -389,10 +389,21 @@ export class ApiClient {
   }
 
   /** Upload a bounded batch of append-only activity events (max 200). */
-  async postActivityEvents(events: unknown[]): Promise<void> {
-    await this.request("POST", "/api/v1/player/activity-events", {
+  async postActivityEvents(events: unknown[]): Promise<{
+    accepted: number;
+    duplicates: number;
+    highestSequence: number;
+    acknowledgedEventIds: string[];
+  }> {
+    const res = await this.request("POST", "/api/v1/player/activity-events", {
       body: { events },
     });
+    return ApiClient.data<{
+      accepted: number;
+      duplicates: number;
+      highestSequence: number;
+      acknowledgedEventIds: string[];
+    }>(res.json);
   }
 
   /**

@@ -123,6 +123,8 @@ test("layout-widget-preview", async ({ page }) => {
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Preview", exact: true }).click();
   const preview = await popupPromise;
+  await preview.setViewportSize({ width: 1440, height: 1000 });
+  await preview.clock.setFixedTime(new Date("2026-09-28T14:00:00Z"));
   await expect(preview.locator("#layout-preview-date")).toHaveText("9/28/2026");
   const widget = preview
     .locator(".layout-preview-frame [data-tilecast-widget]")

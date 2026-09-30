@@ -258,7 +258,6 @@ export function ContentPickerToolbar({
   return (
     <div className="flex items-center gap-2">
       <DashboardSearch
-        autoFocus
         value={search}
         onValueChange={onSearch}
         label={t("picker.toolbar.searchContent")}
@@ -303,4 +302,3 @@ export function ContentPickerToolbar({
     </div>
   );
 }
-
