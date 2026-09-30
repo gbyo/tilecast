@@ -1861,7 +1861,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503. */
     post: operations["stopAirplaySession"];
     delete?: never;
     options?: never;
@@ -15722,6 +15722,13 @@ export interface operations {
       };
       /** @description Stop reason too long */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stop transition or required Player cleanup command could not be committed; retry the request */
+      503: {
         headers: {
           [name: string]: unknown;
         };
