@@ -6557,13 +6557,16 @@ type ContentTagInput struct {
 
 // ContentWidgetDefinition defines model for ContentWidgetDefinition.
 type ContentWidgetDefinition struct {
-	AcceptedDataSourceKinds *[]string                            `json:"acceptedDataSourceKinds,omitempty"`
-	ApiVersion              *int                                 `json:"apiVersion,omitempty"`
-	Availability            *ContentDefinitionAvailability       `json:"availability,omitempty"`
-	Category                string                               `json:"category"`
-	Compatibility           *ContentDefinitionCompatibility      `json:"compatibility,omitempty"`
-	Component               *ContentDefinitionComponent          `json:"component,omitempty"`
-	ConfigurationSchema     ContentDefinitionConfigurationSchema `json:"configurationSchema"`
+	AcceptedDataSourceKinds *[]string                       `json:"acceptedDataSourceKinds,omitempty"`
+	ApiVersion              *int                            `json:"apiVersion,omitempty"`
+	Availability            *ContentDefinitionAvailability  `json:"availability,omitempty"`
+	Category                string                          `json:"category"`
+	Compatibility           *ContentDefinitionCompatibility `json:"compatibility,omitempty"`
+	Component               *ContentDefinitionComponent     `json:"component,omitempty"`
+
+	// ConfigVersion Version of the persisted Widget configuration; omission means version 1.
+	ConfigVersion       *int                                 `json:"configVersion,omitempty"`
+	ConfigurationSchema ContentDefinitionConfigurationSchema `json:"configurationSchema"`
 
 	// DefaultConfiguration Release-owned default Widget configuration.
 	DefaultConfiguration      *map[string]interface{}      `json:"defaultConfiguration"`

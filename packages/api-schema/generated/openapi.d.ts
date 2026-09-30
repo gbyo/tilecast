@@ -7395,6 +7395,8 @@ export interface components {
     ContentWidgetDefinition: {
       id: string;
       version: number;
+      /** @description Version of the persisted Widget configuration; omission means version 1. */
+      configVersion?: number;
       apiVersion?: number;
       source?: components["schemas"]["ContentExtensionSource"];
       name: string;

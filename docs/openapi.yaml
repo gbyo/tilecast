@@ -11560,6 +11560,10 @@ components:
       properties:
         id: { type: string }
         version: { type: integer, minimum: 1 }
+        configVersion:
+          type: integer
+          minimum: 1
+          description: Version of the persisted Widget configuration; omission means version 1.
         apiVersion: { type: integer, minimum: 1 }
         source: { $ref: "#/components/schemas/ContentExtensionSource" }
         name: { type: string }
