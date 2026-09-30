@@ -117,7 +117,7 @@ describe("Data Source card actions", () => {
   } as DataSource;
 
   function renderPage() {
-    vi.spyOn(api, "listDataSources").mockResolvedValue({
+    vi.spyOn(api, "listDataSourcesPage").mockResolvedValue({
       items: [source, formSource],
       total: 2,
       page: 1,

@@ -26,7 +26,7 @@ const items = [
 ];
 
 function list(found = items) {
-  return vi.spyOn(api, "playlists").mockResolvedValue({
+  return vi.spyOn(api, "playlistPage").mockResolvedValue({
     items: found,
     total: found.length,
     page: 1,
@@ -50,7 +50,7 @@ const layout = (
   }) as LayoutSummary;
 
 function listLayouts(found: LayoutSummary[]) {
-  return vi.spyOn(api, "layouts").mockResolvedValue({
+  return vi.spyOn(api, "layoutPage").mockResolvedValue({
     items: found,
     total: found.length,
     page: 1,
@@ -118,7 +118,7 @@ describe("PlaylistPicker", () => {
 
     await screen.findByRole("button", { name: /Lobby loop/ });
     await user.type(screen.getByPlaceholderText("Search playlists"), "promo");
-    await waitFor(() => expect(playlists).toHaveBeenCalledWith("promo"));
+    await waitFor(() => expect(playlists).toHaveBeenCalledWith("promo", 1));
   });
 
   it("marks a tag-driven playlist so it is not mistaken for a static one", async () => {
