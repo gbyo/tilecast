@@ -154,14 +154,21 @@ function useSnapshotUpload(
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
   const uploaded = useRef(false);
-  // The capture effect must not restart when the language changes: cleanup
-  // would cancel an in-progress capture that is never retried. The ref always
-  // carries the latest translator for subsequent messages.
+  // The capture effect must not restart when anything but the Widget or its
+  // readiness changes: cleanup would cancel an in-progress capture that is
+  // never retried, after the image may already be stored. The library passes a
+  // new onSettled on every render (it re-renders on each assets refetch), and
+  // the language and session token can change too, so all three live in refs
+  // that always carry the latest value.
   const tRef = useRef(t);
   tRef.current = t;
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const csrfRef = useRef(csrf);
+  csrfRef.current = csrf;
   useEffect(() => {
     if (failed) {
-      onSettled();
+      onSettledRef.current();
       return;
     }
     if (!ready || uploaded.current) return;
@@ -176,14 +183,14 @@ function useSnapshotUpload(
             if (cancelled || !element) return;
             const image = await captureWidgetPreview(element, tRef.current);
             if (cancelled) return;
-            await api.uploadWidgetPreview(asset.id, image, csrf);
+            await api.uploadWidgetPreview(asset.id, image, csrfRef.current);
             if (!cancelled)
               await queryClient.invalidateQueries({ queryKey: ["assets"] });
           } catch {
             // A Widget that cannot be captured keeps its honest unavailable state. The list is not
             // blocked on it and it is not retried, so one bad Widget cannot stall the rest.
           } finally {
-            if (!cancelled) onSettled();
+            if (!cancelled) onSettledRef.current();
           }
         })();
       }),
@@ -192,7 +199,7 @@ function useSnapshotUpload(
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [ready, failed, asset.id, csrf, onSettled, queryClient, previewRef]);
+  }, [ready, failed, asset.id, queryClient, previewRef]);
 }
 
 function WidgetSnapshotCapture({

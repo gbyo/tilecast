@@ -198,6 +198,83 @@ describe("WidgetSnapshotBackfill", () => {
     );
   });
 
+  it("finishes a capture when the library re-renders during its upload", async () => {
+    // The library re-renders while a capture uploads (for example on the next
+    // assets refetch). That render must not cancel the capture: the image is
+    // already stored, so the list has to refresh and the backfill has to move
+    // on to the next Widget.
+    let finishUpload: () => void = () => undefined;
+    vi.mocked(api.uploadWidgetPreview).mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishUpload = () => resolve(undefined);
+        }),
+    );
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      ...definitions,
+      widgets: [
+        widgetDefinition(clockManifest),
+        widgetDefinition(listManifest),
+      ],
+    });
+    const assets = [
+      assetFor(clockManifest, "first-clock"),
+      assetFor(listManifest, "second-list"),
+    ];
+    vi.spyOn(api, "assets").mockResolvedValue({
+      items: assets,
+      total: assets.length,
+      page: 1,
+      pageSize: 100,
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const tree = (
+      <QueryClientProvider client={client}>
+        <WidgetSnapshotBackfill />
+      </QueryClientProvider>
+    );
+    const view = render(tree);
+
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+    runNextAnimationFrame(1);
+    runNextAnimationFrame(2);
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "first-clock",
+        expect.any(Blob),
+        "csrf-token",
+      ),
+    );
+
+    // A parent re-render hands the backfill fresh props and callbacks.
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <WidgetSnapshotBackfill enabled />
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      finishUpload();
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["assets"] }),
+    );
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+    runNextAnimationFrame(3);
+    runNextAnimationFrame(4);
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "second-list",
+        expect.any(Blob),
+        "csrf-token",
+      ),
+    );
+  });
+
   it("captures a V2 Widget only after the real WidgetMount reports ready", async () => {
     renderBackfill(assetFor(clockManifest, "clock-asset"));
 
