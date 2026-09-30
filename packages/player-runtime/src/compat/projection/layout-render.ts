@@ -265,8 +265,10 @@ function renderPlacement(
       }
       const fit = placement.playback?.fit ?? "contain";
       if (asset.mimeType.startsWith("video/")) {
+        const loop = placement.playback?.loop ?? true;
         return {
           ...base,
+          loop,
           playlistItems: [
             {
               id: placement.id,
@@ -276,7 +278,7 @@ function renderPlacement(
               fit,
               muted: placement.playback?.muted ?? true,
               volume: 1,
-              loop: placement.playback?.loop ?? true,
+              loop,
             },
           ],
         };
@@ -298,7 +300,16 @@ function renderPlacement(
       if (items.length === 0) {
         return null;
       }
-      return { ...base, playlistItems: items };
+      return {
+        ...base,
+        loop: placement.playback?.loop ?? true,
+        fallback:
+          placement.playback?.fallback === "hide" ||
+          placement.playback?.fallback === "previous"
+            ? placement.playback.fallback
+            : "background",
+        playlistItems: items,
+      };
     }
     case "primitive": {
       if (!placement.primitive) {
@@ -370,8 +381,18 @@ function buildZoneItems(
       fit: placement.playback?.fit || settings.fitMode,
       muted: placement.playback?.muted ?? !settings.audioEnabled,
       volume: settings.volume,
-      loop: playlist.items.length === 1,
+      // The playlist-zone loop is a zone policy, not an item video setting.
+      // zoneEntry enables native looping only for a single-item looping zone.
+      loop: false,
+      radius: placement.playback?.cornerRadius ?? 0,
+      transition:
+        item.transition === "fade" || item.transition === "crossfade"
+          ? item.transition
+          : "none",
     });
+  }
+  if (items.length === 1 && items[0]!.kind === "video") {
+    items[0]!.loop = placement.playback?.loop ?? true;
   }
   return items;
 }
