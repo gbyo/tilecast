@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
-import { buttonVariants } from "../ui/button";
+import { HeaderLink } from "./HeaderLink";
+import { titleRow } from "./layout";
 
 /**
  * One titled section of the supporting rail. Sections share a single Card and
@@ -19,23 +19,15 @@ export function RailSection({
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="grid gap-1.5 px-3 py-2.5">
-      <div className="flex min-h-6 items-center justify-between gap-2">
-        <h2 id={id} className="text-sm font-medium">
+    <section
+      aria-labelledby={id}
+      className="grid gap-2 px-(--card-spacing) pt-(--card-spacing) pb-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={id} className={titleRow}>
           {title}
         </h2>
-        {action && (
-          <Link
-            className={buttonVariants({
-              variant: "ghost",
-              size: "xs",
-              className: "-my-1 max-sm:h-9",
-            })}
-            to={action.to}
-          >
-            {action.label}
-          </Link>
-        )}
+        {action && <HeaderLink to={action.to} label={action.label} />}
       </div>
       {children}
     </section>
