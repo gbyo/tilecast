@@ -74,7 +74,7 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
     let client = FakeIdentityClient()
 
     func makeHost() -> StudioHost {
-        StudioHost(directory: directory, dataStores: stores, identityClient: client, applicationName: "TilecastTests")
+        StudioHost(directory: directory, dataStores: stores, identityClient: client, credentials: InMemoryCredentialStore(), applicationName: "TilecastTests")
     }
 
     func addServer(_ host: String, name: String) throws -> ServerProfile {
@@ -209,7 +209,7 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
     let client = FakeIdentityClient()
 
     func makeHost() -> StudioHost {
-        StudioHost(directory: directory, dataStores: stores, identityClient: client, applicationName: "TilecastTests")
+        StudioHost(directory: directory, dataStores: stores, identityClient: client, credentials: InMemoryCredentialStore(), applicationName: "TilecastTests")
     }
 
     func addServer(_ host: String) throws -> ServerProfile {

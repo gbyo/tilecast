@@ -30,3 +30,19 @@ struct ServerMenuItems: View {
         Button(action: actions.manage) { Label("Manage Servers…", image: AppIcon.server) }
     }
 }
+
+/// Signs the app out of the active server: Studio's session and the native
+/// credential together. Shown only while Studio is signed in.
+struct SignOutButton: View {
+    @Environment(StudioHost.self) private var host
+    let page: StudioPage
+
+    var body: some View {
+        if !page.signInRequired {
+            Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                Task { await host.signOut() }
+            }
+            .accessibilityIdentifier("server.signOut")
+        }
+    }
+}

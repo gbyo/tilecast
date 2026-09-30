@@ -32,7 +32,14 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
     @Test func answersConfigGetWithNativeNavigation() {
         #expect(reply(envelope("config/get", id: "c1")) == .object([
             "version": .number(1), "id": .string("c1"), "ok": .bool(true),
-            "payload": .object(["protocolVersion": .number(1), "capabilities": .object(["nativeNavigation": .bool(true)])]),
+            "payload": .object([
+                "protocolVersion": .number(1),
+                "context": .string("main"),
+                "capabilities": .object([
+                    "nativeNavigation": .bool(true), "authLifecycle": .bool(true), "nativePresentations": .bool(true),
+                    "nativeAlerts": .bool(true),
+                ]),
+            ]),
         ]))
     }
 
@@ -58,7 +65,7 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
     }
 
     @Test func toleratesUnknownTypesAndRefusesOtherVersions() {
-        #expect(reply(envelope("presentation/open", id: "p1")) == NativeBridgeProtocol.reply(id: "p1", error: .unknownType))
+        #expect(reply(envelope("clipboard/write", id: "p1")) == NativeBridgeProtocol.reply(id: "p1", error: .unknownType))
         #expect(reply(["version": 2, "type": "config/get", "payload": [:]]) == NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion))
         #expect(reply("config/get") == NativeBridgeProtocol.reply(id: nil, error: .malformed))
         #expect(reply(nil) == NativeBridgeProtocol.reply(id: nil, error: .malformed))
@@ -116,6 +123,30 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
         #expect(await bridge.send(NativeBridgeProtocol.navigationRequest(destinationID: "alpha")) == false)
     }
 
+    @Test func recordsWhatStudioSupportsForTheCurrentDocument() {
+        _ = reply(envelope("config/get"))
+        _ = reply(envelope("frontend/ready", ["capabilities": ["authLifecycle": true]]))
+        #expect(bridge.frontendCapabilities.authLifecycle)
+        bridge.mainFrameNavigationStarted()
+        bridge.mainFrameCommitted()
+        #expect(!bridge.frontendCapabilities.authLifecycle, "a new document negotiates again")
+    }
+
+    @Test func reportsStudiosSignOut() {
+        var signedOut = 0
+        bridge.onSignedOut = { signedOut += 1 }
+        #expect(reply(envelope("auth/signed-out", id: "s1")) == NativeBridgeProtocol.reply(id: "s1", payload: [:]))
+        #expect(signedOut == 1)
+        _ = reply(envelope("auth/signed-out"), from: BridgeSender(isMainFrame: false, isPageWorld: true, origin: serverOrigin))
+        #expect(signedOut == 1, "a subframe cannot sign the app out")
+    }
+
+    @Test func doesNotAskAnOlderStudioToSignOut() async {
+        _ = reply(envelope("config/get"))
+        _ = reply(envelope("frontend/ready"))
+        #expect(await bridge.requestSignOut(timeout: .seconds(10)) == false)
+    }
+
     @Test func uninstallingForgetsStudiosNavigation() {
         _ = reply(envelope("frontend/ready"))
         _ = reply(envelope("navigation/catalog", catalogPayload(["alpha"])))
@@ -168,6 +199,78 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
         #expect(await page.bridge.send(NativeBridgeProtocol.navigationRequest(destinationID: "alpha")))
         let received = try await page.webPage.callJavaScript("return window.received.payload.destinationId")
         #expect(received as? String == "alpha")
+    }
+
+    /// Studio's side of the auth lifecycle: it answers a sign-out request
+    /// by reporting that it signed out, and records what it received.
+    static let signingOutStudio = """
+        <!doctype html><script>
+        window.received = [];
+        window.tilecastNativeReceiver = (message) => {
+          window.received.push(message);
+          if (message.type !== "auth/sign-out-request") return false;
+          setTimeout(() => window.webkit.messageHandlers.tilecastNative.postMessage(
+            { version: 1, type: "auth/signed-out", payload: {} }), 50);
+          return true;
+        };
+        </script>
+        """
+
+    @Test func signOutRoundTripsThroughStudio() async throws {
+        let page = try makePage()
+        defer { page.close() }
+        var reported = 0
+        page.bridge.onSignedOut = { reported += 1 }
+        try await load(Self.signingOutStudio, in: page.webPage)
+        _ = try await page.webPage.callJavaScript("""
+            const handler = window.webkit.messageHandlers.tilecastNative;
+            await handler.postMessage({ version: 1, type: "config/get", payload: {} });
+            await handler.postMessage({ version: 1, type: "frontend/ready", payload: { capabilities: { authLifecycle: true } } });
+            """)
+        #expect(await page.bridge.requestSignOut(timeout: .seconds(5)))
+        #expect(reported == 1)
+        let received = try #require(try await page.webPage.callJavaScript("""
+            return JSON.stringify(window.received.map((message) => [message.type, Object.keys(message.payload).length]))
+            """) as? String)
+        // One request with an empty payload: nothing about the session.
+        #expect(received == #"[["auth/sign-out-request",0]]"#)
+    }
+
+    @Test func aSignOutRequestTimesOutWhenStudioNeverAnswers() async throws {
+        let page = try makePage()
+        defer { page.close() }
+        try await load("""
+            <!doctype html><script>
+            window.tilecastNativeReceiver = (message) => message.type === "auth/sign-out-request";
+            </script>
+            """, in: page.webPage)
+        _ = try await page.webPage.callJavaScript("""
+            await window.webkit.messageHandlers.tilecastNative.postMessage(
+              { version: 1, type: "frontend/ready", payload: { capabilities: { authLifecycle: true } } });
+            """)
+        #expect(await page.bridge.requestSignOut(timeout: .milliseconds(200)) == false)
+    }
+
+    @Test func oneCallersTimeoutDoesNotResolveAnotherCaller() async throws {
+        let page = try makePage()
+        defer { page.close() }
+        try await load("""
+            <!doctype html><script>
+            window.tilecastNativeReceiver = (message) => message.type === "auth/sign-out-request";
+            </script>
+            """, in: page.webPage)
+        _ = try await page.webPage.callJavaScript("""
+            await window.webkit.messageHandlers.tilecastNative.postMessage(
+              { version: 1, type: "frontend/ready", payload: { capabilities: { authLifecycle: true } } });
+            """)
+        async let first = page.bridge.requestSignOut(timeout: .milliseconds(200))
+        async let second = page.bridge.requestSignOut(timeout: .seconds(5))
+        #expect(await first == false)
+        // The second request is still waiting; Studio answering now
+        // resolves it, which is only possible if the first timeout
+        // left it alone.
+        _ = page.bridge.replyValue(to: envelope("auth/signed-out"), from: .studio)
+        #expect(await second == true)
     }
 
     @Test func aSubframeCannotUseTheBridge() async throws {
