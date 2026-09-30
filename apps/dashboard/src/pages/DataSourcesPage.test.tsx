@@ -7,6 +7,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,10 @@ import {
   sourceIcon,
 } from "../content/dataSourceProviderMeta";
 import { DataSourcesPage } from "./DataSourcesPage";
+
+// The page renders a card list for narrow screens and a table for wide ones,
+// and hides one with CSS. jsdom applies no CSS, so tests read the table.
+const desktop = async () => within(await screen.findByRole("table"));
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -164,7 +169,7 @@ describe("Data Source card actions", () => {
       .spyOn(api, "duplicateDataSource")
       .mockResolvedValue({ ...source, id: "source-2" });
     renderPage();
-    fireEvent.contextMenu(await screen.findByText("District news"));
+    fireEvent.contextMenu(await (await desktop()).findByText("District news"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
     await waitFor(() =>
       expect(duplicate).toHaveBeenCalledWith("source-1", "csrf-token"),
@@ -173,8 +178,43 @@ describe("Data Source card actions", () => {
 
   it("keeps Forms out of the Data Source library", async () => {
     renderPage();
-    expect(await screen.findByText("District news")).toBeInTheDocument();
+    expect(
+      await (await desktop()).findByText("District news"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Staff announcements")).toBeNull();
+  });
+
+  it("shows only the load error when the list query fails", async () => {
+    vi.spyOn(api, "listDataSourcesPage").mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [],
+    });
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [],
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <DataSourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText("Data Sources could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No Data Sources yet")).toBeNull();
   });
 
   it("confirms in a dialog before deleting a Data Source", async () => {
@@ -183,7 +223,9 @@ describe("Data Source card actions", () => {
       .mockResolvedValue(undefined);
     renderPage();
     fireEvent.click(
-      await screen.findByRole("button", { name: "Actions for District news" }),
+      await (
+        await desktop()
+      ).findByRole("button", { name: "Actions for District news" }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     expect(
@@ -192,7 +234,9 @@ describe("Data Source card actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(remove).not.toHaveBeenCalled();
     fireEvent.click(
-      screen.getByRole("button", { name: "Actions for District news" }),
+      (await desktop()).getByRole("button", {
+        name: "Actions for District news",
+      }),
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
