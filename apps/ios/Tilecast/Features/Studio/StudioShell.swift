@@ -31,8 +31,28 @@ struct StudioShell: View {
         }
         .overlay { StudioOverlay() }
         .environment(slot)
+        .nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView() }
+        .sheet(item: presentation) { presentation in
+            if let coordinator = host.page?.presentations {
+                PresentationSheet(coordinator: coordinator, presentation: presentation)
+            }
+        }
+        // The cached presentation page is a whole second Studio: the first
+        // thing to give up when memory is short. It survives while shown.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            host.page?.presentations.handleMemoryWarning()
+        }
+    }
+
+    /// The native presentation Studio asked for. Dismissing the sheet in
+    /// any way ends it.
+    private var presentation: Binding<NativePresentation?> {
+        Binding(
+            get: { host.page?.presentations.presentation },
+            set: { if $0 == nil { host.page?.presentations.dismiss() } }
+        )
     }
 
     private var fallbackShell: some View {
@@ -71,6 +91,7 @@ struct StudioShell: View {
         Menu {
             if let page = host.page {
                 Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                SignOutButton(page: page)
             }
             Button("Manage Servers…", systemImage: "server.rack") { managingServers = true }
         } label: {
