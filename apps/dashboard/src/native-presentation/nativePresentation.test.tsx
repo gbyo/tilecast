@@ -241,6 +241,8 @@ afterEach(() => {
   cleanup();
   delete window.webkit;
   delete window.tilecastNativeReceiver;
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
@@ -763,6 +765,9 @@ describe("previews as native presentations", () => {
       path: "/__native/modal/layout-preview/layout-1?date=2026-09-29",
     });
     expect(await screen.findByText("1920 × 1080")).toBeVisible();
+    expect(screen.getByLabelText("Preview date")).toHaveTextContent(
+      new Date(2026, 8, 29).toLocaleDateString(),
+    );
     await waitFor(() =>
       expect(host.ofType("presentation/update")).toContainEqual({
         presentationId: "p-1",
@@ -776,6 +781,18 @@ describe("previews as native presentations", () => {
     );
     expect(screen.queryByRole("button", { name: "Close preview" })).toBeNull();
     expect(mocks.api.layout).toHaveBeenCalledWith("layout-1");
+  });
+
+  it("defaults the layout preview date to the user's local calendar date", async () => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-30T06:30:00.000Z"));
+    renderRoutes(routes, "/layouts/layout-1/preview");
+
+    expect(await screen.findByText("1920 × 1080")).toBeVisible();
+    expect(screen.getByLabelText("Preview date")).toHaveTextContent(
+      new Date(2026, 8, 29).toLocaleDateString(),
+    );
   });
 
   it("keeps its own header and Close in a browser popup", async () => {

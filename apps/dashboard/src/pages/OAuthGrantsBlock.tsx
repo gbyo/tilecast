@@ -45,6 +45,10 @@ export function OAuthGrantsBlock() {
       </p>
     );
   const items = grants.data?.grants ?? [];
+  // A failed load with no usable data owns the content area: the alert is
+  // the state, not a companion to an empty list. Stale data still renders
+  // alongside the alert.
+  const loadFailed = grants.isError && !grants.data;
   return (
     <section aria-labelledby="oauth-grants">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -68,7 +72,7 @@ export function OAuthGrantsBlock() {
         <p className="text-sm text-muted-foreground">
           {t("oauth.grantsEmpty")}
         </p>
-      ) : (
+      ) : loadFailed ? null : (
         <ItemGroup>
           {items.map((grant) => (
             <Item key={grant.id}>
