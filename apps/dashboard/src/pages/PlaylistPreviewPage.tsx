@@ -24,6 +24,10 @@ import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { useAuth } from "../auth/AuthProvider";
 import { PlaylistWidgetPreview } from "../content/PlaylistWidgetPreview";
 import { Button } from "../components/ui/button";
+import {
+  useNativePresentation,
+  usePresentationChrome,
+} from "../native-presentation/presentationContext";
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 
 export function nextPlaylistPreviewItem(
@@ -190,10 +194,22 @@ export function PlaylistPreviewPage() {
   const { id = "" } = useParams();
   const location = useLocation();
   const auth = useAuth();
+  const presentation = useNativePresentation();
   const query = useQuery({
     queryKey: ["playlists", id, "popup-preview"],
     queryFn: () => api.playlist(id),
     enabled: Boolean(id && auth.status?.authenticated),
+  });
+  // In a native presentation the sheet's header carries the name and Close.
+  usePresentationChrome({
+    header: query.data
+      ? {
+          title: query.data.name,
+          navigation: "close",
+          navigationLabel: t("preview.close"),
+        }
+      : undefined,
+    size: "full",
   });
   const items = useMemo(
     () =>
@@ -351,7 +367,9 @@ export function PlaylistPreviewPage() {
     <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
       <header className="relative z-[2] flex items-center justify-between gap-2.5 border-b border-[#283440] bg-[#0e141be8] px-4 py-3">
         <div className="grid min-w-0 gap-0.5">
-          <strong className="truncate">{query.data.name}</strong>
+          {!presentation && (
+            <strong className="truncate">{query.data.name}</strong>
+          )}
           <span aria-live="polite" className="truncate text-[#aab8c5]">
             {current
               ? t("preview.position", {
@@ -362,12 +380,14 @@ export function PlaylistPreviewPage() {
               : t("preview.noItems")}
           </span>
         </div>
-        <PreviewControl
-          label={t("preview.close")}
-          onClick={() => window.close()}
-        >
-          <X size={20} aria-hidden="true" />
-        </PreviewControl>
+        {!presentation && (
+          <PreviewControl
+            label={t("preview.close")}
+            onClick={() => window.close()}
+          >
+            <X size={20} aria-hidden="true" />
+          </PreviewControl>
+        )}
       </header>
 
       <section

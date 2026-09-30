@@ -1,4 +1,11 @@
-import { Bell, CircleAlert, Search, TriangleAlert } from "lucide-react";
+import {
+  Bell,
+  CircleAlert,
+  FlaskConical,
+  Search,
+  TriangleAlert,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type {
@@ -28,7 +35,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useEditorHeaderSlots } from "./EditorHeaderSlots";
 import { cn } from "cn";
 
 export type StudioBreadcrumb = { label: string; to: string };
@@ -52,27 +66,62 @@ export function SiteHeader({
   breadcrumbs,
   notifications,
   onSearch,
+  editor = false,
+  demoMode = false,
+  navigationTrigger = true,
+  accountMenu,
 }: {
   breadcrumbs: StudioBreadcrumb[];
   notifications: NotificationFeed;
   onSearch: () => void;
+  /** Layout editor: one compact header that also hosts the editor's controls. */
+  editor?: boolean;
+  demoMode?: boolean;
+  /** False when a native host provides navigation instead of the sidebar. */
+  navigationTrigger?: boolean;
+  /** The account menu, when the sidebar that normally holds it is absent. */
+  accountMenu?: ReactNode;
 }) {
   const { t } = useTranslation(["navigation", "common"]);
+  const slots = useEditorHeaderSlots();
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4 md:px-6">
-      <SidebarTrigger aria-label={t("header.toggleNavigation")} />
+    <header
+      className={cn(
+        "flex shrink-0 items-center border-b border-border",
+        editor ? "h-13 gap-2 pr-2.5 pl-3" : "h-14 gap-3 px-4 md:px-6",
+      )}
+    >
+      {navigationTrigger && (
+        <SidebarTrigger aria-label={t("header.toggleNavigation")} />
+      )}
+      {navigationTrigger && editor && (
+        <Separator
+          orientation="vertical"
+          className="h-4 self-center max-sm:hidden"
+        />
+      )}
       {breadcrumbs.length > 0 ? (
-        <Breadcrumb className="min-w-0 flex-1">
+        <Breadcrumb
+          className={cn(
+            "min-w-0",
+            editor ? "max-sm:flex-1 sm:min-w-24" : "flex-1",
+          )}
+        >
           <BreadcrumbList className="flex-nowrap overflow-hidden">
             {breadcrumbs.map((item, index) => (
               <span className="contents" key={`${item.to}:${item.label}`}>
                 {/* Narrow headers show only the current page; the trail has
                     no room beside the sidebar trigger and search. */}
-                {index > 0 && <BreadcrumbSeparator className="max-md:hidden" />}
+                {index > 0 && (
+                  <BreadcrumbSeparator
+                    className={editor ? "max-xl:hidden" : "max-md:hidden"}
+                  />
+                )}
                 <BreadcrumbItem
                   className={cn(
                     "min-w-0",
-                    index < breadcrumbs.length - 1 && "max-md:hidden",
+                    index < breadcrumbs.length - 1 &&
+                      (editor ? "max-xl:hidden" : "max-md:hidden"),
                   )}
                 >
                   {index === breadcrumbs.length - 1 ? (
@@ -82,7 +131,17 @@ export function SiteHeader({
                         breadcrumbs.length === 1 && "font-semibold",
                       )}
                     >
-                      {item.label}
+                      {editor && slots?.rename ? (
+                        <button
+                          type="button"
+                          className="max-w-full truncate rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          onClick={slots.rename}
+                        >
+                          {item.label}
+                        </button>
+                      ) : (
+                        item.label
+                      )}
                     </BreadcrumbPage>
                   ) : (
                     <BreadcrumbLink
@@ -100,20 +159,59 @@ export function SiteHeader({
       ) : (
         <div className="min-w-0 flex-1" />
       )}
+      {editor && demoMode && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Badge variant="outline" tabIndex={0} data-testid="demo-badge" />
+            }
+          >
+            {t("common:demo.badge")}
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            <span className="flex items-start gap-2">
+              <FlaskConical
+                className="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              <span>
+                <strong className="block">{t("common:demo.title")}</strong>
+                {t("common:demo.description")}
+              </span>
+            </span>
+          </TooltipContent>
+        </Tooltip>
+      )}
+      {editor && <div ref={slots?.setLeft} className="contents" />}
+      {editor && <div className="min-w-0 flex-1" />}
 
       <Button
         type="button"
-        variant="outline"
-        className="size-8 text-muted-foreground sm:w-56 sm:justify-start sm:gap-2 sm:px-2.5"
+        variant={editor ? "ghost" : "outline"}
+        className={cn(
+          "size-8 text-muted-foreground",
+          !editor && "sm:w-56 sm:justify-start sm:gap-2 sm:px-2.5",
+        )}
         aria-haspopup="dialog"
+        aria-label={editor ? t("header.search") : undefined}
         onClick={onSearch}
       >
         <Search aria-hidden="true" />
-        <span className="sr-only sm:not-sr-only sm:flex-1 sm:text-start">
+        <span
+          className={cn(
+            editor
+              ? "sr-only"
+              : "sr-only sm:not-sr-only sm:flex-1 sm:text-start",
+          )}
+        >
           {t("header.search")}
         </span>
         {/* i18n-ignore: keyboard shortcut glyphs, not language text */}
-        <Kbd className="hidden shrink-0 sm:inline-flex">{shortcutLabel()}</Kbd>
+        {!editor && (
+          <Kbd className="hidden shrink-0 sm:inline-flex">
+            {shortcutLabel()}
+          </Kbd>
+        )}
       </Button>
 
       <Popover>
@@ -207,6 +305,8 @@ export function SiteHeader({
           )}
         </PopoverContent>
       </Popover>
+      {editor && <div ref={slots?.setRight} className="contents" />}
+      {accountMenu}
     </header>
   );
 }

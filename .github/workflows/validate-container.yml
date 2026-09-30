@@ -2,6 +2,11 @@ name: validate-container
 
 on:
   workflow_call:
+    inputs:
+      runner:
+        description: Runner label used by this validation job.
+        type: string
+        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -10,11 +15,13 @@ permissions:
 jobs:
   validate:
     name: Server container
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v7
       - name: Validate Compose configuration
-        run: docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+        run: |
+          docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+          docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml config --quiet
       - uses: docker/setup-buildx-action@v4
       - name: Build container
         uses: docker/build-push-action@v7

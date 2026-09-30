@@ -1,0 +1,57 @@
+---
+title: Read the Overview
+description: Use the Overview to check your screens, see what needs attention, and know what happens next.
+---
+
+**Overview** is the first page in Studio. It answers five questions in order: is the fleet up, what is wrong, what is on air, what happens next, and did playback go as expected while you were away. Each part links to the page with the records behind it.
+
+## What each part shows
+
+| Part                | What it tells you                                                                                                  | Where it opens                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
+| **Fleet status**    | How many screens are online, how many the Player confirms are playing, and how many need attention.                | **Screens** or **Activity**       |
+| **Needs attention** | The screens with a problem, most urgent first, and the reason for each. It appears only when something is wrong.   | The screen                        |
+| **On air now**      | The content assigned to each online screen.                                                                        | The screen                        |
+| **Coming up**       | The next schedules to start or end.                                                                                | The schedule                      |
+| **Last 24 hours**   | Playback compliance, playback failures, and interrupted plays for the last 24 hours.                               | The matching Activity report      |
+| **Player updates**  | The latest update deployment. It is highlighted only when a screen failed or is waiting for someone to act.        | **Settings** > **Player updates** |
+| **Content health**  | Data Sources that stopped refreshing, playlists with nothing to play, expiring media, and screens with no content. | **Activity** > **Content Health** |
+| **Fleet health**    | The share of time screens were connected and playing, over 24 hours, 7 days, or 30 days.                           | Per-screen rows on the page       |
+
+If every screen is online and nothing is wrong, **Needs attention** doesn't appear. The **Fleet status** headline says so once.
+
+## What needs attention
+
+A screen is listed when Tilecast has a reason to think a person should look at it:
+
+- It is **Offline**, **Stale**, or its pairing was revoked. [Understand a screen's status](../screen-status/) explains these.
+- Its last Player update failed.
+- It has an open incident, such as a playback problem, low storage, or safe mode.
+
+A **Disabled** screen isn't listed. An Owner or Administrator turned it off on purpose, so it appears only in the count under the headline. A screen that is **Recently online** isn't listed either. It lost its connection a moment ago and is inside the two-minute grace period.
+
+## On air now and Playing
+
+These two say different things, and Overview keeps them apart.
+
+**On air now** lists what each online screen is set to show: its assigned playlist or presentation. An assignment says what Tilecast expects. It doesn't prove the Player is showing it.
+
+**Playing** in **Fleet status** counts the screens the Player reports as showing their content with no current fault. It is measured across the screens that are in service, so a disabled screen is not in the total.
+
+## Last 24 hours
+
+Each figure names what it measures and links to the records it counted.
+
+- **Playback compliance** compares Player-confirmed screen time with the time Tilecast expected content to play.
+- **Playback failures** counts plays that failed.
+- **Interrupted plays** counts plays that ended unexpectedly. A schedule changing over isn't counted.
+
+If Players confirmed no playback and none was expected, Overview says there is nothing to measure. A figure without data shows **No data**, never `0`. A zero means playback was measured and nothing went wrong.
+
+## Limits
+
+- **Coming up** reads each schedule's own start, end, days, date range, and time zone. It doesn't decide which schedule wins when two overlap. Display-control schedules aren't listed because they send a command instead of changing what plays.
+- Overview reads the screen list. Studio lists up to 500 screens.
+- If one part can't load, that part shows an error and the rest of the page keeps working.
+
+Only an Owner or Administrator sees **Pair screen** on an installation with no screens.

@@ -31,6 +31,37 @@ placeholder for clarity. The database stores only AES-256-GCM ciphertext, so a
 database restore without the same external key requires every saved Wi-Fi
 credential to be entered again in Studio. See [Presentation Networks](presentation-networks.md).
 
+## Server releases
+
+Tilecast Server ships two release channels. Stable is the recommended channel for normal self-hosted installs. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.
+
+Stable releases are GitHub Releases cut from `server-vX.Y.Z` tags by `.github/workflows/server-release.yml`. Each release publishes one image under three aliases that always refer to the same artifact:
+
+- `ghcr.io/gbyo/tilecast-server:X.Y.Z`
+- `ghcr.io/gbyo/tilecast-server:stable`
+- `ghcr.io/gbyo/tilecast-server:latest` (compatibility alias for the latest Stable release)
+
+Development builds from `main` publish `development` and `sha-<commit>` tags through `.github/workflows/server-image.yml`. That workflow never moves `stable` or `latest`.
+
+Normal installs run a published image. `TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, or pin an explicit release for controlled upgrades. Never point production installs at `development` unless the intent is to track `main`. A Stable upgrade is a version change:
+
+```sh
+# Take and verify a backup first.
+# Set TILECAST_VERSION in deploy/docker/.env to the desired release.
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
+```
+
+Installations that still use the former Compose file with a `build:` section under `server` must update the deployment files once before the first image-based upgrade; pulling them in the existing checkout is the simplest path. After that one-time transition, production upgrades must not use `git pull`, `git checkout`, or `docker compose up --build`. To build and run the server from source instead, add the development override:
+
+```sh
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml up -d --build
+```
+
+The running server reports its build identity through `tilecastVersion`, `channel`, `buildCommit`, and `buildDate` in the system status response. Stable builds report the bare tag version with channel `stable`. Development builds report `0.0.0-dev` with channel `development` plus their real commit, so they are never mistaken for a Stable release. The same identity is stamped into backup manifests (`tilecastVersion`, `serverChannel`, `buildCommit`, `buildDate`); archives written before these fields existed remain valid and decode with empty values.
+
+To cut a Stable release, update `main`, tag it (`git tag server-vX.Y.Z`), and push the tag. The first release under this system will be `server-v0.11.0`, not `server-v0.10.0`, because development builds historically hard-coded `0.10.0`. No source-version-bump commit is needed: the tag is the authoritative Stable version and the release workflow injects it into the binary at build time. The workflow rejects malformed tags, rejects versions that do not increase, requires the tag to point at a commit that is part of `main` (main may advance after tagging; a tag on an unmerged side branch is rejected), and gates publishing on the full server shipping bundle: server, Studio, container, browser, plugins, widgets, data sources, and generated-contract validation. All Stable releases serialize through one global concurrency group so two tags can never race the shared aliases. The workflow publishes only the immutable versioned image first, resolves and verifies its digest, records that digest in the GitHub Release, and only then creates `stable` and `latest` from the verified digest without rebuilding. A rerun after a promotion failure recovers the recorded digest from the existing release instead of resolving the version tag again.
+
 ## Data and upgrades
 
 The `postgres_data` volume stores relational state. The `tilecast_data` volume stores originals, playback variants, thumbnails, posters, and temporary resumable uploads beneath `/data/media`. It must remain mounted across server/container recreation. The media tree is never served directly by the container.
