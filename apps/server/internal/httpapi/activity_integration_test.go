@@ -744,6 +744,82 @@ func postActivityBatch(t *testing.T, env activityTestEnvironment, input playerAc
 	}
 }
 
+func TestActivitySequenceResetPreservesNewEvent(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+		originalID := uuid.New()
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: originalID, Sequence: 1, EventType: "player.connected",
+			OccurredAt: now, PlayerTimezone: "UTC", Result: "success",
+		}}}, http.StatusAccepted)
+
+		// Simulate a Player whose local sequence file was lost/corrupted. The UUID
+		// proves this is a new event even though the reported sequence restarted.
+		resetID := uuid.New()
+		body, _ := json.Marshal(playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: resetID, Sequence: 1, EventType: "connection.restored",
+			OccurredAt: now.Add(time.Second), PlayerTimezone: "UTC", Result: "recovered",
+		}}})
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/player/activity-events", bytes.NewReader(body))
+		request = request.WithContext(context.WithValue(request.Context(), deviceContextKey, devices.DevicePrincipal{ScreenID: env.screenID, Enabled: true}))
+		response := httptest.NewRecorder()
+		env.server.ingestPlayerActivity(response, request)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+		}
+		var envelope struct {
+			Data playerActivityBatchResult `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.Accepted != 1 || envelope.Data.Duplicates != 0 ||
+			len(envelope.Data.AcknowledgedEventIDs) != 1 || envelope.Data.AcknowledgedEventIDs[0] != resetID.String() {
+			t.Fatalf("sequence-reset response = %+v", envelope.Data)
+		}
+
+		var sequence *int64
+		var metadata map[string]any
+		var raw []byte
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT sequence,metadata FROM player_activity_events WHERE id=$1`, resetID).
+			Scan(&sequence, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if sequence != nil {
+			t.Fatalf("recovered event sequence=%d, want NULL", *sequence)
+		}
+		if err := json.Unmarshal(raw, &metadata); err != nil {
+			t.Fatal(err)
+		}
+		if metadata["sequenceCollision"] != true || metadata["reportedSequence"] != float64(1) {
+			t.Fatalf("recovery metadata = %#v", metadata)
+		}
+
+		var count int
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM player_activity_events WHERE id=ANY($1)`, []uuid.UUID{originalID, resetID}).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 2 {
+			t.Fatalf("stored reset events=%d, want 2", count)
+		}
+
+		// A true retry still deduplicates by UUID and does not create a third row.
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: resetID, Sequence: 1, EventType: "connection.restored",
+			OccurredAt: now.Add(time.Second), PlayerTimezone: "UTC", Result: "recovered",
+		}}}, http.StatusAccepted)
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM player_activity_events WHERE id=ANY($1)`, []uuid.UUID{originalID, resetID}).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 2 {
+			t.Fatalf("retry created extra activity row: %d", count)
+		}
+	})
+}
+
 func int64Pointer(value int64) *int64        { return &value }
 func timePointer(value time.Time) *time.Time { return &value }
 
