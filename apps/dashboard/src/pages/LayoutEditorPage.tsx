@@ -97,6 +97,7 @@ import {
   isEditorCommandShortcutTarget,
   isInteractiveShortcutTarget,
 } from "../lib/keyboard";
+import { localDateInputValue } from "../lib/dateTime";
 import {
   Dialog,
   DialogContent,
@@ -2382,7 +2383,7 @@ export function LayoutEditorPage() {
           path:
             presentationPath("layout-preview", id) +
             "?date=" +
-            encodeURIComponent(new Date().toISOString().slice(0, 10)),
+            encodeURIComponent(localDateInputValue()),
           title: t("layouts:editor.previewTitle", {
             name: layoutQuery.data?.name ?? "",
           }),
@@ -2404,7 +2405,7 @@ export function LayoutEditorPage() {
         popup.close();
         return;
       }
-      const date = new Date().toISOString().slice(0, 10);
+      const date = localDateInputValue();
       popup.location.replace(
         "/layouts/" +
           encodeURIComponent(id) +
