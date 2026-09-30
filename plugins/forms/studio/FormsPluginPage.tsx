@@ -40,6 +40,10 @@ export function FormsPluginPage() {
     queryFn: formsApi.listForms,
     retry: false,
   });
+  // A failed load with no usable data owns the content area: the alert is
+  // the state, not a companion to an empty list. Stale data still renders
+  // alongside the alert.
+  const loadFailed = forms.isError && !forms.data;
 
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-4 px-4 py-6 sm:px-6">
@@ -109,7 +113,7 @@ export function FormsPluginPage() {
             </EmptyContent>
           )}
         </Empty>
-      ) : (
+      ) : loadFailed ? null : (
         <ItemGroup className="gap-2">
           {forms.data?.map((form) => (
             <Item variant="outline" key={form.id}>

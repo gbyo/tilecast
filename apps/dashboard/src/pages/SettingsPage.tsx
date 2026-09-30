@@ -3,8 +3,10 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { signalColors } from "@tilecast/design-tokens/values";
@@ -138,6 +140,29 @@ export function SettingsPage() {
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner aria-hidden="true" /> {t("page.loading")}
       </p>
+    );
+  // A failed document load owns the page: the editable shell must only
+  // render on successfully loaded configuration, never on empty defaults.
+  // Stale data still renders the shell alongside its own refresh path.
+  if (settings.isError && !settings.data)
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>{t("page.loadError")}</AlertTitle>
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+          <span>{apiErrorMessage(settings.error)}</span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void settings.refetch()}
+            disabled={settings.isFetching}
+          >
+            {settings.isFetching
+              ? t("common:actions.refreshing")
+              : t("common:actions.retry")}
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   return (
     <>

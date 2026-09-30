@@ -46,6 +46,28 @@ export function formatUntil(at: Date, now: Date, locale: string) {
 }
 
 /**
+ * The same span as `formatUntil`, as a compact figure such as "38m" or "18h"
+ * for a narrow time column.
+ */
+export function formatUntilShort(at: Date, now: Date, locale: string) {
+  const minutes = Math.max(
+    1,
+    Math.round((at.getTime() - now.getTime()) / 60_000),
+  );
+  const [value, unit] =
+    minutes < 60
+      ? [minutes, "minute"]
+      : Math.round(minutes / 60) < 48
+        ? [Math.round(minutes / 60), "hour"]
+        : [Math.round(minutes / 1440), "day"];
+  return new Intl.NumberFormat(locale, {
+    style: "unit",
+    unit,
+    unitDisplay: "narrow",
+  }).format(value);
+}
+
+/**
  * A schedule's own wall-clock time. The zone name is added only when it
  * differs from the reader's, so a same-zone schedule stays uncluttered and a
  * remote one cannot be misread.

@@ -192,6 +192,10 @@ export function DataSourcesPage() {
     return actions;
   };
   const actionError = duplicate.error ?? remove.error;
+  // A failed initial load is terminal: the error alert is the state, not the
+  // empty library. Stale data from an earlier success still renders during a
+  // refetch failure.
+  const initialLoadFailed = dataSources.isError && !dataSources.data;
   const sortedSources = [...visibleDataSources].sort((a, b) =>
     sortAscending
       ? a.updatedAt.localeCompare(b.updatedAt)
@@ -286,7 +290,7 @@ export function DataSourcesPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : sortedSources.length === 0 ? (
+      ) : initialLoadFailed ? null : sortedSources.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
