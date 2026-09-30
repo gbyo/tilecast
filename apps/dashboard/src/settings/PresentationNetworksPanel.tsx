@@ -113,12 +113,7 @@ export function PresentationNetworksPanel({
   );
 
   useEffect(() => {
-    if (editing === "new") {
-      setDraft({ ...emptyDraft });
-      setSecret("");
-      setAssignmentIds([]);
-      return;
-    }
+    if (editing === "new") return;
     if (!editing || detail.data?.network.id !== editing) return;
     const network = detail.data.network;
     setDraft({
@@ -150,6 +145,13 @@ export function PresentationNetworksPanel({
               { ...draft, ...(secret.length > 0 ? { secret } : {}) },
               csrf,
             );
+      // Creation has already committed at this point. Switch the editor to
+      // that durable resource before the assignment request so a failed
+      // second step cannot make Retry create another Network.
+      if (editing === "new") {
+        setEditing(network.id);
+        setSecret("");
+      }
       await api.replacePresentationNetworkAssignments(
         network.id,
         assignmentIds,
@@ -179,12 +181,12 @@ export function PresentationNetworksPanel({
 
   const open = (network: PresentationNetwork | "new") => {
     setSaveError(undefined);
+    // Never carry values from one resource into another while the next detail
+    // request is loading or has failed.
+    setDraft({ ...emptyDraft });
+    setSecret("");
+    setAssignmentIds([]);
     setEditing(network === "new" ? "new" : network.id);
-    if (network === "new") {
-      setDraft({ ...emptyDraft });
-      setSecret("");
-      setAssignmentIds([]);
-    }
   };
 
   // A local error keeps a failed save visible after the dialog is reopened,
@@ -368,11 +370,32 @@ export function PresentationNetworksPanel({
                   : t("networks.editTitle")}
               </DialogTitle>
             </DialogHeader>
-            {editing && editing !== "new" && detail.isLoading ? (
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Spinner aria-hidden="true" />
-                {t("networks.loadingDetail")}
-              </p>
+            {editing &&
+            editing !== "new" &&
+            detail.data?.network.id !== editing ? (
+              detail.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription className="grid gap-3">
+                    <span>
+                      {t("networks.detailError")}{" "}
+                      {safeError(detail.error, t("networks.retry"))}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-fit"
+                      onClick={() => void detail.refetch()}
+                    >
+                      {t("networks.retry")}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Spinner aria-hidden="true" />
+                  {t("networks.loadingDetail")}
+                </p>
+              )
             ) : (
               <form
                 className="grid gap-4"
@@ -621,14 +644,6 @@ export function PresentationNetworksPanel({
                   )}
                 </FieldSet>
 
-                {detail.error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      {t("networks.detailError")}{" "}
-                      {safeError(detail.error, t("networks.retry"))}
-                    </AlertDescription>
-                  </Alert>
-                )}
                 {saveError && (
                   <Alert variant="destructive">
                     <AlertDescription>{saveError}</AlertDescription>
