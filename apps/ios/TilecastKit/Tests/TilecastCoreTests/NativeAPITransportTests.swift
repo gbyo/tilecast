@@ -13,6 +13,10 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         var status: Int
         var headers: [String: String] = ["Content-Type": "application/json"]
         var body: String = ""
+        /// Fails the request at the transport, as a dropped connection does.
+        var failure: URLError.Code?
+        /// Follows the response's `Location` as a redirect, for URLSession to decide.
+        var redirects = false
     }
 
     struct Seen: Sendable {
@@ -24,6 +28,8 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
 
     nonisolated(unsafe) private static var answers: [String: [Answer]] = [:]
     nonisolated(unsafe) private static var seen: [Seen] = []
+    /// Answers every request itself, when set. It sees the request the wire carried.
+    nonisolated(unsafe) static var handler: (@Sendable (Seen) -> Answer)?
     private static let lock = NSLock()
 
     /// Queues answers for a path; the last one repeats.
@@ -37,6 +43,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
         lock.withLock {
             answers = [:]
             seen = []
+            handler = nil
         }
     }
 
@@ -58,14 +65,31 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
             stream.close()
             body = data
         }
-        let answer = Self.lock.withLock { () -> Answer? in
-            Self.seen.append(Seen(method: request.httpMethod ?? "GET", url: url, headers: request.allHTTPHeaderFields ?? [:], body: body))
-            guard var queue = Self.answers[url.path], let first = queue.first else { return nil }
-            if queue.count > 1 { queue.removeFirst() }
-            Self.answers[url.path] = queue
-            return first
+        let observed = Seen(method: request.httpMethod ?? "GET", url: url, headers: request.allHTTPHeaderFields ?? [:], body: body)
+        let handler = Self.lock.withLock { () -> (@Sendable (Seen) -> Answer)? in
+            Self.seen.append(observed)
+            return Self.handler
+        }
+        let answer = handler.map { $0(observed) } ?? Self.lock.withLock { () -> Answer? in
+            // A queue for "METHOD /path" wins over one for the path alone.
+            for key in ["\(observed.method) \(url.path)", url.path] {
+                guard var queue = Self.answers[key], let first = queue.first else { continue }
+                if queue.count > 1 { queue.removeFirst() }
+                Self.answers[key] = queue
+                return first
+            }
+            return nil
         } ?? Answer(status: 404, body: #"{"error":{"code":"not_found","message":"no"}}"#)
+        if let failure = answer.failure {
+            client?.urlProtocol(self, didFailWithError: URLError(failure))
+            return
+        }
         let response = HTTPURLResponse(url: url, statusCode: answer.status, httpVersion: "HTTP/1.1", headerFields: answer.headers)!
+        if answer.redirects, let location = answer.headers["Location"].flatMap(URL.init(string:)) {
+            // URLSession asks the task delegate. If it declines, as this
+            // app's does, the redirect response is the final one.
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: location), redirectResponse: response)
+        }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(answer.body.utf8))
         client?.urlProtocolDidFinishLoading(self)
