@@ -103,6 +103,47 @@ test("reusable jobs resolve to a workflow_call contract", () => {
   }
 });
 
+test("Dashboard validation runs independently and keeps coverage across shards", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  const jobs = dashboard.jobs;
+  assert.ok(jobs.lint && jobs.tests && jobs.build && jobs.coverage);
+  assert.equal(jobs.lint.needs, undefined);
+  assert.equal(jobs.tests.needs, undefined);
+  assert.equal(jobs.build.needs, undefined);
+  assert.deepEqual(jobs.tests.strategy.matrix.shard, [1, 2]);
+  assert.deepEqual(jobs.coverage.needs, "tests");
+  assert.equal(jobs.coverage.if, "always()");
+
+  const shardRun = jobs.tests.steps.find((step) =>
+    /Run coverage-enabled Vitest shard/.test(step.name ?? ""),
+  );
+  assert.match(shardRun?.run ?? "", /--shard=\$\{\{ matrix\.shard \}\}\/2/);
+  assert.match(shardRun?.run ?? "", /--reporter=junit/);
+  assert.match(shardRun?.run ?? "", /--reporter=blob/);
+  assert.match(shardRun?.run ?? "", /--outputFile\.junit=.*matrix\.shard/);
+
+  const shardReporter = jobs.tests.steps.find((step) =>
+    /Test Reporter/.test(step.name ?? ""),
+  );
+  assert.match(
+    shardReporter?.with?.path ?? "",
+    /vitest-\$\{\{ matrix\.shard \}\}\.xml/,
+  );
+
+  const coverageMerge = jobs.coverage.steps.find((step) =>
+    /Merge shard coverage/.test(step.name ?? ""),
+  );
+  assert.match(coverageMerge?.run ?? "", /--merge-reports=vitest-reports/);
+  assert.match(coverageMerge?.run ?? "", /--coverage/);
+  assert.ok(
+    jobs.coverage.steps.some((step) =>
+      /coverage-summary\.json/.test(step.run ?? ""),
+    ),
+  );
+});
+
 test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
