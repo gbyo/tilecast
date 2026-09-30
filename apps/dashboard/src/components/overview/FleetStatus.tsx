@@ -4,15 +4,6 @@ import { TriangleAlert } from "lucide-react";
 import type { ScreenStatus } from "../../api/types";
 import { buildActivityLink } from "../../pages/activityLinks";
 import { buttonVariants } from "../ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
 import type { FleetSummary } from "./attention";
 
@@ -62,7 +53,12 @@ const statusOrder: ScreenStatus[] = [
   "disabled",
 ];
 
-export function FleetStatusCard({
+/**
+ * The fleet in one compact strip under the page header: a headline, three
+ * figures, and a proportional bar. On a phone it becomes a small bordered
+ * group so the three figures stay together.
+ */
+export function FleetStatus({
   summary,
   attentionCount,
   attentionPending,
@@ -88,66 +84,42 @@ export function FleetStatusCard({
     .join(" · ");
 
   return (
-    <Card
-      size="sm"
-      role="region"
+    <section
       aria-labelledby="fleet-status-heading"
       data-testid="fleet-status"
+      className="grid gap-2 max-sm:rounded-xl max-sm:border max-sm:p-3"
     >
-      <CardHeader>
-        <CardTitle id="fleet-status-heading" role="heading" aria-level={2}>
-          {headline}
-        </CardTitle>
-        <CardDescription>
-          {breakdown || t("operations.fleet.liveNote")}
-        </CardDescription>
-        <CardAction>
-          <Link
-            className={buttonVariants({
-              variant: "ghost",
-              size: "sm",
-              className: "max-sm:h-10",
-            })}
-            to="/screens"
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="min-w-0">
+          <h2
+            id="fleet-status-heading"
+            className="text-base font-medium leading-snug"
           >
-            {t("operations.allScreens")}
-          </Link>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <div
-          aria-hidden="true"
-          className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-muted"
-        >
-          {statusOrder
-            .filter((status) => byStatus[status] > 0)
-            .map((status) => (
-              <span
-                key={status}
-                className={barClass[status]}
-                style={{ flexGrow: byStatus[status], flexBasis: 0 }}
-              />
-            ))}
+            {headline}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {breakdown || t("operations.fleet.liveNote")}
+          </p>
         </div>
-        <ul className="grid grid-cols-3 gap-2 text-left">
-          <li className="grid content-start gap-0.5">
+        <ul className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-end sm:gap-6">
+          <li className="grid content-start">
             <span className="text-xs text-muted-foreground">
               {t("operations.fleet.online")}
             </span>
-            <strong className="text-xl font-semibold tabular-nums">
+            <strong className="text-xl font-semibold leading-tight tabular-nums">
               {online}
               <span className="text-sm font-normal text-muted-foreground">
                 /{total}
               </span>
             </strong>
           </li>
-          <li className="grid content-start gap-0.5">
+          <li className="grid content-start">
             <span className="text-xs text-muted-foreground">
               {t("operations.fleet.playing")}
             </span>
             <Playing confirmed={confirmed} />
           </li>
-          <li className="grid content-start gap-0.5">
+          <li className="grid content-start">
             <span className="text-xs text-muted-foreground">
               {t("operations.fleet.attention")}
             </span>
@@ -159,7 +131,7 @@ export function FleetStatusCard({
                 <Skeleton className="h-7 w-8" />
               </span>
             ) : (
-              <strong className="flex items-center gap-1.5 text-xl font-semibold tabular-nums">
+              <strong className="flex items-center gap-1.5 text-xl font-semibold leading-tight tabular-nums">
                 {attentionCount > 0 && (
                   <TriangleAlert
                     className="size-4 text-destructive"
@@ -170,12 +142,46 @@ export function FleetStatusCard({
               </strong>
             )}
           </li>
+          <li className="hidden sm:block">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+              to="/screens"
+            >
+              {t("operations.allScreens")}
+            </Link>
+          </li>
         </ul>
-      </CardContent>
-      <CardFooter className="text-xs text-muted-foreground">
-        {t("operations.fleet.scopeNote")}
-      </CardFooter>
-    </Card>
+      </div>
+      <div
+        aria-hidden="true"
+        className="flex h-1 w-full gap-px overflow-hidden rounded-full bg-muted"
+      >
+        {statusOrder
+          .filter((status) => byStatus[status] > 0)
+          .map((status) => (
+            <span
+              key={status}
+              className={barClass[status]}
+              style={{ flexGrow: byStatus[status], flexBasis: 0 }}
+            />
+          ))}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground">
+          {t("operations.fleet.scopeNote")}
+        </p>
+        <Link
+          className={buttonVariants({
+            variant: "ghost",
+            size: "sm",
+            className: "shrink-0 sm:hidden",
+          })}
+          to="/screens"
+        >
+          {t("operations.allScreens")}
+        </Link>
+      </div>
+    </section>
   );
 }
 
@@ -190,26 +196,26 @@ function Playing({ confirmed }: { confirmed: ConfirmedPlaying }) {
   }
   if (confirmed.state === "unavailable") {
     return (
-      <>
-        <strong className="text-xl font-semibold text-muted-foreground">
+      <span className="flex items-baseline gap-1.5">
+        <strong className="text-xl font-semibold leading-tight text-muted-foreground">
           —
         </strong>
         <span className="text-xs text-muted-foreground">
           {t("operations.fleet.unavailable")}
         </span>
-      </>
+      </span>
     );
   }
   return (
     <Link
-      className="-m-1 grid content-start gap-0.5 rounded-md p-1 hover:bg-muted"
+      className="-m-1 flex items-baseline gap-1.5 rounded-md p-1 hover:bg-muted"
       to={buildActivityLink("overview")}
       aria-label={t("operations.fleet.playingLink", {
         playing: confirmed.playing,
         measured: confirmed.measured,
       })}
     >
-      <strong className="text-xl font-semibold tabular-nums">
+      <strong className="text-xl font-semibold leading-tight tabular-nums">
         {confirmed.playing}
       </strong>
       <span className="text-xs text-muted-foreground">
@@ -222,19 +228,13 @@ function Playing({ confirmed }: { confirmed: ConfirmedPlaying }) {
 export function FleetStatusSkeleton() {
   const { t } = useTranslation("activity");
   return (
-    <Card size="sm" role="status" aria-label={t("operations.fleet.loading")}>
-      <CardHeader>
-        <Skeleton className="h-5 w-56 max-w-full" />
-        <Skeleton className="h-4 w-40 max-w-full" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-1.5 w-full" />
-        <div className="grid grid-cols-3 gap-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </CardContent>
-    </Card>
+    <div
+      role="status"
+      aria-label={t("operations.fleet.loading")}
+      className="grid gap-2"
+    >
+      <Skeleton className="h-10 w-64 max-w-full" />
+      <Skeleton className="h-1 w-full" />
+    </div>
   );
 }
