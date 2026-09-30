@@ -248,7 +248,7 @@ func (s *Service) CreateWidget(ctx context.Context, user uuid.UUID, input Widget
 	if _, err = tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5)`, id, organizationID, input.Name, input.Description, user); err != nil {
 		return Asset{}, err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,preset_id,config_version,configuration) VALUES($1,$2,$3,$4,$5::jsonb)`, id, input.Provider, input.PresetID, widgetConfigVersion(input.Provider), string(encoded)); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,preset_id,config_version,configuration) VALUES($1,$2,$3,$4,$5::jsonb)`, id, input.Provider, input.PresetID, s.widgetConfigVersion(input.Provider), string(encoded)); err != nil {
 		return Asset{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'widget.created','widget',$3,jsonb_build_object('provider',$4::text))`, uuid.New(), user, id.String(), input.Provider); err != nil {
@@ -327,7 +327,7 @@ func (s *Service) UpdateWidget(ctx context.Context, id, user uuid.UUID, input Wi
 	if err != nil || tag.RowsAffected() == 0 {
 		return Asset{}, ErrNotFound
 	}
-	if _, err = tx.Exec(ctx, updateWidgetStatement, id, string(encoded), widgetConfigVersion(input.Provider), input.PresetID); err != nil {
+	if _, err = tx.Exec(ctx, updateWidgetStatement, id, string(encoded), s.widgetConfigVersion(input.Provider), input.PresetID); err != nil {
 		return Asset{}, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'widget.updated','widget',$3)`, uuid.New(), user, id.String()); err != nil {
@@ -403,13 +403,15 @@ func (s *Service) WidgetPreview(ctx context.Context, id uuid.UUID) (WidgetPrevie
 	return image, nil
 }
 
-func widgetConfigVersion(provider string) int {
-	switch provider {
-	case "countdown", "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline":
-		return 2
-	default:
+func (s *Service) widgetConfigVersion(provider string) int {
+	if s.definitions == nil {
 		return 1
 	}
+	definition, ok := s.definitions.Widget(provider)
+	if !ok {
+		return 1
+	}
+	return definition.PersistedConfigVersion()
 }
 
 func (s *Service) DuplicateWidget(ctx context.Context, id, user uuid.UUID) (Asset, error) {

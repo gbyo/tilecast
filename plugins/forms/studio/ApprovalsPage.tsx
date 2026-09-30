@@ -178,7 +178,50 @@ export function ApprovalsPage() {
         </Empty>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border">
+          <div className="grid gap-2 lg:hidden">
+            {items.map((item) => (
+              <article
+                key={item.recordId}
+                className="grid gap-3 rounded-xl border border-border p-3"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-muted-foreground">
+                      {item.formName}
+                    </p>
+                    <Link
+                      to={recordHref(item.dataSourceId, item.recordId)}
+                      className="mt-0.5 block truncate font-medium text-primary hover:underline"
+                    >
+                      {item.title || t("approvals.untitledSubmission")}
+                    </Link>
+                  </div>
+                  <Badge variant="secondary">{item.stateLabel}</Badge>
+                </div>
+                <div className="grid gap-1 text-xs text-muted-foreground">
+                  <span>
+                    {item.submitterName || t("approvals.unknownSubmitter")}
+                  </span>
+                  <span>{new Date(item.submittedAt).toLocaleString()}</span>
+                  <span>
+                    {displayWindow(t, item.displayAt, item.expiresAt)}
+                  </span>
+                </div>
+                <Link
+                  to={recordHref(item.dataSourceId, item.recordId)}
+                  aria-label={t("approvals.reviewActionLabel", {
+                    title:
+                      item.title || t("approvals.untitledSubmissionInline"),
+                    formName: item.formName,
+                  })}
+                  className="w-fit font-medium text-primary hover:underline"
+                >
+                  {t("approvals.table.reviewAction")}
+                </Link>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
             <Table className="min-w-[48rem]">
               <TableHeader>
                 {table.getHeaderGroups().map((group) => (

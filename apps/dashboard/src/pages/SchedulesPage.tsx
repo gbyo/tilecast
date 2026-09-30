@@ -37,7 +37,7 @@ import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -114,6 +114,8 @@ export function GroupsPage() {
       toast.add({ title: "Display Group created.", type: "success" });
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
+    onError: () =>
+      toast.add({ title: t("groups.errors.create"), type: "error" }),
   });
 
   return (
@@ -220,8 +222,7 @@ export function GroupsPage() {
           pending={create.isPending}
           onClose={() => setCreateOpen(false)}
           onSave={(value) => {
-            create.mutate(value);
-            setCreateOpen(false);
+            create.mutate(value, { onSuccess: () => setCreateOpen(false) });
           }}
         />
       )}
@@ -285,6 +286,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Screen added to Display Group.", type: "success" });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.addScreen"), type: "error" }),
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
@@ -296,6 +299,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.removeScreen"), type: "error" }),
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -308,6 +313,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Display Group updated.", type: "success" });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.update"), type: "error" }),
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
@@ -315,6 +322,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Display Group deleted.", type: "success" });
         void navigate("/groups");
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.delete"), type: "error" }),
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -332,6 +341,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.assignment"), type: "error" }),
     });
   useEffect(() => {
     setSelectedPresentation(
@@ -342,6 +353,45 @@ export function GroupDetailPage() {
           : "",
     );
   }, [group.data?.layoutId, group.data?.playlistId]);
+  if (group.isPending)
+    return (
+      <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  if (group.isError && !group.data) {
+    const notFound =
+      group.error instanceof ApiError &&
+      group.error.status === 404 &&
+      group.error.code === "schedule_not_found";
+    return (
+      <section className="grid max-w-xl gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {notFound
+            ? t("groups.detail.notFoundTitle")
+            : t("groups.detail.loadErrorTitle")}
+        </h1>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {notFound
+              ? t("groups.detail.notFoundBody")
+              : t("groups.detail.loadErrorBody")}
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-wrap gap-2">
+          {!notFound && (
+            <Button type="button" onClick={() => void group.refetch()}>
+              {t("common:actions.retry")}
+            </Button>
+          )}
+          <Link to="/groups" className={buttonVariants({ variant: "outline" })}>
+            {t("groups.detail.backToGroups")}
+          </Link>
+        </div>
+      </section>
+    );
+  }
   if (!group.data)
     return (
       <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
@@ -422,8 +472,7 @@ export function GroupDetailPage() {
                 pending={update.isPending}
                 onClose={() => setEditOpen(false)}
                 onSave={(value) => {
-                  update.mutate(value);
-                  setEditOpen(false);
+                  update.mutate(value, { onSuccess: () => setEditOpen(false) });
                 }}
               />
             )}
@@ -916,7 +965,7 @@ function GroupDialog({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !pending) onClose();
       }}
     >
       <DialogContent>
@@ -958,7 +1007,12 @@ function GroupDialog({
             </Field>
           </div>
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose}>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={pending}
+              onClick={onClose}
+            >
               {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || pending}>

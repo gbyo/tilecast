@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { PanelLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "../components/ui/button";
-import { Field, FieldLabel } from "../components/ui/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -47,7 +39,7 @@ export function SettingsShell({
   children: React.ReactNode;
 }) {
   const { t } = useTranslation(["settings", "common"]);
-  const navigate = useNavigate();
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const details = sectionDetails[active];
   const items = settingsNavigation.flatMap((group) => group.items);
   const activeItem = items.find((item) => item.id === active);
@@ -60,37 +52,45 @@ export function SettingsShell({
   return (
     <div className="mx-auto grid max-w-[1240px] grid-cols-[208px_minmax(0,1fr)] items-start gap-8 max-[1050px]:grid-cols-[190px_minmax(0,1fr)] max-[1050px]:gap-[22px] max-[850px]:grid-cols-1">
       <div>
-        <Field className="hidden max-[850px]:grid max-[850px]:gap-1">
-          <FieldLabel htmlFor="settings-mobile-section">
-            {t("shell.sectionLabel")}
-          </FieldLabel>
-          <Select
-            items={items.map((item) => ({
-              value: item.id,
-              label: `${t(item.labelKey)}${dirty.has(item.id) ? t("shell.unsavedSuffix") : ""}`,
-            }))}
-            value={active}
-            onValueChange={(value) => {
-              const item = items.find((candidate) => candidate.id === value);
-              if (item && onNavigate(item.id))
-                void navigate(`/settings/${item.path}`);
-            }}
+        <Sheet
+          open={mobileNavigationOpen}
+          onOpenChange={setMobileNavigationOpen}
+        >
+          <SheetTrigger
+            render={
+              <Button
+                variant="outline"
+                className="hidden w-full justify-between max-[850px]:flex"
+              />
+            }
           >
-            <SelectTrigger id="settings-mobile-section" className="w-full">
-              <SelectValue>
-                {activeItem ? t(activeItem.labelKey) : ""}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {t(item.labelKey)}
-                  {dirty.has(item.id) ? t("shell.unsavedSuffix") : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+            <span className="flex min-w-0 items-center gap-2">
+              <PanelLeft aria-hidden="true" />
+              <span className="truncate">
+                {activeItem ? t(activeItem.labelKey) : t("shell.sectionsLabel")}
+              </span>
+            </span>
+            <span className="text-xs font-normal text-muted-foreground">
+              {t("shell.sectionsLabel")}
+            </span>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-72 gap-0 overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{t("shell.sectionsLabel")}</SheetTitle>
+            </SheetHeader>
+            <nav aria-label={t("shell.sectionsLabel")} className="px-2 pb-4">
+              <SettingsSectionsNav
+                active={active}
+                dirty={dirty}
+                onNavigate={(nextSection) => {
+                  const shouldNavigate = onNavigate(nextSection);
+                  if (shouldNavigate) setMobileNavigationOpen(false);
+                  return shouldNavigate;
+                }}
+              />
+            </nav>
+          </SheetContent>
+        </Sheet>
         <nav
           aria-label={t("shell.sectionsLabel")}
           className="max-[850px]:hidden"

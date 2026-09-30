@@ -147,7 +147,13 @@ export function WidgetsPage() {
           </ToggleGroupItem>
         </ToggleGroup>
       </DashboardListToolbar>
-      {widgets.isError && (
+      {widgets.isLoading ? (
+        <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
+      ) : widgets.isError ? (
         <Alert variant="destructive">
           <AlertDescription>
             {widgets.error instanceof ApiError
@@ -155,13 +161,6 @@ export function WidgetsPage() {
               : t("widgets.list.loadError")}
           </AlertDescription>
         </Alert>
-      )}
-      {widgets.isLoading ? (
-        <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
       ) : widgets.data?.items?.length === 0 ? (
         <Empty>
           <EmptyHeader>

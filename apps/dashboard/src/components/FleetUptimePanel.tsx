@@ -6,7 +6,6 @@ import type { TFunction } from "i18next";
 import { translateKnown } from "../i18n";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
-  ChevronDown,
   CircleAlert,
   CircleCheck,
   CircleHelp,
@@ -45,9 +44,10 @@ import { Skeleton } from "./ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "./ui/collapsible";
+} from "./studio/StudioCollapsible";
 
 // Window and state structures hold translation keys, never rendered text.
 // Labels are resolved with t() at render so the panel follows language
@@ -380,11 +380,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
           <span>
             {t("uptime.perScreenTitle")} · {screenBreakdown(report, t)}
           </span>
-          <ChevronDown
-            size={16}
-            aria-hidden="true"
-            className={screensOpen ? "rotate-180" : undefined}
-          />
+          <CollapsibleChevron size={16} />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3 divide-y divide-border">
           {report.screens.map((screen) => (

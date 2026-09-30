@@ -21,7 +21,7 @@ enum SystemSharePresenter {
     /// Presents the sheet. Returns false when it cannot: one is already up,
     /// or there is no window to present from.
     static func present(_ share: SystemShare) -> Bool {
-        guard !isPresenting, let presenter = topViewController() else { return false }
+        guard !isPresenting, let presenter = TopViewController.find() else { return false }
         var items: [Any] = []
         if let text = share.text { items.append(ShareItem(value: text, title: share.title, url: nil)) }
         if let url = share.url { items.append(ShareItem(value: url, title: share.title, url: url)) }
@@ -40,15 +40,6 @@ enum SystemSharePresenter {
         isPresenting = true
         presenter.present(controller, animated: true)
         return true
-    }
-
-    private static func topViewController() -> UIViewController? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
-        guard let window = scene?.windows.first(where: \.isKeyWindow) ?? scene?.windows.first,
-              var top = window.rootViewController else { return nil }
-        while let presented = top.presentedViewController, !presented.isBeingDismissed { top = presented }
-        return top
     }
 }
 
