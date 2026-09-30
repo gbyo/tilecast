@@ -340,6 +340,14 @@ func TestNewFeatureQueries(t *testing.T) {
 		if err == nil {
 			t.Error("a screen outside the scope must be refused")
 		}
+		scopeServer := &server{db: pool, devices: deviceService}
+		groupAllowed, err := scopeServer.screenTargetsWithinScope(ctx, owner.User.ID, "administrator", nil, []uuid.UUID{groupID})
+		if err != nil {
+			t.Fatalf("group scope authorization: %v", err)
+		}
+		if groupAllowed {
+			t.Error("a Display Group containing only out-of-scope screens must be refused")
+		}
 		narrowed, err := deviceService.ListScreensForUser(ctx, owner.User.ID, "administrator")
 		if err != nil {
 			t.Fatalf("ListScreensForUser narrowed: %v", err)
@@ -359,6 +367,13 @@ func TestNewFeatureQueries(t *testing.T) {
 		}
 		if len(viaGroup) != 2 {
 			t.Errorf("group-scoped list has %d screens, want 2", len(viaGroup))
+		}
+		groupAllowed, err = scopeServer.screenTargetsWithinScope(ctx, owner.User.ID, "administrator", nil, []uuid.UUID{groupID})
+		if err != nil {
+			t.Fatalf("group-granted authorization: %v", err)
+		}
+		if !groupAllowed {
+			t.Error("an explicitly group-scoped account must reach every member of that group")
 		}
 		if _, err := deviceService.ScopesFor(ctx, owner.User.ID); err != nil {
 			t.Fatalf("ScopesFor: %v", err)

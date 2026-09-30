@@ -66,6 +66,16 @@ func (s *server) listTakeovers(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	rows, err := s.db.Query(r.Context(), `SELECT e.id,e.name,e.description,e.playlist_id,p.name,e.status,e.activated_at,e.expires_at,e.cancelled_at,e.cancellation_reason,
 		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id),
 		(SELECT count(*) FROM takeover_screen_states es WHERE es.takeover_id=e.id AND es.state='active'),
@@ -88,7 +98,26 @@ func (s *server) listTakeovers(w http.ResponseWriter, r *http.Request) {
 			s.internalError(w, r, err)
 			return
 		}
+		if scoped {
+			screens, scopeErr := s.takeoverScopeScreens(r.Context(), id)
+			if scopeErr != nil {
+				s.internalError(w, r, scopeErr)
+				return
+			}
+			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, nil)
+			if scopeErr != nil {
+				s.internalError(w, r, scopeErr)
+				return
+			}
+			if !allowed {
+				continue
+			}
+		}
 		items = append(items, map[string]any{"id": id, "name": name, "description": description, "playlistId": playlist, "playlistName": playlistName, "status": status, "activatedAt": activated, "expiresAt": expires, "cancelledAt": cancelled, "cancellationReason": reason, "affectedCount": affected, "activeCount": active, "preparingCount": preparing, "failedCount": failed})
+	}
+	if err := rows.Err(); err != nil {
+		s.internalError(w, r, err)
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
 }
