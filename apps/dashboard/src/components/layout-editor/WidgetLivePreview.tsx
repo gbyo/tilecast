@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
-import { V2ZonePreview } from "./V2ZonePreview";
+import { layoutPreviewDateToMs, V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
+import {
+  isAvailableAt,
+  nextAvailabilityTransition,
+} from "@tilecast/player-runtime/content-availability";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import type {
   Asset,
   CalendarEvent,
@@ -93,6 +98,22 @@ export function nextPlaylistPreviewIndex(
   return index + 1;
 }
 
+export function availablePlaylistZoneItems(
+  playlist: Playlist,
+  assetsById: Map<string, Asset>,
+  at: Date,
+): PlaylistItem[] {
+  return playlist.items.filter((item) => {
+    const asset = assetsById.get(item.assetId);
+    return (
+      item.assetStatus === "ready" &&
+      Boolean(asset) &&
+      isAvailableAt(item, at) &&
+      isAvailableAt(asset, at)
+    );
+  });
+}
+
 export interface ZoneCaptureTracking {
   /** Coordinator owned by the Layout editor canvas. */
   coordinator: LayoutCaptureCoordinator;
@@ -116,7 +137,48 @@ export function PlaylistZonePreview({
   captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
-  const items = playlist.items.filter((item) => item.assetStatus === "ready");
+  const regional = useOrganizationRegionalProfile();
+  const fixedAvailabilityAt = layoutPreviewDateToMs(
+    previewDate,
+    regional.timezone,
+  );
+  const [liveAvailabilityAt, setLiveAvailabilityAt] = useState(() =>
+    Date.now(),
+  );
+  const availabilityAtMs = fixedAvailabilityAt ?? liveAvailabilityAt;
+  const availabilityWindows = useMemo(
+    () =>
+      playlist.items.flatMap((item) => [item, assetsById.get(item.assetId)]),
+    [playlist.items, assetsById],
+  );
+  const nextTransition = useMemo(
+    () =>
+      fixedAvailabilityAt === null
+        ? nextAvailabilityTransition(
+            availabilityWindows,
+            new Date(availabilityAtMs),
+          )
+        : null,
+    [availabilityAtMs, availabilityWindows, fixedAvailabilityAt],
+  );
+  useEffect(() => {
+    if (fixedAvailabilityAt !== null || !nextTransition) return;
+    const delayMs = Math.max(0, nextTransition.getTime() - Date.now());
+    const timer = window.setTimeout(
+      () => setLiveAvailabilityAt(Date.now()),
+      delayMs + 1,
+    );
+    return () => window.clearTimeout(timer);
+  }, [fixedAvailabilityAt, nextTransition]);
+  const items = useMemo(
+    () =>
+      availablePlaylistZoneItems(
+        playlist,
+        assetsById,
+        new Date(availabilityAtMs),
+      ),
+    [assetsById, availabilityAtMs, playlist],
+  );
   const [index, setIndex] = useState(0);
   const current = items[index % Math.max(1, items.length)];
   const asset = current ? assetsById.get(current.assetId) : undefined;
