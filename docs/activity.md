@@ -151,6 +151,10 @@ rotating playlist zone must also produce continuing evidence. A static Widget or
 image zone renders once and holds. A single-item zone loops in place and does
 not advance, so it does not require a continuing cadence.
 
+A component Widget reports its first ready or expected-empty state once. If it
+reports a lifecycle error later, the Player reports a playback failure for
+that zone. This error does not add another render signal or stop the Layout.
+
 A valid long-lived still image is never called frozen for having identical pixels, and a fingerprint change on a still image is treated as noise rather than evidence. The player reports `lastMeaningfulProgressAt`, `stallStartedAt`, `stallDurationMs`, `stallReason`, `expectedMotion` and `rendererResponding` on every heartbeat, and the recovery supervisor is fed from the assessment rather than from raw signals. The stall is measured from when progress was last seen, not from when it was noticed, so the duration reflects how long the screen has actually been wrong.
 
 ## Uptime derivation

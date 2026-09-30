@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Archive, MonitorOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { archivedScreens } from "../api/archivedScreens";
+import { archivedScreens, type ArchivedScreen } from "../api/archivedScreens";
 import { useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -85,43 +85,88 @@ export function ArchivedScreensPage() {
               {t("archive.count", { count: screens.length })}
             </span>
           </header>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("archive.colScreen")}</TableHead>
-                <TableHead>{t("archive.colDevice")}</TableHead>
-                <TableHead>{t("archive.colArchived")}</TableHead>
-                <TableHead>{t("archive.colReason")}</TableHead>
-                <TableHead>{t("archive.colLastContact")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {screens.map((screen) => (
-                <TableRow key={screen.id}>
-                  <TableCell className="font-medium">
-                    <span className="flex items-center gap-2">
-                      <MonitorOff
-                        className="size-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      {screen.name}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {screen.deviceManufacturer || screen.platform}{" "}
-                    {screen.deviceModel}
-                  </TableCell>
-                  <TableCell>{formatDate(screen.archivedAt)}</TableCell>
-                  <TableCell>
-                    {screen.archivedReason || t("status.revoked")}
-                  </TableCell>
-                  <TableCell>{formatDate(screen.lastContactAt)}</TableCell>
+          <div className="grid gap-2 lg:hidden">
+            {screens.map((screen) => (
+              <ArchivedScreenMobileCard
+                key={screen.id}
+                screen={screen}
+                formatDate={formatDate}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("archive.colScreen")}</TableHead>
+                  <TableHead>{t("archive.colDevice")}</TableHead>
+                  <TableHead>{t("archive.colArchived")}</TableHead>
+                  <TableHead>{t("archive.colReason")}</TableHead>
+                  <TableHead>{t("archive.colLastContact")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {screens.map((screen) => (
+                  <TableRow key={screen.id}>
+                    <TableCell className="font-medium">
+                      <span className="flex items-center gap-2">
+                        <MonitorOff
+                          className="size-4 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {screen.name}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {screen.deviceManufacturer || screen.platform}{" "}
+                      {screen.deviceModel}
+                    </TableCell>
+                    <TableCell>{formatDate(screen.archivedAt)}</TableCell>
+                    <TableCell>
+                      {screen.archivedReason || t("status.revoked")}
+                    </TableCell>
+                    <TableCell>{formatDate(screen.lastContactAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </section>
       )}
     </div>
+  );
+}
+
+function ArchivedScreenMobileCard({
+  screen,
+  formatDate,
+}: {
+  screen: ArchivedScreen;
+  formatDate: (value?: string) => string;
+}) {
+  const { t } = useTranslation("screens");
+  return (
+    <article className="grid gap-2 rounded-xl border border-border p-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <MonitorOff
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <strong className="truncate text-sm font-medium">{screen.name}</strong>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t("archive.colReason")}: {screen.archivedReason || t("status.revoked")}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {t("archive.colArchived")}: {formatDate(screen.archivedAt)}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {t("archive.colLastContact")}: {formatDate(screen.lastContactAt)}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        {t("archive.colDevice")}: {screen.deviceManufacturer || screen.platform}{" "}
+        {screen.deviceModel}
+      </p>
+    </article>
   );
 }
