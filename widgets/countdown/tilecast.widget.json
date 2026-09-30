@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "countdown",
   "version": 1,
+  "configVersion": 2,
   "name": "Countdown",
   "description": "Count down to, or up from, a date and time.",
   "category": "Essentials",

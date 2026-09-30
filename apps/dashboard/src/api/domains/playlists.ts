@@ -6,6 +6,7 @@
  * normalizers bridging wire and view shapes.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import { fetchAllPages } from "../pagination";
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   Playlist,
@@ -93,12 +94,19 @@ export function normalizePlaylistAssignment(
   };
 }
 
-export async function listPlaylists(search = ""): Promise<PlaylistList> {
+export async function listPlaylistsPage(
+  search = "",
+  page = 1,
+): Promise<PlaylistList> {
   return normalizePlaylistList(
     await apiGet("/api/v1/playlists", {
-      params: { query: { page: 1, pageSize: 100, search } },
+      params: { query: { page, pageSize: 100, search } },
     }),
   );
+}
+
+export function listPlaylists(search = ""): Promise<PlaylistList> {
+  return fetchAllPages((page) => listPlaylistsPage(search, page));
 }
 
 export async function getPlaylist(id: string): Promise<Playlist> {

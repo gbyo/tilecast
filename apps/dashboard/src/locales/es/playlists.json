@@ -22,6 +22,7 @@
   "library": {
     "title": "Listas de reproducción",
     "subtitle": "Busca, previsualiza y organiza la reproducción a pantalla completa para tus pantallas.",
+    "loadError": "No se pudieron cargar las listas de reproducción.",
     "create": "Crear lista de reproducción",
     "searchLabel": "Buscar listas de reproducción",
     "searchPlaceholder": "Buscar nombres, descripciones o contenido previsualizado",

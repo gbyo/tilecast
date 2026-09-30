@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   ArchiveRestore,
-  ChevronDown,
   Copy,
   EllipsisVertical,
   FileImage,
@@ -71,9 +70,10 @@ import { Checkbox } from "../components/ui/checkbox";
 import { DateTimeInput } from "../components/date-picker";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -1942,7 +1942,7 @@ function ManageOrganizationDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("media.manage.title")}</DialogTitle>
           <DialogDescription>{t("media.manage.description")}</DialogDescription>
@@ -3142,7 +3142,7 @@ export function WebsiteEditor({
       <Collapsible>
         <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("media.website.advancedSettings")}
-          <ChevronDown size={16} aria-hidden="true" />
+          <CollapsibleChevron size={16} />
         </CollapsibleTrigger>
         <CollapsibleContent className="grid gap-4 pt-3">
           <Field>

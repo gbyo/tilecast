@@ -1,4 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ChevronRight,
   Copy,
@@ -17,6 +21,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type {
   LayoutDocument,
   LayoutOrientation,
@@ -371,9 +376,11 @@ export function LayoutsPage() {
     null,
   );
 
-  const layouts = useQuery({
-    queryKey: ["layouts", "library"],
-    queryFn: () => api.layouts(""),
+  const layouts = useInfiniteQuery({
+    queryKey: ["layouts", "library", search],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.layoutPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
   const create = useMutation({
     mutationFn: async () => {
@@ -511,9 +518,10 @@ export function LayoutsPage() {
   }, [view]);
 
   const allLayouts = useMemo(
-    () => layouts.data?.items ?? [],
-    [layouts.data?.items],
+    () => layouts.data?.pages.flatMap((page) => page.items) ?? [],
+    [layouts.data?.pages],
   );
+  const totalLayouts = layouts.data?.pages[0]?.total ?? 0;
   const visibleLayouts = useMemo(
     () =>
       filterAndSortLayouts(
@@ -732,7 +740,7 @@ export function LayoutsPage() {
           {t("library.showingCount", {
             count: allLayouts.length,
             shown: visibleLayouts.length,
-            total: allLayouts.length,
+            total: totalLayouts,
           })}
         </div>
       )}
@@ -921,6 +929,21 @@ export function LayoutsPage() {
               </ContextMenu>
             );
           })}
+        </div>
+      )}
+
+      {layouts.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={layouts.isFetchingNextPage}
+            onClick={() => void layouts.fetchNextPage()}
+          >
+            {layouts.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
 

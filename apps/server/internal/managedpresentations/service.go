@@ -9,14 +9,35 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // Service owns the core content rows behind a system-managed Widget playlist.
 // The caller supplies content, but never writes these core tables itself.
-type Service struct{ db *pgxpool.Pool }
+type Service struct {
+	db          *pgxpool.Pool
+	definitions *contentdefs.Catalog
+}
 
-func NewService(db *pgxpool.Pool) *Service { return &Service{db: db} }
+func NewService(db *pgxpool.Pool) *Service {
+	return &Service{db: db, definitions: contentdefs.MustLoad()}
+}
+
+func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) {
+	s.definitions = catalog
+}
+
+func (s *Service) widgetConfigVersion(provider string) int {
+	if s.definitions == nil {
+		return 1
+	}
+	definition, ok := s.definitions.Widget(provider)
+	if !ok {
+		return 1
+	}
+	return definition.PersistedConfigVersion()
+}
 
 func (s *Service) EnsureInTx(ctx context.Context, tx pgx.Tx, existing plugin.ManagedPresentation, request plugin.ManagedPresentationRequest) (plugin.ManagedPresentation, error) {
 	if !json.Valid([]byte(request.DataSourceConfiguration)) || !json.Valid([]byte(request.CachedPayload)) || request.WidgetConfiguration == nil || request.Name == "" || request.DataSourceProvider == "" || request.WidgetProvider == "" {
@@ -54,7 +75,7 @@ func (s *Service) EnsureInTx(ctx context.Context, tx pgx.Tx, existing plugin.Man
 	if _, err := tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by,system_managed) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5,TRUE)`, result.WidgetID, org, request.Name, request.Description, request.CreatedBy); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration) VALUES($1,$2,1,$3::jsonb)`, result.WidgetID, request.WidgetProvider, widgetConfiguration); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration) VALUES($1,$2,$3,$4::jsonb)`, result.WidgetID, request.WidgetProvider, s.widgetConfigVersion(request.WidgetProvider), widgetConfiguration); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,description,created_by,system_managed) VALUES($1,$2,$3,$4,$5,TRUE)`, result.PlaylistID, org, request.Name, request.Description, request.CreatedBy); err != nil {
