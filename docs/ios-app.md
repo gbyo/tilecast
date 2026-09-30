@@ -266,7 +266,7 @@ To add a destination, add a Studio route with `navigation` metadata and a locali
 
 ## Native presentations
 
-Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, and the Playlist preview. A browser still opens the preview in a popup. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
+Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, the Playlist preview, and media asset details. A browser keeps its own popup, Sheet, or Drawer. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
 
 ### Two pages, one data store
 
@@ -321,6 +321,26 @@ A dialog that Studio opens in a presentation shows in the presentation page. The
 ### Adding a presentation
 
 Add a child route to `presentationRoutes` in `apps/dashboard/src/App.tsx`. Open it with `useOpenNativePresentation()` from `apps/dashboard/src/native-presentation/`, and show the web dialog when it returns `false`. Describe the chrome with `usePresentationChrome()`. Use `useNativePresentation()` to close or to navigate. Do not change `apps/ios`.
+
+### Which surfaces move to a sheet
+
+A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
+
+| Surface                                             | Status   | Notes                                                                                              |
+| --------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done     | `/__native/modal/live-stream/:screenId`                                                            |
+| Layout preview                                      | Done     | Saves the draft first. Replaces a popup, which the app cannot open                                 |
+| Playlist preview                                    | Done     | Replaces a popup, which the app cannot open                                                        |
+| Media asset details                                 | Done     | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
+| Activity incident and report details                | Next     | Opened by identifier. Check the acknowledge actions first                                          |
+| Update deployment drawer                            | Later    | Move it with the Milestone 6 and 7 settings work                                                   |
+| Confirmations (`useConfirm`, 13 call sites)         | Separate | Not a presentation. One change to the hook and one generic alert message can make them native      |
+| Playlist item inspector and Playlist details drawer | Stay     | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
+| Create and edit forms                               | Stay     | Low value, and most save into page state                                                           |
+| Pair Screen                                         | Stay     | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
+| Security, plugin pages, content pickers, settings   | Stay     | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+
+A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
 ## Authentication
 
