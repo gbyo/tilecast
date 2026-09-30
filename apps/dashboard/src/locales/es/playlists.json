@@ -7,18 +7,6 @@
   "units": {
     "secondsShort": "s"
   },
-  "list": {
-    "title": "Listas de reproducción",
-    "subtitle": "Reproducción ordenada a pantalla completa para las pantallas asignadas.",
-    "create": "Crear lista de reproducción",
-    "searchLabel": "Buscar listas de reproducción",
-    "searchPlaceholder": "Buscar listas de reproducción",
-    "emptyTitle": "Aún no hay listas de reproducción",
-    "emptyDescriptionManage": "Crea una lista de reproducción y agrega imágenes y videos listos.",
-    "emptyDescriptionReadonly": "Un propietario, administrador o editor puede crear listas de reproducción.",
-    "noDescription": "Sin descripción",
-    "revision": "Revisión {{revision}}"
-  },
   "library": {
     "title": "Listas de reproducción",
     "subtitle": "Busca, previsualiza y organiza la reproducción a pantalla completa para tus pantallas.",
