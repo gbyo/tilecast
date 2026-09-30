@@ -379,7 +379,7 @@ export function ContentPage() {
     const ids = [...checkedAssetIds];
     await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
     toast.add({
-      title: `${ids.length} archived item${ids.length === 1 ? "" : "s"} permanently deleted.`,
+      title: t("media.bulkDelete.success", { count: ids.length }),
       type: "success",
     });
     setCheckedAssetIds(new Set());

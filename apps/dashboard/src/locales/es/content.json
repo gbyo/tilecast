@@ -15,6 +15,8 @@
     },
     "bulkDelete": {
       "keepItems": "Conservar elementos",
+      "success_one": "Se eliminó {{count}} elemento archivado de forma permanente.",
+      "success_other": "Se eliminaron {{count}} elementos archivados de forma permanente.",
       "title_many": "¿Eliminar de forma permanente {{count}} de elementos archivados?",
       "title_one": "¿Eliminar de forma permanente {{count}} elemento archivado?",
       "title_other": "¿Eliminar de forma permanente {{count}} elementos archivados?"
