@@ -323,44 +323,46 @@ export function DataSourcesPage() {
               />
             ))}
           </div>
-        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("dataSources.list.columns.name")}</TableHead>
-                <TableHead>{t("dataSources.list.columns.provider")}</TableHead>
-                <TableHead>{t("dataSources.list.columns.status")}</TableHead>
-                <TableHead>
-                  {t("dataSources.list.columns.cachedRecords")}
-                </TableHead>
-                <TableHead
-                  aria-sort={sortAscending ? "ascending" : "descending"}
-                >
-                  {t("dataSources.list.columns.updated")}
-                </TableHead>
-                <TableHead>{t("dataSources.list.columns.usedBy")}</TableHead>
-                <TableHead>
-                  <span className="sr-only">
-                    {t("dataSources.list.columns.actions")}
-                  </span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedSources.map((source) => (
-                <DataSourceRow
-                  key={source.id}
-                  source={source}
-                  providerName={
-                    definitionsByProvider.get(source.provider)?.name ??
-                    providerLabel(source.provider, t)
-                  }
-                  actions={actionsFor(source)}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("dataSources.list.columns.name")}</TableHead>
+                  <TableHead>
+                    {t("dataSources.list.columns.provider")}
+                  </TableHead>
+                  <TableHead>{t("dataSources.list.columns.status")}</TableHead>
+                  <TableHead>
+                    {t("dataSources.list.columns.cachedRecords")}
+                  </TableHead>
+                  <TableHead
+                    aria-sort={sortAscending ? "ascending" : "descending"}
+                  >
+                    {t("dataSources.list.columns.updated")}
+                  </TableHead>
+                  <TableHead>{t("dataSources.list.columns.usedBy")}</TableHead>
+                  <TableHead>
+                    <span className="sr-only">
+                      {t("dataSources.list.columns.actions")}
+                    </span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedSources.map((source) => (
+                  <DataSourceRow
+                    key={source.id}
+                    source={source}
+                    providerName={
+                      definitionsByProvider.get(source.provider)?.name ??
+                      providerLabel(source.provider, t)
+                    }
+                    actions={actionsFor(source)}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </>
       )}
       {dataSources.hasNextPage && (

@@ -10,19 +10,19 @@ Before version 2 the two players described the same conditions differently. Andr
 
 Every event carries the same envelope. The server assigns `receivedAt`. Everything else comes from the Player.
 
-| Field               | Required | Notes                                                                                      |
-| ------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| `id`                | yes      | UUID. Retries reuse it, which is what makes ingestion idempotent.                          |
+| Field               | Required | Notes                                                                                                                                |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                | yes      | UUID. Retries reuse it, which is what makes ingestion idempotent.                                                                    |
 | `sequence`          | yes      | Positive and normally monotonic per device. The server tolerates a reset after local state corruption without dropping the new UUID. |
-| `eventType`         | yes      | A name from the table below.                                                               |
-| `category`          | no       | Derived from the event name when absent.                                                   |
-| `severity`          | no       | `debug`, `info`, `warning`, `error`, `critical`. Derived when absent.                      |
-| `result`            | no       | `playing`, `completed`, `partial`, `skipped`, `failed`, `unknown`, `recovered`, `success`. |
-| `occurredAt`        | yes      | Player wall clock, RFC 3339.                                                               |
-| `elapsedRealtimeMs` | no       | Monotonic clock, so a wall-clock change cannot produce a negative duration.                |
-| `playerTimezone`    | no       | Defaults to `UTC`.                                                                         |
-| `priority`          | no       | 0–9. Governs which events survive a full local queue.                                      |
-| `metadata`          | no       | Allowlisted and sanitized on ingest.                                                       |
+| `eventType`         | yes      | A name from the table below.                                                                                                         |
+| `category`          | no       | Derived from the event name when absent.                                                                                             |
+| `severity`          | no       | `debug`, `info`, `warning`, `error`, `critical`. Derived when absent.                                                                |
+| `result`            | no       | `playing`, `completed`, `partial`, `skipped`, `failed`, `unknown`, `recovered`, `success`.                                           |
+| `occurredAt`        | yes      | Player wall clock, RFC 3339.                                                                                                         |
+| `elapsedRealtimeMs` | no       | Monotonic clock, so a wall-clock change cannot produce a negative duration.                                                          |
+| `playerTimezone`    | no       | Defaults to `UTC`.                                                                                                                   |
+| `priority`          | no       | 0–9. Governs which events survive a full local queue.                                                                                |
+| `metadata`          | no       | Allowlisted and sanitized on ingest.                                                                                                 |
 
 ## Session fields
 

@@ -350,37 +350,37 @@ export function ContentReviewPage() {
               </article>
             ))}
           </div>
-        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
-          <Table className="min-w-[48rem]">
-            <TableHeader>
-              {table.getHeaderGroups().map((group) => (
-                <TableRow key={group.id} className="hover:bg-transparent">
-                  {group.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className="bg-muted/40 text-xs text-muted-foreground"
-                    >
-                      {header.isPlaceholder ? null : (
-                        <table.FlexRender header={header} />
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getAllCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-2.5 py-2">
-                      <table.FlexRender cell={cell} />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
+            <Table className="min-w-[48rem]">
+              <TableHeader>
+                {table.getHeaderGroups().map((group) => (
+                  <TableRow key={group.id} className="hover:bg-transparent">
+                    {group.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className="bg-muted/40 text-xs text-muted-foreground"
+                      >
+                        {header.isPlaceholder ? null : (
+                          <table.FlexRender header={header} />
+                        )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getAllCells().map((cell) => (
+                      <TableCell key={cell.id} className="px-2.5 py-2">
+                        <table.FlexRender cell={cell} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

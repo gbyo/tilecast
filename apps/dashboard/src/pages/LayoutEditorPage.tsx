@@ -1019,13 +1019,11 @@ export function LayoutEditorPage() {
   const beginPan = (event: ReactPointerEvent, allowTouch = false) => {
     const touchPan =
       allowTouch && event.pointerType === "touch" && event.button === 0;
-    if (
-      !(
-        touchPan ||
-        event.button === 1 ||
-        (event.button === 0 && spaceHeld.current)
-      )
-    )
+    if (!(
+      touchPan ||
+      event.button === 1 ||
+      (event.button === 0 && spaceHeld.current)
+    ))
       return false;
     event.preventDefault();
     event.stopPropagation();
@@ -2786,31 +2784,31 @@ export function LayoutEditorPage() {
     >
       {addMenu}
       {desktop ? (
-      <Popover open={layersOpen} onOpenChange={setLayersOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(dockButtonClass, layersOpen && "bg-muted")}
-              aria-label={t("editor.sectionLayers")}
-              title={t("editor.sectionLayers")}
-            />
-          }
-        >
-          <Layers aria-hidden="true" />
-        </PopoverTrigger>
-        <PopoverContent
-          side="right"
-          align="start"
-          sideOffset={8}
-          aria-label={t("editor.sectionLayers")}
-          className="max-h-[70vh] w-72 gap-0 overflow-y-auto p-0"
-        >
-          {layersPanel}
-        </PopoverContent>
-      </Popover>
+        <Popover open={layersOpen} onOpenChange={setLayersOpen}>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(dockButtonClass, layersOpen && "bg-muted")}
+                aria-label={t("editor.sectionLayers")}
+                title={t("editor.sectionLayers")}
+              />
+            }
+          >
+            <Layers aria-hidden="true" />
+          </PopoverTrigger>
+          <PopoverContent
+            side="right"
+            align="start"
+            sideOffset={8}
+            aria-label={t("editor.sectionLayers")}
+            className="max-h-[70vh] w-72 gap-0 overflow-y-auto p-0"
+          >
+            {layersPanel}
+          </PopoverContent>
+        </Popover>
       ) : (
         <Sheet open={layersOpen} onOpenChange={setLayersOpen}>
           <SheetTrigger
@@ -3454,7 +3452,11 @@ export function LayoutEditorPage() {
               >
                 <span aria-live="polite">{Math.round(zoom * 100)}%</span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="center" className="min-w-32">
+              <DropdownMenuContent
+                side="top"
+                align="center"
+                className="min-w-32"
+              >
                 <DropdownMenuItem onClick={() => fitZoom()}>
                   {t("editor.zoomFit")}
                 </DropdownMenuItem>

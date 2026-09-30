@@ -477,18 +477,15 @@ function ResponsesTab({
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span>{t("detail.table.priority")}: {record.priority}</span>
+                  <span>
+                    {t("detail.table.priority")}: {record.priority}
+                  </span>
                   <span>
                     {new Date(record.updatedAt).toLocaleString(locale)}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {displayWindow(
-                    record.displayAt,
-                    record.expiresAt,
-                    t,
-                    locale,
-                  )}
+                  {displayWindow(record.displayAt, record.expiresAt, t, locale)}
                 </p>
                 <Link
                   to={recordHref(record.id)}

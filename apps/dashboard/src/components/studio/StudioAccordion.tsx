@@ -15,10 +15,7 @@ function AccordionTrigger({
 }: ComponentProps<typeof VegaAccordionTrigger>) {
   return (
     <VegaAccordionTrigger
-      className={cn(
-        "**:data-[slot=accordion-trigger-icon]:hidden",
-        className,
-      )}
+      className={cn("**:data-[slot=accordion-trigger-icon]:hidden", className)}
       {...props}
     >
       {children}

@@ -1042,10 +1042,7 @@ export function PlayerUpdatesPanel({
               </div>
             ) : (
               <>
-                <div
-                  id="player-releases-list"
-                  className="grid gap-2 lg:hidden"
-                >
+                <div id="player-releases-list" className="grid gap-2 lg:hidden">
                   {visibleReleaseItems.map((release) => {
                     const readiness = releaseReadiness(release, t);
                     return (
