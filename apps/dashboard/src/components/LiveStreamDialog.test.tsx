@@ -64,6 +64,15 @@ describe("LiveStreamDialog", () => {
       screen.getByText(/never saved to snapshots, live preview/i),
     ).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Retry stream" }));
+    const retriedImage = screen.getByAltText("Live Tilecast output from Lobby");
+    expect(retriedImage.getAttribute("src")).toBe(
+      "/api/v1/screens/screen-1/live-stream/session-1/mjpeg?retry=1",
+    );
+    expect(screen.queryByText("Stream unavailable")).toBeNull();
+    fireEvent.load(retriedImage);
+    expect(screen.getByText("Live")).toBeTruthy();
+
     fireEvent.click(screen.getByRole("button", { name: "Stop watching" }));
     expect(onClose).toHaveBeenCalledOnce();
     view.rerender(

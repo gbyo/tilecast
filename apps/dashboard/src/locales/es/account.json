@@ -156,6 +156,7 @@
   },
   "preferences": {
     "loading": "Cargando preferencias…",
+    "loadError": "No se pudieron cargar las preferencias.",
     "saved": "Preferencias guardadas.",
     "leaveWarning": "¿Salir de Mi cuenta con cambios de preferencias sin guardar?",
     "conflict": "Estas preferencias cambiaron en otro lugar. Recarga las preferencias más recientes antes de guardar.",

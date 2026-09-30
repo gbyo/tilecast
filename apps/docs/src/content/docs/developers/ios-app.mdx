@@ -45,7 +45,6 @@ To put another screen in a sheet, add a route to `presentationRoutes` in `apps/d
 
 The app connects Studio to a few things only the phone can do. Studio decides when to use each one, and none of them moves a Tilecast screen into Swift. Each is its own bridge capability, so an older app or an older Studio keeps working, and a browser ignores them.
 
-- **Tab bar.** On iPhone, Studio runs beneath the floating iOS 26 tab bar, so the glass shows the page instead of an empty strip. Content scrolls under the bar and stops above it.
 - **Haptics.** Studio can ask for a standard system haptic: `selection`, `success`, `warning`, `error`, `start`, or `stop`. It names the meaning, and iOS decides how it feels. Call `useNativeHaptic()` after a change that matters, not on every click.
 - **Share.** Studio can open the system share sheet with a title, text, and a web address. The app refuses addresses that hold a session or a token. Call `useNativeShare()`, and keep your normal web behavior when it returns `false`.
 - **Deep links.** `tilecast-ios://open?installation=<id>&path=<path>` opens a path in a server you already added. It carries no secret, and a link for a server the app doesn't know shows a notice instead of contacting anyone. The path goes through React Router, so an unsaved-changes prompt still appears.

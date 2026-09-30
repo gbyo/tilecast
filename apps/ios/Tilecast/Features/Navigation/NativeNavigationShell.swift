@@ -9,13 +9,17 @@ struct NativeNavigationShell: View {
     let actions: ServerActions
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
+    /// A regular-width iPad gets a sidebar. An iPhone, or an iPad in a
+    /// compact-width window, gets tabs.
+    static func usesTabs(horizontalSizeClass: UserInterfaceSizeClass?) -> Bool {
+        !(UIDevice.current.userInterfaceIdiom == .pad && horizontalSizeClass == .regular)
+    }
+
     var body: some View {
-        // A regular-width iPad gets a sidebar. An iPhone, or an iPad in a
-        // compact-width window, gets tabs.
-        if UIDevice.current.userInterfaceIdiom == .pad, horizontalSizeClass == .regular {
-            NativeSidebarNavigation(page: page, actions: actions)
-        } else {
+        if Self.usesTabs(horizontalSizeClass: horizontalSizeClass) {
             NativeTabNavigation(page: page, actions: actions)
+        } else {
+            NativeSidebarNavigation(page: page, actions: actions)
         }
     }
 }
@@ -28,6 +32,7 @@ extension NavigationCatalog.Destination {
 struct NativeTabNavigation: View {
     let page: StudioPage
     let actions: ServerActions
+    @Environment(StudioSlot.self) private var slot
 
     private var navigation: NativeNavigationModel { page.bridge.navigation }
 
@@ -41,36 +46,46 @@ struct NativeTabNavigation: View {
                 }
             }
             Tab(value: NavigationTab.more) {
-                ZStack {
+                // Studio is behind the tabs and this container is transparent,
+                // so the list and Studio take turns instead of stacking.
+                if navigation.frontendTab == .more {
+                    NavigationStack {
+                        StudioSlotView(extendsBelowTabBar: true)
+                            .studioBackBar(navigation)
+                            .containerBackground(.clear, for: .navigation)
+                    }
+                    .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
+                } else {
                     NavigationStack {
                         MoreView(page: page, actions: actions)
                     }
-                    if navigation.frontendTab == .more {
-                        NavigationStack {
-                            StudioSlotView(extendsBelowTabBar: true)
-                                .studioBackBar(navigation)
-                        }
-                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
-                    }
+                    .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
                 }
             } label: {
                 Label("More", image: AppIcon.more)
             }
         }
+        // Studio is drawn behind the tabs, so the tab container must not
+        // paint over it. The More list draws its own background.
+        .background(.clear)
     }
 
     /// Studio appears in exactly one tab at a time. Its slot reaches beneath
-    /// the floating tab bar, so the glass samples the page itself.
+    /// the floating tab bar, and the web view is drawn behind the tabs, so
+    /// the glass samples the page itself.
     @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
         NavigationStack {
             if navigation.frontendTab == tab {
                 StudioSlotView(extendsBelowTabBar: true)
                     .studioBackBar(navigation)
+                    .containerBackground(.clear, for: .navigation)
             } else {
                 Color.clear
                     .toolbar(.hidden, for: .navigationBar)
+                    .containerBackground(.clear, for: .navigation)
             }
         }
+        .background { TransparentTabContainer(studioVisible: slot.frame != nil) }
     }
 }
 

@@ -151,7 +151,19 @@ export const widgetManifestSchema = z
         "Manifest API version: the shape and semantics of tilecast.widget.json.",
       ),
     id: z.string().regex(catalogIdPattern),
-    version: z.number().int().min(1),
+    version: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Version of the release-owned Widget definition."),
+    configVersion: z
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .describe(
+        "Version of the persisted Widget configuration; omission keeps legacy version 1.",
+      ),
     name: z.string().min(1).max(80),
     description: z.string().min(1).max(280),
     category: z.string().min(1).max(40),

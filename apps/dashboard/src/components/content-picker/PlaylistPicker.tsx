@@ -166,7 +166,7 @@ export function PlaylistPicker({
         if (!nextOpen) onCloseComplete?.();
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+      <DialogContent className="flex max-h-[min(90dvh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title ?? defaultTitle}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
@@ -265,15 +265,23 @@ export function PlaylistPicker({
                       </ItemTitle>
                       <ItemDescription className="truncate">
                         {choice.kind === "layout"
-                          ? `Layout · revision ${choice.layout.publishedRevision}`
-                          : `${choice.playlist.itemCount} item${
-                              choice.playlist.itemCount === 1 ? "" : "s"
-                            }${tagDriven ? " · tag-driven" : ""}`}
+                          ? t("picker.playlist.layoutRevision", {
+                              revision: choice.layout.publishedRevision,
+                            })
+                          : t(
+                              tagDriven
+                                ? "picker.playlist.tagDrivenItemCount"
+                                : "picker.playlist.itemCount",
+                              { count: choice.playlist.itemCount },
+                            )}
                       </ItemDescription>
                     </ItemContent>
                     {id === chosen && (
                       <ItemActions>
-                        <Check size={17} aria-label="Selected" />
+                        <Check
+                          size={17}
+                          aria-label={t("picker.playlist.selected")}
+                        />
                       </ItemActions>
                     )}
                   </Item>

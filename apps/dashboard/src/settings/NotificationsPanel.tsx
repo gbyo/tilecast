@@ -7,7 +7,7 @@ import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import { useConfirm } from "../components/ConfirmDialog";
-import { Alert, AlertDescription } from "../components/ui/alert";
+import { Alert, AlertAction, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
@@ -169,6 +169,12 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
               <Spinner aria-hidden="true" />
               {t("notifications.checking")}
             </p>
+          ) : status.isError ? (
+            <NotificationsQueryError
+              message={t("notifications.statusLoadError")}
+              onRetry={() => void status.refetch()}
+              retrying={status.isFetching}
+            />
           ) : emailConfigured ? (
             <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant="default">{t("notifications.available")}</Badge>{" "}
@@ -229,6 +235,9 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
             <WebhookSection
               webhooks={webhooks.data ?? []}
               loading={webhooks.isLoading}
+              error={webhooks.isError}
+              retrying={webhooks.isFetching}
+              onRetry={() => void webhooks.refetch()}
               newSecret={newSecret}
               onDismissSecret={() => setNewSecret(undefined)}
               createError={createWebhook.error?.message}
@@ -263,6 +272,12 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
                   <Spinner aria-hidden="true" />
                   {t("notifications.loadingDeliveries")}
                 </p>
+              ) : deliveries.isError ? (
+                <NotificationsQueryError
+                  message={t("notifications.deliveriesLoadError")}
+                  onRetry={() => void deliveries.refetch()}
+                  retrying={deliveries.isFetching}
+                />
               ) : !deliveries.data?.length ? (
                 <Empty>
                   <EmptyHeader>
@@ -311,9 +326,40 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
   );
 }
 
+function NotificationsQueryError({
+  message,
+  onRetry,
+  retrying,
+}: {
+  message: string;
+  onRetry: () => void;
+  retrying: boolean;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>{message}</AlertDescription>
+      <AlertAction>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRetry}
+          disabled={retrying}
+        >
+          {t("actions.retry")}
+        </Button>
+      </AlertAction>
+    </Alert>
+  );
+}
+
 function WebhookSection({
   webhooks,
   loading,
+  error,
+  retrying,
+  onRetry,
   newSecret,
   onDismissSecret,
   createError,
@@ -327,6 +373,9 @@ function WebhookSection({
 }: {
   webhooks: NotificationWebhook[];
   loading: boolean;
+  error: boolean;
+  retrying: boolean;
+  onRetry: () => void;
   newSecret?: string;
   onDismissSecret: () => void;
   createError?: string;
@@ -403,6 +452,12 @@ function WebhookSection({
           <Spinner aria-hidden="true" />
           {t("notifications.loadingWebhooks")}
         </p>
+      ) : error ? (
+        <NotificationsQueryError
+          message={t("notifications.webhooksLoadError")}
+          onRetry={onRetry}
+          retrying={retrying}
+        />
       ) : !webhooks.length ? (
         <Empty>
           <EmptyHeader>

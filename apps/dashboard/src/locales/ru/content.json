@@ -307,6 +307,11 @@
       "itemCount_one": "{{count}} элемент",
       "itemCount_other": "{{count}} элемента",
       "layoutRevision": "Макет · ревизия {{revision}}",
+      "tagDrivenItemCount_few": "{{count}} элемента · по меткам",
+      "tagDrivenItemCount_many": "{{count}} элементов · по меткам",
+      "tagDrivenItemCount_one": "{{count}} элемент · по меткам",
+      "tagDrivenItemCount_other": "{{count}} элемента · по меткам",
+      "selected": "Выбрано",
       "layoutsLoadError": "Не удалось загрузить макеты.",
       "loadingLayouts": "Загрузка макетов",
       "loadingPlaylists": "Загрузка плейлистов",
@@ -323,7 +328,6 @@
       "searchLayouts": "Поиск макетов",
       "searchPlaylists": "Поиск плейлистов",
       "searchPresentations": "Поиск презентаций",
-      "tagDriven": " · по меткам",
       "clearSearchPresentations": "Очистить поиск презентаций",
       "clearSearchLayouts": "Очистить поиск макетов",
       "clearSearchPlaylists": "Очистить поиск плейлистов"
@@ -628,6 +632,8 @@
         "contentHint": "Выберите, что показывается на экране и как это оформлено.",
         "previewLabel": "Предпросмотр в реальном времени",
         "previewHint": "Обновляется по мере внесения изменений.",
+        "previewUpdateFailed": "Виджет сохранён, но его миниатюру не удалось обновить.",
+        "previewUpdateFailedHint": "Позже откройте библиотеку виджетов, чтобы повторить создание предпросмотра.",
         "diagnostics": {
           "label": "Состояние источника приложения",
           "title": "Источник приложения",
@@ -658,7 +664,6 @@
         "statusEmpty": "Предпросмотр пуст: {{reason}}",
         "statusError": "Не удаётся отобразить предпросмотр: {{code}}",
         "sourceError": "Подключённый источник данных не загрузился, поэтому предпросмотр невозможен. Переподключите источник или попробуйте снова.",
-        "captureFailed": "Не удалось отобразить предпросмотр виджета, поэтому ничего не сохранено. Попробуйте снова.",
         "sections": {
           "data": "Данные",
           "content": "Содержимое",

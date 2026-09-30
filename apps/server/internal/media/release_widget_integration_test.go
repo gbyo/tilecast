@@ -56,8 +56,9 @@ func TestNewDeclarativeWidgetNeedsNoCodeOrSchemaChange(t *testing.T) {
 	}
 	service := NewService(pool, nil, Config{Website: WebsitePolicy{DefaultTimeoutSeconds: 20, MaxTimeoutSeconds: 120, MinRefreshSeconds: 30, MaxAllowedHosts: 25, MaxWebsites: 500}, SourceFetch: SourceFetchPolicy{AllowPrivateNetworks: true, Timeout: 5 * time.Second, MaximumBytes: 1 << 20, MaximumRedirects: 3, MinimumRefresh: 5 * time.Minute, MaximumRefresh: 24 * time.Hour}})
 
+	configVersion := 7
 	widget := contentdefs.WidgetDefinition{
-		ID: "campus-banner", Version: 1, Name: "Campus Banner", Category: "Test",
+		ID: "campus-banner", Version: 1, ConfigVersion: &configVersion, Name: "Campus Banner", Category: "Test",
 		Runtime: "native", PresentationSchemaVersion: 1,
 		RequiredCapabilities: map[string]int{"layout.surface": 1, "content.text": 1},
 		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
@@ -79,5 +80,8 @@ func TestNewDeclarativeWidgetNeedsNoCodeOrSchemaChange(t *testing.T) {
 	stored, err := service.GetAsset(ctx, asset.ID)
 	if err != nil || stored.Widget == nil || stored.Widget.Provider != "campus-banner" {
 		t.Fatalf("new declarative widget was not stored: %#v err=%v", stored.Widget, err)
+	}
+	if stored.Widget.ConfigVersion != configVersion {
+		t.Fatalf("new declarative widget config version = %d, want %d", stored.Widget.ConfigVersion, configVersion)
 	}
 }

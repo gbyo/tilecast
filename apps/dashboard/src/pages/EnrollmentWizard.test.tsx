@@ -6,7 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
-import { EnrollmentWizard } from "./EnrollmentWizard";
+import { EnrollmentWizard, LoadingButton } from "./EnrollmentWizard";
 
 const authStatus = {
   setupRequired: false,
@@ -211,5 +211,38 @@ describe("the guided first sign-in", () => {
       await screen.findByRole("heading", { name: "Save your recovery codes" }),
     ).toBeTruthy();
     expect(screen.getByText("Step 1 of 2")).toBeTruthy();
+  });
+});
+
+describe("LoadingButton", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("stays enabled when settled and no disabled state is requested", () => {
+    render(<LoadingButton loading={false}>Save</LoadingButton>);
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("disables while loading even when disabled is explicitly false", () => {
+    render(
+      <LoadingButton loading={true} disabled={false}>
+        Save
+      </LoadingButton>,
+    );
+    const button = screen.getByRole("button");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("honors an explicit disabled state when not loading", () => {
+    render(
+      <LoadingButton loading={false} disabled={true}>
+        Save
+      </LoadingButton>,
+    );
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeDisabled();
+    expect(button).not.toHaveAttribute("aria-busy", "true");
   });
 });

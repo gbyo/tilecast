@@ -100,6 +100,7 @@ public final class StudioPage {
     @ObservationIgnored private let initialURL: URL
     @ObservationIgnored private let applicationName: String
     @ObservationIgnored private let policy: StudioNavigationPolicy
+    @ObservationIgnored private let system: SystemIntegrationHandlers
 
     /// Builds the page for `profile` using its isolated data store.
     public init(
@@ -125,9 +126,11 @@ public final class StudioPage {
         self.applicationName = applicationName
         self.policy = policy
         self.bridge = bridge
+        self.system = system
         webPage = WebPage(
             configuration: configuration,
-            navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
+            navigationDecider: StudioNavigationDecider(policy: policy, sink: sink),
+            dialogPresenter: StudioDialogPresenter(origin: profile.address.origin, system: system)
         )
         let address = profile.address
         presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts) {
@@ -241,7 +244,8 @@ public final class StudioPage {
         let sink = StudioNavigationSink()
         let page = WebPage(
             configuration: Self.configuration(dataStore: websiteDataStore, applicationName: applicationName),
-            navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
+            navigationDecider: StudioNavigationDecider(policy: policy, sink: sink),
+            dialogPresenter: StudioDialogPresenter(origin: address.origin, system: system)
         )
         sink.handler = { [weak self] in self?.handle($0) }
         auxiliaryPage = page

@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { LayoutSummary, Playlist } from "../../api/types";
+import { i18n } from "../../i18n";
 import { PlaylistPicker } from "./PlaylistPicker";
 
 const playlist = (id: string, name: string, over: Partial<Playlist> = {}) =>
@@ -84,9 +85,10 @@ beforeAll(() => {
   };
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.restoreAllMocks();
+  await i18n.changeLanguage("en");
 });
 
 describe("PlaylistPicker", () => {
@@ -124,9 +126,30 @@ describe("PlaylistPicker", () => {
   it("marks a tag-driven playlist so it is not mistaken for a static one", async () => {
     list();
     picker();
-    expect(
-      await screen.findByRole("button", { name: /Promos.*tag-driven/s }),
-    ).toBeInTheDocument();
+    const promos = await screen.findByRole("button", {
+      name: /Promos.*tag-driven/s,
+    });
+    expect(promos).toHaveTextContent("1 item · tag-driven");
+  });
+
+  it("localizes playlist and Layout metadata and the selected label", async () => {
+    await i18n.changeLanguage("es");
+    list([
+      playlist("promos", "Promos", { sourceType: "tag", itemCount: 2 }),
+      playlist("static", "Static", { itemCount: 1 }),
+    ]);
+    listLayouts([layout("hero", "Hero wall", 3)]);
+    picker(vi.fn(), true);
+    const user = userEvent.setup();
+
+    const promos = await screen.findByRole("button", { name: /Promos/ });
+    expect(promos).toHaveTextContent("2 elementos · por etiquetas");
+    expect(screen.getByText("1 elemento")).toBeInTheDocument();
+    await user.click(promos);
+    expect(screen.getByLabelText("Seleccionado")).toBeInTheDocument();
+
+    const hero = await screen.findByRole("button", { name: /Hero wall/ });
+    expect(hero).toHaveTextContent("Diseño · revisión 3");
   });
 
   it("shows the same preview thumbnail data as the playlist library", async () => {

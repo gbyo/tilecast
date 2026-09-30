@@ -116,6 +116,12 @@ describe("QuickPresentDialog", () => {
       </QueryClientProvider>,
     );
 
+    const dialogContent = document.body.querySelector<HTMLElement>(
+      '[data-slot="dialog-content"]',
+    );
+    expect(dialogContent).toHaveClass("max-h-[min(90dvh,54rem)]");
+    expect(dialogContent).not.toHaveClass("max-h-[min(90vh,54rem)]");
+
     await user.click(screen.getByRole("button", { name: "Choose playlist" }));
     await user.click(await screen.findByRole("button", { name: /Open house/ }));
     await user.click(screen.getByRole("button", { name: "Use playlist" }));

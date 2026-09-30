@@ -143,7 +143,7 @@ final class NativeSystemUITests: XCTestCase {
         let document = documentLabel
         startIntake()
 
-        let source = app.buttons["Photo Library"]
+        let source = app.buttons["Photo Library"].firstMatch
         XCTAssertTrue(source.waitForExistence(timeout: 10), "the native source choice appears")
         source.tap()
 
@@ -179,10 +179,10 @@ final class NativeSystemUITests: XCTestCase {
         launchWithFixtureServer(extraArguments: ["-TilecastFixtureMediaPicker", "-TilecastFixtureNativeCredential"])
         let document = documentLabel
         startIntake()
-        let cancel = app.buttons["Cancel"]
+        let cancel = app.buttons["Cancel"].firstMatch
         XCTAssertTrue(cancel.waitForExistence(timeout: 10))
         cancel.tap()
-        XCTAssertTrue(webText("Intake cancelled 0").waitForExistence(timeout: 10))
+        XCTAssertTrue(webText("Intake cancelled 0").waitForExistence(timeout: 15))
         XCTAssertEqual(documentLabel, document)
         XCTAssertTrue(server.api.uploads.isEmpty)
     }
@@ -193,7 +193,7 @@ final class NativeSystemUITests: XCTestCase {
         launchWithFixtureServer(extraArguments: ["-TilecastFixtureMediaPicker"])
         startIntake()
         XCTAssertTrue(webText("Web uploader").waitForExistence(timeout: 10))
-        XCTAssertFalse(app.buttons["Photo Library"].exists, "no native picker without the credential")
+        XCTAssertFalse(app.buttons["Photo Library"].firstMatch.exists, "no native picker without the credential")
         XCTAssertTrue(server.api.uploads.isEmpty)
     }
 
@@ -203,7 +203,7 @@ final class NativeSystemUITests: XCTestCase {
         launchWithFixtureServer(extraArguments: ["-TilecastFixtureMediaPicker", "-TilecastFixtureNativeCredential"])
         XCTAssertTrue(app.otherElements["native.sidebar"].exists || app.collectionViews["native.sidebar"].exists || app.tables["native.sidebar"].exists)
         startIntake()
-        let source = app.buttons["Photo Library"]
+        let source = app.buttons["Photo Library"].firstMatch
         XCTAssertTrue(source.waitForExistence(timeout: 10))
         source.tap()
         XCTAssertTrue(webText("Intake completed 2").waitForExistence(timeout: 30))

@@ -9,8 +9,12 @@ import { FleetBulkPage } from "./FleetBulkPage";
 import { api } from "../api/client";
 import type { BulkPreview } from "../api/types";
 
+const authMocks = vi.hoisted(() => ({ role: "owner" }));
+
 vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { csrfToken: "csrf", user: { role: "owner" } } }),
+  useAuth: () => ({
+    status: { csrfToken: "csrf", user: { role: authMocks.role } },
+  }),
 }));
 
 const preview: BulkPreview = {
@@ -80,6 +84,7 @@ function renderPage() {
 
 describe("Fleet bulk changes", () => {
   beforeEach(() => {
+    authMocks.role = "owner";
     // The page reads a handful of fields from each list; the fixtures carry
     // those and are widened rather than restating whole API shapes.
     const widen = <T,>(value: unknown) => value as T;
@@ -106,6 +111,34 @@ describe("Fleet bulk changes", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it.each(["editor", "contributor", "viewer"] as const)(
+    "denies %s access without loading bulk data",
+    async (role) => {
+      authMocks.role = role;
+      renderPage();
+
+      expect(
+        await screen.findByText(
+          "Only Owners and Administrators can use bulk changes.",
+        ),
+      ).toBeTruthy();
+      expect(api.screens).not.toHaveBeenCalled();
+      expect(api.playlists).not.toHaveBeenCalled();
+      expect(api.layouts).not.toHaveBeenCalled();
+      expect(api.bulkOperations).not.toHaveBeenCalled();
+    },
+  );
+
+  it("allows administrators to load bulk changes", async () => {
+    authMocks.role = "administrator";
+    renderPage();
+
+    expect(
+      await screen.findByRole("button", { name: /Preview the change/ }),
+    ).toBeTruthy();
+    await waitFor(() => expect(api.screens).toHaveBeenCalled());
   });
 
   it("will not preview until screens and a playlist are chosen", async () => {
