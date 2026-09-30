@@ -62,10 +62,6 @@ type commandInput struct {
 }
 
 func (s *server) listTakeovers(w http.ResponseWriter, r *http.Request) {
-	if _, err := s.db.Exec(r.Context(), `UPDATE takeovers SET status='expired',updated_at=now() WHERE status='active' AND expires_at<=now()`); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
@@ -685,22 +681,58 @@ var (
 )
 
 func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, commandType string, payload []byte, idempotencyKey uuid.UUID) (uuid.UUID, time.Time, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, time.Time{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// The quota is a per-screen invariant. Serialize the idempotency lookup,
+	// pending count and insert so concurrent requests cannot both observe the
+	// same slot and overfill the queue.
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.command.'||$1))`, screen.String()); err != nil {
+		return uuid.Nil, time.Time{}, err
+	}
+
 	var org uuid.UUID
-	if err := s.db.QueryRow(ctx, `SELECT organization_id FROM screens WHERE id=$1`, screen).Scan(&org); errors.Is(err, pgx.ErrNoRows) {
+	if err = tx.QueryRow(ctx, `SELECT organization_id FROM screens WHERE id=$1`, screen).Scan(&org); errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, time.Time{}, errScreenNotFound
 	} else if err != nil {
 		return uuid.Nil, time.Time{}, err
 	}
+
+	// Idempotent retries return the original command even when the queue is now
+	// full; they do not consume another slot or create a second audit entry.
+	var existing uuid.UUID
+	var existingExpires time.Time
+	err = tx.QueryRow(ctx, `SELECT id,expires_at FROM player_commands WHERE screen_id=$1 AND idempotency_key=$2`, screen, idempotencyKey).Scan(&existing, &existingExpires)
+	if err == nil {
+		if err = tx.Commit(ctx); err != nil {
+			return uuid.Nil, time.Time{}, err
+		}
+		return existing, existingExpires, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, time.Time{}, err
+	}
+
 	var pending int
-	_ = s.db.QueryRow(ctx, `SELECT count(*) FROM player_commands WHERE screen_id=$1 AND state IN ('pending','delivered','acknowledged','running') AND expires_at>now()`, screen).Scan(&pending)
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM player_commands WHERE screen_id=$1 AND state IN ('pending','delivered','acknowledged','running') AND expires_at>now()`, screen).Scan(&pending); err != nil {
+		return uuid.Nil, time.Time{}, err
+	}
 	if pending >= s.operations.MaxPendingCommands {
 		return uuid.Nil, time.Time{}, errCommandLimit
 	}
+
 	id := uuid.New()
 	expires := time.Now().Add(time.Duration(s.runtimeIntContext(ctx, "commands.default_expiry_minutes", s.operations.DefaultCommandExpiryMinutes)) * time.Minute)
-	if err := s.db.QueryRow(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at)VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8) ON CONFLICT(screen_id,idempotency_key) DO UPDATE SET updated_at=player_commands.updated_at RETURNING id`, id, org, screen, commandType, string(payload), idempotencyKey, user, expires).Scan(&id); err != nil {
+	if err = tx.QueryRow(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at)VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8) RETURNING id,expires_at`, id, org, screen, commandType, string(payload), idempotencyKey, user, expires).Scan(&id, &expires); err != nil {
 		return uuid.Nil, time.Time{}, err
 	}
+	if err = tx.Commit(ctx); err != nil {
+		return uuid.Nil, time.Time{}, err
+	}
+
 	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'command.created','player_command',$3)`, uuid.New(), user, id.String())
 	if action := map[string]string{"clear_media_cache": "media.cache_clear_requested", "clear_website_data": "website.data_clear_requested", "disable_playback": "playback.disable_requested", "enable_playback": "playback.enable_requested"}[commandType]; action != "" {
 		_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,$3,'screen',$4)`, uuid.New(), user, action, screen.String())
