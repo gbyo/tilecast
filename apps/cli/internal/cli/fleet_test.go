@@ -98,6 +98,9 @@ func TestPairingCeremony(t *testing.T) {
 		f.lastPairingApproval["replacementScreenId"] != "11111111-1111-1111-1111-111111111111" {
 		t.Fatalf("replacement body = %v", f.lastPairingApproval)
 	}
+	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--replace-hardware", "--yes"); err == nil {
+		t.Fatal("replace-hardware approve without a replacement screen accepted")
+	}
 	out, err = f.execute(t, "", "pairing", "reject", "44444444-4444-4444-4444-444444444444", "--reason", "unknown device", "--yes")
 	if err != nil || !strings.Contains(out, "rejected 44444444") {
 		t.Fatalf("reject = %q, %v", out, err)
