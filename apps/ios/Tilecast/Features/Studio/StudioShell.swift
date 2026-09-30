@@ -31,6 +31,7 @@ struct StudioShell: View {
         }
         .overlay { StudioOverlay() }
         .environment(slot)
+        .mediaIntake(host.mediaIntake)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView() }
         .sheet(item: presentation) { presentation in
