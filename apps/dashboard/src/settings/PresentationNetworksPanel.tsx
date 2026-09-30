@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LockKeyhole, Pencil, Plus, Trash2, Wifi } from "lucide-react";
@@ -100,9 +100,6 @@ export function PresentationNetworksPanel({
   // and is never rehydrated from a GET response.
   const [secret, setSecret] = useState("");
   const [assignmentIds, setAssignmentIds] = useState<string[]>([]);
-  // If create succeeds but assignment replacement fails, keep the durable ID so
-  // Retry updates that same Network instead of creating a duplicate.
-  const partialCreate = useRef<PresentationNetwork | undefined>(undefined);
 
   const detail = useQuery({
     queryKey: ["presentation-network", editing],
@@ -116,12 +113,7 @@ export function PresentationNetworksPanel({
   );
 
   useEffect(() => {
-    if (editing === "new") {
-      setDraft({ ...emptyDraft });
-      setSecret("");
-      setAssignmentIds([]);
-      return;
-    }
+    if (editing === "new") return;
     if (!editing || detail.data?.network.id !== editing) return;
     const network = detail.data.network;
     setDraft({
@@ -143,35 +135,26 @@ export function PresentationNetworksPanel({
 
   const save = useMutation({
     mutationFn: async () => {
-      // The Server validates the secret on first create. If that create already
-      // committed during an earlier failed attempt, retry by updating the same
-      // durable row before retrying assignments.
-      let network: PresentationNetwork;
+      // The Server validates the secret on create; an empty one is refused
+      // there. An update omits it to keep the stored credential.
+      const network =
+        editing === "new"
+          ? await api.createPresentationNetwork({ ...draft, secret }, csrf)
+          : await api.updatePresentationNetwork(
+              editing ?? "",
+              { ...draft, ...(secret.length > 0 ? { secret } : {}) },
+              csrf,
+            );
+      // Creation has already committed at this point. Switch the editor to
+      // that durable resource before the assignment request so a failed
+      // second step cannot make Retry create another Network.
       if (editing === "new") {
-        if (partialCreate.current) {
-          network = await api.updatePresentationNetwork(
-            partialCreate.current.id,
-            { ...draft, ...(secret.length > 0 ? { secret } : {}) },
-            csrf,
-          );
-        } else {
-          network = await api.createPresentationNetwork(
-            { ...draft, secret },
-            csrf,
-          );
-          partialCreate.current = network;
-          // A later assignment failure must not hide the row that was already
-          // created. Refresh the library immediately so closing the dialog does
-          // not make the partial success invisible.
-          void client.invalidateQueries({ queryKey: ["presentation-networks"] });
-        }
-        partialCreate.current = network;
-      } else {
-        network = await api.updatePresentationNetwork(
-          editing ?? "",
-          { ...draft, ...(secret.length > 0 ? { secret } : {}) },
-          csrf,
-        );
+        setEditing(network.id);
+        setSecret("");
+        // A later assignment failure must not hide the row that was already
+        // created. Refresh the library immediately so closing the dialog does
+        // not make the partial success invisible.
+        void client.invalidateQueries({ queryKey: ["presentation-networks"] });
       }
       await api.replacePresentationNetworkAssignments(
         network.id,
@@ -181,7 +164,6 @@ export function PresentationNetworksPanel({
       return network;
     },
     onSuccess: async () => {
-      partialCreate.current = undefined;
       toast.add({ title: t("networks.saved"), type: "success" });
       setEditing(undefined);
       setSecret("");
@@ -203,10 +185,8 @@ export function PresentationNetworksPanel({
 
   const open = (network: PresentationNetwork | "new") => {
     setSaveError(undefined);
-    partialCreate.current = undefined;
-    // Clear every resource-backed field before changing the selected ID. An
-    // existing Network's detail query is the only thing allowed to populate
-    // these values, so a failed B request can never leave A's values visible.
+    // Never carry values from one resource into another while the next detail
+    // request is loading or has failed.
     setDraft({ ...emptyDraft });
     setSecret("");
     setAssignmentIds([]);
@@ -229,11 +209,6 @@ export function PresentationNetworksPanel({
     );
 
   const unavailable = networks.data?.credentialsAvailable === false;
-  const editingExisting = Boolean(editing && editing !== "new");
-  const detailReady =
-    !editingExisting || detail.data?.network.id === editing;
-  const recoveringCreate =
-    editing === "new" && Boolean(partialCreate.current);
 
   return (
     <>
@@ -388,13 +363,10 @@ export function PresentationNetworksPanel({
         <Dialog
           open={Boolean(editing)}
           onOpenChange={(open) => {
-            if (!open && !save.isPending) {
-              partialCreate.current = undefined;
-              setEditing(undefined);
-            }
+            if (!open && !save.isPending) setEditing(undefined);
           }}
         >
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editing === "new"
@@ -402,40 +374,32 @@ export function PresentationNetworksPanel({
                   : t("networks.editTitle")}
               </DialogTitle>
             </DialogHeader>
-            {editingExisting && !detailReady ? (
-              <div className="grid gap-4">
-                {detail.isError ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>
+            {editing &&
+            editing !== "new" &&
+            detail.data?.network.id !== editing ? (
+              detail.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription className="grid gap-3">
+                    <span>
                       {t("networks.detailError")}{" "}
                       {safeError(detail.error, t("networks.retry"))}
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Spinner aria-hidden="true" />
-                    {t("networks.loadingDetail")}
-                  </p>
-                )}
-                <DialogFooter>
-                  <Button
-                    variant="ghost"
-                    type="button"
-                    onClick={() => setEditing(undefined)}
-                  >
-                    {t("common:actions.cancel")}
-                  </Button>
-                  {detail.isError && (
+                    </span>
                     <Button
-                      variant="secondary"
                       type="button"
+                      variant="secondary"
+                      className="w-fit"
                       onClick={() => void detail.refetch()}
                     >
                       {t("networks.retry")}
                     </Button>
-                  )}
-                </DialogFooter>
-              </div>
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Spinner aria-hidden="true" />
+                  {t("networks.loadingDetail")}
+                </p>
+              )
             ) : (
               <form
                 className="grid gap-4"
@@ -546,7 +510,7 @@ export function PresentationNetworksPanel({
                     type="password"
                     value={secret}
                     autoComplete="new-password"
-                    required={editing === "new" && !recoveringCreate}
+                    required={editing === "new"}
                     onChange={(event) => setSecret(event.target.value)}
                   />
                   <FieldDescription>
@@ -705,7 +669,7 @@ export function PresentationNetworksPanel({
                       save.isPending ||
                       !draft.name.trim() ||
                       !draft.ssid.trim() ||
-                      (editing === "new" && !recoveringCreate && !secret) ||
+                      (editing === "new" && !secret) ||
                       (draft.security === "wpa_eap_peap_mschapv2" &&
                         !draft.identity.trim()) ||
                       Boolean(unavailable && editing === "new")

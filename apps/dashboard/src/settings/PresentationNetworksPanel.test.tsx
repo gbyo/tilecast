@@ -72,7 +72,9 @@ describe("PresentationNetworksPanel", () => {
   it("never renders the previous network draft when the next detail request fails", async () => {
     const first = network("network-a", "Network A");
     const second = network("network-b", "Network B");
-    vi.spyOn(api, "presentationNetworks").mockResolvedValue(list([first, second]));
+    vi.spyOn(api, "presentationNetworks").mockResolvedValue(
+      list([first, second]),
+    );
     vi.spyOn(api, "screens").mockResolvedValue({
       items: [],
       total: 0,
@@ -95,18 +97,24 @@ describe("PresentationNetworksPanel", () => {
     expect(await screen.findByDisplayValue("Network A")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await user.click((await screen.findAllByRole("button", { name: "Edit" }))[1]);
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Edit" }))[1],
+    );
 
     expect(await screen.findByText(/Network B detail failed/)).toBeTruthy();
     expect(screen.queryByDisplayValue("Network A")).toBeNull();
-    expect(
-      screen.queryByRole("button", { name: "Save network" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save network" })).toBeNull();
     expect(screen.getByRole("button", { name: "Try again." })).toBeTruthy();
   });
 
   it("retries assignments against the already-created network instead of creating a duplicate", async () => {
     const created = network("network-created", "Event Wi-Fi");
+    // After the first save commits, the editor switches to the durable row
+    // and hydrates from its detail response.
+    vi.spyOn(api, "presentationNetwork").mockResolvedValue({
+      network: { ...created, ssid: "event-wifi" },
+      assignments: [],
+    });
     vi.spyOn(api, "presentationNetworks").mockResolvedValue(list([]));
     vi.spyOn(api, "screens").mockResolvedValue({
       items: [],
@@ -121,11 +129,9 @@ describe("PresentationNetworksPanel", () => {
     const assignments = vi
       .spyOn(api, "replacePresentationNetworkAssignments")
       .mockRejectedValueOnce(new Error("Assignment save failed"))
-      .mockResolvedValueOnce(
-        { assignments: [] } as Awaited<
-          ReturnType<typeof api.replacePresentationNetworkAssignments>
-        >,
-      );
+      .mockResolvedValueOnce({ assignments: [] } as Awaited<
+        ReturnType<typeof api.replacePresentationNetworkAssignments>
+      >);
 
     const user = userEvent.setup();
     renderPanel();

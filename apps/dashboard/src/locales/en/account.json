@@ -155,6 +155,7 @@
   },
   "preferences": {
     "loading": "Loading preferences…",
+    "loadError": "Preferences could not be loaded.",
     "saved": "Preferences saved.",
     "leaveWarning": "Leave My Account with unsaved preference changes?",
     "conflict": "These preferences changed elsewhere. Reload the latest preferences before saving.",

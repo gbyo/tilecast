@@ -75,9 +75,10 @@ import {
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import type { ProofRecord } from "./ActivityShared";
 
 export function ProofTab({
@@ -280,7 +281,7 @@ export function ProofTab({
                 {t("proof.viewBreakdown", {
                   dimension: dimensionLabel(dimension),
                 })}
-                <ChevronRight size={15} aria-hidden="true" />
+                <CollapsibleChevron orientation="right" size={15} />
               </CollapsibleTrigger>
               <CollapsibleContent className="grid gap-2">
                 {summary.data?.items?.slice(0, 12).map((item) => (

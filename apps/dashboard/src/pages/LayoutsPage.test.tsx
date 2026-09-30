@@ -36,6 +36,7 @@ vi.mock("../auth/AuthProvider", () => ({
 vi.mock("../api/client", () => ({
   api: {
     layouts: vi.fn(),
+    layoutPage: vi.fn(),
     updateLayout: vi.fn(),
     createLayout: vi.fn(),
     saveLayoutDraft: vi.fn(),
@@ -87,6 +88,12 @@ beforeEach(() => {
     this.dispatchEvent(new Event("close"));
   };
   vi.mocked(api.layouts).mockResolvedValue({
+    items: [savedLayout],
+    total: 1,
+    page: 1,
+    pageSize: 100,
+  });
+  vi.mocked(api.layoutPage).mockResolvedValue({
     items: [savedLayout],
     total: 1,
     page: 1,

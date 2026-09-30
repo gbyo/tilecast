@@ -217,10 +217,14 @@ type OutputField struct {
 
 type WidgetDefinition struct {
 	ID      string `json:"id"`
+	// Version tracks the release-owned Widget definition.
 	Version int    `json:"version"`
+	// ConfigVersion is the version of the persisted Widget configuration.
+	// Omitted legacy definitions use version 1.
+	ConfigVersion *int `json:"configVersion,omitempty"`
 	// APIVersion is the manifest API version: the shape and semantics of
 	// tilecast.widget.json. It is required for component modules and kept
-	// separate from the persisted definition/config version (Version), the
+	// separate from the catalog definition version, persisted config version,
 	// component runtime version, and any future package version.
 	APIVersion  int             `json:"apiVersion,omitempty"`
 	Source      ExtensionSource `json:"source,omitempty"`
@@ -256,6 +260,15 @@ type WidgetDefinition struct {
 	// declared by a Widget module below widgets/.
 	Component     *ComponentSpec `json:"component,omitempty"`
 	Compatibility *Compatibility `json:"compatibility,omitempty"`
+}
+
+// PersistedConfigVersion returns the version of the stored Widget configuration.
+// Definitions that omit the field keep the legacy version 1 behavior.
+func (definition WidgetDefinition) PersistedConfigVersion() int {
+	if definition.ConfigVersion == nil {
+		return 1
+	}
+	return *definition.ConfigVersion
 }
 
 // Availability lets a release advertise a recognizable integration without claiming
@@ -571,6 +584,9 @@ func (c *Catalog) validate() error {
 		}
 		if err := validateIdentity(definition.ID, definition.Version, definition.Name, definition.Category); err != nil {
 			return fmt.Errorf("Widget definition %q: %w", definition.ID, err)
+		}
+		if definition.ConfigVersion != nil && *definition.ConfigVersion < 1 {
+			return fmt.Errorf("Widget definition %q has an invalid config version", definition.ID)
 		}
 		if _, exists := c.widgetsByID[definition.ID]; exists {
 			return fmt.Errorf("duplicate Widget definition id %q", definition.ID)

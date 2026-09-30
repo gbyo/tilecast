@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "cards",
   "version": 1,
+  "configVersion": 2,
   "name": "Cards",
   "description": "Show records as a responsive grid of content cards.",
   "category": "Data display",

@@ -53,6 +53,32 @@ describe("ActivityReporter", () => {
     expect(batch[0]!.eventType).toBe("content.completed");
   });
 
+  it("advances its sequence from a rebased server acknowledgement", async () => {
+    const store = fakeStore();
+    const client = {
+      postActivityEvents: vi.fn(async (events: unknown[]) => ({
+        accepted: events.length,
+        duplicates: 0,
+        highestSequence: 50,
+        acknowledgedEventIds: (events as Array<{ id: string }>).map(
+          (event) => event.id,
+        ),
+      })),
+    } as unknown as ApiClient;
+    const reporter = new ActivityReporter(store, client, clock, uuid, "UTC");
+    await reporter.start();
+    await reporter.record({ eventType: "connection.recovered" });
+    await reporter.flush();
+    await reporter.record({ eventType: "content.started" });
+
+    const stored = (await store.readJson("activity-sequence.json")) as {
+      next: number;
+      buffered: Array<{ sequence: number }>;
+    };
+    expect(stored.buffered.map((event) => event.sequence)).toEqual([51]);
+    expect(stored.next).toBe(52);
+  });
+
   it("keeps the buffer when the upload fails, and drains it later", async () => {
     let failNext = true;
     const client = {

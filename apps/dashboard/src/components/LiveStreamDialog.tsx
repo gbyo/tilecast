@@ -43,6 +43,7 @@ export function LiveStreamViewer({
   const [session, setSession] = useState<WireLiveStreamSession | null>(null);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamAttempt, setStreamAttempt] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -53,6 +54,7 @@ export function LiveStreamViewer({
     setSession(null);
     setPlaying(false);
     setError(null);
+    setStreamAttempt(0);
     void api
       .startLiveStream(screenId, csrfToken)
       .then((next) => {
@@ -110,10 +112,14 @@ export function LiveStreamViewer({
       <div className="relative grid aspect-video w-full place-items-center overflow-hidden rounded-lg border border-border bg-[#080b0f]">
         {session ? (
           <img
+            key={streamAttempt}
             className="block size-full object-contain"
-            src={api.screenLiveStreamUrl(screenId, session.id)}
+            src={`${api.screenLiveStreamUrl(screenId, session.id)}${streamAttempt ? `?retry=${streamAttempt}` : ""}`}
             alt={t("liveStream.imageAlt", { name: screenName })}
-            onLoad={() => setPlaying(true)}
+            onLoad={() => {
+              setPlaying(true);
+              setError(null);
+            }}
             onError={() => {
               setPlaying(false);
               setError(t("liveStream.connectionEnded"));
@@ -130,6 +136,19 @@ export function LiveStreamViewer({
                 <WifiOff className="size-7" aria-hidden="true" />
                 <strong>{t("liveStream.unavailable")}</strong>
                 <span className="text-sm text-slate-300">{error}</span>
+                {session ? (
+                  <Button
+                    className="mt-2"
+                    variant="outline"
+                    onClick={() => {
+                      setPlaying(false);
+                      setError(null);
+                      setStreamAttempt((attempt) => attempt + 1);
+                    }}
+                  >
+                    {t("liveStream.retry")}
+                  </Button>
+                ) : null}
               </>
             ) : (
               <>

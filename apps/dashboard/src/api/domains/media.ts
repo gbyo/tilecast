@@ -8,6 +8,7 @@
  * ../client.ts: genuinely exceptional transports.
  */
 import { apiDelete, apiGet, apiPatch, apiPost } from "../transport";
+import { fetchAllPages } from "../pagination";
 import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../errors";
 import type { components, paths } from "@tilecast/api-schema/generated/openapi";
 import type {
@@ -353,16 +354,24 @@ export type WireDataSourceDetail = components["schemas"]["DataSourceDetail"];
 export type WireDataSourceDiagnostics =
   components["schemas"]["DataSourceDiagnostics"];
 
+export function listDataSourcesPage(
+  params?: URLSearchParams,
+  page = 1,
+): Promise<DataSourceListResult> {
+  const queryParams = new URLSearchParams(params);
+  queryParams.set("page", String(page));
+  queryParams.set("pageSize", params?.get("pageSize") ?? "100");
+  return apiGet("/api/v1/data-sources", {
+    params: { query: queryFromSearchParams(queryParams) },
+  });
+}
+
 export function listDataSources(
   params?: URLSearchParams,
 ): Promise<DataSourceListResult> {
-  return apiGet("/api/v1/data-sources", {
-    params: {
-      query: queryFromSearchParams(
-        params ?? new URLSearchParams({ page: "1", pageSize: "100" }),
-      ),
-    },
-  });
+  const filters = new URLSearchParams(params);
+  filters.delete("page");
+  return fetchAllPages((page) => listDataSourcesPage(filters, page));
 }
 
 export async function getDataSource(id: string): Promise<DataSourceDetail> {

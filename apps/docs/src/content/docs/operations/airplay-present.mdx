@@ -35,6 +35,8 @@ Studio shows how many group displays are ready and receiving. For one to four di
 
 Select **Stop AirPlay** to end the session early. The session also ends at its expiry. Tilecast then recalculates the signage presentation that applies; see [what plays first](../#what-plays-first).
 
+If Studio reports that it could not complete the stop, try **Stop AirPlay** again while the action is available. Tilecast saves the stop request and the required Player cleanup commands together before it ends the session.
+
 If a session does not start, check the Player's AirPlay diagnostics, the receiver capability report, Wi-Fi assignment, and whether multicast or Bonjour discovery can cross the sender's network. Tilecast does not bridge VLANs or bypass client isolation.
 
 ## Next steps

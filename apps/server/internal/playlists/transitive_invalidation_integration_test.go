@@ -2,6 +2,7 @@ package playlists
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
+	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
 func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *testing.T) {
@@ -94,6 +96,12 @@ func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *test
 	if _, err = layoutService.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err != nil {
 		t.Fatal(err)
 	}
+	// Baseline the revision assertion on the published setup state: the
+	// pre-publish snapshot still carries a nil published revision.
+	layout, err = layoutService.Get(ctx, layout.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	root, err := service.Create(ctx, owner.User.ID, "Root playlist", "", "static")
 	if err != nil {
 		t.Fatal(err)
@@ -142,9 +150,23 @@ func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *test
 		}
 		before[screenID] = version
 	}
+	storePreview := func() {
+		t.Helper()
+		if _, err = pool.Exec(ctx, `UPDATE layouts SET preview_image=$2,preview_content_type='image/jpeg',preview_width=960,preview_height=540,preview_updated_at=now(),preview_capture_version=$3 WHERE id=$1`, layout.ID, []byte{1}, layouts.LayoutPreviewCaptureVersion); err != nil {
+			t.Fatal(err)
+		}
+	}
+	assertPreviewInvalidated := func(change string) {
+		t.Helper()
+		if _, previewErr := layoutService.PreviewImage(ctx, layout.ID); !errors.Is(previewErr, layouts.ErrNotFound) {
+			t.Fatalf("%s did not invalidate the referenced Layout thumbnail: %v", change, previewErr)
+		}
+	}
+	storePreview()
 	if err = service.AssetChanged(ctx, assetID, "nested.asset.changed"); err != nil {
 		t.Fatal(err)
 	}
+	assertPreviewInvalidated("asset change through a nested Playlist")
 	for _, screenID := range screens {
 		var after int64
 		if err = pool.QueryRow(ctx, `SELECT manifest_version FROM screen_manifest_state WHERE screen_id=$1`, screenID).Scan(&after); err != nil {
@@ -153,5 +175,67 @@ func TestTransitiveAssetChangeInvalidatesNestedLayoutsGroupsAndSchedules(t *test
 		if after <= before[screenID] {
 			t.Fatalf("screen %s did not receive transitive invalidation: before=%d after=%d", screenID, before[screenID], after)
 		}
+	}
+
+	// Widget dependencies use their own dependency type even though Widget IDs
+	// are also asset IDs. Updating the Widget must clear its Layout thumbnail.
+	widgetID := uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) VALUES($1,$2,'Widget','widget','widget.json','application/json',$3,10,'ready',$4)`, widgetID, organizationID, make([]byte, 32), owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,configuration) VALUES($1,'clock','{}'::jsonb)`, widgetID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO layout_draft_dependencies(layout_id,dependency_type,dependency_id) VALUES($1,'widget',$2)`, layout.ID, widgetID); err != nil {
+		t.Fatal(err)
+	}
+	storePreview()
+	mediaService := media.NewService(pool, nil, media.Config{SourceFetch: media.SourceFetchPolicy{AllowPrivateNetworks: true, Timeout: 5 * time.Second, MaximumBytes: 1 << 20, MaximumRedirects: 3, MinimumRefresh: 5 * time.Minute, MaximumRefresh: 24 * time.Hour}})
+	mediaService.SetAssetInvalidator(service)
+	if _, err = mediaService.UpdateWidget(ctx, widgetID, owner.User.ID, media.WidgetInput{
+		Provider:      "clock",
+		Name:          "Updated Widget",
+		Configuration: []byte(`{"timezone":"UTC","format":"24","showSeconds":true,"foregroundColor":"#ffffff","backgroundColor":"#111111"}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertPreviewInvalidated("Widget update")
+
+	// Playlist publication uses the same dependency traversal as its normal
+	// manifest invalidation path.
+	storePreview()
+	duration = 12_000
+	if _, err = service.AddItem(ctx, nested.ID, owner.User.ID, ItemInput{AssetID: assetID, DurationMS: &duration}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, ctx, service, nested.ID, owner.User.ID)
+	assertPreviewInvalidated("Playlist update")
+
+	dataSourceID := uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by) VALUES($1,$2,'Schedule data','csv','{}'::jsonb,$3)`, dataSourceID, organizationID, owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO layout_draft_dependencies(layout_id,dependency_type,dependency_id) VALUES($1,'data_source',$2)`, layout.ID, dataSourceID); err != nil {
+		t.Fatal(err)
+	}
+	storePreview()
+	if _, err = mediaService.UpdateDataSource(ctx, dataSourceID, owner.User.ID, media.DataSourceInput{
+		Provider:      "csv",
+		Name:          "Updated schedule data",
+		Configuration: []byte(`{"uploaded":true,"uploadedContent":"title\nLunch\n","presentation":"list","maxItems":10,"fields":{"title":true},"sort":"source","mapping":{"title":"title"},"refreshIntervalSeconds":3600,"stalenessLimitHours":168,"emptyState":"No items"}`),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assertPreviewInvalidated("Data Source update")
+	afterLayout, err := layoutService.Get(ctx, layout.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publishedRevisionChanged := (afterLayout.PublishedRevision == nil) != (layout.PublishedRevision == nil)
+	if !publishedRevisionChanged && afterLayout.PublishedRevision != nil {
+		publishedRevisionChanged = *afterLayout.PublishedRevision != *layout.PublishedRevision
+	}
+	if afterLayout.DraftRevision != layout.DraftRevision || publishedRevisionChanged {
+		t.Fatalf("dependency updates changed Layout revisions: before draft=%d published=%v, after draft=%d published=%v", layout.DraftRevision, layout.PublishedRevision, afterLayout.DraftRevision, afterLayout.PublishedRevision)
 	}
 }

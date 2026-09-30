@@ -10,7 +10,18 @@
       "description": "Manifest API version: the shape and semantics of tilecast.widget.json."
     },
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,79}$" },
-    "version": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "Version of the release-owned Widget definition."
+    },
+    "configVersion": {
+      "description": "Version of the persisted Widget configuration; omission keeps legacy version 1.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
     "name": { "type": "string", "minLength": 1, "maxLength": 80 },
     "description": { "type": "string", "minLength": 1, "maxLength": 280 },
     "category": { "type": "string", "minLength": 1, "maxLength": 40 },
