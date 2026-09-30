@@ -9,9 +9,13 @@ an empty body), so no client that works against the running server can break.
 A request enum entry names a request property that the contract now describes as
 an open string: every earlier value stays accepted. A response enum entry names a
 response property that the contract used to describe as a bare string and now
-describes with the closed vocabulary the Server already returned. A new
-finding that is not listed here describes a real behavior change and must
-be fixed, not appended.
+describes with the closed vocabulary the Server already returned.
+A required-property entry names a property the handler already rejected when
+missing or outside the new enum, so documenting it cannot break a working
+client. A schema-restatement entry names a schema rewritten without `not`
+for the Swift generator that accepts and rejects exactly the same requests.
+A new finding that is not listed here describes a real behavior change and
+must be fixed, not appended.
 
 POST /api/v1/layouts added required request body: createLayout always decoded a details body.
 PATCH /api/v1/layouts/{id} added required request body: updateLayout always decoded a details body.
@@ -90,3 +94,10 @@ POST /api/v1/data-sources/{provider}/preview removed the enum value `manual` fro
 POST /api/v1/data-sources/{provider}/preview removed the enum value `rss` from the `path` request parameter `provider`: the parameter is an open string now, because definition-backed providers are previewable too; every earlier value stays accepted.
 POST /api/v1/data-sources/{provider}/preview removed the enum value `transit` from the `path` request parameter `provider`: the parameter is an open string now, because definition-backed providers are previewable too; every earlier value stays accepted.
 POST /api/v1/data-sources/{provider}/preview removed the enum value `weather` from the `path` request parameter `provider`: the parameter is an open string now, because definition-backed providers are previewable too; every earlier value stays accepted.
+POST /api/v1/oauth/ios-session request property `client_id` was restricted to a list of enum values: oauthIOSSession already rejected any client_id other than tilecast-ios, so the contract now names the only value the server ever accepted.
+POST /api/v1/oauth/ios-session the request property `client_id` became required: oauthIOSSession already rejected a missing client_id, so documenting it cannot break a working client.
+POST /api/v1/playlists/{id}/items the request body dependentRequired was added: when `layoutId` is present, `durationMs` are required: PlaylistItemInput restates the same rule without `not` for the Swift generator; layout items still need a duration and asset items are unchanged.
+POST /api/v1/playlists/{id}/items removed `subschema #1, subschema #2` from the request body `oneOf` list: PlaylistItemInput restates the same oneOf branches without `not`; asset-only and layout-with-duration still validate, and neither, both, or layout-without-duration still fail.
+PUT /api/v1/playlists/{id}/items/bulk removed `subschema #1, subschema #2` from the request body `oneOf` list: PlaylistBulkItemInput restates the same oneOf branches without `not`; transition-only and duration-only still validate, and both or neither still fail.
+PATCH /api/v1/playlists/{id}/items/{itemId} the request body dependentRequired was added: when `layoutId` is present, `durationMs` are required: PlaylistItemInput restates the same rule without `not` for the Swift generator; layout items still need a duration and asset items are unchanged.
+PATCH /api/v1/playlists/{id}/items/{itemId} removed `subschema #1, subschema #2` from the request body `oneOf` list: PlaylistItemInput restates the same oneOf branches without `not`; asset-only and layout-with-duration still validate, and neither, both, or layout-without-duration still fail.

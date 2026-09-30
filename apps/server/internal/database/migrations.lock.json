@@ -646,5 +646,11 @@
     "file": "00109_layout_preview_capture_version.sql",
     "owner": "core",
     "sha256": "d1c47f736caa8aa5bf023197afb7955a361b1c0cf4ddf58e94012420b035dcae"
+  },
+  {
+    "version": 110,
+    "file": "00110_ios_session_grants.sql",
+    "owner": "core",
+    "sha256": "7981a45d66c75377c866b212b084fb105e07c1dea168781dbf9a81763c2ce15f"
   }
 ]

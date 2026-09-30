@@ -33,6 +33,14 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "./ui/chart";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import {
@@ -99,86 +107,89 @@ export function FleetUptimePanel({
   const report = query.data;
 
   return (
-    <section
-      className="space-y-4 border-t border-border pt-5"
-      aria-labelledby="uptime-heading"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 id="uptime-heading" className="text-base font-semibold">
-            {t("uptime.title")}
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {description ?? t("uptime.defaultDescription")}
-          </p>
-        </div>
-        <ToggleGroup
-          multiple={false}
-          value={[activeWindow]}
-          onValueChange={(value) => {
-            const selected = value[0];
-            if (selected === "24h" || selected === "7d" || selected === "30d") {
-              setActiveWindow(selected);
-            }
-          }}
-          aria-label={t("uptime.windowLabel")}
-          variant="outline"
-          size="sm"
-          spacing={0}
-        >
-          {windows.map((option) => (
-            <ToggleGroupItem
-              key={option.key}
-              value={option.key}
-              aria-label={t(option.labelKey)}
-            >
-              {option.key}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-
-      {query.isLoading ? (
-        <div className="space-y-3" aria-label={t("uptime.loading")}>
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-48 w-full rounded-xl" />
-        </div>
-      ) : query.isError ? (
-        <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
-          <AlertTitle>{t("uptime.loadFailed")}</AlertTitle>
-          <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
-        </Alert>
-      ) : !report || report.screensTracked === 0 ? (
-        <Empty className="border-0 py-5">
-          <EmptyHeader>
-            <EmptyDescription>
-              <Trans
-                i18nKey="uptime.emptyState"
-                ns="activity"
-                components={{
-                  pairLink: (
-                    <Link
-                      className="underline underline-offset-4"
-                      to="/screens/pair"
-                    />
-                  ),
-                }}
-              />
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : report.uptimePercent === null ? (
-        <Empty className="border-0 py-5">
-          <EmptyHeader>
-            <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
-            <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      ) : (
-        <UptimeBody report={report} />
-      )}
-    </section>
+    <Card size="sm" role="region" aria-labelledby="uptime-heading">
+      <CardHeader>
+        <CardTitle id="uptime-heading" role="heading" aria-level={2}>
+          {t("uptime.title")}
+        </CardTitle>
+        <CardDescription>
+          {description ?? t("uptime.defaultDescription")}
+        </CardDescription>
+        <CardAction>
+          <ToggleGroup
+            multiple={false}
+            value={[activeWindow]}
+            onValueChange={(value) => {
+              const selected = value[0];
+              if (
+                selected === "24h" ||
+                selected === "7d" ||
+                selected === "30d"
+              ) {
+                setActiveWindow(selected);
+              }
+            }}
+            aria-label={t("uptime.windowLabel")}
+            variant="outline"
+            size="sm"
+            spacing={0}
+          >
+            {windows.map((option) => (
+              <ToggleGroupItem
+                key={option.key}
+                value={option.key}
+                aria-label={t(option.labelKey)}
+                className="min-h-8 min-w-11"
+              >
+                {option.key}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {query.isLoading ? (
+          <div className="space-y-3" aria-label={t("uptime.loading")}>
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-40 w-full rounded-xl sm:h-48" />
+          </div>
+        ) : query.isError ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("uptime.loadFailed")}</AlertTitle>
+            <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
+          </Alert>
+        ) : !report || report.screensTracked === 0 ? (
+          <Empty className="border-0 py-5">
+            <EmptyHeader>
+              <EmptyDescription>
+                <Trans
+                  i18nKey="uptime.emptyState"
+                  ns="activity"
+                  components={{
+                    pairLink: (
+                      <Link
+                        className="underline underline-offset-4"
+                        to="/screens/pair"
+                      />
+                    ),
+                  }}
+                />
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : report.uptimePercent === null ? (
+          <Empty className="border-0 py-5">
+            <EmptyHeader>
+              <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
+              <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <UptimeBody report={report} />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -226,7 +237,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
     <>
       <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
-          <div className="text-3xl font-semibold tabular-nums tracking-tight">
+          <div className="text-2xl font-semibold tabular-nums tracking-tight">
             {formatPercent(report.uptimePercent)}
           </div>
           <div className="mt-1 text-sm text-muted-foreground">
@@ -257,7 +268,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
         <>
           <ChartContainer
             config={chartConfig}
-            className="h-48 w-full aspect-auto"
+            className="aspect-auto h-40 w-full sm:h-48"
             initialDimension={{ width: 720, height: 192 }}
             role="img"
             aria-label={chartDescription(report, t)}
@@ -431,7 +442,7 @@ function ScreenRow({
 }) {
   const { t } = useTranslation("activity");
   return (
-    <div className="grid grid-cols-[minmax(9rem,1fr)_minmax(7rem,2fr)_4rem] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[minmax(11rem,1fr)_minmax(8rem,2fr)_4rem_minmax(8rem,auto)]">
+    <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[minmax(11rem,1fr)_minmax(8rem,2fr)_4rem_minmax(8rem,auto)]">
       <Link
         className="truncate font-medium hover:underline"
         to={`/screens/${screen.screenId}`}
@@ -439,7 +450,7 @@ function ScreenRow({
         {screen.screenName}
       </Link>
       <div
-        className="flex h-3 min-w-0 gap-px overflow-hidden rounded-sm"
+        className="col-span-2 row-start-2 flex h-3 min-w-0 gap-px overflow-hidden rounded-sm sm:col-span-1 sm:col-start-2 sm:row-start-1"
         role="img"
         aria-label={
           screen.downSeconds > 0
@@ -468,7 +479,7 @@ function ScreenRow({
       <span className="text-right font-medium tabular-nums">
         {formatPercent(screen.uptimePercent)}
       </span>
-      <span className="col-span-3 text-xs text-muted-foreground sm:col-span-1">
+      <span className="col-span-2 row-start-3 text-xs text-muted-foreground sm:col-span-1 sm:col-start-4 sm:row-start-1">
         {screen.downSeconds > 0
           ? t("uptime.rowDown", {
               value: formatSeconds(screen.downSeconds),

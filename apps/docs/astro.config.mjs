@@ -318,6 +318,7 @@ export default defineConfig({
               label: "Monitor screens",
               collapsed: true,
               items: [
+                { slug: "operations/overview" },
                 { slug: "operations/activity" },
                 { slug: "operations/screen-status" },
                 { slug: "operations/live-preview" },
@@ -403,6 +404,7 @@ export default defineConfig({
             { slug: "developers" },
             { slug: "developers/demo-mode" },
             { slug: "developers/testing" },
+            { slug: "developers/ios-app" },
             {
               label: "Plugin development",
               collapsed: true,
@@ -432,6 +434,7 @@ export default defineConfig({
             createOpenAPISidebarGroup(),
           ],
         },
+        { slug: "privacy" },
       ],
     }),
   ],

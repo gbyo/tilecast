@@ -1,0 +1,100 @@
+---
+title: iOS app development
+description: Build and test the Tilecast iOS and iPadOS app, and decide whether a feature belongs in Studio or in the app.
+---
+
+The Tilecast iOS app is a native home for Tilecast Studio. It handles the things an iPhone or iPad does better than a browser tab, such as switching between servers and native tabs, and it shows your server's own Studio for everything else. The app isn't in the App Store yet. You can build it from source with Xcode.
+
+## Where a feature belongs
+
+Build a new feature in Studio. The app loads Studio from each server, so a new page, a new editor, or a plugin page works in the app as soon as the server is updated, with no Swift changes and no app release.
+
+Native code is for app chrome, system features like the camera or Share sheet, and a few small, stable workflows. The full rules are in the [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md).
+
+## Navigation comes from Studio
+
+Once you sign in, the app replaces Studio's sidebar with native navigation: tabs on iPhone, and a sidebar on iPad. Studio still draws everything else, including its top bar with breadcrumbs, search, notifications, and your account menu.
+
+Studio decides what the app shows. Each navigation destination is metadata on its Studio route: an ID, a translated label, a group, an icon token, an order, and whether it prefers a tab on iPhone. Studio sends the app that list, already translated, and the app just draws it. Swift never has a list of Tilecast pages.
+
+To add a destination, give your Studio route a `navigation` entry in its route handle. That's all. Don't touch `apps/ios`. After the server updates:
+
+- On iPad, it appears in its sidebar group.
+- On iPhone, it appears under **More**, or as a tab if you mark it `primary`.
+- Tapping it asks Studio to open it, and your React page renders in the same Studio page.
+
+A plugin's secondary navigation shows up the same way. See [Add Studio pages](../plugins/studio/#add-secondary-navigation).
+
+The app never changes Studio's address when you tap a tab. It asks Studio, and React Router decides, so an unsaved-changes prompt still appears and nothing is lost if you stay. If the app and Studio can't agree on native navigation, for example with an older server, Studio shows its own sidebar as it does in a browser.
+
+The [native bridge contract](https://github.com/gbyo/tilecast/tree/main/packages/native-bridge-schema) describes the messages exactly.
+
+## Detail pages get a native back button
+
+When you open a page from a list, such as a screen's details or a Layout, the app shows a native navigation bar with a back button named for the page you came from, and the page's title. Studio sends this from its breadcrumb trail, so a new page gets it with no app change. Top-level pages have no bar. Studio hides its own breadcrumbs in the app so the trail isn't drawn twice. In a browser, and in an older app, nothing changes.
+
+## Some screens open in a native sheet
+
+The app can show a Studio screen in a native iOS sheet with a native title and Close button. Studio still draws everything inside the sheet, so it's the same React page you'd see in a browser. The screens that do this today are Live stream, the Layout and Playlist previews, a media asset's details, an Activity incident's details, and an update deployment's status. Confirmations, such as "Delete this schedule?", are native iOS alerts too. In a browser, or in an older app, they open exactly as before: a dialog, a popup, or a side panel.
+
+The sheet is a second, prewarmed copy of Studio that uses the same sign-in as the main one. When you close a sheet, Studio refreshes the page underneath, so a renamed asset shows its new name in the library right away.
+
+To put another screen in a sheet, add a route to `presentationRoutes` in `apps/dashboard/src/App.tsx`, and open it with `useOpenNativePresentation()`. Show your normal dialog when that returns `false`. Describe the title and buttons with `usePresentationChrome()`. Don't touch `apps/ios`. The [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#native-presentations) lists which screens fit a sheet and which should stay in Studio.
+
+## System features
+
+The app connects Studio to a few things only the phone can do. Studio decides when to use each one, and none of them moves a Tilecast screen into Swift. Each is its own bridge capability, so an older app or an older Studio keeps working, and a browser ignores them.
+
+- **Tab bar.** On iPhone, Studio runs beneath the floating iOS 26 tab bar, so the glass shows the page instead of an empty strip. Content scrolls under the bar and stops above it.
+- **Haptics.** Studio can ask for a standard system haptic: `selection`, `success`, `warning`, `error`, `start`, or `stop`. It names the meaning, and iOS decides how it feels. Call `useNativeHaptic()` after a change that matters, not on every click.
+- **Share.** Studio can open the system share sheet with a title, text, and a web address. The app refuses addresses that hold a session or a token. Call `useNativeShare()`, and keep your normal web behavior when it returns `false`.
+- **Deep links.** `tilecast-ios://open?installation=<id>&path=<path>` opens a path in a server you already added. It carries no secret, and a link for a server the app doesn't know shows a notice instead of contacting anyone. The path goes through React Router, so an unsaved-changes prompt still appears.
+- **Upload from Photos or Files.** In the media upload panel, **Choose files** opens the system Photos and Files pickers when the app can, and the app uploads with its own credential. Studio still owns the library: it refetches when the upload ends. An older server, or a signed-out app, uses Studio's browser uploader exactly as before. The app has no media library of its own.
+
+If you add a Studio feature that needs one of these, use the hooks in `apps/dashboard/src/native-host/`. Don't touch `apps/ios`. The [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#system-integrations) has the exact contracts.
+
+## Build and run
+
+You need Xcode 26 or later. The app's only packages are Apple's Swift OpenAPI Generator and its runtime libraries. Xcode fetches the versions pinned in `apps/ios/TilecastKit/Package.resolved`. The first time you build, Xcode asks you to trust the OpenAPI Generator plugin, which builds the API client from `docs/openapi.yaml`.
+
+1. Open `apps/ios/Tilecast.xcodeproj`.
+2. Run the **Tilecast** scheme on an iOS 26 simulator.
+3. Tap **Add Server** and enter your server's address. For a local development server on the same Mac, use `http://127.0.0.1` with your server's port.
+
+Each server keeps its own sign-in and website data, so you can add several installations and switch between them. On iPhone, server controls are under **More**. On iPad, they're at the top of the sidebar. Before you sign in, use the title menu.
+
+To run on a device, copy `apps/ios/Config/Local.xcconfig.example` to `Local.xcconfig` and set your Apple team.
+
+The app's native text uses Geist, the same typeface as Studio. When you set a font in a native view, use `Font.geist(.body)` or another text style instead of a system font. See [Typography](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#typography) for details.
+
+Tabs and the iPad sidebar show the same Lucide icons as Studio's sidebar. The icons are generated from Studio's icon mapping, so if you change an icon in `NavigationIcon.tsx`, run `npm run ios:icons:generate` and commit the result.
+
+## Test
+
+```sh title="apps/ios/TilecastKit · Core tests on the Mac"
+swift test
+```
+
+To try Photos and Files upload by hand, follow [Test media intake by hand](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md#test-media-intake-by-hand). The automated tests replace the pickers with generated files.
+
+The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them on an iPhone and an iPad simulator whenever a pull request changes `apps/ios/`, the native bridge contract, or the OpenAPI contract. The UI tests use a small local stand-in server, so they don't need a real Tilecast server or the internet.
+
+## Sign in
+
+On sign-in, iOS shows its system authentication consent sheet for the configured server, then opens that server in the system authentication browser. Passwords, passkeys, authenticator codes, and recovery codes stay on the server's real origin. After you approve **Tilecast for iOS**, the app receives an ordinary Studio session for that server and, from a current server, a credential for its own API calls. You authorize once for both. The credential stays in the device's Keychain for that server only, and never reaches Studio's web page.
+
+If your Studio session expires, the app renews it without asking you to sign in again, as long as the authorization is still active. You can see and revoke **Tilecast for iOS** in your account's security settings, like any other authorized app.
+
+**Sign Out**, in Studio's account menu or in the app's server controls, signs the app out of that server completely and revokes its authorization. The app then waits for you to tap **Sign In**. Removing a server also deletes its credential.
+
+An older server still works: you sign in to Studio as before, without the app's own credential. See the [iOS authentication contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#authentication).
+
+## Known limitations
+
+- Layout and Playlist previews, which Studio opens in a new window, don't open in the app yet.
+- Downloads, such as a settings export, aren't supported. Use Safari.
+- The app has one window.
+
+## Server addresses
+
+The app accepts the same addresses as Tilecast Players. Servers on the internet need HTTPS with a certificate your device trusts. Plain HTTP works only for local network addresses, such as `192.168.1.20` or `tilecast.local`, and the app warns you before it saves one.

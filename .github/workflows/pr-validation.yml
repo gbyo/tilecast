@@ -20,9 +20,11 @@ permissions:
 jobs:
   changes:
     name: Detect changed areas
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}
     outputs:
+      linux_runner: ${{ steps.runner.outputs.linux_runner }}
       android: ${{ steps.paths.outputs.android }}
+      ios: ${{ steps.paths.outputs.ios }}
       linux: ${{ steps.paths.outputs.linux }}
       server: ${{ steps.paths.outputs.server }}
       dashboard: ${{ steps.paths.outputs.dashboard }}
@@ -35,6 +37,9 @@ jobs:
       sources: ${{ steps.paths.outputs.sources }}
       ci: ${{ steps.paths.outputs.ci }}
     steps:
+      - name: Select Linux runner
+        id: runner
+        run: echo "linux_runner=${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -59,31 +64,46 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ci == 'true'
     uses: ./.github/workflows/validate-ci-contract.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   android_ci:
     needs: changes
     if: needs.changes.outputs.android == 'true'
     uses: ./.github/workflows/ci-android.yml
 
+  ios_ci:
+    needs: changes
+    if: needs.changes.outputs.ios == 'true'
+    uses: ./.github/workflows/ci-ios.yml
+
   server_ci:
     needs: changes
     if: needs.changes.outputs.server == 'true'
     uses: ./.github/workflows/ci-server.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   dashboard_ci:
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
     uses: ./.github/workflows/ci-dashboard.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   linux_player_ci:
     needs: changes
     if: needs.changes.outputs.linux == 'true'
     uses: ./.github/workflows/validate-linux.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   plugins_ci:
     needs: changes
     if: needs.changes.outputs.plugins == 'true'
     uses: ./.github/workflows/validate-plugins.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   widgets_ci:
     needs: changes
@@ -94,6 +114,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true'
     uses: ./.github/workflows/validate-container.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   e2e_ci:
     needs: changes
@@ -104,24 +126,22 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/validate-docs.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   cli_ci:
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     uses: ./.github/workflows/validate-cli.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   sources_ci:
     needs: changes
     if: needs.changes.outputs.sources == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run data-sources:check
+    uses: ./.github/workflows/validate-data-sources.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   required:
     name: Required PR validation
@@ -130,6 +150,7 @@ jobs:
       - changes
       - ci_contract
       - android_ci
+      - ios_ci
       - linux_player_ci
       - server_ci
       - dashboard_ci
@@ -140,7 +161,7 @@ jobs:
       - widgets_ci
       - cli_ci
       - sources_ci
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.changes.outputs.linux_runner }}
     steps:
       - name: Require every selected job to pass
         env:
@@ -149,6 +170,8 @@ jobs:
           CI_CONTRACT_RESULT: ${{ needs.ci_contract.result }}
           ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
           ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
+          IOS_CI_SELECTED: ${{ needs.changes.outputs.ios == 'true' }}
+          IOS_CI_RESULT: ${{ needs.ios_ci.result }}
           LINUX_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.linux == 'true' }}
           LINUX_PLAYER_CI_RESULT: ${{ needs.linux_player_ci.result }}
           SERVER_CI_SELECTED: ${{ needs.changes.outputs.server == 'true' }}
@@ -190,6 +213,7 @@ jobs:
           }
           check ci_contract "$CI_CONTRACT_SELECTED" "$CI_CONTRACT_RESULT"
           check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
+          check ios_ci "$IOS_CI_SELECTED" "$IOS_CI_RESULT"
           check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
           check server_ci "$SERVER_CI_SELECTED" "$SERVER_CI_RESULT"
           check dashboard_ci "$DASHBOARD_CI_SELECTED" "$DASHBOARD_CI_RESULT"

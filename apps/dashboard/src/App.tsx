@@ -2,6 +2,14 @@ import { Navigate, useRoutes, type RouteObject } from "react-router";
 import { Toaster } from "./components/ui/toast";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
+import type { StudioNavigationMetadata } from "./navigation/studioNavigation";
+import { NativeHostProvider } from "./native-host/NativeHostProvider";
+import { NativeAuthLifecycle } from "./native-host/useNativeAuthLifecycle";
+import { PRESENTATION_ROOT } from "./native-host/protocol";
+import { NativePresentationHost } from "./native-presentation/NativePresentationHost";
+import { NativeMediaIntakeRefresh } from "./native-host/NativeMediaIntakeRefresh";
+import { NativePresentationNavigation } from "./native-presentation/NativePresentationNavigation";
+import { LiveStreamPresentation } from "./components/LiveStreamPresentation";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
@@ -18,6 +26,9 @@ import { ArchivedScreensPage } from "./pages/ArchivedScreensPage";
 import { ContentPage } from "./pages/ContentPage";
 import { PlaylistEditorPage } from "./pages/PlaylistsPage";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
+import { ActivityIncidentPresentation } from "./pages/ActivityIncidentPresentation";
+import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
+import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
 import {
   GroupsPage,
@@ -49,6 +60,10 @@ const search = (
   keywords?: string[],
 ) => ({ label, description, to, keywords });
 
+// Navigation destinations are route metadata: the browser sidebar and native
+// hosts both render them, and a destination leads to its route's own path.
+const destination = (metadata: StudioNavigationMetadata) => metadata;
+
 const settingsSearch: Partial<
   Record<
     string,
@@ -73,7 +88,33 @@ const settingsSearch: Partial<
   },
 };
 
+/**
+ * Routes a native host can present in its own sheet, below the reserved
+ * /__native/modal root. Adding one needs no app change: the host knows only
+ * the root. They have no navigation or search metadata, and outside a
+ * native presentation page the root redirects to the start page.
+ */
+const presentationRoutes: RouteObject[] = [
+  { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
+  { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+  { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
+  { path: "asset/:id", element: <MediaAssetPresentation /> },
+  {
+    path: "update-deployment/:id",
+    element: <UpdateDeploymentPresentation />,
+  },
+  {
+    path: "activity-incident/:id",
+    element: <ActivityIncidentPresentation />,
+  },
+];
+
 export const studioRoutes: RouteObject[] = [
+  {
+    path: PRESENTATION_ROOT,
+    element: <NativePresentationHost routes={presentationRoutes} />,
+    children: presentationRoutes,
+  },
   { path: "/setup", element: <AuthPage mode="setup" /> },
   { path: "/login", element: <AuthPage mode="login" /> },
   { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
@@ -86,6 +127,15 @@ export const studioRoutes: RouteObject[] = [
         index: true,
         element: <FoundationPage />,
         handle: {
+          navigation: destination({
+            id: "overview",
+            group: "home",
+            labelKey: "overview",
+            icon: "home",
+            order: 0,
+            mobilePlacement: "primary",
+            end: true,
+          }),
           breadcrumb: "Overview",
           search: search(
             "Overview",
@@ -98,6 +148,16 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "screens",
         handle: {
+          navigation: destination({
+            id: "screens",
+            group: "screens",
+            labelKey: "items.fleet",
+            icon: "screens",
+            order: 10,
+            mobilePlacement: "primary",
+            // The archive has its own page and no sidebar entry.
+            excludeActiveOn: ["/screens/archive"],
+          }),
           breadcrumb: "Screens",
           search: search(
             "Screens",
@@ -164,6 +224,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "groups",
         handle: {
+          navigation: destination({
+            id: "groups",
+            group: "screens",
+            labelKey: "items.displayGroups",
+            icon: "groups",
+            order: 20,
+          }),
           breadcrumb: "Display Groups",
           search: search(
             "Display Groups",
@@ -185,6 +252,14 @@ export const studioRoutes: RouteObject[] = [
         path: "assets",
         element: <ContentPage />,
         handle: {
+          navigation: destination({
+            id: "media",
+            group: "content",
+            labelKey: "items.media",
+            icon: "media",
+            order: 10,
+            mobilePlacement: "primary",
+          }),
           breadcrumb: "Media",
           search: search(
             "Content: Media",
@@ -202,6 +277,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "widgets",
         handle: {
+          navigation: destination({
+            id: "widgets",
+            group: "content",
+            labelKey: "items.widgets",
+            icon: "widgets",
+            order: 20,
+          }),
           breadcrumb: "Widgets",
           search: search(
             "Content: Widgets",
@@ -232,6 +314,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "data-sources",
         handle: {
+          navigation: destination({
+            id: "data-sources",
+            group: "content",
+            labelKey: "items.dataSources",
+            icon: "data",
+            order: 30,
+          }),
           breadcrumb: "Data Sources",
           search: search(
             "Content: Data",
@@ -282,6 +371,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "playlists",
         handle: {
+          navigation: destination({
+            id: "playlists",
+            group: "presentations",
+            labelKey: "items.playlists",
+            icon: "playlists",
+            order: 10,
+          }),
           breadcrumb: "Playlists",
           search: search(
             "Presentations: Playlists",
@@ -302,6 +398,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "layouts",
         handle: {
+          navigation: destination({
+            id: "layouts",
+            group: "presentations",
+            labelKey: "items.layouts",
+            icon: "layouts",
+            order: 20,
+          }),
           breadcrumb: "Layouts",
           search: search(
             "Presentations: Layouts",
@@ -322,6 +425,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "campaigns",
         handle: {
+          navigation: destination({
+            id: "campaigns",
+            group: "presentations",
+            labelKey: "items.campaigns",
+            icon: "campaigns",
+            order: 30,
+          }),
           breadcrumb: "Campaigns",
           search: search(
             "Presentations: Campaigns",
@@ -342,6 +452,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "schedules",
         handle: {
+          navigation: destination({
+            id: "schedules",
+            group: "operations",
+            labelKey: "items.schedules",
+            icon: "schedules",
+            order: 10,
+          }),
           breadcrumb: "Schedules",
           search: search(
             "Schedules",
@@ -366,6 +483,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "plugins",
         handle: {
+          navigation: destination({
+            id: "plugins",
+            group: "operations",
+            labelKey: "items.plugins",
+            icon: "plugins",
+            order: 20,
+          }),
           breadcrumb: "Plugins",
           search: search(
             "Plugins",
@@ -394,6 +518,13 @@ export const studioRoutes: RouteObject[] = [
         path: "activity",
         element: <ActivityPage />,
         handle: {
+          navigation: destination({
+            id: "activity",
+            group: "secondary",
+            labelKey: "items.activity",
+            icon: "activity",
+            order: 100,
+          }),
           breadcrumb: "Activity",
           search: search(
             "Activity",
@@ -451,6 +582,13 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "settings",
         handle: {
+          navigation: destination({
+            id: "settings",
+            group: "secondary",
+            labelKey: "items.settings",
+            icon: "settings",
+            order: 900,
+          }),
           breadcrumb: "Settings",
           search: search(
             "Settings",
@@ -515,12 +653,15 @@ function RoutedApp() {
 
 export function App() {
   return (
-    <>
+    <NativeHostProvider>
+      <NativeAuthLifecycle />
+      <NativePresentationNavigation />
+      <NativeMediaIntakeRefresh />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
       </StudioRoutesProvider>
       <Toaster />
-    </>
+    </NativeHostProvider>
   );
 }

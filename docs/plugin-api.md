@@ -398,10 +398,18 @@ the plugin's declared Studio route ownership, an icon, a label key in the
 plugin's translation namespace, and optional visibility logic — a synchronous
 predicate over asynchronously loaded data, fetched by the host under a
 plugin-namespaced query key. Visibility failures hide the item rather than
-breaking the sidebar. Item IDs are unique across plugins, paths must be
-declared, and core entries cannot be shadowed. The generic shell never
-interprets plugin permissions; the Forms reviewer inbox is a contribution of
-the Forms plugin, not shell logic.
+breaking the sidebar. Item IDs are unique across plugins and use lowercase
+letters, digits, and hyphens. Paths must be declared, and core entries cannot
+be shadowed. The generic shell never interprets plugin permissions; the Forms
+reviewer inbox is a contribution of the Forms plugin, not shell logic.
+
+Studio resolves secondary navigation once. The browser sidebar and the native
+navigation catalog (see `docs/ios-app.md`) use the same visibility result, so
+a visible item also appears in the iOS app, with the destination identifier
+`plugin:<plugin id>:<item id>`. The app cannot draw a React icon. An item can
+name a semantic icon token in the optional `iconToken` field, from
+`packages/native-bridge-schema/icon-tokens.json`. Without one, the app shows
+its generic plugin icon. A plugin never writes Swift.
 
 ## Player runtime
 
