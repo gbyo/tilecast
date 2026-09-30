@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { formsApi } from "./api";
 import {
   ApiError,
+  apiErrorMessage,
   PluginActionsMenu,
   usePluginTranslation,
   useStudioSession,
@@ -76,7 +77,7 @@ export function FormsPluginPage() {
           <AlertTitle>{t("plugin.loadError")}</AlertTitle>
           <AlertDescription>
             {forms.error instanceof ApiError
-              ? forms.error.message
+              ? apiErrorMessage(forms.error)
               : t("plugin.loadFallback")}
           </AlertDescription>
         </Alert>
