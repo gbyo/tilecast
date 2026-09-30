@@ -52,6 +52,38 @@ Studio sends the app its navigation catalog through the native bridge. The app r
 
 The app shows the one Studio web view through `StudioOverlay`. A `WebPage` can have only one `WebView`, so a layout marks where Studio goes with `StudioSlotView` and never creates a `WebView` itself.
 
+## System integrations
+
+Read [System integrations](../../docs/ios-app.md#system-integrations) before you change haptics, share, deep links, or media intake. The code is in `TilecastKit/Sources/TilecastCore/{Bridge,DeepLinks,Media}/` and `Tilecast/Features/{System,Media}/`.
+
+### Test media intake by hand
+
+Automated tests replace the system pickers with generated files, so a real check with the pickers is a manual step.
+
+1. Start a Tilecast server and add it to the app in the simulator (`http://127.0.0.1:8080`, or your port). Sign in with the system sign-in sheet. Native intake needs the native credential that this sign-in gives. An older server, or an app that signed out, uses Studio's own uploader.
+2. Add photos and videos to the simulator: drag files onto the simulator window, or run `xcrun simctl addmedia booted <file>`. Put other files in the Files app the same way, in **On My iPhone**.
+3. Open the media library or the **Upload media** command in Studio, and tap **Choose files**. The app asks for **Photo Library** or **Choose Files…**. Each opens the system picker. The app never asks for Photos library access.
+4. Choose one or more items. A progress sheet shows each file. When the upload ends, Studio refetches the library. Tap **Done**.
+
+Photos gives JPEG for a photo and a compatible video encoding, not HEIC. A file type that the server does not accept ends with a message on its row.
+
+### Test a deep link by hand
+
+With the simulator open and a server added, replace the installation ID with the value from `/api/v1/system/identity` of that server:
+
+```sh
+xcrun simctl openurl booted 'tilecast-ios://open?installation=<installation-id>&path=%2Fscreens'
+```
+
+The path must be percent-encoded. A link for an installation that is not configured on the device shows a notice and contacts no host.
+
+### UI test launch arguments
+
+Debug builds accept two arguments that only the UI tests use. Release builds do not contain them.
+
+- `-TilecastFixtureMediaPicker` replaces the system pickers with two generated images.
+- `-TilecastFixtureNativeCredential` gives each server a stored refresh token, so native intake is available against `FixtureStudioServer`.
+
 ## Typography
 
 Native text uses Geist, the Studio typeface. Use `Font.geist(.body)`, `Font.geist(.footnote)`, and so on, not a system text style. Read [Typography](../../docs/ios-app.md#typography) for the parts of UIKit chrome that `Typography.applyAppearance()` covers and the system surfaces that keep the system font.

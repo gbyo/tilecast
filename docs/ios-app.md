@@ -28,7 +28,11 @@ These rules apply to every change to the app and to every Studio change that aff
 - run any script other than the static bridge receiver script;
 - reach the Keychain, cookies, files, or the network from the bridge;
 - add an App Transport Security exception other than `NSAllowsLocalNetworking`;
-- bypass certificate evaluation.
+- bypass certificate evaluation;
+- read the Photos library or ask for its permission;
+- give native media intake an HTTP client of its own, or let it reach a web page, a cookie, the Keychain, or an authorization header;
+- create a custom haptic pattern, or present a share sheet outside `SystemSharePresenter`;
+- claim associated domains, because Tilecast installations use unrelated domains.
 
 Tests can use Studio paths and destination identifiers as data.
 
@@ -42,6 +46,9 @@ Tests can use Studio paths and destination identifiers as data.
 | `TilecastAPI`            | `apps/ios/TilecastKit/Sources/TilecastAPI/`             | The API client, generated at build time from `docs/openapi.yaml`. It contains no hand-written code            |
 | Native bridge            | `apps/ios/TilecastKit/Sources/TilecastCore/Bridge/`     | The only code that handles page scripting: the message handler, protocol validation, and the receiver call    |
 | Native navigation model  | `apps/ios/TilecastKit/Sources/TilecastCore/Navigation/` | The navigation catalog, selection that follows Studio, and icon tokens                                        |
+| Deep links               | `apps/ios/TilecastKit/Sources/TilecastCore/DeepLinks/`  | The `tilecast-ios://open` URL, its path rules, and the resolver that `StudioHost` runs                        |
+| Media intake             | `apps/ios/TilecastKit/Sources/TilecastCore/Media/`      | Temporary staging, the resumable uploader, and the intake coordinator. It has no user interface               |
+| System integrations      | `apps/ios/Tilecast/Features/System/`, `Features/Media/` | Semantic haptics, the share adapter, the deep-link notice, and the media pickers and progress sheet           |
 | Bridge contract          | `packages/native-bridge-schema/`                        | The language-neutral protocol, icon tokens, and the shared fixtures that Studio and the app run               |
 | Studio native host       | `apps/dashboard/src/native-host/`                       | Studio's side of the bridge: detection, capability negotiation, catalog, state, and requests                  |
 | Core tests               | `apps/ios/TilecastKit/Tests/TilecastCoreTests/`         | Swift Testing suites; run on macOS with `swift test` and on the iOS Simulator                                 |
@@ -147,38 +154,45 @@ The bridge is privileged. The app applies these rules:
 - The bridge refuses a message from a subframe, from a content world other than the page world, and from any origin other than the configured server origin. The refusal is a `forbidden` reply.
 - The bridge validates the envelope and the payload before it dispatches a message. An unknown message type gets an `unknown_type` reply. A malformed message gets a `malformed` reply. Another protocol version gets an `unsupported_version` reply.
 - The user content controller holds the handler. The handler holds the bridge weakly, so the page and the bridge do not keep each other alive. Closing the page removes the handler and clears the navigation state.
-- The bridge carries presentation data, navigation data, and credential-free sign-out coordination only. It never carries a password, an OAuth token, a refresh token, a session cookie, a Keychain value, or a CSRF token. It has no file access.
+- The bridge carries presentation data, navigation data, credential-free sign-out coordination, and the small requests and results of the system integrations only. It never carries a password, an OAuth token, a refresh token, a session cookie, a Keychain value, or a CSRF token. It has no file access.
 
 ### Version 1 messages
 
-| Type                     | Direction        | Purpose                                                                         |
-| ------------------------ | ---------------- | ------------------------------------------------------------------------------- |
-| `config/get`             | Studio to native | Studio asks for the protocol version and capabilities                           |
-| `frontend/ready`         | Studio to native | Studio finished its host integration. The app accepts it more than one time     |
-| `navigation/catalog`     | Studio to native | A complete snapshot of navigation destinations that replaces the previous one   |
-| `navigation/state`       | Studio to native | The destination that Studio resolved for its current location, and the path     |
-| `navigation/request`     | native to Studio | The app asks Studio to open a destination by its opaque identifier              |
-| `navigation/chrome`      | Studio to native | Main page only. The page title and, for a drill-in page, the name of its parent |
-| `navigation/back`        | native to Studio | Main page only. The user tapped the native back button. The payload is empty    |
-| `auth/sign-out-request`  | native to Studio | The app asks Studio to sign out with its normal logout                          |
-| `auth/signed-out`        | Studio to native | Studio completed its logout. The payload is empty                               |
-| `presentation/open`      | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route      |
-| `presentation/ready`     | Studio to native | Presentation page only. Its Studio is signed in and receives presentations      |
-| `presentation/update`    | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility          |
-| `presentation/close`     | Studio to native | Presentation page only. Dismiss the presentation                                |
-| `presentation/navigate`  | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path   |
-| `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load   |
-| `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                          |
-| `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                     |
-| `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries    |
-| `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path               |
-| `alert/present`          | Studio to native | Either page. Show a native alert with one to three buttons                      |
-| `alert/cancel`           | Studio to native | Either page. Withdraw an alert that the page presented                          |
-| `alert/action`           | native to Studio | Either page. The user chose a button of an alert that the page presented        |
+| Type                            | Direction        | Purpose                                                                          |
+| ------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| `config/get`                    | Studio to native | Studio asks for the protocol version and capabilities                            |
+| `frontend/ready`                | Studio to native | Studio finished its host integration. The app accepts it more than one time      |
+| `navigation/catalog`            | Studio to native | A complete snapshot of navigation destinations that replaces the previous one    |
+| `navigation/state`              | Studio to native | The destination that Studio resolved for its current location, and the path      |
+| `navigation/request`            | native to Studio | The app asks Studio to open a destination by its opaque identifier               |
+| `navigation/chrome`             | Studio to native | Main page only. The page title and, for a drill-in page, the name of its parent  |
+| `navigation/back`               | native to Studio | Main page only. The user tapped the native back button. The payload is empty     |
+| `auth/sign-out-request`         | native to Studio | The app asks Studio to sign out with its normal logout                           |
+| `auth/signed-out`               | Studio to native | Studio completed its logout. The payload is empty                                |
+| `presentation/open`             | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route       |
+| `presentation/ready`            | Studio to native | Presentation page only. Its Studio is signed in and receives presentations       |
+| `presentation/update`           | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility           |
+| `presentation/close`            | Studio to native | Presentation page only. Dismiss the presentation                                 |
+| `presentation/navigate`         | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path    |
+| `presentation/show`             | native to Studio | Presentation page only. Show this route for this presentation, without a load    |
+| `presentation/action`           | native to Studio | Presentation page only. The user chose a header action                           |
+| `presentation/dismissed`        | native to Studio | Presentation page only. The sheet went away                                      |
+| `presentation/ended`            | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries     |
+| `navigation/open-path`          | native to Studio | Main page only. A presentation or a deep link asked Studio to navigate to a path |
+| `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
+| `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
+| `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
+| `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
+| `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
+| `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
+| `system/media-intake`           | Studio to native | Main page only. Choose media with system pickers and upload it                   |
+| `system/media-intake-completed` | native to Studio | Main page only. A small result: request identifier, outcome, and count           |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
 Milestone 4 adds the presentation messages to version 1. They are additive, and both sides use them only after capability negotiation. See [Native presentations](#native-presentations).
+
+Milestone 8A adds the `system/*` messages and four host capabilities. They are additive too: each one is negotiated on its own, so version 1 stays the only version. See [System integrations](#system-integrations).
 
 ### Document changes
 
@@ -245,6 +259,23 @@ The app uses a SwiftUI `TabView`:
 
 Studio keeps its own topbar with breadcrumbs, search, notifications, and editor controls. It hides its sidebar and the sidebar button, and it shows the account menu in the topbar. The app shows no navigation bar above Studio while native navigation is active.
 
+#### Studio beneath the tab bar
+
+The iOS 26 tab bar floats over its content. Studio must be the content that shows through the glass, so the tab bar does not show an empty strip.
+
+The one Studio web view therefore extends to the bottom edge of the screen, beneath the tab bar:
+
+- `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom safe-area inset that the tab bar causes. It adds the inset to the frame.
+- `StudioOverlay` sizes the web view to that frame. It also applies the inset with `safeAreaPadding(.bottom, _)`, so the web view treats the strip as a bottom safe area. A page scrolls its last content above the bar, and it can scroll under the bar. `position: fixed` content at the bottom of the page stays above the bar.
+- The web view does not receive touches in the covered strip. `contentShape(.interaction, _)` removes that strip from its hit area, so the tab bar receives the touches.
+- The web view remains the one `WebView`. No layout creates a second one.
+
+Only the iPhone tab layout, and an iPad window in compact width, extend the slot. The regular-width iPad `NavigationSplitView` and the fallback chrome keep their own layouts. The More list is a native list that covers Studio, and the web view stays hidden while it shows.
+
+`ignoresSafeArea` on the slot does not work for this purpose: the slot reports the frame that is inside the safe area to its parent, so the measured frame still ends at the top of the bar. The app measures the inset and extends the frame itself.
+
+The app does not minimize the tab bar while the page scrolls. A `WebView` does not take part in the tab bar's scroll tracking, and a workaround would need a hidden scroll view. The requirement is full-bleed composition only.
+
 ### iPad
 
 On an iPad in regular width, the app uses a `NavigationSplitView`. The sidebar shows the server menu at the top, then every catalog group in order, with the secondary group last. The detail column is the same Studio page. An iPad window in compact width uses the iPhone tabs.
@@ -290,10 +321,10 @@ The app has two privileged pages for the active server. Both use the server's pe
 
 Each bridge has a context, which the `config/get` reply reports as `context`:
 
-| Context        | Accepts                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------ |
-| `main`         | Navigation catalog and state, the auth lifecycle, and `presentation/open`                  |
-| `presentation` | `presentation/ready`, `presentation/update`, `presentation/close`, `presentation/navigate` |
+| Context        | Accepts                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `main`         | Navigation catalog and state, the auth lifecycle, `presentation/open`, media intake, and the shared `system/haptic` and `system/share`        |
+| `presentation` | `presentation/ready`, `presentation/update`, `presentation/close`, `presentation/navigate`, and the shared `system/haptic` and `system/share` |
 
 A message from the other context gets a `forbidden` reply. The presentation page cannot publish the navigation catalog, the app never asks it to sign out, and it never receives an OAuth token. The auxiliary page has no bridge. It shows any same-origin page that Studio opens in a new window, so it must not get a privileged bridge.
 
@@ -366,6 +397,164 @@ A surface is a good fit when Studio can open it by an identifier, and when the p
 | Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
+
+## System integrations
+
+Milestone 8A adds four system integrations. Each one uses the system's own interface, and Studio decides when to use it. None of them moves a Tilecast product surface out of Studio.
+
+Each integration is a separate capability in the `config/get` reply, so an older app and an older Studio keep working. A capability that is absent or not `true` is unavailable. A browser has no host: Studio sends nothing and keeps its web behavior.
+
+| Capability          | Pages              | Studio reports in `frontend/ready` | Purpose                                                       |
+| ------------------- | ------------------ | ---------------------------------- | ------------------------------------------------------------- |
+| `systemHaptics`     | main, presentation | not needed                         | Standard system feedback for a semantic type                  |
+| `systemShare`       | main, presentation | not needed                         | The system share sheet                                        |
+| `nativeMediaIntake` | main               | `nativeMediaIntake`                | System pickers and a native upload. Studio handles the result |
+| `deepLinks`         | main               | `deepLinks`                        | The app delivers a validated path from a deep link            |
+
+No credential, cookie, CSRF token, Keychain value, file byte, or OAuth token crosses the bridge in either direction.
+
+### Semantic haptics
+
+`system/haptic` carries one value, `feedback`. The vocabulary is `selection`, `success`, `warning`, `error`, `start`, and `stop`. Studio names the meaning of a state change that it already knows about. The app maps the meaning onto SwiftUI `SensoryFeedback` with `sensoryFeedback(trigger:_:)`, so the effect follows the device and the person's settings.
+
+- There is no custom vibration pattern. There is no message for one page, for example a message for one publish action.
+- Studio does not send feedback for every click. Studio sends it after a meaningful state change, for example when an upload finishes or fails.
+- The app accepts a well-formed value that it does not know and performs nothing. A newer Studio can add a value without a failure in an older app. A malformed value gets a `malformed` reply.
+- The main page and the presentation page use the same request.
+
+`SystemFeedback` holds a counter and the last request. The counter is the trigger, so the same feedback can play twice in a row.
+
+### System share
+
+`system/share` asks the app to open the system share sheet for normal, user-visible content:
+
+- `title`, at most 200 characters, for the preview;
+- `text`, at most 2000 characters;
+- `url`, at most 2048 characters.
+
+At least `text` or `url` is required. The app refuses a request that is not valid:
+
+- A `url` must be an absolute `http` or `https` URL without user information. The app refuses `javascript:`, `file:`, `data:`, and every other scheme, a relative URL, whitespace, and backslashes.
+- The app refuses a URL whose query or fragment names a credential, for example `access_token`, `token`, `code`, `csrf`, `session`, `signature`, or `password`.
+- The app refuses text, a title, or a URL that contains a Tilecast credential prefix: `tca_`, `tcr_`, `tc_device_`, or `tc_pair`.
+- The app replies `unavailable` for a URL that points to the connected server's own `/api` or `/__native` tree. Those addresses authorize with the session, so they mean nothing to another person.
+
+Studio applies the same rules before it sends a request, with the same shared fixtures.
+
+SwiftUI has `ShareLink`, which is a view, and no imperative share API. A request that arrives from the bridge has no view to present from. `SystemSharePresenter` in `Tilecast/Features/System/` is the one isolated UIKit adapter. It presents `UIActivityViewController` from the top view controller, so a share from a presentation sheet appears above that sheet. It supplies the title as link metadata for the preview. It builds no share interface of its own. An iPad shows the sheet in a popover. One share sheet can be open at a time; a second request gets `unavailable`.
+
+Studio uses the reply to choose. When the reply is not `ok`, Studio keeps its web behavior, for example `navigator.share` or a copy button. Use `useNativeShare()` and `useNativeShareAvailable()` in `apps/dashboard/src/native-host/useNativeSystem.ts`. No Studio surface shares content yet. The hooks and the native side are ready for the first one.
+
+### Deep links
+
+A deep link brings a person back into a configured Tilecast installation. The URL is `tilecast-ios://open?installation=<installation-id>&path=<studio-path>`. The path is percent-encoded. `DeepLink` in `TilecastCore/DeepLinks/` builds and reads it.
+
+- The URL holds no secret. It names an installation, never an address. The app does not claim universal links or associated domains, because a Tilecast installation can use any domain.
+- The OAuth callback `tilecast-ios://oauth/callback` uses the same scheme and a different host. `DeepLink.parse` ignores it, and the sign-in session keeps handling it.
+- A link with a repeated parameter, user information, a port, a fragment, or a URL longer than 4096 characters is invalid. Unknown extra parameters are ignored.
+
+The path is valid when it is an ordinary same-origin Studio path: it starts with a single `/`, it has at most 2048 characters, and it has no control character, whitespace, backslash, or dot segment (also percent-encoded). It must not be in `/__native`, `/login`, `/setup`, or `/oauth`. Sign-in, first-run setup, and OAuth approval have their own entry points. The rule is generic: the app does not list Studio routes. The shared fixture `deepLinkPaths` in `packages/native-bridge-schema/fixtures/messages-v1.json` holds the accepted and refused paths, and Studio and the app both run it.
+
+`StudioHost.open(_:)` is the one resolver. A push notification or an App Intent later builds a `DeepLink` and calls it, so no second routing path exists:
+
+1. The resolver finds a server profile with the installation ID. If none exists, it shows a notice that says the link cannot be opened, and it does nothing else. It contacts no host and it never adds a server from an incoming URL.
+2. It queues the link, and it opens the profile's server when that server is not active. Opening a server verifies its installation identity first. A changed installation shows the identity-changed state, and the link ends.
+3. The link waits until the main page is ready. The page is ready when its Studio finished the bridge handshake, reported `deepLinks`, and published its navigation catalog, which means that it is signed in. A link that arrives before launch finishes, during sign-in, or before Studio loads waits for that moment.
+4. The app sends the path with `navigation/open-path`, and React Router navigates. Unsaved-change blockers apply. The app never loads the page URL for a link. Studio validates the path again and refuses the authentication paths.
+5. A link expires after five minutes. Switching to another server, removing the server, and signing out also end it. Studio retries a delivery that its router did not accept for a short time, because Studio can report ready before its router listens.
+
+### Native media intake
+
+The app has no native Media library. Native media intake does one job:
+
+```text
+Choose media with Apple's system UI
+        ↓
+upload it with the native Tilecast API credential
+        ↓
+tell Studio how it ended
+        ↓
+Studio stays the product interface
+```
+
+Studio keeps browsing, organizing, editing, assigning, and publishing media.
+
+#### Entry point and fallback
+
+Studio decides when "Upload media" is available. In `MediaUploadPanel`, the **Choose files** button uses native intake when the host can, and the browser file input everywhere else.
+
+1. When the panel mounts, Studio sends `system/media-intake-status`. The reply `available` is `true` only when the app has a native credential for the connected server. A server released before native API access, and an app that signed out, report `false`.
+2. When `available` is `true`, a click sends `system/media-intake` with an opaque `requestId`, media kind hints (`image`, `video`), and `multiple`. The request has no file data, no path, and no credential.
+3. When the reply is `unavailable`, Studio stops offering native intake and uses its own uploader. The status answer arrives before the click, so the click that opens the browser file input still has its user gesture.
+
+A presentation page cannot start intake. The app ignores the request from a page that is not the main page with `forbidden`.
+
+#### Choosing
+
+`MediaIntakeCoordinator` moves the flow to `choosing`, and the app shows a dialog with **Photo Library** and **Choose Files…**.
+
+- **Photo Library** uses `PhotosPicker`. The app asks for the `.compatible` encoding, so the picker gives JPEG instead of HEIC and widely supported video. The app does not ask for the Photos library permission and does not read the library. `PhotosPickerItem.loadTransferable` copies the item to a file through `Transferable`.
+- **Choose Files…** uses `fileImporter`. The URL is security scoped. `FileImportSource` opens access for the copy only, reads the file with file coordination (which also downloads an iCloud Drive file), and releases access when the copy ends.
+- Multiple selection works where the picker supports it. There is no custom Photos or Files browser. A camera action is not part of Milestone 8A.
+
+#### Upload transport
+
+`MediaUploader` uses Tilecast's existing resumable upload protocol through the generated Swift client. There is no iOS-only upload API and no second REST client.
+
+| Step     | Operation              | Notes                                                                                     |
+| -------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+| Create   | `createUploadSession`  | Sends the file name, the MIME type, and the size                                          |
+| Append   | `appendUploadBytes`    | `PATCH` with `Upload-Offset`. A chunk is 2 MiB. The server answers `204` when it saved it |
+| Recover  | `inspectUploadSession` | `HEAD`. The `Upload-Offset` header tells the app how many bytes the server holds          |
+| Finalize | `completeUpload`       | The server checks the size and starts processing. `409` means that bytes are missing      |
+| Cancel   | `cancelUpload`         | Best effort, when an upload ends without an asset                                         |
+| Follow   | `getAsset`             | Read for display only, until the server marks the asset ready or failed                   |
+
+- The client sends `Authorization: Bearer` from `NativeAuthSession` and nothing else. `BearerAuthenticationMiddleware` removes any `Cookie` header, and the upload sets no `X-CSRF-Token`. The session has no cookie storage and refuses every redirect. Certificates are evaluated normally. Nothing in this code logs the header.
+- After a lost answer, a network error, `408`, `429`, or a `5xx` status, the uploader asks the server for its offset with `HEAD` and continues from there. A chunk that arrived is not sent again, and a chunk that did not arrive is not skipped. After five consecutive failures of one step, the upload ends with a message that the server is not reachable.
+- A `401` rotates the access token one time through the normal single-flight rotation. A second `401` ends the upload as unauthenticated.
+- `413`, `415`, and `507` map to "larger than the server allows", "type not accepted", and "no space left". A `200` answer to `completeUpload` whose body the app does not understand still counts as a finished upload, because the server finalized it.
+
+The generated client refuses enum values that the contract does not list. A newer server that adds an asset status could break `getAsset` in an installed app. The app treats an unreadable status as "uploaded", and the upload never fails because of it.
+
+#### Temporary files
+
+`MediaStaging` keeps every copy below one directory in the app's temporary space. Each intake has a subdirectory. Names are generated: a picked file name is display text and upload metadata, and it never becomes a path. The app removes path components, control characters, and characters past 255 from a name.
+
+- A copy is removed as soon as its upload ends, whichever way it ends.
+- The intake directory is removed after success, after the person cancels, after a definitive failure, when the app switches servers, when the person signs out, and when the person removes the server.
+- `sweepStaging()` at launch removes anything that an ended app left behind.
+- Media contents are not stored in app preferences, in the Keychain, in state restoration, or on the bridge.
+
+#### Progress
+
+While files transfer, the app shows a sheet with the file name, a progress bar, and one state for each file: preparing, uploading, processing on the server, uploaded, failed with a reason, or cancelled. **Cancel** stops the transfer; files that already arrived stay on the server. **Done** closes the sheet, and swiping the sheet away is off while files transfer. The upload runs while the app is in the foreground. The app does not promise completion after iOS suspends or ends the app. A background `URLSession` is not part of Milestone 8A.
+
+A picker or the sheet never rebuilds or moves the Studio web view. Their presentations belong to the shell root, and the same `StudioPage` shows under them.
+
+#### The result
+
+When every upload ends, the app sends `system/media-intake-completed` with `requestId`, `outcome`, and `uploadedCount`:
+
+| Outcome     | Meaning                                                            |
+| ----------- | ------------------------------------------------------------------ |
+| `completed` | Every chosen file uploaded                                         |
+| `partial`   | Some files uploaded and some did not, or the person cancelled late |
+| `failed`    | No file uploaded, for a reason other than cancellation             |
+| `cancelled` | The person cancelled before any file uploaded                      |
+
+The message has no file data, no token, and no asset model. Studio refetches its own `["assets"]` queries when `uploadedCount` is more than zero, through `NativeMediaIntakeRefresh`. The panel that asked shows a short status line. If the Studio page that asked no longer exists, the app finishes locally: it drops the message and does not reload a page.
+
+A switch to another server or a sign-out ends the intake and sends nothing, because the page that asked belongs to a session that ended.
+
+#### Testing
+
+Automated tests use no Photos library and no iCloud. Fixtures replace the pickers:
+
+- Swift tests run the uploader against a fake upload server, with fault injection for lost answers, dropped connections, `503`, `409`, redirects, and cancellation. They check the wire: the bearer token, no cookie, no CSRF token, and the offsets sent.
+- Debug builds accept `-TilecastFixtureMediaPicker`, which replaces the system pickers with two generated images, and `-TilecastFixtureNativeCredential`, which gives every server a stored refresh token. The UI tests use them with `FixtureStudioServer`, which speaks the upload protocol. Release builds contain none of this code.
+
+For a real test with the Photos picker and the Files app, see `apps/ios/README.md`.
 
 ## Authentication
 
@@ -471,26 +660,28 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 
 ## Milestones
 
-| Milestone | Scope                                                                                                                                          |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                         |
-| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar    |
-| 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages |
-| 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs            |
-| 5         | Native Pair Screen with scanning and manual code entry                                                                                         |
-| 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                   |
-| 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                        |
-| 8         | Media intake, Share, push notifications and deep links, haptics, screen quick actions                                                          |
+| Milestone | Scope                                                                                                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1         | Host foundation: server profiles, per-server WebKit storage, one main Studio page, navigation policy, server switching                                                  |
+| 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
+| 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
+| 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
+| 5         | Native Pair Screen with scanning and manual code entry                                                                                                                  |
+| 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
+| 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
+| 8A        | Implemented: full-bleed tab bar, system share, semantic haptics, deep links, and native media intake                                                                    |
+| 8B        | Push notifications, notification actions, App Intents and Shortcuts, and screen quick actions. See [ADR: push and quick actions](adr/ios-m8b-push-and-quick-actions.md) |
 
-Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio.
+Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio. Milestone 8A adds no native product screen: the app has no native Media library.
 
-## Known limitations after Milestone 4
+## Known limitations after Milestone 8A
 
 - Studio opens the Layout and Playlist previews with `window.open`. `WebPage` has no new-window hook, so these previews do not open in the app. They can move to native presentations later.
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
-- No production screen calls the native API yet. Milestone 3 is the foundation for later native workflows.
+- Native media intake is the only workflow that calls the native API. Milestone 3 is the foundation for later native workflows.
+- Native uploads run while the app is in the foreground. The app does not promise that an upload continues after iOS suspends or ends the app. See [Native media intake](#native-media-intake).
 - The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.
 - The Studio topbar stays a Studio component. This is intentional: breadcrumbs, search, notifications, and editor controls remain Studio features.
 

@@ -374,7 +374,10 @@
       "dismiss": "Descartar {{name}}",
       "activeConfirmBody": "Las transferencias siguen en segundo plano, pero esta vista deja de mostrar su progreso.",
       "dialogDescription": "Las imágenes y los videos subidos aparecen en la biblioteca multimedia cuando termina el procesamiento.",
-      "done": "Listo"
+      "done": "Listo",
+      "nativeCompleted": "Archivos subidos desde este dispositivo. El procesamiento continúa en la biblioteca multimedia.",
+      "nativePartial": "Se subieron algunos archivos de este dispositivo. No se pudieron subir los demás.",
+      "nativeFailed": "No se pudieron subir los archivos de este dispositivo. Inténtalo de nuevo."
     },
     "tabs": {
       "library": "Biblioteca",
