@@ -334,7 +334,7 @@ A confirmation must match the platform, so Studio can ask the app to show a nati
 3. When the user chooses a button, the app sends `alert/action` with the alert id and the button id to the page that asked. Studio ignores an alert id that it does not know.
 4. An alert belongs to its page. A new document withdraws the alert of the main page. A presentation that ends withdraws the alert of the presentation page. Studio can also send `alert/cancel`, for example when the component that asked went away.
 
-`useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
+`useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. A confirmation written as its own `AlertDialog` is a web dialog on iOS until it moves to `useConfirm`. The media library and the media asset sheet have moved. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
 
 ### Which surfaces move to a sheet
 
