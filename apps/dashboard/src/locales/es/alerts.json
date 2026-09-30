@@ -257,6 +257,7 @@
     "leaseRenewError": "No se pudo renovar la transmisión en vivo.",
     "startError": "No se pudo iniciar la transmisión en vivo.",
     "connectionEnded": "La conexión en vivo terminó de forma inesperada.",
+    "retry": "Reintentar transmisión",
     "imageAlt": "Salida en vivo de Tilecast desde {{name}}",
     "unavailable": "Transmisión no disponible",
     "connecting": "Conectando al reproductor…",
