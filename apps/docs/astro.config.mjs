@@ -433,6 +433,7 @@ export default defineConfig({
             createOpenAPISidebarGroup(),
           ],
         },
+        { slug: "privacy" },
       ],
     }),
   ],
