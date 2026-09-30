@@ -69,12 +69,12 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 	timelineRows, err := s.db.Query(r.Context(), `
 		SELECT e.id::text,e.occurred_at,'screen',e.severity,
 		       CASE WHEN e.content_id IS NOT NULL THEN replace(e.event_type,'.',' ')||' · '||e.content_id ELSE replace(e.event_type,'.',' ') END,
-		       e.screen_id,e.presentation_id
+		       e.screen_id,COALESCE(e.presentation_id,'')
 		FROM player_activity_events e JOIN screens s ON s.id=e.screen_id
 		WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND (e.severity IN('warning','error','critical') OR e.event_type IN('presentation.started','presentation.recovered','schedule.became_active','takeover.active','update.installation_failed'))
 		UNION ALL
 		SELECT id::text,created_at,'audit',CASE WHEN result='failure' THEN 'error' ELSE 'info' END,
-		       COALESCE(NULLIF(summary,''),replace(action,'.',' ')),NULL,resource_id
+		       COALESCE(NULLIF(summary,''),replace(action,'.',' ')),NULL,COALESCE(resource_id,'')
 		FROM audit_logs WHERE created_at>=$1 AND created_at<$2 AND result IN('success','failure')
 		ORDER BY 2 DESC LIMIT 40`, window.From, window.To)
 	if err != nil {
