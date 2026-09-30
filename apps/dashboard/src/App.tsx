@@ -24,7 +24,7 @@ import { ContentSubmissionInboxPage } from "./pages/ContentSubmissionInboxPage";
 import { ScreenDetailWithPreviewPage } from "./pages/ScreenDetailWithPreviewPage";
 import { ArchivedScreensPage } from "./pages/ArchivedScreensPage";
 import { ContentPage } from "./pages/ContentPage";
-import { PlaylistEditorPage } from "./pages/PlaylistsPage";
+import { PlaylistEditorPage } from "./components/playlist-editor/PlaylistEditor";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
 import { ActivityIncidentPresentation } from "./pages/ActivityIncidentPresentation";
 import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
