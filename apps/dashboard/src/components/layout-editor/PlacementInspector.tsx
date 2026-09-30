@@ -71,11 +71,6 @@ const fitOptions = [
   { value: "stretch", labelKey: "inspector.fitStretch" },
 ] as const;
 
-const fallbackVisibilityOptions = [
-  { value: "show", labelKey: "inspector.widgetFallbackShow" },
-  { value: "hide", labelKey: "inspector.widgetFallbackHide" },
-] as const;
-
 const zoneFallbackOptions = [
   { value: "background", labelKey: "inspector.zoneFallbackBackground" },
   { value: "previous", labelKey: "inspector.zoneFallbackPrevious" },
@@ -335,7 +330,6 @@ export function PlacementInspector({
 }) {
   const { t } = useTranslation(["layouts", "common"]);
   const fit = translatedOptions(fitOptions, t);
-  const fallbackVisibility = translatedOptions(fallbackVisibilityOptions, t);
   const zoneFallback = translatedOptions(zoneFallbackOptions, t);
   const assetFallback = translatedOptions(assetFallbackOptions, t);
   const visibility = translatedOptions(visibilityOptions, t);
@@ -534,98 +528,9 @@ export function PlacementInspector({
       </InspectorSection>
       {item.type === "widget" && (
         <InspectorSection title={t("inspector.widgetTitle")}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <InspectorSelect
-              id="widget-fit"
-              label={t("inspector.fitLabel")}
-              value={(item.overrides?.fit as string | undefined) ?? "contain"}
-              options={fit}
-              onChange={(next) =>
-                update((target) => {
-                  target.overrides = { ...target.overrides, fit: next };
-                })
-              }
-            />
-            <AlignmentToggle
-              id="widget-alignment"
-              label={t("inspector.alignmentLabel")}
-              value={
-                (item.overrides?.alignment as string | undefined) ?? "center"
-              }
-              onChange={(next) =>
-                update((target) => {
-                  target.overrides = { ...target.overrides, alignment: next };
-                })
-              }
-            />
-            <ColorField
-              id="widget-foreground"
-              label={t("inspector.foregroundLabel")}
-              value={
-                (item.overrides?.foregroundColor as string | undefined) ??
-                "#F5F7FA"
-              }
-              onChange={(next) =>
-                update((target) => {
-                  target.overrides = {
-                    ...target.overrides,
-                    foregroundColor: next,
-                  };
-                })
-              }
-            />
-            <ColorField
-              id="widget-background"
-              label={t("inspector.fields.background")}
-              value={
-                (item.overrides?.backgroundColor as string | undefined) ??
-                "#18232D"
-              }
-              onChange={(next) =>
-                update((target) => {
-                  target.overrides = {
-                    ...target.overrides,
-                    backgroundColor: next,
-                  };
-                })
-              }
-            />
-          </div>
-          <InspectorSelect
-            id="widget-fallback"
-            label={t("inspector.whenUnavailable")}
-            value={
-              (item.overrides?.fallbackVisibility as string | undefined) ??
-              "show"
-            }
-            options={fallbackVisibility}
-            onChange={(next) =>
-              update((target) => {
-                target.overrides = {
-                  ...target.overrides,
-                  fallbackVisibility: next,
-                };
-              })
-            }
-          />
-          {(content?.widget?.provider === "website" ||
-            content?.widget?.provider === "youtube") && (
-            // The wrapping label names the checkbox; no extra aria-label.
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={(item.overrides?.muted as boolean | undefined) ?? true}
-                onCheckedChange={(checked) =>
-                  update((target) => {
-                    target.overrides = {
-                      ...target.overrides,
-                      muted: checked === true,
-                    };
-                  })
-                }
-              />
-              {t("inspector.widgetMuted")}
-            </label>
-          )}
+          <p className="text-sm text-muted-foreground">
+            {t("inspector.widgetAppearanceShared")}
+          </p>
           {/* Opens the Widget itself and carries a return path, instead of asking for confirmation
               and then abandoning the author at the Widget list. The Widget editor reports its own
               consumers, so the warning this dialog used to guess at is shown where it is

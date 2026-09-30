@@ -332,14 +332,6 @@ export function createContentPlacement(
     widgetId: isApp ? asset.id : undefined,
     assetId: isApp ? undefined : asset.id,
     variantId,
-    overrides: isApp
-      ? {
-          fit: "contain",
-          alignment: "center",
-          fallbackVisibility: "show",
-          muted: true,
-        }
-      : undefined,
     playback: !isApp
       ? {
           fit: "contain",

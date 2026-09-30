@@ -118,7 +118,6 @@ export function V2ZonePreview({
   asset,
   width,
   height,
-  overrides,
   onState,
   fit = "shrink",
   previewDate,
@@ -131,8 +130,6 @@ export function V2ZonePreview({
    */
   width: number;
   height: number;
-  /** Per-placement overrides win over Widget configuration, as in Studio. */
-  overrides?: Record<string, unknown>;
   /** Mount state, for callers that capture the preview once it settles. */
   onState?: (state: WidgetMountState) => void;
   /**
@@ -261,10 +258,8 @@ export function V2ZonePreview({
             ? ("h23" as const)
             : ("locale" as const),
       theme: resolveTheme({
-        background:
-          overrides?.backgroundColor ?? configuration["backgroundColor"],
-        foreground:
-          overrides?.foregroundColor ?? configuration["foregroundColor"],
+        background: configuration["backgroundColor"],
+        foreground: configuration["foregroundColor"],
       }),
       motion: { reduced: reducedMotion },
       mode: "preview" as const,
@@ -273,7 +268,6 @@ export function V2ZonePreview({
     clock,
     fixedMs,
     reducedMotion,
-    overrides,
     regional.locale,
     regional.timezone,
     regional.timeFormat,
