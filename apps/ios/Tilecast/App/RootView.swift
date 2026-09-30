@@ -6,11 +6,14 @@ struct RootView: View {
     @Environment(StudioHost.self) private var host
 
     var body: some View {
-        if host.directory.servers.isEmpty {
-            WelcomeView()
-        } else {
-            StudioShell()
+        Group {
+            if host.directory.servers.isEmpty {
+                WelcomeView()
+            } else {
+                StudioShell()
+            }
         }
+        .deepLinkNotice()
     }
 }
 

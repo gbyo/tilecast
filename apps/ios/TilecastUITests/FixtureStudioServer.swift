@@ -17,6 +17,8 @@ import Network
 /// it. Its route and its header are made up too.
 final class FixtureStudioServer: @unchecked Sendable {
     let port: UInt16
+    /// The Tilecast API endpoints native media intake uses.
+    let api = FixtureUploadAPI()
     private let listener: NWListener
     private let queue = DispatchQueue(label: "FixtureStudioServer")
 
@@ -28,9 +30,10 @@ final class FixtureStudioServer: @unchecked Sendable {
         listener.stateUpdateHandler = { state in
             if case .ready = state { ready.signal() }
         }
+        let api = api
         listener.newConnectionHandler = { [queue] connection in
             connection.start(queue: queue)
-            Self.receive(on: connection, buffer: Data())
+            Self.receive(on: connection, buffer: Data(), api: api)
         }
         listener.start(queue: queue)
         guard ready.wait(timeout: .now() + 10) == .success, let port = listener.port?.rawValue else {
@@ -46,41 +49,71 @@ final class FixtureStudioServer: @unchecked Sendable {
         listener.cancel()
     }
 
-    private static func receive(on connection: NWConnection, buffer: Data) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, complete, error in
+    private static func receive(on connection: NWConnection, buffer: Data, api: FixtureUploadAPI) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 256 * 1024) { data, _, complete, error in
             var buffer = buffer
             if let data { buffer.append(data) }
             if let end = buffer.range(of: Data("\r\n\r\n".utf8)) {
                 let head = String(decoding: buffer[..<end.lowerBound], as: UTF8.self)
-                respond(to: head, on: connection)
-            } else if complete || error != nil {
+                let length = head.split(separator: "\r\n").lazy
+                    .compactMap { line -> Int? in
+                        let parts = line.split(separator: ":", maxSplits: 1)
+                        guard parts.count == 2, parts[0].lowercased() == "content-length" else { return nil }
+                        return Int(parts[1].trimmingCharacters(in: .whitespaces))
+                    }.first ?? 0
+                let body = buffer[end.upperBound...]
+                if body.count >= length {
+                    respond(to: head, body: Data(body.prefix(length)), on: connection, api: api)
+                    return
+                }
+            }
+            if complete || error != nil {
                 connection.cancel()
             } else {
-                receive(on: connection, buffer: buffer)
+                receive(on: connection, buffer: buffer, api: api)
             }
         }
     }
 
-    private static func respond(to head: String, on connection: NWConnection) {
-        let target = head.split(separator: " ").dropFirst().first.map(String.init) ?? "/"
+    private static func respond(to head: String, body requestBody: Data, on connection: NWConnection, api: FixtureUploadAPI) {
+        let lines = head.split(separator: "\r\n", omittingEmptySubsequences: false)
+        let requestLine = lines.first?.split(separator: " ") ?? []
+        let method = requestLine.first.map(String.init) ?? "GET"
+        let target = requestLine.dropFirst().first.map(String.init) ?? "/"
         let path = target.split(separator: "?").first.map(String.init) ?? "/"
-        let (type, body) = if path == "/api/v1/system/identity" {
-            ("application/json", identity)
-        } else if path == "/__native/modal" || path.hasPrefix("/__native/modal/") {
-            ("text/html; charset=utf-8", fixturePresentation)
-        } else {
-            ("text/html; charset=utf-8", fixtureStudio)
+        var headers: [String: String] = [:]
+        for line in lines.dropFirst() {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            if parts.count == 2 { headers[parts[0].lowercased()] = parts[1].trimmingCharacters(in: .whitespaces) }
         }
-        let payload = Data(body.utf8)
-        let header = [
-            "HTTP/1.1 200 OK",
-            "Content-Type: \(type)",
-            "Content-Length: \(payload.count)",
-            "Cache-Control: no-store",
-            "Connection: close",
-            "", "",
-        ].joined(separator: "\r\n")
-        connection.send(content: Data(header.utf8) + payload, completion: .contentProcessed { _ in
+
+        var status = 200
+        var extra: [String: String] = [:]
+        var payload: Data
+        var type = "text/html; charset=utf-8"
+        if api.handles(path) {
+            let response = api.respond(to: .init(method: method, path: path, headers: headers, body: requestBody))
+            status = response.status
+            extra = response.headers
+            type = response.headers["Content-Type"] ?? "application/json"
+            payload = response.body
+        } else if path == "/api/v1/system/identity" {
+            type = "application/json"
+            payload = Data(identity.utf8)
+        } else if path == "/__native/modal" || path.hasPrefix("/__native/modal/") {
+            payload = Data(fixturePresentation.utf8)
+        } else {
+            payload = Data(fixtureStudio.utf8)
+        }
+        extra["Content-Type"] = type
+        let reason = HTTPURLResponse.localizedString(forStatusCode: status)
+        // A HEAD or 204 answer carries no body, but its headers stay.
+        let bodyless = method == "HEAD" || status == 204
+        let header = (["HTTP/1.1 \(status) \(reason)"]
+            + extra.map { "\($0.key): \($0.value)" }
+            + ["Content-Length: \(bodyless ? 0 : payload.count)", "Cache-Control: no-store", "Connection: close", "", ""])
+            .joined(separator: "\r\n")
+        connection.send(content: Data(header.utf8) + (bodyless ? Data() : payload), completion: .contentProcessed { _ in
             connection.cancel()
         })
     }
@@ -97,18 +130,41 @@ final class FixtureStudioServer: @unchecked Sendable {
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Fixture Studio</title>
-        <style>body { font: 17px -apple-system, sans-serif; margin: 16px; }</style>
+        <style>
+        body { font: 17px -apple-system, sans-serif; margin: 0; }
+        main { padding: 16px; }
+        .row { padding: 14px 0; border-bottom: 1px solid #c7c7cc; }
+        /* Pinned to the bottom of the web view. If the web view ends above the
+           tab bar, so does this bar. */
+        #viewport-bottom { position: fixed; left: 0; right: 0; bottom: 0; height: 24px;
+          background: rgba(0, 122, 255, 0.35); font-size: 12px; }
+        </style>
         </head>
         <body>
         <nav id="sidebar"><a href="/">Browser sidebar</a></nav>
+        <main>
         <h1 id="page"></h1>
         <p id="document"></p>
+        <p id="metrics"></p>
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
         <p><button id="drill" type="button">Open screen detail</button></p>
         <p id="opened"></p>
         <p id="ended">Ended 0</p>
+        <p>
+        <button id="haptic" type="button">Haptic</button>
+        <button id="share" type="button">Share</button>
+        <button id="share-unsafe" type="button">Share unsafe</button>
+        </p>
+        <p id="system-result"></p>
+        <p><button id="upload-media" type="button">Upload media</button></p>
+        <p id="intake"></p>
         <p><button id="ask" type="button">Delete fixture</button></p>
         <p id="chosen"></p>
+        <section id="rows"></section>
+        <p><button id="bottom-action" type="button">Bottom action</button></p>
+        <p id="bottom-pressed"></p>
+        </main>
+        <div id="viewport-bottom">Viewport bottom</div>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const paths = {
@@ -130,12 +186,26 @@ final class FixtureStudioServer: @unchecked Sendable {
           { id: "secondary", items: [{ id: "settings", title: "Settings", icon: "settings" }] },
         ] };
         const active = () => Object.keys(paths).find((id) => paths[id] === location.pathname) ?? null;
+        // Fleet and Media are long pages; the others are shorter than the viewport.
+        const tall = new Set(["fleet", "media"]);
         const render = () => {
           const id = active();
           document.getElementById("page").textContent = location.pathname === "/fleet/screen-1" ? "Screen detail page"
             : id ? `${titles[id]} page` : "No destination";
           document.getElementById("document").textContent = `Document ${documentId}`;
+          document.getElementById("rows").replaceChildren(...(tall.has(id) ? Array.from({ length: 60 }, (_, index) => {
+            const row = document.createElement("div");
+            row.className = "row";
+            row.textContent = `Row ${index + 1}`;
+            return row;
+          }) : []));
+          document.getElementById("metrics").textContent =
+            `Viewport ${window.innerWidth}x${window.innerHeight}`;
         };
+        window.addEventListener("resize", render);
+        document.getElementById("bottom-action").addEventListener("click", () => {
+          document.getElementById("bottom-pressed").textContent = "Bottom action pressed";
+        });
         const handler = window.webkit?.messageHandlers?.tilecastNative;
         const send = (type, payload) => handler.postMessage({ version: 1, type, payload });
         // A drill-in page describes its trail, as Studio does from its breadcrumbs.
@@ -153,7 +223,13 @@ final class FixtureStudioServer: @unchecked Sendable {
         // A presentation is its own document with its own data, so Studio
         // refetches when one ends. The fixture just counts.
         let ended = 0;
+        let intakeRequests = 0;
         window.tilecastNativeReceiver = (message) => {
+          if (message?.type === "system/media-intake-completed") {
+            const { outcome, uploadedCount } = message.payload;
+            document.getElementById("intake").textContent = `Intake ${outcome} ${uploadedCount}`;
+            return true;
+          }
           if (message?.type === "presentation/ended") {
             document.getElementById("ended").textContent = `Ended ${++ended}`;
             return true;
@@ -174,6 +250,35 @@ final class FixtureStudioServer: @unchecked Sendable {
           void publish();
           return true;
         };
+        const result = (text) => { document.getElementById("system-result").textContent = text; };
+        document.getElementById("haptic").addEventListener("click", async () => {
+          const reply = handler && await send("system/haptic", { feedback: "success" });
+          result(reply?.ok ? "Haptic ok" : "Haptic unavailable");
+        });
+        document.getElementById("share").addEventListener("click", async () => {
+          const reply = handler && await send("system/share", {
+            title: "Fixture link", text: "A page worth sharing", url: "https://example.org/fixture",
+          });
+          result(reply?.ok ? "Share ok" : `Share ${reply?.error?.code ?? "unavailable"}`);
+        });
+        document.getElementById("share-unsafe").addEventListener("click", async () => {
+          const reply = handler && await send("system/share", { url: "javascript:alert(1)" });
+          result(reply?.ok ? "Share ok" : `Share ${reply?.error?.code ?? "unavailable"}`);
+        });
+        // Studio decides when to offer native intake. Its own uploader is the
+        // permanent path, so a host that cannot begin gets the web input.
+        document.getElementById("upload-media").addEventListener("click", async () => {
+          const intake = document.getElementById("intake");
+          const status = handler && await send("system/media-intake-status", {});
+          if (status?.ok && status.payload.available === true) {
+            const reply = await send("system/media-intake", {
+              requestId: `mi-${documentId}-${++intakeRequests}`, accept: ["image", "video"], multiple: true,
+            });
+            intake.textContent = reply?.ok ? "Intake started" : "Web uploader";
+          } else {
+            intake.textContent = "Web uploader";
+          }
+        });
         // Studio's confirmations use a native alert when the app offers one.
         document.getElementById("ask").addEventListener("click", async () => {
           await send("alert/present", {
@@ -201,7 +306,9 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
-          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
+          await send("frontend/ready", {
+            capabilities: { nativePresentations: true, nativeAlerts: true, nativeMediaIntake: true, deepLinks: true },
+          });
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
           await publish();
@@ -226,6 +333,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="action"></p>
         <p><button id="close" type="button">Close from page</button></p>
         <p><button id="leave" type="button">Go to Layouts</button></p>
+        <p><button id="share" type="button">Share from sheet</button></p>
+        <p id="system-result"></p>
         <p><button id="ask" type="button">Ask from sheet</button></p>
         <p><button id="grow" type="button">Grow sheet</button></p>
         <p id="chosen"></p>
@@ -274,6 +383,10 @@ final class FixtureStudioServer: @unchecked Sendable {
         };
         document.getElementById("close").addEventListener("click", () => {
           if (current) void send("presentation/close", { presentationId: current });
+        });
+        document.getElementById("share").addEventListener("click", async () => {
+          const reply = await send("system/share", { title: "From the sheet", url: "https://example.org/sheet" });
+          text("system-result", reply?.ok ? "Share ok" : `Share ${reply?.error?.code ?? "unavailable"}`);
         });
         // A dialog inside a compact presentation asks the sheet for the full
         // height, as Studio's dialog primitives do.
