@@ -296,7 +296,7 @@ export function ContentReviewPage() {
         </Empty>
       ) : (
         <div className="contents">
-          <div className="grid gap-2 md:hidden">
+          <div className="grid gap-2 lg:hidden">
             {items.map((item) => (
               <article
                 key={key(item)}
@@ -350,7 +350,7 @@ export function ContentReviewPage() {
               </article>
             ))}
           </div>
-        <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
           <Table className="min-w-[48rem]">
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
