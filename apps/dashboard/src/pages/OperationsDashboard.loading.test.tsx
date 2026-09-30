@@ -4,13 +4,21 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import { ComingUp, PlayerUpdates } from "./OperationsDashboard";
+import { PlayerUpdatesCard } from "../components/overview/PlayerUpdatesCard";
+import { UpcomingCard } from "../components/overview/UpcomingCard";
 
 describe("Operations dashboard pending panels", () => {
   it("does not show the empty schedule state while schedules are loading", () => {
     render(
       <MemoryRouter>
-        <ComingUp isLoading schedulesError={false} />
+        <UpcomingCard
+          changes={[]}
+          defaultTimezone="UTC"
+          isLoading
+          isError={false}
+          loaded={0}
+          total={0}
+        />
       </MemoryRouter>,
     );
 
@@ -23,7 +31,7 @@ describe("Operations dashboard pending panels", () => {
   it("does not show the empty deployment state while deployments are loading", () => {
     render(
       <MemoryRouter>
-        <PlayerUpdates isLoading isError={false} actionCount={0} />
+        <PlayerUpdatesCard isLoading isError={false} />
       </MemoryRouter>,
     );
 
