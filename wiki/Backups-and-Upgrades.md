@@ -97,18 +97,23 @@ Tilecast does not currently provide a one-click restore workflow. Treat restore 
 10. Confirm several representative players remain online and playing.
 11. Deploy Player APK updates separately through **Settings → Player updates**.
 
-## Source-checkout deployment
+## Stable server upgrade
 
-After updating the checked-out source:
+Normal installs run a published server image, so a Stable upgrade is a version change, not a source rebuild.
+
+If this installation still uses the former Compose file with a `build:` section under `server`, update the deployment files once first (pull them in the existing checkout) and confirm the Compose file now selects a published image through `TILECAST_VERSION`. Later upgrades never touch the checkout again.
 
 ```sh
-docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d --build
+# Take and verify a backup first.
+# Set TILECAST_VERSION in deploy/docker/.env to the desired release.
+docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   pull
+docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d
 ```
 
-Database migrations run before the server begins accepting traffic.
+Database migrations run before the server begins accepting traffic. Preserve the `postgres_data` and `tilecast_data` volumes. To deliberately track main instead of Stable releases, set `TILECAST_VERSION=development`; it may be unstable.
 
 ## Rollback warning
 
-Do not assume an older server binary can read a database after newer migrations have run.
+Do not assume an older server image can read a database after newer migrations have run.
 
-A safe rollback usually requires restoring the matching pre-upgrade PostgreSQL and `/data` backup, not merely checking out older source.
+A safe rollback usually requires restoring the matching pre-upgrade PostgreSQL and `/data` backup, not merely changing `TILECAST_VERSION` back.

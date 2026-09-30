@@ -83,11 +83,17 @@ test("create a Layout, edit its canvas and persist the draft", async ({
     .getByRole("button", { name: "Create layout", exact: true })
     .click();
   await expect(page).toHaveURL(/\/layouts\/[0-9a-f-]+$/);
+  const settings = page.getByRole("button", {
+    name: "Layout settings",
+    exact: true,
+  });
+  await settings.click();
   const width = page.getByRole("spinbutton", { name: "Width", exact: true });
   await width.fill("2000");
   await width.blur();
   await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
+  await settings.click();
   await expect(width).toHaveValue("2000");
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Preview", exact: true }).click();

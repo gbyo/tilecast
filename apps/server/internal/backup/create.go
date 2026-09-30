@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
 
 // Kind classifies why a backup archive exists.
@@ -38,8 +39,9 @@ type CreateOptions struct {
 	UpdatesRoot string
 	BackupRoot  string
 	Kind        Kind
-	// TilecastVersion is stamped into the manifest.
-	TilecastVersion string
+	// Build is stamped into the manifest so support and restore workflows
+	// can tell which server build created the archive.
+	Build version.Build
 	// ReservedFreeBytes must remain free on the backup volume after the
 	// estimated archive is written.
 	ReservedFreeBytes int64
@@ -129,7 +131,10 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 
 	manifest := Manifest{
 		FormatVersion:    FormatVersion,
-		TilecastVersion:  opts.TilecastVersion,
+		TilecastVersion:  opts.Build.Version,
+		ServerChannel:    opts.Build.Channel,
+		BuildCommit:      opts.Build.Commit,
+		BuildDate:        opts.Build.Date,
 		SchemaVersion:    snapshot.SchemaVersion,
 		InstallationID:   snapshot.InstallationID,
 		OrganizationName: snapshot.OrganizationName,

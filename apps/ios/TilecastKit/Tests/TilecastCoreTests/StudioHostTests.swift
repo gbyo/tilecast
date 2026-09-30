@@ -74,7 +74,7 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
     let client = FakeIdentityClient()
 
     func makeHost() -> StudioHost {
-        StudioHost(directory: directory, dataStores: stores, identityClient: client, applicationName: "TilecastTests")
+        StudioHost(directory: directory, dataStores: stores, identityClient: client, credentials: InMemoryCredentialStore(), applicationName: "TilecastTests")
     }
 
     func addServer(_ host: String, name: String) throws -> ServerProfile {
@@ -201,6 +201,78 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
     }
 }
 
+/// Native navigation and the one-main-page rule.
+@MainActor
+@Suite struct StudioHostNavigationTests {
+    let directory = ServerDirectory(storage: InMemoryServerDirectoryStorage())
+    let stores = FakeDataStores()
+    let client = FakeIdentityClient()
+
+    func makeHost() -> StudioHost {
+        StudioHost(directory: directory, dataStores: stores, identityClient: client, credentials: InMemoryCredentialStore(), applicationName: "TilecastTests")
+    }
+
+    func addServer(_ host: String) throws -> ServerProfile {
+        let identity = identity(host)
+        let profile = try directory.add(address: address(host), identity: identity)
+        client.answers[profile.address.description] = .success(identity)
+        return profile
+    }
+
+    /// Delivers a message as Studio's main frame would.
+    func studio(_ page: StudioPage, _ body: [String: Any]) {
+        _ = page.bridge.replyValue(to: body, from: BridgeSender(isMainFrame: true, isPageWorld: true, origin: page.address.origin))
+    }
+
+    @Test func switchingServersDropsTheOldServersNavigation() async throws {
+        let a = try addServer("a.example.org")
+        let b = try addServer("b.example.org")
+        let host = makeHost()
+        await host.activate(a.id)
+        let first = try #require(host.page)
+        studio(first, envelope("navigation/catalog", catalogPayload(["alpha"], primary: ["alpha"])))
+        studio(first, envelope("navigation/state", ["activeDestinationId": "alpha"]))
+        #expect(first.bridge.navigation.isAvailable)
+
+        await host.activate(b.id)
+        let second = try #require(host.page)
+        #expect(!first.bridge.navigation.isAvailable)
+        #expect(first.bridge.navigation.activeDestinationID == nil)
+        #expect(!second.bridge.navigation.isAvailable, "a new server starts without navigation")
+        #expect(second.bridge !== first.bridge)
+        second.close()
+    }
+
+    @Test func nativeNavigationKeepsOneMainPage() async throws {
+        let profile = try addServer("a.example.org")
+        let host = makeHost()
+        await host.activate(profile.id)
+        let page = try #require(host.page)
+        let webPage = page.webPage
+        let navigation = page.bridge.navigation
+        var requested: [String] = []
+        navigation.requestNavigation = { requested.append($0) }
+        studio(page, envelope("navigation/catalog", catalogPayload(
+            ["alpha", "bravo", "charlie", "delta"], primary: ["alpha", "bravo", "charlie"]
+        )))
+
+        // Tab, tab, tab, More, a More destination, then a tab again.
+        let steps: [(NavigationTab?, String)] = [
+            (.destination("alpha"), "alpha"), (.destination("bravo"), "bravo"), (.destination("charlie"), "charlie"),
+            (.more, "charlie"), (nil, "delta"), (.destination("bravo"), "bravo"),
+        ]
+        for (tab, destination) in steps {
+            if let tab { navigation.selectTab(tab) } else { navigation.open(destination) }
+            if tab != .more { studio(page, envelope("navigation/state", ["activeDestinationId": destination])) }
+            #expect(host.page === page)
+            #expect(host.page?.webPage === webPage)
+        }
+        #expect(requested == ["alpha", "bravo", "charlie", "delta", "bravo"])
+        #expect(navigation.selectedTab == .destination("bravo"))
+        page.close()
+    }
+}
+
 /// Exercises real WebKit storage: the property the per-server design relies on.
 @MainActor
 @Suite(.serialized) struct WebsiteDataStoreIsolationTests {
@@ -256,6 +328,16 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
         directory.recordStudioPath(lastPath, for: profile.id)
         return StudioPage(profile: directory.server(withID: profile.id)!, dataStore: .nonPersistent(),
                           applicationName: "TilecastTests")
+    }
+
+    @Test func detectsClientSideLoginNavigation() throws {
+        let page = try makePage()
+        page.requireSignInIfNeeded(at: URL(string: "https://signage.example.org/login?returnTo=%2Fscreens"))
+        #expect(page.signInRequired)
+        #expect(page.takeEvents() == [.signIn])
+        page.requireSignInIfNeeded(at: URL(string: "https://signage.example.org/login"))
+        #expect(page.takeEvents().isEmpty)
+        page.close()
     }
 
     @Test func keepsAtMostOneAuxiliaryPage() throws {

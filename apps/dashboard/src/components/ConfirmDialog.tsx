@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useNativeAlert } from "../native-host/useNativeAlert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,10 @@ export type ConfirmRequest = {
  * Base UI replacement for window.confirm. Awaiting the returned promise keeps
  * the call site reading like the synchronous version without blocking the
  * browser chrome. Render the returned dialog next to the confirming UI.
+ *
+ * In the iOS app the confirmation is a native alert, so every call site
+ * gets it with no change. A request whose body is not plain text, and a
+ * host that cannot show the alert, use the web dialog.
  */
 export function useConfirm() {
   const { t } = useTranslation("common");
@@ -31,12 +36,30 @@ export function useConfirm() {
     resolve: (value: boolean) => void;
   } | null>(null);
 
+  const presentNativeAlert = useNativeAlert();
+
   const confirm = useCallback(
-    (request: ConfirmRequest) =>
-      new Promise<boolean>((resolve) => {
+    async (request: ConfirmRequest) => {
+      if (request.body === undefined || typeof request.body === "string") {
+        const chosen = await presentNativeAlert({
+          title: request.title,
+          ...(request.body ? { message: request.body } : {}),
+          actions: [
+            { id: "cancel", label: t("actions.cancel"), role: "cancel" },
+            {
+              id: "confirm",
+              label: request.action ?? t("actions.confirm"),
+              role: request.destructive ? "destructive" : "default",
+            },
+          ],
+        });
+        if (chosen !== null) return chosen === "confirm";
+      }
+      return new Promise<boolean>((resolve) => {
         setPending({ request, resolve });
-      }),
-    [],
+      });
+    },
+    [presentNativeAlert, t],
   );
 
   const settle = useCallback((value: boolean) => {

@@ -83,16 +83,17 @@ import {
   canManagePlaylists,
   movePlaylistItem,
   movePlaylistItemToEdge,
-  openPlaylistPreview,
   playlistAuthoringDefaults,
   playlistImageDuration,
   playlistTransition,
   reorderPlaylistItems,
   transitionLabel,
+  useOpenPlaylistPreview,
 } from "./playlistEditorModel";
 
 export function PlaylistEditorPage() {
   const { t } = useTranslation(["playlists", "common"]);
+  const openPlaylistPreview = useOpenPlaylistPreview();
   const { id = "" } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -587,7 +588,7 @@ export function PlaylistEditorPage() {
           canSubmit={canSubmit}
           canPublish={canPublish}
           publishPending={publish.isPending}
-          onPreview={() => openPlaylistPreview(playlist.id)}
+          onPreview={() => openPlaylistPreview(playlist)}
           onPublish={() => publish.mutate()}
           onOpenHistory={openHistory}
           onOpenDetails={() => openDetails()}

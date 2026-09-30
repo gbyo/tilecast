@@ -6,6 +6,8 @@ public enum StudioNavigationDecision: Equatable, Sendable {
     case allow
     /// Refuse it silently.
     case cancel
+    /// Sign-in belongs to the system authentication browser.
+    case signIn
     /// Refuse it in the page and hand the URL to the system, which opens the
     /// user's browser (or Mail, Phone, Messages).
     case openExternally(URL)
@@ -62,6 +64,7 @@ public struct StudioNavigationPolicy: Sendable {
             return isWeb ? .openExternally(url) : .cancel
         }
         if isMainFrame {
+            if isServerOrigin && url.path == "/login" { return .signIn }
             if isServerOrigin { return .allow }
             if scheme == "about", url.absoluteString == "about:blank" { return .allow }
             return isWeb ? .openExternally(url) : .cancel
