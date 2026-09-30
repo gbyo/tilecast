@@ -22,7 +22,7 @@ import (
 // send its heartbeat section. Strict decoding must not refuse their whole
 // heartbeat for it: the section is accepted and ignored, nothing is stored,
 // and nothing is acknowledged.
-func TestHeartbeatAcceptsTheRetiredNoiseMeterSection(t *testing.T) {
+func TestPlayerHeartbeatAcceptsLinuxShapeAndRetiredNoiseMeterSection(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
@@ -91,6 +91,19 @@ func TestHeartbeatAcceptsTheRetiredNoiseMeterSection(t *testing.T) {
 	}
 
 	base := time.Now().UTC().Add(-10 * time.Minute).Truncate(10 * time.Second)
+	// This mirrors the Electron Linux builder's playback heartbeat. Render
+	// progress is sent through telemetry and must not be added to this strict
+	// HTTP contract.
+	linuxPlayback := `{"screenWidth":1920,"screenHeight":1080,"playerVersion":"0.17.0","playerVersionCode":1700,"presentationSchemaVersions":[1,2],"nativePresentationCapabilities":{},"webRuntimeVersion":2,"webBundleLimitBytes":20971520,"uptimeSeconds":60,"playbackState":"playing","currentItemId":"00000000-0000-4000-8000-000000000001","playbackDisabled":false,"safeMode":false,"recoveryLevel":0,"recoveryCount":0,"websiteRendererRecoveryCount":0,"externalPresentationState":"none","lastHealthyPlaybackAt":"` + base.Format(time.RFC3339) + `"}`
+	status, data := post(linuxPlayback)
+	if status != http.StatusOK || data["accepted"] != true {
+		t.Fatalf("Electron playback heartbeat = %d %#v", status, data)
+	}
+	var playbackState string
+	if err = pool.QueryRow(ctx, `SELECT playback_state FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&playbackState); err != nil || playbackState != "playing" {
+		t.Fatalf("Electron playback heartbeat stored state %q (%v)", playbackState, err)
+	}
+
 	legacy := `{"screenWidth":1920,"screenHeight":1080,"playerVersion":"0.16.0","playbackState":"playing",` +
 		`"noiseMeter":{"status":"loud","currentLevel":88.4,"pendingHistory":[{"startedAt":"` +
 		base.Format(time.RFC3339) + `","averageLevel":42.5,"peakLevel":71,"monitoredMs":10000,"warningMs":2000,` +
