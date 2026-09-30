@@ -20,7 +20,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Include the Dashboard workspace and root tools such as Prettier.
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - name: Restore ESLint cache
         uses: actions/cache@v4
         with:

@@ -52,3 +52,7 @@ A second full [Edge run 36393103397](https://github.com/gbyo/tilecast/actions/ru
 The main reduction comes from selection. Ordinary server administration changes select zero deep Edge jobs. The old workflow selected the full matrix for these changes. The after-run matrix used 52m 52s of job execution time. This is an example of the work that selection avoids, not a measured duration for a targeted PR. Studio component changes also select zero deep Edge jobs. The old Edge path filter already excluded these changes.
 
 The production browser job now includes 14 functional tests and 22 Studio visual comparisons. Studio also collects V8 coverage. The workload differs from the old smoke job, so a full PR comparison must include these extra checks. [PR 739](https://github.com/gbyo/tilecast/pull/739) records the final baseline-inclusive PR run and its elapsed and job execution times. Do not treat a synthetic selection comparison as a measured speed improvement.
+
+## Workspace-scoped Node installs
+
+On 2026-09-30, npm 10.9.4 resolved the root lockfile in dry-run mode on macOS. The full workspace selected 1,653 packages. Dashboard plus root tooling selected 888 packages, and Linux Player plus its workspace dependency graph selected 626 packages. These are reductions of 46% and 62% in selected packages. The dry run does not download or extract packages, so it does not measure install time. Record GitHub install-step timings after CI runs with the scoped commands before treating this as a time saving.

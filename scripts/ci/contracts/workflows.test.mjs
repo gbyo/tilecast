@@ -103,6 +103,32 @@ test("reusable jobs resolve to a workflow_call contract", () => {
   }
 });
 
+test("Dashboard and Linux Player install only their npm workspace graphs", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  const dashboardInstall = dashboard.jobs.validate.steps.find((step) =>
+    /^npm ci/.test(step.run ?? ""),
+  );
+  assert.equal(
+    dashboardInstall?.run,
+    "npm ci --workspace @tilecast/dashboard --include-workspace-root",
+    "Dashboard CI needs its workspace and root tooling, but not every workspace",
+  );
+
+  const linux = parse(
+    readFileSync(".github/workflows/validate-linux.yml", "utf8"),
+  );
+  const linuxInstall = linux.jobs.validate.steps.find((step) =>
+    /^npm ci/.test(step.run ?? ""),
+  );
+  assert.equal(
+    linuxInstall?.run,
+    "npm ci --workspace @gibsonmb71/tilecast-player-linux",
+    "Linux Player CI should use its lockfile-resolved workspace graph",
+  );
+});
+
 test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));

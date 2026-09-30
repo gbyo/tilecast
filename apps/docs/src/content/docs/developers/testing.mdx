@@ -45,6 +45,8 @@ The classifier follows package consumers. Studio changes select Studio and Demo 
 
 Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
 
+Dashboard CI installs the Dashboard workspace and root tools such as Prettier. Linux Player CI installs the Player workspace and its linked workspace dependencies. Both installs use the root `package-lock.json`; local full-workspace setup still uses `npm ci`.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 ## Inspect coverage
