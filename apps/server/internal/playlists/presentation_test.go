@@ -21,9 +21,10 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 		"fields":[
 			{"key":"name","label":"Name","type":"text"},
 			{"key":"price","label":"Price","type":"currency","currency":"EUR"},
-			{"key":"active","label":"Active","type":"boolean"}
+			{"key":"active","label":"Active","type":"boolean"},
+			{"key":"cover","label":"Cover","type":"asset"}
 		],
-		"records":[{"id":"row-1","values":{"name":"Coffee","price":"3.50","active":"true"}}],
+		"records":[{"id":"row-1","values":{"name":"Coffee","price":"3.50","active":"true","cover":"11111111-1111-4111-8111-111111111111"}},{"id":"row-2","values":{"cover":"not-an-asset-id"}}],
 		"usingCachedData":false,
 		"unavailable":false
 	}`)
@@ -31,7 +32,7 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if document.SchemaVersion != 1 || len(document.Datasets) != 1 || len(document.Datasets[0].Records) != 1 {
+	if document.SchemaVersion != 1 || len(document.Datasets) != 1 || len(document.Datasets[0].Records) != 2 {
 		t.Fatalf("unexpected document: %#v", document)
 	}
 	values := document.Datasets[0].Records[0].Values
@@ -40,6 +41,12 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	}
 	if values["name"].Kind != "text" || values["price"].Kind != "currency" || values["price"].Number == nil || *values["price"].Number != 3.5 || values["active"].Boolean == nil || !*values["active"].Boolean {
 		t.Fatalf("typed values were not coerced: %#v", values)
+	}
+	if values["cover"].Kind != "asset" || values["cover"].AssetID == nil || *values["cover"].AssetID != "11111111-1111-4111-8111-111111111111" {
+		t.Fatalf("asset value was not preserved as a typed reference: %#v", values["cover"])
+	}
+	if invalid := document.Datasets[0].Records[1].Values["cover"]; invalid.Kind != "null" || invalid.AssetID != nil {
+		t.Fatalf("invalid asset value was not suppressed: %#v", invalid)
 	}
 }
 

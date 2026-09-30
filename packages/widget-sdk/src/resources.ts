@@ -88,6 +88,8 @@ export interface WidgetResources {
   dataset(dataSourceId: string, datasetId: string): WidgetDataset | null;
   /** A host-authorized URI for a declared media variant, or null. */
   media(assetId: string, variantId: string): string | null;
+  /** A host-authorized URI when exactly one variant for this asset is declared. */
+  mediaForAsset(assetId: string): string | null;
   /** Attribution the Data Source requires, or null. */
   attribution(dataSourceId: string): string | null;
 }
@@ -146,6 +148,7 @@ const EMPTY_RESOURCES: WidgetResources = Object.freeze({
   dataDocument: () => null,
   dataset: () => null,
   media: () => null,
+  mediaForAsset: () => null,
   attribution: () => null,
 });
 
@@ -199,6 +202,15 @@ export function createWidgetResources(
     media(assetId: string, variantId: string) {
       const key = `${assetId}/${variantId}`;
       return media.has(key) ? (tables.media?.get(key) ?? null) : null;
+    },
+    mediaForAsset(assetId: string) {
+      let match: string | null = null;
+      for (const key of media) {
+        if (key.slice(0, key.lastIndexOf("/")) !== assetId) continue;
+        if (match !== null) return null;
+        match = key;
+      }
+      return match ? (tables.media?.get(match) ?? null) : null;
     },
     attribution(id: string) {
       const document = documentOf(id);

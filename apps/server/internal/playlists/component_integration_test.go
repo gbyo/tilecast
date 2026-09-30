@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
@@ -221,6 +222,93 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 	component := onlyWidget(t, manifest).Presentation.Component
 	if component == nil || component.Config["style"] != "analog" || component.Config["showDate"] != true {
 		t.Fatalf("Layout Widget lost its component: %+v", onlyWidget(t, manifest).Presentation)
+	}
+}
+
+// TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant follows an asset
+// value from a persisted Form Data Source cache through Data Document and
+// component manifest projection. Invalid and private records stay ungranted.
+func TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	assetID, variantID := uuid.New(), uuid.New()
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,width,height,processing_status,created_by)VALUES($1,$2,'Card cover','image','cover.png','image/png',$3,100,800,600,'ready',$4)`, assetID, f.org, make([]byte, 32), f.user); err != nil {
+		t.Fatalf("insert image: %v", err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,width,height,player_compatible)VALUES($1,$2,'playback','local',$3,'image/png',100,$4,800,600,TRUE)`, variantID, assetID, "variants/"+assetID.String(), make([]byte, 32)); err != nil {
+		t.Fatalf("insert image variant: %v", err)
+	}
+	privateAssetID := uuid.New()
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,width,height,processing_status,origin,created_by)VALUES($1,$2,'Private form image','image','private.png','image/png',$3,100,800,600,'ready','form_attachment',$4)`, privateAssetID, f.org, make([]byte, 32), f.user); err != nil {
+		t.Fatalf("insert private image: %v", err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,width,height,player_compatible)VALUES($1,$2,'playback','local',$3,'image/png',100,$4,800,600,TRUE)`, uuid.New(), privateAssetID, "private/"+privateAssetID.String(), make([]byte, 32)); err != nil {
+		t.Fatalf("insert private image variant: %v", err)
+	}
+
+	sourceID := uuid.New()
+	sourceConfig := json.RawMessage(`{"fields":[{"key":"title","label":"Title","type":"text"},{"key":"cover","label":"Cover","type":"asset"}],"views":[{"key":"published","name":"Published","fields":["title","cover"]}]}`)
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)VALUES($1,$2,'Published submissions','form',$3::jsonb,$4)`, sourceID, f.org, sourceConfig, f.user); err != nil {
+		t.Fatalf("insert Form Data Source: %v", err)
+	}
+	payload, err := json.Marshal(map[string]any{"datasets": []any{map[string]any{
+		"id": "published", "kind": "records",
+		"fields": []any{map[string]any{"key": "title", "label": "Title", "type": "text"}, map[string]any{"key": "cover", "label": "Cover", "type": "asset"}},
+		"records": []any{
+			map[string]any{"id": uuid.NewString(), "values": map[string]string{"title": "Library event", "cover": assetID.String()}},
+			map[string]any{"id": uuid.NewString(), "values": map[string]string{"title": "Malformed", "cover": "not-a-uuid"}},
+			map[string]any{"id": uuid.NewString(), "values": map[string]string{"title": "Private", "cover": privateAssetID.String()}},
+		},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.pool.Exec(f.ctx, `INSERT INTO data_source_refresh_states(data_source_id,cached_payload,cache_expires_at,parse_status,available_item_count)VALUES($1,$2::jsonb,$3,'ok',3)`, sourceID, payload, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("insert Form Data Source projection: %v", err)
+	}
+
+	configuration, _ := json.Marshal(map[string]any{
+		"dataSourceId": sourceID.String(), "titleField": "title", "imageField": "cover", "maximumItems": 6,
+	})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "cards", Name: "Event cards", Configuration: configuration})
+	if err != nil {
+		t.Fatalf("create Cards Widget: %v", err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Event cards", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if _, err = f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+		t.Fatal(err)
+	}
+	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.cards": 1})
+	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatalf("build Cards manifest: %v", err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaComponents {
+		t.Fatalf("schema version = %d, want %d", manifest.SchemaVersion, ManifestSchemaComponents)
+	}
+	component := onlyWidget(t, manifest).Presentation.Component
+	if component == nil || len(component.DataSources) != 1 || component.DataSources[0] != sourceID.String() {
+		t.Fatalf("Cards component did not declare its Form Data Source: %+v", component)
+	}
+	if len(manifest.DataSources) != 1 || manifest.DataSources[0].DataDocument == nil {
+		t.Fatalf("manifest did not project a Data Document: %+v", manifest.DataSources)
+	}
+	cover := manifest.DataSources[0].DataDocument.Datasets[0].Records[0].Values["cover"]
+	if cover.Kind != "asset" || cover.AssetID == nil || *cover.AssetID != assetID.String() {
+		t.Fatalf("Data Document cover = %+v", cover)
+	}
+	if len(component.Media) != 1 || component.Media[0] != (ComponentMediaRef{AssetID: assetID.String(), VariantID: variantID.String()}) {
+		t.Fatalf("component media grant = %+v", component.Media)
+	}
+	if len(manifest.Assets) != 1 || manifest.Assets[0].AssetID != assetID || manifest.Assets[0].VariantID != variantID {
+		t.Fatalf("manifest assets = %+v", manifest.Assets)
 	}
 }
 

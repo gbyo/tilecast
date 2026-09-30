@@ -58,6 +58,7 @@ import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewAssetFields,
   widgetPreviewMedia,
 } from "./widgetPreviewSources";
 import { uploadWidgetPreviewInBackground } from "./widgetPreviewUpload";
@@ -212,6 +213,10 @@ export function V2WidgetEditor({
     previewConfiguration,
     managedDataSourceId,
   );
+  const dataSourceAssetFields = widgetPreviewAssetFields(
+    definition.configurationSchema.fields,
+    previewConfiguration,
+  );
   const {
     resources,
     loading: sourcesLoading,
@@ -221,6 +226,7 @@ export function V2WidgetEditor({
     dataSourceIds,
     previewMedia.media,
     resolvePreviewDate(previewTime),
+    dataSourceAssetFields,
   );
   // A granted source that cannot be loaded is a preview error, not a valid
   // settled empty: Save and capture stay disabled until it loads or the

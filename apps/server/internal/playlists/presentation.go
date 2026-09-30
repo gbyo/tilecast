@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 )
@@ -361,6 +362,12 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 		if parsed, err := url.Parse(raw); err == nil && parsed.Scheme != "" && parsed.Host != "" {
 			return DocumentValue{Kind: kind, URL: &raw}
 		}
+	case "asset":
+		if id, err := uuid.Parse(raw); err == nil && id != uuid.Nil {
+			canonical := id.String()
+			return DocumentValue{Kind: kind, AssetID: &canonical}
+		}
+		return DocumentValue{Kind: "null"}
 	}
 	return DocumentValue{Kind: "text", Text: &raw}
 }
