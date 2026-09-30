@@ -85,6 +85,12 @@ public actor NativeAuthSession {
         ((try? store.refreshToken(for: key)) ?? nil) != nil
     }
 
+    /// The same answer without suspending, for a caller that must reply at
+    /// once. It reads the store only and never contacts the server.
+    public nonisolated var storesCredential: Bool {
+        ((try? store.refreshToken(for: key)) ?? nil) != nil
+    }
+
     /// Redeems a browser authorization code. The refresh token is committed
     /// before native API access counts as established, and any credential
     /// from an earlier sign-in is replaced and revoked.

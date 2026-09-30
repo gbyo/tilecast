@@ -37,6 +37,8 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
             "context": .string("presentation"),
             "capabilities": .object([
                 "nativeNavigation": .bool(false), "authLifecycle": .bool(false), "nativePresentations": .bool(true), "nativeAlerts": .bool(true),
+                "systemShare": .bool(true), "systemHaptics": .bool(true),
+                "nativeMediaIntake": .bool(false), "deepLinks": .bool(false),
             ]),
         ]))
     }
@@ -50,11 +52,12 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
         case "presentation/update": envelope(type, ["presentationId": "p-1", "size": "full"])
         case "presentation/close": envelope(type, ["presentationId": "p-1"])
         case "presentation/navigate": envelope(type, ["presentationId": "p-1", "path": "/screens"])
+        case "system/media-intake": envelope(type, ["requestId": "mi-1"])
         default: envelope(type)
         }
     }
 
-    @Test(arguments: ["navigation/catalog", "navigation/state", "auth/signed-out", "presentation/open"])
+    @Test(arguments: ["navigation/catalog", "navigation/state", "auth/signed-out", "presentation/open", "system/media-intake", "system/media-intake-status"])
     func thePresentationBridgeRefusesMainPageMessages(_ type: String) {
         let message = Self.valid(type)
         _ = presentation.replyValue(to: envelope("frontend/ready", ["capabilities": ["nativePresentations": true, "authLifecycle": true]]), from: .studio)
@@ -62,6 +65,8 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
         presentation.onSignedOut = { signedOut = true }
         var opened = false
         presentation.onPresentationOpen = { _ in opened = true; return true }
+        presentation.isMediaIntakeAvailable = { true }
+        presentation.onMediaIntake = { _ in opened = true; return true }
         #expect(presentation.replyValue(to: message, from: .studio) == NativeBridgeProtocol.reply(id: nil, error: .forbidden))
         #expect(!presentation.navigation.isAvailable, "a presentation never publishes the main navigation")
         #expect(!signedOut, "a presentation is not a second auth lifecycle owner")
