@@ -151,7 +151,7 @@ export function FleetUptimePanel({
         {query.isLoading ? (
           <div className="space-y-3" aria-label={t("uptime.loading")}>
             <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-40 w-full rounded-xl sm:h-48" />
+            <Skeleton className="h-36 w-full rounded-xl sm:h-44" />
           </div>
         ) : query.isError ? (
           <Alert variant="destructive">
@@ -268,7 +268,7 @@ function UptimeBody({ report }: { report: UptimeReport }) {
         <>
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-40 w-full sm:h-48"
+            className="aspect-auto h-36 w-full sm:h-44"
             initialDimension={{ width: 720, height: 192 }}
             role="img"
             aria-label={chartDescription(report, t)}
