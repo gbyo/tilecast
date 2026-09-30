@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentReviewPage } from "./ContentReviewPage";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
+import { i18n } from "../i18n";
 import type { ContentReviewItem } from "../api/types";
 
 let role = "editor";
@@ -51,9 +52,10 @@ describe("Content review", () => {
   beforeEach(() => {
     role = "editor";
   });
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("says approval is not enforced when the setting is off", async () => {
@@ -171,5 +173,47 @@ describe("Content review", () => {
 
     await user.click(screen.getByRole("button", { name: "All" }));
     await waitFor(() => expect(reviews).toHaveBeenCalledWith(""));
+  });
+
+  it("presents queue load failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(api, "contentReviews").mockRejectedValue(
+      new ApiError("Server-provided queue failure.", 429, "rate_limited"),
+    );
+    renderPage();
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Server-provided queue failure.")).toBe(null);
+  });
+
+  it("presents decision failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [pending],
+    });
+    vi.spyOn(api, "decideContentReview").mockRejectedValue(
+      new ApiError("Server-provided decision failure.", 429, "rate_limited"),
+    );
+    renderPage();
+    const user = userEvent.setup();
+    // The queue renders both a mobile card list and a desktop table, so the
+    // Review action exists twice; either one opens the same sheet.
+    const reviewButtons = await screen.findAllByRole("button", {
+      name: "Проверить",
+    });
+    await user.click(reviewButtons[0]!);
+    await user.click(
+      await screen.findByRole("button", { name: "Согласовать" }),
+    );
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Server-provided decision failure.")).toBe(null);
   });
 });
