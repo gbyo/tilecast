@@ -15,24 +15,25 @@ import {
   deriveAttention,
   summarizeFleet,
 } from "../components/overview/attention";
-import { ContentHealthCard } from "../components/overview/ContentHealthCard";
+import { ContentHealthSection } from "../components/overview/ContentHealthSection";
 import {
-  FleetStatusCard,
+  FleetStatus,
   FleetStatusSkeleton,
   type ConfirmedPlaying,
-} from "../components/overview/FleetStatusCard";
+} from "../components/overview/FleetStatus";
 import {
   LastDayCard,
   type QueryStatus,
 } from "../components/overview/LastDayCard";
-import { NeedsAttentionCard } from "../components/overview/NeedsAttentionCard";
-import { OnAirCard } from "../components/overview/OnAirCard";
-import { PlayerUpdatesCard } from "../components/overview/PlayerUpdatesCard";
-import { UpcomingCard } from "../components/overview/UpcomingCard";
+import { NeedsAttention } from "../components/overview/NeedsAttention";
+import { OnAirSection } from "../components/overview/OnAirSection";
+import { PlayerUpdatesSection } from "../components/overview/PlayerUpdatesSection";
+import { UpcomingSection } from "../components/overview/UpcomingSection";
 import { upcomingChanges } from "../components/overview/upcoming";
 import { summarizeUpdates } from "../components/overview/updates";
 import { useNow } from "../components/overview/format";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Card } from "../components/ui/card";
 import { buttonVariants } from "../components/ui/button";
 import {
   Empty,
@@ -135,8 +136,8 @@ export function OperationsDashboard() {
     !screens.isLoading && !screens.isError && allScreens.length === 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-3 sm:space-y-4">
-      <header className="space-y-1">
+    <div className="mx-auto w-full max-w-[1500px] space-y-3">
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
           {t("operations.title")}
         </h1>
@@ -183,26 +184,37 @@ export function OperationsDashboard() {
         <>
           {screens.isLoading && <FleetStatusSkeleton />}
           {!screens.isLoading && !screens.isError && (
-            <>
-              <FleetStatusCard
-                summary={summary}
-                attentionCount={attention.length}
-                attentionPending={incidents.isLoading}
-                confirmed={confirmed}
-              />
-              <NeedsAttentionCard
-                items={attention}
-                incidentsFailed={incidents.isError}
-              />
-            </>
+            <FleetStatus
+              summary={summary}
+              attentionCount={attention.length}
+              attentionPending={incidents.isLoading}
+              confirmed={confirmed}
+            />
           )}
 
-          <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
-            <div className="grid min-w-0 gap-3 sm:gap-4 xl:row-span-2">
+          {/* One DOM order at every width. From xl the page is a primary
+              column (attention, then uptime beside the last-day figures) and
+              a supporting rail that spans both rows. */}
+          <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_23rem]">
+            {!screens.isLoading && !screens.isError && (
+              <div className="min-w-0 empty:hidden xl:col-start-1 xl:row-start-1">
+                <NeedsAttention
+                  items={attention}
+                  incidentsFailed={incidents.isError}
+                />
+              </div>
+            )}
+            <Card
+              size="sm"
+              className="min-w-0 gap-0 divide-y divide-border py-0 xl:col-start-2 xl:row-span-2 xl:row-start-1"
+            >
               {!screens.isError && (
-                <OnAirCard screens={allScreens} isLoading={screens.isLoading} />
+                <OnAirSection
+                  screens={allScreens}
+                  isLoading={screens.isLoading}
+                />
               )}
-              <UpcomingCard
+              <UpcomingSection
                 changes={upcoming}
                 defaultTimezone={schedules.data?.defaultTimezone ?? "UTC"}
                 isLoading={schedules.isLoading}
@@ -210,27 +222,29 @@ export function OperationsDashboard() {
                 loaded={schedules.data?.items.length ?? 0}
                 total={schedules.data?.total ?? 0}
               />
-            </div>
-            <div className="grid min-w-0 gap-3 sm:gap-4">
-              <LastDayCard
-                overview={overview.data}
-                overviewStatus={status(overview)}
-                compliance={compliance.data}
-                complianceStatus={status(compliance)}
-              />
-              <PlayerUpdatesCard
-                summary={updates}
-                isLoading={deployments.isLoading}
-                isError={deployments.isError}
-              />
-              <ContentHealthCard
+              <ContentHealthSection
                 report={contentHealth.data}
                 isLoading={contentHealth.isLoading}
                 isError={contentHealth.isError}
               />
-            </div>
-            <div className="min-w-0 lg:col-span-2 xl:col-span-1">
-              <FleetUptimePanel />
+              <PlayerUpdatesSection
+                summary={updates}
+                isLoading={deployments.isLoading}
+                isError={deployments.isError}
+              />
+            </Card>
+            <div className="grid min-w-0 gap-3 xl:col-start-1 xl:row-start-2 xl:grid-cols-[minmax(0,1fr)_13.5rem]">
+              <div className="xl:col-start-2 xl:row-start-1">
+                <LastDayCard
+                  overview={overview.data}
+                  overviewStatus={status(overview)}
+                  compliance={compliance.data}
+                  complianceStatus={status(compliance)}
+                />
+              </div>
+              <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+                <FleetUptimePanel />
+              </div>
             </div>
           </div>
         </>
