@@ -150,7 +150,7 @@ func (s *Service) manualRefreshPayload(provider string, configuration any) (manu
 
 // ManualObjectPreview projects an unsaved manual_object configuration into the same
 // typed object payload the Player receives, so Studio previews match stored behavior.
-func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw json.RawMessage) (TypedDatasetPayload, error) {
+func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw json.RawMessage, previewDates ...string) (TypedDatasetPayload, error) {
 	definition, ok := s.definitions.DataSource(provider)
 	if !ok || definition.AdapterID != "manual_object" {
 		return TypedDatasetPayload{}, errors.New("data source provider is not a manual object")
@@ -167,7 +167,11 @@ func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw 
 	if err != nil {
 		return TypedDatasetPayload{}, err
 	}
-	return manualObjectPayload(definition, config, time.Now().UTC()), nil
+	updatedAt := time.Now().UTC()
+	if len(previewDates) > 0 {
+		updatedAt = previewTimeOrNow(previewDates[0], "UTC", updatedAt)
+	}
+	return manualObjectPayload(definition, config, updatedAt), nil
 }
 
 func (s *Service) CreateDataSource(ctx context.Context, user uuid.UUID, input DataSourceInput) (DataSource, error) {
@@ -450,36 +454,58 @@ func (s *Service) PreviewDataSourceByID(ctx context.Context, id uuid.UUID, previ
 		return nil, err
 	}
 	if raw.Provider == "calendar" {
-		return s.CalendarPreview(ctx, raw.Configuration)
+		return s.CalendarPreview(ctx, raw.Configuration, previewDate)
 	}
 	if raw.Provider == "manual" {
-		return s.ManualPreview(ctx, raw.Configuration)
-	}
-	if definition, ok := s.definitions.DataSource(raw.Provider); ok && (definition.AdapterID == "manual_object" || definition.AdapterID == "manual_records") {
-		projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
-		if projectErr != nil {
-			return nil, projectErr
-		}
-		var payload TypedDatasetPayload
-		if err := json.Unmarshal(projected, &payload); err != nil {
-			return nil, err
-		}
-		return payload, nil
+		return s.ManualPreview(ctx, raw.Configuration, previewDate)
 	}
 	if raw.Provider == "weather" {
-		return s.WeatherPreview(ctx, raw.Configuration)
+		return s.WeatherPreview(ctx, raw.Configuration, previewDate)
 	}
-	_, fetchesRecords := s.httpRecordsSpec(raw.Provider)
-	if raw.Provider == "transit" || raw.Provider == "cap_alerts" || raw.Provider == "air_quality" || fetchesRecords {
-		projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
-		if projectErr != nil {
-			return nil, projectErr
+	if raw.Provider == "transit" || raw.Provider == "cap_alerts" || raw.Provider == "air_quality" {
+		normalizer, normalizeErr := s.DataSourceNormalizer(raw.Provider)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
-		var payload TypedDatasetPayload
-		if err := json.Unmarshal(projected, &payload); err != nil {
-			return nil, err
+		configuration, normalizeErr := normalizer.Normalize(ctx, raw.Configuration)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
-		return payload, nil
+		switch config := configuration.(type) {
+		case TransitSourceConfig:
+			preview, _, previewErr := s.RefreshTransitPreview(ctx, config, previewDate)
+			return preview, previewErr
+		case CAPAlertsSourceConfig:
+			preview, _, previewErr := s.RefreshCAPPreview(ctx, config, previewDate)
+			return preview, previewErr
+		case AirQualitySourceConfig:
+			preview, _, previewErr := s.RefreshAirQualityPreview(ctx, config, previewDate)
+			return preview, previewErr
+		default:
+			return nil, errors.New("data source preview configuration has an unexpected type")
+		}
+	}
+	if definition, ok := s.definitions.DataSource(raw.Provider); ok {
+		switch definition.AdapterID {
+		case "manual_object":
+			return s.ManualObjectPreview(ctx, raw.Provider, raw.Configuration, previewDate)
+		case "manual_records":
+			return s.ManualRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
+		case "http_records":
+			return s.HTTPRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
+		case "form_records":
+			// Form projections are immutable approval snapshots. Their record dates remain
+			// visible to the Widget clock, so the adapter has no preview-date projection.
+			projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
+			if projectErr != nil {
+				return nil, projectErr
+			}
+			var payload TypedDatasetPayload
+			if err := json.Unmarshal(projected, &payload); err != nil {
+				return nil, err
+			}
+			return payload, nil
+		}
 	}
 	return s.StructuredPreview(ctx, raw.Provider, raw.Configuration, previewDate)
 }

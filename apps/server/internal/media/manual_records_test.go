@@ -54,6 +54,23 @@ func TestManualRecordsHidesRowsOutsideTheirWindow(t *testing.T) {
 	}
 }
 
+func TestManualRecordsPreviewUsesTheSelectedDayForPublishWindows(t *testing.T) {
+	definition := announcementsDefinition(t)
+	configuration := map[string]any{"records": []any{
+		map[string]any{"title": "Next day", "priority": 0, "publishAt": "2026-03-11T00:00:00Z"},
+	}}
+	previewDay := previewTimeOrNow("2026-03-10", "UTC", time.Now())
+	before := manualRecordsPayload(definition, configuration, previewDay)
+	if before.Visible != 0 {
+		t.Fatalf("row published tomorrow is visible on the prior preview day: %+v", before.Payload)
+	}
+	previewDay = previewTimeOrNow("2026-03-11", "UTC", time.Now())
+	after := manualRecordsPayload(definition, configuration, previewDay)
+	if after.Visible != 1 || rowValues(after.Payload, "title")[0] != "Next day" {
+		t.Fatalf("row did not appear on its preview date: %+v", after.Payload)
+	}
+}
+
 func TestManualRecordsReportsTheNextWindowBoundary(t *testing.T) {
 	definition := announcementsDefinition(t)
 	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
