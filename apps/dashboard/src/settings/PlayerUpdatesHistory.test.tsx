@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  within,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
@@ -12,6 +18,25 @@ import type {
   UpdateDeployment,
   UpdateDeploymentDetail,
 } from "../api/types";
+
+// The panel renders each list twice, as cards for narrow screens and as a
+// table for wide ones, and hides one with CSS. jsdom applies no CSS, so tests
+// read the table holding the text they expect. The panel has more than one
+// table (releases and deployment history), so the text picks the table.
+const tableWith = async (text: string | RegExp) =>
+  within(
+    await waitFor(() => {
+      const table = screen
+        .getAllByRole("table")
+        .find((element) =>
+          typeof text === "string"
+            ? element.textContent?.includes(text)
+            : text.test(element.textContent ?? ""),
+        );
+      if (!table) throw new Error(`No table contains ${String(text)}`);
+      return table;
+    }),
+  );
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({ status: { csrfToken: "csrf", user: { role: "owner" } } }),
@@ -113,11 +138,17 @@ describe("Player update deployment history", () => {
 
   it("says what the deployment needs rather than only counting", async () => {
     renderPanel();
-    expect(await screen.findByText(/1 screen needs a retry/)).toBeTruthy();
-    expect(screen.getByText("3 of 6 updated")).toBeTruthy();
+    expect(
+      await (
+        await tableWith(/1 screen needs a retry/)
+      ).findByText(/1 screen needs a retry/),
+    ).toBeTruthy();
+    expect(
+      (await tableWith("3 of 6 updated")).getByText("3 of 6 updated"),
+    ).toBeTruthy();
     // The meter repeats itself as text so the segments are never colour alone.
     expect(
-      screen.getByRole("img", {
+      (await tableWith("3 of 6 updated")).getByRole("img", {
         name: "3 Updated, 2 Waiting on someone, 1 Failed",
       }),
     ).toBeTruthy();
@@ -168,7 +199,11 @@ describe("Player update deployment history", () => {
       items: [release],
     });
     renderPanel();
-    expect(await screen.findByText("20.0 MB of 50.0 MB")).toBeTruthy();
+    expect(
+      await (
+        await tableWith("20.0 MB of 50.0 MB")
+      ).findByText("20.0 MB of 50.0 MB"),
+    ).toBeTruthy();
     expect(
       document.querySelector(".player-release-cache-progress progress"),
     ).toHaveProperty("value", 20 * 1024 * 1024);
@@ -200,7 +235,9 @@ describe("Player update deployment history", () => {
   it("opens the per-screen drawer from the history row", async () => {
     renderPanel();
     await userEvent.click(
-      await screen.findByRole("button", { name: /6 screens/ }),
+      await (
+        await tableWith(/6 screens/)
+      ).findByRole("button", { name: /6 screens/ }),
     );
     expect(
       await screen.findByRole("dialog", { name: /Tilecast Player 1.4.0/ }),
@@ -302,14 +339,14 @@ describe("Player update deployment history", () => {
     expect(
       await screen.findByText("Available Tilecast Edge releases"),
     ).toBeTruthy();
-    expect(await screen.findByText("0.2.0")).toBeTruthy();
-    expect(screen.getByText("x86_64")).toBeTruthy();
+    expect(await (await tableWith("0.2.0")).findByText("0.2.0")).toBeTruthy();
+    expect((await tableWith("x86_64")).getByText("x86_64")).toBeTruthy();
     expect(screen.queryByText("0.9.0")).toBeNull();
     expect(await screen.findByText("Edge Lobby")).toBeTruthy();
     expect(screen.queryByText("Electron Lobby")).toBeNull();
 
     await userEvent.click(screen.getByRole("tab", { name: "Linux" }));
-    expect(await screen.findByText("0.9.0")).toBeTruthy();
+    expect(await (await tableWith("0.9.0")).findByText("0.9.0")).toBeTruthy();
     expect(screen.queryByText("0.2.0")).toBeNull();
     expect(await screen.findByText("Electron Lobby")).toBeTruthy();
     expect(screen.queryByText("Edge Lobby")).toBeNull();

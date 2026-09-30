@@ -36,7 +36,7 @@ afterEach(() => {
 describe("PlaylistLibraryPage loading", () => {
   it("shows a retry state instead of the empty state when loading fails", async () => {
     const playlists = vi
-      .spyOn(api, "playlists")
+      .spyOn(api, "playlistPage")
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 });
 
