@@ -352,8 +352,11 @@ func TestNewFeatureQueries(t *testing.T) {
 			_, _ = pool.Exec(context.Background(), `DELETE FROM takeovers WHERE id=$1`, takeoverID)
 		})
 		recorder := httptest.NewRecorder()
+		// The list is scoped to the caller's screens, so it needs a signed-in
+		// user and the screen scope service.
 		request := httptest.NewRequest("GET", "/api/v1/takeovers", nil)
-		(&server{db: pool}).listTakeovers(recorder, request)
+		request = request.WithContext(auth.WithPrincipal(request.Context(), auth.PrincipalFromSession(owner)))
+		(&server{db: pool, devices: deviceService}).listTakeovers(recorder, request)
 		if recorder.Code != 200 {
 			t.Fatalf("list takeovers status=%d body=%s", recorder.Code, recorder.Body.String())
 		}
