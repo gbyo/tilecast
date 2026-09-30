@@ -157,7 +157,8 @@ a {
   box-shadow: var(--tc-shadow-sm);
 }
 .playlist-preview-page__media--fade {
-  animation: playlist-preview-fade-in 240ms ease-out;
+  animation:
+    playlist-preview-fade-in var(--tc-motion-slow) var(--tc-ease-standard);
 }
 .playlist-preview-page__media--incoming {
   z-index: 0;
@@ -167,7 +168,9 @@ a {
   opacity: 1;
 }
 .playlist-preview-page__media--outgoing-active {
-  animation: playlist-preview-fade-out 300ms linear forwards;
+  animation:
+    playlist-preview-fade-out var(--tc-motion-slow) var(--tc-ease-standard)
+    forwards;
 }
 @keyframes playlist-preview-fade-in {
   from {

@@ -445,6 +445,21 @@ describe("manifest", () => {
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
   });
 
+  it("accepts only positive persisted configuration versions", () => {
+    expect(
+      widgetManifestSchema.safeParse({
+        ...manifest("tilecast.clock", "tc-widget-clock"),
+        configVersion: 2,
+      }).success,
+    ).toBe(true);
+    expect(
+      widgetManifestSchema.safeParse({
+        ...manifest("tilecast.clock", "tc-widget-clock"),
+        configVersion: 0,
+      }).success,
+    ).toBe(false);
+  });
+
   it("limits the component type so widget.<type> fits the capability bound", () => {
     const fitting = `a${"b".repeat(31)}.${"c".repeat(40)}`;
     expect(fitting).toHaveLength(MAX_COMPONENT_TYPE_LENGTH);
@@ -574,6 +589,46 @@ describe("resources", () => {
     const resources = createWidgetResources({ documents, media }, {});
     expect(resources.dataDocument("granted")).toBeNull();
     expect(resources.media("a1", "v1")).toBeNull();
+  });
+
+  it("prevents one Widget from mutating a Data Document shared by another", () => {
+    const sharedDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "current",
+          kind: "records",
+          records: [
+            {
+              id: "record-1",
+              values: { title: { kind: "text", text: "Original" } },
+            },
+          ],
+        },
+      ],
+    };
+    const sharedDocuments = new Map([["source", sharedDocument]]);
+    const grant = { dataSources: ["source"] };
+    const mutatingWidget = createWidgetResources(
+      { documents: sharedDocuments },
+      grant,
+    );
+    const observingWidget = createWidgetResources(
+      { documents: sharedDocuments },
+      grant,
+    );
+
+    const title = mutatingWidget.dataset("source", "current")?.records?.[0]
+      ?.values.title;
+    expect(title).toBeDefined();
+    expect(Reflect.set(title!, "text", "Changed by another Widget")).toBe(
+      false,
+    );
+    const observedTitle = observingWidget.dataset("source", "current")
+      ?.records?.[0]?.values.title;
+    const sharedTitle = sharedDocument.datasets[0]?.records?.[0]?.values.title;
+    expect(observedTitle?.text).toBe("Original");
+    expect(Object.isFrozen(sharedTitle)).toBe(true);
   });
 });
 

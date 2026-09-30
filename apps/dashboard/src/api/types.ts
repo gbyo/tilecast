@@ -1728,7 +1728,9 @@ export type ExtensionSource =
     };
 export type WidgetDefinition = {
   id: WidgetProvider;
+  /** Catalog definition version; distinct from stored configVersion. */
   version: number;
+  configVersion?: number;
   /** Manifest API version for component modules; absent for legacy definitions. */
   apiVersion?: number;
   /** Where the definition came from; absent means release-owned core. */

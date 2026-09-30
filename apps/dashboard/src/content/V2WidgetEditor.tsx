@@ -59,6 +59,7 @@ import {
   widgetPreviewDataSourceIds,
   widgetPreviewMedia,
 } from "./widgetPreviewSources";
+import { uploadWidgetPreviewInBackground } from "./widgetPreviewUpload";
 import { widgetSaveErrorMessage } from "./SourceEditors";
 import type { ContentDefinitionCatalog } from "../api/types";
 
@@ -309,7 +310,6 @@ export function V2WidgetEditor({
   // selection cannot stretch the stored library artwork. The visible
   // preview is untouched — no jump, no remount.
   const [canonicalCapture, setCanonicalCapture] = useState(false);
-  const [captureError, setCaptureError] = useState("");
   const canonicalRef = useRef<HTMLDivElement>(null);
   const captureStarted = useRef(false);
   const canonicalAsset = useMemo(
@@ -323,10 +323,18 @@ export function V2WidgetEditor({
       }) as Asset,
     [definition.id, configuration, managedDataSourceId],
   );
-  const runCanonicalSave = async () => {
-    const element = canonicalRef.current;
-    if (!element) throw new Error(t("widgets.errors.previewWait"));
-    const previewImage = await captureWidgetPreview(element, t);
+  const runCanonicalSave = async (capturePreview: boolean) => {
+    let previewImage: Blob | undefined;
+    let previewFailed = !capturePreview;
+    if (capturePreview) {
+      try {
+        const element = canonicalRef.current;
+        if (!element) throw new Error(t("widgets.errors.previewWait"));
+        previewImage = await captureWidgetPreview(element, t);
+      } catch {
+        previewFailed = true;
+      }
+    }
     const input = {
       provider: definition.id,
       name,
@@ -336,15 +344,15 @@ export function V2WidgetEditor({
     const saved = asset
       ? await api.updateWidget(asset.id, input, csrf)
       : await api.createWidget(input, csrf);
-    await api.uploadWidgetPreview(saved.id, previewImage, csrf);
     return {
-      ...saved,
-      thumbnailUrl: `/api/v1/assets/${encodeURIComponent(saved.id)}/thumbnail`,
+      saved,
+      previewImage,
+      previewFailed,
     };
   };
   const save = useMutation({
     mutationFn: runCanonicalSave,
-    onSuccess: (saved) => {
+    onSuccess: ({ saved, previewImage, previewFailed }) => {
       touched.current = false;
       toast.add({
         title: asset
@@ -354,6 +362,23 @@ export function V2WidgetEditor({
       });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       setCanonicalCapture(false);
+      const notifyPreviewFailure = () =>
+        toast.add({
+          title: t("widgets.editors.generic.previewUpdateFailed"),
+          description: t("widgets.editors.generic.previewUpdateFailedHint"),
+          type: "warning",
+        });
+      if (previewImage) {
+        uploadWidgetPreviewInBackground(
+          saved.id,
+          previewImage,
+          csrf,
+          queryClient,
+          notifyPreviewFailure,
+        );
+      } else if (previewFailed) {
+        notifyPreviewFailure();
+      }
       onSaved(saved);
     },
     onError: () => {
@@ -364,7 +389,6 @@ export function V2WidgetEditor({
     },
   });
   const beginCanonicalSave = () => {
-    setCaptureError("");
     captureStarted.current = false;
     setCanonicalCapture(true);
   };
@@ -372,10 +396,10 @@ export function V2WidgetEditor({
     if (!canonicalCapture || captureStarted.current || save.isPending) return;
     if (state.state === "ready" || state.state === "empty") {
       captureStarted.current = true;
-      save.mutate();
+      save.mutate(true);
     } else if (state.state === "error") {
-      setCanonicalCapture(false);
-      setCaptureError(t("widgets.editors.v2.captureFailed"));
+      captureStarted.current = true;
+      save.mutate(false);
     }
   };
 
@@ -437,11 +461,6 @@ export function V2WidgetEditor({
           <AlertDescription>
             {widgetSaveErrorMessage(t, save.error)}
           </AlertDescription>
-        </Alert>
-      )}
-      {captureError && (
-        <Alert variant="destructive">
-          <AlertDescription>{captureError}</AlertDescription>
         </Alert>
       )}
       <div className="v2-editor__layout">

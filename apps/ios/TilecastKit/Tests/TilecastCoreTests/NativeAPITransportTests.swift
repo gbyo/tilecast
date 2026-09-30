@@ -57,7 +57,10 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
             stream.open()
             var data = Data()
             var buffer = [UInt8](repeating: 0, count: 4096)
-            while stream.hasBytesAvailable {
+            // A body that URLSession streams arrives in pieces, so
+            // `hasBytesAvailable` can be false before the end. A read blocks
+            // until data arrives, and returns 0 at the end.
+            while true {
                 let count = stream.read(&buffer, maxLength: buffer.count)
                 if count <= 0 { break }
                 data.append(buffer, count: count)

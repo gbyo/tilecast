@@ -77,6 +77,71 @@ describe("layout library contract", () => {
   });
 });
 
+describe("paged Studio library contracts", () => {
+  it("requests the selected playlist page with its server search", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: {
+          items: [{ id: "playlist-101", name: "Lobby" }],
+          total: 101,
+          page: 2,
+          pageSize: 100,
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(api.playlistPage("lobby", 2)).resolves.toMatchObject({
+      items: [{ id: "playlist-101" }],
+      page: 2,
+      total: 101,
+    });
+    const [requestUrl] = fetch.mock.calls[0] as [string, RequestInit];
+    const url = new URL(requestUrl);
+    expect(url.pathname).toBe("/api/v1/playlists");
+    expect(url.searchParams.get("search")).toBe("lobby");
+    expect(url.searchParams.get("page")).toBe("2");
+  });
+
+  it("loads later Data Source pages for selector callers", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [{ id: "source-1" }],
+            total: 101,
+            page: 1,
+            pageSize: 100,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [{ id: "source-101" }],
+            total: 101,
+            page: 2,
+            pageSize: 100,
+          },
+        }),
+      );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      api.listDataSources(new URLSearchParams({ provider: "weather" })),
+    ).resolves.toMatchObject({
+      items: [{ id: "source-1" }, { id: "source-101" }],
+      total: 101,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const second = fetch.mock.calls[1] as [string, RequestInit];
+    const url = new URL(second[0]);
+    expect(url.searchParams.get("provider")).toBe("weather");
+    expect(url.searchParams.get("page")).toBe("2");
+  });
+});
+
 describe("Player release upload contract", () => {
   it("uses server-accepted media types for the Linux release files", () => {
     expect(playerReleaseContentType("tilecast-player.AppImage")).toBe(

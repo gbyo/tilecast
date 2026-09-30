@@ -217,8 +217,13 @@ export function PlaylistPreviewPage() {
     incomingId: string;
     ready: boolean;
   }>();
+  const [playbackVisit, setPlaybackVisit] = useState(0);
+  const [readyItemKey, setReadyItemKey] = useState<string>();
   const indexRef = useRef(0);
   const current = items[index % Math.max(items.length, 1)];
+  const currentItemKey = current
+    ? `${query.data?.id ?? ""}:${query.data?.revision ?? ""}:${current.id}:${playbackVisit}`
+    : "";
 
   const move = useCallback(
     (direction: number) => {
@@ -228,6 +233,7 @@ export function PlaylistPreviewPage() {
         items.length,
         direction,
       );
+      if (nextIndex !== previousIndex) setPlaybackVisit((visit) => visit + 1);
       const outgoing = items[previousIndex];
       const incoming = items[nextIndex];
       if (
@@ -257,6 +263,7 @@ export function PlaylistPreviewPage() {
     if (index >= items.length) {
       indexRef.current = 0;
       setIndex(0);
+      setPlaybackVisit((visit) => visit + 1);
       setCrossfade(undefined);
     }
   }, [index, items.length]);
@@ -278,13 +285,19 @@ export function PlaylistPreviewPage() {
     };
   }, [query.data, t]);
   useEffect(() => {
-    if (!current || paused || current.assetType === "video") return;
+    if (
+      !current ||
+      paused ||
+      current.assetType === "video" ||
+      readyItemKey !== currentItemKey
+    )
+      return;
     const timer = window.setTimeout(
       advance,
       playlistPreviewItemDuration(current),
     );
     return () => window.clearTimeout(timer);
-  }, [advance, current, paused]);
+  }, [advance, current, currentItemKey, paused, readyItemKey]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
@@ -381,7 +394,7 @@ export function PlaylistPreviewPage() {
         ) : (
           <>
             <PreviewMedia
-              key={current.id}
+              key={currentItemKey}
               item={current}
               active
               paused={paused}
@@ -389,17 +402,19 @@ export function PlaylistPreviewPage() {
               csrfToken={auth.status.csrfToken ?? ""}
               regional={regional}
               className={`${MEDIA_BASE} ${crossfade ? "playlist-preview-page__media--incoming" : `playlist-preview-page__media--${current.transition}`}`}
-              onReady={() =>
+              onReady={() => {
+                setReadyItemKey(currentItemKey);
                 setCrossfade((value) =>
                   value?.incomingId === current.id
                     ? value.ready
                       ? value
                       : { ...value, ready: true }
                     : value,
-                )
-              }
+                );
+              }}
               onDone={advance}
               onError={() => {
+                setReadyItemKey(undefined);
                 setCrossfade(undefined);
                 setFailed(true);
               }}

@@ -12,6 +12,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { toast } from "../components/ui/toast";
 import type {
   Asset,
   ContentDefinitionCatalog,
@@ -271,6 +272,72 @@ describe("V2WidgetEditor", () => {
       ),
     );
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it("keeps the Widget save successful when its thumbnail upload fails", async () => {
+    const created = {
+      id: "asset-2",
+      name: "Lobby clock",
+      description: "",
+      provider: "clock",
+    };
+    vi.spyOn(api, "createWidget").mockResolvedValue(created as never);
+    vi.spyOn(api, "uploadWidgetPreview").mockRejectedValue(
+      new Error("thumbnail upload failed"),
+    );
+    const toastSpy = vi.spyOn(toast, "add");
+    const onSaved = vi.fn();
+    editor({ onSaved });
+    await screen.findByRole("img", { name: "Live preview" });
+    const save = screen.getByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(created));
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title:
+            "The Widget was saved, but its thumbnail could not be updated.",
+          type: "warning",
+        }),
+      ),
+    );
+    expect(api.createWidget).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByText("thumbnail upload failed"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("saves the Widget when its canonical preview cannot be captured", async () => {
+    const created = {
+      id: "asset-3",
+      name: "Lobby clock",
+      description: "",
+      provider: "clock",
+    };
+    vi.spyOn(api, "createWidget").mockResolvedValue(created as never);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue(undefined);
+    vi.mocked(captureWidgetPreview).mockRejectedValueOnce(
+      new Error("canvas unavailable"),
+    );
+    const toastSpy = vi.spyOn(toast, "add");
+    const onSaved = vi.fn();
+    editor({ onSaved });
+    await screen.findByRole("img", { name: "Live preview" });
+    const save = screen.getByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(created));
+    expect(api.createWidget).toHaveBeenCalledOnce();
+    expect(api.uploadWidgetPreview).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "The Widget was saved, but its thumbnail could not be updated.",
+        type: "warning",
+      }),
+    );
   });
 
   async function saveWithSelectedSize(
