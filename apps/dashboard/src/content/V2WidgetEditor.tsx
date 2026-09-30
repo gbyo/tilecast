@@ -43,6 +43,7 @@ import { PreviewTimeControl } from "./PreviewTimeControl";
 import {
   initialPreviewTime,
   parsePreviewTimeInput,
+  resolvePreviewDate,
   type PreviewTime,
 } from "./previewTime";
 import { PreviewClock } from "./previewClock";
@@ -218,6 +219,7 @@ export function V2WidgetEditor({
     dataSourceIds,
     dataSourceIds,
     previewMedia.media,
+    resolvePreviewDate(previewTime),
   );
   // A granted source that cannot be loaded is a preview error, not a valid
   // settled empty: Save and capture stay disabled until it loads or the

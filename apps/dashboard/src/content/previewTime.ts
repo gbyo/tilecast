@@ -50,6 +50,13 @@ export function resolvePreviewNow(time: PreviewTime): Date | undefined {
   return parsePreviewTimeInput(time.value) ?? undefined;
 }
 
+/** The local calendar date used to select records for a fixed preview instant. */
+export function resolvePreviewDate(time: PreviewTime): string | undefined {
+  const now = resolvePreviewNow(time);
+  if (!now) return undefined;
+  return previewTimeInputValue(now).slice(0, 10);
+}
+
 export function initialPreviewTime(now = new Date()): PreviewTime {
   return { mode: "live", value: previewTimeInputValue(now) };
 }

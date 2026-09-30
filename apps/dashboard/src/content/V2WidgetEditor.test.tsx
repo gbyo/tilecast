@@ -21,7 +21,6 @@ import type {
 import { V2WidgetEditor } from "./V2WidgetEditor";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
-import { parsePreviewTimeInput, previewTimeInputValue } from "./previewTime";
 
 vi.mock("./widgetPreviewCapture", async (importOriginal) => {
   const actual =
@@ -37,6 +36,7 @@ vi.mock("./widgetPreviewCapture", async (importOriginal) => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 function clockDefinition(): WidgetDefinition {
@@ -190,30 +190,50 @@ describe("V2WidgetEditor", () => {
     expect(container.querySelector("tc-widget-clock")).toBe(before);
   });
 
-  it("renders a fixed preview instant through the Widget's own clock", async () => {
-    editor();
+  it("uses one fixed date for the Widget clock and Data Source preview", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 8, 23, 12));
+    const sourceId = "source-preview";
+    const asset = {
+      id: "asset-preview",
+      name: "Clock preview",
+      description: "",
+      type: "widget",
+      widget: {
+        provider: "clock",
+        managedDataSourceId: sourceId,
+        configuration: clockManifest.defaultConfiguration,
+      },
+    } as unknown as Asset;
+    vi.mocked(api.previewSavedDataSource).mockResolvedValue({
+      records: [],
+      fields: [],
+      usingCachedData: false,
+    } as never);
+    editor({ asset });
     await screen.findByRole("img", { name: "Live preview" });
-    // Switching to a fixed instant keeps today's date; setting the time of
-    // day drives the Widget's own clock to that instant.
     await userEvent.click(screen.getByRole("button", { name: "At a time" }));
-    const timeInput = screen.getByLabelText("Preview time of day");
-    fireEvent.change(timeInput, { target: { value: "00:00" } });
-    const datePart = previewTimeInputValue(new Date()).split("T")[0]!;
-    const instant = parsePreviewTimeInput(`${datePart}T00:00`)!;
-    // The element renders time parts in separate spans, so compare without
-    // whitespace.
-    const expected = new Intl.DateTimeFormat("en-US", {
-      timeZone: "UTC",
-      hour: "numeric",
-      minute: "2-digit",
-    })
-      .format(instant)
-      .replace(/\s+/g, "");
+    const dateControl = screen.getByRole("button", {
+      name: "Preview date and time",
+    });
+    await userEvent.click(dateControl);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /September 24th, 2026$/ }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "Date" }));
+
+    await waitFor(() =>
+      expect(api.previewSavedDataSource).toHaveBeenLastCalledWith(
+        sourceId,
+        "2026-09-24",
+      ),
+    );
     await waitFor(() => {
-      const text = (
-        document.querySelector("tc-widget-clock")?.shadowRoot?.textContent ?? ""
-      ).replace(/\s+/g, "");
-      expect(text).toContain(expected);
+      const text =
+        document.querySelector("tc-widget-clock")?.shadowRoot?.textContent ??
+        "";
+      expect(text).toContain("24");
+      expect(text).toContain("2026");
     });
   });
 
