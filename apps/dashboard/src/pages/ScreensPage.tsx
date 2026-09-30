@@ -2224,6 +2224,7 @@ function ScreenSummary({ screens }: { screens: Screen[] }) {
   ).size;
   return (
     <div
+      role="group"
       className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
       aria-label={t("list.summaryGroup")}
     >

@@ -114,12 +114,19 @@ export function LastDayCard({
     !measured &&
     percent == null;
   return (
-    <Card size="sm" role="region" aria-labelledby="last-day-heading">
+    <Card
+      size="sm"
+      role="region"
+      aria-labelledby="last-day-heading"
+      className="gap-2"
+    >
       <CardHeader>
         <CardTitle id="last-day-heading" role="heading" aria-level={2}>
           {t("operations.lastDay.title")}
         </CardTitle>
-        <CardDescription>{t("operations.lastDay.description")}</CardDescription>
+        <CardDescription className="xl:sr-only">
+          {t("operations.lastDay.description")}
+        </CardDescription>
         <CardAction>
           <Link
             className={buttonVariants({
@@ -139,7 +146,7 @@ export function LastDayCard({
             {t("operations.lastDay.nothingMeasured")}
           </p>
         ) : (
-          <ul className="grid gap-x-3 gap-y-4 sm:grid-cols-3">
+          <ul className="grid gap-x-3 gap-y-4 sm:grid-cols-3 xl:grid-cols-1">
             {tile(
               "compliance",
               t("compliance.tiles.compliance"),
