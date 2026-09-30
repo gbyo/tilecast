@@ -92,6 +92,24 @@ func TestComponentConfigNormalizerRejects(t *testing.T) {
 	}
 }
 
+func TestComponentConfigNormalizerRejectsGenericDerivedMediaVariant(t *testing.T) {
+	definition := contentdefs.WidgetDefinition{
+		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+			{Key: "brandAssetId", Label: "Brand", Control: "media_asset"},
+		}},
+		Component: &contentdefs.ComponentSpec{
+			ConfigTemplate: json.RawMessage(`{"image":{"assetId":{"$config":"brandAssetId","default":""}}}`),
+		},
+	}
+	_, err := (componentConfigNormalizer{definition: definition}).Normalize(
+		context.Background(),
+		json.RawMessage(`{"brandVariantId":"33333333-3333-4333-8333-333333333333"}`),
+	)
+	if err == nil || !strings.Contains(err.Error(), `unknown field "brandVariantId"`) {
+		t.Fatalf("a generic derived media key was not rejected: %v", err)
+	}
+}
+
 func TestComponentConfigNormalizerAllowsThemeColors(t *testing.T) {
 	// An optional color left blank follows the display theme.
 	text, err := normalizeComponent(t, "text", `{"body":"Hi","backgroundColor":"","foregroundColor":""}`)

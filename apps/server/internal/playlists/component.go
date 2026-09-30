@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -91,31 +90,41 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 	}, nil
 }
 
-// componentMedia grants the media variants a component may display: each
-// media_asset field whose asset manifest projection resolved to a variant.
-// Projection writes the variant beside the asset under the derived key
-// (imageAssetId gives imageVariantId), and adds that variant to the
-// manifest's assets, so the Player verifies and caches it before
-// activation. An asset without a projected variant grants nothing.
+// componentMedia grants only media_asset values whose manifest projection resolved a
+// Player-compatible variant. Variant aliases sit beside their fields, including inside
+// repeating groups, so the component can use its normal configuration shape.
 func componentMedia(definition contentdefs.WidgetDefinition, configuration map[string]any) []ComponentMediaRef {
 	media := []ComponentMediaRef{}
-	for _, field := range definition.ConfigurationSchema.Fields {
-		if field.Control != "media_asset" || !strings.HasSuffix(field.Key, "AssetId") {
-			continue
+	seen := map[string]bool{}
+	var walk func([]contentdefs.FieldDefinition, map[string]any)
+	walk = func(fields []contentdefs.FieldDefinition, values map[string]any) {
+		for _, field := range fields {
+			switch field.Control {
+			case "media_asset":
+				assetID, _ := values[field.Key].(string)
+				variantID, _ := values[contentdefs.MediaVariantConfigurationKey(field.Key)].(string)
+				asset, assetErr := uuid.Parse(assetID)
+				variant, variantErr := uuid.Parse(variantID)
+				if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
+					continue
+				}
+				key := asset.String() + "/" + variant.String()
+				if !seen[key] {
+					media = append(media, ComponentMediaRef{AssetID: asset.String(), VariantID: variant.String()})
+					seen[key] = true
+				}
+			case "repeating_group":
+				items, _ := values[field.Key].([]any)
+				for _, item := range items {
+					row, _ := item.(map[string]any)
+					if row != nil {
+						walk(field.ItemFields, row)
+					}
+				}
+			}
 		}
-		variantKey := strings.TrimSuffix(field.Key, "AssetId") + "VariantId"
-		if !contentdefs.DerivedConfigurationKeys[variantKey] {
-			continue
-		}
-		assetID, _ := configuration[field.Key].(string)
-		variantID, _ := configuration[variantKey].(string)
-		asset, assetErr := uuid.Parse(assetID)
-		variant, variantErr := uuid.Parse(variantID)
-		if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
-			continue
-		}
-		media = append(media, ComponentMediaRef{AssetID: asset.String(), VariantID: variant.String()})
 	}
+	walk(definition.ConfigurationSchema.Fields, configuration)
 	return media
 }
 

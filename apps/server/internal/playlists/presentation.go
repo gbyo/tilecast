@@ -417,7 +417,9 @@ func compileDefinitionPresentation(definition contentdefs.WidgetDefinition, raw 
 	if err := json.Unmarshal(definition.PresentationTemplate, &template); err != nil {
 		return nil, err
 	}
-	resolved, included, err := resolveDefinitionTemplate(template, configuration)
+	resolved, included, err := resolveDefinitionTemplate(
+		template, configuration, definition.ConfigurationSchema.Fields,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -497,12 +499,16 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 	}, nil
 }
 
-func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bool, error) {
+func resolveDefinitionTemplate(
+	value any,
+	configuration map[string]any,
+	fields []contentdefs.FieldDefinition,
+) (any, bool, error) {
 	switch typed := value.(type) {
 	case []any:
 		result := make([]any, 0, len(typed))
 		for _, item := range typed {
-			resolved, included, err := resolveDefinitionTemplate(item, configuration)
+			resolved, included, err := resolveDefinitionTemplate(item, configuration, fields)
 			if err != nil {
 				return nil, false, err
 			}
@@ -518,7 +524,7 @@ func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bo
 				// Server-derived keys are produced during manifest projection. A Widget whose
 				// author left the optional selection empty simply has no derived value, so the
 				// reference resolves to an empty value rather than failing the compile.
-				if !contentdefs.DerivedConfigurationKeys[key] {
+				if !contentdefs.IsLevelDerivedConfigurationKey(fields, key) {
 					return nil, false, fmt.Errorf("presentation template references missing configuration %q", key)
 				}
 				resolved = ""
@@ -551,7 +557,7 @@ func resolveDefinitionTemplate(value any, configuration map[string]any) (any, bo
 			if key == "$ifConfig" || key == "$ifConfigEquals" {
 				continue
 			}
-			resolved, included, err := resolveDefinitionTemplate(item, configuration)
+			resolved, included, err := resolveDefinitionTemplate(item, configuration, fields)
 			if err != nil {
 				return nil, false, err
 			}

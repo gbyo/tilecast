@@ -34,18 +34,55 @@ var supportedNodes = map[string]bool{
 	"repeat": true, "conditional": true, "grouped_sections": true,
 }
 
-// DerivedConfigurationKeys are configuration keys a presentation template may reference
-// that the Server derives during manifest projection rather than the author entering
-// them. They are never part of a configuration schema, are never accepted from a client,
-// and resolve to an empty value when projection did not produce one.
+// DerivedConfigurationKeys are fixed configuration keys the Server injects after
+// authoring, such as App recipe relationships. Media variant keys are derived from each
+// media_asset field in its Widget schema by MediaVariantConfigurationKey.
 var DerivedConfigurationKeys = map[string]bool{
-	// Written by playlist manifest projection from the author's imageAssetId selection.
-	"imageVariantId": true,
 	// App recipes inject these release-owned values after provisioning their managed
 	// Data Source. Authors never submit either key directly.
 	"managedDataSourceId": true,
 	"sourceId":            true,
 	"appProviderName":     true,
+}
+
+// MediaVariantConfigurationKey returns the manifest-only configuration key that holds
+// the Player-compatible variant selected for a media_asset field. Preserve the original
+// convention for *AssetId keys while also supporting schema fields with any valid key.
+func MediaVariantConfigurationKey(fieldKey string) string {
+	if prefix, ok := strings.CutSuffix(fieldKey, "AssetId"); ok {
+		return prefix + "VariantId"
+	}
+	return fieldKey + "VariantId"
+}
+
+// IsDerivedConfigurationKey reports whether a key is injected by the Server rather than
+// authored. Media variant aliases are scoped to fields declared by this Widget schema,
+// including fields nested inside repeating groups.
+func IsDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
+	if IsLevelDerivedConfigurationKey(fields, key) {
+		return true
+	}
+	for _, field := range fields {
+		if field.Control == "repeating_group" && IsDerivedConfigurationKey(field.ItemFields, key) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsLevelDerivedConfigurationKey reports whether a derived key belongs in the map
+// described by fields. Template references use this check because a nested alias can only
+// be read through its repeating-group item, not as a root configuration key.
+func IsLevelDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
+	if DerivedConfigurationKeys[key] {
+		return true
+	}
+	for _, field := range fields {
+		if field.Control == "media_asset" && MediaVariantConfigurationKey(field.Key) == key {
+			return true
+		}
+	}
+	return false
 }
 
 // supportedOutputFieldTypes bounds the typed values a Data Source may declare. The set
@@ -968,6 +1005,17 @@ func validateSchemaFields(fields []FieldDefinition) error {
 			}
 		}
 	}
+	derived := map[string]bool{}
+	for _, field := range fields {
+		if field.Control != "media_asset" {
+			continue
+		}
+		key := MediaVariantConfigurationKey(field.Key)
+		if seen[key] || derived[key] {
+			return fmt.Errorf("media_asset field %q derives configuration key %q that conflicts with another field", field.Key, key)
+		}
+		derived[key] = true
+	}
 	return nil
 }
 
@@ -1082,7 +1130,7 @@ func validateTemplate(raw json.RawMessage, schema ConfigurationSchema, capabilit
 	for _, field := range schema.Fields {
 		fields[field.Key] = field
 	}
-	if err := walkTemplate(root, fields); err != nil {
+	if err := walkTemplate(root, fields, schema.Fields); err != nil {
 		return err
 	}
 	used := map[string]bool{}
@@ -1181,17 +1229,17 @@ func validateTemplateCondition(value any) error {
 	return validateTemplateBinding(binding)
 }
 
-func walkTemplate(value any, fields map[string]FieldDefinition) error {
+func walkTemplate(value any, fields map[string]FieldDefinition, schemaFields []FieldDefinition) error {
 	switch typed := value.(type) {
 	case []any:
 		for _, item := range typed {
-			if err := walkTemplate(item, fields); err != nil {
+			if err := walkTemplate(item, fields, schemaFields); err != nil {
 				return err
 			}
 		}
 	case map[string]any:
 		if key, ok := typed["$config"].(string); ok {
-			if _, exists := fields[key]; !exists && !DerivedConfigurationKeys[key] {
+			if _, exists := fields[key]; !exists && !IsLevelDerivedConfigurationKey(schemaFields, key) {
 				return fmt.Errorf("presentation template references unknown configuration %q", key)
 			}
 		}
@@ -1220,7 +1268,7 @@ func walkTemplate(value any, fields map[string]FieldDefinition) error {
 			return fmt.Errorf("presentation template uses unsupported node %q", nodeType)
 		}
 		for _, item := range typed {
-			if err := walkTemplate(item, fields); err != nil {
+			if err := walkTemplate(item, fields, schemaFields); err != nil {
 				return err
 			}
 		}
