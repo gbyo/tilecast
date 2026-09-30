@@ -469,7 +469,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters. */
+    /** @description Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters. */
     get: operations["describeOAuthApproval"];
     put?: never;
     post?: never;
@@ -488,7 +488,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code. */
+    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. */
     post: operations["approveOAuthRequest"];
     delete?: never;
     options?: never;
@@ -505,7 +505,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied. */
+    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. */
     post: operations["denyOAuthRequest"];
     delete?: never;
     options?: never;
@@ -524,6 +524,23 @@ export interface paths {
     put?: never;
     /** @description Public and rate-limited. Exchanges a single-use code with its PKCE verifier, or rotates a refresh token. PKCE is the client authentication for loopback clients. Reusing a rotated refresh token revokes the whole grant. */
     post: operations["issueOAuthTokens"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/oauth/ios-session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view. */
+    post: operations["createIOSStudioSession"];
     delete?: never;
     options?: never;
     head?: never;
@@ -9973,6 +9990,34 @@ export interface components {
       code_verifier?: string;
       refresh_token?: string;
     };
+    IOSSessionRequest: {
+      /** @enum {string} */
+      grant_type: "authorization_code" | "refresh_token";
+      /** @enum {string} */
+      client_id: "tilecast-ios";
+      /** @description authorization_code only. */
+      code?: string;
+      /**
+       * Format: uri
+       * @description authorization_code only: tilecast-ios://oauth/callback.
+       */
+      redirect_uri?: string;
+      /** @description authorization_code only. */
+      code_verifier?: string;
+      /** @description refresh_token only. */
+      refresh_token?: string;
+      /**
+       * @description refresh_token only. Also start a new Studio session and set its cookie, replacing the grant's earlier session. An authorization_code exchange always sets the cookie.
+       * @default false
+       */
+      studio_session: boolean;
+    };
+    IOSSession: {
+      /** @description Whether the response set a Studio session cookie. */
+      authenticated: boolean;
+      /** @description The grant's native credential. A server released before native API access omits it, and the app then uses Studio only. */
+      credential?: components["schemas"]["OAuthTokens"];
+    };
     OAuthApprovalClient: {
       name: string;
       clientId: string;
@@ -11411,7 +11456,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Loopback redirect carrying the code */
+      /** @description Validated redirect carrying the code */
       200: {
         headers: {
           [name: string]: unknown;
@@ -11461,7 +11506,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Loopback redirect carrying access_denied */
+      /** @description Validated redirect carrying access_denied */
       200: {
         headers: {
           [name: string]: unknown;
@@ -11521,6 +11566,54 @@ export interface operations {
       };
       /** @description Expired, used, mismatched, or revoked grant */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many authentication attempts */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createIOSStudioSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IOSSessionRequest"];
+      };
+    };
+    responses: {
+      /** @description The native credential, and a Studio session cookie when authenticated is true */
+      200: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["IOSSession"];
+          };
+        };
+      };
+      /** @description Invalid, expired, used, mismatched, or revoked code or refresh token, or a refresh token of another client */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The account is no longer active */
+      401: {
         headers: {
           [name: string]: unknown;
         };

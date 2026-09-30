@@ -16,7 +16,11 @@ import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
-import { LiveStreamDialog } from "./LiveStreamDialog";
+import { useOpenNativePresentation } from "../native-presentation/openNativePresentation";
+import {
+  LiveStreamDialog,
+  liveStreamPresentationPath,
+} from "./LiveStreamDialog";
 import { Button } from "./ui/button";
 import {
   livePreviewState,
@@ -37,8 +41,9 @@ const captureAgeToneClasses = {
 
 export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const auth = useAuth();
-  const { t } = useTranslation(["screens", "common"]);
+  const { t } = useTranslation(["screens", "common", "alerts"]);
   const formatLocale = useFormatLocale();
+  const openNativePresentation = useOpenNativePresentation();
   const [renewalError, setRenewalError] = useState<string | null>(null);
   const [manualRefreshError, setManualRefreshError] = useState<string | null>(
     null,
@@ -58,6 +63,18 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     retry: false,
   });
   const csrfToken = auth.status?.csrfToken;
+  const screenName = screen.data?.name ?? t("livePreview.unnamedScreen");
+
+  // A native host presents the stream in its own sheet; otherwise, and
+  // always in a browser, Studio's dialog shows it.
+  const watchLive = async () => {
+    const presented = await openNativePresentation({
+      path: liveStreamPresentationPath(screenId),
+      title: t("alerts:liveStream.title", { name: screenName }),
+      size: "full",
+    });
+    if (!presented) setWatchingLive(true);
+  };
 
   useEffect(() => {
     if (!csrfToken) return;
@@ -165,7 +182,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           </Button>
           <Button
             size="sm"
-            onClick={() => setWatchingLive(true)}
+            onClick={() => void watchLive()}
             disabled={screen.data?.status !== "online" || !csrfToken}
           >
             <Video aria-hidden="true" />
@@ -258,7 +275,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         <LiveStreamDialog
           open={watchingLive}
           screenId={screenId}
-          screenName={screen.data?.name ?? t("livePreview.unnamedScreen")}
+          screenName={screenName}
           csrfToken={csrfToken}
           onClose={() => setWatchingLive(false)}
         />
