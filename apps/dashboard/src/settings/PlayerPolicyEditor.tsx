@@ -458,7 +458,7 @@ export function PlayerPolicyEditor({
       )}
 
       {manageable && dirty && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-4">
           <strong className="text-sm font-medium">
             {t("policies.unsaved")}
           </strong>
