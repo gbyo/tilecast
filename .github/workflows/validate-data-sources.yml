@@ -2,6 +2,11 @@ name: validate-data-sources
 
 on:
   workflow_call:
+    inputs:
+      runner:
+        description: Runner label used by this validation job.
+        type: string
+        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -9,7 +14,7 @@ permissions:
 jobs:
   validate:
     name: Data Sources
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
