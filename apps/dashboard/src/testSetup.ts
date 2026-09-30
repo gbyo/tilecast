@@ -52,6 +52,29 @@ if (typeof window !== "undefined" && !window.matchMedia) {
   });
 }
 
+// jsdom has no IntersectionObserver. A default that never reports an entry
+// keeps visibility-gated work (such as screen preview requests) idle; a test
+// that needs entries stubs its own with vi.stubGlobal.
+if (typeof window !== "undefined" && !window.IntersectionObserver) {
+  class IdleIntersectionObserver {
+    readonly root = null;
+    readonly rootMargin = "";
+    readonly scrollMargin = "";
+    readonly thresholds = [0];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  }
+  Object.defineProperty(window, "IntersectionObserver", {
+    configurable: true,
+    writable: true,
+    value: IdleIntersectionObserver,
+  });
+}
+
 // Components render English text through i18next, so tests keep asserting on
 // the English copy they always have.
 await initI18n("en");
