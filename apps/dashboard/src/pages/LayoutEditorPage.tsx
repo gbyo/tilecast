@@ -183,6 +183,11 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  presentationPath,
+  useNativePresentationAvailable,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
@@ -611,6 +616,8 @@ export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
+  const nativePresentations = useNativePresentationAvailable();
+  const openNativePresentation = useOpenNativePresentation();
   const { t: tContent } = useTranslation("content");
   const formatLocale = useFormatLocale();
   const auth = useAuth();
@@ -2309,6 +2316,23 @@ export function LayoutEditorPage() {
     });
   };
   const openPreview = () => {
+    if (nativePresentations) {
+      // Save first, as the popup does, so the preview shows this draft.
+      void (async () => {
+        if (!(await save())) return;
+        await openNativePresentation({
+          path:
+            presentationPath("layout-preview", id) +
+            "?date=" +
+            encodeURIComponent(new Date().toISOString().slice(0, 10)),
+          title: t("layouts:editor.previewTitle", {
+            name: layoutQuery.data?.name ?? "",
+          }),
+          size: "full",
+        });
+      })();
+      return;
+    }
     const popup = window.open(
       "about:blank",
       "tilecast-layout-preview-" + id,
@@ -3793,87 +3817,125 @@ export function LayoutEditorPage() {
                       <History aria-hidden="true" />
                       {t("editor.menubar.history")}
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem disabled={!past.length} onClick={undo}>
+                      <Undo2 aria-hidden="true" />
+                      {t("editor.menuUndo")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem disabled={!future.length} onClick={redo}>
+                      <Redo2 aria-hidden="true" />
+                      {t("editor.menuRedo")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      disabled={saveState === "saving"}
+                      onClick={openPreview}
+                    >
+                      <Play aria-hidden="true" />
+                      {t("editor.toolbarPreview")}
+                    </DropdownMenuItem>
+                    {canSubmit && (
+                      <DropdownMenuItem
+                        disabled={saveState !== "saved" || publish.isPending}
+                        onClick={() => publish.mutate()}
+                      >
+                        {publish.isPending && <Spinner aria-hidden="true" />}
+                        {canPublish
+                          ? t("editor.publishAction")
+                          : t("editor.submitAction")}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </div>
-            <ButtonGroup
-              aria-label={t("editor.undoRedoLabel")}
-              className="shrink-0"
-            >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="disabled:text-[#a1a1a1] disabled:opacity-100"
-                      aria-label={t("editor.menuUndo")}
-                      onClick={undo}
-                      disabled={!past.length}
-                    />
-                  }
-                >
-                  <Undo2 aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("editor.menuUndo")}{" "}
-                  <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      className="disabled:text-[#a1a1a1] disabled:opacity-100"
-                      aria-label={t("editor.menuRedo")}
-                      onClick={redo}
-                      disabled={!future.length}
-                    />
-                  }
-                >
-                  <Redo2 aria-hidden="true" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("editor.menuRedo")}{" "}
-                  <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
-                </TooltipContent>
-              </Tooltip>
-            </ButtonGroup>
+            {desktop && (
+              <ButtonGroup
+                aria-label={t("editor.undoRedoLabel")}
+                className="shrink-0"
+              >
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="disabled:text-[#a1a1a1] disabled:opacity-100"
+                        aria-label={t("editor.menuUndo")}
+                        onClick={undo}
+                        disabled={!past.length}
+                      />
+                    }
+                  >
+                    <Undo2 aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("editor.menuUndo")}{" "}
+                    <Kbd>{/* i18n-ignore: key name */}Ctrl+Z</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="disabled:text-[#a1a1a1] disabled:opacity-100"
+                        aria-label={t("editor.menuRedo")}
+                        onClick={redo}
+                        disabled={!future.length}
+                      />
+                    }
+                  >
+                    <Redo2 aria-hidden="true" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("editor.menuRedo")}{" "}
+                    <Kbd>{/* i18n-ignore: key name */}Ctrl+Shift+Z</Kbd>
+                  </TooltipContent>
+                </Tooltip>
+              </ButtonGroup>
+            )}
           </>
         }
         right={
-          <div className="flex shrink-0 items-center gap-2">
-            <LayoutSaveStatus state={saveState} onRetry={() => void save()} />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={saveState === "saving"}
-              onClick={openPreview}
-            >
-              <Play aria-hidden="true" />
-              {t("editor.toolbarPreview")}
-            </Button>
-            {canSubmit && (
+          desktop ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <LayoutSaveStatus state={saveState} onRetry={() => void save()} />
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
-                disabled={saveState !== "saved" || publish.isPending}
-                aria-busy={publish.isPending || undefined}
-                onClick={() => publish.mutate()}
+                disabled={saveState === "saving"}
+                onClick={openPreview}
               >
-                {publish.isPending && <Spinner aria-hidden="true" />}
-                {canPublish
-                  ? t("editor.publishAction")
-                  : t("editor.submitAction")}
+                <Play aria-hidden="true" />
+                {t("editor.toolbarPreview")}
               </Button>
-            )}
-          </div>
+              {canSubmit && (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={saveState !== "saved" || publish.isPending}
+                  aria-busy={publish.isPending || undefined}
+                  onClick={() => publish.mutate()}
+                >
+                  {publish.isPending && <Spinner aria-hidden="true" />}
+                  {canPublish
+                    ? t("editor.publishAction")
+                    : t("editor.submitAction")}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <LayoutSaveStatus
+              state={saveState}
+              onRetry={() => void save()}
+              compact
+            />
+          )
         }
       />
       {saveState === "conflict" && (
@@ -4036,15 +4098,29 @@ function LayoutPaneHeading({ title, meta }: { title: string; meta?: string }) {
 function LayoutSaveStatus({
   state,
   onRetry,
+  compact = false,
 }: {
   state: SaveState;
   onRetry: () => void;
+  compact?: boolean;
 }) {
   const { t } = useTranslation(["layouts", "common"]);
+  const label =
+    state === "saving"
+      ? t("common:actions.saving")
+      : state === "unsaved"
+        ? t("editor.saveUnsaved")
+        : state === "error"
+          ? t("editor.saveFailed")
+          : state === "conflict"
+            ? t("editor.saveConflict")
+            : t("editor.saveSaved");
   return (
     <div className="flex items-center gap-2">
       <span
         role="status"
+        aria-label={compact ? label : undefined}
+        title={compact ? label : undefined}
         className={cn(
           "flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5",
           (state === "error" || state === "conflict") && "text-destructive",
@@ -4053,31 +4129,33 @@ function LayoutSaveStatus({
         {state === "saving" ? (
           <>
             <Spinner aria-hidden="true" />
-            {t("common:actions.saving")}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </>
         ) : state === "unsaved" ? (
           <>
             <CircleDot aria-hidden="true" />
-            {t("editor.saveUnsaved")}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </>
         ) : state === "error" ? (
           <>
             <CircleAlert aria-hidden="true" />
-            {t("editor.saveFailed")}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </>
         ) : state === "conflict" ? (
           <>
             <TriangleAlert aria-hidden="true" />
-            {t("editor.saveConflict")}
+            <span className={compact ? "sr-only" : undefined}>{label}</span>
           </>
         ) : (
           <>
             <CloudCheck aria-hidden="true" />
-            <span className="max-xl:sr-only">{t("editor.saveSaved")}</span>
+            <span className={compact ? "sr-only" : "max-xl:sr-only"}>
+              {label}
+            </span>
           </>
         )}
       </span>
-      {state === "error" && (
+      {!compact && state === "error" && (
         <Button type="button" variant="outline" size="xs" onClick={onRetry}>
           {t("common:actions.retry")}
         </Button>

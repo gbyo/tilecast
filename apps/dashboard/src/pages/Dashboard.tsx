@@ -56,6 +56,28 @@ function readAppearance() {
   }
 }
 
+/**
+ * Studio's appearance, density, and motion from the account's saved
+ * preferences, falling back to the appearance cached in this browser. Every
+ * signed-in Studio surface uses it, so a native presentation looks like the
+ * page that opened it.
+ */
+export function studioTheme(values: Record<string, unknown> | undefined) {
+  const appearance =
+    typeof values?.["preference.appearance"] === "string"
+      ? String(values["preference.appearance"])
+      : readAppearance();
+  const density =
+    typeof values?.["preference.density"] === "string"
+      ? String(values["preference.density"])
+      : "comfortable";
+  return {
+    appearance,
+    density,
+    reducedMotion: Boolean(values?.["preference.reduced_motion"]),
+  };
+}
+
 export function DashboardShell() {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -130,22 +152,11 @@ export function DashboardShell() {
     );
   }
 
-  const values = preferences.data?.values;
-  const appearance = serverAppearance ?? readAppearance();
-  const density =
-    typeof values?.["preference.density"] === "string"
-      ? String(values["preference.density"])
-      : "comfortable";
-  const reducedMotion = Boolean(values?.["preference.reduced_motion"]);
   const user = auth.status.user;
   if (!user) return null;
 
   return (
-    <ThemeProvider
-      appearance={appearance}
-      density={density}
-      reducedMotion={reducedMotion}
-    >
+    <ThemeProvider {...studioTheme(preferences.data?.values)}>
       <StudioNavigationProvider>
         <StudioChrome
           user={user}
