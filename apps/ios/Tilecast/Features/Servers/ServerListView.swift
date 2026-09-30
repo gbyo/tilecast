@@ -19,6 +19,7 @@ struct ServerListView: View {
                     }
                 } footer: {
                     Text("Each server keeps its own sign-in and website data on this device. Removing a server deletes that data.")
+                        .font(.geist(.footnote))
                 }
             }
             .navigationTitle("Servers")
@@ -62,11 +63,11 @@ struct ServerListView: View {
                     Text(server.displayName)
                         .foregroundStyle(.primary)
                     Text(server.address.displayString)
-                        .font(.subheadline)
+                        .font(.geist(.subheadline))
                         .foregroundStyle(.secondary)
                     if server.organizationName != server.displayName, !server.organizationName.isEmpty {
                         Text(server.organizationName)
-                            .font(.footnote)
+                            .font(.geist(.footnote))
                             .foregroundStyle(.secondary)
                     }
                 }

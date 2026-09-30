@@ -31,8 +31,28 @@ struct StudioShell: View {
         }
         .overlay { StudioOverlay() }
         .environment(slot)
+        .nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView() }
+        .sheet(item: presentation) { presentation in
+            if let coordinator = host.page?.presentations {
+                PresentationSheet(coordinator: coordinator, presentation: presentation)
+            }
+        }
+        // The cached presentation page is a whole second Studio: the first
+        // thing to give up when memory is short. It survives while shown.
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            host.page?.presentations.handleMemoryWarning()
+        }
+    }
+
+    /// The native presentation Studio asked for. Dismissing the sheet in
+    /// any way ends it.
+    private var presentation: Binding<NativePresentation?> {
+        Binding(
+            get: { host.page?.presentations.presentation },
+            set: { if $0 == nil { host.page?.presentations.dismiss() } }
+        )
     }
 
     private var fallbackShell: some View {
@@ -50,7 +70,10 @@ struct StudioShell: View {
     @ViewBuilder private var content: some View {
         switch host.connection {
         case .noServer:
-            ContentUnavailableView("Choose a Server", systemImage: "server.rack")
+            ContentUnavailableView {
+                Label("Choose a Server", systemImage: "server.rack")
+                    .font(.geist(.title2).weight(.bold))
+            }
         case .verifying(let server):
             ProgressView("Connecting to \(server.displayName)…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -68,6 +91,7 @@ struct StudioShell: View {
         Menu {
             if let page = host.page {
                 Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                SignOutButton(page: page)
             }
             Button("Manage Servers…", systemImage: "server.rack") { managingServers = true }
         } label: {
@@ -87,9 +111,11 @@ struct ServerUnavailableView: View {
     var body: some View {
         ContentUnavailableView {
             Label(error.title, systemImage: error.systemImage)
+                .font(.geist(.title2).weight(.bold))
         } description: {
             VStack(spacing: 8) {
                 Text(error.message(for: server.address))
+                    .font(.geist(.body))
                 Text(server.address.displayString)
                     .font(.footnote.monospaced())
                     .foregroundStyle(.secondary)
@@ -117,8 +143,10 @@ struct IdentityChangedView: View {
     var body: some View {
         ContentUnavailableView {
             Label("Different Tilecast Server", systemImage: "exclamationmark.shield")
+                .font(.geist(.title2).weight(.bold))
         } description: {
             Text("\(server.address.displayString) now belongs to a different Tilecast installation (\(found.organizationName)). Tilecast didn’t open it, so your sign-in for \(server.displayName) wasn’t sent to it.")
+                .font(.geist(.body))
         } actions: {
             Button("Use New Server…") { confirmingTrust = true }
                 .buttonStyle(.borderedProminent)

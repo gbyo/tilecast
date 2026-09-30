@@ -46,6 +46,7 @@ struct AddServerView: View {
                         .accessibilityIdentifier("addServer.address")
                 } footer: {
                     Text("Enter the address you use for Tilecast Studio. Plain HTTP works only for local network addresses.")
+                        .font(.geist(.footnote))
                 }
                 if let problem = setup.problem {
                     Section {
@@ -55,17 +56,22 @@ struct AddServerView: View {
                     }
                 }
             case .confirm(let address, let identity):
-                Section("Server") {
+                Section {
                     LabeledContent("Organization", value: identity.organizationName)
                     LabeledContent("Address", value: address.displayString)
+                } header: {
+                    Text("Server")
+                        .font(.geist(.footnote))
                 }
                 Section {
                     TextField("Name", text: $setup.displayName)
                         .textInputAutocapitalization(.words)
                 } header: {
                     Text("Name")
+                        .font(.geist(.footnote))
                 } footer: {
                     Text("Shown in the server switcher on this device.")
+                        .font(.geist(.footnote))
                 }
                 if address.isLocalCleartext {
                     Section {
