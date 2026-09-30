@@ -14717,13 +14717,13 @@ type ClientInterface interface {
 	// ApproveOAuthRequestWithBody performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 	ApproveOAuthRequestWithBody(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApproveOAuthRequest performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 	ApproveOAuthRequest(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeOAuthApproval performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
@@ -14734,25 +14734,25 @@ type ClientInterface interface {
 	// DenyOAuthRequestWithBody performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 	DenyOAuthRequestWithBody(ctx context.Context, params *DenyOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DenyOAuthRequest performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 	DenyOAuthRequest(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIOSStudioSessionWithBody performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 	CreateIOSStudioSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateIOSStudioSession performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 	CreateIOSStudioSession(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeOAuthCredentialWithBody performs a POST /api/v1/oauth/revoke (the `RevokeOAuthCredential` operationId) request,
@@ -20162,7 +20162,7 @@ func (c *Client) TestNotificationWebhook(ctx context.Context, id ResourceID, par
 // ApproveOAuthRequestWithBody performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 func (c *Client) ApproveOAuthRequestWithBody(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveOAuthRequestRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -20178,7 +20178,7 @@ func (c *Client) ApproveOAuthRequestWithBody(ctx context.Context, params *Approv
 // ApproveOAuthRequest performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 func (c *Client) ApproveOAuthRequest(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveOAuthRequestRequest(c.Server, params, body)
 	if err != nil {
@@ -20209,7 +20209,7 @@ func (c *Client) DescribeOAuthApproval(ctx context.Context, params *DescribeOAut
 // DenyOAuthRequestWithBody performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 func (c *Client) DenyOAuthRequestWithBody(ctx context.Context, params *DenyOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDenyOAuthRequestRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -20225,7 +20225,7 @@ func (c *Client) DenyOAuthRequestWithBody(ctx context.Context, params *DenyOAuth
 // DenyOAuthRequest performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 func (c *Client) DenyOAuthRequest(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDenyOAuthRequestRequest(c.Server, params, body)
 	if err != nil {
@@ -20241,7 +20241,7 @@ func (c *Client) DenyOAuthRequest(ctx context.Context, params *DenyOAuthRequestP
 // CreateIOSStudioSessionWithBody performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 func (c *Client) CreateIOSStudioSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateIOSStudioSessionRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -20257,7 +20257,7 @@ func (c *Client) CreateIOSStudioSessionWithBody(ctx context.Context, contentType
 // CreateIOSStudioSession performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 func (c *Client) CreateIOSStudioSession(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateIOSStudioSessionRequest(c.Server, body)
 	if err != nil {
@@ -44109,7 +44109,7 @@ type ClientWithResponsesInterface interface {
 	// ApproveOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ApproveOAuthRequestWithBodyWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error)
@@ -44117,7 +44117,7 @@ type ClientWithResponsesInterface interface {
 	// ApproveOAuthRequestWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 	ApproveOAuthRequestWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error)
 
 	// DescribeOAuthApprovalWithResponse performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
@@ -44130,7 +44130,7 @@ type ClientWithResponsesInterface interface {
 	// DenyOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DenyOAuthRequestWithBodyWithResponse(ctx context.Context, params *DenyOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DenyOAuthRequestResponse, error)
@@ -44138,13 +44138,13 @@ type ClientWithResponsesInterface interface {
 	// DenyOAuthRequestWithResponse performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 	DenyOAuthRequestWithResponse(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*DenyOAuthRequestResponse, error)
 
 	// CreateIOSStudioSessionWithBodyWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateIOSStudioSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error)
@@ -44152,7 +44152,7 @@ type ClientWithResponsesInterface interface {
 	// CreateIOSStudioSessionWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+	// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 	CreateIOSStudioSessionWithResponse(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error)
 
 	// RevokeOAuthCredentialWithBodyWithResponse performs a POST /api/v1/oauth/revoke (the `RevokeOAuthCredential` operationId) request,
@@ -65427,7 +65427,7 @@ func (c *ClientWithResponses) TestNotificationWebhookWithResponse(ctx context.Co
 // ApproveOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ApproveOAuthRequestWithBodyWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error) {
@@ -65441,7 +65441,7 @@ func (c *ClientWithResponses) ApproveOAuthRequestWithBodyWithResponse(ctx contex
 // ApproveOAuthRequestWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
 func (c *ClientWithResponses) ApproveOAuthRequestWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error) {
 	rsp, err := c.ApproveOAuthRequest(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -65466,7 +65466,7 @@ func (c *ClientWithResponses) DescribeOAuthApprovalWithResponse(ctx context.Cont
 // DenyOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DenyOAuthRequestWithBodyWithResponse(ctx context.Context, params *DenyOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DenyOAuthRequestResponse, error) {
@@ -65480,7 +65480,7 @@ func (c *ClientWithResponses) DenyOAuthRequestWithBodyWithResponse(ctx context.C
 // DenyOAuthRequestWithResponse performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss.
+// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
 func (c *ClientWithResponses) DenyOAuthRequestWithResponse(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*DenyOAuthRequestResponse, error) {
 	rsp, err := c.DenyOAuthRequest(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -65492,7 +65492,7 @@ func (c *ClientWithResponses) DenyOAuthRequestWithResponse(ctx context.Context, 
 // CreateIOSStudioSessionWithBodyWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateIOSStudioSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error) {
@@ -65506,7 +65506,7 @@ func (c *ClientWithResponses) CreateIOSStudioSessionWithBodyWithResponse(ctx con
 // CreateIOSStudioSessionWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+// Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
 func (c *ClientWithResponses) CreateIOSStudioSessionWithResponse(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error) {
 	rsp, err := c.CreateIOSStudioSession(ctx, body, reqEditors...)
 	if err != nil {
