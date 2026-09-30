@@ -514,6 +514,13 @@
       "addItem": "Добавить элемент",
       "selectPlaceholder": "Выбрать…",
       "selectSourceFirst": "Сначала выберите источник данных.",
+      "mediaAsset": {
+        "none": "Медиафайл не выбран",
+        "clear": "Очистить выбор медиафайла",
+        "pickerTitle": "Выбрать медиафайл",
+        "pickerDescription": "Ищите или просматривайте всю медиатеку.",
+        "pickerConfirm": "Выбрать медиафайл"
+      },
       "removeItem": "Удалить элемент {{index}} из {{label}}",
       "guide": {
         "shapeRecords": "строки записей",

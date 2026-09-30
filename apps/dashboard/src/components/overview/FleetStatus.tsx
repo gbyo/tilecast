@@ -1,11 +1,14 @@
+import type { ComponentType } from "react";
 import { Link } from "react-router";
+import { HeaderLink } from "./HeaderLink";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
-import type { ScreenStatus } from "../../api/types";
+import { Play, TriangleAlert, Wifi } from "lucide-react";
 import { buildActivityLink } from "../../pages/activityLinks";
-import { buttonVariants } from "../ui/button";
+import { Card } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
+import type { UptimeBucket } from "../../api/types";
 import type { FleetSummary } from "./attention";
+import { Sparkline } from "./Sparkline";
 
 /**
  * Player-confirmed playback from the server's fleet health, or why there is
@@ -16,225 +19,267 @@ export type ConfirmedPlaying =
   | { state: "unavailable" }
   | { state: "ready"; playing: number; measured: number };
 
-// Status structures hold translation keys, never rendered text.
-const statusLabelKeys: Record<
-  ScreenStatus,
-  | "statusLabels.online"
-  | "statusLabels.recent"
-  | "statusLabels.stale"
-  | "statusLabels.offline"
-  | "statusLabels.disabled"
-  | "statusLabels.revoked"
-> = {
-  online: "statusLabels.online",
-  recent: "statusLabels.recent",
-  stale: "statusLabels.stale",
-  offline: "statusLabels.offline",
-  disabled: "statusLabels.disabled",
-  revoked: "statusLabels.revoked",
-};
-
-const barClass: Record<ScreenStatus, string> = {
-  online: "bg-emerald-600",
-  recent: "bg-emerald-600/40",
-  stale: "bg-amber-500",
-  offline: "bg-red-600",
-  disabled: "bg-muted-foreground/40",
-  revoked: "bg-muted-foreground/40",
-};
-
-// Order the bar and the breakdown from healthy to unhealthy.
-const statusOrder: ScreenStatus[] = [
-  "online",
-  "recent",
-  "stale",
-  "offline",
-  "revoked",
-  "disabled",
-];
-
 /**
- * The fleet in one compact strip under the page header: a headline, three
- * figures, and a proportional bar. On a phone it becomes a small bordered
- * group so the three figures stay together.
+ * The fleet in one Card of three figures. Every figure has the same anatomy
+ * (icon and label, value over its total, one short line), so they align
+ * whatever they hold. The figures overlap: a screen can be online, playing,
+ * and on the attention list at once. The headline stays for assistive
+ * technology, where the figures alone would lack a summary. Each cell has a
+ * soft color identity and a faint 24-hour trend drawn from real uptime data.
  */
 export function FleetStatus({
   summary,
   attentionCount,
   attentionPending,
   confirmed,
+  trend = [],
 }: {
   summary: FleetSummary;
   attentionCount: number;
   /** Incident reasons are still loading, so the count may yet grow. */
   attentionPending: boolean;
   confirmed: ConfirmedPlaying;
+  /** Hourly fleet uptime for the last 24 hours, for the cell sparklines. */
+  trend?: UptimeBucket[];
 }) {
   const { t } = useTranslation("activity");
-  const { total, online, byStatus } = summary;
+  const { total, online } = summary;
+  const series = trendSeries(trend);
   const headline =
     attentionCount > 0
       ? t("operations.fleet.needAttention", { count: attentionCount, total })
       : online === total
         ? t("operations.fleet.allOnline", { count: total })
         : t("operations.fleet.someOnline", { online, total });
-  const breakdown = statusOrder
-    .filter((status) => status !== "online" && byStatus[status] > 0)
-    .map((status) => `${t(statusLabelKeys[status])} ${byStatus[status]}`)
-    .join(" · ");
 
   return (
-    <section
+    <Card
+      size="sm"
+      role="region"
       aria-labelledby="fleet-status-heading"
+      aria-describedby="fleet-status-scope"
       data-testid="fleet-status"
-      className="grid gap-2 max-sm:rounded-xl max-sm:border max-sm:p-3"
+      className="gap-0 py-0"
     >
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-        <div className="min-w-0">
-          <h2
-            id="fleet-status-heading"
-            className="text-base font-medium leading-snug"
-          >
-            {headline}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {breakdown || t("operations.fleet.liveNote")}
-          </p>
-        </div>
-        <ul className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-end sm:gap-6">
-          <li className="grid content-start">
-            <span className="text-xs text-muted-foreground">
-              {t("operations.fleet.online")}
-            </span>
-            <strong className="text-xl font-semibold leading-tight tabular-nums">
-              {online}
-              <span className="text-sm font-normal text-muted-foreground">
-                /{total}
-              </span>
-            </strong>
-          </li>
-          <li className="grid content-start">
-            <span className="text-xs text-muted-foreground">
-              {t("operations.fleet.playing")}
-            </span>
-            <Playing confirmed={confirmed} />
-          </li>
-          <li className="grid content-start">
-            <span className="text-xs text-muted-foreground">
-              {t("operations.fleet.attention")}
-            </span>
-            {attentionPending && attentionCount === 0 ? (
-              <span
-                role="status"
-                aria-label={t("operations.fleet.attentionLoading")}
-              >
-                <Skeleton className="h-7 w-8" />
-              </span>
-            ) : (
-              <strong className="flex items-center gap-1.5 text-xl font-semibold leading-tight tabular-nums">
-                {attentionCount > 0 && (
-                  <TriangleAlert
-                    className="size-4 text-destructive"
-                    aria-hidden="true"
-                  />
-                )}
-                {attentionCount}
-              </strong>
-            )}
-          </li>
-          <li className="hidden sm:block">
-            <Link
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-              to="/screens"
-            >
-              {t("operations.allScreens")}
-            </Link>
-          </li>
-        </ul>
+      <h2 id="fleet-status-heading" className="sr-only">
+        {headline}
+      </h2>
+      <p id="fleet-status-scope" className="sr-only">
+        {t("operations.fleet.scopeNote")}
+      </p>
+      <div className="flex justify-end px-(--card-spacing) pt-2">
+        <HeaderLink to="/screens" label={t("operations.allScreens")} />
       </div>
-      <div
-        aria-hidden="true"
-        className="flex h-1 w-full gap-px overflow-hidden rounded-full bg-muted"
-      >
-        {statusOrder
-          .filter((status) => byStatus[status] > 0)
-          .map((status) => (
-            <span
-              key={status}
-              className={barClass[status]}
-              style={{ flexGrow: byStatus[status], flexBasis: 0 }}
-            />
-          ))}
-      </div>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-muted-foreground">
-          {t("operations.fleet.scopeNote")}
-        </p>
-        <Link
-          className={buttonVariants({
-            variant: "ghost",
-            size: "sm",
-            className: "shrink-0 sm:hidden",
-          })}
-          to="/screens"
-        >
-          {t("operations.allScreens")}
-        </Link>
-      </div>
-    </section>
+      <ul className="grid flex-1 grid-cols-3 grid-rows-[auto_auto_auto] divide-x divide-border">
+        <StatusMetric
+          icon={Wifi}
+          identity="online"
+          trend={series.connected}
+          label={t("operations.fleet.online")}
+          detail={t("operations.fleet.onlineDetail")}
+          value={online}
+          total={total}
+        />
+        <PlayingMetric confirmed={confirmed} trend={series.playing} />
+        <StatusMetric
+          icon={TriangleAlert}
+          identity="attention"
+          trend={series.unhealthy}
+          label={t("operations.fleet.attention")}
+          detail={t("operations.fleet.attentionDetail")}
+          value={
+            attentionPending && attentionCount === 0 ? null : attentionCount
+          }
+          total={total}
+          loadingLabel={t("operations.fleet.attentionLoading")}
+        />
+      </ul>
+    </Card>
   );
 }
 
-function Playing({ confirmed }: { confirmed: ConfirmedPlaying }) {
+/**
+ * The three trend lines, each from the same hourly uptime report the Fleet
+ * health card reads. Connected is every reporting share (up plus impaired),
+ * playing is the healthy share (up), and unhealthy is impaired plus down: the
+ * time-based cousin of the attention list, which has no history of its own.
+ * An hour with no measurement stays null so the line breaks there.
+ */
+function trendSeries(buckets: UptimeBucket[]) {
+  const measured = (
+    bucket: UptimeBucket,
+    value: (bucket: UptimeBucket) => number,
+  ) => (bucket.uptimePercent === null ? null : value(bucket));
+  return {
+    connected: buckets.map((bucket) =>
+      measured(bucket, (b) => b.upPercent + b.impairedPercent),
+    ),
+    playing: buckets.map((bucket) => measured(bucket, (b) => b.upPercent)),
+    unhealthy: buckets.map((bucket) =>
+      measured(bucket, (b) => b.impairedPercent + b.downPercent),
+    ),
+  };
+}
+
+type Identity = "online" | "playing" | "attention";
+
+/** A soft color per figure, for its icon chip and its trend line. */
+const identityClass: Record<Identity, { chip: string; line: string }> = {
+  online: {
+    chip: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300",
+    line: "text-emerald-500 dark:text-emerald-400",
+  },
+  playing: {
+    chip: "bg-cyan-500/10 text-cyan-700 dark:bg-cyan-400/15 dark:text-cyan-300",
+    line: "text-cyan-500 dark:text-cyan-400",
+  },
+  attention: {
+    chip: "bg-rose-500/10 text-rose-700 dark:bg-rose-400/15 dark:text-rose-300",
+    line: "text-rose-500 dark:text-rose-400",
+  },
+};
+
+/**
+ * One figure. `value` is null while it loads, and `unavailable` replaces the
+ * number when it could not be measured, so neither is ever shown as zero.
+ */
+function StatusMetric({
+  icon: Icon,
+  identity,
+  trend = [],
+  label,
+  detail,
+  value,
+  total,
+  unavailable,
+  loadingLabel,
+  to,
+  ariaLabel,
+}: {
+  icon: ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+  identity: Identity;
+  trend?: (number | null)[];
+  label: string;
+  detail: string;
+  value: number | null;
+  total?: number;
+  unavailable?: string;
+  loadingLabel?: string;
+  to?: string;
+  ariaLabel?: string;
+}) {
+  const body = (
+    <>
+      <Sparkline
+        values={trend}
+        className={`absolute inset-x-0 bottom-0 h-7 w-full ${identityClass[identity].line}`}
+      />
+      <span className="relative flex items-center gap-2 text-xs leading-4 font-medium text-muted-foreground">
+        <span
+          className={`flex size-6 shrink-0 items-center justify-center rounded-md ${identityClass[identity].chip}`}
+        >
+          <Icon className="size-3.5" aria-hidden />
+        </span>
+        <span className="sm:truncate">{label}</span>
+      </span>
+      <span className="relative flex min-h-8 items-baseline gap-0.5">
+        {unavailable ? (
+          <strong className="text-2xl leading-8 font-semibold text-muted-foreground">
+            —
+          </strong>
+        ) : value === null ? (
+          <span role="status" aria-label={loadingLabel} className="self-center">
+            <Skeleton className="h-6 w-12" />
+          </span>
+        ) : (
+          <>
+            <strong className="text-2xl leading-8 font-semibold tracking-tight tabular-nums">
+              {value}
+            </strong>
+            {total !== undefined && (
+              <span className="text-sm text-muted-foreground tabular-nums">
+                /{total}
+              </span>
+            )}
+          </>
+        )}
+      </span>
+      <span className="relative text-xs text-muted-foreground sm:truncate">
+        {unavailable ?? detail}
+      </span>
+    </>
+  );
+  const cell =
+    "relative row-span-3 grid min-w-0 grid-rows-subgrid gap-y-0.5 overflow-hidden px-(--card-spacing) pt-1 pb-3 max-sm:px-3";
+  return (
+    <li className="row-span-3 grid min-w-0 grid-rows-subgrid">
+      {to ? (
+        <Link
+          className={`${cell} outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset`}
+          to={to}
+          aria-label={ariaLabel}
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className={cell}>{body}</div>
+      )}
+    </li>
+  );
+}
+
+function PlayingMetric({
+  confirmed,
+  trend,
+}: {
+  confirmed: ConfirmedPlaying;
+  trend: (number | null)[];
+}) {
   const { t } = useTranslation("activity");
+  const shared = {
+    icon: Play,
+    identity: "playing" as const,
+    trend,
+    label: t("operations.fleet.playing"),
+    detail: t("operations.fleet.playingDetail"),
+  };
   if (confirmed.state === "loading") {
     return (
-      <span role="status" aria-label={t("operations.fleet.playingLoading")}>
-        <Skeleton className="h-7 w-12" />
-      </span>
+      <StatusMetric
+        {...shared}
+        value={null}
+        loadingLabel={t("operations.fleet.playingLoading")}
+      />
     );
   }
   if (confirmed.state === "unavailable") {
     return (
-      <span className="flex items-baseline gap-1.5">
-        <strong className="text-xl font-semibold leading-tight text-muted-foreground">
-          —
-        </strong>
-        <span className="text-xs text-muted-foreground">
-          {t("operations.fleet.unavailable")}
-        </span>
-      </span>
+      <StatusMetric
+        {...shared}
+        value={null}
+        unavailable={t("operations.fleet.unavailable")}
+      />
     );
   }
   return (
-    <Link
-      className="-m-1 flex items-baseline gap-1.5 rounded-md p-1 hover:bg-muted"
+    <StatusMetric
+      {...shared}
+      value={confirmed.playing}
+      total={confirmed.measured}
       to={buildActivityLink("overview")}
-      aria-label={t("operations.fleet.playingLink", {
+      ariaLabel={t("operations.fleet.playingLink", {
         playing: confirmed.playing,
         measured: confirmed.measured,
       })}
-    >
-      <strong className="text-xl font-semibold leading-tight tabular-nums">
-        {confirmed.playing}
-      </strong>
-      <span className="text-xs text-muted-foreground">
-        {t("operations.fleet.playingHint", { measured: confirmed.measured })}
-      </span>
-    </Link>
+    />
   );
 }
 
 export function FleetStatusSkeleton() {
   const { t } = useTranslation("activity");
   return (
-    <div
-      role="status"
-      aria-label={t("operations.fleet.loading")}
-      className="grid gap-2"
-    >
-      <Skeleton className="h-10 w-64 max-w-full" />
-      <Skeleton className="h-1 w-full" />
+    <div role="status" aria-label={t("operations.fleet.loading")}>
+      <Skeleton className="h-[5.5rem] w-full rounded-xl" />
     </div>
   );
 }

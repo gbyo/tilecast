@@ -3,21 +3,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlaylistItem } from "../api/types";
 import { i18n } from "../i18n";
 import {
-  canManagePlaylists,
-  openPlaylistPreview,
-  playlistDuration,
-  playlistItemUsesFixedDuration,
-} from "./PlaylistsPage";
-import {
   nextPlaylistPreviewItem,
   playlistPreviewItemAvailable,
   playlistPreviewItemDuration,
 } from "./PlaylistPreviewPage";
 import {
+  canManagePlaylists,
   itemHasTransitionOverride,
+  openPlaylistPreview,
   playlistAuthoringDefaults,
+  playlistDuration,
   playlistDurationLabel,
   playlistImageDuration,
+  playlistItemUsesFixedDuration,
   playlistTransition,
   movePlaylistItem,
   reorderPlaylistItems,

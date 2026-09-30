@@ -86,6 +86,18 @@ The simulator does not download media, render content, or report proof of play. 
 
 Stale, offline, and disabled screens have no simulator. Their last contact is set once at seed time, so they age from that moment. Reset the demo to restore them.
 
+## Seeded state history
+
+The seed writes 30 days of state history in `screen_state_intervals` for each enabled screen. Thus, each Fleet health window (24 hours, 7 days, and 30 days) and the Overview trend lines have data when the demo starts.
+
+The history is mostly `healthy`. Short `offline`, `degraded`, and `safe_mode` intervals occur every one to three days. The screen ID sets the pattern, so a reset makes the same history again. Each row has the metadata `{"source":"demo"}`.
+
+- For a simulated screen, all intervals are closed, and the last interval stops at the seed time. The first live heartbeat opens the next interval.
+- For a stale or offline screen, the last interval is an open `healthy` interval. The uptime query stops an open up-state interval at the last heartbeat plus the grace period, and it counts the remaining time as down. A real player that stops reporting gets the same result.
+- A disabled screen gets no history, because uptime does not include disabled screens.
+
+The seed does not write playback sessions or incidents. The Last 24 hours figures and proof of play still show only what occurs after the demo starts.
+
 ## Browser tests
 
 The suite is in `e2e/`. It uses Playwright against a running Demo Mode stack, and it does not mock API responses.
