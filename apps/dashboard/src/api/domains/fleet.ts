@@ -6,6 +6,7 @@
  * contract-typed and inferred from the generated OpenAPI schemas.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import { fetchAllPages } from "../pagination";
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import type {
   AirplaySession,
@@ -271,9 +272,12 @@ export function stopPresentationOverride(
   });
 }
 
-export async function listScreenGroups(search = ""): Promise<ScreenGroupList> {
+export async function listScreenGroupsPage(
+  search = "",
+  page = 1,
+): Promise<ScreenGroupList> {
   const result = await apiGet("/api/v1/screen-groups", {
-    params: { query: { page: 1, pageSize: 100, search } },
+    params: { query: { page, pageSize: 100, search } },
   });
   return {
     ...result,
@@ -281,6 +285,10 @@ export async function listScreenGroups(search = ""): Promise<ScreenGroupList> {
       normalizeScreenGroup,
     ),
   };
+}
+
+export function listScreenGroups(search = ""): Promise<ScreenGroupList> {
+  return fetchAllPages((page) => listScreenGroupsPage(search, page));
 }
 
 /** Wire shapes of a screen group and span status from the generated contract. */

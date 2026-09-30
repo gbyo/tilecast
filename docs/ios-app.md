@@ -131,6 +131,17 @@ The main frame shows only the configured server's origin (scheme, host, and port
 
 The auxiliary page shows a same-origin page that Studio opened in a new window, in a sheet, so the main page keeps its state. At most one auxiliary page exists. A new-window request from the auxiliary page loads in place. The auxiliary page has its own WebKit configuration, so it does not get the native bridge.
 
+### File chooser
+
+A `WebPage` with no dialog presenter cancels every file chooser, so a Studio upload button would do nothing. The app gives each Studio page a `StudioDialogPresenter` (`WebPage.DialogPresenting`) that answers `<input type="file">` only. WebKit exposes only whether the input allows multiple files, so the app cannot read the accepted types.
+
+- Only a frame of the server's own origin can open a chooser.
+- `SystemFileInputPicker` shows an action sheet with **Photo Library** and **Choose Files…**. The Photos picker (`PHPickerViewController`) runs out of process and needs no Photos permission. The document picker returns copies in temporary space.
+- WebKit gives the page access to exactly the chosen files. Studio uploads them with its own uploader, as in a browser, so this path needs no native credential.
+- JavaScript alerts, confirmations, and prompts keep WebKit's defaults.
+
+Native media intake is a separate path. When the app has a native credential, Studio asks the app to upload, and no file goes through the page.
+
 ### Recovery
 
 If the web content process ends, for example while the app is in the background, the page reloads. If the process ends more than twice in 30 seconds, the app shows an error with a retry control.
@@ -263,18 +274,16 @@ Studio keeps its own topbar with breadcrumbs, search, notifications, and editor 
 
 The iOS 26 tab bar floats over its content. Studio must be the content that shows through the glass, so the tab bar does not show an empty strip.
 
-The one Studio web view therefore extends to the bottom edge of the screen, beneath the tab bar:
+The one Studio web view is a sibling of the shell in `StudioShell`, and it is not a child of any layout. Its layer order depends on the layout:
 
-- `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom safe-area inset that the tab bar causes. It adds the inset to the frame.
-- `StudioOverlay` sizes the web view to that frame. It also applies the inset with `safeAreaPadding(.bottom, _)`, so the web view treats the strip as a bottom safe area. A page scrolls its last content above the bar, and it can scroll under the bar. `position: fixed` content at the bottom of the page stays above the bar.
-- The web view does not receive touches in the covered strip. `contentShape(.interaction, _)` removes that strip from its hit area, so the tab bar receives the touches.
-- The web view remains the one `WebView`. No layout creates a second one.
+- In every layout but the tabs, the web view is above the shell. `StudioOverlay` places it over the active slot.
+- In the compact tab layout, the web view is behind the shell. The `TabView` and its navigation containers are transparent (`containerBackground(.clear, for: .navigation)`), so the page shows through them and the tab bar is drawn above the page. The More tab shows either the More list or Studio, because the list is opaque.
+- `StudioShell` changes only `zIndex`, so the web view is not rebuilt and no second `WebView` exists.
+- `StudioSlotView(extendsBelowTabBar: true)` measures the frame of the tab content and the bottom inset that the tab bar causes, and adds the inset to the frame. `StudioOverlay` applies the same inset with `safeAreaPadding(.bottom, _)`, so content scrolls under the bar and stops above it.
 
-Only the iPhone tab layout, and an iPad window in compact width, extend the slot. The regular-width iPad `NavigationSplitView` and the fallback chrome keep their own layouts. The More list is a native list that covers Studio, and the web view stays hidden while it shows.
+`TransparentTabContainer` is the one UIKit adapter for this. `TabView` is a `UITabBarController`, and its container views paint an opaque background that SwiftUI cannot remove. The adapter finds the controller from inside a tab and clears the background color of its container views, never the tab bar. The container views also swallow touches where they are transparent. The adapter gives the controller's view, for that one instance, a runtime subclass with a `hitTest`, and it does the same for each wrapper view that SwiftUI puts around the controller. While Studio shows, the `hitTest` keeps only hits on the tab bar and the navigation bar, so every other touch reaches the web view behind. While the More list shows, it changes nothing. The layering is not verified on a device or a simulator. If Studio is blank in the tabs, a container still paints an opaque background, and the web view must go back above the shell. The regular-width iPad sidebar and the fallback chrome keep the web view above the shell.
 
-`ignoresSafeArea` on the slot does not work for this purpose: the slot reports the frame that is inside the safe area to its parent, so the measured frame still ends at the top of the bar. The app measures the inset and extends the frame itself.
-
-The app does not minimize the tab bar while the page scrolls. A `WebView` does not take part in the tab bar's scroll tracking, and a workaround would need a hidden scroll view. The requirement is full-bleed composition only.
+The app does not minimize the tab bar while the page scrolls. A `WebView` does not take part in the tab bar's scroll tracking.
 
 ### iPad
 
@@ -669,7 +678,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 5         | Native Pair Screen with scanning and manual code entry                                                                                                                  |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
-| 8A        | Implemented: full-bleed tab bar, system share, semantic haptics, deep links, and native media intake                                                                    |
+| 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |
 | 8B        | Push notifications, notification actions, App Intents and Shortcuts, and screen quick actions. See [ADR: push and quick actions](adr/ios-m8b-push-and-quick-actions.md) |
 
 Everything not listed as native stays in Studio. After Milestone 8 most of the product interface, by surface area, is still Studio. Milestone 8A adds no native product screen: the app has no native Media library.
@@ -680,6 +689,7 @@ Everything not listed as native stays in Studio. After Milestone 8 most of the p
 - Downloads, such as settings export, are refused with a notice. `WebPage` has no download delegate.
 - The app has one window. iPad multiple windows will return when each scene can own a server safely.
 - Passkey sign-in uses the system authentication browser. See [Authentication](#authentication).
+- Studio ends above the floating tab bar. It does not extend beneath it. See [Studio above the tab bar](#studio-above-the-tab-bar).
 - Native media intake is the only workflow that calls the native API. Milestone 3 is the foundation for later native workflows.
 - Native uploads run while the app is in the foreground. The app does not promise that an upload continues after iOS suspends or ends the app. See [Native media intake](#native-media-intake).
 - The Keychain tests need a signed test process. They are skipped by `swift test` on macOS and in the unsigned CI build, where the in-memory store tests cover the same logic.

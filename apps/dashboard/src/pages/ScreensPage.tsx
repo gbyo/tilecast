@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Airplay,
   CircleAlert,
-  ChevronDown,
   ChevronRight,
   Grid2X2,
   Link2,
@@ -85,9 +84,10 @@ import { Button, buttonVariants } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -978,7 +978,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
         )}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[min(90vh,54rem)] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[min(90dvh,54rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("takeover.title")}</DialogTitle>
             <DialogDescription>{t("takeover.dialogBody")}</DialogDescription>
@@ -1424,8 +1424,46 @@ export function ScreenListContent({
   // Only the filters put away inside "More filters" are chipped. Search, status,
   // location, platform, and now playing each show their own value in the toolbar
   // directly above, so chipping them restated the whole row back to the reader.
-  const chippedFilters: { facet: string; value: string; remove: () => void }[] =
-    [];
+  const chippedFilters: {
+    facet: string;
+    value: string;
+    remove: () => void;
+    narrowOnly?: boolean;
+  }[] = [];
+  if (status)
+    chippedFilters.push({
+      facet: t("list.statusFilter"),
+      value: statusLabel(status, t),
+      remove: () => setStatus(""),
+      narrowOnly: true,
+    });
+  if (location)
+    chippedFilters.push({
+      facet: t("list.locationFilter"),
+      value:
+        locationItems.find((item) => item.id === location)?.name ?? location,
+      remove: () => setLocation(""),
+      narrowOnly: true,
+    });
+  if (platform)
+    chippedFilters.push({
+      facet: t("list.platformFilter"),
+      value: platformLabel(platform, t),
+      remove: () => setPlatform(""),
+      narrowOnly: true,
+    });
+  if (playing)
+    chippedFilters.push({
+      facet: t("list.playingFilter"),
+      value:
+        playing === "presentation"
+          ? t("list.playingOptions.presentation")
+          : playing === "playlist"
+            ? t("list.playingOptions.playlist")
+            : t("shared.nothingAssigned"),
+      remove: () => setPlaying(""),
+      narrowOnly: true,
+    });
   if (syncGroup)
     chippedFilters.push({
       facet: t("list.groupFilter"),
@@ -1447,7 +1485,18 @@ export function ScreenListContent({
       value: updateLabel(update, t),
       remove: () => setUpdate(""),
     });
-  const advancedFilterCount = chippedFilters.length;
+  const advancedFilterCount = [syncGroup, orientation, update].filter(
+    Boolean,
+  ).length;
+  const disclosedFilterCount = [
+    status,
+    location,
+    platform,
+    playing,
+    syncGroup,
+    orientation,
+    update,
+  ].filter(Boolean).length;
   const anyFilterActive = Boolean(
     search ||
     status ||
@@ -1468,10 +1517,10 @@ export function ScreenListContent({
     setOrientation("");
     setUpdate("");
   };
-  const toggleCollapsed = (key: string) => {
+  const setGroupCollapsed = (key: string, isCollapsed: boolean) => {
     const next = new Set(collapsed);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    if (isCollapsed) next.add(key);
+    else next.delete(key);
     setCollapsed(next);
     storageSet(
       "session",
@@ -1564,7 +1613,7 @@ export function ScreenListContent({
     );
   return (
     <section className="min-w-0 space-y-4" aria-label={t("list.sectionLabel")}>
-      <ScreenSummary screens={screens} status={status} onStatus={setStatus} />
+      <ScreenSummary screens={screens} />
       <div className="space-y-3">
         <div
           className="flex flex-wrap items-center gap-2"
@@ -1581,6 +1630,7 @@ export function ScreenListContent({
             label={t("list.statusFilter")}
             value={status}
             onChange={setStatus}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.statusOptions.all") },
               { value: "online", label: t("status.online") },
@@ -1594,6 +1644,7 @@ export function ScreenListContent({
             label={t("list.locationFilter")}
             value={location}
             onChange={setLocation}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.allLocations") },
               ...locationItems.map((item) => ({
@@ -1606,6 +1657,7 @@ export function ScreenListContent({
             label={t("list.platformFilter")}
             value={platform}
             onChange={setPlatform}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.allPlatforms") },
               ...[...new Set(screens.map((item) => item.platform))]
@@ -1620,6 +1672,7 @@ export function ScreenListContent({
             label={t("list.playingFilter")}
             value={playing}
             onChange={setPlaying}
+            className="hidden w-40 lg:flex"
             options={[
               { value: "", label: t("list.playingOptions.any") },
               {
@@ -1634,20 +1687,92 @@ export function ScreenListContent({
             <PopoverTrigger
               render={<Button variant="outline" />}
               aria-label={
-                advancedFilterCount > 0
+                disclosedFilterCount > 0
                   ? t("list.moreFiltersActive", {
-                      count: advancedFilterCount,
+                      count: disclosedFilterCount,
                     })
                   : t("list.moreFiltersLabel")
               }
             >
               <SlidersHorizontal aria-hidden="true" /> {t("list.moreFilters")}
+              {disclosedFilterCount > 0 && (
+                <Badge variant="secondary" className="lg:hidden">
+                  {disclosedFilterCount}
+                </Badge>
+              )}
               {advancedFilterCount > 0 && (
-                <Badge variant="secondary">{advancedFilterCount}</Badge>
+                <Badge variant="secondary" className="hidden lg:inline-flex">
+                  {advancedFilterCount}
+                </Badge>
               )}
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 gap-3">
+            <PopoverContent
+              align="end"
+              className="w-[min(22rem,calc(100vw-2rem))] gap-3"
+            >
               <h3 className="text-sm font-medium">{t("list.moreFilters")}</h3>
+              <div className="grid gap-3 lg:hidden">
+                <FleetFilterSelect
+                  label={t("list.statusFilter")}
+                  value={status}
+                  onChange={setStatus}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.statusOptions.all") },
+                    { value: "online", label: t("status.online") },
+                    { value: "offline", label: t("status.offline") },
+                    { value: "attention", label: t("status.attention") },
+                    { value: "updating", label: t("status.updating") },
+                    { value: "syncing", label: t("status.syncing") },
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.locationFilter")}
+                  value={location}
+                  onChange={setLocation}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.allLocations") },
+                    ...locationItems.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    })),
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.platformFilter")}
+                  value={platform}
+                  onChange={setPlatform}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.allPlatforms") },
+                    ...[...new Set(screens.map((item) => item.platform))]
+                      .sort()
+                      .map((item) => ({
+                        value: item,
+                        label: platformLabel(item, t),
+                      })),
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.playingFilter")}
+                  value={playing}
+                  onChange={setPlaying}
+                  className="w-full"
+                  options={[
+                    { value: "", label: t("list.playingOptions.any") },
+                    {
+                      value: "presentation",
+                      label: t("list.playingOptions.presentation"),
+                    },
+                    {
+                      value: "playlist",
+                      label: t("list.playingOptions.playlist"),
+                    },
+                    { value: "nothing", label: t("shared.nothingAssigned") },
+                  ]}
+                />
+              </div>
               <FleetFilterSelect
                 label={t("list.groupFilter")}
                 value={syncGroup}
@@ -1722,7 +1847,10 @@ export function ScreenListContent({
                 <Badge
                   key={filter.facet}
                   variant="secondary"
-                  className="gap-1.5"
+                  className={cn(
+                    "gap-1.5",
+                    filter.narrowOnly && "lg:hidden",
+                  )}
                 >
                   <span>
                     {filter.facet}: {filter.value}
@@ -1904,26 +2032,29 @@ export function ScreenListContent({
               selected.has(screen.id),
             );
             return (
-              <section className="min-w-0 space-y-2" key={group.key}>
+              <Collapsible
+                key={group.key}
+                open={!isCollapsed}
+                onOpenChange={(open) => setGroupCollapsed(group.key, !open)}
+                render={<section className="min-w-0 space-y-2" />}
+              >
                 {groupBy !== "none" && (
                   <header className="flex flex-wrap items-center gap-2 border-b border-border py-2">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-expanded={!isCollapsed}
-                      aria-label={
-                        isCollapsed
-                          ? t("list.expandGroup", { label: group.label })
-                          : t("list.collapseGroup", { label: group.label })
+                    <CollapsibleTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={
+                            isCollapsed
+                              ? t("list.expandGroup", { label: group.label })
+                              : t("list.collapseGroup", { label: group.label })
+                          }
+                        />
                       }
-                      onClick={() => toggleCollapsed(group.key)}
                     >
-                      {isCollapsed ? (
-                        <ChevronRight size={16} aria-hidden="true" />
-                      ) : (
-                        <ChevronDown size={16} aria-hidden="true" />
-                      )}
-                    </Button>
+                      <CollapsibleChevron orientation="right" size={16} />
+                    </CollapsibleTrigger>
                     {canManage && (
                       <Checkbox
                         aria-label={t("list.selectGroup", {
@@ -1940,57 +2071,63 @@ export function ScreenListContent({
                         }}
                       />
                     )}
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                      <strong className="truncate text-sm">
-                        {group.label}
-                      </strong>
-                      <Badge variant="secondary">{group.screens.length}</Badge>
-                      {group.description && (
-                        <span className="text-xs text-muted-foreground">
-                          {group.description}
-                        </span>
-                      )}
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 sm:w-auto sm:flex-1">
+                        <strong className="truncate text-sm">
+                          {group.label}
+                        </strong>
+                        <Badge variant="secondary">
+                          {group.screens.length}
+                        </Badge>
+                        {group.description && (
+                          <span className="text-xs text-muted-foreground">
+                            {group.description}
+                          </span>
+                        )}
+                      </div>
+                      <GroupHealth screens={group.screens} />
                     </div>
-                    <GroupHealth screens={group.screens} />
                   </header>
                 )}
-                {!isCollapsed && view === "table" && (
-                  <div className="min-w-0">
-                    <ScreenFleetTable
-                      screens={group.screens}
-                      canManage={canManage}
-                      selectedIds={selected}
-                      csrfToken={csrfToken}
-                      onSelectionChange={(id, checked) => {
-                        const next = new Set(selected);
-                        if (checked) next.add(id);
-                        else next.delete(id);
-                        setSelected(next);
-                      }}
-                    />
-                  </div>
-                )}
-                {!isCollapsed && view === "grid" && (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
-                    {group.screens.map((screen) => (
-                      <ScreenGridCard
-                        key={screen.id}
-                        screen={screen}
-                        csrfToken={csrfToken}
-                        selected={selected.has(screen.id)}
+                <CollapsibleContent className="min-w-0">
+                  {view === "table" && (
+                    <div className="min-w-0">
+                      <ScreenFleetTable
+                        screens={group.screens}
                         canManage={canManage}
-                        showLocation={groupBy !== "location"}
-                        onSelect={(checked) => {
+                        selectedIds={selected}
+                        csrfToken={csrfToken}
+                        onSelectionChange={(id, checked) => {
                           const next = new Set(selected);
-                          if (checked) next.add(screen.id);
-                          else next.delete(screen.id);
+                          if (checked) next.add(id);
+                          else next.delete(id);
                           setSelected(next);
                         }}
                       />
-                    ))}
-                  </div>
-                )}
-              </section>
+                    </div>
+                  )}
+                  {view === "grid" && (
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
+                      {group.screens.map((screen) => (
+                        <ScreenGridCard
+                          key={screen.id}
+                          screen={screen}
+                          csrfToken={csrfToken}
+                          selected={selected.has(screen.id)}
+                          canManage={canManage}
+                          showLocation={groupBy !== "location"}
+                          onSelect={(checked) => {
+                            const next = new Set(selected);
+                            if (checked) next.add(screen.id);
+                            else next.delete(screen.id);
+                            setSelected(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </div>
@@ -2076,15 +2213,7 @@ function FleetFilterSelect({
   );
 }
 
-function ScreenSummary({
-  screens,
-  status,
-  onStatus,
-}: {
-  screens: Screen[];
-  status: string;
-  onStatus: (value: string) => void;
-}) {
+function ScreenSummary({ screens }: { screens: Screen[] }) {
   const { t } = useTranslation("screens");
   const online = screens.filter((item) => item.status === "online").length;
   const attention = screens.filter(needsAttention).length;
@@ -2094,7 +2223,6 @@ function ScreenSummary({
   return (
     <div
       className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
-      role="group"
       aria-label={t("list.summaryGroup")}
     >
       <span className="mr-2 text-sm text-muted-foreground">
@@ -2103,23 +2231,13 @@ function ScreenSummary({
           locations: t("list.locationCount", { count: locations }),
         })}
       </span>
-      <Button
-        variant={status === "online" ? "secondary" : "ghost"}
-        size="sm"
-        aria-pressed={status === "online"}
-        onClick={() => onStatus(status === "online" ? "" : "online")}
-      >
+      <Badge variant="outline">
         <strong className="tabular-nums">{online}</strong> {t("status.online")}
-      </Button>
-      <Button
-        variant={status === "attention" ? "secondary" : "ghost"}
-        size="sm"
-        aria-pressed={status === "attention"}
-        onClick={() => onStatus(status === "attention" ? "" : "attention")}
-      >
+      </Badge>
+      <Badge variant={attention > 0 ? "destructive" : "outline"}>
         <strong className="tabular-nums">{attention}</strong>{" "}
         {t("status.attention")}
-      </Button>
+      </Badge>
     </div>
   );
 }
@@ -2132,7 +2250,7 @@ function GroupHealth({ screens }: { screens: Screen[] }) {
     screens.map((item) => item.syncGroupName).filter(Boolean),
   );
   return (
-    <span className="flex flex-wrap items-center justify-end gap-1.5">
+    <span className="flex flex-wrap items-center gap-1.5 sm:ml-auto sm:justify-end">
       <Badge variant={online === screens.length ? "outline" : "secondary"}>
         {t("list.healthFraction", { online, total: screens.length })}
       </Badge>
@@ -4009,7 +4127,7 @@ export function ScreenDetailPage() {
               <Collapsible className="border-t border-border pt-3">
                 <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t("detail.diagnostics")}
-                  <ChevronDown size={16} aria-hidden="true" />
+                  <CollapsibleChevron size={16} />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">

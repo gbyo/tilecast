@@ -33,7 +33,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../ui/accordion";
+} from "../studio/StudioAccordion";
 import {
   Combobox,
   ComboboxContent,

@@ -389,7 +389,7 @@ export function ConnectDataFlow({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:w-[calc(100vw-2rem)] sm:max-w-5xl">
         <DialogHeader className="sr-only">
           {/* The shell renders the visible heading; this names the dialog only. */}
           <DialogTitle render={<div />}>

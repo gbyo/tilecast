@@ -104,6 +104,64 @@ func TestMCPConfirmGate(t *testing.T) {
 	}
 }
 
+func TestMCPPairingApprovalMatchesServerContract(t *testing.T) {
+	f, backend := mcpFixture(t)
+	ctx := context.Background()
+
+	defs := coreMCPTools()
+	var pairing mcpToolDef
+	for _, def := range defs {
+		if def.name == "pairing_approve" {
+			pairing = def
+			break
+		}
+	}
+	if pairing.name == "" {
+		t.Fatal("pairing_approve tool missing")
+	}
+	required := map[string]bool{}
+	for _, param := range pairing.params {
+		required[param.name] = param.required
+	}
+	if !required["sessionId"] {
+		t.Fatal("pairing_approve sessionId must stay required")
+	}
+	for _, optional := range []string{"name", "roomName", "roomNumber", "description"} {
+		if required[optional] {
+			t.Fatalf("pairing_approve %s should be conditionally/optionally supplied", optional)
+		}
+	}
+
+	if _, err := backend.pairingApprove(ctx, map[string]any{
+		"sessionId": "44444444-4444-4444-4444-444444444444",
+		"name":      "Kiosk",
+	}); err != nil {
+		t.Fatalf("ordinary approval with optional room metadata omitted: %v", err)
+	}
+	if f.lastPairingApproval["roomName"] != "" || f.lastPairingApproval["roomNumber"] != "" ||
+		f.lastPairingApproval["description"] != "" {
+		t.Fatalf("ordinary approval body = %#v", f.lastPairingApproval)
+	}
+
+	if _, err := backend.pairingApprove(ctx, map[string]any{
+		"sessionId":           "44444444-4444-4444-4444-444444444444",
+		"replaceHardware":     true,
+		"replacementScreenId": "11111111-1111-1111-1111-111111111111",
+	}); err != nil {
+		t.Fatalf("hardware replacement without screen metadata: %v", err)
+	}
+	if f.lastPairingApproval["replaceHardware"] != true ||
+		f.lastPairingApproval["replacementScreenId"] != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("hardware replacement body = %#v", f.lastPairingApproval)
+	}
+
+	if _, err := backend.pairingApprove(ctx, map[string]any{
+		"sessionId": "44444444-4444-4444-4444-444444444444",
+	}); err == nil {
+		t.Fatal("ordinary pairing without name accepted")
+	}
+}
+
 func TestMCPReadOnly(t *testing.T) {
 	_, backend := mcpFixture(t)
 	tools := buildMCPTools(backend, nil, true)

@@ -87,18 +87,7 @@ func (s *server) ingestPlayerActivity(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	var highWater int64
-	if err := tx.QueryRow(r.Context(), `
-		SELECT COALESCE(max(sequence),0)
-		FROM player_activity_events
-		WHERE screen_id=$1 AND sequence IS NOT NULL`, principal.ScreenID).Scan(&highWater); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
-	result := playerActivityBatchResult{
-		HighestSequence:      highWater,
-		AcknowledgedEventIDs: make([]string, 0, len(input.Events)),
-	}
+	result := playerActivityBatchResult{AcknowledgedEventIDs: make([]string, 0, len(input.Events))}
 	now := time.Now().UTC()
 	for index := range input.Events {
 		event := &input.Events[index]
@@ -106,36 +95,19 @@ func (s *server) ingestPlayerActivity(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnprocessableEntity, "player_activity_event_invalid", fmt.Sprintf("Event %d: %s", index+1, err))
 			return
 		}
-		// Event UUID is the idempotency key. Sequence is ordering metadata, not
-		// identity: a player whose local counter was reset must not have a new
-		// event mistaken for an old one merely because the sequence collides.
-		var storedSequence int64
-		err := tx.QueryRow(r.Context(), `
-			SELECT sequence FROM player_activity_events
-			WHERE id=$1 AND screen_id=$2`, event.ID, principal.ScreenID).Scan(&storedSequence)
-		if err == nil {
-			result.AcknowledgedEventIDs = append(result.AcknowledgedEventIDs, event.ID.String())
+		inserted, err := s.insertPlayerActivityEvent(r, tx, principal.ScreenID, *event)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		result.AcknowledgedEventIDs = append(result.AcknowledgedEventIDs, event.ID.String())
+		if event.Sequence > result.HighestSequence {
+			result.HighestSequence = event.Sequence
+		}
+		if !inserted {
 			result.Duplicates++
-			if storedSequence > result.HighestSequence {
-				result.HighestSequence = storedSequence
-			}
 			continue
 		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			s.internalError(w, r, err)
-			return
-		}
-
-		if event.Sequence <= highWater {
-			event.Sequence = highWater + 1
-		}
-		if err := s.insertPlayerActivityEvent(r, tx, principal.ScreenID, *event); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		highWater = event.Sequence
-		result.HighestSequence = highWater
-		result.AcknowledgedEventIDs = append(result.AcknowledgedEventIDs, event.ID.String())
 		result.Accepted++
 		if err := s.derivePlayerActivity(r, tx, principal.ScreenID, *event); err != nil {
 			s.internalError(w, r, err)
@@ -229,18 +201,59 @@ func normalizePlayerActivity(event *playerActivityEventInput, now time.Time) err
 	return nil
 }
 
-func (s *server) insertPlayerActivityEvent(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {
-	metadata, _ := json.Marshal(event.Metadata)
-	var selectionDate any
-	if event.SelectionDate != "" {
-		parsed, err := time.Parse("2006-01-02", event.SelectionDate)
-		if err != nil {
-			return errors.New("selectionDate must use YYYY-MM-DD")
-		}
-		selectionDate = parsed
+func (s *server) insertPlayerActivityEvent(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) (bool, error) {
+	selectionDate, err := playerActivitySelectionDate(event.SelectionDate)
+	if err != nil {
+		return false, err
 	}
-	var inserted uuid.UUID
-	err := tx.QueryRow(r.Context(), `
+	metadata, _ := json.Marshal(event.Metadata)
+	inserted, err := insertPlayerActivityRow(r, tx, screenID, event, event.Sequence, selectionDate, metadata, "ON CONFLICT DO NOTHING")
+	if err != nil || inserted {
+		return inserted, err
+	}
+
+	// A conflict can be either the UUID of an idempotent retry or the persisted
+	// per-screen sequence. Distinguish them before acknowledging the event:
+	// after local Player state corruption, a new UUID can legitimately reuse an
+	// old sequence. Dropping that event would create a silent hole in Activity.
+	var duplicateID bool
+	if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM player_activity_events WHERE id=$1)`, event.ID).Scan(&duplicateID); err != nil {
+		return false, err
+	}
+	if duplicateID {
+		return false, nil
+	}
+
+	// Preserve a sequence-colliding event rather than pretending it was a retry.
+	// Sequence is nullable for server-origin events and report APIs already model
+	// it as optional. Keep the Player's reported number in metadata so recovery is
+	// diagnosable while the UUID remains the authoritative idempotency key.
+	recoveryMetadata := make(map[string]any, len(event.Metadata)+2)
+	for key, value := range event.Metadata {
+		recoveryMetadata[key] = value
+	}
+	recoveryMetadata["reportedSequence"] = event.Sequence
+	recoveryMetadata["sequenceCollision"] = true
+	metadata, _ = json.Marshal(recoveryMetadata)
+	return insertPlayerActivityRow(r, tx, screenID, event, nil, selectionDate, metadata, "ON CONFLICT DO NOTHING")
+}
+
+func playerActivitySelectionDate(value string) (any, error) {
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return nil, errors.New("selectionDate must use YYYY-MM-DD")
+	}
+	return parsed, nil
+}
+
+func insertPlayerActivityRow(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput, sequence any, selectionDate any, metadata []byte, conflictClause string) (bool, error) {
+	// conflictClause is an internal constant selected by the caller. Keeping the
+	// INSERT in one helper prevents the recovery path from drifting from normal
+	// ingestion as the Activity contract evolves.
+	query := `
 		INSERT INTO player_activity_events(
 			id,screen_id,sequence,event_type,category,severity,occurred_at,elapsed_realtime_ms,player_timezone,
 			manifest_version,presentation_type,presentation_id,presentation_revision,content_type,content_id,
@@ -250,15 +263,19 @@ func (s *server) insertPlayerActivityEvent(r *http.Request, tx pgx.Tx, screenID 
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),NULLIF($12,''),NULLIF($13,''),NULLIF($14,''),NULLIF($15,''),
 		       NULLIF($16,''),NULLIF($17,''),NULLIF($18,''),$19,$20,$21,NULLIF($22,''),NULLIF($23,''),NULLIF($24,''),
 		       NULLIF($25,''),NULLIF($26,''),NULLIF($27,''),NULLIF($28,''),$29,$30,NULLIF($31,''),NULLIF($32,''),$33::jsonb,$34,
-		       NULLIF($35,''),NULLIF($36,''))
-		RETURNING id`,
-		event.ID, screenID, event.Sequence, event.EventType, event.Category, event.Severity, event.OccurredAt, event.ElapsedRealtimeMS, event.PlayerTimezone,
+		       NULLIF($35,''),NULLIF($36,'')) ` + conflictClause + ` RETURNING id`
+	var inserted uuid.UUID
+	err := tx.QueryRow(r.Context(), query,
+		event.ID, screenID, sequence, event.EventType, event.Category, event.Severity, event.OccurredAt, event.ElapsedRealtimeMS, event.PlayerTimezone,
 		event.ManifestVersion, event.PresentationType, event.PresentationID, event.PresentationRev, event.ContentType, event.ContentID,
 		event.PlaylistItemID, event.LayoutPlacementID, event.ActivitySessionID, event.Result, event.DurationMS, event.ExpectedDurationMS,
 		event.FailureCode, event.FailureMessage, event.TriggerContext, event.ScheduleID, event.TakeoverID, event.SourceID, event.SelectedRecordID,
 		selectionDate, event.SourceCachedAt, event.SourceRevision, event.SnapshotHash, string(metadata), event.Priority,
 		event.SessionType, event.TerminalReason).Scan(&inserted)
-	return err
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 func (s *server) derivePlayerActivity(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {

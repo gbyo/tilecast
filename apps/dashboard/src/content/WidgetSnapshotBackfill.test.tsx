@@ -103,13 +103,15 @@ function runNextAnimationFrame(now: number) {
   act(() => frame?.callback(now));
 }
 
-function renderBackfill(asset: Asset) {
+function renderBackfill(assets: Asset | Asset[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <WidgetSnapshotBackfill assets={[asset]} />
+      <WidgetSnapshotBackfill
+        assets={Array.isArray(assets) ? assets : [assets]}
+      />
     </QueryClientProvider>,
   );
 }
@@ -147,6 +149,42 @@ afterEach(() => {
 });
 
 describe("WidgetSnapshotBackfill", () => {
+  it("continues to the next Widget when V2 configuration compilation fails", async () => {
+    const clock = widgetDefinition(clockManifest);
+    const brokenClock: WidgetDefinition = {
+      ...clock,
+      component: {
+        ...clock.component!,
+        configTemplate: { requiredValue: { $config: "requiredValue" } },
+      },
+    };
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      ...definitions,
+      widgets: [brokenClock, widgetDefinition(listManifest)],
+    });
+    const invalid = assetFor(clockManifest, "invalid-clock");
+    invalid.widget!.configuration = {};
+    invalid.widget!.authorConfiguration = {};
+
+    renderBackfill([invalid, assetFor(listManifest, "valid-list")]);
+
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+    runNextAnimationFrame(1);
+    runNextAnimationFrame(2);
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "valid-list",
+        expect.any(Blob),
+        "csrf-token",
+      ),
+    );
+    expect(api.uploadWidgetPreview).not.toHaveBeenCalledWith(
+      "invalid-clock",
+      expect.any(Blob),
+      "csrf-token",
+    );
+  });
+
   it("captures a V2 Widget only after the real WidgetMount reports ready", async () => {
     renderBackfill(assetFor(clockManifest, "clock-asset"));
 
@@ -162,10 +200,18 @@ describe("WidgetSnapshotBackfill", () => {
     expect(captureWidgetPreview).not.toHaveBeenCalled();
     expect(animationFrames).toHaveLength(1);
 
+    // Record the captured element at call time: the backfill settles and
+    // tears the mount down right after the capture, so reading the live
+    // node afterwards races the disposal.
+    let capturedWidget: Element | null | undefined;
+    captureWidgetPreview.mockImplementationOnce((captureRoot: HTMLElement) => {
+      capturedWidget = captureRoot.querySelector("tc-widget-clock");
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+
     runNextAnimationFrame(2);
     await waitFor(() => expect(captureWidgetPreview).toHaveBeenCalledTimes(1));
-    const captureRoot = captureWidgetPreview.mock.calls[0]?.[0] as HTMLElement;
-    expect(captureRoot.querySelector("tc-widget-clock")).toBe(widget);
+    expect(capturedWidget).toBe(widget);
     await waitFor(() =>
       expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
         "clock-asset",

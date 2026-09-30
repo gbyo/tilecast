@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "spotlight",
   "version": 1,
+  "configVersion": 2,
   "name": "Spotlight",
   "description": "Feature one record with optional managed artwork.",
   "category": "Data display",

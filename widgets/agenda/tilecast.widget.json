@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "agenda",
   "version": 1,
+  "configVersion": 2,
   "name": "Agenda",
   "description": "Group upcoming events by day with now and relative status.",
   "category": "Information",

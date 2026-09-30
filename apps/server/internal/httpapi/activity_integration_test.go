@@ -268,41 +268,6 @@ func TestReplacedSocketCannotMarkActiveReplacementDisconnected(t *testing.T) {
 	})
 }
 
-func TestPlayerActivitySequenceResetRebasesWithoutDroppingNewEvent(t *testing.T) {
-	withActivityDatabase(t, func(env activityTestEnvironment) {
-		now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
-		firstID, resetID := uuid.New(), uuid.New()
-		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{{
-			ID: firstID, Sequence: 50, EventType: "renderer.failure",
-			OccurredAt: now, PlayerTimezone: "UTC", Result: "failed",
-		}}}, http.StatusAccepted)
-
-		resetEvent := playerActivityEventInput{
-			ID: resetID, Sequence: 1, EventType: "connection.recovered",
-			OccurredAt: now.Add(time.Second), PlayerTimezone: "UTC", Result: "recovered",
-		}
-		result := postActivityBatchResult(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{resetEvent}}, http.StatusAccepted)
-		if result.Accepted != 1 || result.Duplicates != 0 || result.HighestSequence != 51 {
-			t.Fatalf("rebase result=%+v, want accepted=1 duplicates=0 highestSequence=51", result)
-		}
-		if len(result.AcknowledgedEventIDs) != 1 || result.AcknowledgedEventIDs[0] != resetID.String() {
-			t.Fatalf("acknowledged=%v, want %s", result.AcknowledgedEventIDs, resetID)
-		}
-		var sequence int64
-		if err := env.pool.QueryRow(context.Background(), `SELECT sequence FROM player_activity_events WHERE id=$1`, resetID).Scan(&sequence); err != nil {
-			t.Fatal(err)
-		}
-		if sequence != 51 {
-			t.Fatalf("stored reset event sequence=%d, want 51", sequence)
-		}
-
-		retry := postActivityBatchResult(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{resetEvent}}, http.StatusAccepted)
-		if retry.Accepted != 0 || retry.Duplicates != 1 || retry.HighestSequence != 51 {
-			t.Fatalf("retry result=%+v, want duplicate at high-water 51", retry)
-		}
-	})
-}
-
 func TestPlayerActivityDeduplicatesOrdersAndDerivesSessions(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		startID, endID := uuid.New(), uuid.New()
@@ -447,6 +412,75 @@ func TestPlaybackGapAppearsInOverviewAndClosesProofUnknown(t *testing.T) {
 			if string(shape.Data[field]) == "null" {
 				t.Fatalf("overview %s marshaled as null: %s", field, response.Body.String())
 			}
+		}
+	})
+}
+
+func TestActivityOverviewReturnsServerErrorWhenRequiredQueryFails(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		if _, err := env.pool.Exec(context.Background(), `ALTER TABLE audit_logs RENAME TO audit_logs_unavailable_for_activity_test`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := env.pool.Exec(context.Background(), `ALTER TABLE audit_logs_unavailable_for_activity_test RENAME TO audit_logs`); err != nil {
+				t.Errorf("restore audit_logs table: %v", err)
+			}
+		}()
+
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/overview?range=24h", nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.activityOverview(response, request)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("overview status=%d body=%s, want 500", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+			t.Fatalf("overview error=%s, want internal_error", response.Body.String())
+		}
+	})
+}
+
+func TestScreenActivityReturnsServerErrorWhenRequiredQueryFails(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		if _, err := env.pool.Exec(context.Background(), `ALTER TABLE player_activity_events RENAME TO player_activity_events_unavailable_for_activity_test`); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if _, err := env.pool.Exec(context.Background(), `ALTER TABLE player_activity_events_unavailable_for_activity_test RENAME TO player_activity_events`); err != nil {
+				t.Errorf("restore player_activity_events table: %v", err)
+			}
+		}()
+
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String(), nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.screenActivity(response, request)
+		if response.Code != http.StatusInternalServerError {
+			t.Fatalf("screen activity status=%d body=%s, want 500", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+			t.Fatalf("screen activity error=%s, want internal_error", response.Body.String())
+		}
+	})
+}
+
+func TestScreenActivityAllowsNoCurrentPresentation(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+env.screenID.String(), nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		response := httptest.NewRecorder()
+		env.server.screenActivity(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("screen activity status=%d body=%s, want 200", response.Code, response.Body.String())
+		}
+		var envelope struct {
+			Data screenActivityData `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.CurrentPresentation != nil || envelope.Data.RecentProof == nil || envelope.Data.RecentEvents == nil {
+			t.Fatalf("screen activity returned invalid empty state: %s", response.Body.String())
 		}
 	})
 }
@@ -792,6 +826,82 @@ func postActivityBatchResult(t *testing.T, env activityTestEnvironment, input pl
 		t.Fatalf("decode activity response: %v", err)
 	}
 	return envelope.Data
+}
+
+func TestActivitySequenceResetPreservesNewEvent(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		now := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+		originalID := uuid.New()
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: originalID, Sequence: 1, EventType: "player.connected",
+			OccurredAt: now, PlayerTimezone: "UTC", Result: "success",
+		}}}, http.StatusAccepted)
+
+		// Simulate a Player whose local sequence file was lost/corrupted. The UUID
+		// proves this is a new event even though the reported sequence restarted.
+		resetID := uuid.New()
+		body, _ := json.Marshal(playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: resetID, Sequence: 1, EventType: "connection.restored",
+			OccurredAt: now.Add(time.Second), PlayerTimezone: "UTC", Result: "recovered",
+		}}})
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/player/activity-events", bytes.NewReader(body))
+		request = request.WithContext(context.WithValue(request.Context(), deviceContextKey, devices.DevicePrincipal{ScreenID: env.screenID, Enabled: true}))
+		response := httptest.NewRecorder()
+		env.server.ingestPlayerActivity(response, request)
+		if response.Code != http.StatusAccepted {
+			t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+		}
+		var envelope struct {
+			Data playerActivityBatchResult `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Data.Accepted != 1 || envelope.Data.Duplicates != 0 ||
+			len(envelope.Data.AcknowledgedEventIDs) != 1 || envelope.Data.AcknowledgedEventIDs[0] != resetID.String() {
+			t.Fatalf("sequence-reset response = %+v", envelope.Data)
+		}
+
+		var sequence *int64
+		var metadata map[string]any
+		var raw []byte
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT sequence,metadata FROM player_activity_events WHERE id=$1`, resetID).
+			Scan(&sequence, &raw); err != nil {
+			t.Fatal(err)
+		}
+		if sequence != nil {
+			t.Fatalf("recovered event sequence=%d, want NULL", *sequence)
+		}
+		if err := json.Unmarshal(raw, &metadata); err != nil {
+			t.Fatal(err)
+		}
+		if metadata["sequenceCollision"] != true || metadata["reportedSequence"] != float64(1) {
+			t.Fatalf("recovery metadata = %#v", metadata)
+		}
+
+		var count int
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM player_activity_events WHERE id=ANY($1)`, []uuid.UUID{originalID, resetID}).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 2 {
+			t.Fatalf("stored reset events=%d, want 2", count)
+		}
+
+		// A true retry still deduplicates by UUID and does not create a third row.
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{{
+			ID: resetID, Sequence: 1, EventType: "connection.restored",
+			OccurredAt: now.Add(time.Second), PlayerTimezone: "UTC", Result: "recovered",
+		}}}, http.StatusAccepted)
+		if err := env.pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM player_activity_events WHERE id=ANY($1)`, []uuid.UUID{originalID, resetID}).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 2 {
+			t.Fatalf("retry created extra activity row: %d", count)
+		}
+	})
 }
 
 func int64Pointer(value int64) *int64        { return &value }

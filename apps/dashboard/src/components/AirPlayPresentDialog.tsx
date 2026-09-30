@@ -342,7 +342,7 @@ export function AirPlayPresentDialog({
         if (!nextOpen) onClose();
       }}
     >
-      <DialogContent className="max-h-[min(90vh,54rem)] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[min(90dvh,54rem)] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {t("airplay.title", { name: destinationName })}
@@ -611,9 +611,7 @@ export function AirPlayPresentDialog({
               </Button>
               <Button
                 variant="destructive"
-                disabled={["stopping", "ended", "expired", "failed"].includes(
-                  live.status,
-                )}
+                disabled={["ended", "expired", "failed"].includes(live.status)}
                 onClick={() => stop.mutate(targetKey)}
               >
                 {stop.isPending ? t("airplay.stopping") : t("airplay.stop")}

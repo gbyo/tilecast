@@ -295,7 +295,62 @@ export function ContentReviewPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="contents">
+          <div className="grid gap-2 lg:hidden">
+            {items.map((item) => (
+              <article
+                key={key(item)}
+                className="grid gap-3 rounded-xl border border-border p-3"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={
+                        item.contentType === "playlist"
+                          ? `/playlists/${item.contentId}`
+                          : `/layouts/${item.contentId}`
+                      }
+                      className="block truncate font-medium text-primary hover:underline"
+                    >
+                      {item.name}
+                    </Link>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {itemMeta(
+                        t,
+                        item,
+                        new Date(item.updatedAt).toLocaleString(),
+                      )}
+                    </p>
+                  </div>
+                  <Badge variant={badgeVariant(item.state)}>
+                    {t(stateLabelKeys[item.state])}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {item.assignedScreens > 0
+                      ? t("contentReview.assignedScreens", {
+                          count: item.assignedScreens,
+                        })
+                      : "—"}
+                  </span>
+                  {canDecide && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setSelected(item);
+                        setDetailsOpen(true);
+                      }}
+                    >
+                      {t("contentReview.table.reviewAction")}
+                    </Button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
           <Table className="min-w-[48rem]">
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
@@ -325,6 +380,7 @@ export function ContentReviewPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
 
