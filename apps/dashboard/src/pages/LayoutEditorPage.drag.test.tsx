@@ -593,9 +593,80 @@ describe("Layout editor layers and zoom controls", () => {
     expect(
       await screen.findByText(/Click or drag on the canvas/),
     ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.activeElement).toHaveClass("layout-stage-scroll"),
+    );
     await user.keyboard("{Escape}");
     await waitFor(() =>
       expect(screen.queryByText(/Click or drag on the canvas/)).toBeNull(),
     );
+  });
+
+  it("keeps deletion local to focused inputs and editable controls", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    const placement = await screen.findByText("New text");
+    dragBy(placement.closest(".layout-placement")!, 0, 0);
+    expect(await screen.findByText("1 selected")).toBeInTheDocument();
+
+    const input = document.createElement("input");
+    document.body.append(input);
+    const editable = document.createElement("div");
+    editable.setAttribute("contenteditable", "true");
+    document.body.append(editable);
+    const previousTabIndex = document.body.getAttribute("tabindex");
+    document.body.tabIndex = -1;
+    try {
+      input.focus();
+      fireEvent.keyDown(input, { key: "Backspace" });
+      expect(placement).toBeInTheDocument();
+
+      editable.focus();
+      fireEvent.keyDown(editable, { key: "Delete" });
+      expect(placement).toBeInTheDocument();
+
+      document.body.focus();
+      fireEvent.keyDown(document.body, { key: "Delete" });
+      await waitFor(() => expect(placement).not.toBeInTheDocument());
+    } finally {
+      input.remove();
+      editable.remove();
+      if (previousTabIndex === null) document.body.removeAttribute("tabindex");
+      else document.body.setAttribute("tabindex", previousTabIndex);
+    }
+  });
+
+  it("keeps text editing keys local while allowing editor commands from controls", async () => {
+    mockAuth();
+    renderLayoutEditor();
+    const control = await screen.findByRole("button", {
+      name: "Add to canvas",
+    });
+    const press = (
+      target: HTMLElement,
+      key: string,
+      modifiers: Pick<KeyboardEventInit, "ctrlKey" | "metaKey" | "code"> = {},
+    ) => {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+        ...modifiers,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    expect(press(control, "z", { ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(press(control, "+", { ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(press(control, " ", { code: "Space" }).defaultPrevented).toBe(false);
+
+    const input = document.createElement("input");
+    document.body.append(input);
+    try {
+      expect(press(input, "z", { ctrlKey: true }).defaultPrevented).toBe(false);
+    } finally {
+      input.remove();
+    }
   });
 });

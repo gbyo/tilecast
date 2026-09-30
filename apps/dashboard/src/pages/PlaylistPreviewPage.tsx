@@ -29,6 +29,7 @@ import {
   usePresentationChrome,
 } from "../native-presentation/presentationContext";
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
+import { isInteractiveShortcutTarget } from "../lib/keyboard";
 
 export function nextPlaylistPreviewItem(
   index: number,
@@ -45,17 +46,6 @@ export function playlistPreviewItemDuration(item: PlaylistItem) {
 }
 
 export const PLAYLIST_PREVIEW_FADE_MS = 300;
-
-export function playlistPreviewShortcutTargetIsInteractive(
-  target: EventTarget | null,
-) {
-  if (!(target instanceof Element)) return false;
-  return Boolean(
-    target.closest(
-      "button, a[href], input, select, textarea, [contenteditable]:not([contenteditable='false']), [role='button'], [role='link'], [role='slider'], [role='textbox'], [role='combobox']",
-    ),
-  );
-}
 
 function mediaStyle(item: PlaylistItem) {
   return {
@@ -310,10 +300,7 @@ export function PlaylistPreviewPage() {
   }, [advance, current, currentItemKey, paused, readyItemKey]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        playlistPreviewShortcutTargetIsInteractive(event.target)
-      )
+      if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
         return;
       if (event.key === "ArrowRight") move(1);
       else if (event.key === "ArrowLeft") move(-1);
