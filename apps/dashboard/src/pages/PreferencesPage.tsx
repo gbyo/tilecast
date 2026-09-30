@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { Alert, AlertAction, AlertTitle } from "../components/ui/alert";
+import { Button } from "../components/ui/button";
 import {
   Select,
   SelectContent,
@@ -31,7 +33,7 @@ const APPEARANCE_KEY = "preference.appearance";
 const SPECIAL_KEYS = [APPEARANCE_KEY, LANGUAGE_PREFERENCE_KEY];
 
 export function PreferencesPage() {
-  const { t } = useTranslation("account");
+  const { t } = useTranslation(["account", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
   const preferences = useQuery({
@@ -95,8 +97,25 @@ export function PreferencesPage() {
     setSaved(undefined);
     void preferences.refetch();
   };
+  const loadError = preferences.isError ? (
+    <Alert variant="destructive">
+      <AlertTitle>{t("preferences.loadError")}</AlertTitle>
+      <AlertAction>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={preferences.isFetching}
+          onClick={() => void preferences.refetch()}
+        >
+          {t("common:actions.retry")}
+        </Button>
+      </AlertAction>
+    </Alert>
+  ) : null;
   if (preferences.isLoading)
     return <div className="table-loading">{t("preferences.loading")}</div>;
+  if (preferences.isError && !preferences.data) return loadError;
   const appearance = definitions.find(
     (definition) => definition.key === APPEARANCE_KEY,
   );
@@ -121,6 +140,7 @@ export function PreferencesPage() {
   return (
     <>
       {navigationWarning}
+      {loadError}
       {appearance && (
         <AppearanceControl
           definition={appearance}

@@ -24,8 +24,9 @@ import (
 // emergency_alerts identity (directory plugins/emergency-alerts/).
 func pluginWidgetCatalog(t *testing.T) *contentdefs.Catalog {
 	t.Helper()
+	configVersion := 7
 	definition := contentdefs.WidgetDefinition{
-		ID: "emergency_alerts_siren", Version: 1, APIVersion: 1,
+		ID: "emergency_alerts_siren", Version: 1, ConfigVersion: &configVersion, APIVersion: 1,
 		Source: contentdefs.PluginSource("emergency_alerts"),
 		Name:   "Siren", Description: "Siren.", Category: "Essentials", Icon: "layout",
 		Runtime: "native",
@@ -49,6 +50,16 @@ func pluginWidgetCatalog(t *testing.T) *contentdefs.Catalog {
 		t.Fatalf("build plugin Widget catalog: %v", err)
 	}
 	return catalog
+}
+
+func TestWidgetConfigVersionUsesPluginDefinition(t *testing.T) {
+	service := &Service{definitions: pluginWidgetCatalog(t)}
+	if got := service.widgetConfigVersion("emergency_alerts_siren"); got != 7 {
+		t.Fatalf("plugin Widget config version = %d, want 7", got)
+	}
+	if got := service.widgetConfigVersion("unknown_legacy_widget"); got != 1 {
+		t.Fatalf("unknown legacy Widget config version = %d, want 1", got)
+	}
 }
 
 // fakePluginGate stands in for the plugins service (which media cannot

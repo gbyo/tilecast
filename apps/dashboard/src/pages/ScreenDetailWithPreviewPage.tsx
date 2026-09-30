@@ -1,13 +1,13 @@
 import { Navigate, useParams, useSearchParams } from "react-router";
-import { ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LivePreviewPanel } from "../components/LivePreviewPanel";
 import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import { ScreenDetailPage, normalizeScreenDetailTab } from "./ScreensPage";
 
 export function ScreenDetailWithPreviewPage() {
@@ -33,7 +33,7 @@ export function ScreenDetailWithPreviewPage() {
           >
             <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {t("preview.snapshotsTitle")}
-              <ChevronDown size={16} aria-hidden="true" />
+              <CollapsibleChevron size={16} />
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3 space-y-2">
               <p className="text-sm text-muted-foreground">

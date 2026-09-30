@@ -1,4 +1,5 @@
 import {
+  useInfiniteQuery,
   useMutation,
   useQueries,
   useQuery,
@@ -37,7 +38,8 @@ import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -102,10 +104,13 @@ export function GroupsPage() {
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: ["screen-groups"],
-    queryFn: () => api.screenGroups(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.screenGroupPage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
+  const groups = q.data?.pages.flatMap((page) => page.items) ?? [];
   const [createOpen, setCreateOpen] = useState(false);
   const create = useMutation({
     mutationFn: (value: { name: string; description: string }) =>
@@ -115,6 +120,8 @@ export function GroupsPage() {
       setCreateOpen(false);
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
+    onError: () =>
+      toast.add({ title: t("groups.errors.create"), type: "error" }),
   });
 
   return (
@@ -148,7 +155,7 @@ export function GroupsPage() {
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        {q.data?.items?.map((group) => (
+        {groups.map((group) => (
           <Link
             className="grid gap-3 rounded-xl border border-border p-4 hover:bg-muted"
             to={`/groups/${group.id}`}
@@ -191,7 +198,7 @@ export function GroupsPage() {
           </Link>
         ))}
       </div>
-      {q.data?.items?.length === 0 && (
+      {groups.length === 0 && !q.isLoading && (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -213,6 +220,18 @@ export function GroupsPage() {
           </EmptyHeader>
         </Empty>
       )}
+      {q.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={q.isFetchingNextPage}
+            onClick={() => void q.fetchNextPage()}
+          >
+            {q.isFetchingNextPage ? t("groups.loading") : t("groups.loadMore")}
+          </Button>
+        </div>
+      )}
       {createOpen && (
         <GroupDialog
           title={t("groups.create")}
@@ -221,7 +240,9 @@ export function GroupsPage() {
           pending={create.isPending}
           error={create.error?.message}
           onClose={() => setCreateOpen(false)}
-          onSave={(value) => create.mutate(value)}
+          onSave={(value) => {
+            create.mutate(value, { onSuccess: () => setCreateOpen(false) });
+          }}
         />
       )}
     </section>
@@ -284,6 +305,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Screen added to Display Group.", type: "success" });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.addScreen"), type: "error" }),
     }),
     remove = useMutation({
       mutationFn: (screenId: string) =>
@@ -295,6 +318,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.removeScreen"), type: "error" }),
     }),
     update = useMutation({
       mutationFn: (value: {
@@ -308,6 +333,8 @@ export function GroupDetailPage() {
         setEditOpen(false);
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.update"), type: "error" }),
     }),
     deleteGroup = useMutation({
       mutationFn: () => api.deleteScreenGroup(id, csrf),
@@ -315,6 +342,8 @@ export function GroupDetailPage() {
         toast.add({ title: "Display Group deleted.", type: "success" });
         void navigate("/groups");
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.delete"), type: "error" }),
     }),
     assignContent = useMutation({
       mutationFn: (value: string) => {
@@ -332,6 +361,8 @@ export function GroupDetailPage() {
         });
         return refresh();
       },
+      onError: () =>
+        toast.add({ title: t("groups.errors.assignment"), type: "error" }),
     });
   const mutationError =
     add.error ?? remove.error ?? deleteGroup.error ?? assignContent.error;
@@ -344,6 +375,45 @@ export function GroupDetailPage() {
           : "",
     );
   }, [group.data?.layoutId, group.data?.playlistId]);
+  if (group.isPending)
+    return (
+      <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  if (group.isError && !group.data) {
+    const notFound =
+      group.error instanceof ApiError &&
+      group.error.status === 404 &&
+      group.error.code === "schedule_not_found";
+    return (
+      <section className="grid max-w-xl gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {notFound
+            ? t("groups.detail.notFoundTitle")
+            : t("groups.detail.loadErrorTitle")}
+        </h1>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {notFound
+              ? t("groups.detail.notFoundBody")
+              : t("groups.detail.loadErrorBody")}
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-wrap gap-2">
+          {!notFound && (
+            <Button type="button" onClick={() => void group.refetch()}>
+              {t("common:actions.retry")}
+            </Button>
+          )}
+          <Link to="/groups" className={buttonVariants({ variant: "outline" })}>
+            {t("groups.detail.backToGroups")}
+          </Link>
+        </div>
+      </section>
+    );
+  }
   if (!group.data)
     return (
       <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
@@ -424,7 +494,9 @@ export function GroupDetailPage() {
                 pending={update.isPending}
                 error={update.error?.message}
                 onClose={() => setEditOpen(false)}
-                onSave={(value) => update.mutate(value)}
+                onSave={(value) => {
+                  update.mutate(value, { onSuccess: () => setEditOpen(false) });
+                }}
               />
             )}
             <Button type="button" onClick={() => setAirplayOpen(true)}>
@@ -814,13 +886,15 @@ export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const formatLocale = useFormatLocale();
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: ["schedules"],
-    queryFn: () => api.schedules(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.schedulePage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
-  const enabledCount = (q.data?.items ?? []).filter(
-    (schedule) => schedule.enabled,
-  ).length;
+  const schedules = q.data?.pages.flatMap((page) => page.items) ?? [];
+  const enabledCount = schedules.filter((schedule) => schedule.enabled).length;
+  const totalSchedules = q.data?.pages[0]?.total ?? 0;
   return (
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -843,7 +917,11 @@ export function SchedulesPage() {
       <section className="grid gap-1 rounded-xl border border-border p-4">
         <h2 className="text-base font-semibold">{t("page.timelineTitle")}</h2>
         <p className="text-sm text-muted-foreground">
-          {t("page.timelineSummary", { count: enabledCount })}
+          {t("page.timelineSummary", {
+            count: enabledCount,
+            loaded: schedules.length,
+            total: totalSchedules,
+          })}
         </p>
       </section>
       {q.isLoading && (
@@ -858,7 +936,7 @@ export function SchedulesPage() {
         </Alert>
       )}
       <div className="grid gap-2">
-        {q.data?.items?.map((schedule) => (
+        {schedules.map((schedule) => (
           <Link
             className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted ${schedule.enabled ? "" : "opacity-60"}`}
             to={`/schedules/${schedule.id}`}
@@ -884,7 +962,7 @@ export function SchedulesPage() {
             </Badge>
           </Link>
         ))}
-        {q.data?.items?.length === 0 && (
+        {schedules.length === 0 && !q.isLoading && (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>{t("page.emptyTitle")}</EmptyTitle>
@@ -893,6 +971,18 @@ export function SchedulesPage() {
           </Empty>
         )}
       </div>
+      {q.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={q.isFetchingNextPage}
+            onClick={() => void q.fetchNextPage()}
+          >
+            {q.isFetchingNextPage ? t("page.loading") : t("page.loadMore")}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -923,7 +1013,7 @@ function GroupDialog({
     <Dialog
       open
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (!open && !pending) onClose();
       }}
     >
       <DialogContent>
@@ -970,7 +1060,12 @@ function GroupDialog({
             </Alert>
           )}
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose}>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={pending}
+              onClick={onClose}
+            >
               {t("common:actions.cancel")}
             </Button>
             <Button type="submit" disabled={!name.trim() || pending}>
