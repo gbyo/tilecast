@@ -20,8 +20,9 @@ permissions:
 jobs:
   changes:
     name: Detect changed areas
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}
     outputs:
+      linux_runner: ${{ steps.runner.outputs.linux_runner }}
       android: ${{ steps.paths.outputs.android }}
       ios: ${{ steps.paths.outputs.ios }}
       linux: ${{ steps.paths.outputs.linux }}
@@ -36,6 +37,9 @@ jobs:
       sources: ${{ steps.paths.outputs.sources }}
       ci: ${{ steps.paths.outputs.ci }}
     steps:
+      - name: Select Linux runner
+        id: runner
+        run: echo "linux_runner=${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -60,6 +64,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ci == 'true'
     uses: ./.github/workflows/validate-ci-contract.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   android_ci:
     needs: changes
@@ -75,21 +81,29 @@ jobs:
     needs: changes
     if: needs.changes.outputs.server == 'true'
     uses: ./.github/workflows/ci-server.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   dashboard_ci:
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
     uses: ./.github/workflows/ci-dashboard.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   linux_player_ci:
     needs: changes
     if: needs.changes.outputs.linux == 'true'
     uses: ./.github/workflows/validate-linux.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   plugins_ci:
     needs: changes
     if: needs.changes.outputs.plugins == 'true'
     uses: ./.github/workflows/validate-plugins.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   widgets_ci:
     needs: changes
@@ -100,6 +114,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.container == 'true' && needs.changes.outputs.e2e != 'true'
     uses: ./.github/workflows/validate-container.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   e2e_ci:
     needs: changes
@@ -110,16 +126,22 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     uses: ./.github/workflows/validate-docs.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   cli_ci:
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     uses: ./.github/workflows/validate-cli.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   sources_ci:
     needs: changes
     if: needs.changes.outputs.sources == 'true'
     uses: ./.github/workflows/validate-data-sources.yml
+    with:
+      runner: ${{ needs.changes.outputs.linux_runner }}
 
   required:
     name: Required PR validation
@@ -139,7 +161,7 @@ jobs:
       - widgets_ci
       - cli_ci
       - sources_ci
-    runs-on: ubuntu-latest
+    runs-on: ${{ needs.changes.outputs.linux_runner }}
     steps:
       - name: Require every selected job to pass
         env:

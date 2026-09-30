@@ -3,6 +3,7 @@ set -euo pipefail
 
 expected_repository="${TILECAST_RUNNER_REPOSITORY:-gbyo/tilecast}"
 expected_ref="${TILECAST_RUNNER_REF:-refs/heads/main}"
+trusted_pr_actor="${TILECAST_RUNNER_TRUSTED_PR_ACTOR:-gbyo}"
 max_load_per_cpu="${TILECAST_RUNNER_MAX_LOAD_PER_CPU:-0.60}"
 min_mem_mib="${TILECAST_RUNNER_MIN_MEM_MIB:-6144}"
 min_disk_gib="${TILECAST_RUNNER_MIN_DISK_GIB:-30}"
@@ -14,22 +15,58 @@ log() {
   printf '[tilecast-overflow] %s\n' "$*"
 }
 
-if [[ "${GITHUB_REPOSITORY:-}" != "$expected_repository" ]]; then
-  log "refusing job for repository ${GITHUB_REPOSITORY:-unknown}"
+refuse() {
+  log "refusing job: $*"
   exit 1
+}
+
+if [[ "${GITHUB_REPOSITORY:-}" != "$expected_repository" ]]; then
+  refuse "repository is ${GITHUB_REPOSITORY:-unknown}, expected $expected_repository"
 fi
 
 case "${GITHUB_EVENT_NAME:-}" in
-  pull_request|pull_request_target)
-    log "refusing ${GITHUB_EVENT_NAME} job on the home runner"
-    exit 1
+  pull_request)
+    if [[ "${GITHUB_ACTOR:-}" != "$trusted_pr_actor" ]]; then
+      refuse "pull request actor is ${GITHUB_ACTOR:-unknown}, expected $trusted_pr_actor"
+    fi
+    if [[ ! -f "${GITHUB_EVENT_PATH:-}" ]]; then
+      refuse "pull request event payload is unavailable"
+    fi
+    read -r pr_author pr_sender pr_head_repo < <(
+      python3 - "$GITHUB_EVENT_PATH" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    event = json.load(handle)
+
+pr = event.get("pull_request") or {}
+author = (pr.get("user") or {}).get("login") or ""
+sender = (event.get("sender") or {}).get("login") or ""
+head_repo = ((pr.get("head") or {}).get("repo") or {}).get("full_name") or ""
+print(author, sender, head_repo)
+PY
+    )
+    if [[ "$pr_author" != "$trusted_pr_actor" ]]; then
+      refuse "pull request author is ${pr_author:-unknown}, expected $trusted_pr_actor"
+    fi
+    if [[ "$pr_sender" != "$trusted_pr_actor" ]]; then
+      refuse "pull request sender is ${pr_sender:-unknown}, expected $trusted_pr_actor"
+    fi
+    if [[ "$pr_head_repo" != "$expected_repository" ]]; then
+      refuse "pull request head repository is ${pr_head_repo:-unknown}, expected $expected_repository"
+    fi
+    log "accepted trusted same-repository pull request from $trusted_pr_actor"
+    ;;
+  pull_request_target)
+    refuse "pull_request_target is never allowed on the home runner"
+    ;;
+  *)
+    if [[ "${GITHUB_REF:-}" != "$expected_ref" ]]; then
+      refuse "ref is ${GITHUB_REF:-unknown}; only $expected_ref is allowed outside trusted PRs"
+    fi
     ;;
 esac
-
-if [[ "${GITHUB_REF:-}" != "$expected_ref" ]]; then
-  log "refusing ref ${GITHUB_REF:-unknown}; only $expected_ref is allowed"
-  exit 1
-fi
 
 started_at="$(date +%s)"
 
