@@ -26,6 +26,13 @@ if grep -rnE --include='*.swift' "\"($destinations)\"" "${sources[@]}" | grep -v
   exit 1
 fi
 
+# The app knows only the presentation root. Studio owns every child route,
+# so a new presentation needs no Swift change.
+if grep -rnE "__native/modal/[A-Za-z0-9]" "${sources[@]}"; then
+  echo "check-architecture: Swift sources name a presentation route. Only the root /__native/modal is allowed." >&2
+  exit 1
+fi
+
 # Page scripting belongs to the versioned native bridge alone.
 if grep -rnE "WKUserContentController|WKScriptMessageHandler|addScriptMessageHandler|userContentController|callJavaScript" \
   "${sources[@]}" | grep -v "^$bridge/"; then
@@ -49,7 +56,7 @@ fi
 
 # The bridge carries presentation and navigation only: no credentials,
 # cookies, or file access.
-if grep -rnE "SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|FileManager|URLSession|UserDefaults" "$bridge"; then
+if grep -rnE "SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|FileManager|URLSession|UserDefaults|NativeAuthSession" "$bridge" TilecastKit/Sources/TilecastCore/Presentation TilecastKit/Sources/TilecastCore/Web/PresentationPage.swift; then
   echo "check-architecture: the native bridge must not reach credentials, cookies, or files." >&2
   exit 1
 fi
