@@ -14,7 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: Validate Compose configuration
-        run: docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+        run: |
+          docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
+          docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml config --quiet
       - uses: docker/setup-buildx-action@v4
       - name: Build container
         uses: docker/build-push-action@v7

@@ -320,7 +320,7 @@ func (s *server) systemStatus(w http.ResponseWriter, r *http.Request) {
 	if s.updates != nil && s.updates.ManifestKeyConfigured() {
 		updateTrust = "configured"
 	}
-	writeJSON(w, 200, map[string]any{"data": map[string]any{"tilecastVersion": version.Version, "buildCommit": "local", "buildDate": "development", "uptimeSeconds": int64(time.Since(s.startedAt).Seconds()), "goVersion": runtime.Version(), "database": map[string]any{"status": "healthy", "migrationVersion": migration, "postgresVersion": postgres}, "media": mediaStatus, "activeProcessingJobs": jobs, "pendingCommands": pending, "connectedScreens": connected, "serverTimezone": time.Local.String(), "deployment": map[string]any{"database": "configured", "mediaStorage": "configured", "ffmpeg": "available", "updateManifestTrust": updateTrust, "restartRequired": false}}})
+	writeJSON(w, 200, map[string]any{"data": map[string]any{"tilecastVersion": version.Display(), "channel": version.Channel, "buildCommit": version.Commit, "buildDate": version.Date, "uptimeSeconds": int64(time.Since(s.startedAt).Seconds()), "goVersion": runtime.Version(), "database": map[string]any{"status": "healthy", "migrationVersion": migration, "postgresVersion": postgres}, "media": mediaStatus, "activeProcessingJobs": jobs, "pendingCommands": pending, "connectedScreens": connected, "serverTimezone": time.Local.String(), "deployment": map[string]any{"database": "configured", "mediaStorage": "configured", "ffmpeg": "available", "updateManifestTrust": updateTrust, "restartRequired": false}}})
 }
 func (s *server) systemMaintenance(w http.ResponseWriter, r *http.Request) {
 	action := strings.TrimSpace(chi.URLParam(r, "action"))
@@ -396,7 +396,7 @@ func (s *server) exportSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	org.Definitions = nil
-	export := settingsExport{1, time.Now().UTC(), "0.8.0", org, []map[string]any{}, []map[string]any{}}
+	export := settingsExport{1, time.Now().UTC(), version.Display(), org, []map[string]any{}, []map[string]any{}}
 	rows, err := s.db.Query(r.Context(), `SELECT screen_group_id,priority,revision,policy FROM screen_group_player_policies ORDER BY screen_group_id`)
 	if err != nil {
 		s.internalError(w, r, err)
