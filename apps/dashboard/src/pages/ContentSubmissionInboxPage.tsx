@@ -34,7 +34,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   Empty,
   EmptyDescription,

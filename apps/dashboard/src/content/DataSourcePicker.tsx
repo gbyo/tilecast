@@ -12,14 +12,7 @@
 //   3. Show the data, not just its name. The selected source reports status, cached record
 //      count, and sample values.
 import { useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Database,
-  Plus,
-  X,
-} from "lucide-react";
+import { Check, ChevronRight, Database, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -29,9 +22,10 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   Dialog,
   DialogContent,
@@ -234,7 +228,7 @@ function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
           </strong>
           <small className="text-xs text-muted-foreground">{guide.shape}</small>
         </span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <CollapsibleChevron size={16} />
       </CollapsibleTrigger>
       <CollapsibleContent className="grid gap-2 px-1 pt-2">
         <p className="text-sm text-muted-foreground">{guide.summary}</p>

@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Airplay,
   CircleAlert,
-  ChevronDown,
   ChevronRight,
   Grid2X2,
   Link2,
@@ -85,9 +84,10 @@ import { Button, buttonVariants } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1468,10 +1468,10 @@ export function ScreenListContent({
     setOrientation("");
     setUpdate("");
   };
-  const toggleCollapsed = (key: string) => {
+  const setGroupCollapsed = (key: string, isCollapsed: boolean) => {
     const next = new Set(collapsed);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    if (isCollapsed) next.add(key);
+    else next.delete(key);
     setCollapsed(next);
     storageSet(
       "session",
@@ -1904,26 +1904,29 @@ export function ScreenListContent({
               selected.has(screen.id),
             );
             return (
-              <section className="min-w-0 space-y-2" key={group.key}>
+              <Collapsible
+                key={group.key}
+                open={!isCollapsed}
+                onOpenChange={(open) => setGroupCollapsed(group.key, !open)}
+                render={<section className="min-w-0 space-y-2" />}
+              >
                 {groupBy !== "none" && (
                   <header className="flex flex-wrap items-center gap-2 border-b border-border py-2">
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-expanded={!isCollapsed}
-                      aria-label={
-                        isCollapsed
-                          ? t("list.expandGroup", { label: group.label })
-                          : t("list.collapseGroup", { label: group.label })
+                    <CollapsibleTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={
+                            isCollapsed
+                              ? t("list.expandGroup", { label: group.label })
+                              : t("list.collapseGroup", { label: group.label })
+                          }
+                        />
                       }
-                      onClick={() => toggleCollapsed(group.key)}
                     >
-                      {isCollapsed ? (
-                        <ChevronRight size={16} aria-hidden="true" />
-                      ) : (
-                        <ChevronDown size={16} aria-hidden="true" />
-                      )}
-                    </Button>
+                      <CollapsibleChevron orientation="right" size={16} />
+                    </CollapsibleTrigger>
                     {canManage && (
                       <Checkbox
                         aria-label={t("list.selectGroup", {
@@ -1954,43 +1957,45 @@ export function ScreenListContent({
                     <GroupHealth screens={group.screens} />
                   </header>
                 )}
-                {!isCollapsed && view === "table" && (
-                  <div className="min-w-0">
-                    <ScreenFleetTable
-                      screens={group.screens}
-                      canManage={canManage}
-                      selectedIds={selected}
-                      csrfToken={csrfToken}
-                      onSelectionChange={(id, checked) => {
-                        const next = new Set(selected);
-                        if (checked) next.add(id);
-                        else next.delete(id);
-                        setSelected(next);
-                      }}
-                    />
-                  </div>
-                )}
-                {!isCollapsed && view === "grid" && (
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
-                    {group.screens.map((screen) => (
-                      <ScreenGridCard
-                        key={screen.id}
-                        screen={screen}
-                        csrfToken={csrfToken}
-                        selected={selected.has(screen.id)}
+                <CollapsibleContent className="min-w-0">
+                  {view === "table" && (
+                    <div className="min-w-0">
+                      <ScreenFleetTable
+                        screens={group.screens}
                         canManage={canManage}
-                        showLocation={groupBy !== "location"}
-                        onSelect={(checked) => {
+                        selectedIds={selected}
+                        csrfToken={csrfToken}
+                        onSelectionChange={(id, checked) => {
                           const next = new Set(selected);
-                          if (checked) next.add(screen.id);
-                          else next.delete(screen.id);
+                          if (checked) next.add(id);
+                          else next.delete(id);
                           setSelected(next);
                         }}
                       />
-                    ))}
-                  </div>
-                )}
-              </section>
+                    </div>
+                  )}
+                  {view === "grid" && (
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
+                      {group.screens.map((screen) => (
+                        <ScreenGridCard
+                          key={screen.id}
+                          screen={screen}
+                          csrfToken={csrfToken}
+                          selected={selected.has(screen.id)}
+                          canManage={canManage}
+                          showLocation={groupBy !== "location"}
+                          onSelect={(checked) => {
+                            const next = new Set(selected);
+                            if (checked) next.add(screen.id);
+                            else next.delete(screen.id);
+                            setSelected(next);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </div>
@@ -4009,7 +4014,7 @@ export function ScreenDetailPage() {
               <Collapsible className="border-t border-border pt-3">
                 <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   {t("detail.diagnostics")}
-                  <ChevronDown size={16} aria-hidden="true" />
+                  <CollapsibleChevron size={16} />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
