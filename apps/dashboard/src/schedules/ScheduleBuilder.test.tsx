@@ -220,7 +220,9 @@ describe("ScheduleBuilder presentation picker", () => {
       pageSize: 100,
     };
     vi.spyOn(api, "playlists").mockResolvedValue(morningPage);
-    const playlists = vi.spyOn(api, "playlistPage").mockResolvedValue(morningPage);
+    const playlists = vi
+      .spyOn(api, "playlistPage")
+      .mockResolvedValue(morningPage);
     const user = userEvent.setup();
     renderEditor();
 
