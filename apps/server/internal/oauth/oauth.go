@@ -343,12 +343,27 @@ func (s *Service) issueTokens(ctx context.Context, tx pgx.Tx, grantID uuid.UUID)
 	return Tokens{AccessToken: accessSecret, RefreshToken: refreshSecret, ExpiresAt: expires}, refreshHash, nil
 }
 
-// Refresh rotates a refresh token: the presented secret dies, a new pair
+// Refresh rotates a refresh token for the general token endpoint. The
+// tilecast-ios client refreshes through its own session endpoint, so its
+// refresh tokens are refused here before anything is consumed.
+func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+	return s.refresh(ctx, refreshSecret, func(clientID string) bool { return clientID != ClientIOS })
+}
+
+// RefreshForClient rotates a refresh token only when its grant belongs to
+// clientID. A token issued to any other client is refused before it is
+// consumed, rotated, or checked for reuse, so presenting it at the wrong
+// endpoint changes nothing.
+func (s *Service) RefreshForClient(ctx context.Context, clientID, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+	return s.refresh(ctx, refreshSecret, func(grantClientID string) bool { return grantClientID == clientID })
+}
+
+// refresh rotates a refresh token: the presented secret dies, a new pair
 // is issued, and any reuse of an already-rotated secret revokes the whole
 // grant and reports reuse. The row lock (FOR UPDATE) makes the consume
 // atomic: two concurrent refreshes serialize, the loser observes used_at
 // and takes the reuse path, so one secret can never mint two pairs.
-func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+func (s *Service) refresh(ctx context.Context, refreshSecret string, allowClient func(string) bool) (Tokens, uuid.UUID, bool, error) {
 	if !strings.HasPrefix(refreshSecret, RefreshPrefix) {
 		return Tokens{}, uuid.Nil, false, ErrTokenExpired
 	}
@@ -360,9 +375,15 @@ func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uu
 	var grantID uuid.UUID
 	var usedAt *time.Time
 	var expiresAt time.Time
-	err = tx.QueryRow(ctx, `SELECT grant_id,used_at,expires_at FROM oauth_refresh_tokens WHERE token_hash=$1 FOR UPDATE`, hashSecret(refreshSecret)).Scan(&grantID, &usedAt, &expiresAt)
+	var clientID *string
+	err = tx.QueryRow(ctx, `SELECT t.grant_id,t.used_at,t.expires_at,g.client_id FROM oauth_refresh_tokens t
+		JOIN api_grants g ON g.id=t.grant_id
+		WHERE t.token_hash=$1 AND g.kind='oauth' FOR UPDATE OF t`, hashSecret(refreshSecret)).Scan(&grantID, &usedAt, &expiresAt, &clientID)
 	if err != nil {
 		return Tokens{}, uuid.Nil, false, ErrTokenExpired
+	}
+	if clientID == nil || !allowClient(*clientID) {
+		return Tokens{}, uuid.Nil, false, ErrClientMismatch
 	}
 	if usedAt != nil {
 		if _, err := tx.Exec(ctx, `UPDATE api_grants SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`, grantID); err != nil {
