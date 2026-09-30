@@ -222,7 +222,7 @@ describe("Data Source card actions", () => {
 
     await waitFor(() =>
       expect(
-        list.mock.calls.some((call) => call[0].get("provider") === "rss"),
+        list.mock.calls.some((call) => call[0]?.get("provider") === "rss"),
       ).toBe(true),
     );
     expect(
