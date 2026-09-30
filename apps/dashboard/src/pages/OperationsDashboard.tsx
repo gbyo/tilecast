@@ -15,25 +15,27 @@ import {
   deriveAttention,
   summarizeFleet,
 } from "../components/overview/attention";
-import { ContentHealthCard } from "../components/overview/ContentHealthCard";
+import { ContentHealthSection } from "../components/overview/ContentHealthSection";
 import {
-  FleetStatusCard,
+  FleetStatus,
   FleetStatusSkeleton,
   type ConfirmedPlaying,
-} from "../components/overview/FleetStatusCard";
+} from "../components/overview/FleetStatus";
 import {
   LastDayCard,
   type QueryStatus,
 } from "../components/overview/LastDayCard";
-import { NeedsAttentionCard } from "../components/overview/NeedsAttentionCard";
-import { OnAirCard } from "../components/overview/OnAirCard";
-import { PlayerUpdatesCard } from "../components/overview/PlayerUpdatesCard";
-import { UpcomingCard } from "../components/overview/UpcomingCard";
+import { NeedsAttention } from "../components/overview/NeedsAttention";
+import { OnAirSection } from "../components/overview/OnAirSection";
+import { PlayerUpdatesSection } from "../components/overview/PlayerUpdatesSection";
+import { UpcomingSection } from "../components/overview/UpcomingSection";
 import { upcomingChanges } from "../components/overview/upcoming";
 import { summarizeUpdates } from "../components/overview/updates";
 import { useNow } from "../components/overview/format";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Card } from "../components/ui/card";
 import { buttonVariants } from "../components/ui/button";
+import { Separator } from "../components/ui/separator";
 import {
   Empty,
   EmptyContent,
@@ -95,6 +97,13 @@ export function OperationsDashboard() {
     queryFn: () => getPlaybackCompliance({ ...lastDay(), dimension: "reason" }),
     refetchInterval: 300_000,
   });
+  // The same query Fleet health issues for its default window, so the
+  // summary sparklines share its cache instead of adding a request.
+  const uptime = useQuery({
+    queryKey: ["fleet-uptime", "24h"],
+    queryFn: () => api.fleetUptime("24h"),
+    refetchInterval: 60_000,
+  });
   const contentHealth = useQuery({
     queryKey: ["content-health"],
     queryFn: api.contentHealth,
@@ -135,9 +144,9 @@ export function OperationsDashboard() {
     !screens.isLoading && !screens.isError && allScreens.length === 0;
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-3 sm:space-y-4">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+    <div className="mx-auto w-full max-w-[1500px] space-y-4">
+      <header className="grid gap-0.5">
+        <h1 className="text-xl leading-tight font-semibold tracking-tight sm:text-2xl">
           {t("operations.title")}
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -183,54 +192,78 @@ export function OperationsDashboard() {
         <>
           {screens.isLoading && <FleetStatusSkeleton />}
           {!screens.isLoading && !screens.isError && (
-            <>
-              <FleetStatusCard
-                summary={summary}
-                attentionCount={attention.length}
-                attentionPending={incidents.isLoading}
-                confirmed={confirmed}
-              />
-              <NeedsAttentionCard
-                items={attention}
-                incidentsFailed={incidents.isError}
-              />
-            </>
+            <FleetStatus
+              summary={summary}
+              attentionCount={attention.length}
+              attentionPending={incidents.isLoading}
+              confirmed={confirmed}
+              trend={uptime.data?.buckets}
+            />
           )}
 
-          <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
-            <div className="grid min-w-0 gap-3 sm:gap-4 xl:row-span-2">
-              {!screens.isError && (
-                <OnAirCard screens={allScreens} isLoading={screens.isLoading} />
+          {/* One DOM order at every width. Once the content area (not the
+              window) is wide enough, the page is a primary column (attention,
+              then uptime beside the last-day figures) and a supporting rail
+              that spans both rows. The second row takes any extra height, so
+              a tall rail never opens a gap under the attention list, and with
+              nothing to attend to the uptime row moves up to the top. */}
+          <div className="@container/overview">
+            <div className="grid items-start gap-4 @min-[40rem]/overview:grid-cols-[minmax(0,1.55fr)_minmax(19rem,0.75fr)] @min-[40rem]/overview:grid-rows-[auto_1fr]">
+              {!screens.isLoading && !screens.isError && (
+                <div className="min-w-0 empty:hidden @min-[40rem]/overview:col-start-1">
+                  <NeedsAttention
+                    items={attention}
+                    incidentsFailed={incidents.isError}
+                  />
+                </div>
               )}
-              <UpcomingCard
-                changes={upcoming}
-                defaultTimezone={schedules.data?.defaultTimezone ?? "UTC"}
-                isLoading={schedules.isLoading}
-                isError={schedules.isError}
-                loaded={schedules.data?.items.length ?? 0}
-                total={schedules.data?.total ?? 0}
-              />
-            </div>
-            <div className="grid min-w-0 gap-3 sm:gap-4">
-              <LastDayCard
-                overview={overview.data}
-                overviewStatus={status(overview)}
-                compliance={compliance.data}
-                complianceStatus={status(compliance)}
-              />
-              <PlayerUpdatesCard
-                summary={updates}
-                isLoading={deployments.isLoading}
-                isError={deployments.isError}
-              />
-              <ContentHealthCard
-                report={contentHealth.data}
-                isLoading={contentHealth.isLoading}
-                isError={contentHealth.isError}
-              />
-            </div>
-            <div className="min-w-0 lg:col-span-2 xl:col-span-1">
-              <FleetUptimePanel />
+              <Card
+                size="sm"
+                className="min-w-0 gap-0 py-0 @min-[40rem]/overview:col-start-2 @min-[40rem]/overview:row-span-2 @min-[40rem]/overview:row-start-1"
+              >
+                {!screens.isError && (
+                  <>
+                    <OnAirSection
+                      screens={allScreens}
+                      isLoading={screens.isLoading}
+                    />
+                    <Separator />
+                  </>
+                )}
+                <UpcomingSection
+                  changes={upcoming}
+                  defaultTimezone={schedules.data?.defaultTimezone ?? "UTC"}
+                  isLoading={schedules.isLoading}
+                  isError={schedules.isError}
+                  loaded={schedules.data?.items.length ?? 0}
+                  total={schedules.data?.total ?? 0}
+                />
+                <Separator />
+                <ContentHealthSection
+                  report={contentHealth.data}
+                  isLoading={contentHealth.isLoading}
+                  isError={contentHealth.isError}
+                />
+                <Separator />
+                <PlayerUpdatesSection
+                  summary={updates}
+                  isLoading={deployments.isLoading}
+                  isError={deployments.isError}
+                />
+              </Card>
+              <div className="@container/lower min-w-0 @min-[40rem]/overview:col-start-1">
+                <div className="grid items-start gap-4 @min-[42rem]/lower:grid-cols-[minmax(0,1fr)_15rem]">
+                  <div className="min-w-0">
+                    <FleetUptimePanel />
+                  </div>
+                  <LastDayCard
+                    overview={overview.data}
+                    overviewStatus={status(overview)}
+                    compliance={compliance.data}
+                    complianceStatus={status(compliance)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </>
