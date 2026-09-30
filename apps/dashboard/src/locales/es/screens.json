@@ -88,7 +88,18 @@
       "dialogNameLabel": "Nombre del grupo",
       "dialogDescriptionLabel": "Descripción",
       "dialogDescriptionHint": "Las pantallas de este grupo comparten contenido alternativo, programaciones y posición de reproducción.",
-      "dialogCreateAction": "Crear grupo"
+      "dialogCreateAction": "Crear grupo",
+      "tabsLabel": "Detalles del grupo de pantallas",
+      "tabOverview": "Resumen",
+      "tabMembers": "Miembros",
+      "tabContent": "Contenido",
+      "tabDisplay": "Pantalla",
+      "tabPolicy": "Política",
+      "unsavedBadge": "Sin guardar",
+      "discardTitle": "¿Descartar los ajustes del grupo sin guardar?",
+      "discardBody": "Tus ediciones de política del grupo no se han guardado. ¿Descartarlas y continuar?",
+      "keepEditing": "Seguir editando",
+      "discardAction": "Descartar cambios"
     }
   },
   "shared": {
