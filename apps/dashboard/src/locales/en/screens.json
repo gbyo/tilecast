@@ -734,7 +734,10 @@
     "groups": "Display Groups",
     "noGroups": "No Display Groups exist.",
     "saved": "Screen scope saved.",
-    "saveAction": "Save screen scope"
+    "saveAction": "Save screen scope",
+    "searchLabel": "Search places",
+    "searchPlaceholder": "Filter locations and Display Groups",
+    "noMatch": "No places match this search."
   },
   "archive": {
     "title": "Screen archive",
