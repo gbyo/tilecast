@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentSubmissionInboxPage } from "./ContentSubmissionInboxPage";
 import { api } from "../api/client";
+import { formatLocale, i18n } from "../i18n";
 import type { ContentSubmission } from "../api/types";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -50,9 +51,10 @@ function renderPage() {
 }
 
 describe("Content submission inbox", () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    if (i18n.language !== "en") await i18n.changeLanguage("en");
   });
 
   it("lists submissions in a table and approves from the review sheet", async () => {
@@ -81,6 +83,41 @@ describe("Content submission inbox", () => {
 
     await waitFor(() => expect(approve).toHaveBeenCalled());
     expect(approve.mock.calls[0]).toMatchObject(["s1", "", "csrf"]);
+  });
+
+  it("formats submission timestamps with the Studio locale in every review surface", async () => {
+    await i18n.changeLanguage("ru");
+    const locale = formatLocale("ru");
+    const formattedDate = new Date(submission.submittedAt).toLocaleString(
+      locale,
+    );
+    const dateFormat = vi.spyOn(Date.prototype, "toLocaleString");
+    vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [submission],
+    });
+    renderPage();
+
+    const dateLabels = () =>
+      screen.getAllByText((content) => content.includes(formattedDate));
+    await waitFor(() => expect(dateLabels()).toHaveLength(2));
+    expect(
+      dateFormat.mock.calls.filter(([usedLocale]) => usedLocale === locale)
+        .length,
+    ).toBeGreaterThanOrEqual(2);
+
+    const user = userEvent.setup();
+    const reviewLabel = i18n.t("submissions.table.reviewAction", {
+      ns: "review",
+    });
+    await user.click(screen.getAllByRole("button", { name: reviewLabel })[0]!);
+    await waitFor(() => expect(dateLabels()).toHaveLength(3));
+    expect(
+      dateFormat.mock.calls.filter(([usedLocale]) => usedLocale === locale)
+        .length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it("requires a reason before sending a submission back", async () => {

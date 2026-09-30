@@ -17,6 +17,7 @@ import type {
   SubmissionStatus,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
 import { DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -93,6 +94,7 @@ const columnHelper = createColumnHelper<typeof features, ContentSubmission>();
 
 export function ContentSubmissionInboxPage() {
   const { t } = useTranslation(["review", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const role = auth.status?.user?.role ?? "viewer";
@@ -251,7 +253,7 @@ export function ContentSubmissionInboxPage() {
                   {submissionMeta(
                     t,
                     item,
-                    new Date(item.submittedAt).toLocaleString(),
+                    new Date(item.submittedAt).toLocaleString(formatLocale),
                   )}
                 </span>
               </div>
@@ -299,7 +301,7 @@ export function ContentSubmissionInboxPage() {
           ),
         }),
       ]),
-    [t],
+    [formatLocale, t],
   );
   const table = useTable({
     features,
@@ -407,7 +409,7 @@ export function ContentSubmissionInboxPage() {
                       {submissionMeta(
                         t,
                         item,
-                        new Date(item.submittedAt).toLocaleString(),
+                        new Date(item.submittedAt).toLocaleString(formatLocale),
                       )}
                     </p>
                   </div>
@@ -497,7 +499,7 @@ export function ContentSubmissionInboxPage() {
                 {submissionMeta(
                   t,
                   selected,
-                  new Date(selected.submittedAt).toLocaleString(),
+                  new Date(selected.submittedAt).toLocaleString(formatLocale),
                 )}
               </SheetDescription>
             </SheetHeader>
