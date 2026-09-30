@@ -76,7 +76,7 @@ while true; do
   mem_available_mib="$(awk '/MemAvailable:/ {printf "%d", $2 / 1024}' /proc/meminfo)"
   disk_available_gib="$(df -Pk "$disk_path" | awk 'NR == 2 {printf "%d", $4 / 1024 / 1024}')"
 
-  load_ok="$(awk -v load="$load_1m" -v cpus="$cpu_count" -v max="$max_load_per_cpu" 'BEGIN { print ((load / cpus) <= max) ? "yes" : "no" }')"
+  load_ok="$(awk -v host_load="$load_1m" -v cpus="$cpu_count" -v max="$max_load_per_cpu" 'BEGIN { print ((host_load / cpus) <= max) ? "yes" : "no" }')"
 
   if [[ "$load_ok" == "yes" ]] &&
      (( mem_available_mib >= min_mem_mib )) &&
