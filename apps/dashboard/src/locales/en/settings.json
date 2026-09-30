@@ -1025,6 +1025,7 @@
   },
   "page": {
     "loading": "Loading settings…",
+    "loadError": "Settings could not be loaded.",
     "leaveWarning": "Leave Settings with unsaved changes?",
     "leaveSectionTitle": "This section has unsaved changes. Keep them and open another Settings section?",
     "leaveSectionAction": "Discard changes",

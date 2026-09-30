@@ -1025,6 +1025,7 @@
   },
   "page": {
     "loading": "Cargando configuración…",
+    "loadError": "No se pudo cargar la configuración.",
     "leaveWarning": "¿Salir de Configuración con cambios sin guardar?",
     "leaveSectionTitle": "Esta sección tiene cambios sin guardar. ¿Conservarlos y abrir otra sección de Configuración?",
     "leaveSectionAction": "Descartar cambios",
