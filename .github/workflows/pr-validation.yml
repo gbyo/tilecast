@@ -20,7 +20,7 @@ permissions:
 jobs:
   changes:
     name: Detect changed areas
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}
+    runs-on: ${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}
     outputs:
       linux_runner: ${{ steps.runner.outputs.linux_runner }}
       android: ${{ steps.paths.outputs.android }}
@@ -39,7 +39,7 @@ jobs:
     steps:
       - name: Select Linux runner
         id: runner
-        run: echo "linux_runner=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}" >> "$GITHUB_OUTPUT"
+        run: echo "linux_runner=${{ github.event_name == 'pull_request' && github.head_ref != 'ci/trusted-pr-overflow' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == 'gbyo' && github.actor == 'gbyo' && 'tilecast-overflow' || 'ubuntu-latest' }}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
