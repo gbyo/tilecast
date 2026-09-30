@@ -39,6 +39,16 @@ function typedRecords(): TypedRecordData {
     usingCachedData: false,
     attribution: "League feed",
     unavailable: false,
+    dateField: "playedAt",
+    dateSelection: {
+      enabled: true,
+      dateFormat: "iso_date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    },
   };
 }
 
@@ -72,7 +82,20 @@ describe("previewToDataDocument", () => {
     const second = dataset?.records?.[1]?.values;
     expect(second?.["goals"]).toEqual({ kind: "text", text: "many" });
     expect(second?.["live"]).toEqual({ kind: "text", text: "yes" });
-    expect(document?.cache?.usingCachedData).toBe(false);
+    expect(dataset?.cache).toEqual({
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      unavailable: false,
+    });
+    expect(dataset?.timezone).toBe("America/New_York");
+    expect(dataset?.dateSelection).toEqual({
+      field: "playedAt",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    });
   });
 
   it("projects typed dataset payloads with datasets and attribution", () => {
@@ -84,6 +107,10 @@ describe("previewToDataDocument", () => {
           fields: [{ key: "home", label: "Home", type: "text" }],
           records: [{ id: "r1", values: { home: "Riverside" } }],
           attribution: "League feed",
+          cachedAt: "2026-09-28T15:00:00Z",
+          staleAt: "2026-09-28T16:00:00Z",
+          timezone: "Europe/London",
+          units: { temperature: "C" },
           usingCachedData: false,
           unavailable: false,
         },
@@ -94,6 +121,17 @@ describe("previewToDataDocument", () => {
     expect(document?.datasets[0]?.records?.[0]?.values["home"]).toEqual({
       kind: "text",
       text: "Riverside",
+    });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      attribution: "League feed",
+      timezone: "Europe/London",
+      units: { temperature: "C" },
     });
   });
 
@@ -115,7 +153,9 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: true,
         },
+        timezone: "America/New_York",
       },
     } as unknown as CalendarPreview;
     const document = previewToDataDocument(preview);
@@ -128,6 +168,15 @@ describe("previewToDataDocument", () => {
     expect(values?.["location"]).toEqual({
       kind: "text",
       text: "Stadium",
+    });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: true,
+      },
+      timezone: "America/New_York",
     });
   });
 
@@ -146,6 +195,15 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
+        },
+        dateSelection: {
+          enabled: true,
+          dateFormat: "iso_date",
+          timezone: "America/Los_Angeles",
+          mode: "current_week",
+          excludePast: true,
+          noMatchBehavior: "empty",
         },
       },
     } as unknown as StructuredPreview;
@@ -154,6 +212,22 @@ describe("previewToDataDocument", () => {
     expect(values?.["title"]).toEqual({ kind: "text", text: "Win" });
     expect(values?.["subtitle"]).toEqual({ kind: "text", text: "League" });
     expect(values?.["league"]).toEqual({ kind: "text", text: "Premier" });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      timezone: "America/Los_Angeles",
+      dateSelection: {
+        field: "date",
+        timezone: "America/Los_Angeles",
+        mode: "current_week",
+        excludePast: true,
+        noMatchBehavior: "empty",
+      },
+    });
   });
 
   it("returns null for unknown shapes instead of guessing", () => {

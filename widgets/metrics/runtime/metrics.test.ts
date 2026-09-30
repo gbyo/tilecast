@@ -52,7 +52,15 @@ const fields = [
 function recordsDocument(
   records: WidgetDataDocument["datasets"][number]["records"],
 ): Record<string, WidgetDataDocument> {
-  return documentWith([{ id: "records", kind: "records", fields, records }]);
+  return documentWith([
+    {
+      id: "records",
+      kind: "records",
+      cache: { usingCachedData: false, unavailable: false },
+      fields,
+      records,
+    },
+  ]);
 }
 
 const values = {
@@ -178,6 +186,7 @@ describe("Metrics data resolution", () => {
           {
             id: "object",
             kind: "object",
+            cache: { usingCachedData: false, unavailable: false },
             fields,
             value: { kind: "object", object: values },
           },
@@ -250,7 +259,13 @@ describe("Metrics data resolution", () => {
       base,
       fixtureResources({
         documents: documentWith([
-          { id: "series", kind: "time_series", fields, points: [] },
+          {
+            id: "series",
+            kind: "time_series",
+            cache: { usingCachedData: false, unavailable: false },
+            fields,
+            points: [],
+          },
         ]),
       }),
     );
@@ -309,6 +324,7 @@ describe("Metrics rendering", () => {
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             {
               key: "budget",

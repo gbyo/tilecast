@@ -41,6 +41,7 @@ function documentWith(
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "title", label: "Title", type: "text" },
             {
@@ -201,6 +202,7 @@ describe("Table data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 2 },
           },
         ],

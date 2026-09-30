@@ -33,6 +33,7 @@ function documentWith(
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "title", label: "Title", type: "text" },
             { key: "detail", label: "Detail", type: "text" },
@@ -158,6 +159,7 @@ describe("List data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 2 },
           },
         ],

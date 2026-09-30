@@ -244,6 +244,7 @@ describe("WidgetMount", () => {
               {
                 id: "rows",
                 kind: "records",
+                cache: { usingCachedData: false, unavailable: false },
                 attribution,
                 records: [],
               },

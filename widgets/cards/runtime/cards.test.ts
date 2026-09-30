@@ -63,7 +63,13 @@ function documents(): Record<string, WidgetDataDocument> {
     [SOURCE]: {
       schemaVersion: 1,
       datasets: [
-        { id: "records", kind: "records", fields, records: [...records] },
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields,
+          records: [...records],
+        },
       ],
     },
   };
@@ -157,7 +163,13 @@ describe("Cards data resolution", () => {
             [SOURCE]: {
               schemaVersion: 1,
               datasets: [
-                { id: "records", kind: "records", fields, records: [] },
+                {
+                  id: "records",
+                  kind: "records",
+                  cache: { usingCachedData: false, unavailable: false },
+                  fields,
+                  records: [],
+                },
               ],
             },
           },
@@ -174,6 +186,7 @@ describe("Cards data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 2 },
           },
         ],
@@ -211,7 +224,15 @@ describe("Cards element", () => {
         documents: {
           [SOURCE]: {
             schemaVersion: 1,
-            datasets: [{ id: "records", kind: "records", fields, records: [] }],
+            datasets: [
+              {
+                id: "records",
+                kind: "records",
+                cache: { usingCachedData: false, unavailable: false },
+                fields,
+                records: [],
+              },
+            ],
           },
         },
       },
