@@ -22,7 +22,10 @@ set -- \
   apps/player-android/app/src/main/java/org/tilecast/player/network/PresentationCapabilities.gen.kt \
   apps/server/internal/presentationcaps/capabilities.gen.go \
   packages/api-client/internal/generated \
-  packages/api-schema/generated
+  packages/api-schema/generated \
+  apps/ios/Tilecast/Resources/Assets.xcassets/Lucide \
+  apps/ios/TilecastKit/Sources/TilecastCore/Navigation/NavigationIconImages.gen.swift \
+  apps/ios/Tilecast/App/AppIcon.gen.swift
 
 git diff --exit-code -- "$@"
 untracked="$(git ls-files --others --exclude-standard -- "$@")"

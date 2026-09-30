@@ -3,7 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MyAccountPage } from "./MyAccountPage";
@@ -68,9 +68,16 @@ function renderPage(initialEntry = "/account") {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <MyAccountPage />
-      </MemoryRouter>
+      {/* A data router, as in Studio: the preferences leave warning blocks
+          navigation with useBlocker. */}
+      <RouterProvider
+        router={createMemoryRouter(
+          [{ path: "*", element: <MyAccountPage /> }],
+          {
+            initialEntries: [initialEntry],
+          },
+        )}
+      />
     </QueryClientProvider>,
   );
 }
