@@ -15,7 +15,10 @@ struct PresentationSheet: View {
     let presentationID: String
     /// iPad sizing is chosen once, from the size the presentation opened
     /// with. Detents follow later updates.
-    let openedCompact: Bool
+    /// State, not a `let`: SwiftUI gives this view a new value each time the
+    /// descriptor changes, and a sizing branch that flips while the sheet
+    /// shows rebuilds its content, which traps on a second WebView.
+    @State private var openedCompact: Bool
     @State private var detent: PresentationDetent
     /// The last descriptor, so the sheet keeps its chrome while it animates
     /// away after the presentation ended.
@@ -26,7 +29,7 @@ struct PresentationSheet: View {
     init(coordinator: PresentationCoordinator, presentation: NativePresentation) {
         self.coordinator = coordinator
         presentationID = presentation.id
-        openedCompact = presentation.size == .compact
+        _openedCompact = State(initialValue: presentation.size == .compact)
         _detent = State(initialValue: presentation.size == .compact ? .medium : .large)
         _last = State(initialValue: presentation)
     }
@@ -39,6 +42,12 @@ struct PresentationSheet: View {
 
     private var size: PresentationSize { presentation?.size ?? .full }
 
+    /// Once Studio asks for the full height, the selection is the large
+    /// detent in the same pass, so it is always one of the sheet's detents.
+    private var selection: Binding<PresentationDetent> {
+        Binding(get: { size == .full ? .large : detent }, set: { detent = $0 })
+    }
+
     var body: some View {
         NavigationStack {
             content
@@ -47,13 +56,14 @@ struct PresentationSheet: View {
                 .toolbar { toolbar }
         }
         // Compact starts at half height and can grow. Studio can ask a
-        // compact sheet to grow, for example under a dialog; the app never
-        // shrinks a sheet the user is using.
-        .presentationDetents(size == .compact ? [.medium, .large] : [.large], selection: $detent)
-        .presentationDragIndicator(size == .compact ? .visible : .hidden)
+        // compact sheet to grow, for example under a dialog. Only the
+        // selection moves: changing the set of detents, or the drag
+        // indicator, while the sheet shows makes SwiftUI rebuild its
+        // content, and a second WebView for the same page traps in WebKit.
+        .presentationDetents(openedCompact ? [.medium, .large] : [.large], selection: selection)
+        .presentationDragIndicator(openedCompact ? .visible : .hidden)
         .modifier(PresentationSizingChoice(compact: openedCompact))
         .interactiveDismissDisabled(presentation?.isDismissible == false)
-        .onChange(of: size) { if size == .full { detent = .large } }
         .onChange(of: coordinator.presentation) {
             if let current = coordinator.presentation, current.id == presentationID { last = current }
         }
