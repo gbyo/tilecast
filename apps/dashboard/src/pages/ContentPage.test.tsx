@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
@@ -18,11 +19,23 @@ import {
   AssetOrganization,
   canManageContent,
   ContentEmpty,
+  ContentOrganizer,
+  ContentPage,
   CreateOrganizerDialog,
   isExpiredAsset,
   nextExpirationDelay,
   statusLabel,
 } from "./ContentPage";
+
+const authStatus = {
+  authenticated: true,
+  csrfToken: "csrf-token",
+  user: { id: "user-1", name: "Owner", role: "owner" },
+};
+
+vi.mock("../auth/AuthProvider", () => ({
+  useAuth: () => ({ status: authStatus }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -592,5 +605,199 @@ describe("create organizer dialog", () => {
         "csrf-token",
       ),
     );
+  });
+});
+
+describe("content organizer entry point", () => {
+  const folder = {
+    id: "folder-1",
+    name: "Campus A",
+    description: "",
+    assetCount: 2,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  };
+
+  function renderOrganizer(
+    overrides: Partial<React.ComponentProps<typeof ContentOrganizer>> = {},
+  ) {
+    return render(
+      withQueryClient(
+        <ContentOrganizer
+          csrf="csrf-token"
+          folders={[folder]}
+          collections={[]}
+          tags={[]}
+          assetIds={[]}
+          onApplied={vi.fn()}
+          onCatalogChanged={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClear={vi.fn()}
+          archiveMode={false}
+          onArchive={vi.fn()}
+          onRestore={vi.fn()}
+          onDelete={vi.fn()}
+          {...overrides}
+        />,
+      ),
+    );
+  }
+
+  it("keeps creation and management behind one entry point", async () => {
+    const user = userEvent.setup();
+    renderOrganizer();
+
+    expect(
+      screen.queryByRole("button", { name: "Create folder" }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Content organization" }),
+    );
+    const menu = await screen.findByRole("menu", {
+      name: "Content organization",
+    });
+    expect(
+      within(menu).getByRole("menuitem", { name: "Create folder" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Create collection" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Create tag" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("menuitem", { name: "Manage" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(menu).getByRole("menuitem", { name: "Create folder" }),
+    );
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByLabelText("Folder name")).toBeInTheDocument();
+  });
+
+  it("omits Manage when the catalog is empty", async () => {
+    const user = userEvent.setup();
+    renderOrganizer({ folders: [], collections: [], tags: [] });
+
+    await user.click(
+      screen.getByRole("button", { name: "Content organization" }),
+    );
+    const menu = await screen.findByRole("menu", {
+      name: "Content organization",
+    });
+    expect(
+      within(menu).queryByRole("menuitem", { name: "Manage" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a selection as a compact fixed action bar", () => {
+    renderOrganizer({ assetIds: ["asset-1", "asset-2"] });
+
+    const bar = screen.getByRole("toolbar", { name: "2 selected" });
+    expect(bar.className).toContain("fixed");
+    expect(
+      within(bar).getByRole("button", { name: "Select page" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: "Clear" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: "Organize" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: "Archive" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Content organization" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens the organize dialog from the selection bar", async () => {
+    const user = userEvent.setup();
+    renderOrganizer({ assetIds: ["asset-1", "asset-2"] });
+
+    await user.click(screen.getByRole("button", { name: "Organize" }));
+    expect(
+      await screen.findByText("Organize 2 selected items"),
+    ).toBeInTheDocument();
+  });
+
+  it("offers restore and permanent delete in archive mode", () => {
+    renderOrganizer({ assetIds: ["asset-1"], archiveMode: true });
+
+    const bar = screen.getByRole("toolbar", { name: "1 selected" });
+    expect(
+      within(bar).getByRole("button", { name: "Restore" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: "Delete permanently" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).queryByRole("button", { name: "Organize" }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe("content library toolbar", () => {
+  it("filters through the shared filter bar with chips and clear-all", async () => {
+    const user = userEvent.setup();
+    const assets = vi
+      .spyOn(api, "assets")
+      .mockResolvedValue({ items: [] } as never);
+    vi.spyOn(api, "contentFolders").mockResolvedValue([
+      {
+        id: "folder-1",
+        name: "Campus A",
+        description: "",
+        assetCount: 2,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    vi.spyOn(api, "contentCollections").mockResolvedValue([]);
+    vi.spyOn(api, "contentTags").mockResolvedValue([]);
+    render(withQueryClient(<ContentPage />));
+
+    expect(
+      await screen.findByRole("searchbox", { name: "Search media" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Filter by status" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Filter by folder" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Sort media" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Reset filters" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("combobox", { name: "Filter by folder" }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Campus A (2)" }),
+    );
+    expect(
+      await screen.findByRole("button", {
+        name: "Remove filter Filter by folder: Campus A (2)",
+      }),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      const last = assets.mock.calls.at(-1)?.[0];
+      expect(last?.get("folderId")).toBe("folder-1");
+    });
+
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
+    await waitFor(() => {
+      const last = assets.mock.calls.at(-1)?.[0];
+      expect(last?.get("folderId")).toBeNull();
+    });
+    expect(
+      screen.queryByRole("button", { name: /Remove filter/ }),
+    ).not.toBeInTheDocument();
   });
 });

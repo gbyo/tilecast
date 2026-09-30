@@ -170,7 +170,6 @@
       "collectionOption": "{{name}} ({{count}})",
       "filterByStatus": "Filter by status",
       "folderOption": "{{name}} ({{count}})",
-      "resetFilters": "Reset filters",
       "search": "Search media",
       "sortMedia": "Sort media",
       "tagOption": "{{name}} ({{count}})",
