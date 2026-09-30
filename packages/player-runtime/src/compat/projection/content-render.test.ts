@@ -826,6 +826,38 @@ describe("renderLayout", () => {
           name: "Zone playlist",
           items: [
             {
+              id: "clock-widget",
+              assetId: "clock-widget",
+              variantId: "widget-json",
+              assetType: "widget",
+              fitMode: "contain",
+              transition: "none",
+              audioEnabled: false,
+              volume: 0,
+              deliveryPolicy: "stream",
+            },
+            {
+              id: "website",
+              assetId: "website",
+              assetType: "website",
+              fitMode: "contain",
+              transition: "none",
+              audioEnabled: false,
+              volume: 0,
+              deliveryPolicy: "stream",
+            },
+            {
+              id: "nested-layout",
+              assetId: "nested-layout",
+              layoutId: "nested-layout",
+              assetType: "layout",
+              fitMode: "contain",
+              transition: "none",
+              audioEnabled: false,
+              volume: 0,
+              deliveryPolicy: "stream",
+            },
+            {
               id: "future",
               assetId: "a1",
               variantId: "v1",
@@ -850,7 +882,30 @@ describe("renderLayout", () => {
               deliveryPolicy: "download",
               usePlayerDefaults: true,
             },
+            {
+              id: "video",
+              assetId: "video",
+              variantId: "video-v1",
+              assetType: "video",
+              fitMode: "contain",
+              transition: "none",
+              audioEnabled: false,
+              volume: 0,
+              deliveryPolicy: "download",
+              durationMs: 15_000,
+            },
           ],
+        },
+      ],
+      assets: [
+        ...manifest.assets,
+        {
+          assetId: "video",
+          variantId: "video-v1",
+          mimeType: "video/mp4",
+          sha256: "video-hash",
+          fileSize: 20,
+          downloadPath: "/api/v1/player/assets/video/variants/video-v1",
         },
       ],
     } as unknown as Manifest;
@@ -901,6 +956,7 @@ describe("renderLayout", () => {
         muted: true,
         volume: 0.25,
       },
+      { id: "video", kind: "video", durationMs: 15_000 },
     ]);
   });
 

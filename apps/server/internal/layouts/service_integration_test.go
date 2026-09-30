@@ -154,6 +154,71 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 	if _, err = service.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err == nil || !strings.Contains(err.Error(), "one visible video-capable") {
 		t.Fatalf("expected video capability validation, got %v", err)
 	}
+
+	widgetID, websiteID := uuid.New(), uuid.New()
+	for _, fixture := range []struct {
+		id       uuid.UUID
+		provider string
+	}{
+		{widgetID, "clock"},
+		{websiteID, "website"},
+	} {
+		if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)VALUES($1,$2,$3,'widget','widget.json','application/json',$4,100,'ready',$5)`, fixture.id, organizationID, fixture.provider, make([]byte, 32), owner.User.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,$2,1,'{}')`, fixture.id, fixture.provider); err != nil {
+			t.Fatal(err)
+		}
+	}
+	nestedLayout, err := service.Create(ctx, owner.User.ID, "Nested", "", "landscape", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nestedLayout, err = service.SaveDraft(ctx, nestedLayout.ID, owner.User.ID, nestedLayout.DraftRevision, validTestDocument())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Publish(ctx, nestedLayout.ID, owner.User.ID, nestedLayout.DraftRevision); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, fixture := range []struct {
+		name       string
+		assetID    *uuid.UUID
+		layoutID   *uuid.UUID
+		shouldPass bool
+	}{
+		{name: "image", assetID: &assetID, shouldPass: true},
+		{name: "video", assetID: &videoA, shouldPass: true},
+		{name: "Widget", assetID: &widgetID},
+		{name: "Website", assetID: &websiteID},
+		{name: "nested Layout", layoutID: &nestedLayout.ID},
+	} {
+		playlistID := uuid.New()
+		if _, err = pool.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,created_by)VALUES($1,$2,$3,$4)`, playlistID, organizationID, fixture.name, owner.User.ID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,layout_id,position)VALUES($1,$2,$3,$4,0)`, uuid.New(), playlistID, fixture.assetID, fixture.layoutID); err != nil {
+			t.Fatal(err)
+		}
+		zoneLayout, createErr := service.Create(ctx, owner.User.ID, "Zone "+fixture.name, "", "landscape", 1920, 1080)
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		zoneDocument := validTestDocument()
+		zoneDocument.Placements = append(zoneDocument.Placements, Placement{ID: uuid.New(), Type: "playlistZone", Name: fixture.name, X: 0, Y: 500, Width: 400, Height: 300, Layer: 4, Opacity: 1, Visible: true, PlaylistID: &playlistID})
+		zoneLayout, err = service.SaveDraft(ctx, zoneLayout.ID, owner.User.ID, zoneLayout.DraftRevision, zoneDocument)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = service.Publish(ctx, zoneLayout.ID, owner.User.ID, zoneLayout.DraftRevision)
+		if fixture.shouldPass && err != nil {
+			t.Fatalf("%s zone should publish: %v", fixture.name, err)
+		}
+		if !fixture.shouldPass && (err == nil || !strings.Contains(err.Error(), "only image and video items")) {
+			t.Fatalf("%s zone should be rejected, got %v", fixture.name, err)
+		}
+	}
 }
 
 // TestLayoutDataSourceBindingAndPlacementRules verifies that a text primitive may bind

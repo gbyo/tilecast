@@ -83,6 +83,10 @@ export function playlistPreviewDuration(item: PlaylistItem) {
   return item.assetType === "video" ? undefined : 10_000;
 }
 
+export function isPlaylistZoneMediaItem(item: PlaylistItem) {
+  return item.assetType === "image" || item.assetType === "video";
+}
+
 export function nextPlaylistPreviewIndex(
   index: number,
   length: number,
@@ -104,19 +108,15 @@ export function PlaylistZonePreview({
   placement,
   playlist,
   assetsById,
-  previewDate,
-  captureTracking,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
-  /** Layout-selected preview date, forwarded to V2 Widget zones. */
-  previewDate?: string;
-  /** Present only on the editor canvas, which Layout thumbnails capture. */
-  captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
-  const items = playlist.items.filter((item) => item.assetStatus === "ready");
+  const items = playlist.items.filter(
+    (item) => item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+  );
   const [index, setIndex] = useState(0);
   const current = items[index % Math.max(1, items.length)];
   const asset = current ? assetsById.get(current.assetId) : undefined;
@@ -145,7 +145,11 @@ export function PlaylistZonePreview({
       <div className="layout-playlist-zone">
         <ListVideo size={22} />
         <strong>{playlist.name}</strong>
-        <span>{t("preview.zoneEmpty")}</span>
+        <span>
+          {playlist.items.some((item) => item.assetStatus === "ready")
+            ? t("preview.zoneUnsupported")
+            : t("preview.zoneEmpty")}
+        </span>
       </div>
     );
   if (!asset)
@@ -158,19 +162,11 @@ export function PlaylistZonePreview({
   const fit = placement.playback?.fit ?? current.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${current.transition === "fade" || current.transition === "crossfade" ? " layout-playlist-preview--fade" : ""}`;
-  if (asset.type === "widget")
+  if (asset.type !== "image" && asset.type !== "video")
     return (
-      <div className={className} key={`${playlist.id}-${current.id}`}>
-        {asset.widget ? (
-          <WidgetLivePreview
-            asset={asset}
-            item={placement}
-            previewDate={previewDate}
-            captureTracking={captureTracking}
-          />
-        ) : (
-          <AppPlacementPreview asset={asset} item={placement} />
-        )}
+      <div className="layout-placement-placeholder">
+        <ListVideo size={22} />
+        <span>{t("preview.zoneUnsupported")}</span>
       </div>
     );
   if (asset.type === "video")

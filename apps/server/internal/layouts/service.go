@@ -599,6 +599,9 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 			}
 			audio = video && !muted
 		case "playlistZone":
+			if err := ValidatePlaylistZoneMediaOnly(ctx, tx, placement.PlaylistID); err != nil {
+				return err
+			}
 			if err := tx.QueryRow(ctx, `SELECT EXISTS(
 				SELECT 1 FROM playlist_items i LEFT JOIN assets a ON a.id=i.asset_id
 				LEFT JOIN widgets src ON src.asset_id=a.id
@@ -623,6 +626,29 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 	}
 	if audioEmitting > 1 {
 		return errors.New("layout may contain only one audio-emitting placement or playlist zone")
+	}
+	return nil
+}
+
+// ValidatePlaylistZoneMediaOnly rejects Playlist items that the bounded Player
+// zone contract cannot project. Keep this check available to assignment
+// readiness as well as Layout publication because a Playlist can change later.
+func ValidatePlaylistZoneMediaOnly(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, playlistID *uuid.UUID) error {
+	if playlistID == nil {
+		return errors.New("playlist zone is missing its playlist")
+	}
+	var unsupported bool
+	if err := q.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM playlist_items i
+		LEFT JOIN assets a ON a.id=i.asset_id
+		WHERE i.playlist_id=$1 AND (i.layout_id IS NOT NULL OR a.type NOT IN ('image','video'))
+	)`, *playlistID).Scan(&unsupported); err != nil {
+		return err
+	}
+	if unsupported {
+		return errors.New("Layout playlist zones support only image and video items")
 	}
 	return nil
 }

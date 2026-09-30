@@ -331,8 +331,11 @@ function buildZoneItems(
     if (!isAvailableAt(item, at)) {
       continue;
     }
-    if (item.layoutId || item.assetType === "website") {
-      continue; // nested layouts / websites not supported inside a zone
+    if (
+      item.layoutId ||
+      (item.assetType !== "image" && item.assetType !== "video")
+    ) {
+      continue; // zones support only image and video items
     }
     const asset = manifest.assets.find(
       (a) => a.assetId === item.assetId && a.variantId === item.variantId,
