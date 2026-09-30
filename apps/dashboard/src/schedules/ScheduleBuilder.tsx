@@ -799,7 +799,7 @@ function WeeklyTiming({
   return (
     <div className="schedule-timing-fields">
       <ToggleGroup
-        className="grid w-full grid-cols-7 gap-2 max-sm:grid-cols-4"
+        className="grid w-full grid-cols-7 gap-1 sm:gap-2"
         variant="outline"
         aria-label={t("timing.weekdaysLabel")}
         multiple
@@ -816,7 +816,7 @@ function WeeklyTiming({
               key={day.value}
               value={String(day.value)}
               aria-label={labels.long}
-              className="h-11 w-full"
+              className="h-11 min-w-0 w-full px-1 sm:px-2"
             >
               {labels.short}
             </ToggleGroupItem>
