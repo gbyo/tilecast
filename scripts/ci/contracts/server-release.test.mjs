@@ -20,9 +20,8 @@ test("development images never claim a stable alias", () => {
   assert.deepEqual(image.on.push.tags ?? [], []);
   assert.deepEqual(image.on.push.branches, ["main"]);
 
-  const tags = image.jobs.build.steps.find(
-    (step) => step.id === "meta",
-  ).with.tags;
+  const tags = image.jobs.build.steps.find((step) => step.id === "meta").with
+    .tags;
   assert.match(tags, /value=development/);
   assert.match(tags, /type=sha/);
   assert.doesNotMatch(raw, /value=latest/);
@@ -169,9 +168,7 @@ test("server release notes compare only against the previous server release", ()
   const raw = readFileSync(".github/workflows/server-release.yml", "utf8");
 
   assert.ok(raw.includes('previous_tag_name="$previous_tag"'));
-  assert.ok(
-    raw.includes('test("^server-v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$")'),
-  );
+  assert.ok(raw.includes('test("^server-v[0-9]+\\\\.[0-9]+\\\\.[0-9]+$")'));
   assert.ok(raw.includes('notes="First Stable Tilecast Server release."'));
 
   const scoped = raw.indexOf('if [ -n "$previous_tag" ]');

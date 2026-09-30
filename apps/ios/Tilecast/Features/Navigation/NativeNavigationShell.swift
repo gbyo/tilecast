@@ -21,7 +21,7 @@ struct NativeNavigationShell: View {
 }
 
 extension NavigationCatalog.Destination {
-    var systemImage: String { NavigationIcon.systemImage(for: icon) }
+    var imageName: String { NavigationIcon.imageName(for: icon) }
 }
 
 /// iPhone: Studio's primary destinations as tabs, then the app's More tab.
@@ -36,7 +36,7 @@ struct NativeTabNavigation: View {
         // changes when Studio reports where it went.
         TabView(selection: Binding(get: { navigation.selectedTab }, set: { navigation.selectTab($0) })) {
             ForEach(navigation.primaryDestinations) { destination in
-                Tab(destination.title, systemImage: destination.systemImage, value: NavigationTab.destination(destination.id)) {
+                Tab(destination.title, image: destination.imageName, value: NavigationTab.destination(destination.id)) {
                     studio(in: .destination(destination.id))
                 }
             }
@@ -46,12 +46,15 @@ struct NativeTabNavigation: View {
                         MoreView(page: page, actions: actions)
                     }
                     if navigation.frontendTab == .more {
-                        StudioSlotView()
-                            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                        NavigationStack {
+                            StudioSlotView()
+                                .studioBackBar(navigation)
+                        }
+                        .background(Color(uiColor: .systemBackground).ignoresSafeArea())
                     }
                 }
             } label: {
-                Label("More", systemImage: "ellipsis")
+                Label("More", image: AppIcon.more)
             }
         }
     }
@@ -59,10 +62,14 @@ struct NativeTabNavigation: View {
     /// Studio appears in exactly one tab at a time. The slot ends above the
     /// tab bar, because Studio scrolls inside its own layout.
     @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
-        if navigation.frontendTab == tab {
-            StudioSlotView()
-        } else {
-            Color.clear
+        NavigationStack {
+            if navigation.frontendTab == tab {
+                StudioSlotView()
+                    .studioBackBar(navigation)
+            } else {
+                Color.clear
+                    .toolbar(.hidden, for: .navigationBar)
+            }
         }
     }
 }
@@ -84,26 +91,26 @@ struct MoreView: View {
                         Button {
                             navigation.open(destination.id)
                         } label: {
-                            Label(destination.title, systemImage: destination.systemImage)
+                            IconLabel(verbatim: destination.title, image: destination.imageName)
                         }
                         .tint(.primary)
                         .accessibilityAddTraits(destination.id == navigation.activeDestinationID ? .isSelected : [])
                     }
                 } header: {
-                    if let title = group.title { Text(title) }
+                    if let title = group.title { Text(title).font(.geist(.footnote)) }
                 }
             }
-            Section("Servers") {
+            Section {
                 ForEach(host.directory.servers) { server in
                     Button {
                         Task { await host.activate(server.id) }
                     } label: {
                         HStack {
-                            Label(server.displayName, systemImage: "server.rack")
+                            IconLabel(verbatim: server.displayName, image: AppIcon.server)
                                 .foregroundStyle(.primary)
                             Spacer()
                             if server.id == host.directory.activeServerID {
-                                Image(systemName: "checkmark")
+                                Image(AppIcon.current)
                                     .foregroundStyle(.tint)
                                     .accessibilityLabel("Current server")
                             }
@@ -111,9 +118,12 @@ struct MoreView: View {
                     }
                     .accessibilityAddTraits(server.id == host.directory.activeServerID ? .isSelected : [])
                 }
-                Button("Add Server…", systemImage: "plus", action: actions.add)
-                Button("Manage Servers…", systemImage: "gearshape", action: actions.manage)
-                Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                Button(action: actions.add) { IconLabel("Add Server…", image: AppIcon.add) }
+                Button(action: actions.manage) { IconLabel("Manage Servers…", image: AppIcon.manage) }
+                Button { page.reload() } label: { IconLabel("Reload", image: AppIcon.reload) }
+                SignOutButton(page: page)
+            } header: {
+                Text("Servers").font(.geist(.footnote))
             }
         }
         .navigationTitle(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"))
@@ -142,20 +152,21 @@ struct NativeSidebarNavigation: View {
                     Menu {
                         ServerMenuItems(actions: actions)
                         Divider()
-                        Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                        Button { page.reload() } label: { Label("Reload", image: AppIcon.reload) }
+                        SignOutButton(page: page)
                     } label: {
-                        Label(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"), systemImage: "server.rack")
+                        IconLabel(verbatim: host.directory.activeServer?.displayName ?? String(localized: "Tilecast"), image: AppIcon.server)
                     }
                     .accessibilityIdentifier("native.serverMenu")
                 }
                 ForEach(navigation.catalog?.groups ?? []) { group in
                     Section {
                         ForEach(group.destinations) { destination in
-                            Label(destination.title, systemImage: destination.systemImage)
+                            IconLabel(verbatim: destination.title, image: destination.imageName)
                                 .tag(Optional(destination.id))
                         }
                     } header: {
-                        if let title = group.title { Text(title) }
+                        if let title = group.title { Text(title).font(.geist(.footnote)) }
                     }
                 }
             }
@@ -165,7 +176,7 @@ struct NativeSidebarNavigation: View {
         } detail: {
             StudioSlotView()
                 .ignoresSafeArea(edges: .bottom)
-                .toolbar(.hidden, for: .navigationBar)
+                .studioBackBar(navigation)
         }
         .navigationSplitViewStyle(.balanced)
     }
