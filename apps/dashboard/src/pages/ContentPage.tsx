@@ -31,6 +31,11 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useConfirm } from "../components/ConfirmDialog";
+import {
+  presentationPath,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
@@ -369,13 +374,7 @@ export function ContentPage() {
   const [checkedAssetIds, setCheckedAssetIds] = useState<Set<string>>(
     new Set(),
   );
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [confirmArchiveAsset, setConfirmArchiveAsset] = useState<Asset | null>(
-    null,
-  );
-  const [confirmDeleteAsset, setConfirmDeleteAsset] = useState<Asset | null>(
-    null,
-  );
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
     await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
@@ -384,6 +383,39 @@ export function ContentPage() {
       type: "success",
     });
     setCheckedAssetIds(new Set());
+    refreshOrganization();
+  };
+  // Native hosts show these as alerts; a browser shows the web dialog.
+  const confirmBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: t("media.bulkDelete.title", { count: checkedAssetIds.size }),
+      body: t("media.dialog.cannotUndo"),
+      action: t("media.action.deletePermanently"),
+      destructive: true,
+    });
+    if (confirmed) await deleteCheckedAssets();
+  };
+  const confirmArchiveAsset = async (asset: Asset) => {
+    const confirmed = await confirm({
+      title: t("media.archiveDialog.title", { name: asset.name }),
+      body: t("media.archiveDialog.description"),
+      action: t("media.archiveDialog.moveToArchive"),
+    });
+    if (!confirmed) return;
+    await api.archiveAssets([asset.id], csrf);
+    toast.add({ title: "Asset archived.", type: "success" });
+    refreshOrganization();
+  };
+  const confirmDeleteAsset = async (asset: Asset) => {
+    const confirmed = await confirm({
+      title: t("media.deleteDialog.title", { name: asset.name }),
+      body: t("media.dialog.cannotUndo"),
+      action: t("media.action.deletePermanently"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    await api.deleteAsset(asset.id, csrf);
+    toast.add({ title: "Asset permanently deleted.", type: "success" });
     refreshOrganization();
   };
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -403,6 +435,7 @@ export function ContentPage() {
     }
   });
   const [selected, setSelected] = useState<Asset>();
+  const openNativePresentation = useOpenNativePresentation();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
@@ -437,6 +470,24 @@ export function ContentPage() {
     queryKey: ["content-tags"],
     queryFn: api.contentTags,
   });
+  // A native host shows a media asset's details in its own sheet. Widgets
+  // and websites edit in Studio, and a browser always uses the Sheet or
+  // Drawer.
+  const openAssetDetails = async (asset: Asset) => {
+    if (
+      asset.type !== "widget" &&
+      (await openNativePresentation({
+        path: presentationPath("asset", asset.id),
+        title: asset.name,
+        subtitle: t("media.details.eyebrow"),
+        size: "compact",
+      }))
+    ) {
+      return;
+    }
+    setSelected(await api.asset(asset.id));
+    setDetailsOpen(true);
+  };
   useEffect(() => {
     const delay = nextExpirationDelay(assets.data?.items ?? []);
     if (delay == null) return;
@@ -923,31 +974,10 @@ export function ContentPage() {
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
-          onDelete={() => setConfirmBulkDelete(true)}
+          onDelete={() => void confirmBulkDelete()}
         />
       )}
-      <AlertDialog open={confirmBulkDelete} onOpenChange={setConfirmBulkDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("media.bulkDelete.title", {
-                count: checkedAssetIds.size,
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("media.dialog.cannotUndo")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("media.bulkDelete.keepItems")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={() => void deleteCheckedAssets()}>
-              {t("media.action.deletePermanently")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {confirmDialog}
 
       {assets.isError && (
         <Alert variant="destructive">
@@ -981,10 +1011,7 @@ export function ContentPage() {
           onSelect={(asset) =>
             libraryView === "archive"
               ? (setSelected(asset), setDetailsOpen(true))
-              : void api.asset(asset.id).then((latest) => {
-                  setSelected(latest);
-                  setDetailsOpen(true);
-                })
+              : void openAssetDetails(asset)
           }
           canManage={canManage}
           archived={libraryView === "archive"}
@@ -996,14 +1023,14 @@ export function ContentPage() {
               });
             })
           }
-          onArchive={(asset) => setConfirmArchiveAsset(asset)}
+          onArchive={(asset) => void confirmArchiveAsset(asset)}
           onRestore={(asset) => {
             void api.restoreAssets([asset.id], csrf).then(() => {
               toast.add({ title: "Asset restored.", type: "success" });
               refreshOrganization();
             });
           }}
-          onDelete={(asset) => setConfirmDeleteAsset(asset)}
+          onDelete={(asset) => void confirmDeleteAsset(asset)}
           selectedIds={checkedAssetIds}
           onToggle={(id) =>
             setCheckedAssetIds((current) => {
@@ -1036,83 +1063,6 @@ export function ContentPage() {
           }}
         />
       )}
-      <AlertDialog
-        open={confirmArchiveAsset !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmArchiveAsset(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("media.archiveDialog.title", {
-                name: confirmArchiveAsset?.name ?? "",
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("media.archiveDialog.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("media.archiveDialog.keepInLibrary")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const asset = confirmArchiveAsset;
-                setConfirmArchiveAsset(null);
-                if (asset)
-                  void api.archiveAssets([asset.id], csrf).then(() => {
-                    toast.add({ title: "Asset archived.", type: "success" });
-                    refreshOrganization();
-                  });
-              }}
-            >
-              {t("media.archiveDialog.moveToArchive")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog
-        open={confirmDeleteAsset !== null}
-        onOpenChange={(open) => {
-          if (!open) setConfirmDeleteAsset(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("media.deleteDialog.title", {
-                name: confirmDeleteAsset?.name ?? "",
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("media.dialog.cannotUndo")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("media.deleteDialog.keepItem")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                const asset = confirmDeleteAsset;
-                setConfirmDeleteAsset(null);
-                if (asset)
-                  void api.deleteAsset(asset.id, csrf).then(() => {
-                    toast.add({
-                      title: "Asset permanently deleted.",
-                      type: "success",
-                    });
-                    refreshOrganization();
-                  });
-              }}
-            >
-              {t("media.action.deletePermanently")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </section>
   );
 }
@@ -2626,21 +2576,22 @@ export function AssetOrganization({
   );
 }
 
-function MediaAssetDetails({
+/**
+ * The parts of a media asset's details: the fields, the actions, and the
+ * archive confirmation. The web Sheet and Drawer, and the native
+ * presentation, each arrange the same three parts in their own frame.
+ */
+export function useMediaAssetDetails({
   asset,
   canManage,
   csrf,
-  open,
   onRequestClose,
-  onOpenChangeComplete,
   onChanged,
 }: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
-  open: boolean;
   onRequestClose: () => void;
-  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -2675,26 +2626,7 @@ function MediaAssetDetails({
       onChanged(saved);
     },
   });
-  const [confirmArchive, setConfirmArchive] = useState(false);
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
-    <SheetHeader>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {t("media.details.eyebrow")}
-      </p>
-      <SheetTitle>{asset.name}</SheetTitle>
-    </SheetHeader>
-  ) : (
-    <DrawerHeader>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {t("media.details.eyebrow")}
-      </p>
-      <DrawerTitle>{asset.name}</DrawerTitle>
-      <DrawerDescription className="sr-only">
-        {t("media.details.detailsFor", { name: asset.name })}
-      </DrawerDescription>
-    </DrawerHeader>
-  );
+  const { confirm, dialog: archiveConfirmation } = useConfirm();
   const details = (
     <div className="grid gap-4">
       {asset.thumbnailUrl && (
@@ -2827,6 +2759,18 @@ function MediaAssetDetails({
       )}
     </div>
   );
+  const archive = async () => {
+    const confirmed = await confirm({
+      title: t("media.archiveDialog.title", { name: asset.name }),
+      body: t("media.archiveDialog.description"),
+      action: t("media.archiveDialog.moveToArchive"),
+    });
+    if (!confirmed) return;
+    await api.archiveAssets([asset.id], csrf);
+    toast.add({ title: "Asset archived.", type: "success" });
+    void queryClient.invalidateQueries({ queryKey: ["assets"] });
+    onRequestClose();
+  };
   const actions = canManage && (
     <>
       <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
@@ -2849,43 +2793,58 @@ function MediaAssetDetails({
           {t("media.details.retryProcessing")}
         </Button>
       )}
-      <Button variant="outline" onClick={() => setConfirmArchive(true)}>
+      <Button variant="outline" onClick={() => void archive()}>
         <Archive size={15} aria-hidden="true" />{" "}
         {t("media.details.archiveAsset")}
       </Button>
     </>
   );
-  const archiveConfirmation = (
-    <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("media.archiveDialog.title", { name: asset.name })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("media.archiveDialog.description")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>
-            {t("media.archiveDialog.keepInLibrary")}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() =>
-              void api.archiveAssets([asset.id], csrf).then(() => {
-                toast.add({ title: "Asset archived.", type: "success" });
-                void queryClient.invalidateQueries({
-                  queryKey: ["assets"],
-                });
-                onRequestClose();
-              })
-            }
-          >
-            {t("media.archiveDialog.moveToArchive")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+  return { details, actions, archiveConfirmation };
+}
+
+function MediaAssetDetails({
+  asset,
+  canManage,
+  csrf,
+  open,
+  onRequestClose,
+  onOpenChangeComplete,
+  onChanged,
+}: {
+  asset: Asset;
+  canManage: boolean;
+  csrf: string;
+  open: boolean;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
+  onChanged: (asset: Asset) => void;
+}) {
+  const { t } = useTranslation(["content", "common"]);
+  const { details, actions, archiveConfirmation } = useMediaAssetDetails({
+    asset,
+    canManage,
+    csrf,
+    onRequestClose,
+    onChanged,
+  });
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <SheetTitle>{asset.name}</SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <DrawerTitle>{asset.name}</DrawerTitle>
+      <DrawerDescription className="sr-only">
+        {t("media.details.detailsFor", { name: asset.name })}
+      </DrawerDescription>
+    </DrawerHeader>
   );
   const onOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) onRequestClose();

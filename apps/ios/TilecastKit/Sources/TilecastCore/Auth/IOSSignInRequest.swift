@@ -5,6 +5,9 @@ import Security
 public enum IOSSignInError: Error, Equatable {
     case randomUnavailable
     case invalidCallback
+    /// The callback names another authorization server than the one this
+    /// attempt started at (RFC 9207). The code is never sent anywhere.
+    case issuerMismatch
     case accessDenied
     case serverRejected
     case missingCookie
@@ -12,15 +15,18 @@ public enum IOSSignInError: Error, Equatable {
 
 /// One browser authorization attempt bound to a server, a PKCE verifier,
 /// and an unpredictable callback state. No value is persisted.
-public struct IOSSignInRequest {
+public struct IOSSignInRequest: Sendable {
     public static let clientID = "tilecast-ios"
     public static let redirectURI = "tilecast-ios://oauth/callback"
 
     public let authorizationURL: URL
     public let verifier: String
     public let state: String
+    /// The server this attempt started at. A callback must come from it.
+    public let issuer: WebOrigin
 
     public init(server: ServerAddress) throws {
+        issuer = server.origin
         func random(_ count: Int) throws -> String {
             var bytes = [UInt8](repeating: 0, count: count)
             guard SecRandomCopyBytes(kSecRandomDefault, count, &bytes) == errSecSuccess else {
@@ -45,19 +51,45 @@ public struct IOSSignInRequest {
         authorizationURL = components.url!
     }
 
-    public func code(from callback: URL) throws -> String {
+    /// Validates the callback and returns its authorization code. The state
+    /// must match this attempt. The callback's `iss` must name the server
+    /// this attempt started at, so a code another installation issued is
+    /// never redeemed here. A callback without `iss` comes from a server
+    /// released before issuer identification and is accepted on state and
+    /// PKCE alone.
+    public func code(from callback: URL) throws(IOSSignInError) -> String {
         guard callback.scheme == "tilecast-ios", callback.host == "oauth", callback.path == "/callback",
-              let parts = URLComponents(url: callback, resolvingAgainstBaseURL: false),
-              parts.queryItems?.first(where: { $0.name == "state" })?.value == state else {
-            throw IOSSignInError.invalidCallback
+              let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems,
+              let receivedState = Self.single("state", in: items), receivedState == state else {
+            throw .invalidCallback
         }
-        if parts.queryItems?.first(where: { $0.name == "error" })?.value == "access_denied" {
-            throw IOSSignInError.accessDenied
+        let issuers = items.filter { $0.name == "iss" }
+        if !issuers.isEmpty {
+            guard issuers.count == 1, let value = issuers[0].value, Self.origin(ofIssuer: value) == issuer else {
+                throw .issuerMismatch
+            }
         }
-        guard let code = parts.queryItems?.first(where: { $0.name == "code" })?.value, !code.isEmpty else {
-            throw IOSSignInError.invalidCallback
+        if Self.single("error", in: items) == "access_denied" {
+            throw .accessDenied
+        }
+        guard let code = Self.single("code", in: items), !code.isEmpty else {
+            throw .invalidCallback
         }
         return code
+    }
+
+    private static func single(_ name: String, in items: [URLQueryItem]) -> String? {
+        let matches = items.filter { $0.name == name }
+        return matches.count == 1 ? matches[0].value : nil
+    }
+
+    /// An issuer identifier is an origin: a scheme and a host, with an
+    /// optional port and nothing else.
+    static func origin(ofIssuer value: String) -> WebOrigin? {
+        guard let url = URL(string: value), let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              components.user == nil, components.password == nil, components.query == nil, components.fragment == nil,
+              components.percentEncodedPath.isEmpty else { return nil }
+        return WebOrigin(url)
     }
 }
 
