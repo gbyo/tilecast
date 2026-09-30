@@ -44,6 +44,9 @@ jobs:
       - name: Test, lint, and assemble
         working-directory: apps/player-android
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+      - name: Verify configuration cache reuse
+        working-directory: apps/player-android
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --configuration-cache-problems=fail
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0

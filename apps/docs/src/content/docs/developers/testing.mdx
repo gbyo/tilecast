@@ -50,3 +50,7 @@ The stable aggregate checks are **Required PR validation** and **Required Edge v
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
+
+## Android CI caches
+
+The Android workflow caches Gradle dependencies and task outputs. It also runs its unit tests, lint, and debug APK assembly twice to confirm the configuration cache can be reused. Check the Gradle logs for `FROM-CACHE` task results and `Reusing configuration cache` when reviewing a workflow change. See the [CI timing record](https://github.com/gbyo/tilecast/blob/main/docs/ci-timings.md) for observed cold and warm run durations and their limitations.
