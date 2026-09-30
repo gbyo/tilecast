@@ -44,6 +44,10 @@ import {
 } from "../components/ui/tabs";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
+import {
+  presentationPath,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import type { TFunction } from "i18next";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -194,7 +198,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
             <dl className="my-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Item
                 label={t("operations.system.fieldTilecast")}
-                value={`${s.tilecastVersion} · ${s.buildCommit}`}
+                value={`${s.tilecastVersion} · ${s.channel} · ${s.buildCommit}`}
               />
               <Item
                 label={t("operations.system.fieldUptime")}
@@ -537,6 +541,19 @@ export function PlayerUpdatesPanel({
   const [purging, setPurging] = useState<PlayerRelease>();
   const [openDeployment, setOpenDeployment] = useState<string>();
   const [deploymentDrawerOpen, setDeploymentDrawerOpen] = useState(false);
+  const openNativePresentation = useOpenNativePresentation();
+  // A native host shows the deployment in its own sheet; a browser, and a
+  // host that refuses, use the Sheet or Drawer.
+  const showDeployment = async (deployment: { id: string; name: string }) => {
+    const presented = await openNativePresentation({
+      path: presentationPath("update-deployment", deployment.id),
+      title: deployment.name,
+      size: "full",
+    });
+    if (presented) return;
+    setOpenDeployment(deployment.id);
+    setDeploymentDrawerOpen(true);
+  };
   const [purgeNotice, setPurgeNotice] = useState("");
   const [deploySuccess, setDeploySuccess] = useState("");
   const [githubFlow, setGitHubFlow] = useState<
@@ -1808,10 +1825,7 @@ export function PlayerUpdatesPanel({
                           <Button
                             variant="secondary"
                             size="sm"
-                            onClick={() => {
-                              setOpenDeployment(item.id);
-                              setDeploymentDrawerOpen(true);
-                            }}
+                            onClick={() => void showDeployment(item)}
                           >
                             <ListChecks size={15} aria-hidden="true" />
                             {item.targetCount}{" "}

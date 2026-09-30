@@ -19,6 +19,11 @@ import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { StudioTopbar } from "@/components/StudioTopbar";
 import { EditorHeaderProvider } from "@/components/studio/EditorHeaderSlots";
 import {
+  StudioNavigationProvider,
+  useStudioNavigation,
+} from "@/navigation/studioNavigation";
+import { useNativeNavigation } from "@/native-host/useNativeNavigation";
+import {
   LANGUAGE_PREFERENCE_KEY,
   applyLanguagePreference,
   isLanguagePreference,
@@ -49,6 +54,28 @@ function readAppearance() {
   } catch {
     return "system";
   }
+}
+
+/**
+ * Studio's appearance, density, and motion from the account's saved
+ * preferences, falling back to the appearance cached in this browser. Every
+ * signed-in Studio surface uses it, so a native presentation looks like the
+ * page that opened it.
+ */
+export function studioTheme(values: Record<string, unknown> | undefined) {
+  const appearance =
+    typeof values?.["preference.appearance"] === "string"
+      ? String(values["preference.appearance"])
+      : readAppearance();
+  const density =
+    typeof values?.["preference.density"] === "string"
+      ? String(values["preference.density"])
+      : "comfortable";
+  return {
+    appearance,
+    density,
+    reducedMotion: Boolean(values?.["preference.reduced_motion"]),
+  };
 }
 
 export function DashboardShell() {
@@ -125,54 +152,79 @@ export function DashboardShell() {
     );
   }
 
-  const values = preferences.data?.values;
-  const appearance = serverAppearance ?? readAppearance();
-  const density =
-    typeof values?.["preference.density"] === "string"
-      ? String(values["preference.density"])
-      : "comfortable";
-  const reducedMotion = Boolean(values?.["preference.reduced_motion"]);
   const user = auth.status.user;
   if (!user) return null;
-  // The Layout editor is a full-bleed workspace with one merged header.
-  const editorRoute = Boolean(matchPath("/layouts/:id", location.pathname));
 
   return (
-    <ThemeProvider
-      appearance={appearance}
-      density={density}
-      reducedMotion={reducedMotion}
-    >
-      <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <ThemeProvider {...studioTheme(preferences.data?.values)}>
+      <StudioNavigationProvider>
+        <StudioChrome
+          user={user}
+          sidebarOpen={sidebarOpen}
+          onSidebarOpenChange={setSidebarOpen}
+        />
+      </StudioNavigationProvider>
+    </ThemeProvider>
+  );
+}
+
+/**
+ * The authenticated Studio chrome. A native host that negotiated native
+ * navigation replaces only the sidebar: the topbar, breadcrumbs, search,
+ * notifications, editor headers, and every page stay here.
+ */
+function StudioChrome({
+  user,
+  sidebarOpen,
+  onSidebarOpenChange,
+}: {
+  user: User;
+  sidebarOpen: boolean;
+  onSidebarOpenChange: (open: boolean) => void;
+}) {
+  const auth = useAuth();
+  const location = useLocation();
+  const navigation = useStudioNavigation();
+  const hosted = useNativeNavigation(navigation) !== "browser";
+  // The Layout editor is a full-bleed workspace with one merged header.
+  const editorRoute = Boolean(matchPath("/layouts/:id", location.pathname));
+  const signOut = () => void auth.logout();
+
+  return (
+    <SidebarProvider open={sidebarOpen} onOpenChange={onSidebarOpenChange}>
+      {hosted ? null : (
         <AppSidebar
           user={user}
-          onSignOut={() => void auth.logout()}
+          onSignOut={signOut}
           signOutDisabled={auth.isSubmitting}
         />
-        <SidebarInset className="min-h-svh overflow-hidden">
-          <EditorHeaderProvider>
-            {auth.status.demoMode && !editorRoute ? <DemoModeBanner /> : null}
-            <StudioTopbar
-              user={user}
-              csrfToken={auth.status.csrfToken}
-              editor={editorRoute}
-              demoMode={Boolean(auth.status.demoMode)}
-            />
-            <div
-              className={
-                editorRoute
-                  ? "min-h-0 flex-1 overflow-auto"
-                  : "min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6"
-              }
-            >
-              <RouteErrorBoundary key={location.pathname}>
-                <Outlet />
-              </RouteErrorBoundary>
-            </div>
-          </EditorHeaderProvider>
-        </SidebarInset>
-      </SidebarProvider>
-    </ThemeProvider>
+      )}
+      <SidebarInset className="min-h-svh overflow-hidden">
+        <EditorHeaderProvider>
+          {auth.status?.demoMode && !editorRoute ? <DemoModeBanner /> : null}
+          <StudioTopbar
+            user={user}
+            csrfToken={auth.status?.csrfToken}
+            editor={editorRoute}
+            demoMode={Boolean(auth.status?.demoMode)}
+            nativeNavigation={hosted}
+            onSignOut={signOut}
+            signOutDisabled={auth.isSubmitting}
+          />
+          <div
+            className={
+              editorRoute
+                ? "min-h-0 flex-1 overflow-auto"
+                : "min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6"
+            }
+          >
+            <RouteErrorBoundary key={location.pathname}>
+              <Outlet />
+            </RouteErrorBoundary>
+          </div>
+        </EditorHeaderProvider>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
@@ -203,22 +255,5 @@ export function PlannedPage({
         {t("planned.backLink")}
       </NavLink>
     </section>
-  );
-}
-
-// Kept as a small navigation-only fixture for the existing capability tests.
-export function SidebarNavigation() {
-  const user: User = {
-    id: "navigation-test-user",
-    name: "Tilecast User",
-    username: "tilecast",
-    role: "owner",
-    active: true,
-    createdAt: "",
-  };
-  return (
-    <SidebarProvider>
-      <AppSidebar user={user} onSignOut={() => undefined} />
-    </SidebarProvider>
   );
 }

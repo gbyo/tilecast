@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SidebarNavigation } from "../../pages/Dashboard";
+import { SidebarNavigation } from "./SidebarNavigation.fixture";
 
 afterEach(() => {
   cleanup();

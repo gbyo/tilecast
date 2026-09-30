@@ -21,6 +21,7 @@
     "player:linux:test": "npm test --workspace @gibsonmb71/tilecast-player-linux",
     "helper:test": "python3 -m unittest discover -s apps/player-linux/helper",
     "player-contracts:generate": "node scripts/generate-player-contracts.mjs",
+    "ios:icons:generate": "node apps/ios/scripts/generate-navigation-icons.mjs",
     "player-contracts:check": "node scripts/generate-player-contracts.mjs --check",
     "player:linux:dist": "npm run dist --workspace @gibsonmb71/tilecast-player-linux",
     "format": "prettier --write .",
