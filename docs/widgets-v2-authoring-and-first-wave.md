@@ -556,6 +556,10 @@ while the Widget expects semantic concepts.
 
 Add an optional, small semantic-role vocabulary to Data Source output fields.
 
+The Server preserves a field's optional `role` in each Player Data Document.
+Roles use lowercase identifiers made from letters, digits, and underscores,
+with a 40-character limit. Widgets should use the shared roles listed below.
+
 Initial roles should exist only because a first-wave Widget consumes them.
 
 ### Feed/news roles

@@ -169,7 +169,12 @@
           ]
         },
         "unit": { "type": "string", "maxLength": 40 },
-        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "role": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
       }
     },
     "record": {

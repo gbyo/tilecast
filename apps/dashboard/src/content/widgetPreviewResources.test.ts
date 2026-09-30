@@ -11,7 +11,7 @@ import type {
 function typedRecords(): TypedRecordData {
   return {
     fields: [
-      { key: "home", label: "Home", type: "text" },
+      { key: "home", label: "Home", type: "text", role: "headline" },
       { key: "goals", label: "Goals", type: "integer" },
       { key: "rating", label: "Rating", type: "number" },
       { key: "live", label: "Live", type: "boolean" },
@@ -67,6 +67,12 @@ describe("previewToDataDocument", () => {
       label: "Price",
       type: "currency",
       currency: "USD",
+    });
+    expect(dataset?.fields?.find((field) => field.key === "home")).toEqual({
+      key: "home",
+      label: "Home",
+      type: "text",
+      role: "headline",
     });
     // Unparseable values degrade to text instead of failing the preview.
     const second = dataset?.records?.[1]?.values;
