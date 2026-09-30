@@ -64,6 +64,20 @@ public final class StudioBridge {
     var onPresentationMessage: (@MainActor (PresentationPageMessage) -> Void)?
     /// Readiness, capabilities, or navigation availability changed.
     var onStateChange: (@MainActor () -> Void)?
+    /// The same change, for the owner of the page: something that waits for
+    /// Studio to be ready, such as a queued deep link, tries again.
+    public var onReadinessChange: (@MainActor () -> Void)?
+    /// Studio asks for standard system feedback. Both contexts.
+    public var onHaptic: (@MainActor (HapticFeedback) -> Void)?
+    /// Studio asks for the system share sheet. Returns whether the app
+    /// presented it. Both contexts.
+    public var onShare: (@MainActor (SystemShare) -> Bool)?
+    /// Whether native media intake can start now: it needs a native
+    /// credential for this server. Main page only.
+    public var isMediaIntakeAvailable: (@MainActor () -> Bool)?
+    /// The main page asks to choose media natively. Returns whether the app
+    /// began. Studio uses its own uploader when it did not.
+    public var onMediaIntake: (@MainActor (MediaIntakeRequest) -> Bool)?
     /// Where this page's alerts show. Both kinds of page may ask for one.
     weak var alerts: NativeAlertCenter?
 
@@ -119,8 +133,18 @@ public final class StudioBridge {
         onSignedOut = nil
         onPresentationOpen = nil
         onPresentationMessage = nil
+        onHaptic = nil
+        onShare = nil
+        isMediaIntakeAvailable = nil
+        onMediaIntake = nil
         reset()
         onStateChange = nil
+        onReadinessChange = nil
+    }
+
+    private func notifyStateChange() {
+        onStateChange?()
+        onReadinessChange?()
     }
 
     func mainFrameNavigationStarted() {
@@ -140,7 +164,7 @@ public final class StudioBridge {
         frontendCapabilities = .init()
         navigation.reset()
         finishSignOut(false)
-        onStateChange?()
+        notifyStateChange()
     }
 
     /// Asks Studio to sign out with its own logout and waits until Studio
@@ -202,7 +226,7 @@ public final class StudioBridge {
             // refused, so the app must stop showing the old one too.
             if type == "navigation/catalog", context == .main {
                 navigation.apply(NavigationCatalog(groups: []))
-                onStateChange?()
+                notifyStateChange()
             }
             return NativeBridgeProtocol.reply(id: id, error: .malformed)
         case .accept(let message, let id):
@@ -219,13 +243,13 @@ public final class StudioBridge {
             case .frontendReady(let capabilities):
                 isFrontendReady = true
                 frontendCapabilities = capabilities
-                onStateChange?()
+                notifyStateChange()
             case .authSignedOut:
                 finishSignOut(true)
                 onSignedOut?()
             case .navigationCatalog(let catalog):
                 navigation.apply(catalog)
-                onStateChange?()
+                notifyStateChange()
             case .navigationState(let state):
                 navigation.apply(state)
             case .navigationChrome(let chrome):
@@ -233,6 +257,25 @@ public final class StudioBridge {
             case .presentationOpen(let presentation):
                 guard isFrontendReady, frontendCapabilities.nativePresentations,
                       onPresentationOpen?(presentation) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .systemHaptic(let feedback):
+                // Studio may name a value a newer Studio invented. The app
+                // accepts it and performs nothing.
+                guard let onHaptic else { return NativeBridgeProtocol.reply(id: id, error: .unavailable) }
+                if let feedback { onHaptic(feedback) }
+            case .systemShare(let share):
+                guard share.isPermitted(serverOrigin: origin), onShare?(share) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .mediaIntakeStatus:
+                guard isFrontendReady, frontendCapabilities.nativeMediaIntake else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+                return NativeBridgeProtocol.reply(id: id, payload: ["available": .bool(isMediaIntakeAvailable?() == true)])
+            case .mediaIntake(let request):
+                guard isFrontendReady, frontendCapabilities.nativeMediaIntake, isMediaIntakeAvailable?() == true,
+                      onMediaIntake?(request) == true else {
                     return NativeBridgeProtocol.reply(id: id, error: .unavailable)
                 }
             case .alertPresent(let alert):
@@ -253,6 +296,34 @@ public final class StudioBridge {
             }
             return NativeBridgeProtocol.reply(id: id, payload: [:])
         }
+    }
+
+    /// Tells the main page how native media intake ended, when its Studio
+    /// negotiated the capability. Returns false when the page that asked no
+    /// longer exists or never handled it: the result is simply dropped, and
+    /// nothing is reloaded for it.
+    @discardableResult
+    public func sendMediaIntakeCompleted(requestID: String, outcome: MediaIntakeOutcome, uploadedCount: Int) async -> Bool {
+        guard context == .main, isFrontendReady, frontendCapabilities.nativeMediaIntake else { return false }
+        return await send(NativeBridgeProtocol.mediaIntakeCompleted(requestID: requestID, outcome: outcome, uploadedCount: uploadedCount))
+    }
+
+    /// Whether Studio in this page can receive a deep link's path now: it
+    /// finished its host integration, reported the capability, and shows its
+    /// signed-in chrome (it published navigation).
+    public var canReceiveDeepLink: Bool {
+        context == .main && isFrontendReady && frontendCapabilities.deepLinks && navigation.isAvailable
+    }
+
+    /// Delivers a deep link's path to Studio's router. The path was validated
+    /// by the resolver; it is validated again here, so nothing but an
+    /// ordinary Studio path can leave the app. The router, not this call,
+    /// decides whether the navigation happens: an unsaved-changes blocker can
+    /// refuse it. Returns whether Studio accepted the message.
+    @discardableResult
+    public func openDeepLinkPath(_ path: String) async -> Bool {
+        guard canReceiveDeepLink, DeepLinkPaths.isValid(path) else { return false }
+        return await send(NativeBridgeProtocol.openPath(path))
     }
 
     /// Delivers a message to Studio's receiver. Returns whether Studio

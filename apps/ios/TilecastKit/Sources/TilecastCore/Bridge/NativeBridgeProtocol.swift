@@ -100,11 +100,24 @@ public enum NativeBridgeProtocol {
         public var nativePresentations: Bool
         /// Studio handles `alert/action`, so the app may show its alert.
         public var nativeAlerts: Bool
+        /// Studio handles `system/media-intake-completed`.
+        public var nativeMediaIntake: Bool
+        /// Studio navigates for a deep link's `navigation/open-path`, and
+        /// validates the path again.
+        public var deepLinks: Bool
 
-        public init(authLifecycle: Bool = false, nativePresentations: Bool = false, nativeAlerts: Bool = false) {
+        public init(
+            authLifecycle: Bool = false,
+            nativePresentations: Bool = false,
+            nativeAlerts: Bool = false,
+            nativeMediaIntake: Bool = false,
+            deepLinks: Bool = false
+        ) {
             self.authLifecycle = authLifecycle
             self.nativePresentations = nativePresentations
             self.nativeAlerts = nativeAlerts
+            self.nativeMediaIntake = nativeMediaIntake
+            self.deepLinks = deepLinks
         }
     }
 
@@ -124,6 +137,13 @@ public enum NativeBridgeProtocol {
         case presentationClose(presentationID: String)
         /// Dismiss, then have the main page navigate to `path`.
         case presentationNavigate(presentationID: String, path: String)
+        /// Standard system feedback. Nil when Studio named a value this app
+        /// does not know: the request is accepted and performs nothing.
+        case systemHaptic(HapticFeedback?)
+        case systemShare(SystemShare)
+        /// The main page asks whether native media intake can start now.
+        case mediaIntakeStatus
+        case mediaIntake(MediaIntakeRequest)
         /// Main page: the chrome of the page Studio shows.
         case navigationChrome(NavigationChrome)
         /// Either page asks for a native alert.
@@ -134,8 +154,9 @@ public enum NativeBridgeProtocol {
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
-            case .configGet, .frontendReady, .alertPresent, .alertCancel: nil
-            case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen: .main
+            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel: nil
+            case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
+                 .mediaIntakeStatus, .mediaIntake: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
             }
         }
@@ -188,6 +209,10 @@ public enum NativeBridgeProtocol {
         case "navigation/catalog": message = catalog(payload).map(FrontendMessage.navigationCatalog)
         case "navigation/state": message = state(payload).map(FrontendMessage.navigationState)
         case "presentation/open": message = presentationOpen(payload).map(FrontendMessage.presentationOpen)
+        case "system/haptic": message = hapticFeedback(payload).map(FrontendMessage.systemHaptic)
+        case "system/share": message = SystemShare.decode(payload).map(FrontendMessage.systemShare)
+        case "system/media-intake-status": message = .mediaIntakeStatus
+        case "system/media-intake": message = mediaIntake(payload).map(FrontendMessage.mediaIntake)
         case "presentation/ready": message = .presentationReady
         case "presentation/update": message = presentationUpdate(payload).map(FrontendMessage.presentationUpdate)
         case "presentation/close": message = opaqueID(payload["presentationId"]).map { .presentationClose(presentationID: $0) }
@@ -230,6 +255,10 @@ public enum NativeBridgeProtocol {
                 "nativeNavigation": .bool(context == .main),
                 "authLifecycle": .bool(context == .main),
                 "nativePresentations": .bool(true),
+                "systemShare": .bool(true),
+                "systemHaptics": .bool(true),
+                "nativeMediaIntake": .bool(context == .main),
+                "deepLinks": .bool(context == .main),
                 "nativeAlerts": .bool(true),
             ]),
         ]
@@ -256,6 +285,16 @@ public enum NativeBridgeProtocol {
     /// presentation may have changed. The presentation had its own query cache.
     static func presentationEnded(presentationID: String) -> JSONValue {
         message("presentation/ended", ["presentationId": .string(presentationID)])
+    }
+
+    /// Tells Studio how native media intake ended. It carries only the
+    /// request id, the outcome, and a count: never file data or the assets.
+    static func mediaIntakeCompleted(requestID: String, outcome: MediaIntakeOutcome, uploadedCount: Int) -> JSONValue {
+        message("system/media-intake-completed", [
+            "requestId": .string(requestID),
+            "outcome": .string(outcome.rawValue),
+            "uploadedCount": .number(Double(max(0, min(uploadedCount, 1000)))),
+        ])
     }
 
     /// The user tapped the native back button. It carries no path: Studio's
@@ -302,10 +341,42 @@ public enum NativeBridgeProtocol {
             return FrontendCapabilities(
                 authLifecycle: capabilities["authLifecycle"] == .bool(true),
                 nativePresentations: capabilities["nativePresentations"] == .bool(true),
-                nativeAlerts: capabilities["nativeAlerts"] == .bool(true)
+                nativeAlerts: capabilities["nativeAlerts"] == .bool(true),
+                nativeMediaIntake: capabilities["nativeMediaIntake"] == .bool(true),
+                deepLinks: capabilities["deepLinks"] == .bool(true)
             )
         default: return nil
         }
+    }
+
+    /// A well-formed feedback token maps to a known feedback, or to nil for
+    /// a value this app does not know. Only a malformed value is refused.
+    private static func hapticFeedback(_ payload: [String: JSONValue]) -> HapticFeedback?? {
+        guard let token = payload["feedback"]?.string, isToken(token, 32) else { return nil }
+        return .some(HapticFeedback(rawValue: token))
+    }
+
+    static let maximumMediaKinds = 4
+
+    private static func mediaIntake(_ payload: [String: JSONValue]) -> MediaIntakeRequest? {
+        guard let id = opaqueID(payload["requestId"]) else { return nil }
+        var kinds: [MediaIntakeKind] = []
+        switch payload["accept"] {
+        case nil: break
+        case .array(let items)? where items.count <= maximumMediaKinds:
+            for item in items {
+                // A kind this app does not know is a hint it ignores.
+                guard let token = item.string, isToken(token, 16) else { return nil }
+                if let kind = MediaIntakeKind(rawValue: token), !kinds.contains(kind) { kinds.append(kind) }
+            }
+        default: return nil
+        }
+        guard let multiple = optionalBool(payload["multiple"]) else { return nil }
+        return MediaIntakeRequest(
+            requestID: id,
+            kinds: kinds.isEmpty ? MediaIntakeKind.allCases : kinds,
+            allowsMultiple: multiple ?? true
+        )
     }
 
     static let maximumHeaderActions = 4
