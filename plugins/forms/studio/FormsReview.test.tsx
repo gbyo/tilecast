@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter } from "react-router";
@@ -18,6 +24,10 @@ import type {
   FormRecordDetail,
   FormWorkflow,
 } from "./types";
+
+// The page renders a card list for narrow screens and a table for wide ones,
+// and hides one with CSS. jsdom applies no CSS, so tests read the table.
+const desktop = async () => within(await screen.findByRole("table"));
 
 class RequestWithoutSignal extends globalThis.Request {
   constructor(input: RequestInfo | URL, init: RequestInit = {}) {
@@ -225,7 +235,9 @@ describe("Responses tab and record review", () => {
     renderReview("/plugins/forms/f1?tab=responses");
 
     // The record row links to the review and the state filter defaults to "Needs review".
-    const row = await screen.findByRole("link", { name: "Review Hello" });
+    const row = await (
+      await desktop()
+    ).findByRole("link", { name: "Review Hello" });
     await user.click(row);
 
     await waitFor(() => expect(getRecord).toHaveBeenCalledWith("f1", "rec1"));
@@ -354,7 +366,9 @@ describe("Central approvals inbox", () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole("link", { name: "Field trip" }));
+    await user.click(
+      await (await desktop()).findByRole("link", { name: "Field trip" }),
+    );
     expect(await screen.findByText("Review route")).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/plugins/forms/f1");
     expect(router.state.location.search).toContain("record=rec1");
