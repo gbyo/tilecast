@@ -135,7 +135,7 @@
       "removeTag": "Quitar {{name}}",
       "restore": "Restaurar",
       "sectionLabel": "Organización del contenido",
-      "selectPage": "Seleccionar página",
+      "selectLoaded": "Seleccionar cargados",
       "tagChange": "Cambio de etiquetas"
     },
     "organizer": {

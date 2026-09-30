@@ -140,7 +140,7 @@
       "removeTag": "Убрать {{name}}",
       "restore": "Восстановить",
       "sectionLabel": "Организация контента",
-      "selectPage": "Выбрать страницу",
+      "selectLoaded": "Выбрать загруженные",
       "tagChange": "Изменение меток"
     },
     "organizer": {
