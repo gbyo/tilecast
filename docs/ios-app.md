@@ -170,6 +170,9 @@ The bridge is privileged. The app applies these rules:
 | `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                   |
 | `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries  |
 | `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path             |
+| `alert/present`          | Studio to native | Either page. Show a native alert with one to three buttons                    |
+| `alert/cancel`           | Studio to native | Either page. Withdraw an alert that the page presented                        |
+| `alert/action`           | native to Studio | Either page. The user chose a button of an alert that the page presented      |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
@@ -266,7 +269,7 @@ To add a destination, add a Studio route with `navigation` metadata and a locali
 
 ## Native presentations
 
-Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, the Playlist preview, and media asset details. A browser keeps its own popup, Sheet, or Drawer. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
+Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, the Playlist preview, media asset details, incident details in Activity, and the update deployment status. A browser keeps its own popup, Sheet, or Drawer. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
 
 ### Two pages, one data store
 
@@ -322,23 +325,35 @@ A dialog that Studio opens in a presentation shows in the presentation page. The
 
 Add a child route to `presentationRoutes` in `apps/dashboard/src/App.tsx`. Open it with `useOpenNativePresentation()` from `apps/dashboard/src/native-presentation/`, and show the web dialog when it returns `false`. Describe the chrome with `usePresentationChrome()`. Use `useNativePresentation()` to close or to navigate. Do not change `apps/ios`.
 
+### Alerts
+
+A confirmation must match the platform, so Studio can ask the app to show a native alert. The alert is not a presentation: it has no route, and it can show over the main page or over a presentation sheet.
+
+1. Studio sends `alert/present` with a new opaque alert id, a localized title, an optional localized message, and one to three buttons. Each button has an opaque id, a localized label, and a role: `default`, `cancel`, or `destructive`. An unknown role is a default button.
+2. The app accepts one alert at a time. It replies `unavailable` when another alert shows, when Studio did not report `nativeAlerts`, or for a page that has no bridge. Studio then shows its own dialog, as in a browser.
+3. When the user chooses a button, the app sends `alert/action` with the alert id and the button id to the page that asked. Studio ignores an alert id that it does not know.
+4. An alert belongs to its page. A new document withdraws the alert of the main page. A presentation that ends withdraws the alert of the presentation page. Studio can also send `alert/cancel`, for example when the component that asked went away.
+
+`useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
+
 ### Which surfaces move to a sheet
 
 A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
 
-| Surface                                             | Status   | Notes                                                                                              |
-| --------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| Live Stream                                         | Done     | `/__native/modal/live-stream/:screenId`                                                            |
-| Layout preview                                      | Done     | Saves the draft first. Replaces a popup, which the app cannot open                                 |
-| Playlist preview                                    | Done     | Replaces a popup, which the app cannot open                                                        |
-| Media asset details                                 | Done     | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
-| Activity incident and report details                | Next     | Opened by identifier. Check the acknowledge actions first                                          |
-| Update deployment drawer                            | Later    | Move it with the Milestone 6 and 7 settings work                                                   |
-| Confirmations (`useConfirm`, 13 call sites)         | Separate | Not a presentation. One change to the hook and one generic alert message can make them native      |
-| Playlist item inspector and Playlist details drawer | Stay     | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
-| Create and edit forms                               | Stay     | Low value, and most save into page state                                                           |
-| Pair Screen                                         | Stay     | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
-| Security, plugin pages, content pickers, settings   | Stay     | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+| Surface                                             | Status | Notes                                                                                              |
+| --------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                            |
+| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                 |
+| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                        |
+| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
+| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer         |
+| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first    |
+| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does            |
+| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                         |
+| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
+| Create and edit forms                               | Stay   | Low value, and most save into page state                                                           |
+| Pair Screen                                         | Stay   | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
+| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
