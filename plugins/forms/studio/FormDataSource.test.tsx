@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -15,6 +22,10 @@ import { formsApi } from "./api";
 import type { FormCapability, FormDataSource } from "./types";
 import { CreateFormDataSourcePage } from "./CreateFormDataSourcePage";
 import { FormDataSourcePage } from "./FormDataSourcePage";
+
+// The page renders a card list for narrow screens and a table for wide ones,
+// and hides one with CSS. jsdom applies no CSS, so tests read the table.
+const desktop = async () => within(await screen.findByRole("table"));
 
 // The React Router data router creates a Request with an AbortSignal on navigation. Under jsdom the
 // global AbortSignal is jsdom's, which Node's undici Request rejects. Since these tests never issue
@@ -333,7 +344,9 @@ describe("Form responses table", () => {
     const { router } = renderAt("/plugins/forms/f1?tab=responses", "owner");
 
     // The title is a real link; the row itself carries no button role.
-    const title = await screen.findByRole("link", { name: "Field trip" });
+    const title = await (
+      await desktop()
+    ).findByRole("link", { name: "Field trip" });
     expect(title.closest("tr")?.getAttribute("role")).toBeNull();
     await user.click(title);
     expect(router.state.location.search).toContain("record=r1");
