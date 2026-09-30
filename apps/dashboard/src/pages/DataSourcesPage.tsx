@@ -302,7 +302,7 @@ export function DataSourcesPage() {
         </Empty>
       ) : (
         <>
-          <div className="grid gap-2 md:hidden">
+          <div className="grid gap-2 lg:hidden">
             {sortedSources.map((source) => (
               <DataSourceMobileCard
                 key={source.id}
@@ -315,7 +315,7 @@ export function DataSourcesPage() {
               />
             ))}
           </div>
-        <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
           <Table>
             <TableHeader>
               <TableRow>
