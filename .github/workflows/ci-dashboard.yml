@@ -2,11 +2,6 @@ name: ci-dashboard
 
 on:
   workflow_call:
-    inputs:
-      runner:
-        description: Runner label used by this validation job.
-        type: string
-        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -15,7 +10,7 @@ permissions:
 jobs:
   validate:
     name: Dashboard CI
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
