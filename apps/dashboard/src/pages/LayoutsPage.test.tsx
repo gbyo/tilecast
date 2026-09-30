@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { LayoutSummary } from "../api/types";
+import type { Layout, LayoutSummary } from "../api/types";
 import { i18n } from "../i18n";
 import {
   filterAndSortLayouts,
@@ -36,6 +36,7 @@ vi.mock("../auth/AuthProvider", () => ({
 vi.mock("../api/client", () => ({
   api: {
     layouts: vi.fn(),
+    layout: vi.fn(),
     layoutPage: vi.fn(),
     updateLayout: vi.fn(),
     createLayout: vi.fn(),
@@ -77,6 +78,32 @@ const savedLayout = layout({
   previewImageUrl: "/api/v1/layouts/layout-1/preview-image",
 });
 
+const newAnnouncementLayout = {
+  id: "layout-announcement",
+  name: "Assembly update",
+  description: "",
+  orientation: "landscape",
+  canvasWidth: 1920,
+  canvasHeight: 1080,
+  draft: {
+    schemaVersion: 2,
+    canvas: {
+      width: 1920,
+      height: 1080,
+      orientation: "landscape",
+      backgroundColor: "#0E141B",
+      safeAreaPercent: 5,
+    },
+    placements: [],
+  },
+  draftRevision: 1,
+  hasUnpublishedChanges: false,
+  createdAt: "2026-09-29T12:00:00Z",
+  updatedAt: "2026-09-29T12:00:00Z",
+  dependencies: [],
+  usage: { screens: [], schedules: [], campaigns: [] },
+};
+
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function showModal() {
     this.open = true;
@@ -100,6 +127,9 @@ beforeEach(() => {
     pageSize: 100,
   });
   vi.mocked(api.updateLayout).mockResolvedValue(savedLayout as never);
+  vi.mocked(api.createLayout).mockReset();
+  vi.mocked(api.layout).mockReset();
+  vi.mocked(api.saveLayoutDraft).mockReset();
 });
 
 afterEach(() => {
@@ -128,6 +158,246 @@ describe("layout library page", () => {
     expect(
       container.querySelector(".layout-library-thumbnail"),
     ).toHaveAttribute("src", savedLayout.previewImageUrl);
+  });
+
+  it("retries announcement template setup on the already-created Layout", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.createLayout).mockResolvedValue(
+      newAnnouncementLayout as never,
+    );
+    vi.mocked(api.layout).mockResolvedValue(newAnnouncementLayout as never);
+    vi.mocked(api.saveLayoutDraft)
+      .mockRejectedValueOnce(new Error("Temporary draft failure"))
+      .mockResolvedValue(newAnnouncementLayout as never);
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+      "Assembly update",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+
+    expect(
+      await within(dialog).findByText(
+        /The Layout was created, but its announcement template could not be initialized/,
+      ),
+    ).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    );
+
+    await vi.waitFor(() =>
+      expect(api.saveLayoutDraft).toHaveBeenCalledTimes(2),
+    );
+    expect(api.createLayout).toHaveBeenCalledTimes(1);
+    expect(api.layout).toHaveBeenCalledWith("layout-announcement");
+    expect(api.saveLayoutDraft).toHaveBeenNthCalledWith(
+      1,
+      "layout-announcement",
+      1,
+      expect.any(Object),
+      "csrf-token",
+    );
+    expect(api.saveLayoutDraft).toHaveBeenNthCalledWith(
+      2,
+      "layout-announcement",
+      1,
+      expect.any(Object),
+      "csrf-token",
+    );
+  });
+
+  it("keeps announcement settings when creation is dismissed while pending", async () => {
+    const user = userEvent.setup();
+    let finishCreate!: (value: Layout) => void;
+    vi.mocked(api.createLayout).mockImplementation(
+      () =>
+        new Promise<Layout>((resolve) => {
+          finishCreate = resolve;
+        }),
+    );
+    vi.mocked(api.saveLayoutDraft).mockRejectedValue(
+      new Error("Temporary draft failure"),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    let dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    const nameInput = within(dialog).getByRole("textbox", { name: "Name *" });
+    await user.type(nameInput, "Assembly update");
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+    await vi.waitFor(() => expect(api.createLayout).toHaveBeenCalledOnce());
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Create layout" }));
+    dialog = await screen.findByRole("dialog", { name: "Create layout" });
+    expect(within(dialog).getByRole("textbox", { name: "Name *" })).toHaveValue(
+      "Assembly update",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+    ).toBeDisabled();
+
+    finishCreate(newAnnouncementLayout as unknown as Layout);
+    expect(
+      await within(dialog).findByText(
+        /The Layout was created, but its announcement template could not be initialized/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Name *" })).toHaveValue(
+      "Assembly update",
+    );
+    expect(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    ).toBeEnabled();
+  });
+
+  it("clears a conflicted retry when dismissed but keeps its Layout in the library", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.layoutPage).mockResolvedValue({
+      items: [
+        savedLayout,
+        layout({ id: "layout-announcement", name: "Assembly update" }),
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.mocked(api.createLayout).mockResolvedValue(
+      newAnnouncementLayout as never,
+    );
+    vi.mocked(api.layout).mockResolvedValue({
+      ...(newAnnouncementLayout as unknown as Layout),
+      draftRevision: 2,
+    });
+    vi.mocked(api.saveLayoutDraft).mockRejectedValueOnce(
+      new Error("Temporary draft failure"),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    let dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+      "Assembly update",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+    await within(dialog).findByText(
+      /The Layout was created, but its announcement template could not be initialized/,
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    );
+    expect(
+      await within(dialog).findByText(
+        "This Layout's draft changed after creation. Close this dialog and review the existing Layout in the library.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await screen.findByRole("link", { name: "Edit Assembly update" });
+    await user.click(screen.getByRole("button", { name: "Create layout" }));
+    dialog = await screen.findByRole("dialog", { name: "Create layout" });
+    const nameInput = within(dialog).getByRole("textbox", { name: "Name *" });
+    expect(nameInput).toBeEnabled();
+    expect(nameInput).toHaveValue("");
+    await user.type(nameInput, "Fresh notice");
+    expect(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    ).toBeEnabled();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+
+    expect(api.createLayout).toHaveBeenCalledTimes(2);
+    expect(api.saveLayoutDraft).toHaveBeenCalledOnce();
+  });
+
+  it("recognizes a template saved before the server response failed", async () => {
+    const user = userEvent.setup();
+    let currentLayout = newAnnouncementLayout as unknown as Layout;
+    vi.mocked(api.createLayout).mockResolvedValue(
+      newAnnouncementLayout as never,
+    );
+    vi.mocked(api.layout).mockImplementation(() =>
+      Promise.resolve(currentLayout),
+    );
+    vi.mocked(api.saveLayoutDraft)
+      .mockRejectedValue(new Error("Unexpected duplicate template save"))
+      .mockImplementationOnce((_id, revision, document) => {
+        currentLayout = {
+          ...currentLayout,
+          draft: document,
+          draftRevision: revision + 1,
+        };
+        return Promise.reject(
+          new Error("The response was lost after the draft was saved."),
+        );
+      });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Create layout" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Create layout",
+    });
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Name *" }),
+      "Assembly update",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: /Announcement/ }),
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create layout" }),
+    );
+    expect(
+      await within(dialog).findByText(
+        /The Layout was created, but its announcement template could not be initialized/,
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Retry template setup" }),
+    );
+    await within(dialog).findByRole("button", { name: "Create layout" });
+
+    expect(api.createLayout).toHaveBeenCalledTimes(1);
+    expect(api.layout).toHaveBeenCalledWith("layout-announcement");
+    expect(api.saveLayoutDraft).toHaveBeenCalledTimes(1);
   });
 
   it("labels each toolbar filter with its option label, not its value", async () => {
