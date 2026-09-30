@@ -1011,9 +1011,21 @@ export function LayoutEditorPage() {
       window.removeEventListener("keyup", onKeyUp);
     };
   }, [fitZoom, zoomIn, zoomOut, zoomTo]);
-  /** Middle-button or Space + primary drag pans; returns true when it took the event. */
-  const beginPan = (event: ReactPointerEvent) => {
-    if (!(event.button === 1 || (event.button === 0 && spaceHeld.current)))
+  /**
+   * Middle-button or Space + primary drag pans. Touch can opt in when the
+   * gesture starts on the canvas (or a locked placement), so one-finger
+   * navigation does not steal direct manipulation from unlocked placements.
+   */
+  const beginPan = (event: ReactPointerEvent, allowTouch = false) => {
+    const touchPan =
+      allowTouch && event.pointerType === "touch" && event.button === 0;
+    if (
+      !(
+        touchPan ||
+        event.button === 1 ||
+        (event.button === 0 && spaceHeld.current)
+      )
+    )
       return false;
     event.preventDefault();
     event.stopPropagation();
@@ -2008,7 +2020,10 @@ export function LayoutEditorPage() {
     // Right- and middle-clicks must not start a drag: their pointerup would otherwise
     // push an undo entry and mark the layout dirty without anything having moved.
     if (event.button !== 0) return;
-    if (item.locked) return;
+    if (item.locked) {
+      if (event.pointerType === "touch") beginPan(event, true);
+      return;
+    }
     event.preventDefault();
     const sourceDocument = documentRef.current;
     if (!sourceDocument || !canvasRef.current) return;
@@ -3502,7 +3517,7 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
-                if (beginPan(event)) return;
+                if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);
                   return;
