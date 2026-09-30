@@ -1,4 +1,10 @@
+import { useCallback } from "react";
 import type { TFunction } from "i18next";
+import {
+  presentationPath,
+  useNativePresentationAvailable,
+  useOpenNativePresentation,
+} from "../../native-presentation/openNativePresentation";
 import type {
   AssetStatus,
   PlaylistItem,
@@ -27,6 +33,26 @@ export function openPlaylistPreview(id: string) {
     popup.focus();
   }
   return popup;
+}
+
+/** Presents the preview in a native sheet when the host offers one. */
+export function useOpenPlaylistPreview() {
+  const nativeAvailable = useNativePresentationAvailable();
+  const openNativePresentation = useOpenNativePresentation();
+  return useCallback(
+    (playlist: { id: string; name: string }) => {
+      if (!nativeAvailable) {
+        openPlaylistPreview(playlist.id);
+        return;
+      }
+      void openNativePresentation({
+        path: presentationPath("playlist-preview", playlist.id),
+        title: playlist.name,
+        size: "full",
+      });
+    },
+    [nativeAvailable, openNativePresentation],
+  );
 }
 
 export function playlistDuration(items: PlaylistItem[] | null | undefined) {

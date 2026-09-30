@@ -31,6 +31,10 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  presentationPath,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
@@ -403,6 +407,7 @@ export function ContentPage() {
     }
   });
   const [selected, setSelected] = useState<Asset>();
+  const openNativePresentation = useOpenNativePresentation();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
@@ -437,6 +442,24 @@ export function ContentPage() {
     queryKey: ["content-tags"],
     queryFn: api.contentTags,
   });
+  // A native host shows a media asset's details in its own sheet. Widgets
+  // and websites edit in Studio, and a browser always uses the Sheet or
+  // Drawer.
+  const openAssetDetails = async (asset: Asset) => {
+    if (
+      asset.type !== "widget" &&
+      (await openNativePresentation({
+        path: presentationPath("asset", asset.id),
+        title: asset.name,
+        subtitle: t("media.details.eyebrow"),
+        size: "compact",
+      }))
+    ) {
+      return;
+    }
+    setSelected(await api.asset(asset.id));
+    setDetailsOpen(true);
+  };
   useEffect(() => {
     const delay = nextExpirationDelay(assets.data?.items ?? []);
     if (delay == null) return;
@@ -981,10 +1004,7 @@ export function ContentPage() {
           onSelect={(asset) =>
             libraryView === "archive"
               ? (setSelected(asset), setDetailsOpen(true))
-              : void api.asset(asset.id).then((latest) => {
-                  setSelected(latest);
-                  setDetailsOpen(true);
-                })
+              : void openAssetDetails(asset)
           }
           canManage={canManage}
           archived={libraryView === "archive"}
@@ -2626,21 +2646,22 @@ export function AssetOrganization({
   );
 }
 
-function MediaAssetDetails({
+/**
+ * The parts of a media asset's details: the fields, the actions, and the
+ * archive confirmation. The web Sheet and Drawer, and the native
+ * presentation, each arrange the same three parts in their own frame.
+ */
+export function useMediaAssetDetails({
   asset,
   canManage,
   csrf,
-  open,
   onRequestClose,
-  onOpenChangeComplete,
   onChanged,
 }: {
   asset: Asset;
   canManage: boolean;
   csrf: string;
-  open: boolean;
   onRequestClose: () => void;
-  onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
@@ -2676,25 +2697,6 @@ function MediaAssetDetails({
     },
   });
   const [confirmArchive, setConfirmArchive] = useState(false);
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
-    <SheetHeader>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {t("media.details.eyebrow")}
-      </p>
-      <SheetTitle>{asset.name}</SheetTitle>
-    </SheetHeader>
-  ) : (
-    <DrawerHeader>
-      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {t("media.details.eyebrow")}
-      </p>
-      <DrawerTitle>{asset.name}</DrawerTitle>
-      <DrawerDescription className="sr-only">
-        {t("media.details.detailsFor", { name: asset.name })}
-      </DrawerDescription>
-    </DrawerHeader>
-  );
   const details = (
     <div className="grid gap-4">
       {asset.thumbnailUrl && (
@@ -2886,6 +2888,53 @@ function MediaAssetDetails({
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
+  );
+  return { details, actions, archiveConfirmation };
+}
+
+function MediaAssetDetails({
+  asset,
+  canManage,
+  csrf,
+  open,
+  onRequestClose,
+  onOpenChangeComplete,
+  onChanged,
+}: {
+  asset: Asset;
+  canManage: boolean;
+  csrf: string;
+  open: boolean;
+  onRequestClose: () => void;
+  onOpenChangeComplete: (open: boolean) => void;
+  onChanged: (asset: Asset) => void;
+}) {
+  const { t } = useTranslation(["content", "common"]);
+  const { details, actions, archiveConfirmation } = useMediaAssetDetails({
+    asset,
+    canManage,
+    csrf,
+    onRequestClose,
+    onChanged,
+  });
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <SheetTitle>{asset.name}</SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t("media.details.eyebrow")}
+      </p>
+      <DrawerTitle>{asset.name}</DrawerTitle>
+      <DrawerDescription className="sr-only">
+        {t("media.details.detailsFor", { name: asset.name })}
+      </DrawerDescription>
+    </DrawerHeader>
   );
   const onOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) onRequestClose();

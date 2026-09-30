@@ -29,6 +29,14 @@ The app never changes Studio's address when you tap a tab. It asks Studio, and R
 
 The [native bridge contract](https://github.com/gbyo/tilecast/tree/main/packages/native-bridge-schema) describes the messages exactly.
 
+## Some screens open in a native sheet
+
+The app can show a Studio screen in a native iOS sheet with a native title and Close button. Studio still draws everything inside the sheet, so it's the same React page you'd see in a browser. The screens that do this today are Live stream, the Layout and Playlist previews, and a media asset's details. In a browser, or in an older app, they open exactly as before: a dialog, a popup, or a side panel.
+
+The sheet is a second, prewarmed copy of Studio that uses the same sign-in as the main one. When you close a sheet, Studio refreshes the page underneath, so a renamed asset shows its new name in the library right away.
+
+To put another screen in a sheet, add a route to `presentationRoutes` in `apps/dashboard/src/App.tsx`, and open it with `useOpenNativePresentation()`. Show your normal dialog when that returns `false`. Describe the title and buttons with `usePresentationChrome()`. Don't touch `apps/ios`. The [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#native-presentations) lists which screens fit a sheet and which should stay in Studio.
+
 ## Build and run
 
 You need Xcode 26 or later. The app's only packages are Apple's Swift OpenAPI Generator and its runtime libraries. Xcode fetches the versions pinned in `apps/ios/TilecastKit/Package.resolved`. The first time you build, Xcode asks you to trust the OpenAPI Generator plugin, which builds the API client from `docs/openapi.yaml`.

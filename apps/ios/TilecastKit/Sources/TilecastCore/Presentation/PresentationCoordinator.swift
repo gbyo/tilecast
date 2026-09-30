@@ -161,6 +161,11 @@ public final class PresentationCoordinator {
         Task { await mainBridge.send(NativeBridgeProtocol.openPath(path)) }
     }
 
+    private func relayEnded(_ presentationID: String) {
+        guard let mainBridge, mainStudioSupportsPresentations else { return }
+        Task { await mainBridge.send(NativeBridgeProtocol.presentationEnded(presentationID: presentationID)) }
+    }
+
     /// The user chose a header action. The id is Studio's own.
     public func perform(actionID: String) {
         guard let presentation, let page, page.phase == .ready, contentState == .ready else { return }
@@ -182,6 +187,10 @@ public final class PresentationCoordinator {
         // does not change its content while it animates away.
         presentation = nil
         pendingEvents.removeAll()
+        // The presentation had its own query cache, so whatever it saved is
+        // stale in the main page until Studio refetches. This is generic: the
+        // app never knows what a presentation changed.
+        relayEnded(ended.id)
         guard let page else { return }
         if page.phase == .ready {
             // Transient work in the page, such as a stream lease, ends now.

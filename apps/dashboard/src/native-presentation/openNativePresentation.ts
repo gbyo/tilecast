@@ -1,5 +1,8 @@
 import { useCallback } from "react";
-import { useNativeHost } from "@/native-host/NativeHostProvider";
+import {
+  useNativeHost,
+  type NativeHost,
+} from "@/native-host/NativeHostProvider";
 import {
   isPresentationPath,
   PRESENTATION_ROOT,
@@ -30,6 +33,24 @@ export function newPresentationId() {
   return `p-${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
+function hostPresents(host: NativeHost) {
+  return (
+    host.status === "ready" &&
+    host.context === "main" &&
+    host.capabilities.nativePresentations
+  );
+}
+
+/**
+ * True when a native host negotiated presentations. Unlike the function
+ * useOpenNativePresentation returns, it answers synchronously. Use it where
+ * the browser path needs the click itself, such as window.open, which a
+ * browser blocks after an await.
+ */
+export function useNativePresentationAvailable() {
+  return hostPresents(useNativeHost());
+}
+
 /**
  * Returns a function that asks a native host to present a route in a native
  * sheet. It resolves true only when the host accepted; the caller then shows
@@ -42,12 +63,7 @@ export function useOpenNativePresentation() {
   const host = useNativeHost();
   return useCallback(
     async (request: NativePresentationRequest) => {
-      if (
-        host.status !== "ready" ||
-        host.context !== "main" ||
-        !host.capabilities.nativePresentations ||
-        !isPresentationPath(request.path)
-      ) {
+      if (!hostPresents(host) || !isPresentationPath(request.path)) {
         return false;
       }
       const reply = await host.send("presentation/open", {

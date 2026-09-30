@@ -25,6 +25,7 @@ import { ArchivedScreensPage } from "./pages/ArchivedScreensPage";
 import { ContentPage } from "./pages/ContentPage";
 import { PlaylistEditorPage } from "./pages/PlaylistsPage";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
+import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
 import {
   GroupsPage,
@@ -92,6 +93,9 @@ const settingsSearch: Partial<
  */
 const presentationRoutes: RouteObject[] = [
   { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
+  { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+  { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
+  { path: "asset/:id", element: <MediaAssetPresentation /> },
 ];
 
 export const studioRoutes: RouteObject[] = [

@@ -403,11 +403,34 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
         _ = fromPresentation(main, "presentation/navigate", ["presentationId": "p-1", "path": "/screens/screen-1?tab=activity"])
         #expect(main.presentations.presentation == nil, "the sheet is dismissed first")
         try await settle { (try? await self.received(in: main.webPage))?.isEmpty == false }
+        try await settle { (try? await self.received(in: main.webPage))?.count == 2 }
         let relayed = try await received(in: main.webPage)
-        #expect(relayed.count == 1)
-        #expect(relayed.first?["type"] as? String == "navigation/open-path")
-        #expect((relayed.first?["payload"] as? [String: Any])?["path"] as? String == "/screens/screen-1?tab=activity")
+        #expect(relayed.compactMap { $0["type"] as? String } == ["presentation/ended", "navigation/open-path"])
+        #expect((relayed.last?["payload"] as? [String: Any])?["path"] as? String == "/screens/screen-1?tab=activity")
         #expect(main.webPage.url == mainURL, "the main page is never loaded for it")
+    }
+
+    @Test func endingAPresentationTellsTheMainPageToRefetch() async throws {
+        let main = try makeMainPage()
+        defer { main.close() }
+        useFixture(in: main)
+        for try await _ in main.webPage.load(html: Self.mainStudio, baseURL: Self.baseURL) {}
+        _ = try await main.webPage.callJavaScript("""
+            const handler = window.webkit.messageHandlers.tilecastNative;
+            await handler.postMessage({ version: 1, type: "config/get", payload: {} });
+            await handler.postMessage({ version: 1, type: "frontend/ready", payload: { capabilities: { nativePresentations: true } } });
+            window.opened = await handler.postMessage({ version: 1, type: "presentation/open", payload: {
+              presentationId: "p-1", path: "\(fixtureRoute)", title: "Fixture" } });
+            """)
+        #expect(try await main.webPage.callJavaScript("return window.opened.ok") as? Bool == true)
+        #expect(try await received(in: main.webPage).isEmpty, "nothing ended yet")
+        main.presentations.dismiss(presentationID: "p-1")
+        try await settle { (try? await self.received(in: main.webPage))?.isEmpty == false }
+        let relayed = try await received(in: main.webPage)
+        #expect(relayed.compactMap { $0["type"] as? String } == ["presentation/ended"])
+        #expect((relayed.first?["payload"] as? [String: Any])?["presentationId"] as? String == "p-1")
+        main.presentations.dismiss(presentationID: "p-1")
+        #expect(try await received(in: main.webPage).count == 1, "a repeated dismissal ends nothing")
     }
 
     @Test func aMemoryWarningDiscardsOnlyAHiddenPage() async throws {

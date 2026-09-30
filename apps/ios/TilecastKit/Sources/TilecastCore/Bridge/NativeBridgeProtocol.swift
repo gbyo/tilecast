@@ -239,6 +239,12 @@ public enum NativeBridgeProtocol {
         message("presentation/dismissed", ["presentationId": .string(presentationID)])
     }
 
+    /// Tells the main page a presentation ended, so it can refetch what the
+    /// presentation may have changed. The presentation had its own query cache.
+    static func presentationEnded(presentationID: String) -> JSONValue {
+        message("presentation/ended", ["presentationId": .string(presentationID)])
+    }
+
     /// Relays a presentation's navigation to the main page's router.
     static func openPath(_ path: String) -> JSONValue {
         message("navigation/open-path", ["path": .string(path)])

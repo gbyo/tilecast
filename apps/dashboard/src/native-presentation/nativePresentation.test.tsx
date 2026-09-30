@@ -2,7 +2,11 @@
 
 import "@testing-library/jest-dom/vitest";
 import { useState } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -17,8 +21,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LivePreviewPanel } from "@/components/LivePreviewPanel";
 import { LiveStreamPresentation } from "@/components/LiveStreamPresentation";
+import { useOpenPlaylistPreview } from "@/components/playlist-editor/playlistEditorModel";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NativeHostProvider } from "@/native-host/NativeHostProvider";
+import { LayoutPreviewPage } from "@/pages/LayoutPreviewPage";
+import { MediaAssetPresentation } from "@/pages/MediaAssetPresentation";
+import { PlaylistPreviewPage } from "@/pages/PlaylistPreviewPage";
 import { NativePresentationHost } from "./NativePresentationHost";
 import { NativePresentationNavigation } from "./NativePresentationNavigation";
 import {
@@ -33,6 +41,15 @@ const mocks = vi.hoisted(() => ({
     renewScreenPreview: vi.fn(),
     screenPreviewImageUrl: () => "/preview.jpg",
     preferences: vi.fn(),
+    settings: vi.fn(),
+    playlist: vi.fn(),
+    layout: vi.fn(),
+    asset: vi.fn(),
+    updateAsset: vi.fn(),
+    archiveAssets: vi.fn(),
+    contentFolders: vi.fn(),
+    contentCollections: vi.fn(),
+    contentTags: vi.fn(),
     startLiveStream: vi.fn(),
     renewLiveStream: vi.fn(),
     screenLiveStreamUrl: (screenId: string, sessionId: string) =>
@@ -45,7 +62,11 @@ vi.mock("@/api/client", () => ({ api: mocks.api }));
 vi.mock("@/auth/AuthProvider", () => ({
   useAuth: () => ({
     isLoading: false,
-    status: { authenticated: true, csrfToken: "csrf" },
+    status: {
+      authenticated: true,
+      csrfToken: "csrf",
+      user: { role: "owner" },
+    },
   }),
 }));
 
@@ -56,6 +77,19 @@ vi.mock("@/components/LiveStreamDialog", async (importOriginal) => ({
   LiveStreamDialog: ({ open }: { open: boolean }) =>
     open ? <p>Web live stream dialog</p> : null,
 }));
+
+const mediaAsset = {
+  id: "asset-1",
+  type: "image",
+  name: "Front desk",
+  description: "",
+  processingStatus: "ready",
+  originalFilename: "front-desk.png",
+  detectedMimeType: "image/png",
+  sha256: "abc123",
+  playlistsUsing: [],
+  layoutUsage: [],
+};
 
 type Sent = { version: number; type: string; payload: Record<string, unknown> };
 
@@ -163,6 +197,30 @@ beforeEach(() => {
   });
   mocks.api.renewScreenPreview.mockResolvedValue({ active: true });
   mocks.api.preferences.mockResolvedValue({ values: {} });
+  mocks.api.settings.mockResolvedValue({ values: {} });
+  mocks.api.playlist.mockResolvedValue({
+    id: "playlist-1",
+    name: "Lobby loop",
+    revision: 1,
+    items: [],
+  });
+  mocks.api.asset.mockResolvedValue(mediaAsset);
+  mocks.api.updateAsset.mockImplementation(
+    (_id: string, input: { name: string }) =>
+      Promise.resolve({ ...mediaAsset, name: input.name }),
+  );
+  mocks.api.archiveAssets.mockResolvedValue({});
+  mocks.api.contentFolders.mockResolvedValue([]);
+  mocks.api.contentCollections.mockResolvedValue([]);
+  mocks.api.contentTags.mockResolvedValue([]);
+  mocks.api.layout.mockResolvedValue({
+    id: "layout-1",
+    name: "Welcome board",
+    draft: {
+      canvas: { width: 1920, height: 1080, backgroundColor: "#000000" },
+      placements: [],
+    },
+  });
   mocks.api.startLiveStream.mockResolvedValue({
     id: "session-1",
     screenId: "screen-1",
@@ -326,6 +384,47 @@ describe("navigation a presentation relays to the main page", () => {
     expect(host.deliver("navigation/open-path", { path: "/screens" })).toBe(
       false,
     );
+  });
+});
+
+describe("refetching after a presentation ends", () => {
+  function Names({ fetchName }: { fetchName: () => Promise<string> }) {
+    const query = useQuery({ queryKey: ["names"], queryFn: fetchName });
+    return <p>Name {query.data}</p>;
+  }
+
+  it("refetches active queries in the main page", async () => {
+    const host = installNativeHost();
+    const fetchName = vi
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce("Old")
+      .mockResolvedValue("Renamed");
+    renderRoutes(
+      [{ path: "*", element: <Names fetchName={fetchName} /> }],
+      "/",
+    );
+    expect(await screen.findByText("Name Old")).toBeInTheDocument();
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    expect(host.deliver("presentation/ended", { presentationId: "p-1" })).toBe(
+      true,
+    );
+    expect(await screen.findByText("Name Renamed")).toBeInTheDocument();
+    expect(fetchName).toHaveBeenCalledTimes(2);
+  });
+
+  it("is inert in a presentation page", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    const fetchName = vi.fn<() => Promise<string>>().mockResolvedValue("Old");
+    renderRoutes(
+      [{ path: "*", element: <Names fetchName={fetchName} /> }],
+      "/",
+    );
+    expect(await screen.findByText("Name Old")).toBeInTheDocument();
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    expect(host.deliver("presentation/ended", { presentationId: "p-1" })).toBe(
+      false,
+    );
+    expect(fetchName).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -596,5 +695,225 @@ describe("the presentation page", () => {
       expect.objectContaining({ method: "DELETE", keepalive: true }),
     );
     expect(screen.queryByAltText("Live Tilecast output from Lobby")).toBeNull();
+  });
+});
+
+describe("previews as native presentations", () => {
+  const children: RouteObject[] = [
+    { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+    { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
+  ];
+  const routes: RouteObject[] = [
+    {
+      path: "/__native/modal",
+      element: <NativePresentationHost routes={children} />,
+      children,
+    },
+    { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
+    { path: "/layouts/:id/preview", element: <LayoutPreviewPage /> },
+    { path: "/", element: <OpenPlaylistPreview /> },
+  ];
+
+  function OpenPlaylistPreview() {
+    const open = useOpenPlaylistPreview();
+    return (
+      <button
+        type="button"
+        onClick={() => open({ id: "playlist 1", name: "Lobby loop" })}
+      >
+        Preview playlist
+      </button>
+    );
+  }
+
+  it("shows a playlist preview under the native header, without its own Close", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/playlist-preview/playlist-1",
+    });
+    expect(
+      await screen.findByRole("region", { name: "Playlist preview" }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Lobby loop",
+          navigation: "close",
+          navigationLabel: "Close preview",
+        },
+        size: "full",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Close preview" })).toBeNull();
+  });
+
+  it("shows a layout preview under the native header, keeping its date control", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/layout-preview/layout-1?date=2026-09-29",
+    });
+    expect(await screen.findByText("1920 × 1080")).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Preview Welcome board",
+          navigation: "close",
+          navigationLabel: "Close preview",
+        },
+        size: "full",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Close preview" })).toBeNull();
+    expect(mocks.api.layout).toHaveBeenCalledWith("layout-1");
+  });
+
+  it("keeps its own header and Close in a browser popup", async () => {
+    renderRoutes(routes, "/playlists/playlist-1/preview");
+    expect(
+      await screen.findByRole("button", { name: "Close preview" }),
+    ).toBeVisible();
+    expect(screen.getByText("Lobby loop")).toBeVisible();
+  });
+
+  it("asks a native host to present the playlist preview", async () => {
+    const host = installNativeHost();
+    const open = vi.spyOn(window, "open");
+    renderRoutes(routes, "/");
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Preview playlist" }),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/open")).toEqual([
+        expect.objectContaining({
+          path: "/__native/modal/playlist-preview/playlist%201",
+          title: "Lobby loop",
+          size: "full",
+        }),
+      ]),
+    );
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("opens the popup in a browser", async () => {
+    const popup = { opener: {}, focus: vi.fn() } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(popup);
+    renderRoutes(routes, "/");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Preview playlist" }),
+    );
+    expect(open).toHaveBeenCalledWith(
+      "/playlists/playlist%201/preview",
+      "tilecast-playlist-preview-playlist 1",
+      expect.stringContaining("popup=yes"),
+    );
+  });
+});
+
+describe("media asset details as a native presentation", () => {
+  const children: RouteObject[] = [
+    { path: "asset/:id", element: <MediaAssetPresentation /> },
+  ];
+  const routes: RouteObject[] = [
+    {
+      path: "/__native/modal",
+      element: <NativePresentationHost routes={children} />,
+      children,
+    },
+  ];
+
+  async function showAsset() {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/asset/asset-1",
+    });
+    await screen.findByLabelText("Name");
+    return host;
+  }
+
+  it("loads the asset by id and describes a compact native header", async () => {
+    const host = await showAsset();
+    expect(mocks.api.asset).toHaveBeenCalledWith("asset-1");
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Front desk",
+          subtitle: "Media asset",
+          navigation: "close",
+          navigationLabel: "Close",
+        },
+        size: "compact",
+      }),
+    );
+    expect(screen.getByLabelText("Name")).toHaveValue("Front desk");
+  });
+
+  it("saves through the normal mutation and updates the header", async () => {
+    const host = await showAsset();
+    const name = screen.getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Reception");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(mocks.api.updateAsset).toHaveBeenCalledWith(
+        "asset-1",
+        expect.objectContaining({ name: "Reception" }),
+        "csrf",
+      ),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual(
+        expect.objectContaining({
+          header: expect.objectContaining({ title: "Reception" }) as unknown,
+        }),
+      ),
+    );
+  });
+
+  it("grows the sheet for the archive confirmation, then closes it", async () => {
+    const host = await showAsset();
+    await userEvent.click(screen.getByRole("button", { name: /Archive/ }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        size: "full",
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Move to archive" }),
+    );
+    await waitFor(() =>
+      expect(mocks.api.archiveAssets).toHaveBeenCalledWith(["asset-1"], "csrf"),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/close")).toEqual([
+        { presentationId: "p-1" },
+      ]),
+    );
+  });
+
+  it("shows the error when the asset cannot be loaded", async () => {
+    mocks.api.asset.mockRejectedValue(new Error("Asset not found."));
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/asset/missing",
+    });
+    expect(await screen.findByText(/Asset not found/)).toBeVisible();
   });
 });

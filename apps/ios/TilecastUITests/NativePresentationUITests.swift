@@ -80,6 +80,7 @@ final class NativePresentationUITests: XCTestCase {
         close.tap()
         XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 10))
         XCTAssertTrue(webText("Overview page").exists, "the main Studio page is intact")
+        XCTAssertTrue(webText("Ended 1").waitForExistence(timeout: 10), "the main page is told the presentation ended")
 
         openSheet()
         XCTAssertTrue(webText("Showing fixture/sheet, time 2").waitForExistence(timeout: 20))
@@ -88,6 +89,7 @@ final class NativePresentationUITests: XCTestCase {
 
         app.webViews.buttons["Close from page"].tap()
         XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 10), "a presentation can dismiss itself")
+        XCTAssertTrue(webText("Ended 2").waitForExistence(timeout: 10), "every ending is reported, however it happens")
     }
 
     @MainActor

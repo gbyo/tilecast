@@ -168,6 +168,7 @@ The bridge is privileged. The app applies these rules:
 | `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load |
 | `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                        |
 | `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                   |
+| `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries  |
 | `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path             |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
@@ -265,7 +266,7 @@ To add a destination, add a Studio route with `navigation` metadata and a locali
 
 ## Native presentations
 
-Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The first surface is Live Stream. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
+Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, the Playlist preview, and media asset details. A browser keeps its own popup, Sheet, or Drawer. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
 
 ### Two pages, one data store
 
@@ -302,7 +303,8 @@ Both sides validate paths. `presentation/open` and `presentation/show` accept on
 3. The sheet opens immediately with the title and a native loader. When the page is ready, the app sends `presentation/show`. Studio routes to the child with React Router and keys it with the presentation id. The app never loads a presentation route.
 4. The page sends `presentation/update` with complete header snapshots. The app ignores messages for an id that is not active.
 5. When the sheet goes away for any reason, the app sends `presentation/dismissed`. Studio goes back to the empty root. This removes the content and stops transient work, for example a live stream lease.
-6. `presentation/navigate` dismisses the sheet. The app then relays the path with `navigation/open-path`, and the React Router of the main page navigates, so unsaved-change blockers apply. The app never loads a URL in the main page for it.
+6. The presentation page has its own query cache, so a change that a presentation saved is stale in the main page. When any presentation ends, the app sends `presentation/ended` to the main page, if that page negotiated presentations. Studio refetches its active queries. This is generic: the app does not know what the presentation changed.
+7. `presentation/navigate` dismisses the sheet. The app then relays the path with `navigation/open-path`, and the React Router of the main page navigates, so unsaved-change blockers apply. The app never loads a URL in the main page for it.
 
 The app keeps the page for the next presentation. On a memory warning, the app discards the page when no sheet shows it. These also discard it: a server switch or removal, a changed installation, sign-out, and a new main document that did not negotiate. If its content process stops while the page is hidden, the app discards it. If the page is visible, the sheet shows an error with Try Again, which rebuilds only the presentation page.
 
@@ -319,6 +321,26 @@ A dialog that Studio opens in a presentation shows in the presentation page. The
 ### Adding a presentation
 
 Add a child route to `presentationRoutes` in `apps/dashboard/src/App.tsx`. Open it with `useOpenNativePresentation()` from `apps/dashboard/src/native-presentation/`, and show the web dialog when it returns `false`. Describe the chrome with `usePresentationChrome()`. Use `useNativePresentation()` to close or to navigate. Do not change `apps/ios`.
+
+### Which surfaces move to a sheet
+
+A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
+
+| Surface                                             | Status   | Notes                                                                                              |
+| --------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done     | `/__native/modal/live-stream/:screenId`                                                            |
+| Layout preview                                      | Done     | Saves the draft first. Replaces a popup, which the app cannot open                                 |
+| Playlist preview                                    | Done     | Replaces a popup, which the app cannot open                                                        |
+| Media asset details                                 | Done     | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
+| Activity incident and report details                | Next     | Opened by identifier. Check the acknowledge actions first                                          |
+| Update deployment drawer                            | Later    | Move it with the Milestone 6 and 7 settings work                                                   |
+| Confirmations (`useConfirm`, 13 call sites)         | Separate | Not a presentation. One change to the hook and one generic alert message can make them native      |
+| Playlist item inspector and Playlist details drawer | Stay     | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
+| Create and edit forms                               | Stay     | Low value, and most save into page state                                                           |
+| Pair Screen                                         | Stay     | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
+| Security, plugin pages, content pickers, settings   | Stay     | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+
+A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
 ## Authentication
 

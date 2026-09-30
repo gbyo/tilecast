@@ -139,6 +139,9 @@ func foundationJSON(_ data: Data) throws -> Any {
         case "presentationDismissed": NativeBridgeProtocol.presentationDismissed(
             presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
         )
+        case "presentationEnded": NativeBridgeProtocol.presentationEnded(
+            presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        )
         case "openPath": NativeBridgeProtocol.openPath("/screens/screen-1?tab=activity")
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])
         case "unknownTypeReply": NativeBridgeProtocol.reply(id: nil, error: .unknownType)
