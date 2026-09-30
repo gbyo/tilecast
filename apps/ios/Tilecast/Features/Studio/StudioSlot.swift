@@ -19,12 +19,18 @@ final class StudioSlot {
     /// The last known frame, so a hidden web view keeps its size and does
     /// not relayout Studio.
     private(set) var lastFrame: CGRect = .zero
+    /// How much of the slot's bottom edge floating chrome (the tab bar)
+    /// covers. Studio is drawn beneath it, so the web view treats this
+    /// height as a bottom safe area: content can scroll under the bar and
+    /// still stop above it.
+    private(set) var coveredBottom: CGFloat = 0
     @ObservationIgnored private var owner: UUID?
 
-    func show(_ frame: CGRect, for slot: UUID) {
+    func show(_ frame: CGRect, coveredBottom: CGFloat, for slot: UUID) {
         owner = slot
         self.frame = frame
         lastFrame = frame
+        self.coveredBottom = coveredBottom
     }
 
     func hide(for slot: UUID) {
@@ -34,8 +40,16 @@ final class StudioSlot {
     }
 }
 
+nonisolated private struct SlotMeasure: Equatable, Sendable {
+    var frame: CGRect
+    var coveredBottom: CGFloat
+}
+
 /// Marks where Studio appears in a layout. Show at most one at a time.
 struct StudioSlotView: View {
+    /// Extend beneath the tab bar. The iOS 26 tab bar floats over its
+    /// content, so Studio must be what shows through the glass.
+    var extendsBelowTabBar = false
     @Environment(StudioSlot.self) private var slot
     @State private var id = UUID()
 
@@ -43,8 +57,13 @@ struct StudioSlotView: View {
         Color.clear
             // WKWebView handles the keyboard itself, as it does in Safari.
             .ignoresSafeArea(.keyboard)
-            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-                slot.show(frame, for: id)
+            .onGeometryChange(for: SlotMeasure.self) {
+                let covered = extendsBelowTabBar ? $0.safeAreaInsets.bottom : 0
+                var frame = $0.frame(in: .global)
+                frame.size.height += covered
+                return SlotMeasure(frame: frame, coveredBottom: covered)
+            } action: { measure in
+                slot.show(measure.frame, coveredBottom: measure.coveredBottom, for: id)
             }
             .onDisappear { slot.hide(for: id) }
     }
@@ -63,7 +82,11 @@ struct StudioOverlay: View {
                 let visible = slot.frame != nil
                 StudioPageView(page: page)
                     .id(ObjectIdentifier(page))
+                    .safeAreaPadding(.bottom, slot.coveredBottom)
                     .frame(width: frame.width, height: frame.height)
+                    // The tab bar floats over the bottom strip. Studio shows
+                    // through it, but touches there belong to the tab bar.
+                    .contentShape(.interaction, AboveCoveredEdge(covered: slot.coveredBottom))
                     .offset(x: frame.minX - origin.x, y: frame.minY - origin.y)
                     .opacity(visible ? 1 : 0)
                     .allowsHitTesting(visible)
@@ -71,5 +94,14 @@ struct StudioOverlay: View {
             }
         }
         .ignoresSafeArea()
+    }
+}
+
+/// Everything except the bottom `covered` points.
+nonisolated private struct AboveCoveredEdge: Shape {
+    var covered: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: max(0, rect.height - covered)))
     }
 }

@@ -9,9 +9,13 @@ import {
   decodeNativeMessage,
   decodeNativeReply,
   frontendMessage,
+  hapticFeedbacks,
+  isDeepLinkPath,
+  isHapticFeedback,
   isPresentationPath,
   isStudioPath,
   studioCapabilities,
+  validateSystemShare,
 } from "./protocol";
 
 type FixtureCase = {
@@ -21,6 +25,9 @@ type FixtureCase = {
   schemaValid?: boolean;
   studioEncodes?: string;
   hostContext?: string | null;
+  hostCapabilities?: Record<string, boolean>;
+  hapticFeedback?: string | null;
+  share?: { title: string | null; text: string | null; url: string | null };
   message: unknown;
 };
 
@@ -105,6 +112,83 @@ describe("the shared native bridge fixtures", () => {
   );
 });
 
+describe("system messages Studio sends", () => {
+  const sends = (type: string) =>
+    cases.filter(
+      (entry) =>
+        entry.direction === "frontendToNative" &&
+        (entry.message as { type?: string } | null)?.type === type,
+    );
+  const payloadOf = (entry: FixtureCase) =>
+    (entry.message as { payload: Record<string, unknown> }).payload;
+
+  // Studio validates what it sends with the same rules the host applies, so
+  // it never sends a request a host would refuse.
+  it.each(sends("system/haptic").map((entry) => [entry.name, entry] as const))(
+    "haptic: %s",
+    (_, entry) => {
+      const known = isHapticFeedback(payloadOf(entry).feedback);
+      expect(known).toBe(
+        typeof entry.hapticFeedback === "string" &&
+          hapticFeedbacks.includes(
+            entry.hapticFeedback as (typeof hapticFeedbacks)[number],
+          ),
+      );
+    },
+  );
+
+  it.each(sends("system/share").map((entry) => [entry.name, entry] as const))(
+    "share: %s",
+    (_, entry) => {
+      const validated = validateSystemShare(payloadOf(entry));
+      if (entry.outcome === "accept") {
+        expect(validated).not.toBeNull();
+        expect(validated?.url ?? null).toBe(entry.share?.url);
+        expect(validated?.text ?? null).toBe(entry.share?.text);
+        expect(validated?.title ?? null).toBe(entry.share?.title);
+      } else {
+        expect(validated).toBeNull();
+      }
+    },
+  );
+
+  it("reads what a host offers from its config/get reply", () => {
+    const replies = cases.filter((entry) => entry.hostCapabilities);
+    expect(replies.length).toBeGreaterThan(0);
+    for (const entry of replies) {
+      const reply = decodeNativeReply(entry.message);
+      if (reply.outcome !== "accept" || !reply.message.ok) {
+        throw new Error("expected a successful reply");
+      }
+      expect(
+        decodeHostConfig(reply.message.payload)?.capabilities,
+        entry.name,
+      ).toMatchObject(entry.hostCapabilities!);
+    }
+  });
+
+  it("lists a semantic vocabulary and no page-specific effect", () => {
+    expect([...hapticFeedbacks]).toEqual([
+      "selection",
+      "success",
+      "warning",
+      "error",
+      "start",
+      "stop",
+    ]);
+  });
+});
+
+describe("deep link paths", () => {
+  const paths = corpus.deepLinkPaths as { accept: string[]; refuse: string[] };
+  it.each(paths.accept)("accepts %j", (path) => {
+    expect(isDeepLinkPath(path)).toBe(true);
+  });
+  it.each(paths.refuse)("refuses %j", (path) => {
+    expect(isDeepLinkPath(path)).toBe(false);
+  });
+});
+
 const presentationId = "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e";
 
 describe("messages Studio sends", () => {
@@ -159,6 +243,16 @@ describe("messages Studio sends", () => {
     }),
     presentationClose: frontendMessage("presentation/close", {
       presentationId,
+    }),
+    hapticSuccess: frontendMessage("system/haptic", { feedback: "success" }),
+    shareUrl: frontendMessage("system/share", {
+      title: "Lobby display",
+      url: "https://signage.example.org/preview/lobby",
+    }),
+    mediaIntake: frontendMessage("system/media-intake", {
+      requestId: "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+      accept: ["image", "video"],
+      multiple: true,
     }),
     presentationNavigate: frontendMessage("presentation/navigate", {
       presentationId,
@@ -222,6 +316,10 @@ describe("messages Studio sends", () => {
         nativeNavigation: true,
         authLifecycle: false,
         nativePresentations: false,
+        systemShare: false,
+        systemHaptics: false,
+        nativeMediaIntake: false,
+        deepLinks: false,
         nativeAlerts: false,
       },
     });
@@ -233,6 +331,8 @@ describe("messages Studio sends", () => {
           nativeNavigation: "yes",
           authLifecycle: true,
           nativePresentations: 1,
+          systemHaptics: true,
+          systemShare: "true",
           nativeAlerts: "true",
         },
       }),
@@ -242,6 +342,10 @@ describe("messages Studio sends", () => {
         nativeNavigation: false,
         authLifecycle: true,
         nativePresentations: false,
+        systemShare: false,
+        systemHaptics: true,
+        nativeMediaIntake: false,
+        deepLinks: false,
         nativeAlerts: false,
       },
     });
