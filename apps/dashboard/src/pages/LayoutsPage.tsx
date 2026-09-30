@@ -29,10 +29,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
-import {
-  FilterBar,
-  type FilterDefinition,
-} from "../components/FilterBar";
+import { FilterBar, type FilterDefinition } from "../components/FilterBar";
 import { LayoutPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
@@ -680,13 +677,9 @@ export function LayoutsPage() {
         onChange={(key, value) => {
           if (key === "search") setSearch(value);
           if (key === "orientation")
-            setOrientation(
-              (value || "all") as LayoutLibraryOrientationFilter,
-            );
+            setOrientation((value || "all") as LayoutLibraryOrientationFilter);
           if (key === "publication")
-            setPublication(
-              (value || "all") as LayoutLibraryPublicationFilter,
-            );
+            setPublication((value || "all") as LayoutLibraryPublicationFilter);
         }}
         onClear={clearLibraryFilters}
       >
