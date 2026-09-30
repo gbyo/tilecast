@@ -60,7 +60,21 @@ export interface WidgetDataset {
   readonly value?: WidgetValue | null;
   readonly attribution?: string;
   readonly timezone?: string;
+  readonly dateSelection?: WidgetDateSelection;
   readonly units?: Readonly<Record<string, string>>;
+}
+
+/** Date policy attached to a manifest v16 dataset. Selection remains Player-owned. */
+export interface WidgetDateSelection {
+  readonly field: string;
+  readonly timezone: string;
+  readonly mode:
+    "today" | "tomorrow" | "next_available" | "current_week" | "custom_range";
+  readonly customStartDate?: string;
+  readonly customEndDate?: string;
+  readonly excludePast: boolean;
+  readonly noMatchBehavior?: string;
+  readonly fallbackText?: string;
 }
 
 export interface WidgetCacheState {

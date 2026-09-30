@@ -236,6 +236,7 @@ function renderPlacement(
           assets: ctx.manifest.assets,
           regionalFormat:
             ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
+          at: ctx.at,
         });
         return component ? { ...base, component } : null;
       }

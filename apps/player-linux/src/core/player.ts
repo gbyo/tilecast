@@ -2229,14 +2229,14 @@ export class PlayerRuntime {
       const regionalFormat = resolveRegionalFormatting(
         this.config?.playback?.["regionalFormat"],
       );
-      // A first-class component renders itself in the runtime; its payload
-      // has no time-dependent value, so re-selection never restarts it.
+      // Apply Data Source date policy for this activation, as for legacy Widgets.
       const payload =
         widget.presentation?.kind === "component"
           ? projectWidgetComponent(widget, {
               dataSources: maps.dataSources,
               assets: manifest.assets,
               regionalFormat,
+              at,
             })
           : renderWidget(widget, {
               dataSources: maps.dataSources,

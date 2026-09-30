@@ -46,6 +46,8 @@ No nonce and no `unsafe-inline` is necessary. The Android WebView baseline is re
 
 A **Data Source** owns acquisition, parsing, sanitization, refresh, caching, typed Data Documents, attribution, date-selection policy and diagnostics. Nothing in this document changes that.
 
+Before the Player gives a Data Document to a component Widget, it applies each dataset's date-selection rules with the corrected Player clock, the policy time zone and the organization's first day of the week. Compatibility Widgets use the same selection function. A local date change updates the selected rows while the Player is offline.
+
 A **Widget** owns visual meaning, field selection, semantic display choices, the visual variant, formatting, the empty presentation and time-aware presentation logic.
 
 The **Player Runtime** owns mounting, lifecycle, playback evidence, Layout-zone evidence, transitions and the host contract.

@@ -39,6 +39,7 @@ export {
   type WidgetCacheState,
   type WidgetDataDocument,
   type WidgetDataset,
+  type WidgetDateSelection,
   type WidgetField,
   type WidgetMediaRef,
   type WidgetPoint,
