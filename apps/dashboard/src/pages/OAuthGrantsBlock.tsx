@@ -64,11 +64,11 @@ export function OAuthGrantsBlock() {
           </AlertDescription>
         </Alert>
       )}
-      {items.length === 0 && !grants.isLoading && !grants.isError ? (
+      {!grants.isError && items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {t("oauth.grantsEmpty")}
         </p>
-      ) : (
+      ) : !grants.isError ? (
         <ItemGroup>
           {items.map((grant) => (
             <Item key={grant.id}>
@@ -101,7 +101,7 @@ export function OAuthGrantsBlock() {
             </Item>
           ))}
         </ItemGroup>
-      )}
+      ) : null}
       {revoke.isError && (
         <Alert variant="destructive">
           <AlertDescription role="alert">

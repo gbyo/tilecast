@@ -74,4 +74,32 @@ describe("OAuthGrantsBlock", () => {
       await screen.findByText("No operators are authorized."),
     ).toBeInTheDocument();
   });
+
+  it("shows a failed query without an empty grant list", async () => {
+    const listGrants = vi
+      .spyOn(api, "listOAuthGrants")
+      .mockRejectedValueOnce(new Error("offline"));
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <OAuthGrantsBlock />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(listGrants).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+    expect(
+      await screen.findByText(
+        "Authorization grants could not be loaded.",
+        {},
+        { timeout: 1000 },
+      ),
+    ).toHaveAttribute("role", "alert");
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
 });
