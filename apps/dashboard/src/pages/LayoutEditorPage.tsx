@@ -179,6 +179,11 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  presentationPath,
+  useNativePresentationAvailable,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import { useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
@@ -607,6 +612,8 @@ export function LayoutEditorPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
+  const nativePresentations = useNativePresentationAvailable();
+  const openNativePresentation = useOpenNativePresentation();
   const { t: tContent } = useTranslation("content");
   const formatLocale = useFormatLocale();
   const auth = useAuth();
@@ -2294,6 +2301,23 @@ export function LayoutEditorPage() {
     });
   };
   const openPreview = () => {
+    if (nativePresentations) {
+      // Save first, as the popup does, so the preview shows this draft.
+      void (async () => {
+        if (!(await save())) return;
+        await openNativePresentation({
+          path:
+            presentationPath("layout-preview", id) +
+            "?date=" +
+            encodeURIComponent(new Date().toISOString().slice(0, 10)),
+          title: t("layouts:editor.previewTitle", {
+            name: layoutQuery.data?.name ?? "",
+          }),
+          size: "full",
+        });
+      })();
+      return;
+    }
     const popup = window.open(
       "about:blank",
       "tilecast-layout-preview-" + id,
