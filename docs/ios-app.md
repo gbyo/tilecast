@@ -151,28 +151,30 @@ The bridge is privileged. The app applies these rules:
 
 ### Version 1 messages
 
-| Type                     | Direction        | Purpose                                                                       |
-| ------------------------ | ---------------- | ----------------------------------------------------------------------------- |
-| `config/get`             | Studio to native | Studio asks for the protocol version and capabilities                         |
-| `frontend/ready`         | Studio to native | Studio finished its host integration. The app accepts it more than one time   |
-| `navigation/catalog`     | Studio to native | A complete snapshot of navigation destinations that replaces the previous one |
-| `navigation/state`       | Studio to native | The destination that Studio resolved for its current location, and the path   |
-| `navigation/request`     | native to Studio | The app asks Studio to open a destination by its opaque identifier            |
-| `auth/sign-out-request`  | native to Studio | The app asks Studio to sign out with its normal logout                        |
-| `auth/signed-out`        | Studio to native | Studio completed its logout. The payload is empty                             |
-| `presentation/open`      | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route    |
-| `presentation/ready`     | Studio to native | Presentation page only. Its Studio is signed in and receives presentations    |
-| `presentation/update`    | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility        |
-| `presentation/close`     | Studio to native | Presentation page only. Dismiss the presentation                              |
-| `presentation/navigate`  | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path |
-| `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load |
-| `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                        |
-| `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                   |
-| `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries  |
-| `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path             |
-| `alert/present`          | Studio to native | Either page. Show a native alert with one to three buttons                    |
-| `alert/cancel`           | Studio to native | Either page. Withdraw an alert that the page presented                        |
-| `alert/action`           | native to Studio | Either page. The user chose a button of an alert that the page presented      |
+| Type                     | Direction        | Purpose                                                                         |
+| ------------------------ | ---------------- | ------------------------------------------------------------------------------- |
+| `config/get`             | Studio to native | Studio asks for the protocol version and capabilities                           |
+| `frontend/ready`         | Studio to native | Studio finished its host integration. The app accepts it more than one time     |
+| `navigation/catalog`     | Studio to native | A complete snapshot of navigation destinations that replaces the previous one   |
+| `navigation/state`       | Studio to native | The destination that Studio resolved for its current location, and the path     |
+| `navigation/request`     | native to Studio | The app asks Studio to open a destination by its opaque identifier              |
+| `navigation/chrome`      | Studio to native | Main page only. The page title and, for a drill-in page, the name of its parent |
+| `navigation/back`        | native to Studio | Main page only. The user tapped the native back button. The payload is empty    |
+| `auth/sign-out-request`  | native to Studio | The app asks Studio to sign out with its normal logout                          |
+| `auth/signed-out`        | Studio to native | Studio completed its logout. The payload is empty                               |
+| `presentation/open`      | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route      |
+| `presentation/ready`     | Studio to native | Presentation page only. Its Studio is signed in and receives presentations      |
+| `presentation/update`    | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility          |
+| `presentation/close`     | Studio to native | Presentation page only. Dismiss the presentation                                |
+| `presentation/navigate`  | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path   |
+| `presentation/show`      | native to Studio | Presentation page only. Show this route for this presentation, without a load   |
+| `presentation/action`    | native to Studio | Presentation page only. The user chose a header action                          |
+| `presentation/dismissed` | native to Studio | Presentation page only. The sheet went away                                     |
+| `presentation/ended`     | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries    |
+| `navigation/open-path`   | native to Studio | Main page only. A presentation asked Studio to navigate to a path               |
+| `alert/present`          | Studio to native | Either page. Show a native alert with one to three buttons                      |
+| `alert/cancel`           | Studio to native | Either page. Withdraw an alert that the page presented                          |
+| `alert/action`           | native to Studio | Either page. The user chose a button of an alert that the page presented        |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
@@ -222,6 +224,14 @@ A native tap never loads a URL. The sequence is:
 The app does not change the selection when the user taps. If the user cancels an unsaved-changes dialog, the selection stays with the current page, and the editor keeps its state. Before a request, the app makes sure that the Studio page is visible, so the user can see a dialog.
 
 Forms plugin editors use `useBlocker`. The Settings and Preferences leave warnings use `useNavigationWarning`, which also uses `useBlocker` for navigation that does not start from a link. The Layout and Playlist editors save automatically and do not block navigation.
+
+### Drill-in pages
+
+A page such as a screen's detail, or a Layout in the editor, is a drill-in from a list page. Studio already draws a breadcrumb trail for it. Studio sends that trail as `navigation/chrome`: the last item is the title, and the item before it is the page that back leads to. When the message has a `back`, the app shows a native navigation bar with a system back button that has the parent's name, and the title. A top-level page gets no bar.
+
+The back button sends `navigation/back` with no path. Studio navigates to the previous item of its trail with React Router, so an unsaved-changes prompt still appears. The app never learns a path or a route name. While the app shows the trail, Studio leaves its own breadcrumbs out of the topbar. A host that answers `unknown_type` to `navigation/chrome` keeps them.
+
+No page needs code for this. The trail comes from the route metadata that Studio already has, so a new page with a breadcrumb gets the bar. The bar has no swipe-back gesture yet: the web view has no back stack of its own, and the gesture would have to call `navigation/back`.
 
 ### iPhone
 

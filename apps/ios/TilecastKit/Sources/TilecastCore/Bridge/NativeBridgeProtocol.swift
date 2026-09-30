@@ -124,6 +124,8 @@ public enum NativeBridgeProtocol {
         case presentationClose(presentationID: String)
         /// Dismiss, then have the main page navigate to `path`.
         case presentationNavigate(presentationID: String, path: String)
+        /// Main page: the chrome of the page Studio shows.
+        case navigationChrome(NavigationChrome)
         /// Either page asks for a native alert.
         case alertPresent(NativeAlert)
         /// Either page withdraws an alert it presented.
@@ -133,7 +135,7 @@ public enum NativeBridgeProtocol {
         var context: Context? {
             switch self {
             case .configGet, .frontendReady, .alertPresent, .alertCancel: nil
-            case .navigationCatalog, .navigationState, .authSignedOut, .presentationOpen: .main
+            case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
             }
         }
@@ -193,6 +195,7 @@ public enum NativeBridgeProtocol {
             guard let presentationID = opaqueID(payload["presentationId"]),
                   let path = payload["path"]?.string, PresentationPaths.isStudioPath(path) else { message = nil; break }
             message = .presentationNavigate(presentationID: presentationID, path: path)
+        case "navigation/chrome": message = navigationChrome(payload).map(FrontendMessage.navigationChrome)
         case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
         case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
         default: return .unknownType(type, id: requestID)
@@ -253,6 +256,12 @@ public enum NativeBridgeProtocol {
     /// presentation may have changed. The presentation had its own query cache.
     static func presentationEnded(presentationID: String) -> JSONValue {
         message("presentation/ended", ["presentationId": .string(presentationID)])
+    }
+
+    /// The user tapped the native back button. It carries no path: Studio's
+    /// router decides where back goes.
+    static func navigationBack() -> JSONValue {
+        message("navigation/back", [:])
     }
 
     /// The user chose a button of an alert. `actionID` is one of the ids
@@ -316,6 +325,25 @@ public enum NativeBridgeProtocol {
             size: size ?? .full,
             isDismissible: dismissible ?? true
         )
+    }
+
+    private static func navigationChrome(_ payload: [String: JSONValue]) -> NavigationChrome? {
+        guard Set(payload.keys).isSubset(of: ["title", "back"]) else { return nil }
+        let title: String?
+        switch payload["title"] {
+        case nil: title = nil
+        case .string(let text)? where isBounded(text, 200): title = text
+        default: return nil
+        }
+        let backLabel: String?
+        switch payload["back"] {
+        case nil: backLabel = nil
+        case .object(let back)? where Set(back.keys) == ["label"]:
+            guard let label = back["label"]?.string, isBounded(label, 200) else { return nil }
+            backLabel = label
+        default: return nil
+        }
+        return NavigationChrome(title: title, backLabel: backLabel)
     }
 
     private static func alertPresent(_ payload: [String: JSONValue]) -> NativeAlert? {

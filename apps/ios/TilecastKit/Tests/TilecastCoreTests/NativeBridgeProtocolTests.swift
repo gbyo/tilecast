@@ -30,6 +30,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         let frontendCapabilities: [String: Bool]?
         let presentation: [String: Any]?
         let alert: [String: Any]?
+        let chrome: [String: Any]?
         let headerActionIDs: [String]?
         let headerMenuIDs: [String]?
         let message: Any
@@ -53,6 +54,7 @@ func foundationJSON(_ data: Data) throws -> Any {
                 frontendCapabilities: entry["frontendCapabilities"] as? [String: Bool],
                 presentation: entry["presentation"] as? [String: Any],
                 alert: entry["alert"] as? [String: Any],
+                chrome: entry["chrome"] as? [String: Any],
                 headerActionIDs: entry["headerActionIds"] as? [String],
                 headerMenuIDs: entry["headerMenuIds"] as? [String],
                 message: entry["message"] ?? NSNull()
@@ -110,6 +112,14 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(presentation.isDismissible == expected["dismissible"] as? Bool)
             #expect(presentation.header.actions.isEmpty && presentation.header.menu.isEmpty)
         }
+        if let expected = entry.chrome {
+            guard case .accept(.navigationChrome(let chrome), _) = decoded else {
+                Issue.record("\(entry.name) should decode as navigation/chrome")
+                return
+            }
+            #expect(chrome.title == expected["title"] as? String)
+            #expect(chrome.backLabel == expected["backLabel"] as? String)
+        }
         if let expected = entry.alert {
             guard case .accept(.alertPresent(let alert), _) = decoded else {
                 Issue.record("\(entry.name) should decode as alert/present")
@@ -158,6 +168,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         case "presentationEnded": NativeBridgeProtocol.presentationEnded(
             presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
         )
+        case "navigationBack": NativeBridgeProtocol.navigationBack()
         case "alertAction": NativeBridgeProtocol.alertAction(
             alertID: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
             actionID: "confirm"

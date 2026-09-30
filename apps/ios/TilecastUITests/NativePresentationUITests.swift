@@ -111,6 +111,21 @@ final class NativePresentationUITests: XCTestCase {
     }
 
     @MainActor
+    func testADrillInPageGetsANativeBackBar() throws {
+        launchWithFixtureServer()
+        XCTAssertFalse(app.buttons["native.back"].exists, "a top-level page has no bar")
+        app.webViews.buttons["Open screen detail"].tap()
+        XCTAssertTrue(webText("Screen detail page").waitForExistence(timeout: 10))
+        let back = app.buttons["native.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "SwiftUI shows Studio's back button")
+        XCTAssertEqual(back.label, "Fleet", "named for the page it leads to")
+        XCTAssertTrue(app.navigationBars.staticTexts["Lobby north"].exists, "Studio's title")
+        back.tap()
+        XCTAssertTrue(webText("Fleet page").waitForExistence(timeout: 10), "Studio's router went back")
+        XCTAssertTrue(back.waitForNonExistence(timeout: 10), "the bar goes away with the drill-in")
+    }
+
+    @MainActor
     func testStudioConfirmationsAreNativeAlerts() throws {
         launchWithFixtureServer()
         app.webViews.buttons["Delete fixture"].tap()
