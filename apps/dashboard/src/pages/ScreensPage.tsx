@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Airplay,
   CircleAlert,
-  ChevronRight,
   Grid2X2,
   Link2,
   List,
