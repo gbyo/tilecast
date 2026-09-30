@@ -318,6 +318,7 @@ export default defineConfig({
               label: "Monitor screens",
               collapsed: true,
               items: [
+                { slug: "operations/overview" },
                 { slug: "operations/activity" },
                 { slug: "operations/screen-status" },
                 { slug: "operations/live-preview" },
