@@ -26,6 +26,7 @@ export function MetricTile({
   delta,
   hint,
   to,
+  variant = "tile",
   className = "",
 }: {
   label: string;
@@ -36,6 +37,12 @@ export function MetricTile({
   hint?: string;
   /** Makes the whole tile a link to the records behind the number. */
   to?: string;
+  /**
+   * `plain` drops the border and padding so several figures can share one Card
+   * without nesting bordered boxes. Every semantic stays: the hint, the delta,
+   * and the drill-down link.
+   */
+  variant?: "tile" | "plain";
   className?: string;
 }) {
   const body = (
@@ -46,7 +53,9 @@ export function MetricTile({
             <Icon size={18} aria-hidden={true} />
           </span>
         )}
-        <strong className="text-2xl font-semibold tracking-tight tabular-nums">
+        <strong
+          className={`${variant === "plain" ? "text-xl" : "text-2xl"} font-semibold tracking-tight tabular-nums`}
+        >
           {value}
         </strong>
       </span>
@@ -55,8 +64,11 @@ export function MetricTile({
       {delta && <MetricDeltaLabel delta={delta} />}
     </>
   );
-  const classes =
-    `grid gap-1 rounded-xl border border-border p-4 ${to ? "hover:bg-muted" : ""} ${className}`.trim();
+  const classes = (
+    variant === "plain"
+      ? `grid content-start gap-0.5 rounded-md ${to ? "-m-2 p-2 hover:bg-muted" : ""} ${className}`
+      : `grid gap-1 rounded-xl border border-border p-4 ${to ? "hover:bg-muted" : ""} ${className}`
+  ).trim();
   return to ? (
     <Link className={classes} to={to}>
       {body}
