@@ -272,9 +272,10 @@ deterministic intrinsic geometry and never inherit editor zoom.
 
 A fixed date in the Widget editor freezes the Widget's own clock and passes
 the selected local calendar date to its Data Source previews. A Layout
-preview date does the same for each zone, so time-sensitive Widgets agree
-with the Layout's text bindings. Without a selected date, the preview stays
-live and uses current Data Source previews.
+preview date defaults to the browser's local calendar date and does the same
+for each zone, so time-sensitive Widgets agree with the Layout's text
+bindings. Without a selected date, the preview stays live and uses current
+Data Source previews.
 
 The binding Studio editor redesign, source-connection flow, shared preview
 host, and first-wave Widget migration are defined in
