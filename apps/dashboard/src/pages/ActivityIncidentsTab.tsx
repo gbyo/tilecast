@@ -2,6 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import {
+  presentationPath,
+  useOpenNativePresentation,
+} from "../native-presentation/openNativePresentation";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -79,6 +83,20 @@ export function IncidentsTab({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
+  const openNativePresentation = useOpenNativePresentation();
+
+  // A native host shows the incident in its own sheet; a browser, and a
+  // host that refuses, use the Sheet or Drawer.
+  const openIncident = async (incident: Incident) => {
+    const presented = await openNativePresentation({
+      path: presentationPath("activity-incident", incident.id),
+      title: incident.title,
+      size: "full",
+    });
+    if (presented) return;
+    setSelected(incident);
+    setDetailsOpen(true);
+  };
 
   // The range only narrows the report when a basis says which timestamp it
   // applies to, so an unfiltered Incidents tab shows current state.
@@ -131,8 +149,7 @@ export function IncidentsTab({
                 key={incident.id}
                 incident={incident}
                 onOpenDetail={(incident) => {
-                  setSelected(incident);
-                  setDetailsOpen(true);
+                  void openIncident(incident);
                 }}
               />
             ))}
@@ -171,58 +188,43 @@ export function IncidentsTab({
   );
 }
 
-function IncidentDrawer({
+/** The incident's detail, with its related events normalized. */
+export function incidentDetailQuery(id: string) {
+  return {
+    queryKey: ["activity", "incident", id],
+    queryFn: () =>
+      getIncident(id).then((detail) => ({
+        ...detail,
+        relatedEvents: detail.relatedEvents.map(normalizeScreenEvent),
+      })),
+  };
+}
+
+/**
+ * The incident's evidence and actions: the body of the web Sheet and Drawer,
+ * and of the native presentation. It loads the detail by id, so a frame only
+ * has to give it room.
+ */
+export function IncidentDetailsContent({
   incident,
-  open,
-  onOpenChange,
-  onOpenChangeComplete,
-  onClose,
   canAct,
   onAct,
   pending,
   error,
+  className,
 }: {
   incident: Incident;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onOpenChangeComplete: (open: boolean) => void;
-  onClose: () => void;
   canAct: boolean;
   onAct: (action: IncidentAction) => void;
   pending: boolean;
   error?: string;
+  className: string;
 }) {
   const { t } = useTranslation(["activity", "common"]);
-  const query = useQuery({
-    queryKey: ["activity", "incident", incident.id],
-    queryFn: () =>
-      getIncident(incident.id).then((detail) => ({
-        ...detail,
-        relatedEvents: detail.relatedEvents.map(normalizeScreenEvent),
-      })),
-  });
+  const query = useQuery(incidentDetailQuery(incident.id));
   const detail = query.data;
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
-    <SheetHeader>
-      <SheetTitle>{incident.title}</SheetTitle>
-      <SheetDescription>{incident.description}</SheetDescription>
-    </SheetHeader>
-  ) : (
-    <DrawerHeader>
-      <DrawerTitle>{incident.title}</DrawerTitle>
-      <DrawerDescription>{incident.description}</DrawerDescription>
-    </DrawerHeader>
-  );
-
-  const content = (
-    <div
-      className={
-        desktop
-          ? "grid gap-6 px-4 pb-6"
-          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
-      }
-    >
+  return (
+    <div className={className}>
       <div className="flex flex-wrap items-center gap-2">
         <ResultBadge value={incident.severity} />
         <IncidentStatusBadge incident={incident} />
@@ -390,6 +392,56 @@ function IncidentDrawer({
         </>
       )}
     </div>
+  );
+}
+
+function IncidentDrawer({
+  incident,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
+  onClose,
+  canAct,
+  onAct,
+  pending,
+  error,
+}: {
+  incident: Incident;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
+  onClose: () => void;
+  canAct: boolean;
+  onAct: (action: IncidentAction) => void;
+  pending: boolean;
+  error?: string;
+}) {
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <SheetTitle>{incident.title}</SheetTitle>
+      <SheetDescription>{incident.description}</SheetDescription>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <DrawerTitle>{incident.title}</DrawerTitle>
+      <DrawerDescription>{incident.description}</DrawerDescription>
+    </DrawerHeader>
+  );
+
+  const content = (
+    <IncidentDetailsContent
+      incident={incident}
+      canAct={canAct}
+      onAct={onAct}
+      pending={pending}
+      error={error}
+      className={
+        desktop
+          ? "grid gap-6 px-4 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-6"
+      }
+    />
   );
   const handleOpenChange = (nextOpen: boolean) => {
     onOpenChange(nextOpen);
