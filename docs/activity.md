@@ -177,6 +177,8 @@ The Activity API resolves resource names for historical audit records where poss
 
 Every number Studio shows, stated exactly. Where a metric can be null, null means "no data" and is never rendered as zero — zero is a measurement, and claiming one you do not have is the failure mode this whole area exists to avoid.
 
+`GET /api/v1/activity/overview` and `GET /api/v1/activity/screens/{screenId}` return `500 internal_error` when a required database query or row scan fails. A successful query with no matching data can still return an empty list or a null optional value.
+
 ### Fleet health (measured now, not over the range)
 
 | Metric         | Exact definition                                                                                                                                                                                                                           |
