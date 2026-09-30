@@ -100,7 +100,12 @@ public final class StudioPage {
     @ObservationIgnored private let policy: StudioNavigationPolicy
 
     /// Builds the page for `profile` using its isolated data store.
-    public init(profile: ServerProfile, dataStore: WKWebsiteDataStore, applicationName: String) {
+    public init(
+        profile: ServerProfile,
+        dataStore: WKWebsiteDataStore,
+        applicationName: String,
+        system: SystemIntegrationHandlers = SystemIntegrationHandlers()
+    ) {
         serverID = profile.id
         address = profile.address
         websiteDataStore = dataStore
@@ -110,6 +115,7 @@ public final class StudioPage {
         let bridge = StudioBridge(origin: profile.address.origin)
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
         bridge.install(into: &configuration)
+        system.install(on: bridge)
 
         let policy = StudioNavigationPolicy(origin: profile.address.origin)
         let sink = StudioNavigationSink()
@@ -122,7 +128,7 @@ public final class StudioPage {
         )
         let address = profile.address
         presentations = PresentationCoordinator(mainBridge: bridge) {
-            PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy)
+            PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy, system: system)
         }
         bridge.attach(to: webPage)
         sink.handler = { [weak self] in self?.handle($0) }

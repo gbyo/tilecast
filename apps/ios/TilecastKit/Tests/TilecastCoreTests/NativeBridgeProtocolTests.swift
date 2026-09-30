@@ -31,6 +31,10 @@ func foundationJSON(_ data: Data) throws -> Any {
         let presentation: [String: Any]?
         let headerActionIDs: [String]?
         let headerMenuIDs: [String]?
+        /// Present with a string, or with `NSNull` for a value the app does not know.
+        let hapticFeedback: Any?
+        let share: [String: Any]?
+        let mediaIntake: [String: Any]?
         let message: Any
         var testDescription: String { name }
     }
@@ -53,6 +57,9 @@ func foundationJSON(_ data: Data) throws -> Any {
                 presentation: entry["presentation"] as? [String: Any],
                 headerActionIDs: entry["headerActionIds"] as? [String],
                 headerMenuIDs: entry["headerMenuIds"] as? [String],
+                hapticFeedback: entry["hapticFeedback"],
+                share: entry["share"] as? [String: Any],
+                mediaIntake: entry["mediaIntake"] as? [String: Any],
                 message: entry["message"] ?? NSNull()
             )
         }
@@ -93,6 +100,33 @@ func foundationJSON(_ data: Data) throws -> Any {
             }
             #expect(capabilities.authLifecycle == expected["authLifecycle"])
             #expect(capabilities.nativePresentations == (expected["nativePresentations"] ?? false))
+            #expect(capabilities.nativeMediaIntake == (expected["nativeMediaIntake"] ?? false))
+            #expect(capabilities.deepLinks == (expected["deepLinks"] ?? false))
+        }
+        if let expected = entry.hapticFeedback {
+            guard case .accept(.systemHaptic(let feedback), _) = decoded else {
+                Issue.record("\(entry.name) should decode as system/haptic")
+                return
+            }
+            #expect(feedback?.rawValue == expected as? String)
+        }
+        if let expected = entry.share {
+            guard case .accept(.systemShare(let share), _) = decoded else {
+                Issue.record("\(entry.name) should decode as system/share")
+                return
+            }
+            #expect(share.title == expected["title"] as? String)
+            #expect(share.text == expected["text"] as? String)
+            #expect(share.url?.absoluteString == expected["url"] as? String)
+        }
+        if let expected = entry.mediaIntake {
+            guard case .accept(.mediaIntake(let request), _) = decoded else {
+                Issue.record("\(entry.name) should decode as system/media-intake")
+                return
+            }
+            #expect(request.requestID == expected["requestId"] as? String)
+            #expect(request.kinds.map(\.rawValue) == expected["kinds"] as? [String])
+            #expect(request.allowsMultiple == expected["multiple"] as? Bool)
         }
         if let expected = entry.presentation {
             guard case .accept(.presentationOpen(let presentation), _) = decoded else {
@@ -143,6 +177,12 @@ func foundationJSON(_ data: Data) throws -> Any {
             presentationID: "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
         )
         case "openPath": NativeBridgeProtocol.openPath("/screens/screen-1?tab=activity")
+        case "mediaIntakeCompleted": NativeBridgeProtocol.mediaIntakeCompleted(
+            requestID: "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+            outcome: .completed,
+            uploadedCount: 3
+        )
+        case "mediaIntakeStatusReply": NativeBridgeProtocol.reply(id: "m1", payload: ["available": .bool(true)])
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])
         case "unknownTypeReply": NativeBridgeProtocol.reply(id: nil, error: .unknownType)
         case "unsupportedVersionReply": NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion)
@@ -152,6 +192,34 @@ func foundationJSON(_ data: Data) throws -> Any {
         // And the Foundation form WebKit serializes is the same JSON.
         let data = try JSONSerialization.data(withJSONObject: encoded.foundation)
         #expect(JSONValue(foundation: try foundationJSON(data)) == encoded)
+    }
+
+    /// `deepLinkPaths` in the shared corpus. Studio refuses the same paths.
+    @Test func validatesDeepLinkPathsLikeTheSharedCorpus() throws {
+        let document = try #require(try foundationJSON(repositoryFile("packages/native-bridge-schema/fixtures/messages-v1.json")) as? [String: Any])
+        let paths = try #require(document["deepLinkPaths"] as? [String: Any])
+        let accepted = try #require(paths["accept"] as? [String])
+        let refused = try #require(paths["refuse"] as? [String])
+        #expect(!accepted.isEmpty && !refused.isEmpty)
+        for path in accepted { #expect(DeepLinkPaths.isValid(path), "\(path) should be accepted") }
+        for path in refused { #expect(!DeepLinkPaths.isValid(path), "\(path) should be refused") }
+    }
+
+    @Test func offersTheSystemCapabilitiesToTheRightContexts() {
+        let main = NativeBridgeProtocol.configPayload(context: .main)["capabilities"]?.object
+        let presentation = NativeBridgeProtocol.configPayload(context: .presentation)["capabilities"]?.object
+        for capability in ["systemShare", "systemHaptics"] {
+            #expect(main?[capability] == .bool(true))
+            #expect(presentation?[capability] == .bool(true))
+        }
+        for capability in ["nativeMediaIntake", "deepLinks"] {
+            #expect(main?[capability] == .bool(true))
+            #expect(presentation?[capability] == .bool(false), "\(capability) belongs to the main page")
+        }
+    }
+
+    @Test func knowsEveryHapticTheVocabularyNames() {
+        #expect(HapticFeedback.allCases.map(\.rawValue) == ["selection", "success", "warning", "error", "start", "stop"])
     }
 
     @Test func keepsCatalogOrderTitlesAndPlacements() throws {
@@ -196,6 +264,9 @@ func foundationJSON(_ data: Data) throws -> Any {
             NativeBridgeProtocol.reply(id: "c1", payload: NativeBridgeProtocol.configPayload(context: .main)),
             NativeBridgeProtocol.reply(id: nil, payload: [:]),
             NativeBridgeProtocol.reply(id: nil, error: .forbidden),
+            NativeBridgeProtocol.mediaIntakeCompleted(requestID: "mi-1", outcome: .completed, uploadedCount: 2),
+            NativeBridgeProtocol.reply(id: "m1", payload: ["available": .bool(true)]),
+            NativeBridgeProtocol.openPath("/screens"),
         ]
         for message in messages {
             let json = try #require(String(data: JSONSerialization.data(withJSONObject: message.foundation), encoding: .utf8))
