@@ -3,6 +3,7 @@ import {
   initialPreviewTime,
   parsePreviewTimeInput,
   previewTimeInputValue,
+  resolvePreviewDate,
   resolvePreviewNow,
 } from "./previewTime";
 
@@ -36,5 +37,17 @@ describe("preview time override", () => {
         value: "2026-08-24T13:30",
       })?.getTime(),
     ).toBe(new Date(2026, 7, 24, 13, 30).getTime());
+  });
+
+  it("selects source records by the fixed instant's local calendar date", () => {
+    expect(
+      resolvePreviewDate({ mode: "live", value: "2026-08-24T13:30" }),
+    ).toBeUndefined();
+    expect(
+      resolvePreviewDate({ mode: "fixed", value: "2026-08" }),
+    ).toBeUndefined();
+    expect(
+      resolvePreviewDate({ mode: "fixed", value: "2026-08-24T13:30" }),
+    ).toBe("2026-08-24");
   });
 });
