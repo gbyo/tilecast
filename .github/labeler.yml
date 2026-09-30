@@ -21,6 +21,10 @@ studio:
   - changed-files:
       - any-glob-to-any-file: "apps/player-android/**"
 
+"ios app":
+  - changed-files:
+      - any-glob-to-any-file: "apps/ios/**"
+
 "linux player":
   - changed-files:
       - any-glob-to-any-file: "apps/player-linux/**"

@@ -968,6 +968,7 @@ export type MaintenanceAction =
 
 export type SystemStatus = {
   tilecastVersion: string;
+  channel: "stable" | "development";
   buildCommit: string;
   buildDate: string;
   uptimeSeconds: number;
@@ -1034,6 +1035,10 @@ export type BackupRestorePlan = {
   organizationName: string;
   installationId: string;
   tilecastVersion: string;
+  /** Build that wrote the archive; empty on archives predating build identity. */
+  serverChannel?: string;
+  buildCommit?: string;
+  buildDate?: string;
   schemaVersion: number;
   createdAt: string;
   sizeBytes: number;

@@ -628,14 +628,16 @@ Use the existing Lucide icon vocabulary in Studio. Keep stroke weight and size
 consistent within a control group. Do not assign a unique icon to every field or
 use an unlabeled icon for an unfamiliar operation.
 
-The Tilecast mark retains its three-tile proportions:
+The Tilecast logo is the tile mark and the `tilecast` wordmark. The mark is
+three stacked, slanted tiles. The logo has one color.
 
-- tall left tile: Broadcast Amber.
-- upper-right tile: Signal Blue, and
-- lower-right tile: pale blue-gray.
+- `.github/logos/tilecast-logo-black.svg` is the logo for light surfaces.
+- `.github/logos/tilecast-logo-white.svg` is the logo for dark surfaces.
+- In Studio, the logo components use the current text color.
+- Application icons and the documentation favicon show the mark only, in light
+  color on the signal background.
 
-Use the dark wordmark on light surfaces and the white wordmark on dark surfaces.
-Do not redraw, distort, or recolor the mark per page.
+Do not redraw, distort, or recolor the logo per page.
 
 ## Player interface
 

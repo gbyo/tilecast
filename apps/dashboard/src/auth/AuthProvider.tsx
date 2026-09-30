@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createContext,
+  useCallback,
   useContext,
   useRef,
   useState,
@@ -43,6 +44,11 @@ type AuthContextValue = {
   watchForPasskeyAutofill: () => () => void;
   cancelChallenge: () => void;
   logout: () => Promise<void>;
+  /**
+   * Runs `hook` after each successful logout, before Studio shows its
+   * signed-out state. Returns a function that removes the hook.
+   */
+  addSignOutHook: (hook: () => Promise<void>) => () => void;
   isSubmitting: boolean;
 };
 
@@ -221,8 +227,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
     passkeyLoginMutation.reset();
   }
 
+  const signOutHooks = useRef(new Set<() => Promise<void>>());
+  const addSignOutHook = useCallback((hook: () => Promise<void>) => {
+    signOutHooks.current.add(hook);
+    return () => {
+      signOutHooks.current.delete(hook);
+    };
+  }, []);
+
   const logoutMutation = useMutation({
-    mutationFn: async () => api.logout(query.data?.csrfToken ?? ""),
+    mutationFn: async () => {
+      await api.logout(query.data?.csrfToken ?? "");
+      // A hook failure never undoes a completed logout.
+      await Promise.all(
+        [...signOutHooks.current].map((hook) => hook().catch(() => undefined)),
+      );
+    },
     onSuccess: () => {
       leaveChallenge();
       queryClient.setQueryData<AuthStatus>(authKey, {
@@ -265,6 +285,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         watchForPasskeyAutofill,
         cancelChallenge: leaveChallenge,
         logout: () => settle(logoutMutation.mutateAsync()),
+        addSignOutHook,
         isSubmitting:
           setupMutation.isPending ||
           loginMutation.isPending ||

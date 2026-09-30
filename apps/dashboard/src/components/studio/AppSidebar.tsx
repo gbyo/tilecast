@@ -1,19 +1,4 @@
-import {
-  Activity,
-  Blocks,
-  CalendarClock,
-  Database,
-  Home,
-  Image,
-  ListVideo,
-  Megaphone,
-  Monitor,
-  PanelsTopLeft,
-  Puzzle,
-  Settings,
-  Users,
-} from "lucide-react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { User } from "@/api/types";
 import { Brand } from "@/components/Brand";
@@ -26,62 +11,13 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { NavMain } from "./NavMain";
-import { NavSecondary, SecondaryNavRow } from "./NavSecondary";
-import { NavUser } from "./NavUser";
 import {
-  collectSecondaryNavItems,
-  PluginSecondaryNavItems,
-} from "@/plugin-host/secondaryNav";
-import { studioPlugins } from "@/plugin-host/discovery";
-
-// Navigation structures hold translation keys, never rendered text. Labels
-// are resolved with t() at render so the sidebar follows language changes.
-const navigationGroups = [
-  {
-    labelKey: "groups.screens",
-    items: [
-      {
-        titleKey: "items.fleet",
-        url: "/screens",
-        icon: <Monitor />,
-        excludeActiveOn: ["/screens/archive"],
-      },
-      { titleKey: "items.displayGroups", url: "/groups", icon: <Users /> },
-    ],
-  },
-  {
-    labelKey: "groups.content",
-    items: [
-      { titleKey: "items.media", url: "/assets", icon: <Image /> },
-      { titleKey: "items.widgets", url: "/widgets", icon: <Blocks /> },
-      {
-        titleKey: "items.dataSources",
-        url: "/data-sources",
-        icon: <Database />,
-      },
-    ],
-  },
-  {
-    labelKey: "groups.presentations",
-    items: [
-      { titleKey: "items.playlists", url: "/playlists", icon: <ListVideo /> },
-      { titleKey: "items.layouts", url: "/layouts", icon: <PanelsTopLeft /> },
-      { titleKey: "items.campaigns", url: "/campaigns", icon: <Megaphone /> },
-    ],
-  },
-  {
-    labelKey: "groups.operations",
-    items: [
-      {
-        titleKey: "items.schedules",
-        url: "/schedules",
-        icon: <CalendarClock />,
-      },
-      { titleKey: "items.plugins", url: "/plugins", icon: <Puzzle /> },
-    ],
-  },
-] as const;
+  resolveActiveDestination,
+  useStudioNavigation,
+} from "@/navigation/studioNavigation";
+import { NavMain } from "./NavMain";
+import { NavSecondary } from "./NavSecondary";
+import { NavUser } from "./NavUser";
 
 export function AppSidebar({
   user,
@@ -93,24 +29,18 @@ export function AppSidebar({
   signOutDisabled?: boolean;
 }) {
   const { t } = useTranslation(["navigation", "common"]);
-  // Plugin-contributed secondary navigation (the Forms reviewer inbox).
-  // Visibility lives in each plugin; the shell only renders contributions.
-  // A malformed contribution fails the shell loudly rather than rendering a
-  // broken sidebar, so this runs outside any error boundary that would hide
-  // it.
-  const contributedNav = collectSecondaryNavItems(studioPlugins(), [
-    "/activity",
-    "/settings",
-  ]);
-
-  const secondaryTop = [
-    { title: t("items.activity"), url: "/activity", icon: <Activity /> },
-  ];
-  const settingsRow = {
-    title: t("items.settings"),
-    url: "/settings",
-    icon: <Settings />,
-  };
+  // The browser sidebar renders the same resolved model that native hosts
+  // receive as their navigation catalog.
+  const navigation = useStudioNavigation();
+  const { pathname } = useLocation();
+  const activeId = resolveActiveDestination(
+    pathname,
+    navigation.destinations,
+  )?.id;
+  const main = navigation.groups.filter((group) => group.placement === "main");
+  const secondary = navigation.groups
+    .filter((group) => group.placement === "secondary")
+    .flatMap((group) => group.items);
 
   return (
     <Sidebar variant="inset" collapsible="offcanvas">
@@ -128,29 +58,12 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent className="gap-0 py-2">
-        <NavMain
-          overview={{
-            title: t("overview"),
-            url: "/",
-            icon: <Home />,
-            end: true,
-          }}
-          groups={navigationGroups.map((group) => ({
-            label: t(group.labelKey),
-            items: group.items.map((item) => ({
-              title: t(item.titleKey),
-              url: item.url,
-              icon: item.icon,
-              ...("excludeActiveOn" in item
-                ? { excludeActiveOn: item.excludeActiveOn }
-                : {}),
-            })),
-          }))}
+        <NavMain groups={main} activeId={activeId} />
+        <NavSecondary
+          className="mt-auto"
+          items={secondary}
+          activeId={activeId}
         />
-        <NavSecondary className="mt-auto" items={secondaryTop}>
-          <PluginSecondaryNavItems items={contributedNav} />
-          <SecondaryNavRow item={settingsRow} />
-        </NavSecondary>
       </SidebarContent>
       <SidebarFooter className="p-2">
         <NavUser user={user} onSignOut={onSignOut} disabled={signOutDisabled} />
