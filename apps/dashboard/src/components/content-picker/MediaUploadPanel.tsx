@@ -21,6 +21,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, AssetStatus } from "../../api/types";
 import { apiErrorMessage } from "../../i18n";
+import { useNativeHaptic } from "../../native-host/useNativeSystem";
+import { useNativeMediaIntake } from "../../native-host/useNativeMediaIntake";
+import type { MediaIntakeCompletedPayload } from "../../native-host/protocol";
 import { droppedFiles } from "../content/dragDrop";
 import {
   Attachment,
@@ -138,7 +141,19 @@ export function MediaUploadPanel({
   const { t } = useTranslation(["content", "common"]);
   const [uploads, setUploads] = useState<MediaUpload[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [nativeResult, setNativeResult] = useState<
+    MediaIntakeCompletedPayload["outcome"] | null
+  >(null);
   const input = useRef<HTMLInputElement>(null);
+  const haptic = useNativeHaptic();
+  // In a native host, "Choose files" opens the system Photos and Files
+  // pickers, and the host uploads with its own credential. The browser file
+  // input below stays the path everywhere else.
+  const nativeIntake = useNativeMediaIntake((result) => {
+    setNativeResult(result.outcome);
+    if (result.outcome === "completed") haptic("success");
+    else if (result.outcome !== "cancelled") haptic("error");
+  });
   const mounted = useRef(true);
   const onAssetRef = useRef(onAsset);
   useEffect(() => {
@@ -188,8 +203,10 @@ export function MediaUploadPanel({
         onAssetRef.current?.(latest);
       }
       if (latest.processingStatus === "ready") {
+        haptic("success");
         update(id, { state: "ready", asset: latest });
       } else if (settled.has(latest.processingStatus)) {
+        haptic("error");
         update(id, {
           state: "failed",
           asset: latest,
@@ -197,7 +214,7 @@ export function MediaUploadPanel({
         });
       }
     },
-    [t, update],
+    [haptic, t, update],
   );
 
   const upload = useCallback(
@@ -234,6 +251,7 @@ export function MediaUploadPanel({
         onAssetRef.current?.(asset);
         await follow(id, asset);
       } catch (error) {
+        haptic("error");
         update(id, {
           state: "failed",
           error:
@@ -243,7 +261,7 @@ export function MediaUploadPanel({
         });
       }
     },
-    [csrf, follow, t, update],
+    [csrf, follow, haptic, t, update],
   );
 
   const choose = (event: ChangeEvent<HTMLInputElement>) => {
@@ -285,11 +303,33 @@ export function MediaUploadPanel({
         <Button
           type="button"
           variant="outline"
-          onClick={() => input.current?.click()}
+          onClick={() => {
+            if (!nativeIntake.available) {
+              input.current?.click();
+              return;
+            }
+            setNativeResult(null);
+            void nativeIntake
+              .request({ accept: ["image", "video"], multiple: true })
+              .then((started) => {
+                // The host could not begin. Its next status reports the
+                // browser path, so the next click opens the file input.
+                if (!started) setNativeResult("failed");
+              });
+          }}
         >
           <FileUp aria-hidden="true" />
           {t("media.empty.chooseFiles")}
         </Button>
+        {nativeResult && nativeResult !== "cancelled" && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {nativeResult === "completed"
+              ? t("picker.upload.nativeCompleted")
+              : nativeResult === "partial"
+                ? t("picker.upload.nativePartial")
+                : t("picker.upload.nativeFailed")}
+          </p>
+        )}
         {/* The native file input is the browser primitive for file choice; the
             visible button above opens it. */}
         <input
