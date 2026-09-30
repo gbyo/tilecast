@@ -85,11 +85,22 @@ function mockAuth() {
 function renderLayoutEditor(assets: Asset[] = []) {
   const layout = buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
-  vi.spyOn(api, "assets").mockResolvedValue({
-    items: assets,
-    total: assets.length,
-    page: 1,
-    pageSize: 100,
+  const assetRequests = vi.spyOn(api, "assets").mockImplementation((params) => {
+    const type = params.get("type");
+    const pageSize = Number(params.get("pageSize")) || 100;
+    const items = assets.filter((asset) => !type || asset.type === type);
+    const sort = params.get("sort");
+    const sorted = [...items].sort((left, right) =>
+      sort === "name"
+        ? left.name.localeCompare(right.name)
+        : Date.parse(right.createdAt) - Date.parse(left.createdAt),
+    );
+    return Promise.resolve({
+      items: sorted.slice(0, pageSize),
+      total: items.length,
+      page: Number(params.get("page")) || 1,
+      pageSize,
+    });
   });
   vi.spyOn(api, "playlists").mockResolvedValue({
     items: [],
@@ -109,15 +120,18 @@ function renderLayoutEditor(assets: Asset[] = []) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/layouts/layout-1"]}>
-        <Routes>
-          <Route path="/layouts/:id" element={<LayoutEditorPage />} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
+  return {
+    ...render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/layouts/layout-1"]}>
+          <Routes>
+            <Route path="/layouts/:id" element={<LayoutEditorPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    ),
+    assetRequests,
+  };
 }
 
 // Drags the placement by an absolute pixel delta. The stage bounds are
@@ -305,6 +319,55 @@ describe("Layout editor drag: snap-then-clamp", () => {
     const recent = await screen.findByTitle("Add Poster");
     expect(recent).toHaveAttribute("draggable", "true");
     expect(recent.querySelector("img")).toHaveAttribute("draggable", "false");
+  });
+
+  it("loads the newest assets by type for the Recent shelf", async () => {
+    mockAuth();
+    const oldAssets = Array.from(
+      { length: 100 },
+      (_, index) =>
+        ({
+          id: `image-${index}`,
+          name: `Image ${String(index).padStart(3, "0")}`,
+          type: "image",
+          thumbnailUrl: `/image-${index}.jpg`,
+          createdAt: new Date(Date.UTC(2025, 0, 1, 0, 0, index)).toISOString(),
+        }) as Asset,
+    );
+    const recentAsset = {
+      id: "recent-image",
+      name: "Zulu Recent Poster",
+      type: "image",
+      thumbnailUrl: "/recent-image.jpg",
+      createdAt: "2026-07-28T12:00:00Z",
+    } as Asset;
+    const { assetRequests } = renderLayoutEditor([...oldAssets, recentAsset]);
+
+    await waitFor(() =>
+      expect(
+        assetRequests.mock.calls.filter(([params]) => params.has("type")),
+      ).toHaveLength(3),
+    );
+    const recentRequests = assetRequests.mock.calls
+      .map(([params]) => params)
+      .filter((params) => params.has("type"));
+    expect(recentRequests.map((params) => params.get("type")).sort()).toEqual([
+      "image",
+      "video",
+      "widget",
+    ]);
+    for (const params of recentRequests) {
+      expect(params.get("sort")).toBe("newest");
+      expect(params.get("status")).toBe("ready");
+      expect(params.get("pageSize")).toBe("4");
+    }
+
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: "Add to canvas" }));
+    expect(
+      await screen.findByTitle("Add Zulu Recent Poster"),
+    ).toBeInTheDocument();
   });
 });
 

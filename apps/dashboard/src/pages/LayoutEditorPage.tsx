@@ -222,6 +222,8 @@ type Viewport = { zoom: number; panX: number; panY: number };
 
 type SaveState = "saved" | "unsaved" | "saving" | "conflict" | "error";
 type LayoutLibrarySection = "widgets" | "media" | "playlists";
+const recentLayoutShelfSize = 4;
+const recentAssetTypes = ["image", "video", "widget"] as const;
 type LayoutLibraryItem =
   | { kind: "asset"; createdAt: string; asset: Asset }
   | { kind: "playlist"; createdAt: string; playlist: Playlist };
@@ -651,6 +653,27 @@ export function LayoutEditorPage() {
         }),
       ),
   });
+  const recentAssetsQuery = useQuery({
+    queryKey: ["layout-recent-assets"],
+    queryFn: async () => {
+      // The shelf shows four items. Separate recent pages prevent a busy asset
+      // type from hiding new images, videos, or Widgets before the merge.
+      const pages = await Promise.all(
+        recentAssetTypes.map((type) =>
+          api.assets(
+            new URLSearchParams({
+              type,
+              status: "ready",
+              page: "1",
+              pageSize: String(recentLayoutShelfSize),
+              sort: "newest",
+            }),
+          ),
+        ),
+      );
+      return { items: pages.flatMap((page) => page.items) };
+    },
+  });
   const playlistsQuery = useQuery({
     queryKey: ["layout-playlists"],
     queryFn: () => api.playlists(""),
@@ -743,8 +766,8 @@ export function LayoutEditorPage() {
     | null
   >(null);
   const [renameValue, setRenameValue] = useState("");
-  // Anything chosen through a picker can live outside the shelf query's first page, so
-  // it is cached here and merged into the lookups the canvas renders from.
+  // Anything chosen through a picker can live outside the editor's first asset
+  // page, so cache it here and merge it into the lookups the canvas renders from.
   const [pickedAssets, setPickedAssets] = useState<Asset[]>([]);
   const [pickedPlaylists, setPickedPlaylists] = useState<Playlist[]>([]);
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({});
@@ -1380,13 +1403,13 @@ export function LayoutEditorPage() {
         .flatMap((section) =>
           recentLayoutLibraryItems(
             section,
-            contentQuery.data?.items ?? [],
+            recentAssetsQuery.data?.items ?? [],
             playlistsQuery.data?.items ?? [],
           ),
         )
         .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-        .slice(0, 4),
-    [contentQuery.data?.items, playlistsQuery.data?.items],
+        .slice(0, recentLayoutShelfSize),
+    [recentAssetsQuery.data?.items, playlistsQuery.data?.items],
   );
   const primary = selected.at(-1);
   useEffect(() => {

@@ -86,11 +86,18 @@ function renderLayoutEditor(
 ) {
   const layout = options.layout ?? buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
-  vi.spyOn(api, "assets").mockResolvedValue({
-    items: options.assets ?? [],
-    total: options.assets?.length ?? 0,
-    page: 1,
-    pageSize: 100,
+  vi.spyOn(api, "assets").mockImplementation((params) => {
+    const type = params.get("type");
+    const items = (options.assets ?? []).filter(
+      (asset) => !type || asset.type === type,
+    );
+    const pageSize = Number(params.get("pageSize")) || 100;
+    return Promise.resolve({
+      items,
+      total: items.length,
+      page: 1,
+      pageSize,
+    });
   });
   vi.spyOn(api, "playlists").mockReturnValue(
     options.playlists ??
