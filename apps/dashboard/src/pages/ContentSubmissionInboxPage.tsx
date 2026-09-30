@@ -742,7 +742,7 @@ function PublishActions({
         </FieldLabel>
         <DateTimeInput
           id="submission-publish-at"
-          aria-label="Publish at"
+          aria-label={t("submissions.publish.publishAtLabel")}
           timeLabel={t("submissions.publish.publishAtTimeLabel")}
           value={schedule}
           onChange={onSchedule}

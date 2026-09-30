@@ -568,9 +568,9 @@ export function ScreensWorkspacePage() {
         }
         className="min-w-0 gap-4"
       >
-        <TabsList variant="line" aria-label="Screen views">
-          <TabsTrigger value="fleet">Fleet</TabsTrigger>
-          <TabsTrigger value="archive">Archive</TabsTrigger>
+        <TabsList variant="line" aria-label={t("page.viewsAriaLabel")}>
+          <TabsTrigger value="fleet">{t("page.fleetTab")}</TabsTrigger>
+          <TabsTrigger value="archive">{t("page.archiveTab")}</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} className="min-w-0 outline-none">
           <Outlet />
