@@ -751,6 +751,7 @@
     "title": "Archivo de pantallas",
     "body": "Los reproductores con emparejamientos revocados se conservan por historial, pero están separados de toda la configuración activa de Tilecast.",
     "loading": "Cargando pantallas archivadas…",
+    "loadError": "No se pudieron cargar las pantallas archivadas.",
     "emptyTitle": "No hay pantallas archivadas",
     "emptyBody": "Los emparejamientos de reproductores revocados aparecerán aquí automáticamente.",
     "back": "Volver a las pantallas",
