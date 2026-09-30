@@ -1,13 +1,23 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentSubmissionInboxPage } from "./ContentSubmissionInboxPage";
 import { api } from "../api/client";
 import type { ContentSubmission } from "../api/types";
+
+// The page renders a card list for narrow screens and a table for wide ones,
+// and hides one with CSS. jsdom applies no CSS, so tests read the table.
+const desktop = async () => within(await screen.findByRole("table"));
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -69,9 +79,11 @@ describe("Content submission inbox", () => {
     const user = userEvent.setup();
 
     expect(
-      await screen.findByRole("link", { name: /Lobby Loop/ }),
+      await (await desktop()).findByRole("link", { name: /Lobby Loop/ }),
     ).toBeTruthy();
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      await (await desktop()).findByRole("button", { name: "Review" }),
+    );
     const sheet = await screen.findByRole("dialog");
     expect(sheet).toHaveTextContent("Draft revision 4");
     const approveButton = screen
@@ -94,7 +106,9 @@ describe("Content submission inbox", () => {
     renderPage();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      await (await desktop()).findByRole("button", { name: "Review" }),
+    );
     const sheet = await screen.findByRole("dialog");
     const openReject = screen
       .getAllByRole("button", { name: "Request changes" })
