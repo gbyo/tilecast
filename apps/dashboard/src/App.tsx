@@ -7,6 +7,7 @@ import { NativeHostProvider } from "./native-host/NativeHostProvider";
 import { NativeAuthLifecycle } from "./native-host/useNativeAuthLifecycle";
 import { PRESENTATION_ROOT } from "./native-host/protocol";
 import { NativePresentationHost } from "./native-presentation/NativePresentationHost";
+import { NativeMediaIntakeRefresh } from "./native-host/NativeMediaIntakeRefresh";
 import { NativePresentationNavigation } from "./native-presentation/NativePresentationNavigation";
 import { LiveStreamPresentation } from "./components/LiveStreamPresentation";
 import { settingsItems } from "./settings/settingsNavigation";
@@ -655,6 +656,7 @@ export function App() {
     <NativeHostProvider>
       <NativeAuthLifecycle />
       <NativePresentationNavigation />
+      <NativeMediaIntakeRefresh />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />

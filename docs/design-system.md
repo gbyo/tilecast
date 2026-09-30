@@ -426,6 +426,12 @@ The `hint` is not decoration. It carries the measurement's scope. A tile
 without one invites the reader to assume the selected date range applies, so say
 "Right now, not over the range" wherever that is true.
 
+A `MetricTile` in its default form is a bordered box, which is right on its own
+in a grid. Place several figures inside one `Card` with `variant="plain"`, which
+drops the border and padding and keeps the hint, the delta, and the link. Nesting
+bordered tiles inside a bordered card would say each figure is a separate
+section when they answer one question.
+
 **Absent data reads as absent.** A metric with no data shows "No data", never
 zero. Zero is a measurement: a compliance figure of 0% claims every expected
 play was missed, when in fact none was expected. The same applies to a mean time
