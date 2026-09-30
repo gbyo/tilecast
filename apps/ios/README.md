@@ -7,7 +7,7 @@ A native host for Tilecast Studio. Read [`docs/ios-app.md`](../../docs/ios-app.m
 - Xcode 26 or later
 - an iOS 26 or later simulator, or a device
 
-The app has no third-party packages. You do not need other tools.
+The app's only packages are Apple's [Swift OpenAPI Generator](https://github.com/apple/swift-openapi-generator), OpenAPI Runtime, OpenAPI URLSession, and HTTP Types. `TilecastKit/Package.resolved` pins them; Xcode and `swift test` both use it. You do not need other tools.
 
 ## Build and run
 
@@ -32,11 +32,19 @@ The full suite runs on the iOS Simulator, as in CI. The UI tests start a loopbac
 cd apps/ios
 scripts/check-architecture.sh
 DESTINATION=$(scripts/simulator-destination.py)
-xcodebuild build-for-testing -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData
+xcodebuild build-for-testing -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -skipPackagePluginValidation
 scripts/check-localization.py build/DerivedData
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastCoreTests
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastUITests
 ```
+
+## Generated API client
+
+`TilecastKit/Sources/TilecastAPI` is generated at build time from the composed contract. Its `openapi.yaml` is a symbolic link to `docs/openapi.yaml`. Change the contract in `docs/openapi/core.yaml` or a plugin's `api/openapi.yaml`, run `npm run plugins:generate`, and rebuild. Do not copy the contract or check in generated Swift.
+
+The generator runs as a package build plugin. Xcode asks you to trust it the first time. From the command line, pass `-skipPackagePluginValidation` to `xcodebuild`, as the commands above do. To update a dependency, run `swift package update` in `TilecastKit` and commit `Package.resolved`. CI resolves with `-disableAutomaticPackageResolution`, so a stale `Package.resolved` fails the build.
+
+Native API code lives in `TilecastCore/Auth/`. Read [Authentication](../../docs/ios-app.md#authentication) before you change it: the access token stays in memory, the refresh token stays in the Keychain, and neither may reach page JavaScript or the bridge.
 
 ## Native bridge and navigation
 

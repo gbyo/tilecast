@@ -32,6 +32,11 @@ public final class NativeNavigationModel {
     /// In the More tab: true shows the destination list, false shows Studio.
     public private(set) var moreShowsList = true
 
+    /// The chrome of the current page. Drives the native back bar.
+    public private(set) var chrome = NavigationChrome()
+
+    /// Sends `navigation/back`. Set by the bridge.
+    @ObservationIgnored var requestBack: () -> Void = {}
     /// Sends `navigation/request`. Set by the bridge.
     @ObservationIgnored var requestNavigation: (String) -> Void = { _ in }
     /// A request Studio has not acknowledged yet.
@@ -69,7 +74,11 @@ public final class NativeNavigationModel {
     public func apply(_ catalog: NavigationCatalog) {
         let first = self.catalog == nil
         self.catalog = catalog.isEmpty ? nil : catalog
-        guard self.catalog != nil else { return }
+        guard self.catalog != nil else {
+            // Native navigation is withdrawn, for example on sign-out.
+            chrome = NavigationChrome()
+            return
+        }
         if first {
             showInitialSelection()
         } else if case .destination(let id) = selectedTab, !primaryDestinations.contains(where: { $0.id == id }) {
@@ -88,7 +97,12 @@ public final class NativeNavigationModel {
         if changed || acknowledged || frontendTab != nil { reconcile() }
     }
 
+    public func apply(_ chrome: NavigationChrome) {
+        self.chrome = chrome
+    }
+
     public func reset() {
+        chrome = NavigationChrome()
         catalog = nil
         activeDestinationID = nil
         path = nil
@@ -109,6 +123,12 @@ public final class NativeNavigationModel {
         case .destination(let id):
             open(id)
         }
+    }
+
+    /// The native back button. Studio's router decides where it goes.
+    public func goBack() {
+        guard chrome.showsBackBar else { return }
+        requestBack()
     }
 
     /// A destination chosen in More or the sidebar.
