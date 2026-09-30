@@ -19,8 +19,11 @@ export const graph = {
   android: [],
   // The iOS host embeds Studio at runtime from the configured server, so a
   // Studio change never requires an iOS build. Its build inputs are its own
-  // sources and the contracts it compiles or tests against. Add an edge here
-  // only when the app starts consuming a new contract at build time.
+  // sources and the contracts it compiles or tests against: the server
+  // address corpus, the native bridge schema, Studio's navigation icon
+  // mapping, from which its icons are generated, and the OpenAPI contract.
+  // Add an edge here only when the app starts consuming a new contract at
+  // build time.
   ios: [],
   docs: [],
   container: [],
@@ -45,6 +48,11 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // The iOS app's navigation icons are generated from Studio's icon mapping.
+  [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
+  // Studio and the iOS app both run the native bridge contract's fixtures.
+  // Studio's own bridge code is ordinary dashboard code.
+  [/^packages\/native-bridge-schema\//, ["dashboard", "ios"]],
   [
     /^scripts\/(build-player-release|extract-apksigner-sha256)\.sh$/,
     ["android"],
@@ -155,7 +163,8 @@ const rules = [
     /^(apps\/docs\/|docs\/|wiki\/|\.github\/logos\/)|(^|\/)README\.md$|^CONTRIBUTING\.md$|^scripts\/check-docs-ste\.sh$/,
     ["docs"],
   ],
-  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server"]],
+  // The iOS app generates its API client from the composed contract.
+  [/^docs\/(openapi\/|openapi\.yaml$)/, ["plugins", "cli", "server", "ios"]],
   [
     /^(package(-lock)?\.json|go\.work(\.sum)?|Makefile|\.github\/CODEOWNERS)$|^\.github\/(workflows|actions)\/|^scripts\/ci\//,
     areas,

@@ -42,7 +42,7 @@ Run the server on your own hardware, build and schedule content in **Tilecast St
 
 Build playlists and multi-zone layouts from images, video, websites, widgets, and live data. Schedule them to individual screens or groups, temporarily take over displays, and see what your players are doing from Studio.
 
-Players cache the content they need, so a temporary network or server outage doesn't turn into a wall of blank screens.
+Players cache the content they need, so a temporary network or server outage does not turn into a wall of blank screens.
 
 Tilecast also includes:
 
@@ -65,7 +65,7 @@ Player development and platform-specific details live in [`apps/`](apps/) and [`
 
 ## Run Tilecast
 
-You'll need Docker Engine and Docker Compose v2.
+You need Docker Engine and Docker Compose v2.
 
 Create the environment file:
 
@@ -81,10 +81,10 @@ For a local HTTP installation, keep:
 TILECAST_COOKIE_SECURE=false
 ```
 
-Then start Tilecast:
+Normal installs run a published Stable server image selected by `TILECAST_VERSION` in `deploy/docker/.env` (`stable` follows Stable releases; pin a release such as `0.11.0` for controlled upgrades). Then start Tilecast:
 
 ```sh
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
 ```
 
 Open [http://localhost:8080](http://localhost:8080) and follow the setup flow to create your organization and first Owner account.

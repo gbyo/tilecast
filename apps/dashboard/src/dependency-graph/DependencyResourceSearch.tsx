@@ -96,7 +96,7 @@ export function DependencyResourceSearch({
           <Search aria-hidden="true" />
         </InputGroupAddon>
       </ComboboxInput>
-      <ComboboxContent className="min-w-80">
+      <ComboboxContent className="min-w-0 sm:min-w-80">
         <ComboboxEmpty>{t("graph.toolbar.noResults")}</ComboboxEmpty>
         <ComboboxList>
           {(group: ResultGroup) => (

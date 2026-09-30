@@ -70,8 +70,9 @@ export interface StudioPluginDefinition {
  */
 export interface StudioPluginSecondaryNavItem {
   /**
-   * Item identifier, unique across every plugin's contributions. Duplicates
-   * fail loudly at startup rather than rendering two items as one.
+   * Item identifier, unique across every plugin's contributions: lowercase
+   * letters, digits, and hyphens. Duplicates fail loudly at startup rather
+   * than rendering two items as one.
    */
   id: string;
   /**
@@ -82,6 +83,13 @@ export interface StudioPluginSecondaryNavItem {
   to: string;
   /** The plugin's icon for the item. */
   icon: PluginIconComponent;
+  /**
+   * Optional semantic icon token for native hosts, such as the iOS app, which
+   * cannot render a React icon. See
+   * packages/native-bridge-schema/icon-tokens.json. Without one, native hosts
+   * show their generic plugin icon.
+   */
+  iconToken?: string;
   /** Label key in the plugin's own translation namespace. */
   labelKey: string;
   /**

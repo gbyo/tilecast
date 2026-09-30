@@ -1,0 +1,15 @@
+# Development override: build and run the server from the working tree
+# instead of the published image in compose.yml.
+#
+#   docker compose --env-file deploy/docker/.env \
+#     -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml \
+#     up -d --build
+#
+# Normal self-hosted installs should not use this file; they run a pinned or
+# stable published image so upgrades are explicit version changes.
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    image: tilecast/server:local
