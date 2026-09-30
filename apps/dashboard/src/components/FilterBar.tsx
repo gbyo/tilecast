@@ -163,11 +163,7 @@ export function FilterBar({
           <Sheet>
             <SheetTrigger
               render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="sm:hidden"
-                />
+                <Button type="button" variant="outline" className="sm:hidden" />
               }
             >
               <SlidersHorizontal aria-hidden="true" />
@@ -178,7 +174,10 @@ export function FilterBar({
                 </span>
               )}
             </SheetTrigger>
-            <SheetContent side="right" className="w-[min(22rem,90vw)]">
+            <SheetContent
+              side="right"
+              className="w-[min(22rem,90vw)] overflow-y-auto"
+            >
               <SheetHeader>
                 <SheetTitle>{t("filters.title")}</SheetTitle>
                 <SheetDescription className="sr-only">
@@ -315,10 +314,7 @@ function FilterControl({
         onChange(!next || next === "__all__" ? "" : next)
       }
     >
-      <SelectTrigger
-        className="w-full sm:w-48"
-        aria-label={definition.label}
-      >
+      <SelectTrigger className="w-full sm:w-48" aria-label={definition.label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
