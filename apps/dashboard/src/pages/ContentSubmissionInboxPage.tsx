@@ -387,7 +387,58 @@ export function ContentSubmissionInboxPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <div className="contents">
+          <div className="grid gap-2 lg:hidden">
+            {items.map((item) => (
+              <article
+                key={item.id}
+                className="grid gap-3 rounded-xl border border-border p-3"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      to={contentHref(item)}
+                      className="block truncate font-medium text-primary hover:underline"
+                    >
+                      {item.contentName || item.contentType} ·{" "}
+                      {item.contentId.slice(0, 8)}
+                    </Link>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {submissionMeta(
+                        t,
+                        item,
+                        new Date(item.submittedAt).toLocaleString(),
+                      )}
+                    </p>
+                  </div>
+                  <SubmissionBadge status={item.status} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t("submissions.itemImpact", {
+                    published:
+                      item.currentPublishedRevision ??
+                      t("submissions.detail.noRevision"),
+                    screens: item.affectedScreenCount,
+                    locations: item.affectedLocationCount,
+                  })}
+                </p>
+                <div className="flex justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedId(item.id);
+                      setSelected(item);
+                      setDetailsOpen(true);
+                    }}
+                  >
+                    {t("submissions.table.reviewAction")}
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
           <Table className="min-w-[48rem]">
             <TableHeader>
               {table.getHeaderGroups().map((group) => (
@@ -417,6 +468,7 @@ export function ContentSubmissionInboxPage() {
               ))}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
       {error && (
