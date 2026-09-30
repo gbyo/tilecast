@@ -1185,7 +1185,9 @@
     "sourcesLoadError": "No se pudieron cargar las fuentes de datos.",
     "noSources": "Aún no existen fuentes de tablas manuales.",
     "creating": "Creando…",
-    "createAction": "Crear token"
+    "createAction": "Crear token",
+    "created": "Token de integración creado.",
+    "revoked": "Token de integración revocado."
   },
   "locations": {
     "searchLabel": "Buscar ubicaciones",
