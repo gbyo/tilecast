@@ -313,10 +313,10 @@ describe("Overview on air", () => {
     const onAir = await region("On air now");
     expect(
       await within(onAir).findAllByRole("link", { name: /Screen/ }),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
     expect(
       await within(onAir).findByRole("link", {
-        name: "2 more online screens have content assigned.",
+        name: "3 more online screens have content assigned.",
       }),
     ).toHaveAttribute("href", "/screens");
   });
@@ -440,7 +440,7 @@ describe("Overview coming up", () => {
       name: /Starts · Lunch menu/,
     });
     expect(link).toHaveAttribute("href", "/schedules/schedule-1");
-    expect(within(card).getByText("Lunch loop · Lobby")).toBeInTheDocument();
+    expect(within(card).getByText(/Lunch loop · Lobby/)).toBeInTheDocument();
   });
 
   it("says when only some schedules were considered", async () => {
@@ -481,10 +481,10 @@ describe("Overview player updates", () => {
     renderPage();
     const card = await region("Player updates");
     expect(
-      await within(card).findByText("Player 1.2.0 · Completed"),
+      await within(card).findByText(/Player 1\.2\.0 · Completed/),
     ).toBeInTheDocument();
     expect(within(card).getByText("Up to date")).toBeInTheDocument();
-    expect(within(card).getByText("4 of 4 succeeded")).toBeInTheDocument();
+    expect(within(card).getByText(/4 of 4 succeeded/)).toBeInTheDocument();
   });
 
   it("puts a failed deployment forward with what failed", async () => {
@@ -503,7 +503,7 @@ describe("Overview player updates", () => {
     expect(await within(card).findByText("3 need action")).toBeInTheDocument();
     expect(
       within(card).getByText(
-        "1 of 4 succeeded · Failed: 2 · Waiting for user: 1",
+        /1 of 4 succeeded · Failed: 2 · Waiting for user: 1/,
       ),
     ).toBeInTheDocument();
   });
@@ -608,7 +608,7 @@ describe("Overview installation states", () => {
 });
 
 describe("Overview layout order", () => {
-  it("keeps one DOM order for every viewport: status, attention, now, next, last day, updates", async () => {
+  it("keeps one DOM order for every viewport: status, attention, the rail, then last day", async () => {
     mockAll({ screens: [screenFixture({ status: "offline" })] });
     renderPage();
     await region("Needs attention");
@@ -620,9 +620,9 @@ describe("Overview layout order", () => {
       "Needs attention",
       "On air now",
       "Coming up",
-      "Last 24 hours",
-      "Player updates",
       "Content health",
+      "Player updates",
+      "Last 24 hours",
     ]);
   });
 });
