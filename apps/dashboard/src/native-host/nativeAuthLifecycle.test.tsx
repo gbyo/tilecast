@@ -165,6 +165,8 @@ describe("native auth lifecycle", () => {
         capabilities: {
           authLifecycle: true,
           nativePresentations: true,
+          nativeMediaIntake: true,
+          deepLinks: true,
           nativeAlerts: true,
         },
       },
