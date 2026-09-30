@@ -230,13 +230,13 @@ The heartbeat accepts at most 128 capability entries (earlier: 64). A Player mus
 
 A Widget element dispatches bounded, bubbling, composed events:
 
-| Event                   | Detail                    | Runtime meaning                                 |
-| ----------------------- | ------------------------- | ----------------------------------------------- |
-| `tilecast-widget-ready` | none                      | Meaningful content is painted for these inputs. |
-| `tilecast-widget-empty` | `{ reason }` (≤ 48 chars) | Expected empty content. It is not a failure.    |
-| `tilecast-widget-error` | `{ code }` (≤ 48 chars)   | The Widget cannot render these inputs.          |
+| Event                   | Detail                                 | Runtime meaning                                 |
+| ----------------------- | -------------------------------------- | ----------------------------------------------- |
+| `tilecast-widget-ready` | `{ revision }`                         | Meaningful content is painted for these inputs. |
+| `tilecast-widget-empty` | `{ reason, revision }` (`reason` ≤ 48) | Expected empty content. It is not a failure.    |
+| `tilecast-widget-error` | `{ code, revision }` (`code` ≤ 48)     | The Widget cannot render these inputs.          |
 
-`WidgetMount` turns these events into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
+`WidgetMount` advances the input revision for every assignment and in-place update. Synchronous Widgets can use the `announceReady`, `announceEmpty` and `announceError` helpers without a revision argument. A Widget that starts asynchronous work must capture `widgetInputRevision(this)` before it starts and pass that captured revision as the last argument to its announce helper. The mount ignores events for older revisions and gives each revision its own readiness timeout. It turns the current event into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
 
 A time-sensitive Widget may change between `ready` and `empty` at a clock boundary. The base element reports that transition once, even when its `config`, `data`, `empty`, and `context` properties did not change.
 
