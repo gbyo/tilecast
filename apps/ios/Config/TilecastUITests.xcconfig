@@ -1,0 +1,5 @@
+PRODUCT_NAME = TilecastUITests
+PRODUCT_BUNDLE_IDENTIFIER = $(TILECAST_BUNDLE_ID).uitests
+GENERATE_INFOPLIST_FILE = YES
+TEST_TARGET_NAME = Tilecast
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks @loader_path/Frameworks

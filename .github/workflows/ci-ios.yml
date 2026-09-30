@@ -1,0 +1,80 @@
+name: ci-ios
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: iOS CI
+    runs-on: macos-26
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: apps/ios
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Configure derived data path
+        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData" >> "$GITHUB_ENV"
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes | grep -i ios
+      - name: Guard host and Studio boundaries
+        run: scripts/check-architecture.sh
+      # Swift OpenAPI Generator runs as a package build plugin, which
+      # xcodebuild runs only with -skipPackagePluginValidation. Package
+      # versions come from TilecastKit/Package.resolved; resolution fails
+      # instead of updating it.
+      - name: Choose simulators
+        run: |
+          echo "DESTINATION=$(scripts/simulator-destination.py)" >> "$GITHUB_ENV"
+          echo "IPAD_DESTINATION=$(scripts/simulator-destination.py --ipad)" >> "$GITHUB_ENV"
+      - name: Build for testing
+        run: >
+          xcodebuild build-for-testing
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -skipPackagePluginValidation
+          -disableAutomaticPackageResolution
+          CODE_SIGNING_ALLOWED=NO
+      - name: Check localization
+        run: scripts/check-localization.py "$DERIVED_DATA"
+      # Core and UI tests run separately so a hang or failure names its bundle.
+      - name: Core tests
+        timeout-minutes: 10
+        run: >
+          xcodebuild test-without-building
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -only-testing:TilecastCoreTests
+          -resultBundlePath "$RUNNER_TEMP/core-tests.xcresult"
+      - name: UI tests
+        timeout-minutes: 10
+        run: >
+          xcodebuild test-without-building
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -only-testing:TilecastUITests
+          -resultBundlePath "$RUNNER_TEMP/ui-tests.xcresult"
+      # The same build runs on an iPad, where regular width shows the native
+      # sidebar instead of tabs.
+      - name: UI tests on iPad
+        timeout-minutes: 10
+        run: >
+          xcodebuild test-without-building
+          -project Tilecast.xcodeproj -scheme Tilecast
+          -destination "$IPAD_DESTINATION"
+          -derivedDataPath "$DERIVED_DATA"
+          -only-testing:TilecastUITests/NativeNavigationUITests
+          -only-testing:TilecastUITests/NativePresentationUITests
+          -resultBundlePath "$RUNNER_TEMP/ipad-ui-tests.xcresult"

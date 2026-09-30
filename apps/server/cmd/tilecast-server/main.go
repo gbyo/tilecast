@@ -195,7 +195,7 @@ func serve() {
 		UpdatesRoot:       cfg.Updates.Root,
 		ReservedFreeBytes: cfg.Backup.ReservedFreeBytes,
 		Limits:            backup.Limits{MaxFiles: cfg.Backup.MaxArchiveFiles, MaxExpandedBytes: cfg.Backup.MaxArchiveBytes},
-		TilecastVersion:   version.Version,
+		Build:             version.CurrentBuild(),
 	}, logger)
 	backupWorker.Start(ctx)
 	defer backupWorker.Stop()
