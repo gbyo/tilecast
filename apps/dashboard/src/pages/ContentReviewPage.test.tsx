@@ -8,6 +8,8 @@ import { MemoryRouter } from "react-router";
 import { ContentReviewPage } from "./ContentReviewPage";
 import { api } from "../api/client";
 import type { ContentReviewItem } from "../api/types";
+import { i18n } from "../i18n";
+import { formatLocale } from "../i18n/languages";
 
 let role = "editor";
 vi.mock("../auth/AuthProvider", () => ({
@@ -51,9 +53,10 @@ describe("Content review", () => {
   beforeEach(() => {
     role = "editor";
   });
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("says approval is not enforced when the setting is off", async () => {
@@ -171,5 +174,28 @@ describe("Content review", () => {
 
     await user.click(screen.getByRole("button", { name: "All" }));
     await waitFor(() => expect(reviews).toHaveBeenCalledWith(""));
+  });
+
+  it("formats queue and sheet dates in the selected Studio locale", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [pending],
+    });
+    renderPage();
+    const expected = new Date(pending.updatedAt).toLocaleString(
+      formatLocale("es"),
+    );
+    // The queue renders both cards and a table; either proves the locale.
+    await screen.findAllByText("Cafeteria Menu");
+    expect(document.body.textContent).toContain(expected);
+
+    const user = userEvent.setup();
+    const actions = await screen.findAllByRole("button", {
+      name: i18n.t("review:contentReview.table.reviewAction"),
+    });
+    await user.click(actions[0]!);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(expected);
   });
 });
