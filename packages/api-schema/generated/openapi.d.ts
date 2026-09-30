@@ -488,7 +488,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. */
+    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss. */
     post: operations["approveOAuthRequest"];
     delete?: never;
     options?: never;
@@ -505,7 +505,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. */
+    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss. */
     post: operations["denyOAuthRequest"];
     delete?: never;
     options?: never;
@@ -539,7 +539,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view. */
+    /** @description Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view. */
     post: operations["createIOSStudioSession"];
     delete?: never;
     options?: never;
