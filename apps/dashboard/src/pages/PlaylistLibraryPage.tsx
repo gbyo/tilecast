@@ -20,6 +20,7 @@ import {
   DashboardSearch,
 } from "../components/DashboardListToolbar";
 import { PlaylistPreview } from "../components/PresentationPreview";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -201,7 +202,7 @@ function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
 }
 
 export function PlaylistLibraryPage() {
-  const { t } = useTranslation("playlists");
+  const { t } = useTranslation(["playlists", "common"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -343,6 +344,23 @@ export function PlaylistLibraryPage() {
         </ToggleGroup>
       </DashboardListToolbar>
 
+      {query.isError && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("library.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!query.isLoading && allPlaylists.length > 0 && (
         <div className="text-sm text-muted-foreground" aria-live="polite">
           {t("library.showing", {
@@ -357,7 +375,7 @@ export function PlaylistLibraryPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : allPlaylists.length === 0 ? (
+      ) : query.isError && !query.data ? null : allPlaylists.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
