@@ -84,6 +84,8 @@ public final class StudioPage {
     /// Native presentations of Studio routes, with the one reusable
     /// presentation page they share.
     public let presentations: PresentationCoordinator
+    /// The alert Studio asked for, in either of its pages.
+    public let alerts = NativeAlertCenter()
     public private(set) var phase: Phase = .loading
     public private(set) var signInRequired = false
     public private(set) var isClosed = false
@@ -108,6 +110,7 @@ public final class StudioPage {
         initialURL = restored?.path == "/login" ? profile.address.url : (restored ?? profile.address.url)
 
         let bridge = StudioBridge(origin: profile.address.origin)
+        bridge.alerts = alerts
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
         bridge.install(into: &configuration)
 
@@ -121,7 +124,7 @@ public final class StudioPage {
             navigationDecider: StudioNavigationDecider(policy: policy, sink: sink)
         )
         let address = profile.address
-        presentations = PresentationCoordinator(mainBridge: bridge) {
+        presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts) {
             PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy)
         }
         bridge.attach(to: webPage)

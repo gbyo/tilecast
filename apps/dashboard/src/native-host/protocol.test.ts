@@ -124,6 +124,18 @@ describe("messages Studio sends", () => {
       dismissible: true,
     }),
     presentationReady: frontendMessage("presentation/ready", {}),
+    alertPresent: frontendMessage("alert/present", {
+      alertId: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+      title: "Delete this schedule?",
+      message: "Screens stop following it at once.",
+      actions: [
+        { id: "cancel", label: "Cancel", role: "cancel" },
+        { id: "confirm", label: "Delete", role: "destructive" },
+      ],
+    }),
+    alertCancel: frontendMessage("alert/cancel", {
+      alertId: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+    }),
     presentationUpdate: frontendMessage("presentation/update", {
       presentationId,
       header: {
@@ -206,6 +218,7 @@ describe("messages Studio sends", () => {
         nativeNavigation: true,
         authLifecycle: false,
         nativePresentations: false,
+        nativeAlerts: false,
       },
     });
     expect(
@@ -216,6 +229,7 @@ describe("messages Studio sends", () => {
           nativeNavigation: "yes",
           authLifecycle: true,
           nativePresentations: 1,
+          nativeAlerts: "true",
         },
       }),
     ).toEqual({
@@ -224,6 +238,7 @@ describe("messages Studio sends", () => {
         nativeNavigation: false,
         authLifecycle: true,
         nativePresentations: false,
+        nativeAlerts: false,
       },
     });
     expect(decodeHostConfig({ capabilities: {} })).toBeNull();

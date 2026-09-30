@@ -58,6 +58,7 @@ struct PresentationSheet: View {
             if let current = coordinator.presentation, current.id == presentationID { last = current }
         }
         .onChange(of: coordinator.pendingEvents, initial: true) { perform(coordinator.takeEvents()) }
+        .nativeAlert(from: coordinator.alerts, for: .presentation)
         .alert("Downloads Aren’t Available Yet", isPresented: $showingDownloadNotice) {
             Button("OK", role: .cancel) {}
         } message: {
