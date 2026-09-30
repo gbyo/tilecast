@@ -540,6 +540,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("groups zoom as minus, percent, plus, and fit", async () => {
+    // The minus, percent, plus, and fit group is the desktop toolbar.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -555,6 +557,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps related inspector sections independently expandable", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -616,6 +620,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps deletion local to focused inputs and editable controls", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     const placement = await screen.findByText("New text");
