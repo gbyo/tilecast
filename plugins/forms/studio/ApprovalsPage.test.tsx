@@ -2,9 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderPluginRoute } from "@tilecast/studio/testing";
-import { i18n } from "@/i18n";
-import { formatLocale } from "@/i18n/languages";
+import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
 import { formsApi } from "./api";
 import { ApprovalsPage } from "./ApprovalsPage";
 
@@ -42,7 +40,7 @@ describe("Forms approvals", () => {
       role: "owner",
     });
 
-    const expected = new Date(submittedAt).toLocaleString(formatLocale("es"));
+    const expected = new Date(submittedAt).toLocaleString("es");
     await screen.findAllByText("Website feedback");
     expect(document.body.textContent).toContain(expected);
   });
