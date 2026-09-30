@@ -25,6 +25,7 @@ import { useOpenPlaylistPreview } from "@/components/playlist-editor/playlistEdi
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NativeHostProvider } from "@/native-host/NativeHostProvider";
 import { LayoutPreviewPage } from "@/pages/LayoutPreviewPage";
+import { MediaAssetPresentation } from "@/pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "@/pages/PlaylistPreviewPage";
 import { NativePresentationHost } from "./NativePresentationHost";
 import { NativePresentationNavigation } from "./NativePresentationNavigation";
@@ -43,6 +44,12 @@ const mocks = vi.hoisted(() => ({
     settings: vi.fn(),
     playlist: vi.fn(),
     layout: vi.fn(),
+    asset: vi.fn(),
+    updateAsset: vi.fn(),
+    archiveAssets: vi.fn(),
+    contentFolders: vi.fn(),
+    contentCollections: vi.fn(),
+    contentTags: vi.fn(),
     startLiveStream: vi.fn(),
     renewLiveStream: vi.fn(),
     screenLiveStreamUrl: (screenId: string, sessionId: string) =>
@@ -55,7 +62,11 @@ vi.mock("@/api/client", () => ({ api: mocks.api }));
 vi.mock("@/auth/AuthProvider", () => ({
   useAuth: () => ({
     isLoading: false,
-    status: { authenticated: true, csrfToken: "csrf" },
+    status: {
+      authenticated: true,
+      csrfToken: "csrf",
+      user: { role: "owner" },
+    },
   }),
 }));
 
@@ -66,6 +77,19 @@ vi.mock("@/components/LiveStreamDialog", async (importOriginal) => ({
   LiveStreamDialog: ({ open }: { open: boolean }) =>
     open ? <p>Web live stream dialog</p> : null,
 }));
+
+const mediaAsset = {
+  id: "asset-1",
+  type: "image",
+  name: "Front desk",
+  description: "",
+  processingStatus: "ready",
+  originalFilename: "front-desk.png",
+  detectedMimeType: "image/png",
+  sha256: "abc123",
+  playlistsUsing: [],
+  layoutUsage: [],
+};
 
 type Sent = { version: number; type: string; payload: Record<string, unknown> };
 
@@ -180,6 +204,15 @@ beforeEach(() => {
     revision: 1,
     items: [],
   });
+  mocks.api.asset.mockResolvedValue(mediaAsset);
+  mocks.api.updateAsset.mockImplementation(
+    (_id: string, input: { name: string }) =>
+      Promise.resolve({ ...mediaAsset, name: input.name }),
+  );
+  mocks.api.archiveAssets.mockResolvedValue({});
+  mocks.api.contentFolders.mockResolvedValue([]);
+  mocks.api.contentCollections.mockResolvedValue([]);
+  mocks.api.contentTags.mockResolvedValue([]);
   mocks.api.layout.mockResolvedValue({
     id: "layout-1",
     name: "Welcome board",
@@ -782,5 +815,105 @@ describe("previews as native presentations", () => {
       "tilecast-playlist-preview-playlist 1",
       expect.stringContaining("popup=yes"),
     );
+  });
+});
+
+describe("media asset details as a native presentation", () => {
+  const children: RouteObject[] = [
+    { path: "asset/:id", element: <MediaAssetPresentation /> },
+  ];
+  const routes: RouteObject[] = [
+    {
+      path: "/__native/modal",
+      element: <NativePresentationHost routes={children} />,
+      children,
+    },
+  ];
+
+  async function showAsset() {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/asset/asset-1",
+    });
+    await screen.findByLabelText("Name");
+    return host;
+  }
+
+  it("loads the asset by id and describes a compact native header", async () => {
+    const host = await showAsset();
+    expect(mocks.api.asset).toHaveBeenCalledWith("asset-1");
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Front desk",
+          subtitle: "Media asset",
+          navigation: "close",
+          navigationLabel: "Close",
+        },
+        size: "compact",
+      }),
+    );
+    expect(screen.getByLabelText("Name")).toHaveValue("Front desk");
+  });
+
+  it("saves through the normal mutation and updates the header", async () => {
+    const host = await showAsset();
+    const name = screen.getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "Reception");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(mocks.api.updateAsset).toHaveBeenCalledWith(
+        "asset-1",
+        expect.objectContaining({ name: "Reception" }),
+        "csrf",
+      ),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual(
+        expect.objectContaining({
+          header: expect.objectContaining({ title: "Reception" }) as unknown,
+        }),
+      ),
+    );
+  });
+
+  it("grows the sheet for the archive confirmation, then closes it", async () => {
+    const host = await showAsset();
+    await userEvent.click(screen.getByRole("button", { name: /Archive/ }));
+    expect(await screen.findByRole("alertdialog")).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        size: "full",
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Move to archive" }),
+    );
+    await waitFor(() =>
+      expect(mocks.api.archiveAssets).toHaveBeenCalledWith(["asset-1"], "csrf"),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/close")).toEqual([
+        { presentationId: "p-1" },
+      ]),
+    );
+  });
+
+  it("shows the error when the asset cannot be loaded", async () => {
+    mocks.api.asset.mockRejectedValue(new Error("Asset not found."));
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/asset/missing",
+    });
+    expect(await screen.findByText(/Asset not found/)).toBeVisible();
   });
 });
