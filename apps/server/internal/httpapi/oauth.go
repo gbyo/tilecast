@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 )
 
@@ -60,6 +62,11 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	code, err := s.oauth.Approve(r.Context(), principal.User.ID, req)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -71,7 +78,7 @@ func (s *server) oauthApprove(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]any{"scopes": req.Scopes},
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"code": code, "state": req.State, "iss": issuer}),
 	}})
 }
 
@@ -87,9 +94,34 @@ func (s *server) oauthDeny(w http.ResponseWriter, r *http.Request) {
 		writeOAuthError(w, err)
 		return
 	}
+	issuer := authorizationIssuer(r)
+	if req.ClientID == oauth.ClientIOS && issuer == "" {
+		writeError(w, http.StatusBadRequest, "invalid_request", "A valid browser Origin is required for Tilecast for iOS authorization.")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State}),
+		"redirectUri": oauthRedirect(req.RedirectURI, map[string]string{"error": "access_denied", "state": req.State, "iss": issuer}),
 	}})
+}
+
+// authorizationIssuer identifies this server in an authorization response
+// (RFC 9207 iss), so a native client that talks to many installations can
+// refuse a code that another server issued. The value is the origin of the
+// approval screen, which the browser reports in Origin: approval requires
+// the session cookie and its CSRF token, so only a Studio page served from
+// this server can make the request, and a page cannot choose its own
+// Origin header. Forwarded headers are not consulted. The value is empty
+// when the request carries no usable origin; Tilecast for iOS approvals
+// refuse the ceremony then instead of returning a redirect without iss,
+// so a current server never looks like one released before iss existed.
+func authorizationIssuer(r *http.Request) string {
+	origin := r.Header.Get("Origin")
+	parsed, err := url.Parse(origin)
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" ||
+		parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" {
+		return ""
+	}
+	return parsed.Scheme + "://" + parsed.Host
 }
 
 func oauthRedirect(base string, params map[string]string) string {
@@ -160,17 +192,7 @@ func (s *server) oauthToken(w http.ResponseWriter, r *http.Request) {
 	case "refresh_token":
 		tokens, grantID, reused, err := s.oauth.Refresh(r.Context(), body.RefreshToken)
 		if reused {
-			grant, gerr := s.oauth.GrantByID(r.Context(), grantID)
-			if gerr != nil {
-				s.internalError(w, r, gerr)
-				return
-			}
-			_ = audit.Record(r.Context(), s.db, audit.Event{
-				Action: "oauth.reuse_detected", ResourceType: "oauth_grant", ResourceID: grantID.String(),
-				Actor: &grant.UserID, Surface: auditSurfaceForGrant(grant.BearerKind(), grant.ClientID),
-				Result: audit.ResultFailure, Summary: "A rotated refresh token was reused; the grant was revoked",
-			})
-			writeError(w, http.StatusBadRequest, "invalid_grant", "The refresh token was already used. The grant was revoked as a precaution.")
+			s.recordRefreshReuse(w, r, grantID)
 			return
 		}
 		if err != nil {
@@ -186,22 +208,70 @@ func (s *server) oauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// oauthIOSSession turns a one-time iOS authorization code into a normal
-// dashboard cookie. The temporary OAuth grant is revoked before the cookie
-// leaves the server; the app never stores an API credential.
+type iosSessionRequest struct {
+	GrantType     string `json:"grant_type"`
+	ClientID      string `json:"client_id"`
+	Code          string `json:"code"`
+	RedirectURI   string `json:"redirect_uri"`
+	Verifier      string `json:"code_verifier"`
+	RefreshToken  string `json:"refresh_token"`
+	StudioSession bool   `json:"studio_session"`
+}
+
+// oauthIOSSession is the Tilecast for iOS bootstrap. One browser
+// authorization gives the app two credentials for the same grant: an
+// ordinary HttpOnly Studio cookie for its web view and a rotating OAuth
+// credential for native API calls. The Studio session belongs to the grant,
+// so revoking either ends both.
+//
+// authorization_code consumes the single-use PKCE code and always sets the
+// cookie. refresh_token rotates a tilecast-ios refresh token, and sets a
+// new cookie only when studio_session asks for one: replacing the cookie
+// under a running Studio page would strand that page's CSRF token.
 func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
-	var body oauthTokenRequest
+	var body iosSessionRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	if body.GrantType != "authorization_code" || body.ClientID != oauth.ClientIOS || body.RedirectURI != oauth.IOSRedirectURI || body.RefreshToken != "" {
-		writeError(w, http.StatusBadRequest, "invalid_request", "An iOS authorization code is required.")
+	if body.ClientID != oauth.ClientIOS {
+		writeError(w, http.StatusBadRequest, "invalid_request", "An iOS authorization is required.")
 		return
 	}
-	_, grantID, err := s.oauth.Exchange(r.Context(), body.ClientID, body.Code, body.RedirectURI, body.Verifier)
-	if err != nil {
-		writeOAuthTokenError(w, err)
+	var tokens oauth.Tokens
+	var grantID uuid.UUID
+	issueSession := true
+	switch body.GrantType {
+	case "authorization_code":
+		if body.RedirectURI != oauth.IOSRedirectURI || body.RefreshToken != "" {
+			writeError(w, http.StatusBadRequest, "invalid_request", "An iOS authorization code is required.")
+			return
+		}
+		var err error
+		tokens, grantID, err = s.oauth.Exchange(r.Context(), body.ClientID, body.Code, body.RedirectURI, body.Verifier)
+		if err != nil {
+			writeOAuthTokenError(w, err)
+			return
+		}
+	case "refresh_token":
+		if body.Code != "" || body.Verifier != "" || body.RedirectURI != "" || body.RefreshToken == "" {
+			writeError(w, http.StatusBadRequest, "invalid_request", "An iOS refresh token is required.")
+			return
+		}
+		var reused bool
+		var err error
+		tokens, grantID, reused, err = s.oauth.RefreshForClient(r.Context(), oauth.ClientIOS, body.RefreshToken)
+		if reused {
+			s.recordRefreshReuse(w, r, grantID)
+			return
+		}
+		if err != nil {
+			writeOAuthTokenError(w, err)
+			return
+		}
+		issueSession = body.StudioSession
+	default:
+		writeError(w, http.StatusBadRequest, "unsupported_grant_type", "Only authorization_code and refresh_token are supported.")
 		return
 	}
 	grant, err := s.oauth.GrantByID(r.Context(), grantID)
@@ -209,31 +279,102 @@ func (s *server) oauthIOSSession(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if err := s.oauth.RevokeGrant(r.Context(), grant.UserID, grantID); err != nil {
-		s.internalError(w, r, err)
-		return
-	}
+	// The tokens are not released until the account is known to be usable.
+	// Otherwise the grant is revoked, so a failed bootstrap leaves nothing
+	// behind that could be used later. Past this point a refresh has already
+	// retired the presented token, so its failures return the rotated
+	// credential without a session instead of losing it: answering 500
+	// would leave the app holding a dead refresh token whose next use
+	// looks like reuse and revokes the grant.
 	user, err := s.activeUser(r.Context(), grant.UserID)
 	if err != nil {
+		if body.GrantType == "refresh_token" {
+			writeIOSCredential(w, tokens, false)
+			return
+		}
 		s.internalError(w, r, err)
 		return
 	}
 	if !user.Active {
-		writeError(w, http.StatusUnauthorized, "authentication_required", "The account is no longer active.")
+		s.revokeIOSGrant(w, r, grant)
 		return
 	}
-	pending, err := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+	if issueSession {
+		pending, err := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+		if err != nil {
+			if body.GrantType == "refresh_token" {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
+			s.internalError(w, r, err)
+			return
+		}
+		session, err := s.auth.IssueGrantSession(r.Context(), grant.UserID, grantID, "oauth", pending)
+		if err != nil {
+			if body.GrantType == "refresh_token" && !errors.Is(err, auth.ErrInactive) && !errors.Is(err, auth.ErrUnauthenticated) {
+				writeIOSCredential(w, tokens, false)
+				return
+			}
+			s.revokeIOSGrant(w, r, grant)
+			return
+		}
+		s.setSessionCookie(w, session)
+	}
+	// Routine rotation is not audited, as on the general token endpoint. A
+	// refresh that starts a Studio session is.
+	if body.GrantType == "authorization_code" || issueSession {
+		summary := "Exchanged an iOS authorization code"
+		if body.GrantType == "refresh_token" {
+			summary = "Started a Studio session from the iOS credential"
+		}
+		_ = audit.Record(r.Context(), s.db, audit.Event{
+			Action: "oauth.token_issued", ResourceType: "oauth_grant", ResourceID: grantID.String(),
+			Actor: &grant.UserID, Surface: auditSurfaceForGrant(grant.BearerKind(), grant.ClientID),
+			Summary: summary,
+		})
+	}
+	writeIOSCredential(w, tokens, issueSession)
+}
+
+// writeIOSCredential answers an iOS bootstrap with the grant's native
+// credential. authenticated tells whether the response also set a Studio
+// session cookie: a refresh whose session could not start still returns
+// the rotated credential, so the app keeps working native state instead
+// of holding a retired refresh token.
+func writeIOSCredential(w http.ResponseWriter, tokens oauth.Tokens, authenticated bool) {
+	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
+		"authenticated": authenticated,
+		"credential": map[string]any{
+			"access_token": tokens.AccessToken, "refresh_token": tokens.RefreshToken,
+			"token_type": "Bearer", "expires_at": tokens.ExpiresAt,
+		},
+	}})
+}
+
+// revokeIOSGrant answers an iOS bootstrap for an account that cannot sign
+// in, after revoking the grant the exchange just produced.
+func (s *server) revokeIOSGrant(w http.ResponseWriter, r *http.Request, grant oauth.Grant) {
+	if err := s.oauth.RevokeGrant(r.Context(), grant.UserID, grant.ID); err != nil && !errors.Is(err, oauth.ErrGrantNotFound) {
+		s.internalError(w, r, err)
+		return
+	}
+	writeError(w, http.StatusUnauthorized, "authentication_required", "The account is no longer active.")
+}
+
+// recordRefreshReuse audits a replayed refresh token. The service already
+// revoked its grant.
+func (s *server) recordRefreshReuse(w http.ResponseWriter, r *http.Request, grantID uuid.UUID) {
+	grant, err := s.oauth.GrantByID(r.Context(), grantID)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	session, err := s.auth.IssueSessionWithEnrollment(r.Context(), grant.UserID, "oauth", pending)
-	if err != nil {
-		writeError(w, http.StatusUnauthorized, "authentication_required", "The account is no longer active.")
-		return
-	}
-	s.setSessionCookie(w, session)
-	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"authenticated": true}})
+	_ = audit.Record(r.Context(), s.db, audit.Event{
+		Action: "oauth.reuse_detected", ResourceType: "oauth_grant", ResourceID: grantID.String(),
+		Actor: &grant.UserID, Surface: auditSurfaceForGrant(grant.BearerKind(), grant.ClientID),
+		Result: audit.ResultFailure, Summary: "A rotated refresh token was reused; the grant was revoked",
+	})
+	writeError(w, http.StatusBadRequest, "invalid_grant", "The refresh token was already used. The grant was revoked as a precaution.")
 }
 
 // oauthRevoke revokes the grant behind a presented credential.

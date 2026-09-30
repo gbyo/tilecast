@@ -488,7 +488,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code. */
+    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss. */
     post: operations["approveOAuthRequest"];
     delete?: never;
     options?: never;
@@ -505,7 +505,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied. */
+    /** @description Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss. */
     post: operations["denyOAuthRequest"];
     delete?: never;
     options?: never;
@@ -539,7 +539,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store. */
+    /** @description Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view. */
     post: operations["createIOSStudioSession"];
     delete?: never;
     options?: never;
@@ -9990,6 +9990,34 @@ export interface components {
       code_verifier?: string;
       refresh_token?: string;
     };
+    IOSSessionRequest: {
+      /** @enum {string} */
+      grant_type: "authorization_code" | "refresh_token";
+      /** @enum {string} */
+      client_id: "tilecast-ios";
+      /** @description authorization_code only. */
+      code?: string;
+      /**
+       * Format: uri
+       * @description authorization_code only: tilecast-ios://oauth/callback.
+       */
+      redirect_uri?: string;
+      /** @description authorization_code only. */
+      code_verifier?: string;
+      /** @description refresh_token only. */
+      refresh_token?: string;
+      /**
+       * @description refresh_token only. Also start a new Studio session and set its cookie, replacing the grant's earlier session. An authorization_code exchange always sets the cookie.
+       * @default false
+       */
+      studio_session: boolean;
+    };
+    IOSSession: {
+      /** @description Whether the response set a Studio session cookie. */
+      authenticated: boolean;
+      /** @description The grant's native credential. A server released before native API access omits it, and the app then uses Studio only. */
+      credential?: components["schemas"]["OAuthTokens"];
+    };
     OAuthApprovalClient: {
       name: string;
       clientId: string;
@@ -11561,11 +11589,11 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["OAuthTokenRequest"];
+        "application/json": components["schemas"]["IOSSessionRequest"];
       };
     };
     responses: {
-      /** @description Studio session cookie set */
+      /** @description The native credential, and a Studio session cookie when authenticated is true */
       200: {
         headers: {
           "Set-Cookie"?: string;
@@ -11573,14 +11601,19 @@ export interface operations {
         };
         content: {
           "application/json": {
-            data: {
-              authenticated: boolean;
-            };
+            data: components["schemas"]["IOSSession"];
           };
         };
       };
-      /** @description Invalid, expired, or used authorization code */
+      /** @description Invalid, expired, used, mismatched, or revoked code or refresh token, or a refresh token of another client */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The account is no longer active */
+      401: {
         headers: {
           [name: string]: unknown;
         };

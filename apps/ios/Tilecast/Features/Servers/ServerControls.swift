@@ -19,14 +19,30 @@ struct ServerMenuItems: View {
                 Task { await host.activate(server.id) }
             } label: {
                 if server.id == host.directory.activeServerID {
-                    Label(server.displayName, systemImage: "checkmark")
+                    Label(server.displayName, image: AppIcon.current)
                 } else {
                     Text(server.displayName)
                 }
             }
         }
         Divider()
-        Button("Add Server…", systemImage: "plus", action: actions.add)
-        Button("Manage Servers…", systemImage: "server.rack", action: actions.manage)
+        Button(action: actions.add) { Label("Add Server…", image: AppIcon.add) }
+        Button(action: actions.manage) { Label("Manage Servers…", image: AppIcon.server) }
+    }
+}
+
+/// Signs the app out of the active server: Studio's session and the native
+/// credential together. Shown only while Studio is signed in.
+struct SignOutButton: View {
+    @Environment(StudioHost.self) private var host
+    let page: StudioPage
+
+    var body: some View {
+        if !page.signInRequired {
+            Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+                Task { await host.signOut() }
+            }
+            .accessibilityIdentifier("server.signOut")
+        }
     }
 }

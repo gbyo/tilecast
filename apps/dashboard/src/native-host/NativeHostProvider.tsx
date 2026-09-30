@@ -14,15 +14,18 @@ import {
   type NativeBridge,
 } from "./bridge";
 import {
-  decodeCapabilities,
+  decodeHostConfig,
   decodeNativeMessage,
   noNativeCapabilities,
   NATIVE_RECEIVER_NAME,
+  studioCapabilities,
+  type BridgeContext,
   type FrontendToNativePayloads,
   type FrontendToNativeType,
   type NativeCapabilities,
   type NativeReply,
-  type NativeToFrontendMessage,
+  type NativeToFrontendPayloads,
+  type NativeToFrontendType,
 } from "./protocol";
 
 /**
@@ -32,12 +35,14 @@ import {
  */
 export type NativeHostStatus = "unavailable" | "negotiating" | "ready";
 
-type NativeMessageHandler = (
-  payload: NativeToFrontendMessage["payload"],
+type NativeMessageHandler<Type extends NativeToFrontendType> = (
+  payload: NativeToFrontendPayloads[Type],
 ) => boolean;
 
 export type NativeHost = {
   status: NativeHostStatus;
+  /** Which kind of page this is. Null until the host answered, and in a browser. */
+  context: BridgeContext | null;
   capabilities: NativeCapabilities;
   /** Resolves with the reply, or null when there is no usable host. */
   send<Type extends FrontendToNativeType>(
@@ -45,14 +50,15 @@ export type NativeHost = {
     payload: FrontendToNativePayloads[Type],
   ): Promise<NativeReply | null>;
   /** Receives one native message type; returns an unsubscribe function. */
-  subscribe(
-    type: NativeToFrontendMessage["type"],
-    handler: NativeMessageHandler,
+  subscribe<Type extends NativeToFrontendType>(
+    type: Type,
+    handler: NativeMessageHandler<Type>,
   ): () => void;
 };
 
 const browserHost: NativeHost = {
   status: "unavailable",
+  context: null,
   capabilities: noNativeCapabilities,
   send: () => Promise.resolve(null),
   subscribe: () => () => undefined,
@@ -63,7 +69,7 @@ const NativeHostContext = createContext<NativeHost>(browserHost);
 async function negotiate(bridge: NativeBridge) {
   try {
     const reply = await bridge.send("config/get", {});
-    return reply.ok ? decodeCapabilities(reply.payload) : null;
+    return reply.ok ? decodeHostConfig(reply.payload) : null;
   } catch {
     return null;
   }
@@ -82,13 +88,18 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
   });
   const [negotiated, setNegotiated] = useState<{
     status: NativeHostStatus;
+    context: BridgeContext | null;
     capabilities: NativeCapabilities;
   }>(() => ({
     status: bridge ? "negotiating" : "unavailable",
+    context: null,
     capabilities: noNativeCapabilities,
   }));
   const subscribers = useRef(
-    new Map<NativeToFrontendMessage["type"], Set<NativeMessageHandler>>(),
+    new Map<
+      NativeToFrontendType,
+      Set<NativeMessageHandler<NativeToFrontendType>>
+    >(),
   );
 
   // The one receiver the host calls. It accepts only valid version 1
@@ -101,7 +112,9 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
       let handled = false;
       for (const handler of subscribers.current.get(decoded.message.type) ??
         []) {
-        handled = handler(decoded.message.payload) || handled;
+        handled =
+          (handler as (payload: unknown) => boolean)(decoded.message.payload) ||
+          handled;
       }
       return handled;
     };
@@ -116,15 +129,25 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!bridge) return;
     let current = true;
-    void negotiate(bridge).then((capabilities) => {
+    void negotiate(bridge).then((config) => {
       if (!current) return;
       setNegotiated(
-        capabilities
-          ? { status: "ready", capabilities }
-          : { status: "unavailable", capabilities: noNativeCapabilities },
+        config
+          ? { status: "ready", ...config }
+          : {
+              status: "unavailable",
+              context: null,
+              capabilities: noNativeCapabilities,
+            },
       );
       // The host treats ready as idempotent, so a remount may repeat it.
-      if (capabilities) void bridge.send("frontend/ready", {}).catch(() => {});
+      // It carries what this Studio supports, so a host never sends a
+      // message an older Studio would not understand.
+      if (config) {
+        void bridge
+          .send("frontend/ready", { capabilities: studioCapabilities })
+          .catch(() => {});
+      }
     });
     return () => {
       current = false;
@@ -145,9 +168,10 @@ export function NativeHostProvider({ children }: { children: ReactNode }) {
 
   const subscribe = useCallback<NativeHost["subscribe"]>((type, handler) => {
     const handlers = subscribers.current.get(type) ?? new Set();
-    handlers.add(handler);
+    const erased = handler as NativeMessageHandler<NativeToFrontendType>;
+    handlers.add(erased);
     subscribers.current.set(type, handlers);
-    return () => handlers.delete(handler);
+    return () => handlers.delete(erased);
   }, []);
 
   const host = useMemo<NativeHost>(
