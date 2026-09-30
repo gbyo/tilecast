@@ -36,7 +36,7 @@ afterEach(() => {
 describe("CampaignsPage library", () => {
   it("shows a retry state instead of the empty state when loading fails", async () => {
     const campaigns = vi
-      .spyOn(api, "campaigns")
+      .spyOn(api, "campaignPage")
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 });
 
