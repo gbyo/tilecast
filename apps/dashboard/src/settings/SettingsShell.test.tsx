@@ -155,26 +155,28 @@ describe("SettingsShell secondary sidebar", () => {
 });
 
 describe("SettingsShell mobile section picker", () => {
-  it("navigates through the localized select", async () => {
+  it("navigates through the localized sections sheet", async () => {
     await i18n.changeLanguage("es");
     const onNavigate = vi.fn(() => true);
     renderShell({ dirty: ["users"], onNavigate });
     const user = userEvent.setup();
-    const picker = screen.getByRole("combobox", {
-      name: i18n.t("settings:shell.sectionLabel"),
+    const sections = i18n.t("settings:shell.sectionsLabel");
+    // Narrow screens open the section list from a button that names the
+    // current section; wide screens keep the list as a column.
+    const trigger = screen.getByRole("button", {
+      name: new RegExp(i18n.t("settings:nav.items.general")),
     });
-    expect(picker).toHaveTextContent(i18n.t("settings:nav.items.general"));
-    await user.click(picker);
-    const listbox = await screen.findByRole("listbox");
-    expect(
-      within(listbox).getByRole("option", {
-        name: `${i18n.t("settings:nav.items.users")}${i18n.t("settings:shell.unsavedSuffix")}`,
-      }),
-    ).toBeInTheDocument();
+    expect(trigger).toHaveTextContent(sections);
+    await user.click(trigger);
+    const sheet = within(await screen.findByRole("dialog", { name: sections }));
+    const users = sheet.getByRole("link", {
+      name: i18n.t("settings:nav.items.users"),
+    });
+    expect(users).toHaveAccessibleDescription(
+      i18n.t("settings:shell.unsavedBadge"),
+    );
     await user.click(
-      within(listbox).getByRole("option", {
-        name: i18n.t("settings:nav.items.retention"),
-      }),
+      sheet.getByRole("link", { name: i18n.t("settings:nav.items.retention") }),
     );
     expect(onNavigate).toHaveBeenCalledWith("retention");
     expect(screen.getByLabelText("location")).toHaveTextContent(
