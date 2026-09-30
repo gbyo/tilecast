@@ -146,6 +146,25 @@
         }
       }
     },
+    "navigationChromePayload": {
+      "description": "The chrome of the page Studio shows in the main page. When back is present the page is a drill-in, and the host shows a native navigation bar with a back button and the title. Without back the host shows no bar. The host learns no path: it sends navigation/back, and Studio's router decides where that goes.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "$ref": "#/$defs/title" },
+        "back": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["label"],
+          "properties": {
+            "label": {
+              "description": "The name of the page back leads to, already localized.",
+              "$ref": "#/$defs/title"
+            }
+          }
+        }
+      }
+    },
     "navigationRequestPayload": {
       "type": "object",
       "required": ["destinationId"],
@@ -468,7 +487,8 @@
                 "presentation/close",
                 "presentation/navigate",
                 "alert/present",
-                "alert/cancel"
+                "alert/cancel",
+                "navigation/chrome"
               ]
             }
           }
@@ -547,6 +567,15 @@
           }
         },
         {
+          "description": "Main page only. Describes the native navigation bar for the current page. A host that does not know this message answers unknown_type, and Studio keeps its own breadcrumbs.",
+          "if": { "properties": { "type": { "const": "navigation/chrome" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/navigationChromePayload" }
+            }
+          }
+        },
+        {
           "description": "Either page. Shows a native alert, so a confirmation matches the platform. The page that sent it receives alert/action.",
           "if": { "properties": { "type": { "const": "alert/present" } } },
           "then": {
@@ -590,7 +619,8 @@
                 "presentation/action",
                 "presentation/dismissed",
                 "presentation/ended",
-                "alert/action"
+                "alert/action",
+                "navigation/back"
               ]
             }
           }
@@ -644,6 +674,13 @@
             "properties": {
               "payload": { "$ref": "#/$defs/presentationIdPayload" }
             }
+          }
+        },
+        {
+          "description": "Main page only. The user tapped the native back button. Studio navigates to the previous page of its trail with React Router, so unsaved-change blockers apply. Sent only after Studio sent navigation/chrome with back.",
+          "if": { "properties": { "type": { "const": "navigation/back" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
           }
         },
         {

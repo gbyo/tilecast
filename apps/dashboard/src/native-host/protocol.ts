@@ -111,6 +111,16 @@ export type AlertPresentPayload = {
   actions: AlertButton[];
 };
 
+/**
+ * The chrome of the current page. With back, the host shows a native
+ * navigation bar: a back button labelled with the previous page, and the
+ * title. Studio's router decides where back goes, so no path is sent.
+ */
+export type NavigationChromePayload = {
+  title?: string;
+  back?: { label: string };
+};
+
 export type NavigationCatalogPayload = {
   groups: {
     id: string;
@@ -149,6 +159,8 @@ export type FrontendToNativePayloads = {
   "alert/present": AlertPresentPayload;
   /** Either page: withdraw an alert this page presented. */
   "alert/cancel": { alertId: string };
+  /** Main page: describe the native navigation bar for this page. */
+  "navigation/chrome": NavigationChromePayload;
 };
 
 export type FrontendToNativeType = keyof FrontendToNativePayloads;
@@ -170,6 +182,8 @@ export type NativeToFrontendPayloads = {
   "presentation/ended": { presentationId: string };
   /** The user chose a button of an alert this page presented. */
   "alert/action": { alertId: string; actionId: string };
+  /** Main page: the user tapped the native back button. */
+  "navigation/back": Record<string, never>;
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -393,6 +407,9 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "navigation/back":
+      if (Object.keys(payload).length > 0) return { outcome: "malformed" };
+      return { outcome: "accept", message: { type, ...withId, payload: {} } };
     case "alert/action":
       if (!isOpaqueId(payload.alertId) || !isOpaqueId(payload.actionId)) {
         return { outcome: "malformed" };

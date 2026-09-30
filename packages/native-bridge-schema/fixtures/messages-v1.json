@@ -2362,6 +2362,117 @@
           }
         }
       }
+    },
+    {
+      "name": "navigation/chrome",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "navigationChrome",
+      "chrome": {
+        "title": "Lobby north",
+        "backLabel": "Fleet"
+      },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby north",
+          "back": {
+            "label": "Fleet"
+          }
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome without back",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": {
+        "title": "Fleet"
+      },
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Fleet"
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with no fields",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "chrome": {},
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {}
+      }
+    },
+    {
+      "name": "navigation/chrome with an empty title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": ""
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with a back that has no label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby",
+          "back": {}
+        }
+      }
+    },
+    {
+      "name": "navigation/chrome with a path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "navigation/chrome",
+        "payload": {
+          "title": "Lobby",
+          "back": {
+            "label": "Fleet",
+            "path": "/screens"
+          }
+        }
+      }
+    },
+    {
+      "name": "navigation/back",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "navigationBack",
+      "message": {
+        "version": 1,
+        "type": "navigation/back",
+        "payload": {}
+      }
+    },
+    {
+      "name": "navigation/back with a payload",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "navigation/back",
+        "payload": {
+          "path": "/screens"
+        }
+      }
     }
   ]
 }

@@ -91,6 +91,9 @@ public final class StudioBridge {
         navigation.requestNavigation = { [weak self] id in
             Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
         }
+        navigation.requestBack = { [weak self] in
+            Task { await self?.send(NativeBridgeProtocol.navigationBack()) }
+        }
     }
 
     /// Registers the message handler on a configuration for the main Studio
@@ -225,6 +228,8 @@ public final class StudioBridge {
                 onStateChange?()
             case .navigationState(let state):
                 navigation.apply(state)
+            case .navigationChrome(let chrome):
+                navigation.apply(chrome)
             case .presentationOpen(let presentation):
                 guard isFrontendReady, frontendCapabilities.nativePresentations,
                       onPresentationOpen?(presentation) == true else {
