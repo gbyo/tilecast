@@ -46,7 +46,7 @@ struct NativeTabNavigation: View {
                         MoreView(page: page, actions: actions)
                     }
                     if navigation.frontendTab == .more {
-                        StudioSlotView()
+                        StudioSlotView(extendsBelowTabBar: true)
                             .background(Color(uiColor: .systemBackground).ignoresSafeArea())
                     }
                 }
@@ -56,11 +56,11 @@ struct NativeTabNavigation: View {
         }
     }
 
-    /// Studio appears in exactly one tab at a time. The slot ends above the
-    /// tab bar, because Studio scrolls inside its own layout.
+    /// Studio appears in exactly one tab at a time. Its slot reaches beneath
+    /// the floating tab bar, so the glass samples the page itself.
     @ViewBuilder private func studio(in tab: NavigationTab) -> some View {
         if navigation.frontendTab == tab {
-            StudioSlotView()
+            StudioSlotView(extendsBelowTabBar: true)
         } else {
             Color.clear
         }
