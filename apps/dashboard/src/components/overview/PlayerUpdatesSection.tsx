@@ -11,6 +11,7 @@ import {
   ItemTitle,
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
+import { rowBleed } from "./layout";
 import { RailSection } from "./RailSection";
 import { updateDeploymentStatusKey, type UpdateSummary } from "./updates";
 
@@ -41,7 +42,7 @@ export function PlayerUpdatesSection({
     >
       {isLoading ? (
         <div role="status" aria-label={t("operations.updatesLoading")}>
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-11 w-full" />
         </div>
       ) : isError ? (
         <Alert variant="destructive">
@@ -57,9 +58,7 @@ export function PlayerUpdatesSection({
         <Item
           size="xs"
           render={<Link to="/settings/player/updates" />}
-          className={`-mx-1 min-h-11 py-1 ${
-            needsAction ? "border-l-2 border-l-destructive" : ""
-          }`}
+          className={`${rowBleed} -mx-(--card-spacing) w-auto`}
         >
           <ItemContent className="min-w-0 gap-0">
             <ItemTitle className="max-w-full">{deployment.name}</ItemTitle>

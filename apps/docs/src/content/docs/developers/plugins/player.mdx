@@ -5,6 +5,8 @@ description: Project plugin state into manifests and render it through the share
 
 A Player-facing plugin has two parts: the server projects manifest entries, and `runtime/index.ts` decides what to draw from those entries.
 
+The shared Player Runtime also runs on Android. The Android application keeps its Kotlin shell and hosts the verified runtime bundle in a trusted WebView. A visual plugin can use one `runtime/index.ts` implementation across Electron, Tilecast Edge, and Android, while each Player still reports its supported capabilities. See the [Player Runtime contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) for the host boundary.
+
 ## Project manifest entries
 
 Implement `plugin.ManifestProjector` on the server.
