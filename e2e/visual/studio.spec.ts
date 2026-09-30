@@ -110,8 +110,8 @@ test("overview", async ({ page }) => {
     // Coming up shows how far away each change is and its date, both relative
     // to the real clock.
     page
-      .locator("p")
-      .filter({ hasText: /^(in \d+ (minutes?|hours?|days?)|tomorrow)/ }),
+      .getByRole("region", { name: "Coming up" })
+      .locator('[data-slot="item"]'),
     page.locator(".recharts-wrapper"),
     page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
     page.getByRole("button", { name: /^Per screen ·/ }).locator("span"),
