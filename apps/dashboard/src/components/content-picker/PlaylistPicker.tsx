@@ -1,8 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { hasNextPage } from "../../api/pagination";
 import type { LayoutSummary, Playlist } from "../../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -113,21 +114,29 @@ export function PlaylistPicker({
       : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
-  const playlists = useQuery({
+  const playlists = useInfiniteQuery({
     queryKey: ["playlist-picker", "playlists", search],
-    queryFn: () => api.playlists(search),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.playlistPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
     enabled: open && canChoosePlaylists,
   });
-  const layouts = useQuery({
+  const layouts = useInfiniteQuery({
     queryKey: ["playlist-picker", "layouts", search],
-    queryFn: () => api.layouts(search),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.layoutPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
     enabled: open && canChooseLayouts,
   });
 
-  const playlistItems = canChoosePlaylists ? (playlists.data?.items ?? []) : [];
+  const playlistItems = canChoosePlaylists
+    ? (playlists.data?.pages.flatMap((page) => page.items) ?? [])
+    : [];
   // An unpublished Layout has nothing a player could show, so it is not offerable.
   const layoutItems = canChooseLayouts
-    ? (layouts.data?.items ?? []).filter((layout) => layout.publishedRevision)
+    ? (layouts.data?.pages
+        .flatMap((page) => page.items)
+        .filter((layout) => layout.publishedRevision) ?? [])
     : [];
   const choices: PlaylistPickerChoice[] = [
     ...playlistItems.map((playlist) => ({
@@ -157,7 +166,7 @@ export function PlaylistPicker({
         if (!nextOpen) onCloseComplete?.();
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+      <DialogContent className="flex max-h-[min(90dvh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title ?? defaultTitle}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
@@ -170,7 +179,7 @@ export function PlaylistPicker({
           placeholder={searchCopy}
           clearLabel={clearSearchCopy}
         />
-        <div className="grid gap-2">
+        <div className="grid max-h-[60vh] gap-2 overflow-y-auto">
           {loading ? (
             <div className="space-y-2" aria-label={loadingCopy}>
               <Skeleton className="h-16 w-full" />
@@ -256,21 +265,46 @@ export function PlaylistPicker({
                       </ItemTitle>
                       <ItemDescription className="truncate">
                         {choice.kind === "layout"
-                          ? `Layout · revision ${choice.layout.publishedRevision}`
-                          : `${choice.playlist.itemCount} item${
-                              choice.playlist.itemCount === 1 ? "" : "s"
-                            }${tagDriven ? " · tag-driven" : ""}`}
+                          ? t("picker.playlist.layoutRevision", {
+                              revision: choice.layout.publishedRevision,
+                            })
+                          : t(
+                              tagDriven
+                                ? "picker.playlist.tagDrivenItemCount"
+                                : "picker.playlist.itemCount",
+                              { count: choice.playlist.itemCount },
+                            )}
                       </ItemDescription>
                     </ItemContent>
                     {id === chosen && (
                       <ItemActions>
-                        <Check size={17} aria-label="Selected" />
+                        <Check
+                          size={17}
+                          aria-label={t("picker.playlist.selected")}
+                        />
                       </ItemActions>
                     )}
                   </Item>
                 );
               })}
             </ItemGroup>
+          )}
+          {(playlists.hasNextPage || layouts.hasNextPage) && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={
+                playlists.isFetchingNextPage || layouts.isFetchingNextPage
+              }
+              onClick={() => {
+                if (playlists.hasNextPage) void playlists.fetchNextPage();
+                if (layouts.hasNextPage) void layouts.fetchNextPage();
+              }}
+            >
+              {playlists.isFetchingNextPage || layouts.isFetchingNextPage
+                ? t("common:status.loading")
+                : t("common:actions.loadMore")}
+            </Button>
           )}
         </div>
         <DialogFooter className="border-t border-border pt-3">

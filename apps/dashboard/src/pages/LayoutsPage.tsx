@@ -1,4 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ChevronRight,
   Copy,
@@ -17,6 +21,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
@@ -302,9 +307,11 @@ export function LayoutsPage() {
     null,
   );
 
-  const layouts = useQuery({
-    queryKey: ["layouts", "library"],
-    queryFn: () => api.layouts(""),
+  const layouts = useInfiniteQuery({
+    queryKey: ["layouts", "library", search],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.layoutPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
   const create = useMutation({
     mutationFn: async () => {
@@ -319,7 +326,8 @@ export function LayoutsPage() {
         },
         csrf,
       );
-      if (template === "blank") return created;
+      if (template === "blank")
+        return { layout: created, templateApplied: true };
       const document = structuredClone(created.draft);
       document.placements.push(
         {
@@ -365,15 +373,28 @@ export function LayoutsPage() {
           },
         },
       );
-      return api.saveLayoutDraft(
-        created.id,
-        created.draftRevision,
-        document,
-        csrf,
-      );
+      try {
+        const initialized = await api.saveLayoutDraft(
+          created.id,
+          created.draftRevision,
+          document,
+          csrf,
+        );
+        return { layout: initialized, templateApplied: true };
+      } catch {
+        // Creation already committed. Treat the durable Layout as the result
+        // so Retry cannot create another one; the editor can recover the
+        // announcement content on this same resource.
+        return { layout: created, templateApplied: false };
+      }
     },
-    onSuccess: (layout) => {
-      toast.add({ title: "Layout created.", type: "success" });
+    onSuccess: ({ layout, templateApplied }) => {
+      toast.add({
+        title: templateApplied
+          ? "Layout created."
+          : "Layout created, but the announcement template could not be applied.",
+        type: templateApplied ? "success" : "error",
+      });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -448,9 +469,10 @@ export function LayoutsPage() {
   }, [view]);
 
   const allLayouts = useMemo(
-    () => layouts.data?.items ?? [],
-    [layouts.data?.items],
+    () => layouts.data?.pages.flatMap((page) => page.items) ?? [],
+    [layouts.data?.pages],
   );
+  const totalLayouts = layouts.data?.pages[0]?.total ?? 0;
   const visibleLayouts = useMemo(
     () =>
       filterAndSortLayouts(
@@ -653,7 +675,7 @@ export function LayoutsPage() {
           {t("library.showingCount", {
             count: allLayouts.length,
             shown: visibleLayouts.length,
-            total: allLayouts.length,
+            total: totalLayouts,
           })}
         </div>
       )}
@@ -842,6 +864,21 @@ export function LayoutsPage() {
               </ContextMenu>
             );
           })}
+        </div>
+      )}
+
+      {layouts.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={layouts.isFetchingNextPage}
+            onClick={() => void layouts.fetchNextPage()}
+          >
+            {layouts.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
 

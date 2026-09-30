@@ -60,7 +60,7 @@ export function EditorFrame({
         }}
       >
         <DialogContent
-          className="max-h-[calc(100vh-2rem)] w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-y-auto"
+          className="max-h-[calc(100dvh-2rem)] w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-y-auto"
           showCloseButton={false}
         >
           <DialogHeader className="relative pr-10">

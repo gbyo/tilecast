@@ -6557,13 +6557,16 @@ type ContentTagInput struct {
 
 // ContentWidgetDefinition defines model for ContentWidgetDefinition.
 type ContentWidgetDefinition struct {
-	AcceptedDataSourceKinds *[]string                            `json:"acceptedDataSourceKinds,omitempty"`
-	ApiVersion              *int                                 `json:"apiVersion,omitempty"`
-	Availability            *ContentDefinitionAvailability       `json:"availability,omitempty"`
-	Category                string                               `json:"category"`
-	Compatibility           *ContentDefinitionCompatibility      `json:"compatibility,omitempty"`
-	Component               *ContentDefinitionComponent          `json:"component,omitempty"`
-	ConfigurationSchema     ContentDefinitionConfigurationSchema `json:"configurationSchema"`
+	AcceptedDataSourceKinds *[]string                       `json:"acceptedDataSourceKinds,omitempty"`
+	ApiVersion              *int                            `json:"apiVersion,omitempty"`
+	Availability            *ContentDefinitionAvailability  `json:"availability,omitempty"`
+	Category                string                          `json:"category"`
+	Compatibility           *ContentDefinitionCompatibility `json:"compatibility,omitempty"`
+	Component               *ContentDefinitionComponent     `json:"component,omitempty"`
+
+	// ConfigVersion Version of the persisted Widget configuration; omission means version 1.
+	ConfigVersion       *int                                 `json:"configVersion,omitempty"`
+	ConfigurationSchema ContentDefinitionConfigurationSchema `json:"configurationSchema"`
 
 	// DefaultConfiguration Release-owned default Widget configuration.
 	DefaultConfiguration      *map[string]interface{}      `json:"defaultConfiguration"`
@@ -13488,13 +13491,13 @@ type ClientInterface interface {
 	// StopAirplaySessionWithBody performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySessionWithBody(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StopAirplaySession performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySession(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNwsMonitor Read the NWS monitor, rules, active matches, and poll health
@@ -16703,7 +16706,7 @@ func (c *Client) GetAirplaySession(ctx context.Context, id openapi_types.UUID, r
 // StopAirplaySessionWithBody performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *Client) StopAirplaySessionWithBody(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStopAirplaySessionRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
@@ -16719,7 +16722,7 @@ func (c *Client) StopAirplaySessionWithBody(ctx context.Context, id openapi_type
 // StopAirplaySession performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *Client) StopAirplaySession(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStopAirplaySessionRequest(c.Server, id, params, body)
 	if err != nil {
@@ -42548,7 +42551,7 @@ type ClientWithResponsesInterface interface {
 	// StopAirplaySessionWithBodyWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	StopAirplaySessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error)
@@ -42556,7 +42559,7 @@ type ClientWithResponsesInterface interface {
 	// StopAirplaySessionWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySessionWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error)
 
 	// GetNwsMonitorWithResponse Read the NWS monitor, rules, active matches, and poll health
@@ -62528,7 +62531,7 @@ func (c *ClientWithResponses) GetAirplaySessionWithResponse(ctx context.Context,
 // StopAirplaySessionWithBodyWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) StopAirplaySessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error) {
@@ -62542,7 +62545,7 @@ func (c *ClientWithResponses) StopAirplaySessionWithBodyWithResponse(ctx context
 // StopAirplaySessionWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *ClientWithResponses) StopAirplaySessionWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error) {
 	rsp, err := c.StopAirplaySession(ctx, id, params, body, reqEditors...)
 	if err != nil {
@@ -69707,6 +69710,9 @@ func ParseStopAirplaySessionResponse(rsp *http.Response) (*StopAirplaySessionRes
 		break // No content-type
 
 	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
 		break // No content-type
 
 	}

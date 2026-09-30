@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import {
   ChevronRight,
   LayoutGrid,
@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -20,6 +21,7 @@ import {
   type FilterDefinition,
 } from "../components/FilterBar";
 import { PlaylistPreview } from "../components/PresentationPreview";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -201,7 +203,7 @@ function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
 }
 
 export function PlaylistLibraryPage() {
-  const { t } = useTranslation("playlists");
+  const { t } = useTranslation(["playlists", "common"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
@@ -213,9 +215,11 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const query = useQuery({
-    queryKey: ["playlists", "library"],
-    queryFn: () => api.playlists(""),
+  const query = useInfiniteQuery({
+    queryKey: ["playlists", "library", search],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.playlistPage(search, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
 
   useEffect(() => {
@@ -231,9 +235,12 @@ export function PlaylistLibraryPage() {
   }, [view]);
 
   const allPlaylists = useMemo(
-    () => (query.data?.items ?? []) as PlaylistLibraryItem[],
-    [query.data?.items],
+    () =>
+      (query.data?.pages.flatMap((page) => page.items) ??
+        []) as PlaylistLibraryItem[],
+    [query.data?.pages],
   );
+  const totalPlaylists = query.data?.pages[0]?.total ?? 0;
   const visiblePlaylists = useMemo(
     () =>
       filterAndSortPlaylists(allPlaylists, search, filter, sort, formatLocale),
@@ -348,11 +355,28 @@ export function PlaylistLibraryPage() {
         </ToggleGroup>
       </FilterBar>
 
+      {query.isError && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("library.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!query.isLoading && allPlaylists.length > 0 && (
         <div className="text-sm text-muted-foreground" aria-live="polite">
           {t("library.showing", {
             shown: visiblePlaylists.length,
-            total: allPlaylists.length,
+            total: totalPlaylists,
           })}
         </div>
       )}
@@ -362,7 +386,7 @@ export function PlaylistLibraryPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : allPlaylists.length === 0 ? (
+      ) : query.isError && !query.data ? null : allPlaylists.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -525,6 +549,21 @@ export function PlaylistLibraryPage() {
               </Link>
             </article>
           ))}
+        </div>
+      )}
+
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            {query.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
 

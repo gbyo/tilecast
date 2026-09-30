@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Archive,
   CalendarRange,
+  ChevronDown,
+  ChevronUp,
   Plus,
   RotateCcw,
   Save,
   Send,
 } from "lucide-react";
 import { api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import { useFormatLocale } from "../i18n";
 import type {
   Campaign,
@@ -147,9 +155,11 @@ function CampaignLibrary() {
   const canCreate = ["owner", "administrator", "editor"].includes(
     auth.status?.user?.role ?? "viewer",
   );
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey: ["campaigns"],
-    queryFn: () => api.campaigns(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.campaignPage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
   const create = useMutation({
     mutationFn: () =>
@@ -185,12 +195,30 @@ function CampaignLibrary() {
           </div>
         )}
       </header>
+      {query.isError && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("campaigns.library.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {query.isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : !query.data?.items.length ? (
+      ) : query.isError && !query.data ? null : !(
+          query.data?.pages.flatMap((page) => page.items).length ?? 0
+        ) ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -204,31 +232,48 @@ function CampaignLibrary() {
         </Empty>
       ) : (
         <div className="grid gap-2">
-          {query.data.items.map((campaign) => (
-            <Link
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
-              to={`/campaigns/${campaign.id}`}
-              key={campaign.id}
-            >
-              <div className="grid min-w-0 gap-0.5">
-                <strong className="truncate text-sm">{campaign.name}</strong>
-                <span className="truncate text-xs text-muted-foreground">
-                  {campaign.description || t("campaigns.library.noDescription")}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {t("campaigns.library.listMeta", {
-                    blocks: t("campaigns.library.blockCount", {
-                      count: campaign.draft.blocks.length,
-                    }),
-                    destinations: t("campaigns.library.destinationCount", {
-                      count: campaign.draft.destinations.length,
-                    }),
-                  })}
-                </span>
-              </div>
-              <Badge variant="secondary">{campaign.status}</Badge>
-            </Link>
-          ))}
+          {query.data?.pages
+            .flatMap((page) => page.items)
+            .map((campaign) => (
+              <Link
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted"
+                to={`/campaigns/${campaign.id}`}
+                key={campaign.id}
+              >
+                <div className="grid min-w-0 gap-0.5">
+                  <strong className="truncate text-sm">{campaign.name}</strong>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {campaign.description ||
+                      t("campaigns.library.noDescription")}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("campaigns.library.listMeta", {
+                      blocks: t("campaigns.library.blockCount", {
+                        count: campaign.draft.blocks.length,
+                      }),
+                      destinations: t("campaigns.library.destinationCount", {
+                        count: campaign.draft.destinations.length,
+                      }),
+                    })}
+                  </span>
+                </div>
+                <Badge variant="secondary">{campaign.status}</Badge>
+              </Link>
+            ))}
+        </div>
+      )}
+      {query.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            {query.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
         </div>
       )}
       <Dialog
@@ -335,6 +380,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     useState<CampaignDestination["type"]>("screen");
   const [destination, setDestination] = useState("");
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     if (campaignQuery.data) {
@@ -534,10 +580,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
   const addBlock = () => {
     if (!selectedContent) return;
+    const block = makeBlock(selectedType, selectedContent, t);
     setDraft({
       ...draft,
-      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent, t)],
+      blocks: [...draft.blocks, block],
     });
+    setExpandedBlockId(block.id);
     setSelectedContent("");
   };
   const addDestination = () => {
@@ -783,33 +831,62 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
           </header>
           {draft.blocks.map((block, index) => (
             <div
-              className="grid gap-3 rounded-lg border border-border p-3"
+              className="grid gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0"
               key={block.id}
             >
               <div className="grid gap-1">
-                {canEdit ? (
-                  <Input
-                    aria-label={t("campaigns.editor.blockNameLabel", {
-                      index: index + 1,
-                    })}
-                    value={block.name}
-                    onChange={(event) =>
-                      updateBlock(block.id, { name: event.target.value })
-                    }
-                  />
-                ) : (
-                  <strong className="text-sm">{block.name}</strong>
-                )}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <strong className="truncate text-sm">{block.name}</strong>
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      aria-expanded={expandedBlockId === block.id}
+                      onClick={() =>
+                        setExpandedBlockId((current) =>
+                          current === block.id ? null : block.id,
+                        )
+                      }
+                    >
+                      {expandedBlockId === block.id ? (
+                        <ChevronUp size={15} aria-hidden="true" />
+                      ) : (
+                        <ChevronDown size={15} aria-hidden="true" />
+                      )}
+                      {expandedBlockId === block.id
+                        ? t("common:actions.close")
+                        : t("common:actions.edit")}
+                    </Button>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">
-                  {block.contentType} · {block.type} · {block.timezone}
+                  {optionLabel(contentTypeOptions, block.contentType)} ·{" "}
+                  {optionLabel(scheduleTypeOptions, block.type)} ·{" "}
+                  {block.timezone}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {block.type === "one_time"
                     ? `${new Date(block.oneTimeStart ?? "").toLocaleString(locale)} – ${new Date(block.oneTimeEnd ?? "").toLocaleString(locale)}`
                     : `${block.dailyStart ?? ""} – ${block.dailyEnd ?? ""}`}
                 </span>
-                {canEdit && (
+                {canEdit && expandedBlockId === block.id && (
                   <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                    <Field className="sm:col-span-2">
+                      <FieldLabel htmlFor={`block-name-${block.id}`}>
+                        {t("campaigns.editor.blockNameLabel", {
+                          index: index + 1,
+                        })}
+                      </FieldLabel>
+                      <Input
+                        id={`block-name-${block.id}`}
+                        value={block.name}
+                        onChange={(event) =>
+                          updateBlock(block.id, { name: event.target.value })
+                        }
+                      />
+                    </Field>
                     <Field>
                       <FieldLabel htmlFor={`block-type-${block.id}`}>
                         {t("campaigns.editor.scheduleTypeLabel")}
@@ -1017,19 +1094,20 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   </div>
                 )}
               </div>
-              {canEdit && (
+              {canEdit && expandedBlockId === block.id && (
                 <Button
                   type="button"
                   variant="outline"
                   className="w-fit"
-                  onClick={() =>
+                  onClick={() => {
                     setDraft({
                       ...draft,
                       blocks: draft.blocks.filter(
                         (_, itemIndex) => itemIndex !== index,
                       ),
-                    })
-                  }
+                    });
+                    setExpandedBlockId(null);
+                  }}
                 >
                   {t("campaigns.editor.removeButton")}
                 </Button>

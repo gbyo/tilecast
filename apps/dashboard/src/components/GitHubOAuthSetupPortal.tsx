@@ -237,7 +237,7 @@ export function GitHubOAuthSetupPortal() {
           if (!open) setSetupOpen(false);
         }}
       >
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("updates.setup.title")}</DialogTitle>
             <DialogDescription>{t("updates.setup.intro")}</DialogDescription>

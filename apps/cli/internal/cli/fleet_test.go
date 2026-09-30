@@ -78,15 +78,28 @@ func TestPairingCeremony(t *testing.T) {
 		t.Fatal("bad code accepted")
 	}
 	out, err = f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444",
-		"--name", "Kiosk", "--room-name", "Shop", "--room-number", "3", "--description", "Entry kiosk", "--yes")
+		"--name", "Kiosk", "--yes")
 	if err != nil || !strings.Contains(out, "approved Kiosk") {
-		t.Fatalf("approve = %q, %v", out, err)
+		t.Fatalf("approve with optional room details omitted = %q, %v", out, err)
 	}
-	if f.lastPairingApproval["name"] != "Kiosk" || f.lastPairingApproval["roomNumber"] != "3" {
+	if f.lastPairingApproval["name"] != "Kiosk" || f.lastPairingApproval["roomName"] != "" ||
+		f.lastPairingApproval["roomNumber"] != "" || f.lastPairingApproval["description"] != "" {
 		t.Fatalf("approve body = %v", f.lastPairingApproval)
 	}
-	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--name", "Kiosk", "--yes"); err == nil {
-		t.Fatal("approve without room details accepted")
+	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--yes"); err == nil {
+		t.Fatal("ordinary approval without a name accepted")
+	}
+	out, err = f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444",
+		"--replace-hardware", "--replacement-screen-id", "11111111-1111-1111-1111-111111111111", "--yes")
+	if err != nil {
+		t.Fatalf("hardware replacement without metadata = %q, %v", out, err)
+	}
+	if f.lastPairingApproval["replaceHardware"] != true ||
+		f.lastPairingApproval["replacementScreenId"] != "11111111-1111-1111-1111-111111111111" {
+		t.Fatalf("replacement body = %v", f.lastPairingApproval)
+	}
+	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--replace-hardware", "--yes"); err == nil {
+		t.Fatal("replace-hardware approve without a replacement screen accepted")
 	}
 	out, err = f.execute(t, "", "pairing", "reject", "44444444-4444-4444-4444-444444444444", "--reason", "unknown device", "--yes")
 	if err != nil || !strings.Contains(out, "rejected 44444444") {

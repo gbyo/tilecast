@@ -13,26 +13,26 @@ struct StudioShell: View {
     @State private var managingServers = false
     @State private var addingServer = false
     @State private var slot = StudioSlot()
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var actions: ServerActions {
         ServerActions(add: { addingServer = true }, manage: { managingServers = true })
     }
 
     var body: some View {
-        // A ZStack, not a Group: a Group applies its modifiers to each child,
-        // which would build a second overlay and a second web view.
+        // The one web view is a sibling of the shell, never a child of a
+        // layout, so changing the order does not rebuild it. It is above the
+        // shell in every layout but the tabs. In the tabs it is behind a
+        // transparent tab container, so the floating tab bar shows the page
+        // through its glass instead of being covered by it.
         ZStack {
-            if let page = host.page, page.bridge.navigation.isAvailable {
-                NativeNavigationShell(page: page, actions: actions)
-                    .id(ObjectIdentifier(page))
-            } else {
-                fallbackShell
-            }
+            shell.zIndex(webViewBehindTabs ? 1 : 0)
+            StudioOverlay().zIndex(webViewBehindTabs ? 0 : 1)
         }
-        .overlay { StudioOverlay() }
         .environment(slot)
         .mediaIntake(host.mediaIntake)
-        .nativeAlert(from: host.page?.alerts, for: .main)
+        .
+      nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView() }
         .sheet(item: presentation) { presentation in
@@ -45,6 +45,23 @@ struct StudioShell: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
             host.page?.presentations.handleMemoryWarning()
         }
+    }
+
+    private var shell: some View {
+        ZStack {
+            if let page = host.page, page.bridge.navigation.isAvailable {
+                NativeNavigationShell(page: page, actions: actions)
+                    .id(ObjectIdentifier(page))
+            } else {
+                fallbackShell
+            }
+        }
+    }
+
+    /// True while native tabs show Studio.
+    private var webViewBehindTabs: Bool {
+        host.page?.bridge.navigation.isAvailable == true
+            && NativeNavigationShell.usesTabs(horizontalSizeClass: horizontalSizeClass)
     }
 
     /// The native presentation Studio asked for. Dismissing the sheet in
