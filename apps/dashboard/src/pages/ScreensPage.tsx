@@ -45,6 +45,7 @@ import { Trans, useTranslation } from "react-i18next";
 import { z } from "zod";
 import { api } from "../api/client";
 import { useFormatLocale } from "../i18n";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
   PairingRequest,
@@ -1346,6 +1347,8 @@ export function ScreenListContent({
     "tilecast.screens.view",
     "table",
   );
+  const desktop = useDesktopLayout();
+  const effectiveView = desktop ? view : "grid";
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () =>
       new Set(
@@ -1791,6 +1794,7 @@ export function ScreenListContent({
               ]}
             />
             <ToggleGroup
+              className="hidden lg:flex"
               value={[view]}
               multiple={false}
               onValueChange={(values) => {
@@ -1813,7 +1817,7 @@ export function ScreenListContent({
           </div>
         </div>
       </div>
-      {view === "grid" && (
+      {effectiveView === "grid" && (
         <p className="text-xs text-muted-foreground">{t("list.gridHint")}</p>
       )}
       {selected.size > 0 && canManage && (
@@ -1954,7 +1958,7 @@ export function ScreenListContent({
                     <GroupHealth screens={group.screens} />
                   </header>
                 )}
-                {!isCollapsed && view === "table" && (
+                {!isCollapsed && effectiveView === "table" && (
                   <div className="min-w-0">
                     <ScreenFleetTable
                       screens={group.screens}
@@ -1970,7 +1974,7 @@ export function ScreenListContent({
                     />
                   </div>
                 )}
-                {!isCollapsed && view === "grid" && (
+                {!isCollapsed && effectiveView === "grid" && (
                   <div className="grid grid-cols-[repeat(auto-fill,minmax(17.5rem,1fr))] gap-4 pt-3">
                     {group.screens.map((screen) => (
                       <ScreenGridCard
