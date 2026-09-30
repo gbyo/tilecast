@@ -69,6 +69,14 @@ The playback lifecycle is explicit XState 5 state machines (`src/engine`). They 
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
 
+### 3.1 Durations and the dwell floor
+
+A duration is a positive number of milliseconds or it is absent. `clock/duration.ts` is the only place that decides which, and every timer in the runtime reads durations through it. Zero, a negative number, `NaN`, and a missing value all mean "no duration". An image with no duration runs for `IMAGE_DEFAULT_MS`. A website runs for `WEBSITE_DEFAULT_MS`. A widget or layout with no duration stays until something replaces it.
+
+No occurrence completes before `MIN_ITEM_DWELL_MS` (1000 ms) has passed since it mounted. A completion that arrives earlier, from a one-millisecond duration or from a surface that reports `ended` as it mounts, is delivered again when the floor passes. It is not dropped, so exactly one completion path still wins the occurrence. A Layout playlist zone applies the same floor to its image timer, and the synchronized timeline applies it to every slot.
+
+Before this floor, a host that sent a synchronized slot of zero or one millisecond put the screen on a cycle that rolled over every millisecond. The runtime tore down and remounted the item as fast as the renderer could paint. Each remount was recorded as a separate one-millisecond play. Studio does not accept an item duration under one second, so the floor removes only values that are already faults.
+
 The playback rules are the Electron player's, unchanged: `engine/playback-policy.ts` (playback authority, the completion arbiter, stale-callback identity, drift correction bands, the crossfade decision and outgoing-layer cleanup) moved into the runtime with its tests.
 
 ## 4. Synchronized playback

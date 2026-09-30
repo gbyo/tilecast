@@ -112,6 +112,7 @@ describe("presentation machine", () => {
     ]);
     const first = h.mount();
     h.ready();
+    h.clock.advance(1_000);
     h.actor.send({ type: "SURFACE_ENDED", mount: first, source: "ended" });
     h.clock.flush();
     expect(h.stage()!.item.id).toBe("b");
@@ -119,6 +120,54 @@ describe("presentation machine", () => {
     h.clock.advance(20_000);
     expect(h.stage()!.item.id).toBe("b");
     expect(h.log.filter((entry) => entry === "item-started:b")).toHaveLength(1);
+  });
+
+  describe("durations that cannot be taken literally", () => {
+    const started = (h: ReturnType<typeof harness>, id: string) =>
+      h.log.filter((entry) => entry === `item-started:${id}`).length;
+
+    it("reads a zero duration as unset rather than as an instant boundary", () => {
+      const h = harness([item("a", { durationMs: 0 }), item("b")]);
+      h.ready();
+      h.clock.advance(9_999);
+      expect(h.stage()!.item.id).toBe("a");
+      h.clock.advance(1);
+      expect(h.stage()!.item.id).toBe("b");
+    });
+
+    it("does not spin a one-item playlist whose image has a zero duration", () => {
+      const h = harness([item("a", { durationMs: 0 })]);
+      for (let step = 0; step < 600; step += 1) {
+        h.clock.advance(100);
+        if (h.stage()?.phase === "preparing") h.ready();
+      }
+      // Sixty seconds at the ten-second default is six laps, not thousands.
+      expect(started(h, "a")).toBeLessThanOrEqual(7);
+    });
+
+    it("never completes an occurrence before the dwell floor", () => {
+      const h = harness([item("a", { durationMs: 1 }), item("b")]);
+      h.ready();
+      h.clock.advance(999);
+      expect(h.stage()!.item.id).toBe("a");
+      h.clock.advance(1);
+      expect(h.stage()!.item.id).toBe("b");
+    });
+
+    it("holds a surface that reports ended the instant it mounts", () => {
+      const h = harness([item("a", { durationMs: 20_000 }), item("b")]);
+      const first = h.mount();
+      h.ready();
+      h.actor.send({ type: "SURFACE_ENDED", mount: first, source: "ended" });
+      h.clock.flush();
+      expect(h.stage()!.item.id).toBe("a");
+      h.clock.advance(1_000);
+      expect(h.stage()!.item.id).toBe("b");
+      expect(started(h, "a")).toBe(1);
+      expect(
+        h.log.filter((entry) => entry === "item-transition:a"),
+      ).toHaveLength(1);
+    });
   });
 
   it("ignores reports from a replaced occurrence", () => {

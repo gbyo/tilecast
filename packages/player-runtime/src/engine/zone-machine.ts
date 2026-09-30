@@ -9,6 +9,7 @@
 import { assign, setup, type ActorRefFrom } from "xstate";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
+import { MIN_ITEM_DWELL_MS, positiveDurationMs } from "../clock/duration";
 
 /** A zone entry that failed to play is retried after this long. */
 export const ZONE_RETRY_MS = 2_000;
@@ -64,8 +65,13 @@ export const zoneMachine = setup({
       if (!current || current.entry.kind !== "image") return;
       if (context.items.length <= 1) return;
       const shown = context.shown;
+      // Zero reads as unset, and nothing is shown for less than the dwell
+      // floor: two zero-length images would otherwise swap at timer speed.
       context.timers.after(
-        current.entry.durationMs ?? ZONE_IMAGE_DEFAULT_MS,
+        Math.max(
+          MIN_ITEM_DWELL_MS,
+          positiveDurationMs(current.entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS,
+        ),
         () => self.send({ type: "NEXT", shown }),
       );
     },
