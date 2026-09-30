@@ -1,4 +1,5 @@
 import {
+  useInfiniteQuery,
   useMutation,
   useQueries,
   useQuery,
@@ -38,6 +39,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -102,10 +104,13 @@ export function GroupsPage() {
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: ["screen-groups"],
-    queryFn: () => api.screenGroups(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.screenGroupPage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
+  const groups = q.data?.pages.flatMap((page) => page.items) ?? [];
   const [createOpen, setCreateOpen] = useState(false);
   const create = useMutation({
     mutationFn: (value: { name: string; description: string }) =>
@@ -149,7 +154,7 @@ export function GroupsPage() {
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
-        {q.data?.items?.map((group) => (
+        {groups.map((group) => (
           <Link
             className="grid gap-3 rounded-xl border border-border p-4 hover:bg-muted"
             to={`/groups/${group.id}`}
@@ -192,7 +197,7 @@ export function GroupsPage() {
           </Link>
         ))}
       </div>
-      {q.data?.items?.length === 0 && (
+      {groups.length === 0 && !q.isLoading && (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -213,6 +218,18 @@ export function GroupsPage() {
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
+      )}
+      {q.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={q.isFetchingNextPage}
+            onClick={() => void q.fetchNextPage()}
+          >
+            {q.isFetchingNextPage ? t("groups.loading") : t("groups.loadMore")}
+          </Button>
+        </div>
       )}
       {createOpen && (
         <GroupDialog
@@ -858,13 +875,15 @@ export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const formatLocale = useFormatLocale();
-  const q = useQuery({
+  const q = useInfiniteQuery({
     queryKey: ["schedules"],
-    queryFn: () => api.schedules(),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.schedulePage("", pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
-  const enabledCount = (q.data?.items ?? []).filter(
-    (schedule) => schedule.enabled,
-  ).length;
+  const schedules = q.data?.pages.flatMap((page) => page.items) ?? [];
+  const enabledCount = schedules.filter((schedule) => schedule.enabled).length;
+  const totalSchedules = q.data?.pages[0]?.total ?? 0;
   return (
     <section className="grid gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -887,7 +906,11 @@ export function SchedulesPage() {
       <section className="grid gap-1 rounded-xl border border-border p-4">
         <h2 className="text-base font-semibold">{t("page.timelineTitle")}</h2>
         <p className="text-sm text-muted-foreground">
-          {t("page.timelineSummary", { count: enabledCount })}
+          {t("page.timelineSummary", {
+            count: enabledCount,
+            loaded: schedules.length,
+            total: totalSchedules,
+          })}
         </p>
       </section>
       {q.isLoading && (
@@ -902,7 +925,7 @@ export function SchedulesPage() {
         </Alert>
       )}
       <div className="grid gap-2">
-        {q.data?.items?.map((schedule) => (
+        {schedules.map((schedule) => (
           <Link
             className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted ${schedule.enabled ? "" : "opacity-60"}`}
             to={`/schedules/${schedule.id}`}
@@ -928,7 +951,7 @@ export function SchedulesPage() {
             </Badge>
           </Link>
         ))}
-        {q.data?.items?.length === 0 && (
+        {schedules.length === 0 && !q.isLoading && (
           <Empty>
             <EmptyHeader>
               <EmptyTitle>{t("page.emptyTitle")}</EmptyTitle>
@@ -937,6 +960,18 @@ export function SchedulesPage() {
           </Empty>
         )}
       </div>
+      {q.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={q.isFetchingNextPage}
+            onClick={() => void q.fetchNextPage()}
+          >
+            {q.isFetchingNextPage ? t("page.loading") : t("page.loadMore")}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

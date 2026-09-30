@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ArrowDown,
   ArrowUp,
@@ -19,6 +24,7 @@ import {
   useParams,
 } from "react-router";
 import { api, ApiError } from "../api/client";
+import { hasNextPage } from "../api/pagination";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
@@ -108,12 +114,14 @@ export function DataSourcesPage() {
   const [provider, setProvider] = useState("");
   const [sortAscending, setSortAscending] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<DataSource | null>(null);
-  const params = new URLSearchParams({ page: "1", pageSize: "100" });
+  const params = new URLSearchParams();
   if (search) params.set("search", search);
   if (provider) params.set("provider", provider);
-  const dataSources = useQuery({
+  const dataSources = useInfiniteQuery({
     queryKey: ["data-sources", params.toString()],
-    queryFn: () => api.listDataSources(params),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => api.listDataSourcesPage(params, pageParam),
+    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
   });
   const definitions = useQuery({
     queryKey: ["content-definitions"],
@@ -136,9 +144,9 @@ export function DataSourcesPage() {
       .map((item) => [item.id, item]),
   );
   const visibleDataSources =
-    dataSources.data?.items?.filter(
-      (source) => !hiddenProviders.has(source.provider),
-    ) ?? [];
+    dataSources.data?.pages
+      .flatMap((page) => page.items)
+      .filter((source) => !hiddenProviders.has(source.provider)) ?? [];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateDataSource(id, csrf),
     onSuccess: (created) => {
@@ -354,6 +362,20 @@ export function DataSourcesPage() {
           </Table>
         </div>
         </>
+      )}
+      {dataSources.hasNextPage && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={dataSources.isFetchingNextPage}
+            onClick={() => void dataSources.fetchNextPage()}
+          >
+            {dataSources.isFetchingNextPage
+              ? t("common:status.loading")
+              : t("common:actions.loadMore")}
+          </Button>
+        </div>
       )}
       <AlertDialog
         open={pendingDelete !== null}
