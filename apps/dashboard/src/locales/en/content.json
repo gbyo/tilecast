@@ -291,6 +291,9 @@
       "itemCount_one": "{{count}} item",
       "itemCount_other": "{{count}} items",
       "layoutRevision": "Layout · revision {{revision}}",
+      "tagDrivenItemCount_one": "{{count}} item · tag-driven",
+      "tagDrivenItemCount_other": "{{count}} items · tag-driven",
+      "selected": "Selected",
       "layoutsLoadError": "Layouts could not be loaded.",
       "loadingLayouts": "Loading layouts",
       "loadingPlaylists": "Loading playlists",
@@ -307,7 +310,6 @@
       "searchLayouts": "Search layouts",
       "searchPlaylists": "Search playlists",
       "searchPresentations": "Search presentations",
-      "tagDriven": " · tag-driven",
       "clearSearchPresentations": "Clear presentation search",
       "clearSearchLayouts": "Clear layout search",
       "clearSearchPlaylists": "Clear playlist search"
