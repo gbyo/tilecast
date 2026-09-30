@@ -103,13 +103,27 @@ const bulkCommands = [
 
 export function FleetBulkPage() {
   const { t } = useTranslation(["screens", "common"]);
-  const formatLocale = useFormatLocale();
   const auth = useAuth();
-  const client = useQueryClient();
-  const csrf = auth.status?.csrfToken ?? "";
   const canManage = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
   );
+
+  if (!canManage) {
+    return (
+      <div className="bulk-page">
+        <PageHeader title={t("bulk.title")} description={t("bulk.body")} />
+        <BulkError>{t("bulk.accessDenied")}</BulkError>
+      </div>
+    );
+  }
+
+  return <FleetBulkWorkspace csrf={auth.status?.csrfToken ?? ""} />;
+}
+
+function FleetBulkWorkspace({ csrf }: { csrf: string }) {
+  const { t } = useTranslation(["screens", "common"]);
+  const formatLocale = useFormatLocale();
+  const client = useQueryClient();
 
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
   const playlists = useQuery({
@@ -230,19 +244,17 @@ export function FleetBulkPage() {
                   <EmptyTitle>{t("bulk.noScreensTitle")}</EmptyTitle>
                   <EmptyDescription>{t("bulk.noScreensHint")}</EmptyDescription>
                 </EmptyHeader>
-                {canManage && (
-                  <EmptyContent>
-                    <Link
-                      className={buttonVariants({
-                        variant: "secondary",
-                        size: "sm",
-                      })}
-                      to="/screens/pair"
-                    >
-                      {t("page.pairScreen")}
-                    </Link>
-                  </EmptyContent>
-                )}
+                <EmptyContent>
+                  <Link
+                    className={buttonVariants({
+                      variant: "secondary",
+                      size: "sm",
+                    })}
+                    to="/screens/pair"
+                  >
+                    {t("page.pairScreen")}
+                  </Link>
+                </EmptyContent>
               </Empty>
             )
           ) : (

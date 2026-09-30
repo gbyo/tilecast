@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "progress",
   "version": 1,
+  "configVersion": 2,
   "name": "Progress",
   "description": "Show progress toward a numeric target as a bar, ring, or thermometer.",
   "category": "Data display",

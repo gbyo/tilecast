@@ -247,6 +247,14 @@ generates a fresh PIN and fresh locally administered identity for every new
 session, so an Apple device trusted in one session does not inherit trust into
 the next one.
 
+A manual stop locks the session and commits its state transition, one deduped
+stop command for each participant, participant state, and cleared Player
+assignment in one database transaction. The server marks the session ended or
+expired only after it has saved that cleanup work. If a required database write or
+command insert fails, it rolls back the transaction and returns
+`airplay_stop_failed` with HTTP 503. The operator can retry the stop. The server
+notifies connected Players after the transaction commits.
+
 ## Capability and privacy behavior
 
 The Linux probe reports UxPlay version, GStreamer/H.264 decoder, VA-API

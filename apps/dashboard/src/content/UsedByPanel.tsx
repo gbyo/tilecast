@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
   Collapsible,
+  CollapsibleChevron,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "../components/ui/collapsible";
+} from "../components/studio/StudioCollapsible";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "../components/ui/item";
 import { Badge } from "../components/ui/badge";
-import { ChevronDown } from "lucide-react";
 
 export type UsedByItem = {
   id: string;
@@ -114,11 +114,7 @@ function CompactUsedByPanel({
             {t("widgets.usedBy.places", { count: total })}
           </Badge>
         </span>
-        <ChevronDown
-          size={16}
-          aria-hidden="true"
-          className={`text-muted-foreground ${open ? "rotate-180" : ""}`}
-        />
+        <CollapsibleChevron size={16} className="text-muted-foreground" />
       </CollapsibleTrigger>
       <CollapsibleContent className="grid gap-3">
         {groups.map((group) => (
@@ -137,11 +133,7 @@ function CompactUsedByGroup({ group }: { group: UsedByGroup }) {
         <span className="font-medium">{group.label}</span>
         <span className="flex items-center gap-1 text-muted-foreground">
           <Badge variant="secondary">{group.items.length}</Badge>
-          <ChevronDown
-            size={14}
-            aria-hidden="true"
-            className={open ? "rotate-180" : ""}
-          />
+          <CollapsibleChevron size={14} />
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>

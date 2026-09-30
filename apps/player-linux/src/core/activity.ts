@@ -169,8 +169,14 @@ export class ActivityReporter {
     await this.enqueue(async () => {
       while (this.buffer.length > 0) {
         const batch = this.buffer.slice(0, MAX_BATCH);
+        let acknowledgement:
+          | {
+              highestSequence: number;
+              acknowledgedEventIds: string[];
+            }
+          | undefined;
         try {
-          await this.client.postActivityEvents(batch);
+          acknowledgement = await this.client.postActivityEvents(batch);
         } catch (err) {
           if (err instanceof ApiError && err.credentialRejected) {
             // Nothing to do here; the runtime handles re-pairing. Keep the
@@ -181,7 +187,25 @@ export class ActivityReporter {
           log.debug("activity flush deferred", { error: String(err) });
           return;
         }
-        this.buffer.splice(0, batch.length);
+        // The server may rebase a genuinely new event when the Player's
+        // persisted counter was lost. Heal the local counter from that
+        // authoritative high-water mark before creating the next event.
+        const acknowledged = new Set(
+          acknowledgement?.acknowledgedEventIds ??
+            batch.map((event) => String(event.id ?? "")),
+        );
+        const batchHighWater = batch.reduce(
+          (highest, event) =>
+            Math.max(highest, Number(event.sequence ?? 0) || 0),
+          0,
+        );
+        this.next = Math.max(
+          this.next,
+          (acknowledgement?.highestSequence ?? batchHighWater) + 1,
+        );
+        this.buffer = this.buffer.filter(
+          (event) => !acknowledged.has(String(event.id ?? "")),
+        );
         await this.persist();
       }
     });

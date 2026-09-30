@@ -56,10 +56,16 @@ internal class ActivityQueueStore(
         read().events.sortedBy { it.sequence }.take(limit.coerceIn(1, 200))
     }
 
-    fun acknowledge(ids: Set<String>) = synchronized(lock) {
-        if (ids.isEmpty()) return@synchronized
+    fun acknowledge(ids: Set<String>, highestSequence: Long = 0) = synchronized(lock) {
+        if (ids.isEmpty() && highestSequence <= 0) return@synchronized
         val current = read()
-        write(current.copy(events = current.events.filterNot { it.id in ids }))
+        val next = maxOf(current.nextSequence, highestSequence + 1)
+        write(
+            current.copy(
+                nextSequence = next,
+                events = current.events.filterNot { it.id in ids },
+            ),
+        )
     }
 
     fun size(): Int = synchronized(lock) { read().events.size }
@@ -235,7 +241,7 @@ class PlayerActivityQueue private constructor(
                     retryBackoff.failed(SystemClock.elapsedRealtime())
                     return@withLock
                 }
-                store.acknowledge(acknowledged)
+                store.acknowledge(acknowledged, response.highestSequence)
                 retryBackoff.succeeded()
                 if (batch.size < 100) return@withLock
             }

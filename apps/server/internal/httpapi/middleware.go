@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -230,6 +231,50 @@ func (s *server) callerScope(w http.ResponseWriter, r *http.Request) (uuid.UUID,
 	return principal.User.ID, scoped, true
 }
 
+// resolveScreenTargets expands direct screens plus Display Group members into
+// the concrete set that the screen-scope service authorizes. Keep expansion in
+// one place so read filtering and write authorization cannot drift.
+func (s *server) resolveScreenTargets(ctx context.Context, screens []uuid.UUID, groups []uuid.UUID) ([]uuid.UUID, error) {
+	targets := append([]uuid.UUID(nil), screens...)
+	if len(groups) == 0 {
+		return targets, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT screen_id FROM screen_group_memberships WHERE screen_group_id = ANY($1)`, groups)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		targets = append(targets, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return targets, nil
+}
+
+// screenTargetsWithinScope is the non-rendering form used by list/read filters.
+// A false result means at least one concrete screen is outside the account's
+// scope; database failures remain errors rather than being mistaken for denial.
+func (s *server) screenTargetsWithinScope(ctx context.Context, user uuid.UUID, role string, screens []uuid.UUID, groups []uuid.UUID) (bool, error) {
+	targets, err := s.resolveScreenTargets(ctx, screens, groups)
+	if err != nil {
+		return false, err
+	}
+	if err = s.devices.AuthorizeScreens(ctx, user, role, targets); err != nil {
+		if errors.Is(err, devices.ErrOutOfScope) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // authorizeScreenList checks a set of screens and groups named in a request
 // body. It returns false when it has already written the response.
 func (s *server) authorizeScreenList(w http.ResponseWriter, r *http.Request, screens []uuid.UUID, groups []uuid.UUID) bool {
@@ -238,38 +283,14 @@ func (s *server) authorizeScreenList(w http.ResponseWriter, r *http.Request, scr
 		writeError(w, http.StatusUnauthorized, "unauthenticated", "Sign in to continue.")
 		return false
 	}
-	targets := append([]uuid.UUID(nil), screens...)
-	if len(groups) > 0 {
-		// One query rather than one per group, and every failure is reported.
-		// A dropped row would shorten the set being authorized, and the failure
-		// mode of that is permitting an operation on a screen nobody checked.
-		rows, err := s.db.Query(r.Context(),
-			`SELECT screen_id FROM screen_group_memberships WHERE screen_group_id = ANY($1)`, groups)
-		if err != nil {
-			s.internalError(w, r, err)
-			return false
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var id uuid.UUID
-			if err := rows.Scan(&id); err != nil {
-				s.internalError(w, r, err)
-				return false
-			}
-			targets = append(targets, id)
-		}
-		if err := rows.Err(); err != nil {
-			s.internalError(w, r, err)
-			return false
-		}
-	}
-	if err := s.devices.AuthorizeScreens(r.Context(), principal.User.ID, principal.User.Role, targets); err != nil {
-		if errors.Is(err, devices.ErrOutOfScope) {
-			writeError(w, http.StatusForbidden, "out_of_scope",
-				"Some of the selected screens are outside your assigned scope.")
-			return false
-		}
+	allowed, err := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, groups)
+	if err != nil {
 		s.internalError(w, r, err)
+		return false
+	}
+	if !allowed {
+		writeError(w, http.StatusForbidden, "out_of_scope",
+			"Some of the selected screens are outside your assigned scope.")
 		return false
 	}
 	return true

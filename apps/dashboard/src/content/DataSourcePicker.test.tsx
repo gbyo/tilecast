@@ -140,6 +140,26 @@ describe("DataSourcePicker", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("lets the guided create dialog use desktop width without losing viewport margins", async () => {
+    picker([]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Connect new data/ }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /CSV/ }));
+
+    const dialogContent = document.querySelector<HTMLElement>(
+      '[data-slot="dialog-content"]',
+    );
+    expect(dialogContent).not.toBeNull();
+    expect(dialogContent).toHaveClass(
+      "max-h-[calc(100dvh-2rem)]",
+      "sm:w-[calc(100vw-2rem)]",
+      "sm:max-w-5xl",
+      "overflow-y-auto",
+    );
+  });
+
   // As a modal it must take focus, keep Tab inside itself, and hand focus back when it
   // closes; otherwise the caret stays in the form underneath, on controls now covered.
   it("holds focus inside the Connect gallery and returns it on close", async () => {

@@ -442,6 +442,12 @@ export function ScheduleEditorPage() {
               />
             </BuilderSection>
 
+            <MobileScheduleOutcome
+              input={input}
+              targetCount={targetCount}
+              preview={preview}
+            />
+
             <BuilderSection
               number="4"
               title={t("editor.sections.advanced.title")}
@@ -799,7 +805,7 @@ function WeeklyTiming({
   return (
     <div className="schedule-timing-fields">
       <ToggleGroup
-        className="grid w-full grid-cols-7 gap-2 max-sm:grid-cols-4"
+        className="grid w-full grid-cols-7 gap-1 sm:gap-2"
         variant="outline"
         aria-label={t("timing.weekdaysLabel")}
         multiple
@@ -816,7 +822,7 @@ function WeeklyTiming({
               key={day.value}
               value={String(day.value)}
               aria-label={labels.long}
-              className="h-11 w-full"
+              className="h-11 min-w-0 w-full px-1 sm:px-2"
             >
               {labels.short}
             </ToggleGroupItem>
@@ -1352,6 +1358,77 @@ function PriorityControl({
         </span>
       )}
     </div>
+  );
+}
+
+function MobileScheduleOutcome({
+  input,
+  targetCount,
+  preview,
+}: {
+  input: ScheduleInput;
+  targetCount: number;
+  preview: UseQueryResult<SchedulePreview, Error>;
+}) {
+  const { t } = useTranslation("schedules");
+  const formatLocale = useFormatLocale();
+  const conflicts = preview.data?.conflicts ?? [];
+  const applicable = preview.data?.applicableSchedules ?? [];
+  const winner = preview.data?.winningSchedule;
+  const overlapCount = Math.max(conflicts.length, applicable.length - 1);
+  return (
+    <section
+      className="hidden gap-3 rounded-xl border border-border bg-card p-3 max-[820px]:grid"
+      aria-label={t("summary.title")}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-medium">{t("summary.title")}</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {describeScheduleTiming(input, t, formatLocale)}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
+          {targetCount
+            ? t("summary.targetCount", { count: targetCount })
+            : t("summary.noTargets")}
+        </span>
+      </div>
+      {!input.targets.length ||
+      (!input.playlistId && !input.layoutId && !input.displayAction) ? (
+        <Alert>
+          <AlertDescription>{t("summary.conflictHint")}</AlertDescription>
+        </Alert>
+      ) : preview.isLoading ? (
+        <Alert>
+          <AlertDescription>{t("summary.checking")}</AlertDescription>
+        </Alert>
+      ) : preview.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{t("summary.unavailable")}</AlertTitle>
+          <AlertDescription>{apiErrorMessage(preview.error)}</AlertDescription>
+        </Alert>
+      ) : conflicts.length === 0 && applicable.length <= 1 ? (
+        <Alert>
+          <AlertTitle>{t("summary.noConflicts")}</AlertTitle>
+          <AlertDescription>{t("summary.noOverlap")}</AlertDescription>
+        </Alert>
+      ) : (
+        <Alert>
+          <AlertTitle>
+            {t("summary.overlapCount", { count: overlapCount })}
+          </AlertTitle>
+          <AlertDescription>
+            {winner
+              ? t("summary.winner", {
+                  name: winner.name,
+                  reason: conflictWinnerReason(winner, input.priority, t),
+                })
+              : t("summary.fallbackNote")}
+          </AlertDescription>
+        </Alert>
+      )}
+    </section>
   );
 }
 

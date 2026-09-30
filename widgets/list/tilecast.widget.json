@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "list",
   "version": 1,
+  "configVersion": 2,
   "name": "List",
   "description": "Show records as flexible primary and secondary rows.",
   "category": "Data display",

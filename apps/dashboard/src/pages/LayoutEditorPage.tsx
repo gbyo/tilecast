@@ -81,6 +81,13 @@ import {
   PopoverTrigger,
 } from "../components/ui/popover";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../components/ui/sheet";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -715,6 +722,7 @@ export function LayoutEditorPage() {
   );
   const [layersOpen, setLayersOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [toolDraft, setToolDraft] = useState<{
     x0: number;
@@ -1003,9 +1011,21 @@ export function LayoutEditorPage() {
       window.removeEventListener("keyup", onKeyUp);
     };
   }, [fitZoom, zoomIn, zoomOut, zoomTo]);
-  /** Middle-button or Space + primary drag pans; returns true when it took the event. */
-  const beginPan = (event: ReactPointerEvent) => {
-    if (!(event.button === 1 || (event.button === 0 && spaceHeld.current)))
+  /**
+   * Middle-button or Space + primary drag pans. Touch can opt in when the
+   * gesture starts on the canvas (or a locked placement), so one-finger
+   * navigation does not steal direct manipulation from unlocked placements.
+   */
+  const beginPan = (event: ReactPointerEvent, allowTouch = false) => {
+    const touchPan =
+      allowTouch && event.pointerType === "touch" && event.button === 0;
+    if (
+      !(
+        touchPan ||
+        event.button === 1 ||
+        (event.button === 0 && spaceHeld.current)
+      )
+    )
       return false;
     event.preventDefault();
     event.stopPropagation();
@@ -1362,6 +1382,9 @@ export function LayoutEditorPage() {
     [contentQuery.data?.items, playlistsQuery.data?.items],
   );
   const primary = selected.at(-1);
+  useEffect(() => {
+    if (desktop || (!primary && !settingsOpen)) setMobileInspectorOpen(false);
+  }, [desktop, primary, settingsOpen]);
   const mutateSelected = useCallback(
     (change: (item: LayoutPlacement) => void) =>
       update((draft) =>
@@ -1997,7 +2020,10 @@ export function LayoutEditorPage() {
     // Right- and middle-clicks must not start a drag: their pointerup would otherwise
     // push an undo entry and mark the layout dirty without anything having moved.
     if (event.button !== 0) return;
-    if (item.locked) return;
+    if (item.locked) {
+      if (event.pointerType === "touch") beginPan(event, true);
+      return;
+    }
     event.preventDefault();
     const sourceDocument = documentRef.current;
     if (!sourceDocument || !canvasRef.current) return;
@@ -2587,17 +2613,17 @@ export function LayoutEditorPage() {
         <Plus
           aria-hidden="true"
           className={cn(
-            "transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "transition-transform duration-(--tc-motion-standard) ease-(--tc-ease-standard) motion-reduce:transition-none",
             addMenuOpen && "rotate-45",
           )}
         />
       </PopoverTrigger>
       <PopoverContent
-        side="right"
+        side={desktop ? "right" : "bottom"}
         align="start"
         sideOffset={8}
         aria-label={t("editor.addTitle")}
-        className="w-75 gap-0 rounded-xl p-1"
+        className="w-[min(18.75rem,calc(100vw-2rem))] gap-0 rounded-xl p-1"
       >
         <Command>
           <CommandInput
@@ -2752,10 +2778,14 @@ export function LayoutEditorPage() {
     <div
       role="toolbar"
       aria-label={t("editor.dockLabel")}
-      aria-orientation="vertical"
-      className="absolute top-3 left-3 z-20 flex flex-col gap-0.5 rounded-xl border bg-card p-1 shadow-md"
+      aria-orientation={desktop ? "vertical" : "horizontal"}
+      className={cn(
+        "absolute top-3 left-3 z-20 flex gap-0.5 rounded-xl border bg-card p-1 shadow-md",
+        desktop ? "flex-col" : "flex-row",
+      )}
     >
       {addMenu}
+      {desktop ? (
       <Popover open={layersOpen} onOpenChange={setLayersOpen}>
         <PopoverTrigger
           render={
@@ -2781,7 +2811,34 @@ export function LayoutEditorPage() {
           {layersPanel}
         </PopoverContent>
       </Popover>
-      <Separator className="my-0.5" />
+      ) : (
+        <Sheet open={layersOpen} onOpenChange={setLayersOpen}>
+          <SheetTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(dockButtonClass, layersOpen && "bg-muted")}
+                aria-label={t("editor.sectionLayers")}
+                title={t("editor.sectionLayers")}
+              />
+            }
+          >
+            <Layers aria-hidden="true" />
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="w-[min(20rem,88vw)] gap-0 overflow-y-auto"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>{t("editor.sectionLayers")}</SheetTitle>
+            </SheetHeader>
+            {layersPanel}
+          </SheetContent>
+        </Sheet>
+      )}
+      {desktop && <Separator className="my-0.5" />}
       <Button
         type="button"
         variant="ghost"
@@ -2839,14 +2896,19 @@ export function LayoutEditorPage() {
         title={t("editor.sectionSettings")}
         onClick={() => {
           setSelection(new Set());
-          setSettingsOpen((open) => !open);
+          if (desktop) {
+            setSettingsOpen((open) => !open);
+          } else {
+            setSettingsOpen(true);
+            setMobileInspectorOpen(true);
+          }
         }}
       >
         <MonitorCog aria-hidden="true" />
       </Button>
     </div>
   );
-  const inspectorCard = (primary || settingsOpen) && (
+  const inspectorCard = desktop && (primary || settingsOpen) && (
     <aside
       aria-label={
         primary ? t("editor.panesInspector") : t("editor.sectionSettings")
@@ -2906,20 +2968,70 @@ export function LayoutEditorPage() {
       )}
     </aside>
   );
+  const mobileInspectorSheet = !desktop && (primary || settingsOpen) && (
+    <Sheet
+      open={mobileInspectorOpen}
+      onOpenChange={(open) => {
+        setMobileInspectorOpen(open);
+        if (!open && settingsOpen) setSettingsOpen(false);
+      }}
+    >
+      <SheetContent
+        side="bottom"
+        className="max-h-[78dvh] gap-0 overflow-hidden rounded-t-xl"
+      >
+        <SheetHeader className="border-b">
+          <SheetTitle className="flex min-w-0 items-center gap-2">
+            <span className="truncate">
+              {primary
+                ? t("editor.panesInspectorTitle")
+                : t("editor.sectionSettings")}
+            </span>
+            {primary && (
+              <Badge variant="secondary">
+                {t("editor.selectedCount", { count: selected.length })}
+              </Badge>
+            )}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="min-h-0 overflow-y-auto">
+          {primary ? (
+            <div className="p-3">{placementInspector}</div>
+          ) : (
+            layoutSettings
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   const selectionOverlay = selectionBox && !activeTool && (
     <div className="pointer-events-none absolute inset-0 z-[1000]">
       <div
         role="toolbar"
         aria-label={t("editor.selectionToolbar")}
-        className="pointer-events-auto absolute -translate-x-1/2"
-        style={{
-          left:
-            ((selectionBox.x + selectionBox.right) / 2) * view.zoom + view.panX,
-          top: Math.max(8, selectionBox.y * view.zoom + view.panY - 48),
-        }}
+        className={cn(
+          "pointer-events-auto absolute -translate-x-1/2",
+          !desktop && "bottom-14 left-1/2",
+        )}
+        style={
+          desktop
+            ? {
+                left:
+                  ((selectionBox.x + selectionBox.right) / 2) * view.zoom +
+                  view.panX,
+                top: Math.max(8, selectionBox.y * view.zoom + view.panY - 48),
+              }
+            : undefined
+        }
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <ButtonGroup className="rounded-lg bg-background shadow-md">
+        <ButtonGroup
+          className={cn(
+            "rounded-lg bg-background shadow-md",
+            !desktop && "hidden",
+          )}
+        >
           <ButtonGroupText className="max-w-40 gap-1.5 bg-background">
             {primary && placementIcon(primary)}
             <span className="truncate">
@@ -3028,6 +3140,72 @@ export function LayoutEditorPage() {
             </DropdownMenu>
           )}
         </ButtonGroup>
+        {!desktop && (
+          <ButtonGroup className="rounded-lg bg-background shadow-md">
+            <ButtonGroupText className="max-w-28 gap-1.5 bg-background">
+              {primary && placementIcon(primary)}
+              <span className="truncate">
+                {selected.length > 1
+                  ? t("editor.selectedCount", { count: selected.length })
+                  : primary?.name}
+              </span>
+            </ButtonGroupText>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={t("editor.panesInspectorTitle")}
+              title={t("editor.panesInspectorTitle")}
+              onClick={() => setMobileInspectorOpen(true)}
+            >
+              <Settings aria-hidden="true" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label={t("editor.menuDuplicate")}
+              title={t("editor.menuDuplicate")}
+              onClick={duplicateSelection}
+            >
+              <Copy aria-hidden="true" />
+            </Button>
+            {primary && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label={t("editor.toolbarMore")}
+                      title={t("editor.toolbarMore")}
+                    />
+                  }
+                >
+                  <Ellipsis aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48">
+                  {placementMenuItems(primary).map((entry, index) =>
+                    entry.submenu ? null : (
+                      <Fragment key={`${entry.label}-mobile-${index}`}>
+                        {entry.separated && <DropdownMenuSeparator />}
+                        <DropdownMenuItem
+                          variant={entry.danger ? "destructive" : "default"}
+                          disabled={entry.disabled}
+                          onClick={entry.onSelect}
+                        >
+                          {entry.icon}
+                          {entry.label}
+                        </DropdownMenuItem>
+                      </Fragment>
+                    ),
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </ButtonGroup>
+        )}
       </div>
       <span
         className="absolute -translate-x-1/2 rounded-sm bg-blue-500 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap text-white"
@@ -3058,15 +3236,24 @@ export function LayoutEditorPage() {
     <main className="layout-stage">
       {dock}
       {inspectorCard}
+      {mobileInspectorSheet}
       {activeTool && (
         <div
           role="status"
-          className="absolute top-3 left-1/2 z-20 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-sm shadow-md"
+          className={cn(
+            "absolute left-1/2 z-20 -translate-x-1/2 rounded-md border bg-card px-3 py-1.5 text-sm shadow-md",
+            desktop ? "top-3" : "top-16",
+          )}
         >
           {t("editor.toolArmed")}
         </div>
       )}
-      <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+      <div
+        className={cn(
+          "absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2",
+          !desktop && "hidden",
+        )}
+      >
         <ButtonGroup aria-label={t("editor.zoomLabel")}>
           <Button
             variant="outline"
@@ -3250,6 +3437,75 @@ export function LayoutEditorPage() {
           </PopoverContent>
         </Popover>
       </div>
+      {!desktop && (
+        <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2">
+          <ButtonGroup aria-label={t("editor.zoomLabel")}>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-16 tabular-nums"
+                    aria-label={t("editor.zoomPresets")}
+                    title={t("editor.zoomPresets")}
+                  />
+                }
+              >
+                <span aria-live="polite">{Math.round(zoom * 100)}%</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="center" className="min-w-32">
+                <DropdownMenuItem onClick={() => fitZoom()}>
+                  {t("editor.zoomFit")}
+                </DropdownMenuItem>
+                {[0.5, 1, 2].map((preset) => (
+                  <DropdownMenuItem key={preset} onClick={() => zoomTo(preset)}>
+                    {Math.round(preset * 100)}%
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fitZoom()}
+              title={t("editor.zoomFit")}
+              aria-label={t("editor.zoomFit")}
+            >
+              <Scan size={16} aria-hidden="true" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={t("editor.toolbarMore")}
+                    title={t("editor.toolbarMore")}
+                  />
+                }
+              >
+                <Ellipsis aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="end" className="min-w-44">
+                <DropdownMenuItem onClick={() => setSnap((value) => !value)}>
+                  <Magnet aria-hidden="true" />
+                  {t("editor.snapLabel")}:{" "}
+                  {t(snap ? "editor.snapOn" : "editor.snapOff")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setSafeArea((value) => !value)}
+                >
+                  <SquareDashed aria-hidden="true" />
+                  {t("editor.safeAreaLabel")}:{" "}
+                  {t(safeArea ? "editor.safeAreaOn" : "editor.safeAreaOff")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </ButtonGroup>
+        </div>
+      )}
       <ContextMenu>
         <ContextMenuTrigger
           render={
@@ -3261,7 +3517,7 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
-                if (beginPan(event)) return;
+                if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);
                   return;

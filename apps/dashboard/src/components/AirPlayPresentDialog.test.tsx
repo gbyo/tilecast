@@ -127,4 +127,60 @@ describe("AirPlay present dialog", () => {
     });
     expect(screen.getByText("Display B")).toBeInTheDocument();
   });
+
+  it("keeps Stop available for a session left in stopping state", async () => {
+    const stoppingSession = {
+      id: "session-stopping",
+      status: "stopping",
+      failedCount: 0,
+      connectedCount: 1,
+      readyCount: 1,
+      screenCount: 1,
+      receiverName: "Tilecast Receiver",
+      videoProfile: "1080p30",
+      transport: "unicast",
+      audioMode: "gateway_only",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      screens: [
+        {
+          screenId: "screen-1",
+          screenName: "Lobby",
+          state: "connected",
+        },
+      ],
+    } as unknown as AirplaySession;
+    const readyCapability = {
+      airplaySupported: true,
+      airplayGroupSupported: true,
+      airplayMaxProfile: "1080p30",
+      airplayHardwareDecode: true,
+      externalPresentationSessionId: "session-stopping",
+    } as unknown as ReliabilityStatus;
+
+    vi.spyOn(api, "airplaySession").mockResolvedValue(stoppingSession);
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+          })
+        }
+      >
+        <AirPlayPresentDialog
+          open
+          targetType="screen"
+          targetId="screen-1"
+          destinationName="Lobby"
+          displayCount={1}
+          csrfToken="csrf-token"
+          capabilities={[readyCapability]}
+          onClose={() => undefined}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Stop AirPlay" }),
+    ).toBeEnabled();
+  });
 });

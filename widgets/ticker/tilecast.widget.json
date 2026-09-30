@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "ticker",
   "version": 1,
+  "configVersion": 2,
   "name": "Ticker",
   "description": "Scroll short items from any compatible records source: a feed, a manual table, a Google Sheet, a plugin source, or anything else with text columns.",
   "category": "Data display",

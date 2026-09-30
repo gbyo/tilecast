@@ -99,7 +99,7 @@ export function PluginCatalogDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,44rem)] flex-col gap-5 sm:max-w-xl">
+      <DialogContent className="flex max-h-[min(90dvh,44rem)] flex-col gap-5 sm:max-w-xl">
         {selected ? (
           <>
             <DialogHeader>

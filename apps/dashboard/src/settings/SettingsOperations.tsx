@@ -1042,7 +1042,133 @@ export function PlayerUpdatesPanel({
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto rounded-xl border border-border">
+                <div
+                  id="player-releases-list"
+                  className="grid gap-2 lg:hidden"
+                >
+                  {visibleReleaseItems.map((release) => {
+                    const readiness = releaseReadiness(release, t);
+                    return (
+                      <article
+                        key={release.id}
+                        className="grid gap-3 rounded-xl border border-border p-3"
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <strong className="font-semibold">
+                                {release.versionName}
+                              </strong>
+                              {release.architecture && (
+                                <Badge variant="outline">
+                                  {release.architecture}
+                                </Badge>
+                              )}
+                              <Badge variant="secondary">
+                                {release.channel === "beta"
+                                  ? t("updates.panel.channelBeta")
+                                  : t("updates.panel.channelStable")}
+                              </Badge>
+                            </span>
+                            <small className="font-mono text-xs text-muted-foreground">
+                              {t("updates.panel.code", {
+                                code: release.versionCode,
+                              })}
+                            </small>
+                          </div>
+                          <Badge {...statusBadgeAppearance(readiness.tone)}>
+                            {readiness.label}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                          <span>
+                            {release.source === "upload"
+                              ? t("updates.panel.sourceUpload")
+                              : t("updates.panel.sourceGitHub")}
+                          </span>
+                          <span>
+                            {new Date(release.publishedAt).toLocaleDateString(
+                              locale,
+                            )}
+                          </span>
+                          <span>{formatBytes(release.apkSizeBytes)}</span>
+                        </div>
+                        {release.cacheStatus === "downloading" && (
+                          <span className="player-release-cache-progress grid gap-1">
+                            <progress
+                              aria-label={t("updates.panel.cachingLabel", {
+                                version: release.versionName,
+                                downloaded: formatBytes(
+                                  release.downloadedBytes,
+                                ),
+                                total: formatBytes(release.apkSizeBytes),
+                              })}
+                              value={Math.min(
+                                release.downloadedBytes,
+                                release.apkSizeBytes,
+                              )}
+                              max={release.apkSizeBytes}
+                              className="w-full"
+                            />
+                            <small className="text-xs text-muted-foreground">
+                              {t("updates.panel.downloadProgress", {
+                                downloaded: formatBytes(
+                                  release.downloadedBytes,
+                                ),
+                                total: formatBytes(release.apkSizeBytes),
+                              })}
+                            </small>
+                          </span>
+                        )}
+                        {readiness.detail && (
+                          <small className="text-xs text-muted-foreground">
+                            {readiness.detail}
+                          </small>
+                        )}
+                        {owner && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            {readiness.cacheable && (
+                              <ReleaseCacheButton
+                                downloading={
+                                  cache.isPending &&
+                                  cache.variables === release.id
+                                }
+                                onDownload={() => cache.mutate(release.id)}
+                              />
+                            )}
+                            {purgeAction(release) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title={
+                                  purgeAction(release) === "delete"
+                                    ? t("updates.panel.purgeDeleteTitle")
+                                    : t("updates.panel.purgeFreeTitle")
+                                }
+                                disabled={
+                                  purge.isPending &&
+                                  purge.variables?.id === release.id
+                                }
+                                onClick={() => setPurging(release)}
+                              >
+                                {purge.isPending &&
+                                purge.variables?.id === release.id ? (
+                                  <Spinner />
+                                ) : (
+                                  <Trash2 size={15} aria-hidden="true" />
+                                )}
+                                {purgeAction(release) === "delete"
+                                  ? t("updates.panel.rowDelete")
+                                  : t("updates.panel.rowFree")}
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+                <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
                   <Table className="w-full min-w-[48rem] text-sm">
                     <caption className="sr-only">
                       {t("updates.panel.releasesCaption", {
@@ -1238,7 +1364,7 @@ export function PlayerUpdatesPanel({
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-controls="player-releases-table-body"
+                      aria-controls="player-releases-list player-releases-table-body"
                       aria-expanded={showAllReleases}
                       onClick={() => setShowAllReleases((visible) => !visible)}
                     >
@@ -1744,7 +1870,82 @@ export function PlayerUpdatesPanel({
                 </Alert>
               </div>
             )}
-            <div className="overflow-x-auto rounded-xl border border-border">
+            <div className="grid gap-2 lg:hidden">
+              {platformDeployments.map((item) => {
+                const headline = deploymentHeadline(item);
+                const needsAttention =
+                  item.failedCount > 0 ||
+                  item.waitingForUserCount > 0 ||
+                  item.status === "paused";
+                return (
+                  <article
+                    key={item.id}
+                    className="grid gap-3 rounded-xl border border-border p-3"
+                  >
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <strong className="block truncate font-semibold">
+                          {item.name}
+                        </strong>
+                        <small className="font-mono text-xs text-muted-foreground">
+                          {item.versionName} ({item.versionCode}) ·{" "}
+                          {modeName(item.mode)}
+                        </small>
+                      </div>
+                      <UpdateStatus value={item.status} />
+                    </div>
+                    <div className="grid gap-1">
+                      <small className="text-xs text-muted-foreground">
+                        {rolloutSummary(item, t)}
+                      </small>
+                      <DeploymentMeter compact {...item} />
+                      <small className="text-xs text-muted-foreground">
+                        {outstandingSummary(item, t)}
+                      </small>
+                    </div>
+                    <div className="grid gap-2">
+                      <span
+                        className={
+                          needsAttention
+                            ? "text-xs font-semibold text-destructive"
+                            : "text-sm"
+                        }
+                      >
+                        {headline}
+                      </span>
+                      {item.lastFailure && (
+                        <small className="text-xs text-muted-foreground">
+                          {t("updates.panel.lastFailure", {
+                            error: item.lastFailure,
+                          })}
+                        </small>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-fit"
+                        onClick={() => void showDeployment(item)}
+                      >
+                        <ListChecks size={15} aria-hidden="true" />
+                        {item.targetCount}{" "}
+                        {item.targetCount === 1 ? "screen" : "screens"}
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
+              {!deployments.isLoading &&
+                !deployments.error &&
+                platformDeployments.length === 0 && (
+                  <div className="flex items-center justify-center gap-2 rounded-xl border border-border p-4 text-sm text-muted-foreground">
+                    <CheckCircle2 size={18} aria-hidden="true" />
+                    {t("updates.panel.historyEmpty", {
+                      platform: platformLabel,
+                    })}
+                  </div>
+                )}
+            </div>
+            <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
               <Table className="w-full min-w-[48rem] text-sm">
                 <caption className="sr-only">
                   {t("updates.panel.historyCaption", {

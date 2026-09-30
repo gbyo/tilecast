@@ -11,8 +11,9 @@ import (
 // directions because a mutation may be made at either end of a presentation
 // graph: a playlist edit needs to reach nested layouts, while an asset/data
 // source edit needs to walk back through widgets, layouts, playlists, and
-// assignments. UNION (rather than UNION ALL) makes cycles in nested content
-// finite and deterministic.
+// assignments. It also clears cached Layout previews when a content dependency
+// changes. UNION (rather than UNION ALL) makes cycles in nested content finite
+// and deterministic.
 func bumpResourcesInTx(ctx context.Context, tx pgx.Tx, kind string, id uuid.UUID, reason string) ([]notification, error) {
 	rows, err := tx.Query(ctx, `
 WITH RECURSIVE refs(kind,id) AS (
@@ -74,6 +75,11 @@ WITH RECURSIVE refs(kind,id) AS (
 		WHERE r.kind=d.dependency_type AND r.id=d.dependency_id
 		  AND d.dependency_type IN ('asset','widget','data_source','playlist')
 		UNION
+		-- Widget IDs share the asset table, but Layouts record them as widgets.
+		SELECT 'widget'::text,w.asset_id
+		FROM widgets w
+		WHERE r.kind='asset' AND r.id=w.asset_id
+		UNION
 		-- Widgets may contain one or more source selectors and website fallback
 		-- assets. UUID values are matched as JSON strings, never as names.
 		SELECT 'data_source'::text,d.id
@@ -94,6 +100,15 @@ WITH RECURSIVE refs(kind,id) AS (
 		FROM website_assets wa
 		WHERE r.kind='asset' AND wa.fallback_image_asset_id=r.id
 	) AS next(kind,id)
+), invalidate_layout_previews AS (
+	UPDATE layouts l
+	SET preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,
+	    preview_updated_at=NULL,preview_capture_version=NULL
+	FROM refs r
+	WHERE $1::text IN ('asset','widget','playlist','data_source')
+	  AND r.kind='layout' AND r.id=l.id AND l.deleted_at IS NULL
+	  AND l.preview_image IS NOT NULL
+	RETURNING l.id
 ), affected(screen_id) AS (
 	SELECT a.screen_id
 	FROM screen_playlist_assignments a JOIN refs r ON (r.kind='playlist' AND r.id=a.playlist_id) OR (r.kind='layout' AND r.id=a.layout_id)
