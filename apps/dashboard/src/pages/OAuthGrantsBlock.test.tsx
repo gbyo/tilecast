@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OAuthGrantsBlock } from "./OAuthGrantsBlock";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
+import { i18n } from "../i18n";
 import type { OAuthGrant } from "../api/types";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -39,9 +40,10 @@ function renderBlock() {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.restoreAllMocks();
+  await i18n.changeLanguage("en");
 });
 
 describe("OAuthGrantsBlock", () => {
@@ -73,5 +75,25 @@ describe("OAuthGrantsBlock", () => {
     expect(
       await screen.findByText("No operators are authorized."),
     ).toBeInTheDocument();
+  });
+
+  it("presents revocation failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(api, "revokeOAuthGrant").mockRejectedValue(
+      new ApiError("Server-provided revocation failure.", 429, "rate_limited"),
+    );
+    const user = userEvent.setup();
+    renderBlock();
+    expect(await screen.findByText("tilecast-cli")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Отозвать" }));
+
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Server-provided revocation failure.")).toBe(
+      null,
+    );
   });
 });
