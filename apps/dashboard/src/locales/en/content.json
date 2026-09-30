@@ -130,7 +130,7 @@
       "removeTag": "Remove {{name}}",
       "restore": "Restore",
       "sectionLabel": "Content organization",
-      "selectPage": "Select page",
+      "selectLoaded": "Select loaded",
       "tagChange": "Tag change"
     },
     "organizer": {
@@ -431,6 +431,7 @@
       "playlistNoSources": "Nothing in this playlist reads a data source.",
       "sourceKind": "Data source",
       "sourceFailed": "Last refresh failed",
+      "sourceMissing": "Linked data source {{id}} is unavailable.",
       "records_one": "{{count}} record",
       "records_other": "{{count}} records",
       "sourcesError": "Data sources could not be resolved"
