@@ -8,9 +8,10 @@ All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,
 `plugins`, `review`, `schedules`, `screens`, `settings`) have locale files.
 The full-tree scan still reports existing untranslated strings. Dashboard CI
-checks changed `.ts` and `.tsx` files under `src/` while those findings are
-resolved. Run a focused check on the files you edit and use the full scan to
-review the remaining findings.
+scans changed `.ts` and `.tsx` files under `src/` against the PR base. It fails
+for new findings and leaves existing findings visible for separate fixes. Use
+`--base origin/main` for the same incremental check on a focused file. Run the
+full scan to review all remaining findings.
 
 Tilecast Player and the server are out of scope. Player strings live in the
 Android, Linux, and Windows projects. Server error messages stay English and
@@ -73,7 +74,7 @@ Work through one file (or one small feature folder) at a time:
 5. **Verify.** Everything below must pass:
 
    ```sh
-   npm run i18n:scan -- --check src/pages/UsersPage.tsx
+   npm run i18n:scan -- --check --base origin/main src/pages/UsersPage.tsx
    npx tsc -b
    npm test
    npm run lint

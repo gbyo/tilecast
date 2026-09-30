@@ -41,7 +41,7 @@ jobs:
             echo "No changed Studio TypeScript files to scan."
             exit 0
           fi
-          npm run i18n:scan -- --check "${files[@]}"
+          npm run i18n:scan -- --check --base "$BASE_SHA" "${files[@]}"
       - name: Restore ESLint cache
         uses: actions/cache@v4
         with:
