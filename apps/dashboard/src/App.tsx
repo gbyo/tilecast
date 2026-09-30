@@ -4,6 +4,11 @@ import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import type { StudioNavigationMetadata } from "./navigation/studioNavigation";
 import { NativeHostProvider } from "./native-host/NativeHostProvider";
+import { NativeAuthLifecycle } from "./native-host/useNativeAuthLifecycle";
+import { PRESENTATION_ROOT } from "./native-host/protocol";
+import { NativePresentationHost } from "./native-presentation/NativePresentationHost";
+import { NativePresentationNavigation } from "./native-presentation/NativePresentationNavigation";
+import { LiveStreamPresentation } from "./components/LiveStreamPresentation";
 import { settingsItems } from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
@@ -20,6 +25,9 @@ import { ArchivedScreensPage } from "./pages/ArchivedScreensPage";
 import { ContentPage } from "./pages/ContentPage";
 import { PlaylistEditorPage } from "./pages/PlaylistsPage";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
+import { ActivityIncidentPresentation } from "./pages/ActivityIncidentPresentation";
+import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
+import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
 import {
   GroupsPage,
@@ -79,7 +87,33 @@ const settingsSearch: Partial<
   },
 };
 
+/**
+ * Routes a native host can present in its own sheet, below the reserved
+ * /__native/modal root. Adding one needs no app change: the host knows only
+ * the root. They have no navigation or search metadata, and outside a
+ * native presentation page the root redirects to the start page.
+ */
+const presentationRoutes: RouteObject[] = [
+  { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
+  { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+  { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
+  { path: "asset/:id", element: <MediaAssetPresentation /> },
+  {
+    path: "update-deployment/:id",
+    element: <UpdateDeploymentPresentation />,
+  },
+  {
+    path: "activity-incident/:id",
+    element: <ActivityIncidentPresentation />,
+  },
+];
+
 export const studioRoutes: RouteObject[] = [
+  {
+    path: PRESENTATION_ROOT,
+    element: <NativePresentationHost routes={presentationRoutes} />,
+    children: presentationRoutes,
+  },
   { path: "/setup", element: <AuthPage mode="setup" /> },
   { path: "/login", element: <AuthPage mode="login" /> },
   { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
@@ -619,6 +653,8 @@ function RoutedApp() {
 export function App() {
   return (
     <NativeHostProvider>
+      <NativeAuthLifecycle />
+      <NativePresentationNavigation />
       <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />

@@ -40,6 +40,7 @@ test("Studio and server changes do not build the iOS host", () => {
     "apps/dashboard/src/navigation/routes.ts",
     "apps/dashboard/src/navigation/studioNavigation.tsx",
     "apps/dashboard/src/native-host/useNativeNavigation.ts",
+    "apps/dashboard/src/native-presentation/NativePresentationHost.tsx",
     "apps/dashboard/src/pages/RoomBookingsPage.tsx",
     "apps/dashboard/src/styles.css",
     "apps/dashboard/src/App.tsx",
@@ -259,6 +260,8 @@ test("OpenAPI contract changes run server route parity", () => {
     assert.equal(result.plugins, true, `${path}: plugins`);
     assert.equal(result.cli, true, `${path}: cli`);
     assert.equal(result.server, true, `${path}: server`);
+    // The iOS app generates its API client from the composed contract.
+    assert.equal(result.ios, true, `${path}: ios`);
   }
 });
 
