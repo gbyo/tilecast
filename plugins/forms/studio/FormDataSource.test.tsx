@@ -351,4 +351,18 @@ describe("Form responses table", () => {
     await user.click(title);
     expect(router.state.location.search).toContain("record=r1");
   });
+
+  it("renders only the error when the records query fails", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormRecords").mockRejectedValue(
+      new Error("offline"),
+    );
+    renderAt("/plugins/forms/f1?tab=responses", "owner");
+
+    expect(
+      await screen.findByText("Could not load responses"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("No responses")).not.toBeInTheDocument();
+  });
 });
