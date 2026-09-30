@@ -212,6 +212,7 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="close" type="button">Close from page</button></p>
         <p><button id="leave" type="button">Go to Layouts</button></p>
         <p><button id="ask" type="button">Ask from sheet</button></p>
+        <p><button id="grow" type="button">Grow sheet</button></p>
         <p id="chosen"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
@@ -258,6 +259,13 @@ final class FixtureStudioServer: @unchecked Sendable {
         };
         document.getElementById("close").addEventListener("click", () => {
           if (current) void send("presentation/close", { presentationId: current });
+        });
+        // A dialog inside a compact presentation asks the sheet for the full
+        // height, as Studio's dialog primitives do.
+        document.getElementById("grow").addEventListener("click", async () => {
+          if (!current) return;
+          await send("presentation/update", { presentationId: current, size: "full" });
+          text("action", "Grew");
         });
         document.getElementById("ask").addEventListener("click", () => {
           void send("alert/present", {

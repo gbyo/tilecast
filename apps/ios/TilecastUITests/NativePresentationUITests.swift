@@ -124,6 +124,31 @@ final class NativePresentationUITests: XCTestCase {
     }
 
     @MainActor
+    func testACompactSheetGrowsWhenItsPageAsksForFullHeight() throws {
+        launchWithFixtureServer()
+        openSheet()
+        let grow = app.webViews.buttons["Grow sheet"]
+        XCTAssertTrue(grow.waitForExistence(timeout: 20))
+        grow.tap()
+        XCTAssertTrue(webText("Grew").waitForExistence(timeout: 10), "the app survived the resize")
+        XCTAssertTrue(sheetTitle.exists, "the sheet is still up")
+        app.buttons["presentation.close"].tap()
+        XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDraggingACompactSheetToFullHeightKeepsTheApp() throws {
+        launchWithFixtureServer()
+        openSheet()
+        XCTAssertTrue(webText("Showing fixture/sheet, time 1").waitForExistence(timeout: 20))
+        let grabber = app.otherElements["Sheet Grabber"].firstMatch
+        let handle = grabber.exists ? grabber : sheetTitle
+        handle.swipeUp(velocity: .fast)
+        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 10), "the app survived the drag")
+        XCTAssertTrue(webText("Showing fixture/sheet, time 1").exists)
+    }
+
+    @MainActor
     func testAnAlertFromASheetShowsOverTheSheet() throws {
         launchWithFixtureServer()
         openSheet()
