@@ -42,10 +42,16 @@ TILECAST_PUBLIC_URL=http://192.0.2.10:8080
 TILECAST_COOKIE_SECURE=false
 ```
 
+Select the installed server version. `TILECAST_VERSION` is the one place that selects it: keep `stable` to follow Stable releases, or pin an explicit release for controlled upgrades:
+
+```dotenv
+TILECAST_VERSION=stable
+```
+
 Start Tilecast:
 
 ```sh
-docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d --build
+docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d
 ```
 
 Open the configured URL and create the first Owner account.
@@ -134,7 +140,7 @@ Studio runtime settings can narrow deployment limits but cannot exceed them. Sec
 
 - Put public installations behind HTTPS.
 - Back up both persistent volumes.
-- Pin a known Tilecast release or commit.
+- Pin a known Tilecast Server release with `TILECAST_VERSION`.
 - Test a full restore away from production.
 - Test each actual TV device and firmware.
 - Complete player commissioning and physical power verification.

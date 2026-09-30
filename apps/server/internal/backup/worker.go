@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
 
 // WorkerConfig carries everything the worker needs to run jobs.
@@ -23,7 +24,7 @@ type WorkerConfig struct {
 	UpdatesRoot       string
 	ReservedFreeBytes int64
 	Limits            Limits
-	TilecastVersion   string
+	Build             version.Build
 }
 
 // MemoryJobStatus is the in-memory view of the active job. During a restore
@@ -194,7 +195,7 @@ func (w *Worker) runBackup(ctx context.Context, jobID uuid.UUID, trigger string,
 		UpdatesRoot:       w.cfg.UpdatesRoot,
 		BackupRoot:        w.svc.root,
 		Kind:              kind,
-		TilecastVersion:   w.cfg.TilecastVersion,
+		Build:             w.cfg.Build,
 		ReservedFreeBytes: w.cfg.ReservedFreeBytes,
 		Limits:            w.cfg.Limits,
 		Progress:          w.progressFunc(ctx, jobID, "backup"),
@@ -307,7 +308,7 @@ func (w *Worker) runRestore(ctx context.Context, jobID uuid.UUID, archiveID, req
 		UpdatesRoot:             w.cfg.UpdatesRoot,
 		BackupRoot:              w.svc.root,
 		ArchivePath:             w.svc.ArchivePath(archive),
-		TilecastVersion:         w.cfg.TilecastVersion,
+		Build:                   w.cfg.Build,
 		ReservedFreeBytes:       w.cfg.ReservedFreeBytes,
 		Limits:                  w.cfg.Limits,
 		ConfirmIdentityMismatch: confirmIdentityMismatch,
