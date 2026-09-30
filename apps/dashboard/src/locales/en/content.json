@@ -130,7 +130,7 @@
       "removeTag": "Remove {{name}}",
       "restore": "Restore",
       "sectionLabel": "Content organization",
-      "selectPage": "Select page",
+      "selectLoaded": "Select loaded",
       "tagChange": "Tag change"
     },
     "organizer": {
