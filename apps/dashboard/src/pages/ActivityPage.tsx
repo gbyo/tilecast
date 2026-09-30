@@ -419,9 +419,17 @@ export function ActivityPage() {
         onValueChange={(value) => selectTab(value as ActivityTab)}
         className="grid gap-4"
       >
-        <TabsList variant="line" aria-label={t("page.tabsLabel")}>
+        <TabsList
+          variant="line"
+          aria-label={t("page.tabsLabel")}
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
+        >
           {activityTabs.map((item) => (
-            <TabsTrigger key={item.value} value={item.value}>
+            <TabsTrigger
+              key={item.value}
+              value={item.value}
+              className="flex-none"
+            >
               {item.label}
             </TabsTrigger>
           ))}
@@ -458,7 +466,7 @@ export function ActivityPage() {
                   </PopoverTrigger>
                   <PopoverContent
                     align="end"
-                    className="grid w-80 gap-3 p-3"
+                    className="grid w-[min(20rem,calc(100vw-2rem))] gap-3 p-3"
                     aria-label={t("page.advancedFilters")}
                   >
                     <div className="flex items-start justify-between gap-2">
