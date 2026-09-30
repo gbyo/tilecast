@@ -178,7 +178,7 @@ export function ApprovalsPage() {
         </Empty>
       ) : (
         <>
-          <div className="grid gap-2 md:hidden">
+          <div className="grid gap-2 lg:hidden">
             {items.map((item) => (
               <article
                 key={item.recordId}
@@ -221,7 +221,7 @@ export function ApprovalsPage() {
               </article>
             ))}
           </div>
-          <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
             <Table className="min-w-[48rem]">
               <TableHeader>
                 {table.getHeaderGroups().map((group) => (
