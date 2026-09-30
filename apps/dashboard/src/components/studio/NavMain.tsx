@@ -1,5 +1,4 @@
-import { useLocation, Link } from "react-router";
-import type { ReactNode } from "react";
+import { Link } from "react-router";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -8,63 +7,53 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { NavigationIcon } from "@/navigation/NavigationIcon";
+import type {
+  ResolvedNavigationDestination,
+  ResolvedNavigationGroup,
+} from "@/navigation/studioNavigation";
 
-export type StudioNavItem = {
-  title: string;
-  url: string;
-  icon: ReactNode;
-  end?: boolean;
-  excludeActiveOn?: readonly string[];
-};
-
-export type StudioNavGroup = {
-  label?: string;
-  items: StudioNavItem[];
-};
-
-function activeUrl(pathname: string, items: StudioNavItem[]) {
-  return items
-    .filter(
-      (item) =>
-        !item.excludeActiveOn?.some(
-          (path) => pathname === path || pathname.startsWith(`${path}/`),
-        ) &&
-        (pathname === item.url ||
-          (!item.end && pathname.startsWith(`${item.url}/`))),
-    )
-    .sort((left, right) => right.url.length - left.url.length)[0]?.url;
+export function NavRow({
+  item,
+  activeId,
+}: {
+  item: ResolvedNavigationDestination;
+  activeId?: string;
+}) {
+  const active = item.id === activeId;
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip={item.title}
+        isActive={active}
+        render={
+          <Link to={item.to} aria-current={active ? "page" : undefined} />
+        }
+      >
+        <NavigationIcon token={item.icon} component={item.Icon} />
+        <span>{item.title}</span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
 }
 
 function NavigationGroup({
-  label,
-  items,
-  currentUrl,
-}: StudioNavGroup & { currentUrl?: string }) {
+  group,
+  activeId,
+}: {
+  group: ResolvedNavigationGroup;
+  activeId?: string;
+}) {
   return (
     <SidebarGroup>
-      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
+      {group.title ? (
+        <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+      ) : null}
       <SidebarGroupContent>
         <SidebarMenu>
-          {items.map((item) => {
-            const active = item.url === currentUrl;
-            return (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  isActive={active}
-                  render={
-                    <Link
-                      to={item.url}
-                      aria-current={active ? "page" : undefined}
-                    />
-                  }
-                >
-                  {item.icon}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
+          {group.items.map((item) => (
+            <NavRow key={item.id} item={item} activeId={activeId} />
+          ))}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
@@ -72,21 +61,16 @@ function NavigationGroup({
 }
 
 export function NavMain({
-  overview,
   groups,
+  activeId,
 }: {
-  overview: StudioNavItem;
-  groups: StudioNavGroup[];
+  groups: ResolvedNavigationGroup[];
+  activeId?: string;
 }) {
-  const { pathname } = useLocation();
-  const items = [overview, ...groups.flatMap((group) => group.items)];
-  const currentUrl = activeUrl(pathname, items);
-
   return (
     <>
-      <NavigationGroup items={[overview]} currentUrl={currentUrl} />
       {groups.map((group) => (
-        <NavigationGroup key={group.label} {...group} currentUrl={currentUrl} />
+        <NavigationGroup key={group.id} group={group} activeId={activeId} />
       ))}
     </>
   );

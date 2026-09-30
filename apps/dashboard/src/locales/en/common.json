@@ -51,6 +51,7 @@
   },
   "demo": {
     "title": "Demo mode",
-    "description": "This installation contains sample data and may be reset automatically."
+    "description": "This installation contains sample data and may be reset automatically.",
+    "badge": "Demo"
   }
 }
