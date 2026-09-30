@@ -14,7 +14,13 @@ import {
   ItemTitle,
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
-import { formatScheduleTime, formatUntil, useNow } from "./format";
+import {
+  formatScheduleTime,
+  formatUntil,
+  formatUntilShort,
+  useNow,
+} from "./format";
+import { listBleed, rowBleed } from "./layout";
 import { RailSection } from "./RailSection";
 import { displayZone, type UpcomingChange } from "./upcoming";
 
@@ -53,8 +59,8 @@ export function UpcomingSection({
           aria-label={t("operations.schedulesLoading")}
           className="grid gap-1.5"
         >
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
         </div>
       ) : isError ? (
         <Alert variant="destructive">
@@ -66,7 +72,7 @@ export function UpcomingSection({
           {t("operations.noUpcoming")}
         </p>
       ) : (
-        <ItemGroup className="-mx-1 gap-0">
+        <ItemGroup className={listBleed}>
           {changes.map(({ schedule, at, kind }) => {
             const zone = displayZone(schedule, defaultTimezone);
             return (
@@ -74,25 +80,28 @@ export function UpcomingSection({
                 key={`${schedule.id}-${kind}`}
                 size="xs"
                 render={<Link to={`/schedules/${schedule.id}`} />}
-                className="min-h-11 py-1"
+                className={rowBleed}
               >
-                <ItemContent className="min-w-0 gap-0">
-                  <ItemTitle className="max-w-full justify-between">
-                    <span className="truncate">
-                      {t(
-                        kind === "starts"
-                          ? "operations.upcomingStarts"
-                          : "operations.upcomingEnds",
-                        { name: schedule.name },
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs font-medium tabular-nums">
-                      {formatUntil(at, now, locale)}
-                    </span>
+                <span className="flex w-10 shrink-0 justify-center self-start rounded-md bg-muted py-0.5 text-xs font-medium tabular-nums">
+                  <span aria-hidden="true">
+                    {formatUntilShort(at, now, locale)}
+                  </span>
+                  <span className="sr-only">
+                    {formatUntil(at, now, locale)}
+                  </span>
+                </span>
+                <ItemContent className="min-w-0">
+                  <ItemTitle className="max-w-full">
+                    <span className="truncate">{schedule.name}</span>
                   </ItemTitle>
                   <ItemDescription className="line-clamp-1">
                     {[
-                      formatScheduleTime(at, zone, locale),
+                      t(
+                        kind === "starts"
+                          ? "operations.upcomingStartsAt"
+                          : "operations.upcomingEndsAt",
+                        { time: formatScheduleTime(at, zone, locale) },
+                      ),
                       t("operations.upcomingDetail", {
                         content: contentName(schedule),
                         targets: targetLabel(schedule, t),
