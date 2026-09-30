@@ -157,7 +157,7 @@ export function PlaylistPicker({
         if (!nextOpen) onCloseComplete?.();
       }}
     >
-      <DialogContent className="flex max-h-[min(90vh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+      <DialogContent className="flex max-h-[min(90dvh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
         <DialogHeader>
           <DialogTitle>{title ?? defaultTitle}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

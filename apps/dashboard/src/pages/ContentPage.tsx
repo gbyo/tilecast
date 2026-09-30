@@ -1942,7 +1942,7 @@ function ManageOrganizationDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("media.manage.title")}</DialogTitle>
           <DialogDescription>{t("media.manage.description")}</DialogDescription>
