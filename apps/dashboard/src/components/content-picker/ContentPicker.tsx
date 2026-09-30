@@ -350,8 +350,8 @@ export function ContentPicker({
           onValueChange={(value) => setTab(value as "library" | "upload")}
           className="min-h-0 flex-1 gap-0"
         >
-          <div className="flex items-center justify-between gap-3 border-b px-6">
-            <TabsList variant="line">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 sm:flex-nowrap sm:gap-3 sm:px-6">
+            <TabsList variant="line" className="min-w-0">
               <TabsTrigger value="library">
                 <LibraryBig aria-hidden="true" />
                 {t("picker.tabs.library")}

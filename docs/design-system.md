@@ -426,6 +426,12 @@ The `hint` is not decoration. It carries the measurement's scope. A tile
 without one invites the reader to assume the selected date range applies, so say
 "Right now, not over the range" wherever that is true.
 
+A `MetricTile` in its default form is a bordered box, which is right on its own
+in a grid. Place several figures inside one `Card` with `variant="plain"`, which
+drops the border and padding and keeps the hint, the delta, and the link. Nesting
+bordered tiles inside a bordered card would say each figure is a separate
+section when they answer one question.
+
 **Absent data reads as absent.** A metric with no data shows "No data", never
 zero. Zero is a measurement: a compliance figure of 0% claims every expected
 play was missed, when in fact none was expected. The same applies to a mean time
@@ -628,14 +634,16 @@ Use the existing Lucide icon vocabulary in Studio. Keep stroke weight and size
 consistent within a control group. Do not assign a unique icon to every field or
 use an unlabeled icon for an unfamiliar operation.
 
-The Tilecast mark retains its three-tile proportions:
+The Tilecast logo is the tile mark and the `tilecast` wordmark. The mark is
+three stacked, slanted tiles. The logo has one color.
 
-- tall left tile: Broadcast Amber.
-- upper-right tile: Signal Blue, and
-- lower-right tile: pale blue-gray.
+- `.github/logos/tilecast-logo-black.svg` is the logo for light surfaces.
+- `.github/logos/tilecast-logo-white.svg` is the logo for dark surfaces.
+- In Studio, the logo components use the current text color.
+- Application icons and the documentation favicon show the mark only, in light
+  color on the signal background.
 
-Use the dark wordmark on light surfaces and the white wordmark on dark surfaces.
-Do not redraw, distort, or recolor the mark per page.
+Do not redraw, distort, or recolor the logo per page.
 
 ## Player interface
 
