@@ -340,8 +340,8 @@ export function ContentPicker({
       }}
     >
       {uploads.dialog}
-      <DialogContent className="flex h-[min(54rem,calc(100dvh-2rem))] w-[min(74rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
-        <DialogHeader className="gap-1 px-6 pt-5 pb-3 pr-14">
+      <DialogContent className="flex h-[min(54rem,calc(100dvh-2rem))] w-[min(74rem,calc(100vw-2rem))] max-w-none flex-col gap-0 overflow-hidden p-0 max-sm:h-dvh max-sm:w-screen max-sm:rounded-none sm:max-w-none">
+        <DialogHeader className="gap-1 px-4 pt-4 pb-3 pr-14 sm:px-6 sm:pt-5">
           <DialogTitle className="text-base">{resolvedTitle}</DialogTitle>
           <DialogDescription>{resolvedDescription}</DialogDescription>
         </DialogHeader>
@@ -379,7 +379,7 @@ export function ContentPicker({
             value="library"
             className="flex min-h-0 flex-1 flex-col data-hidden:hidden"
           >
-            <div className="border-b px-6 py-3">
+            <div className="border-b px-4 py-3 sm:px-6">
               <ContentPickerToolbar
                 search={search}
                 filter={filter}
@@ -401,7 +401,7 @@ export function ContentPicker({
                 onView={setView}
               />
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
               {library.isLoading ? (
                 <ContentLibraryLoading view={view} />
               ) : library.isError ? (
@@ -492,7 +492,7 @@ export function ContentPicker({
             <TabsContent
               value="upload"
               keepMounted
-              className="min-h-0 flex-1 overflow-y-auto px-6 py-4 data-hidden:hidden"
+              className="min-h-0 flex-1 overflow-y-auto px-4 py-4 data-hidden:hidden sm:px-6"
             >
               <MediaUploadPanel
                 csrf={csrf}
@@ -524,7 +524,7 @@ export function ContentPicker({
           )}
         </Tabs>
         {failures.length > 0 && (
-          <div className="px-6 pb-3">
+          <div className="px-4 pb-3 sm:px-6">
             <Alert variant="destructive">
               <AlertCircle aria-hidden="true" />
               <AlertTitle>{t("picker.errors.addFailed")}</AlertTitle>
@@ -540,7 +540,7 @@ export function ContentPicker({
             </Alert>
           </div>
         )}
-        <DialogFooter className="gap-3 border-t px-6 py-3 sm:items-center sm:justify-between">
+        <DialogFooter className="gap-3 border-t px-4 py-3 sm:items-center sm:justify-between sm:px-6">
           <SelectedContentTray
             items={chosen}
             preparing={selectionPreparing}
