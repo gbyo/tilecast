@@ -1,0 +1,1130 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ now belongs to a different Tilecast installation (%@). Tilecast didn’t open it, so your sign-in for %@ wasn’t sent to it.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ ahora pertenece a otra instalación de Tilecast (%2$@). Tilecast no la abrió, así que tu inicio de sesión de %3$@ no se le envió."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ теперь принадлежит другой установке Tilecast (%2$@). Tilecast не открыл её, поэтому ваш вход для %3$@ ей не отправлен."
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить"
+          }
+        }
+      }
+    },
+    "Add Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить сервер"
+          }
+        }
+      }
+    },
+    "Add Server…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar servidor…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить сервер…"
+          }
+        }
+      }
+    },
+    "Address": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirección"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrás"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Назад"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмена"
+          }
+        }
+      }
+    },
+    "Can’t Reach Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede acceder al servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер недоступен"
+          }
+        }
+      }
+    },
+    "Certificate Not Trusted": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certificado no confiable"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сертификат не является доверенным"
+          }
+        }
+      }
+    },
+    "Check that you’re on the same network as the server and that Local Network access for Tilecast is on in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba que estás en la misma red que el servidor y que el acceso a la red local para Tilecast está activado en Ajustes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Убедитесь, что вы в одной сети с сервером и что доступ к локальной сети для Tilecast включён в Настройках."
+          }
+        }
+      }
+    },
+    "Check your connection, then try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba tu conexión y vuelve a intentarlo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте подключение и повторите попытку."
+          }
+        }
+      }
+    },
+    "Check your internet connection and that the server is running.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comprueba tu conexión a internet y que el servidor esté en funcionamiento."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте подключение к интернету и убедитесь, что сервер работает."
+          }
+        }
+      }
+    },
+    "Choose a Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige un servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выберите сервер"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
+    "Connect to your organization’s Tilecast server to manage screens, content, and schedules.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conéctate al servidor de Tilecast de tu organización para administrar pantallas, contenido y programaciones."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключитесь к серверу Tilecast вашей организации, чтобы управлять экранами, контентом и расписаниями."
+          }
+        }
+      }
+    },
+    "Connecting to %@…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando con %@…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключение к %@…"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "Current server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor actual"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Текущий сервер"
+          }
+        }
+      }
+    },
+    "Different Tilecast Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otro servidor de Tilecast"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другой сервер Tilecast"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готово"
+          }
+        }
+      }
+    },
+    "Downloads Aren’t Available Yet": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las descargas aún no están disponibles"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузки пока недоступны"
+          }
+        }
+      }
+    },
+    "Each server keeps its own sign-in and website data on this device. Removing a server deletes that data.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cada servidor guarda su propio inicio de sesión y datos de sitios web en este dispositivo. Al quitar un servidor, se eliminan esos datos."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Каждый сервер хранит на этом устройстве собственный вход и данные сайта. При удалении сервера эти данные удаляются."
+          }
+        }
+      }
+    },
+    "Enter only the server address, without a path such as /login.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe solo la dirección del servidor, sin una ruta como /login."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите только адрес сервера, без пути вроде /login."
+          }
+        }
+      }
+    },
+    "Enter the address you use for Tilecast Studio. Plain HTTP works only for local network addresses.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe la dirección que usas para Tilecast Studio. HTTP sin cifrar solo funciona con direcciones de la red local."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите адрес, который вы используете для Tilecast Studio. Незашифрованный HTTP работает только для адресов локальной сети."
+          }
+        }
+      }
+    },
+    "Enter your Tilecast server address.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escribe la dirección de tu servidor de Tilecast."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Введите адрес сервера Tilecast."
+          }
+        }
+      }
+    },
+    "Its website data on this device, including your sign-in, is deleted.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminarán sus datos de sitios web en este dispositivo, incluido tu inicio de sesión."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Его данные сайта на этом устройстве, включая ваш вход, будут удалены."
+          }
+        }
+      }
+    },
+    "Manage Servers…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Administrar servidores…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Управление серверами…"
+          }
+        }
+      }
+    },
+    "More": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Más"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Название"
+          }
+        }
+      }
+    },
+    "Not a Tilecast Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No es un servidor de Tilecast"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не сервер Tilecast"
+          }
+        }
+      }
+    },
+    "OK": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ОК"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть Настройки"
+          }
+        }
+      }
+    },
+    "Organization": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organización"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Организация"
+          }
+        }
+      }
+    },
+    "Reload": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recargar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Перезагрузить"
+          }
+        }
+      }
+    },
+    "Remove": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить"
+          }
+        }
+      }
+    },
+    "Remove %@?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Quitar %@?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить %@?"
+          }
+        }
+      }
+    },
+    "Remove Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить сервер"
+          }
+        }
+      }
+    },
+    "Remove Server…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitar servidor…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить сервер…"
+          }
+        }
+      }
+    },
+    "Rename": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать"
+          }
+        }
+      }
+    },
+    "Rename Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Renombrar servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Переименовать сервер"
+          }
+        }
+      }
+    },
+    "Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер"
+          }
+        }
+      }
+    },
+    "Server Version Not Supported": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión del servidor no compatible"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Версия сервера не поддерживается"
+          }
+        }
+      }
+    },
+    "Server address": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirección del servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Адрес сервера"
+          }
+        }
+      }
+    },
+    "Servers": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Servidores"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверы"
+          }
+        }
+      }
+    },
+    "Servers on the internet must use HTTPS. Plain HTTP works only for local network addresses such as 192.168.1.20 or tilecast.local.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los servidores en internet deben usar HTTPS. HTTP sin cifrar solo funciona con direcciones de la red local, como 192.168.1.20 o tilecast.local."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Серверы в интернете должны использовать HTTPS. Незашифрованный HTTP работает только для адресов локальной сети, например 192.168.1.20 или tilecast.local."
+          }
+        }
+      }
+    },
+    "Shown in the server switcher on this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se muestra en el selector de servidores de este dispositivo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отображается в переключателе серверов на этом устройстве."
+          }
+        }
+      }
+    },
+    "Something answered at this address, but it isn’t a Tilecast server. Check the address you use for Tilecast Studio.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algo respondió en esta dirección, pero no es un servidor de Tilecast. Comprueba la dirección que usas para Tilecast Studio."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "По этому адресу что-то ответило, но это не сервер Tilecast. Проверьте адрес, который вы используете для Tilecast Studio."
+          }
+        }
+      }
+    },
+    "Studio Couldn’t Load": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar Studio"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить Studio"
+          }
+        }
+      }
+    },
+    "That doesn’t look like a server address. Enter a host name such as signage.example.org.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eso no parece una dirección de servidor. Escribe un nombre de host como signage.example.org."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это не похоже на адрес сервера. Введите имя хоста, например signage.example.org."
+          }
+        }
+      }
+    },
+    "The server’s certificate isn’t valid or isn’t trusted by this device.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El certificado del servidor no es válido o este dispositivo no confía en él."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сертификат сервера недействителен или не является доверенным для этого устройства."
+          }
+        }
+      }
+    },
+    "The server’s certificate isn’t valid or isn’t trusted by this device. Tilecast only connects to servers with a trusted certificate.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El certificado del servidor no es válido o este dispositivo no confía en él. Tilecast solo se conecta a servidores con un certificado de confianza."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сертификат сервера недействителен или не является доверенным для этого устройства. Tilecast подключается только к серверам с доверенным сертификатом."
+          }
+        }
+      }
+    },
+    "This Tilecast server is already added as “%@”.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este servidor de Tilecast ya está agregado como «%@»."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот сервер Tilecast уже добавлен как «%@»."
+          }
+        }
+      }
+    },
+    "This connection isn’t encrypted. Use it only on a network you trust.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta conexión no está cifrada. Úsala solo en una red de confianza."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это подключение не зашифровано. Используйте его только в доверенной сети."
+          }
+        }
+      }
+    },
+    "This server uses a newer Tilecast version than this app supports. Update the app to connect.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este servidor usa una versión de Tilecast más reciente de la que admite esta app. Actualiza la app para conectarte."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот сервер использует более новую версию Tilecast, чем поддерживает приложение. Обновите приложение, чтобы подключиться."
+          }
+        }
+      }
+    },
+    "This view stopped unexpectedly.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta vista se detuvo inesperadamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это окно неожиданно закрылось."
+          }
+        }
+      }
+    },
+    "Tilecast": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast"
+          }
+        }
+      }
+    },
+    "Tilecast Studio couldn’t be loaded (%@ %lld).": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cargar Tilecast Studio (%1$@ %2$lld)."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось загрузить Tilecast Studio (%1$@ %2$lld)."
+          }
+        }
+      }
+    },
+    "Tilecast Studio couldn’t open this view.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio no pudo abrir esta vista."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio не удалось открыть это окно."
+          }
+        }
+      }
+    },
+    "Tilecast Studio stopped unexpectedly several times.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio se detuvo inesperadamente varias veces."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio несколько раз неожиданно остановился."
+          }
+        }
+      }
+    },
+    "To download this file, open Tilecast Studio in Safari.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Para descargar este archivo, abre Tilecast Studio en Safari."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Чтобы загрузить этот файл, откройте Tilecast Studio в Safari."
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторить"
+          }
+        }
+      }
+    },
+    "Use New Server": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar el nuevo servidor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать новый сервер"
+          }
+        }
+      }
+    },
+    "Use New Server…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usar el nuevo servidor…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать новый сервер…"
+          }
+        }
+      }
+    },
+    "Use an address that starts with https:// or, on a local network, http://.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa una dirección que empiece por https:// o, en una red local, por http://."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Используйте адрес, начинающийся с https://, а в локальной сети — с http://."
+          }
+        }
+      }
+    },
+    "Use the new server at this address?": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Usar el nuevo servidor en esta dirección?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Использовать новый сервер по этому адресу?"
+          }
+        }
+      }
+    },
+    "Website data for %@ on this device, including your sign-in, is deleted. Continue only if the server was reinstalled or restored intentionally.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminarán los datos de sitios web de %@ en este dispositivo, incluido tu inicio de sesión. Continúa solo si el servidor se reinstaló o restauró intencionadamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные сайта для %@ на этом устройстве, включая ваш вход, будут удалены. Продолжайте, только если сервер был намеренно переустановлен или восстановлен."
+          }
+        }
+      }
+    },
+    "Couldn’t Open This View": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir esta vista"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть это окно"
+          }
+        }
+      }
+    },
+    "Couldn’t Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "No se pudo iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось войти" } }
+      }
+    },
+    "Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти" } }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Cerrar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
+      }
+    },
+    "Sign In to Tilecast": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión en Tilecast" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти в Tilecast" } }
+      }
+    },
+    "Sign in securely to %@ using the system browser.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Inicia sesión de forma segura en %@ con el navegador del sistema." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войдите на %@ безопасно через системный браузер." } }
+      }
+    },
+    "Try signing in again.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Intenta iniciar sesión de nuevo." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Попробуйте войти ещё раз." } }
+      }
+    },
+    "Welcome to Tilecast": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te damos la bienvenida a Tilecast"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добро пожаловать в Tilecast"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

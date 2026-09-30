@@ -25,9 +25,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Gibsonmb71/tilecast/wiki">Documentation</a>
-  ·
-  <a href="https://github.com/Gibsonmb71/tilecast/wiki/Install-Tilecast-Player">Install a Player</a>
+  <a href="https://tilecast.org/">Documentation</a>
   ·
   <a href="CONTRIBUTING.md">Contributing</a>
   ·
@@ -36,120 +34,93 @@
 
 ---
 
-Tilecast is an open-source digital signage platform for organizations that want to run their own signage infrastructure without relying on a paid cloud service. Run the Tilecast Server on your own hardware, manage displays through **Tilecast Studio**, and connect Android TV or Linux devices running **Tilecast Player**.
+Tilecast is a self-hosted digital signage system.
 
-## Features
+Run the server on your own hardware, build and schedule content in **Tilecast Studio**, and pair screens running **Tilecast Player**. There is no hosted Tilecast control plane and no subscription required to keep your screens running.
 
-- **Self-hosted** — your server, database, media, and players stay under your control.
-- **Media library** — upload and organize images and videos with folders, collections, tags, availability dates, and expiration.
-- **Playlists & layouts** — sequence content or build multi-zone screen layouts with media, widgets, text, shapes, and playlist zones.
-- **Scheduling** — target content to screens and groups with scheduled assignments and takeovers.
-- **Widgets** — clocks, countdowns, QR codes, websites, YouTube, tickers, menus, tables, agendas, weather, metrics, and more.
-- **Data Sources** — connect reusable Calendar, RSS, Atom, JSON, CSV, weather, transit, alerts, manual data, and other structured sources to visual content.
-- **Offline playback** — players cache content and continue operating when the server or network is temporarily unavailable.
-- **Fleet management** — monitor screens, send remote commands, organize displays, manage groups, perform bulk changes, and view live previews.
-- **Reliability tools** — unattended startup, watchdog recovery, safe mode, kiosk controls, and player health reporting.
-- **Team workflows** — roles, content review, publishing controls, screen scopes, and multi-factor authentication.
-- **Integrations** — API access, integration tokens, webhooks, notifications, and Prometheus-compatible fleet health.
-- **Installable built-in plugins** — add only the optional features an installation needs: submission forms, countdown bars, and emergency alerts. Plugins ship with Tilecast; installing one never downloads code.
+## What it does
 
-See [Widgets, Data Sources, and Layouts](docs/widgets-and-layouts.md) for a detailed overview of Tilecast's content system.
+Build playlists and multi-zone layouts from images, video, websites, widgets, and live data. Schedule them to individual screens or groups, temporarily take over displays, and see what your players are doing from Studio.
+
+Players cache the content they need, so a temporary network or server outage does not turn into a wall of blank screens.
+
+Tilecast also includes:
+
+- reusable Data Sources for things like calendars, feeds, weather, JSON, and CSV
+- built-in and plugin-provided Widgets
+- screen groups, remote commands, health reporting, and live previews
+- publishing and review workflows for teams
+- an API, webhooks, integration tokens, and Prometheus-compatible metrics
+- installable plugins for optional features such as forms and emergency alerts
+
+See [the documentation](https://tilecast.org/) for the full feature set.
 
 ## Players
 
-Tilecast currently provides two Player platforms:
+Tilecast Player runs on Android-based signage devices and Linux.
 
-| Platform       | Support                                                     |
-| -------------- | ----------------------------------------------------------- |
-| **Android TV** | Fire TV, Google TV, and other compatible Android TV devices |
-| **Linux**      | x86_64 signage computers with kiosk and systemd support     |
-| **ARM Linux**  | Working on it                                               |
+Android support covers Android TV, Google TV, Fire TV, and compatible dedicated players. The repository also contains the Linux players and **Tilecast Edge**, the newer Linux player architecture built around Tilecast's shared Player Runtime.
 
-Both platforms support the core Tilecast playback system, including pairing, playlists, layouts, widgets, scheduling, offline caching, remote management, and live previews.
+Player development and platform-specific details live in [`apps/`](apps/) and [`docs/`](docs/).
 
-For installation and deployment:
+## Run Tilecast
 
-- [Install Tilecast Player](https://github.com/Gibsonmb71/tilecast/wiki/Install-Tilecast-Player)
-- [Reliability and Kiosk](https://github.com/Gibsonmb71/tilecast/wiki/Reliability-and-Kiosk)
-- [Troubleshooting](https://github.com/Gibsonmb71/tilecast/wiki/Troubleshooting)
+You need Docker Engine and Docker Compose v2.
 
-## Quick start
-
-### Requirements
-
-- Docker Engine
-- Docker Compose v2
-
-Clone the repository and create your environment file:
+Create the environment file:
 
 ```sh
 cp deploy/docker/.env.example deploy/docker/.env
 ```
 
-Edit `deploy/docker/.env` and replace `POSTGRES_PASSWORD` with a strong password.
+Set a strong `POSTGRES_PASSWORD` in `deploy/docker/.env`.
 
-For a local HTTP installation, leave:
+For a local HTTP installation, keep:
 
 ```env
 TILECAST_COOKIE_SECURE=false
 ```
 
-Start Tilecast:
+Normal installs run a published Stable server image selected by `TILECAST_VERSION` in `deploy/docker/.env` (`stable` follows Stable releases; pin a release such as `0.11.0` for controlled upgrades). Then start Tilecast:
 
 ```sh
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
 ```
 
-Then open:
+Open [http://localhost:8080](http://localhost:8080) and follow the setup flow to create your organization and first Owner account.
 
-```text
-http://localhost:8080
-```
-
-Tilecast will guide you through creating the organization and first Owner account. Database migrations run automatically when the server starts.
-
-Check the installation with:
-
-```sh
-curl http://localhost:8080/healthz
-docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml ps
-```
-
-For a production deployment, see [Deployment](docs/deployment.md).
-
-## Documentation
-
-The [Tilecast Wiki](https://github.com/Gibsonmb71/tilecast/wiki) contains setup and operational guides.
-
-Technical documentation is also maintained in [`docs/`](docs/), including:
-
-- [Deployment](docs/deployment.md)
-- [Architecture](docs/architecture.md)
-- [Widgets, Data Sources, and Layouts](docs/widgets-and-layouts.md)
-- [Display Control](docs/display-control.md)
-- [API](docs/api.md)
-- [Integrations](docs/integrations.md)
-- [Installable Built-in Plugins](docs/plugins.md)
-- [Content Review](docs/content-review.md)
-- [Multi-factor Authentication](docs/multi-factor-authentication.md)
+For production installs, player setup, reverse proxies, updates, and operations, see **[tilecast.org](https://tilecast.org/)**.
 
 ## Development
 
-Tilecast is primarily built with:
+Tilecast is a monorepo containing the Go server, React/TypeScript Studio, Android Player, Linux players, shared Player Runtime, plugins, and documentation.
 
-- **Go** — server
-- **React + TypeScript** — Studio
-- **Kotlin** — Android Player
-- **Electron** — Linux Player
-- **PostgreSQL** — database
+The development toolchain is defined in `mise.toml`.
 
-See [Development Setup](docs/development.md) for local development instructions.
+```sh
+make bootstrap
+make doctor
+```
+
+Run the server and Studio:
+
+```sh
+make dev-server
+make dev-dashboard
+```
+
+Before submitting a change:
+
+```sh
+make check
+make build
+```
+
+See [Development](docs/development.md) for area-specific setup, including Android, Edge, media, plugins, and documentation.
 
 ## Contributing
 
-Contributions, bug reports, and improvements are welcome.
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before making a change.
 
 ## License
 

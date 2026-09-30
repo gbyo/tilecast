@@ -52,6 +52,8 @@ Forms uses this for **Approvals**. Its visibility query asks the Forms API wheth
 
 A failed visibility query hides the item instead of breaking the sidebar.
 
+The same item appears in the iOS app's native navigation, after the same visibility check. You don't write any Swift for that. The app can't draw your React icon, so add an optional `iconToken` from the [shared icon tokens](https://github.com/gbyo/tilecast/blob/main/packages/native-bridge-schema/icon-tokens.json) if one fits. Without it, the app shows a generic plugin icon. Item IDs use lowercase letters, digits, and hyphens.
+
 ## Use the shared Studio kit
 
 `@tilecast/studio` is the supported plugin boundary. It exposes plugin chrome, API requests, session information, translations, confirmation and toast helpers, targeting controls, date inputs, pagination, and regional formatting.

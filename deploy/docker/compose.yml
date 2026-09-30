@@ -2,10 +2,11 @@ name: tilecast
 
 services:
   server:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile
-    image: tilecast/server:local
+    # Normal installs run a published Stable image. TILECAST_VERSION is the
+    # one place that selects the installed server version: keep the stable
+    # alias to follow Stable releases, or pin an explicit release such as
+    # 0.11.0 for controlled upgrades. See compose.dev.yml for source builds.
+    image: ghcr.io/gbyo/tilecast-server:${TILECAST_VERSION:-stable}
     restart: unless-stopped
     environment:
       TILECAST_ENV: production
