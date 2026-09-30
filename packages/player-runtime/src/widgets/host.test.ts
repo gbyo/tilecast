@@ -93,6 +93,32 @@ const widgetItem = (widget: RuntimeWidgetComponentPayload): RuntimeItem => ({
   widget,
 });
 
+const layoutItem = (
+  component: RuntimeWidgetComponentPayload,
+  zoneId = "zone",
+): RuntimeItem => ({
+  ...widgetItem(payload()),
+  kind: "layout",
+  widget: undefined,
+  layout: {
+    canvasWidth: 1920,
+    canvasHeight: 1080,
+    background: "#000",
+    zones: [
+      {
+        id: zoneId,
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        layer: 1,
+        opacity: 1,
+        component,
+      },
+    ],
+  },
+});
+
 function withAdoptedStyleSheets(enabled: boolean) {
   for (const proto of [Document.prototype, ShadowRoot.prototype]) {
     if (enabled) {
@@ -276,5 +302,103 @@ describe("Layout zones", () => {
     expect(
       surface.element.querySelectorAll("[data-tilecast-widget]"),
     ).toHaveLength(0);
+  });
+
+  it("reports errors before first readiness as zone failures", () => {
+    withAdoptedStyleSheets(true);
+    const { env, log } = environment();
+    const unsupported = payload();
+    unsupported.component.version = 99;
+    const surface = new layoutModule.LayoutSurface(
+      layoutItem(unsupported),
+      env,
+    );
+
+    expect(log).toEqual(["zoneFailed:zone:widget widget_unsupported"]);
+    expect(log.some((entry) => entry.startsWith("layout-zone-rendered"))).toBe(
+      false,
+    );
+    surface.dispose();
+  });
+
+  it("reports a runtime error after readiness without repeating evidence", async () => {
+    withAdoptedStyleSheets(true);
+    const { env, log } = environment();
+    const surface = new layoutModule.LayoutSurface(layoutItem(payload()), env);
+    document.body.appendChild(surface.element);
+    const element = surface.element.querySelector<HTMLElement>(
+      "[data-tilecast-widget]",
+    )!;
+    await (element as unknown as { updateComplete: Promise<unknown> })
+      .updateComplete;
+
+    element.dispatchEvent(
+      new CustomEvent("tilecast-widget-error", {
+        bubbles: true,
+        composed: true,
+        detail: { code: "runtime_failure" },
+      }),
+    );
+
+    expect(
+      log.filter((entry) => entry === "layout-zone-rendered/zone"),
+    ).toHaveLength(1);
+    expect(log).toContain("zoneFailed:zone:widget runtime_failure");
+    expect(element.isConnected).toBe(true);
+    surface.dispose();
+  });
+
+  it("reports readiness once across ready, empty, and ready updates", async () => {
+    withAdoptedStyleSheets(true);
+    const { env, log } = environment();
+    const surface = new layoutModule.LayoutSurface(layoutItem(payload()), env);
+    document.body.appendChild(surface.element);
+    const element = surface.element.querySelector<HTMLElement>(
+      "[data-tilecast-widget]",
+    )!;
+    await (element as unknown as { updateComplete: Promise<unknown> })
+      .updateComplete;
+    element.dispatchEvent(
+      new CustomEvent("tilecast-widget-empty", {
+        bubbles: true,
+        composed: true,
+        detail: { reason: "no_content" },
+      }),
+    );
+    element.dispatchEvent(
+      new CustomEvent("tilecast-widget-ready", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+
+    expect(
+      log.filter((entry) => entry === "layout-zone-rendered/zone"),
+    ).toHaveLength(1);
+    expect(log.some((entry) => entry.startsWith("zoneFailed:"))).toBe(false);
+    surface.dispose();
+  });
+
+  it("ignores stale component errors after its zone is disposed", async () => {
+    withAdoptedStyleSheets(true);
+    const { env, log } = environment();
+    const surface = new layoutModule.LayoutSurface(layoutItem(payload()), env);
+    document.body.appendChild(surface.element);
+    const element = surface.element.querySelector<HTMLElement>(
+      "[data-tilecast-widget]",
+    )!;
+    await (element as unknown as { updateComplete: Promise<unknown> })
+      .updateComplete;
+    surface.dispose();
+
+    element.dispatchEvent(
+      new CustomEvent("tilecast-widget-error", {
+        bubbles: true,
+        composed: true,
+        detail: { code: "stale_failure" },
+      }),
+    );
+
+    expect(log.some((entry) => entry.includes("stale_failure"))).toBe(false);
   });
 });

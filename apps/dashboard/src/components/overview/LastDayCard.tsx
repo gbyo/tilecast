@@ -1,9 +1,7 @@
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { components } from "@tilecast/api-schema/generated/openapi";
 import { buildActivityLink } from "../../pages/activityLinks";
 import { MetricTile } from "../MetricTile";
-import { buttonVariants } from "../ui/button";
 import {
   Card,
   CardAction,
@@ -13,6 +11,8 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
+import { HeaderLink } from "./HeaderLink";
+import { tallTitleRow } from "./layout";
 
 type ActivityOverview = components["schemas"]["ActivityOverview"];
 type ComplianceReport = components["schemas"]["ComplianceReport"];
@@ -114,23 +114,29 @@ export function LastDayCard({
     !measured &&
     percent == null;
   return (
-    <Card size="sm" role="region" aria-labelledby="last-day-heading">
-      <CardHeader>
-        <CardTitle id="last-day-heading" role="heading" aria-level={2}>
+    <Card
+      size="sm"
+      role="region"
+      aria-labelledby="last-day-heading"
+      className="@container/lastday"
+    >
+      <CardHeader className="gap-0">
+        <CardTitle
+          id="last-day-heading"
+          role="heading"
+          aria-level={2}
+          className={tallTitleRow}
+        >
           {t("operations.lastDay.title")}
         </CardTitle>
-        <CardDescription>{t("operations.lastDay.description")}</CardDescription>
-        <CardAction>
-          <Link
-            className={buttonVariants({
-              variant: "ghost",
-              size: "sm",
-              className: "max-sm:h-10",
-            })}
+        <CardDescription className="@max-xs/lastday:sr-only">
+          {t("operations.lastDay.description")}
+        </CardDescription>
+        <CardAction className="self-center">
+          <HeaderLink
             to={buildActivityLink("overview", {}, RANGE)}
-          >
-            {t("operations.lastDay.openActivity")}
-          </Link>
+            label={t("operations.lastDay.openActivity")}
+          />
         </CardAction>
       </CardHeader>
       <CardContent>
@@ -139,7 +145,7 @@ export function LastDayCard({
             {t("operations.lastDay.nothingMeasured")}
           </p>
         ) : (
-          <ul className="grid gap-x-3 gap-y-4 sm:grid-cols-3">
+          <ul className="grid gap-x-3 gap-y-4 @md/lastday:grid-cols-3">
             {tile(
               "compliance",
               t("compliance.tiles.compliance"),
