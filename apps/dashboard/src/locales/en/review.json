@@ -7,6 +7,7 @@
     "filterLabel": "Review state",
     "filterAll": "All",
     "loading": "Loading the review queue",
+    "queueLoadFailed": "Could not load the review queue.",
     "emptyPending": "Nothing is waiting for review",
     "emptyOther": "Nothing to show",
     "table": {

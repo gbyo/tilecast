@@ -12,6 +12,7 @@ import { Check, Inbox, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
+import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -58,6 +59,17 @@ const stateLabelKeys = {
 
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, ContentReviewItem>();
+
+function contentReviewErrorMessage(error: unknown, fallback: string): string {
+  if (
+    error instanceof Error &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return apiErrorMessage(error);
+  }
+  return fallback;
+}
 
 // Review has no submit step. Content is pending whenever its current revision
 // has no decision, so editing approved content puts it back in this queue by
@@ -114,10 +126,10 @@ export function ContentReviewPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("contentReview.toast.decisionFailed"),
+        title: contentReviewErrorMessage(
+          err,
+          t("contentReview.toast.decisionFailed"),
+        ),
         type: "error",
       }),
   });
@@ -279,7 +291,12 @@ export function ContentReviewPage() {
         </div>
       ) : queue.error ? (
         <Alert variant="destructive">
-          <AlertDescription>{queue.error.message}</AlertDescription>
+          <AlertDescription>
+            {contentReviewErrorMessage(
+              queue.error,
+              t("contentReview.queueLoadFailed"),
+            )}
+          </AlertDescription>
         </Alert>
       ) : !items.length ? (
         <Empty>
@@ -382,12 +399,6 @@ export function ContentReviewPage() {
             </Table>
           </div>
         </div>
-      )}
-
-      {decide.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{decide.error.message}</AlertDescription>
-        </Alert>
       )}
 
       <Sheet

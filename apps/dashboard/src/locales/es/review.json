@@ -7,6 +7,7 @@
     "filterLabel": "Estado de revisión",
     "filterAll": "Todo",
     "loading": "Cargando la cola de revisión",
+    "queueLoadFailed": "No se pudo cargar la cola de revisión.",
     "emptyPending": "Nada en espera de revisión",
     "emptyOther": "Nada que mostrar",
     "table": {

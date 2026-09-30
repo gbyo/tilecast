@@ -6,8 +6,11 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentReviewPage } from "./ContentReviewPage";
+import { ApiError } from "../api/errors";
 import { api } from "../api/client";
 import type { ContentReviewItem } from "../api/types";
+import { toast } from "../components/ui/toast";
+import { i18n } from "../i18n";
 
 let role = "editor";
 vi.mock("../auth/AuthProvider", () => ({
@@ -48,8 +51,9 @@ const review = {
 } as const;
 
 describe("Content review", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     role = "editor";
+    await i18n.changeLanguage("en");
   });
   afterEach(() => {
     cleanup();
@@ -67,15 +71,82 @@ describe("Content review", () => {
     ).toBeTruthy();
   });
 
+  it("localizes API errors when the review queue fails to load", async () => {
+    await i18n.changeLanguage("es");
+    try {
+      vi.spyOn(api, "contentReviews").mockRejectedValue(
+        new ApiError(
+          "The server response was English.",
+          503,
+          "database_unavailable",
+        ),
+      );
+      renderPage();
+
+      expect(
+        await screen.findByText("La base de datos no está lista."),
+      ).toBeTruthy();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("uses translated fallback copy for a queue transport failure", async () => {
+    await i18n.changeLanguage("ru");
+    try {
+      vi.spyOn(api, "contentReviews").mockRejectedValue(
+        new TypeError("Failed to fetch"),
+      );
+      renderPage();
+
+      expect(
+        await screen.findByText("Не удалось загрузить очередь проверки."),
+      ).toBeTruthy();
+      expect(screen.queryByText("Failed to fetch")).toBeNull();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
+  });
+
+  it("shows a localized decision failure once in a toast", async () => {
+    vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [pending],
+    });
+    vi.spyOn(api, "decideContentReview").mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    );
+    const addToast = vi.spyOn(toast, "add");
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Review" }))[0]!,
+    );
+    await user.click(await screen.findByRole("button", { name: "Approve" }));
+
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith({
+        title: "Could not record the decision.",
+        type: "error",
+      }),
+    );
+    expect(screen.queryByText("Failed to fetch")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("flags content that is already on screens as the urgent case", async () => {
     vi.spyOn(api, "contentReviews").mockResolvedValue({
       required: true,
       items: [pending],
     });
     renderPage();
-    expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
-    expect(screen.getByText(/Already on 3 screens/)).toBeTruthy();
-    expect(screen.getByText(/revision 7/)).toBeTruthy();
+    expect(
+      (await screen.findAllByText("Cafeteria Menu")).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Already on 3 screens/).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getAllByText(/revision 7/).length).toBeGreaterThan(0);
   });
 
   it("sends the revision that was reviewed, so a later edit cannot inherit the approval", async () => {
@@ -88,7 +159,9 @@ describe("Content review", () => {
       .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Review" }))[0]!,
+    );
     await user.click(await screen.findByRole("button", { name: "Approve" }));
 
     await waitFor(() => expect(decide).toHaveBeenCalled());
@@ -107,7 +180,9 @@ describe("Content review", () => {
       .mockResolvedValue(review);
     renderPage();
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Review" }));
+    await user.click(
+      (await screen.findAllByRole("button", { name: "Review" }))[0]!,
+    );
     await user.click(await screen.findByRole("button", { name: "Send back" }));
     const dialog = await screen.findByRole("dialog");
     const note = await screen.findByLabelText("Note");
@@ -130,7 +205,9 @@ describe("Content review", () => {
       items: [pending],
     });
     renderPage();
-    expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
+    expect(
+      (await screen.findAllByText("Cafeteria Menu")).length,
+    ).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Review" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Approve" })).toBe(null);
     expect(screen.queryByRole("button", { name: "Send back" })).toBe(null);
