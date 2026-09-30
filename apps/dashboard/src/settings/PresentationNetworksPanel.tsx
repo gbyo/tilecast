@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { LockKeyhole, Pencil, Plus, Trash2, Wifi } from "lucide-react";
+import { LockKeyhole, Pencil, Plus, Search, Trash2, Wifi } from "lucide-react";
 import { api } from "../api/client";
 import type {
   PresentationNetwork,
@@ -35,6 +35,11 @@ import {
   FieldSet,
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -100,6 +105,7 @@ export function PresentationNetworksPanel({
   // and is never rehydrated from a GET response.
   const [secret, setSecret] = useState("");
   const [assignmentIds, setAssignmentIds] = useState<string[]>([]);
+  const [assignmentSearch, setAssignmentSearch] = useState("");
 
   const detail = useQuery({
     queryKey: ["presentation-network", editing],
@@ -110,6 +116,12 @@ export function PresentationNetworksPanel({
   const linuxScreens = useMemo(
     () => (screens.data?.items ?? []).filter(isLinux),
     [screens.data],
+  );
+  const assignmentQuery = assignmentSearch.trim().toLowerCase();
+  const matchingScreens = linuxScreens.filter((screen) =>
+    `${screen.name} ${screen.location ?? ""}`
+      .toLowerCase()
+      .includes(assignmentQuery),
   );
 
   useEffect(() => {
@@ -186,6 +198,7 @@ export function PresentationNetworksPanel({
     setDraft({ ...emptyDraft });
     setSecret("");
     setAssignmentIds([]);
+    setAssignmentSearch("");
     setEditing(network === "new" ? "new" : network.id);
   };
 
@@ -609,34 +622,73 @@ export function PresentationNetworksPanel({
                       {t("networks.loadingPlayers")}
                     </span>
                   ) : linuxScreens.length ? (
-                    <div className="grid gap-2">
-                      {linuxScreens.map((screen) => (
-                        <Field
-                          key={screen.id}
-                          orientation="horizontal"
-                          className="items-center"
-                        >
-                          <Checkbox
-                            id={"presentation-network-screen-" + screen.id}
-                            checked={assignmentIds.includes(screen.id)}
-                            onCheckedChange={(checked) =>
-                              setAssignmentIds((current) =>
-                                checked === true
-                                  ? [...new Set([...current, screen.id])]
-                                  : current.filter((id) => id !== screen.id),
-                              )
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        {t("networks.assignedSelected", {
+                          selected: assignmentIds.length,
+                          total: linuxScreens.length,
+                        })}
+                      </p>
+                      <Field className="gap-1">
+                        <FieldLabel htmlFor="presentation-network-screen-search">
+                          {t("networks.assignedSearchLabel")}
+                        </FieldLabel>
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <Search aria-hidden="true" />
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            id="presentation-network-screen-search"
+                            type="search"
+                            value={assignmentSearch}
+                            onChange={(event) =>
+                              setAssignmentSearch(event.target.value)
                             }
+                            placeholder={t(
+                              "networks.assignedSearchPlaceholder",
+                            )}
                           />
-                          <FieldLabel
-                            htmlFor={"presentation-network-screen-" + screen.id}
-                            className="font-normal"
-                          >
-                            {screen.name} ·{" "}
-                            {screen.location || t("networks.noLocation")}
-                          </FieldLabel>
-                        </Field>
-                      ))}
-                    </div>
+                        </InputGroup>
+                      </Field>
+                      {matchingScreens.length ? (
+                        <div className="grid max-h-64 gap-2 overflow-y-auto">
+                          {matchingScreens.map((screen) => (
+                            <Field
+                              key={screen.id}
+                              orientation="horizontal"
+                              className="items-center"
+                            >
+                              <Checkbox
+                                id={"presentation-network-screen-" + screen.id}
+                                checked={assignmentIds.includes(screen.id)}
+                                onCheckedChange={(checked) =>
+                                  setAssignmentIds((current) =>
+                                    checked === true
+                                      ? [...new Set([...current, screen.id])]
+                                      : current.filter(
+                                          (id) => id !== screen.id,
+                                        ),
+                                  )
+                                }
+                              />
+                              <FieldLabel
+                                htmlFor={
+                                  "presentation-network-screen-" + screen.id
+                                }
+                                className="font-normal"
+                              >
+                                {screen.name} ·{" "}
+                                {screen.location || t("networks.noLocation")}
+                              </FieldLabel>
+                            </Field>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {t("networks.assignedNoMatch")}
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <span className="text-sm text-muted-foreground">
                       {t("networks.noPlayers")}
