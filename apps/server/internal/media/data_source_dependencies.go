@@ -58,21 +58,9 @@ func (s *Service) widgetConfigurationReferencesDataSource(provider string, raw j
 }
 
 func fieldsReferenceDataSource(fields []contentdefs.FieldDefinition, configuration map[string]any, target string) bool {
-	for _, field := range fields {
-		value := configuration[field.Key]
-		switch field.Control {
-		case "data_source":
-			if selected, ok := value.(string); ok && selected == target {
-				return true
-			}
-		case "repeating_group":
-			items, _ := value.([]any)
-			for _, item := range items {
-				group, _ := item.(map[string]any)
-				if group != nil && fieldsReferenceDataSource(field.ItemFields, group, target) {
-					return true
-				}
-			}
+	for _, selected := range contentdefs.DataSourceFieldValues(fields, configuration) {
+		if selected == target {
+			return true
 		}
 	}
 	return false

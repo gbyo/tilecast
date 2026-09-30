@@ -2425,24 +2425,21 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 // injected definition catalog is the single source of truth for release-defined widgets.
 func (s *Service) widgetDataSourceIDs(provider string, configuration json.RawMessage) []uuid.UUID {
 	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
-		var values map[string]json.RawMessage
+		var values map[string]any
 		ids := []uuid.UUID{}
 		if json.Unmarshal(configuration, &values) == nil {
 			// An App recipe's author schema intentionally hides its managed source. The
 			// compiled configuration still carries the explicit relationship so normal
 			// manifest dependency resolution, invalidation, and usage tracking see it.
 			if definition.Recipe != nil {
-				var id uuid.UUID
-				if json.Unmarshal(values["managedDataSourceId"], &id) == nil && id != uuid.Nil {
-					ids = append(ids, id)
+				if value, ok := values["managedDataSourceId"].(string); ok {
+					if id, err := uuid.Parse(value); err == nil && id != uuid.Nil {
+						ids = append(ids, id)
+					}
 				}
 			}
-			for _, field := range definition.ConfigurationSchema.Fields {
-				if field.Control != "data_source" {
-					continue
-				}
-				var id uuid.UUID
-				if json.Unmarshal(values[field.Key], &id) == nil && id != uuid.Nil && !containsUUID(ids, id) {
+			for _, value := range contentdefs.DataSourceFieldValues(definition.ConfigurationSchema.Fields, values) {
+				if id, err := uuid.Parse(value); err == nil && id != uuid.Nil && !containsUUID(ids, id) {
 					ids = append(ids, id)
 				}
 			}

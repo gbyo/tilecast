@@ -971,6 +971,34 @@ func validateSchemaFields(fields []FieldDefinition) error {
 	return nil
 }
 
+// DataSourceFieldValues returns configured values of every data_source field in schema
+// order. It follows repeating_group items recursively and preserves duplicates; callers
+// decide how to validate or de-duplicate the IDs for their operation.
+func DataSourceFieldValues(fields []FieldDefinition, configuration map[string]any) []string {
+	values := []string{}
+	var walk func([]FieldDefinition, map[string]any)
+	walk = func(fields []FieldDefinition, configuration map[string]any) {
+		for _, field := range fields {
+			switch field.Control {
+			case "data_source":
+				if value, ok := configuration[field.Key].(string); ok && value != "" {
+					values = append(values, value)
+				}
+			case "repeating_group":
+				items, _ := configuration[field.Key].([]any)
+				for _, item := range items {
+					row, _ := item.(map[string]any)
+					if row != nil {
+						walk(field.ItemFields, row)
+					}
+				}
+			}
+		}
+	}
+	walk(fields, configuration)
+	return values
+}
+
 // validateDataSourceKeys rejects a data_source_field whose explicit
 // dataSourceKey does not name a data_source control in the same
 // definition. A bad manifest must fail at load rather than silently

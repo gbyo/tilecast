@@ -21,6 +21,8 @@ npm run widgets:new -- scoreboard --plugin athletics
 
 The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime entry point, and fixtures. No second Widget type exists, and Plugin API v1 does not change.
 
+Data Source selectors inside a Widget's `repeating_group` fields are followed for playback and dependency tracking, just like top-level selectors. See the [Widget dependency contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-and-layouts.md) for details.
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:

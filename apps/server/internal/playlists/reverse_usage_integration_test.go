@@ -72,9 +72,8 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A Widget reading two Data Sources, so the playlist has sources to reach through its items.
-	// The second sits under a non-canonical key: the resolver matches any configured value, which
-	// is what covers release-defined Widgets exposing several Data Source selectors.
+	// A declarative Widget reads two Data Sources from separate repeating-group rows.
+	// Separate repeating-group rows catch traversals that stop after the first item.
 	sourceID, secondSourceID, widgetID := uuid.New(), uuid.New(), uuid.New()
 	if _, err = pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)VALUES($1,$3,'Lunch rows','csv','{}'::jsonb,$4),($2,$3,'Allergen notes','csv','{}'::jsonb,$4)`, sourceID, secondSourceID, org, owner.User.ID); err != nil {
 		t.Fatal(err)
@@ -82,11 +81,12 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)VALUES($1,$2,'Today''s Lunch','widget','','application/json',$3,0,'ready',$4)`, widgetID, org, make([]byte, 32), owner.User.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,'menu',1,jsonb_build_object('dataSourceId',$2::text,'allergenSource',$3::text,'fields',jsonb_build_array('title','price')))`, widgetID, sourceID.String(), secondSourceID.String()); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,'dual-source-banner',1,jsonb_build_object('sourceRows',jsonb_build_array(jsonb_build_object('source',$2::text),jsonb_build_object('source',$3::text))))`, widgetID, sourceID.String(), secondSourceID.String()); err != nil {
 		t.Fatal(err)
 	}
 
 	service := NewService(pool, &testNotifier{})
+	service.SetContentDefinitions(customCatalog(t))
 	playlist, err := service.Create(ctx, owner.User.ID, "Cafeteria loop", "", "static")
 	if err != nil {
 		t.Fatal(err)
