@@ -28,17 +28,22 @@ extension StudioHost {
     /// run starts with no servers and writes nothing to disk.
     static func live(arguments: [String] = ProcessInfo.processInfo.arguments) -> StudioHost {
         let storage: any ServerDirectoryStorage
+        let credentials: any NativeCredentialStore
         if arguments.contains("-TilecastEphemeralServers") {
             storage = InMemoryServerDirectoryStorage()
+            credentials = InMemoryCredentialStore()
         } else if let file = try? FileServerDirectoryStorage.applicationSupport() {
             storage = file
+            credentials = KeychainCredentialStore()
         } else {
             storage = InMemoryServerDirectoryStorage()
+            credentials = InMemoryCredentialStore()
         }
         return StudioHost(
             directory: ServerDirectory(storage: storage),
             dataStores: WebsiteDataStores(),
             identityClient: InstallationIdentityClient(),
+            credentials: credentials,
             applicationName: applicationName
         )
     }
