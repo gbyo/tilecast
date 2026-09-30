@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import {
   Archive,
   CalendarRange,
+  ChevronDown,
+  ChevronUp,
   Plus,
   RotateCcw,
   Save,
@@ -185,12 +187,28 @@ function CampaignLibrary() {
           </div>
         )}
       </header>
+      {query.isError && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("campaigns.library.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {query.isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : !query.data?.items.length ? (
+      ) : query.isError && !query.data ? null : !query.data?.items.length ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -335,6 +353,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     useState<CampaignDestination["type"]>("screen");
   const [destination, setDestination] = useState("");
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     if (campaignQuery.data) {
@@ -534,10 +553,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
   const addBlock = () => {
     if (!selectedContent) return;
+    const block = makeBlock(selectedType, selectedContent, t);
     setDraft({
       ...draft,
-      blocks: [...draft.blocks, makeBlock(selectedType, selectedContent, t)],
+      blocks: [...draft.blocks, block],
     });
+    setExpandedBlockId(block.id);
     setSelectedContent("");
   };
   const addDestination = () => {
@@ -783,33 +804,62 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
           </header>
           {draft.blocks.map((block, index) => (
             <div
-              className="grid gap-3 rounded-lg border border-border p-3"
+              className="grid gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0"
               key={block.id}
             >
               <div className="grid gap-1">
-                {canEdit ? (
-                  <Input
-                    aria-label={t("campaigns.editor.blockNameLabel", {
-                      index: index + 1,
-                    })}
-                    value={block.name}
-                    onChange={(event) =>
-                      updateBlock(block.id, { name: event.target.value })
-                    }
-                  />
-                ) : (
-                  <strong className="text-sm">{block.name}</strong>
-                )}
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <strong className="truncate text-sm">{block.name}</strong>
+                  {canEdit && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      aria-expanded={expandedBlockId === block.id}
+                      onClick={() =>
+                        setExpandedBlockId((current) =>
+                          current === block.id ? null : block.id,
+                        )
+                      }
+                    >
+                      {expandedBlockId === block.id ? (
+                        <ChevronUp size={15} aria-hidden="true" />
+                      ) : (
+                        <ChevronDown size={15} aria-hidden="true" />
+                      )}
+                      {expandedBlockId === block.id
+                        ? t("common:actions.close")
+                        : t("common:actions.edit")}
+                    </Button>
+                  )}
+                </div>
                 <span className="text-xs text-muted-foreground">
-                  {block.contentType} · {block.type} · {block.timezone}
+                  {optionLabel(contentTypeOptions, block.contentType)} ·{" "}
+                  {optionLabel(scheduleTypeOptions, block.type)} ·{" "}
+                  {block.timezone}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {block.type === "one_time"
                     ? `${new Date(block.oneTimeStart ?? "").toLocaleString(locale)} – ${new Date(block.oneTimeEnd ?? "").toLocaleString(locale)}`
                     : `${block.dailyStart ?? ""} – ${block.dailyEnd ?? ""}`}
                 </span>
-                {canEdit && (
+                {canEdit && expandedBlockId === block.id && (
                   <div className="grid gap-4 pt-2 sm:grid-cols-2">
+                    <Field className="sm:col-span-2">
+                      <FieldLabel htmlFor={`block-name-${block.id}`}>
+                        {t("campaigns.editor.blockNameLabel", {
+                          index: index + 1,
+                        })}
+                      </FieldLabel>
+                      <Input
+                        id={`block-name-${block.id}`}
+                        value={block.name}
+                        onChange={(event) =>
+                          updateBlock(block.id, { name: event.target.value })
+                        }
+                      />
+                    </Field>
                     <Field>
                       <FieldLabel htmlFor={`block-type-${block.id}`}>
                         {t("campaigns.editor.scheduleTypeLabel")}
@@ -1017,19 +1067,20 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   </div>
                 )}
               </div>
-              {canEdit && (
+              {canEdit && expandedBlockId === block.id && (
                 <Button
                   type="button"
                   variant="outline"
                   className="w-fit"
-                  onClick={() =>
+                  onClick={() => {
                     setDraft({
                       ...draft,
                       blocks: draft.blocks.filter(
                         (_, itemIndex) => itemIndex !== index,
                       ),
-                    })
-                  }
+                    });
+                    setExpandedBlockId(null);
+                  }}
                 >
                   {t("campaigns.editor.removeButton")}
                 </Button>

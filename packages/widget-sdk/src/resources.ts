@@ -149,6 +149,26 @@ const EMPTY_RESOURCES: WidgetResources = Object.freeze({
   attribution: () => null,
 });
 
+const frozenDataObjects = new WeakSet<object>();
+
+function freezeDataDocument(document: WidgetDataDocument): WidgetDataDocument {
+  const freeze = (value: unknown) => {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      frozenDataObjects.has(value)
+    ) {
+      return;
+    }
+    frozenDataObjects.add(value);
+    for (const child of Object.values(value)) freeze(child);
+    Object.freeze(value);
+  };
+
+  freeze(document);
+  return document;
+}
+
 /**
  * Narrow the host's tables to what one component declared. A lookup
  * outside the grant returns null exactly like a missing entry, so a Widget
@@ -163,8 +183,11 @@ export function createWidgetResources(
     (grant.media ?? []).map((ref) => `${ref.assetId}/${ref.variantId}`),
   );
   if (sources.size === 0 && media.size === 0) return EMPTY_RESOURCES;
-  const documentOf = (id: string) =>
-    sources.has(id) ? (tables.documents?.get(id) ?? null) : null;
+  const documentOf = (id: string) => {
+    if (!sources.has(id)) return null;
+    const document = tables.documents?.get(id);
+    return document ? freezeDataDocument(document) : null;
+  };
   return Object.freeze({
     dataDocument: documentOf,
     dataset(id: string, datasetId: string) {

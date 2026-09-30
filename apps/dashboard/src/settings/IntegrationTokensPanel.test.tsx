@@ -247,6 +247,29 @@ describe("Integration tokens", () => {
     );
   });
 
+  it("reports a token-list failure instead of the empty state", async () => {
+    vi.spyOn(api, "integrationTokens").mockRejectedValue(
+      new Error("service unavailable"),
+    );
+    renderPanel();
+    expect(await screen.findByText(/Token data failed to load/)).toBeTruthy();
+    expect(screen.getByText(/service unavailable/)).toBeTruthy();
+    expect(screen.queryByText("No tokens")).toBe(null);
+  });
+
+  it("reports a Data Source failure instead of claiming none exist", async () => {
+    vi.spyOn(api, "listDataSources").mockRejectedValue(
+      new Error("service unavailable"),
+    );
+    renderPanel();
+    expect(
+      await screen.findByText(/Data Source data failed to load/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/No Manual Table Data Sources exist yet/)).toBe(
+      null,
+    );
+  });
+
   it("sends the named Data Source limits with a write token", async () => {
     const create = vi.spyOn(api, "createIntegrationToken").mockResolvedValue({
       token: {

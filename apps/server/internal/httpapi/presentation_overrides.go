@@ -29,6 +29,36 @@ func (s *server) listPresentationOverrides(w http.ResponseWriter, r *http.Reques
 		s.internalError(w, r, err)
 		return
 	}
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if scoped {
+		visible := make([]presentations.Override, 0, len(items))
+		for _, item := range items {
+			var screens, groups []uuid.UUID
+			if item.TargetType == "screen" {
+				screens = []uuid.UUID{item.TargetID}
+			} else if item.TargetType == "group" {
+				groups = []uuid.UUID{item.TargetID}
+			}
+			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, groups)
+			if scopeErr != nil {
+				s.internalError(w, r, scopeErr)
+				return
+			}
+			if allowed {
+				visible = append(visible, item)
+			}
+		}
+		items = visible
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
 }
 

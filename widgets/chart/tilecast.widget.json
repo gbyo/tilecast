@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "chart",
   "version": 1,
+  "configVersion": 2,
   "name": "Chart",
   "description": "Plot up to four numeric series as bars, lines, or areas.",
   "category": "Data display",

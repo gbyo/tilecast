@@ -299,6 +299,10 @@
       "itemCount_one": "{{count}} elemento",
       "itemCount_other": "{{count}} elementos",
       "layoutRevision": "Diseño · revisión {{revision}}",
+      "tagDrivenItemCount_many": "{{count}} de elementos · por etiquetas",
+      "tagDrivenItemCount_one": "{{count}} elemento · por etiquetas",
+      "tagDrivenItemCount_other": "{{count}} elementos · por etiquetas",
+      "selected": "Seleccionado",
       "layoutsLoadError": "No se pudieron cargar los diseños.",
       "loadingLayouts": "Cargando diseños",
       "loadingPlaylists": "Cargando listas de reproducción",
@@ -315,7 +319,6 @@
       "searchLayouts": "Buscar diseños",
       "searchPlaylists": "Buscar listas de reproducción",
       "searchPresentations": "Buscar presentaciones",
-      "tagDriven": " · por etiquetas",
       "clearSearchPresentations": "Borrar la búsqueda de presentaciones",
       "clearSearchLayouts": "Borrar la búsqueda de diseños",
       "clearSearchPlaylists": "Borrar la búsqueda de listas de reproducción"
@@ -613,6 +616,8 @@
         "contentHint": "Elige qué aparece en pantalla y cómo se presenta.",
         "previewLabel": "Vista previa en vivo",
         "previewHint": "Se actualiza a medida que haces cambios.",
+        "previewUpdateFailed": "El Widget se guardó, pero no se pudo actualizar su miniatura.",
+        "previewUpdateFailedHint": "Visita la biblioteca de Widgets más tarde para volver a intentar la vista previa.",
         "diagnostics": {
           "label": "Salud de la fuente de la app",
           "title": "Fuente de la app",
@@ -641,7 +646,6 @@
         "statusEmpty": "La vista previa está vacía: {{reason}}",
         "statusError": "La vista previa no se puede mostrar: {{code}}",
         "sourceError": "Una Fuente de datos conectada no se pudo cargar, por lo que esta vista previa no se puede mostrar. Vuelve a conectar la fuente o inténtalo de nuevo.",
-        "captureFailed": "La vista previa del Widget no se pudo mostrar, por lo que no se guardó nada. Inténtalo de nuevo.",
         "sections": {
           "data": "Datos",
           "content": "Contenido",

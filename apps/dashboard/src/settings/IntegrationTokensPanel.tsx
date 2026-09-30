@@ -230,7 +230,14 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
             </Alert>
           )}
 
-          {tokens.isLoading ? (
+          {tokens.isError && (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {t("integrations.tokensLoadError")} {tokens.error.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          {tokens.isError && !tokens.data ? null : tokens.isLoading ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Spinner aria-hidden="true" />
               {t("integrations.loading")}
@@ -401,8 +408,17 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                 <FieldDescription>
                   {t("integrations.limitHint")}
                 </FieldDescription>
+                {sources.isError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {t("integrations.sourcesLoadError")}{" "}
+                      {sources.error.message}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="grid content-start gap-2">
-                  {sources.isLoading ? (
+                  {sources.isError &&
+                  !sources.data ? null : sources.isLoading ? (
                     <span className="text-xs text-muted-foreground">
                       {t("integrations.loadingSources")}
                     </span>

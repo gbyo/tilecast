@@ -17,6 +17,8 @@ Scope applies to **screen operations**:
 - player policy and reliability
 - bulk changes
 - update deployments
+- Display Group and Schedule reads/changes that resolve to screens
+- Takeover and Quick Present reads/stops
 - reading a screen, its status, its commands, and its policy
 
 Scope does **not** apply to the content library. A scoped account still sees and
@@ -58,6 +60,17 @@ An operation naming a mix of in-scope and out-of-scope screens answers
 The screen list is filtered by the same predicate that authorizes each
 operation, so the list a person sees and the screens they can act on cannot
 disagree.
+
+Resources that resolve to multiple screens follow the same rule. Display Group
+and Schedule lists omit resources whose effective screen set is not wholly in
+scope; direct reads return not found, and writes refuse targets outside the
+scope. Takeover and Quick Present reads/stops are checked against every screen
+the session reaches.
+
+Archived screens are hidden from narrowed accounts. Revocation deliberately
+detaches a screen from its current location and Display Group, so the archive
+no longer has a safe current-scope anchor; returning an installation-wide
+archive would reveal screens the caller could not otherwise enumerate.
 
 ## Update deployments
 

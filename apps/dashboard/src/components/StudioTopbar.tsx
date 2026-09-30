@@ -74,6 +74,7 @@ type CommandResult = {
 type CommandPermissions = {
   canCreate: boolean;
   canPair: boolean;
+  role?: User["role"];
 };
 
 type Breadcrumb = { label: string; to: string };
@@ -179,13 +180,21 @@ function routeGroup(to: string): CommandGroupName {
   return "navigation";
 }
 
-function collectRouteResults(routes: readonly RouteObject[], t: NavigationT) {
+function collectRouteResults(
+  routes: readonly RouteObject[],
+  t: NavigationT,
+  role?: User["role"],
+) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   const seen = new Set<string>();
   const visit = (route: RouteObject) => {
-    const item = studioRouteHandle(route).search;
-    if (item && !seen.has(item.to)) {
+    const handle = studioRouteHandle(route);
+    const item = handle.search;
+    const canDiscoverRoute =
+      !handle.searchAllowedRoles ||
+      (role !== undefined && handle.searchAllowedRoles.includes(role));
+    if (item && canDiscoverRoute && !seen.has(item.to)) {
       seen.add(item.to);
       results.push({
         id: `route:${item.to}`,
@@ -309,7 +318,10 @@ export function buildCommandResults(
 ) {
   const providers: CommandProvider[] = [
     { id: "actions", results: () => collectActionResults(t, permissions) },
-    { id: "routes", results: () => collectRouteResults(routes, t) },
+    {
+      id: "routes",
+      results: () => collectRouteResults(routes, t, permissions.role),
+    },
     { id: "plugins", results: () => collectPluginResults(t, plugins) },
     {
       id: "screens",
@@ -490,6 +502,7 @@ function CommandPalette({
   screens,
   canCreate,
   canPair,
+  role,
 }: {
   open: boolean;
   onClose: () => void;
@@ -498,6 +511,7 @@ function CommandPalette({
   screens: Screen[];
   canCreate: boolean;
   canPair: boolean;
+  role?: User["role"];
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation(["navigation", "common"]);
@@ -512,7 +526,7 @@ function CommandPalette({
     routes,
     screens,
     query,
-    { canCreate, canPair },
+    { canCreate, canPair, role },
     plugins.data?.items ?? [],
     t,
   );
@@ -698,6 +712,7 @@ export function StudioTopbar({
         screens={screens.data?.items ?? []}
         canCreate={canCreate}
         canPair={canPair}
+        role={user?.role}
       />
       <MediaUploadDialog
         open={uploadOpen}

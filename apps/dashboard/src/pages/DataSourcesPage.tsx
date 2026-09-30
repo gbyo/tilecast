@@ -301,7 +301,21 @@ export function DataSourcesPage() {
           )}
         </Empty>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border">
+        <>
+          <div className="grid gap-2 lg:hidden">
+            {sortedSources.map((source) => (
+              <DataSourceMobileCard
+                key={source.id}
+                source={source}
+                providerName={
+                  definitionsByProvider.get(source.provider)?.name ??
+                  providerLabel(source.provider, t)
+                }
+                actions={actionsFor(source)}
+              />
+            ))}
+          </div>
+        <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -339,6 +353,7 @@ export function DataSourcesPage() {
             </TableBody>
           </Table>
         </div>
+        </>
       )}
       <AlertDialog
         open={pendingDelete !== null}
@@ -376,6 +391,80 @@ export function DataSourcesPage() {
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+}
+
+function DataSourceMobileCard({
+  source,
+  providerName,
+  actions,
+}: {
+  source: DataSource;
+  providerName: string;
+  actions: SourceAction[];
+}) {
+  const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
+  const menuLabel = t("dataSources.list.rowActions", { name: source.name });
+  const updated = new Date(source.updatedAt);
+  const updatedLabel = Number.isNaN(updated.getTime())
+    ? "—"
+    : updated.toLocaleString(locale, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+  return (
+    <article className="grid gap-3 rounded-xl border border-border p-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <Link
+            to={`/data-sources/${source.id}`}
+            className="block truncate font-medium underline-offset-4 hover:underline"
+          >
+            {source.name}
+          </Link>
+          <span className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <span className="shrink-0" aria-hidden="true">
+              {sourceIcon(source.provider, undefined, 16)}
+            </span>
+            <span className="truncate">{providerName}</span>
+          </span>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+            aria-label={menuLabel}
+          >
+            <EllipsisVertical size={16} aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" aria-label={menuLabel}>
+            {actions.map((action, index) => (
+              <Fragment key={`${action.label}-mobile-${index}`}>
+                {action.separated && <DropdownMenuSeparator />}
+                <DropdownMenuItem
+                  variant={action.danger ? "destructive" : "default"}
+                  disabled={action.disabled}
+                  onClick={action.onSelect}
+                >
+                  {action.icon}
+                  {action.label}
+                </DropdownMenuItem>
+              </Fragment>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <SourceStatus status={source.status} />
+        <span className="text-xs text-muted-foreground">
+          {t("dataSources.list.columns.cachedRecords")}:{" "}
+          {source.cachedRecordCount}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {t("dataSources.list.columns.updated")}: {updatedLabel}
+      </p>
+    </article>
   );
 }
 
