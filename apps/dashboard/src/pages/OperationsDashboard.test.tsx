@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -100,6 +106,8 @@ function mockAll({
     items: deployments,
   });
   vi.spyOn(api, "contentHealth").mockResolvedValue(healthyContent);
+  // Fleet health itself is mocked; this is the summary's sparkline data.
+  vi.spyOn(api, "fleetUptime").mockRejectedValue(new Error("not under test"));
   vi.mocked(activity.listIncidents).mockResolvedValue({
     items: incidents,
   } as never);
@@ -173,9 +181,8 @@ describe("Overview fleet status", () => {
     expect(within(attention).getByText("Library")).toBeInTheDocument();
     expect(within(attention).getByText("Offline")).toBeInTheDocument();
     expect(within(attention).getByText("Stale")).toBeInTheDocument();
-    // A disabled screen is an administrator's decision: counted, not alarming.
+    // A disabled screen is an administrator's decision, not an alarm.
     expect(within(attention).queryByText("Old TV")).not.toBeInTheDocument();
-    expect(screen.getByText(/Disabled 1/)).toBeInTheDocument();
   });
 
   it("says an online player failed to update instead of showing an unexplained badge", async () => {
@@ -233,6 +240,33 @@ describe("Overview fleet status", () => {
     ).toHaveAttribute("href", "/activity");
   });
 
+  it("draws a trend line per figure only from measured uptime hours", async () => {
+    mockAll();
+    const bucket = (upPercent: number | null) => ({
+      start: "2026-09-30T00:00:00Z",
+      upPercent: upPercent ?? 0,
+      impairedPercent: 0,
+      downPercent: upPercent === null ? 0 : 100 - upPercent,
+      unknownPercent: upPercent === null ? 100 : 0,
+      uptimePercent: upPercent,
+      screensDown: 0,
+    });
+    vi.spyOn(api, "fleetUptime").mockResolvedValue({
+      buckets: [bucket(90), bucket(95), bucket(null), bucket(100)],
+    } as Awaited<ReturnType<typeof api.fleetUptime>>);
+    renderPage();
+    const status = await screen.findByTestId("fleet-status");
+    await waitFor(() =>
+      expect(status.querySelectorAll("svg[viewBox='0 0 100 30']")).toHaveLength(
+        3,
+      ),
+    );
+    // The unmeasured hour breaks each line: one two-hour run is drawn, the
+    // single trailing hour is not.
+    const [online] = status.querySelectorAll("svg[viewBox='0 0 100 30']");
+    expect(online!.querySelectorAll("g")).toHaveLength(1);
+  });
+
   it("reports the playing figure as unavailable rather than zero when analytics fail", async () => {
     mockAll();
     vi.mocked(activity.getActivityOverview).mockRejectedValue(new Error("x"));
@@ -245,7 +279,7 @@ describe("Overview fleet status", () => {
 });
 
 describe("Overview on air", () => {
-  it("lists what online screens are set to show and links each to its screen", async () => {
+  it("groups online screens by what they are set to show", async () => {
     mockAll({
       screens: [
         screenFixture({
@@ -254,18 +288,23 @@ describe("Overview on air", () => {
           nowPlayingName: "Morning",
           nowPlayingType: "playlist",
         }),
-        screenFixture({ id: "b", name: "Hall" }),
+        screenFixture({
+          id: "b",
+          name: "Hall",
+          nowPlayingName: "Morning",
+          nowPlayingType: "playlist",
+        }),
+        screenFixture({ id: "c", name: "Gym" }),
       ],
     });
     renderPage();
     const onAir = await region("On air now");
-    const link = await within(onAir).findByRole("link", { name: /Lobby/ });
-    expect(link).toHaveAttribute("href", "/screens/a");
+    const link = await within(onAir).findByRole("link", { name: /Morning/ });
+    expect(link).toHaveAttribute("href", "/screens");
+    expect(within(link).getByText("Hall, Lobby")).toBeInTheDocument();
+    expect(within(link).getByText("2 screens")).toBeInTheDocument();
     expect(
-      await within(onAir).findByText("Playlist · Morning"),
-    ).toBeInTheDocument();
-    expect(
-      await within(onAir).findByText("1 online screen has nothing assigned."),
+      within(onAir).getByText("2 assigned · 1 unassigned"),
     ).toBeInTheDocument();
   });
 
@@ -298,13 +337,13 @@ describe("Overview on air", () => {
     ).toBeInTheDocument();
   });
 
-  it("caps the list and points to the rest", async () => {
+  it("caps the groups and counts the rest", async () => {
     mockAll({
-      screens: Array.from({ length: 7 }, (_, index) =>
+      screens: Array.from({ length: 6 }, (_, index) =>
         screenFixture({
           id: `s${index}`,
           name: `Screen ${index}`,
-          nowPlayingName: "Loop",
+          nowPlayingName: `Loop ${index}`,
           nowPlayingType: "playlist",
         }),
       ),
@@ -312,13 +351,11 @@ describe("Overview on air", () => {
     renderPage();
     const onAir = await region("On air now");
     expect(
-      await within(onAir).findAllByRole("link", { name: /Screen/ }),
-    ).toHaveLength(5);
+      await within(onAir).findAllByRole("link", { name: /Loop/ }),
+    ).toHaveLength(4);
     expect(
-      await within(onAir).findByRole("link", {
-        name: "2 more online screens have content assigned.",
-      }),
-    ).toHaveAttribute("href", "/screens");
+      within(onAir).getByText("6 assigned · 0 unassigned · 2 more"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -437,10 +474,10 @@ describe("Overview coming up", () => {
     renderPage();
     const card = await region("Coming up");
     const link = await within(card).findByRole("link", {
-      name: /Starts · Lunch menu/,
+      name: /Lunch menu.*Starts/,
     });
     expect(link).toHaveAttribute("href", "/schedules/schedule-1");
-    expect(within(card).getByText("Lunch loop · Lobby")).toBeInTheDocument();
+    expect(within(card).getByText(/Lunch loop · Lobby/)).toBeInTheDocument();
   });
 
   it("says when only some schedules were considered", async () => {
@@ -481,10 +518,10 @@ describe("Overview player updates", () => {
     renderPage();
     const card = await region("Player updates");
     expect(
-      await within(card).findByText("Player 1.2.0 · Completed"),
+      await within(card).findByText(/Player 1\.2\.0 · Completed/),
     ).toBeInTheDocument();
     expect(within(card).getByText("Up to date")).toBeInTheDocument();
-    expect(within(card).getByText("4 of 4 succeeded")).toBeInTheDocument();
+    expect(within(card).getByText(/4 of 4 succeeded/)).toBeInTheDocument();
   });
 
   it("puts a failed deployment forward with what failed", async () => {
@@ -503,7 +540,7 @@ describe("Overview player updates", () => {
     expect(await within(card).findByText("3 need action")).toBeInTheDocument();
     expect(
       within(card).getByText(
-        "1 of 4 succeeded · Failed: 2 · Waiting for user: 1",
+        /1 of 4 succeeded · Failed: 2 · Waiting for user: 1/,
       ),
     ).toBeInTheDocument();
   });
@@ -608,7 +645,7 @@ describe("Overview installation states", () => {
 });
 
 describe("Overview layout order", () => {
-  it("keeps one DOM order for every viewport: status, attention, now, next, last day, updates", async () => {
+  it("keeps one DOM order for every viewport: status, attention, the rail, then last day", async () => {
     mockAll({ screens: [screenFixture({ status: "offline" })] });
     renderPage();
     await region("Needs attention");
@@ -620,9 +657,9 @@ describe("Overview layout order", () => {
       "Needs attention",
       "On air now",
       "Coming up",
-      "Last 24 hours",
-      "Player updates",
       "Content health",
+      "Player updates",
+      "Last 24 hours",
     ]);
   });
 });

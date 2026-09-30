@@ -153,7 +153,8 @@ describe("MediaUploadDialog", () => {
     ).toBeInTheDocument();
     choose(clip());
     await waitFor(() => expect(row()).toHaveAttribute("data-state", "done"));
-    expect(onAsset).toHaveBeenCalled();
+    // The row can read done a tick before the asset callback runs.
+    await waitFor(() => expect(onAsset).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalled();
   });
