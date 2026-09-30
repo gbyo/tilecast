@@ -6,18 +6,6 @@
   "units": {
     "secondsShort": "s"
   },
-  "list": {
-    "title": "Playlists",
-    "subtitle": "Ordered fullscreen playback for assigned screens.",
-    "create": "Create playlist",
-    "searchLabel": "Search playlists",
-    "searchPlaceholder": "Search playlists",
-    "emptyTitle": "No playlists yet",
-    "emptyDescriptionManage": "Create a playlist, then add ready images and videos.",
-    "emptyDescriptionReadonly": "An Owner, Administrator, or Editor can create playlists.",
-    "noDescription": "No description",
-    "revision": "Revision {{revision}}"
-  },
   "library": {
     "title": "Playlists",
     "subtitle": "Find, preview, and organize fullscreen playback for your screens.",

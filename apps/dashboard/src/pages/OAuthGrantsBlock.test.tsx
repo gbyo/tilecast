@@ -74,4 +74,25 @@ describe("OAuthGrantsBlock", () => {
       await screen.findByText("No operators are authorized."),
     ).toBeInTheDocument();
   });
+
+  it("renders only the error when the grants query fails", async () => {
+    vi.spyOn(api, "listOAuthGrants").mockRejectedValue(new Error("offline"));
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <OAuthGrantsBlock />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("Authorization grants could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No operators are authorized."),
+    ).not.toBeInTheDocument();
+  });
 });
