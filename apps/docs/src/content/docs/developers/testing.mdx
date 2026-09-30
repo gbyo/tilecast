@@ -45,6 +45,8 @@ The classifier follows package consumers. Studio changes select Studio and Demo 
 
 Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
 
+Dashboard CI scans changed Studio TypeScript files for likely untranslated text. See the [localization guide](https://github.com/gbyo/tilecast/blob/main/docs/localization.md) for the focused and full scan commands.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 ## Inspect coverage

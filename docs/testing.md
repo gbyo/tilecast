@@ -50,6 +50,8 @@ Both workflows run for every PR. An aggregate fails when detection fails, a sele
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
 
+Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`. It checks changed files while the full-tree scan has existing findings. See [localization.md](localization.md) for focused and full scan commands.
+
 ## Real application tests
 
 The browser tests use the production Studio bundle, the server, PostgreSQL migrations, real domain services, and simulated players. They do not replace API responses. See [Demo Mode](demo-mode.md) for the reset API and the fixed record IDs.
