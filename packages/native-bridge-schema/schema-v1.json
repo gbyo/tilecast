@@ -9,9 +9,7 @@
       "description": "Read first. A receiver refuses any version it does not implement before it inspects the rest of the message.",
       "type": "object",
       "required": ["version"],
-      "properties": {
-        "version": { "type": "integer", "minimum": 1 }
-      }
+      "properties": { "version": { "type": "integer", "minimum": 1 } }
     },
     "messageType": {
       "type": "string",
@@ -62,9 +60,7 @@
       "maxLength": 40,
       "pattern": "^[a-z][a-z0-9-]*$"
     },
-    "emptyPayload": {
-      "type": "object"
-    },
+    "emptyPayload": { "type": "object" },
     "navigationDestination": {
       "type": "object",
       "required": ["id", "title", "icon"],
@@ -137,6 +133,14 @@
             "nativePresentations": {
               "description": "Studio has the /__native/modal presentation routes, handles the presentation messages, and handles navigation/open-path.",
               "type": "boolean"
+            },
+            "nativeMediaIntake": {
+              "description": "Studio handles system/media-intake-completed. A host sends it only to a Studio that reported this.",
+              "type": "boolean"
+            },
+            "deepLinks": {
+              "description": "Studio handles navigation/open-path that a host sends for a deep link, and refuses the reserved authentication paths.",
+              "type": "boolean"
             }
           }
         }
@@ -145,9 +149,7 @@
     "navigationRequestPayload": {
       "type": "object",
       "required": ["destinationId"],
-      "properties": {
-        "destinationId": { "$ref": "#/$defs/destinationId" }
-      }
+      "properties": { "destinationId": { "$ref": "#/$defs/destinationId" } }
     },
     "configGetResult": {
       "description": "The payload of a successful config/get reply.",
@@ -170,6 +172,22 @@
             },
             "nativePresentations": {
               "description": "The host can present /__native/modal routes in a native sheet. On the main page it accepts presentation/open; on the presentation page it sends presentation/show.",
+              "type": "boolean"
+            },
+            "systemShare": {
+              "description": "The host presents the system share sheet for system/share. Both contexts.",
+              "type": "boolean"
+            },
+            "systemHaptics": {
+              "description": "The host performs standard system feedback for system/haptic. Both contexts.",
+              "type": "boolean"
+            },
+            "nativeMediaIntake": {
+              "description": "The host can choose media with system pickers and upload it with its own credential. Main page only. system/media-intake-status reports whether it can start now.",
+              "type": "boolean"
+            },
+            "deepLinks": {
+              "description": "The host can deliver a validated Studio path with navigation/open-path when the app opens from a deep link. Main page only. Sent only to a Studio that reported deepLinks.",
               "type": "boolean"
             }
           }
@@ -219,34 +237,22 @@
       "type": "object",
       "required": ["id", "label", "icon"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/actionId"
-        },
+        "id": { "$ref": "#/$defs/actionId" },
         "label": {
           "description": "Localized. The host shows the icon and uses the label for accessibility.",
           "$ref": "#/$defs/title"
         },
-        "icon": {
-          "$ref": "#/$defs/iconToken"
-        }
+        "icon": { "$ref": "#/$defs/iconToken" }
       }
     },
     "presentationMenuItem": {
       "type": "object",
       "required": ["id", "label"],
       "properties": {
-        "id": {
-          "$ref": "#/$defs/actionId"
-        },
-        "label": {
-          "$ref": "#/$defs/title"
-        },
-        "icon": {
-          "$ref": "#/$defs/iconToken"
-        },
-        "disabled": {
-          "type": "boolean"
-        }
+        "id": { "$ref": "#/$defs/actionId" },
+        "label": { "$ref": "#/$defs/title" },
+        "icon": { "$ref": "#/$defs/iconToken" },
+        "disabled": { "type": "boolean" }
       }
     },
     "presentationHeader": {
@@ -254,12 +260,8 @@
       "type": "object",
       "required": ["title"],
       "properties": {
-        "title": {
-          "$ref": "#/$defs/title"
-        },
-        "subtitle": {
-          "$ref": "#/$defs/title"
-        },
+        "title": { "$ref": "#/$defs/title" },
+        "subtitle": { "$ref": "#/$defs/title" },
         "navigation": {
           "description": "The leading control. close dismisses the presentation. back reports the action id back. A host shows any other value as close.",
           "type": "string",
@@ -278,16 +280,12 @@
         "actions": {
           "type": "array",
           "maxItems": 4,
-          "items": {
-            "$ref": "#/$defs/presentationAction"
-          }
+          "items": { "$ref": "#/$defs/presentationAction" }
         },
         "menu": {
           "type": "array",
           "maxItems": 16,
-          "items": {
-            "$ref": "#/$defs/presentationMenuItem"
-          }
+          "items": { "$ref": "#/$defs/presentationMenuItem" }
         }
       }
     },
@@ -296,24 +294,12 @@
       "type": "object",
       "required": ["presentationId", "path", "title"],
       "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        },
-        "path": {
-          "$ref": "#/$defs/presentationPath"
-        },
-        "title": {
-          "$ref": "#/$defs/title"
-        },
-        "subtitle": {
-          "$ref": "#/$defs/title"
-        },
-        "size": {
-          "$ref": "#/$defs/presentationSize"
-        },
-        "dismissible": {
-          "type": "boolean"
-        }
+        "presentationId": { "$ref": "#/$defs/presentationId" },
+        "path": { "$ref": "#/$defs/presentationPath" },
+        "title": { "$ref": "#/$defs/title" },
+        "subtitle": { "$ref": "#/$defs/title" },
+        "size": { "$ref": "#/$defs/presentationSize" },
+        "dismissible": { "type": "boolean" }
       }
     },
     "presentationUpdatePayload": {
@@ -321,74 +307,46 @@
       "type": "object",
       "required": ["presentationId"],
       "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        },
-        "header": {
-          "$ref": "#/$defs/presentationHeader"
-        },
-        "size": {
-          "$ref": "#/$defs/presentationSize"
-        },
-        "dismissible": {
-          "type": "boolean"
-        }
+        "presentationId": { "$ref": "#/$defs/presentationId" },
+        "header": { "$ref": "#/$defs/presentationHeader" },
+        "size": { "$ref": "#/$defs/presentationSize" },
+        "dismissible": { "type": "boolean" }
       }
     },
     "presentationIdPayload": {
       "type": "object",
       "required": ["presentationId"],
-      "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        }
-      }
+      "properties": { "presentationId": { "$ref": "#/$defs/presentationId" } }
     },
     "presentationNavigatePayload": {
       "type": "object",
       "required": ["presentationId", "path"],
       "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        },
-        "path": {
-          "$ref": "#/$defs/studioPath"
-        }
+        "presentationId": { "$ref": "#/$defs/presentationId" },
+        "path": { "$ref": "#/$defs/studioPath" }
       }
     },
     "presentationShowPayload": {
       "type": "object",
       "required": ["presentationId", "path"],
       "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        },
-        "path": {
-          "$ref": "#/$defs/presentationPath"
-        }
+        "presentationId": { "$ref": "#/$defs/presentationId" },
+        "path": { "$ref": "#/$defs/presentationPath" }
       }
     },
     "presentationActionPayload": {
       "type": "object",
       "required": ["presentationId", "actionId"],
       "properties": {
-        "presentationId": {
-          "$ref": "#/$defs/presentationId"
-        },
-        "actionId": {
-          "$ref": "#/$defs/actionId"
-        }
+        "presentationId": { "$ref": "#/$defs/presentationId" },
+        "actionId": { "$ref": "#/$defs/actionId" }
       }
     },
     "navigationOpenPathPayload": {
       "description": "The host relays a path from a presentation to the main Studio page, which navigates with its router.",
       "type": "object",
       "required": ["path"],
-      "properties": {
-        "path": {
-          "$ref": "#/$defs/studioPath"
-        }
-      }
+      "properties": { "path": { "$ref": "#/$defs/studioPath" } }
     },
     "frontendToNative": {
       "description": "Studio to the native host. Each message receives a reply.",
@@ -407,7 +365,11 @@
                 "presentation/ready",
                 "presentation/update",
                 "presentation/close",
-                "presentation/navigate"
+                "presentation/navigate",
+                "system/haptic",
+                "system/share",
+                "system/media-intake-status",
+                "system/media-intake"
               ]
             }
           }
@@ -495,6 +457,44 @@
               "payload": { "$ref": "#/$defs/presentationNavigatePayload" }
             }
           }
+        },
+        {
+          "description": "Either context. The host maps the semantic feedback onto standard system feedback and never a custom pattern.",
+          "if": { "properties": { "type": { "const": "system/haptic" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemHapticPayload" }
+            }
+          }
+        },
+        {
+          "description": "Either context. The host presents the system share sheet, or replies unavailable.",
+          "if": { "properties": { "type": { "const": "system/share" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemSharePayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The reply payload is systemMediaIntakeStatusReplyPayload.",
+          "if": {
+            "properties": { "type": { "const": "system/media-intake-status" } }
+          },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+          }
+        },
+        {
+          "description": "Main page only. A presentation page that sends it gets forbidden. Sent only when the host offered nativeMediaIntake and reported it available.",
+          "if": {
+            "properties": { "type": { "const": "system/media-intake" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMediaIntakePayload" }
+            }
+          }
         }
       ]
     },
@@ -512,7 +512,8 @@
                 "presentation/show",
                 "presentation/action",
                 "presentation/dismissed",
-                "presentation/ended"
+                "presentation/ended",
+                "system/media-intake-completed"
               ]
             }
           }
@@ -584,6 +585,19 @@
           "then": {
             "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
           }
+        },
+        {
+          "description": "Main page only. Sent to the page that asked, and only when it reported nativeMediaIntake. A page that no longer exists is not reloaded for it.",
+          "if": {
+            "properties": {
+              "type": { "const": "system/media-intake-completed" }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/mediaIntakeCompletedPayload" }
+            }
+          }
         }
       ]
     },
@@ -625,6 +639,84 @@
       "else": {
         "required": ["error"],
         "properties": { "error": true, "payload": false }
+      }
+    },
+    "hapticFeedback": {
+      "description": "A semantic feedback type. Studio names the meaning and the host chooses the hardware effect. Known values: selection, success, warning, error, start, stop. A host accepts a value it does not know and performs nothing, so a newer Studio never breaks an older host.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "systemHapticPayload": {
+      "type": "object",
+      "required": ["feedback"],
+      "properties": { "feedback": { "$ref": "#/$defs/hapticFeedback" } }
+    },
+    "shareUrl": {
+      "description": "An absolute HTTP or HTTPS URL without user information. A host also refuses a URL whose query or fragment names a credential, and a URL that carries a Tilecast credential.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^https?://[^/?#@\\s\\\\]+([/?#][^\\s\\\\]*)?$"
+    },
+    "systemSharePayload": {
+      "description": "Normal, user-visible content to hand to the system share sheet. At least text or url is required. A host ignores properties it does not know.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "description": "Preview title, already localized.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "url": { "$ref": "#/$defs/shareUrl" }
+      },
+      "anyOf": [
+        { "required": ["text"], "properties": { "text": true } },
+        { "required": ["url"], "properties": { "url": true } }
+      ]
+    },
+    "mediaIntakeKind": {
+      "description": "A media kind hint for the system picker. Known values: image, video. A host ignores a kind it does not know.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "systemMediaIntakeStatusReplyPayload": {
+      "type": "object",
+      "required": ["available"],
+      "properties": {
+        "available": {
+          "description": "Whether the host can start media intake now: it needs a native credential for this server. Studio uses its own uploader when this is not true.",
+          "type": "boolean"
+        }
+      }
+    },
+    "systemMediaIntakePayload": {
+      "description": "Asks the host to choose media with system pickers and upload it. The request carries no file data, no path, and no credential. The host replies unavailable when it cannot begin, and Studio uses its own uploader.",
+      "type": "object",
+      "required": ["requestId"],
+      "properties": {
+        "requestId": { "$ref": "#/$defs/presentationId" },
+        "accept": {
+          "type": "array",
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/mediaIntakeKind" }
+        },
+        "multiple": { "type": "boolean" }
+      }
+    },
+    "mediaIntakeCompletedPayload": {
+      "description": "A small coordination result. The host uploaded the media itself. Studio refetches its own media queries.",
+      "type": "object",
+      "required": ["requestId", "outcome", "uploadedCount"],
+      "properties": {
+        "requestId": { "$ref": "#/$defs/presentationId" },
+        "outcome": { "enum": ["completed", "partial", "failed", "cancelled"] },
+        "uploadedCount": { "type": "integer", "minimum": 0, "maximum": 1000 }
       }
     }
   }

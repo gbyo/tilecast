@@ -17,12 +17,24 @@ export type NativeCapabilities = {
   authLifecycle: boolean;
   /** The host presents /__native/modal routes in a native sheet. */
   nativePresentations: boolean;
+  /** The host presents the system share sheet for system/share. */
+  systemShare: boolean;
+  /** The host performs standard system feedback for system/haptic. */
+  systemHaptics: boolean;
+  /** The host can choose media with system pickers and upload it itself. */
+  nativeMediaIntake: boolean;
+  /** The host can deliver a deep link's path with navigation/open-path. */
+  deepLinks: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
   nativeNavigation: false,
   authLifecycle: false,
   nativePresentations: false,
+  systemShare: false,
+  systemHaptics: false,
+  nativeMediaIntake: false,
+  deepLinks: false,
 };
 
 /**
@@ -36,15 +48,20 @@ export type BridgeContext = "main" | "presentation";
 export type FrontendCapabilities = {
   authLifecycle?: boolean;
   nativePresentations?: boolean;
+  nativeMediaIntake?: boolean;
+  deepLinks?: boolean;
 };
 
 /**
- * What this Studio supports: it handles auth/sign-out-request, and it has
- * the presentation routes and messages.
+ * What this Studio supports: it handles auth/sign-out-request, it has the
+ * presentation routes and messages, it handles system/media-intake-completed,
+ * and it navigates for a deep link.
  */
 export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
   nativePresentations: true,
+  nativeMediaIntake: true,
+  deepLinks: true,
 };
 
 /** The one presentation route root a host knows. Studio owns its children. */
@@ -90,6 +107,44 @@ export type PresentationUpdatePayload = {
   dismissible?: boolean;
 };
 
+/**
+ * Semantic feedback. Studio names the meaning and the host chooses the
+ * hardware effect. A host accepts a value it does not know and does nothing.
+ */
+export const hapticFeedbacks = [
+  "selection",
+  "success",
+  "warning",
+  "error",
+  "start",
+  "stop",
+] as const;
+export type HapticFeedback = (typeof hapticFeedbacks)[number];
+
+/** Normal, user-visible content for the system share sheet. */
+export type SystemSharePayload = {
+  title?: string;
+  text?: string;
+  url?: string;
+};
+
+export type MediaIntakeKind = "image" | "video";
+
+export type MediaIntakePayload = {
+  requestId: string;
+  accept?: MediaIntakeKind[];
+  multiple?: boolean;
+};
+
+export type MediaIntakeOutcome =
+  "completed" | "partial" | "failed" | "cancelled";
+
+export type MediaIntakeCompletedPayload = {
+  requestId: string;
+  outcome: MediaIntakeOutcome;
+  uploadedCount: number;
+};
+
 export type NavigationCatalogPayload = {
   groups: {
     id: string;
@@ -124,6 +179,14 @@ export type FrontendToNativePayloads = {
   "presentation/close": { presentationId: string };
   /** Dismiss, then navigate the main Studio page to path. */
   "presentation/navigate": { presentationId: string; path: string };
+  /** Either page: standard system feedback for a meaningful state change. */
+  "system/haptic": { feedback: HapticFeedback };
+  /** Either page: the system share sheet for normal user-visible content. */
+  "system/share": SystemSharePayload;
+  /** Main page: whether the host can start media intake now. */
+  "system/media-intake-status": Record<string, never>;
+  /** Main page: choose media with system pickers and upload it natively. */
+  "system/media-intake": MediaIntakePayload;
 };
 
 export type FrontendToNativeType = keyof FrontendToNativePayloads;
@@ -143,6 +206,8 @@ export type NativeToFrontendPayloads = {
   "presentation/dismissed": { presentationId: string };
   /** Main page: a presentation ended, so what it changed may be stale. */
   "presentation/ended": { presentationId: string };
+  /** Main page: native media intake finished. Studio refetches its media. */
+  "system/media-intake-completed": MediaIntakeCompletedPayload;
 };
 
 export type NativeToFrontendType = keyof NativeToFrontendPayloads;
@@ -264,6 +329,123 @@ export function isStudioPath(value: unknown): value is string {
 }
 
 /**
+ * Where a deep link may go: an ordinary Studio path that is not part of an
+ * authentication flow. Sign-in, first-run setup, and OAuth approval are
+ * reached only by their own flows, never by a link.
+ */
+const authenticationRoots = ["/login", "/setup", "/oauth"] as const;
+
+export function isDeepLinkPath(value: unknown): value is string {
+  return (
+    isStudioPath(value) &&
+    !authenticationRoots.some((root) => isInTree(pathComponent(value), root))
+  );
+}
+
+export function isHapticFeedback(value: unknown): value is HapticFeedback {
+  return (hapticFeedbacks as readonly unknown[]).includes(value);
+}
+
+const credentialPrefixes = ["tca_", "tcr_", "tc_device_", "tc_pair"];
+const sensitiveParameters = new Set([
+  "access_token",
+  "refresh_token",
+  "id_token",
+  "token",
+  "password",
+  "passwd",
+  "secret",
+  "client_secret",
+  "api_key",
+  "apikey",
+  "x-api-key",
+  "signature",
+  "sig",
+  "auth",
+  "authorization",
+  "session",
+  "sessionid",
+  "session_id",
+  "csrf",
+  "csrf_token",
+  "credential",
+  "credentials",
+  "bearer",
+  "code",
+]);
+
+function carriesCredential(text: string) {
+  const lowered = text.toLowerCase();
+  return credentialPrefixes.some((prefix) => lowered.includes(prefix));
+}
+
+function namesSensitiveParameter(parameters: string) {
+  for (const pair of parameters.split(/[&;]/)) {
+    const name = pair.split("=", 1)[0] ?? "";
+    let decoded = name;
+    try {
+      decoded = decodeURIComponent(name.replaceAll("+", " "));
+    } catch {
+      // An undecodable name is compared as written.
+    }
+    if (sensitiveParameters.has(decoded.trim().toLowerCase())) return true;
+  }
+  return false;
+}
+
+/**
+ * An absolute HTTP or HTTPS URL that is safe to hand to the share sheet: no
+ * user information, and nothing that carries a credential in its address.
+ */
+export function isShareableUrl(value: unknown): value is string {
+  if (
+    !isBoundedString(value, 2048) ||
+    !/^https?:\/\/[^/?#@\s\\]+([/?#][^\s\\]*)?$/.test(value) ||
+    carriesCredential(value)
+  ) {
+    return false;
+  }
+  const query = value.split("#", 1)[0]?.split("?").slice(1).join("?") ?? "";
+  const fragment = value.includes("#")
+    ? value.slice(value.indexOf("#") + 1)
+    : "";
+  return !namesSensitiveParameter(query) && !namesSensitiveParameter(fragment);
+}
+
+/**
+ * The share request Studio may send: bounded, with at least text or a URL,
+ * and nothing that carries a credential. Returns null when the request
+ * must not be sent.
+ */
+export function validateSystemShare(value: unknown): SystemSharePayload | null {
+  if (!isObject(value)) return null;
+  const { title, text, url } = value;
+  if (
+    (title !== undefined && !isBoundedString(title, 200)) ||
+    (text !== undefined && !isBoundedString(text, 2000)) ||
+    (url !== undefined && !isShareableUrl(url)) ||
+    (text === undefined && url === undefined)
+  ) {
+    return null;
+  }
+  for (const part of [title, text]) {
+    if (typeof part === "string" && carriesCredential(part)) return null;
+  }
+  return {
+    ...(typeof title === "string" ? { title } : {}),
+    ...(typeof text === "string" ? { text } : {}),
+    ...(typeof url === "string" ? { url } : {}),
+  };
+}
+
+const mediaIntakeOutcomes = new Set<string>([
+  "completed",
+  "partial",
+  "failed",
+  "cancelled",
+]);
+
+/**
  * The version is read first: a message from another protocol version may
  * have a different shape, so nothing else is inspected.
  */
@@ -366,6 +548,30 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "system/media-intake-completed":
+      if (
+        !isOpaqueId(payload.requestId) ||
+        typeof payload.outcome !== "string" ||
+        !mediaIntakeOutcomes.has(payload.outcome) ||
+        typeof payload.uploadedCount !== "number" ||
+        !Number.isInteger(payload.uploadedCount) ||
+        payload.uploadedCount < 0 ||
+        payload.uploadedCount > 1000
+      ) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            requestId: payload.requestId,
+            outcome: payload.outcome as MediaIntakeOutcome,
+            uploadedCount: payload.uploadedCount,
+          },
+        },
+      };
     case "presentation/dismissed":
     case "presentation/ended":
       if (!isOpaqueId(payload.presentationId)) return { outcome: "malformed" };
@@ -457,6 +663,10 @@ export function decodeHostConfig(
       nativeNavigation: capabilities.nativeNavigation === true,
       authLifecycle: capabilities.authLifecycle === true,
       nativePresentations: capabilities.nativePresentations === true,
+      systemShare: capabilities.systemShare === true,
+      systemHaptics: capabilities.systemHaptics === true,
+      nativeMediaIntake: capabilities.nativeMediaIntake === true,
+      deepLinks: capabilities.deepLinks === true,
     },
   };
 }

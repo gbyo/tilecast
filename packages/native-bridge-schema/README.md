@@ -52,6 +52,26 @@ After Studio handles a `navigation/request`, it sends `navigation/state` even wh
 
 The presentation messages (`presentation/*` and `navigation/open-path`) need the `nativePresentations` capability on both sides. Presentation paths are in the reserved `/__native/modal` tree. A host knows only that root. See `docs/ios-app.md`.
 
+## System messages
+
+Milestone 8A adds messages that let Studio use system features. Each one has its own capability, so a host and a Studio negotiate them one by one.
+
+| Type                            | Direction        | Pages              | Purpose                                                   |
+| ------------------------------- | ---------------- | ------------------ | --------------------------------------------------------- |
+| `system/haptic`                 | Studio to native | main, presentation | Standard system feedback for a semantic `feedback` value  |
+| `system/share`                  | Studio to native | main, presentation | The system share sheet for `title`, `text`, and `url`     |
+| `system/media-intake-status`    | Studio to native | main               | Reply payload `{ "available": boolean }`                  |
+| `system/media-intake`           | Studio to native | main               | Choose media with system pickers. The host uploads it     |
+| `system/media-intake-completed` | native to Studio | main               | `requestId`, `outcome`, and `uploadedCount`. No file data |
+
+The host offers `systemShare`, `systemHaptics`, `nativeMediaIntake`, and `deepLinks` in the `config/get` reply. Studio reports `nativeMediaIntake` and `deepLinks` in `frontend/ready`, because it must handle the host's messages for them. A deep link reaches Studio as `navigation/open-path`.
+
+- The `feedback` vocabulary is `selection`, `success`, `warning`, `error`, `start`, and `stop`. A host accepts a well-formed value that it does not know and performs nothing.
+- A `url` in `system/share` is an absolute `http` or `https` URL without user information. A host refuses a URL, a title, or text that carries a credential, and a URL whose query or fragment names one.
+- No message carries a credential, a cookie, a CSRF token, a file byte, a file path, or an OAuth token.
+
+The `deepLinkPaths` list in the fixtures holds the paths that a deep link may and may not open. Both Studio and the host run it.
+
 ## Icons
 
 `icon` is advisory. A host maps the tokens in `icon-tokens.json` to its own symbols and shows a generic icon for any other token. Studio can use a new token without a host release.

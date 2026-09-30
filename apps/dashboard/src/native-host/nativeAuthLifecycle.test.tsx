@@ -161,7 +161,14 @@ describe("native auth lifecycle", () => {
     renderStudio();
     await waitFor(() => expect(host.types()).toContain("frontend/ready"));
     expect(host.sent.find((m) => m.type === "frontend/ready")?.payload).toEqual(
-      { capabilities: { authLifecycle: true, nativePresentations: true } },
+      {
+        capabilities: {
+          authLifecycle: true,
+          nativePresentations: true,
+          nativeMediaIntake: true,
+          deepLinks: true,
+        },
+      },
     );
   });
 

@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation.",
+  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation. hapticFeedback names the semantic feedback a native host reads from an accepted system/haptic, or null when it does not know the value. share lists what a native host decodes from an accepted system/share. mediaIntake lists what a native host decodes from an accepted system/media-intake, with defaults applied. hostCapabilities lists capabilities a Studio reads from a config/get reply. deepLinkPaths lists paths that both sides accept or refuse for a deep link.",
   "schemaVersion": 1,
   "cases": [
     {
@@ -33,13 +33,20 @@
       "studioEncodes": "frontendReady",
       "frontendCapabilities": {
         "authLifecycle": true,
-        "nativePresentations": true
+        "nativePresentations": true,
+        "nativeMediaIntake": true,
+        "deepLinks": true
       },
       "message": {
         "version": 1,
         "type": "frontend/ready",
         "payload": {
-          "capabilities": { "authLifecycle": true, "nativePresentations": true }
+          "capabilities": {
+            "authLifecycle": true,
+            "nativePresentations": true,
+            "nativeMediaIntake": true,
+            "deepLinks": true
+          }
         }
       }
     },
@@ -202,12 +209,7 @@
               "title": "Main",
               "collapsed": false,
               "items": [
-                {
-                  "id": "alpha",
-                  "title": "Alpha",
-                  "icon": "home",
-                  "badge": 3
-                }
+                { "id": "alpha", "title": "Alpha", "icon": "home", "badge": 3 }
               ]
             }
           ],
@@ -352,10 +354,7 @@
         "type": "navigation/catalog",
         "payload": {
           "groups": [
-            {
-              "id": "main",
-              "items": [{ "title": "Alpha", "icon": "home" }]
-            }
+            { "id": "main", "items": [{ "title": "Alpha", "icon": "home" }] }
           ]
         }
       }
@@ -631,11 +630,7 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "presentationReady",
-      "message": {
-        "version": 1,
-        "type": "presentation/ready",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "presentation/ready", "payload": {} }
     },
     {
       "name": "presentation/update with a complete header",
@@ -655,11 +650,7 @@
             "navigation": "close",
             "navigationLabel": "Close",
             "actions": [
-              {
-                "id": "refresh",
-                "label": "Refresh",
-                "icon": "activity"
-              }
+              { "id": "refresh", "label": "Refresh", "icon": "activity" }
             ],
             "menuLabel": "More",
             "menu": [
@@ -668,11 +659,7 @@
                 "label": "Open screen",
                 "icon": "screens"
               },
-              {
-                "id": "history",
-                "label": "History",
-                "disabled": true
-              }
+              { "id": "history", "label": "History", "disabled": true }
             ]
           },
           "size": "full",
@@ -704,11 +691,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "actions": [],
-            "menu": []
-          }
+          "header": { "title": "Lobby", "actions": [], "menu": [] }
         }
       }
     },
@@ -727,11 +710,7 @@
             "title": "Lobby",
             "navigation": "back",
             "actions": [
-              {
-                "id": "bookings",
-                "label": "Bookings",
-                "icon": "door-calendar"
-              }
+              { "id": "bookings", "label": "Bookings", "icon": "door-calendar" }
             ]
           }
         }
@@ -1174,31 +1153,11 @@
           "header": {
             "title": "Lobby",
             "actions": [
-              {
-                "id": "a0",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a1",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a2",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a3",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a4",
-                "label": "A",
-                "icon": "home"
-              }
+              { "id": "a0", "label": "A", "icon": "home" },
+              { "id": "a1", "label": "A", "icon": "home" },
+              { "id": "a2", "label": "A", "icon": "home" },
+              { "id": "a3", "label": "A", "icon": "home" },
+              { "id": "a4", "label": "A", "icon": "home" }
             ]
           }
         }
@@ -1216,74 +1175,23 @@
           "header": {
             "title": "Lobby",
             "menu": [
-              {
-                "id": "m0",
-                "label": "M"
-              },
-              {
-                "id": "m1",
-                "label": "M"
-              },
-              {
-                "id": "m2",
-                "label": "M"
-              },
-              {
-                "id": "m3",
-                "label": "M"
-              },
-              {
-                "id": "m4",
-                "label": "M"
-              },
-              {
-                "id": "m5",
-                "label": "M"
-              },
-              {
-                "id": "m6",
-                "label": "M"
-              },
-              {
-                "id": "m7",
-                "label": "M"
-              },
-              {
-                "id": "m8",
-                "label": "M"
-              },
-              {
-                "id": "m9",
-                "label": "M"
-              },
-              {
-                "id": "m10",
-                "label": "M"
-              },
-              {
-                "id": "m11",
-                "label": "M"
-              },
-              {
-                "id": "m12",
-                "label": "M"
-              },
-              {
-                "id": "m13",
-                "label": "M"
-              },
-              {
-                "id": "m14",
-                "label": "M"
-              },
-              {
-                "id": "m15",
-                "label": "M"
-              },
-              {
-                "id": "m16",
-                "label": "M"
-              }
+              { "id": "m0", "label": "M" },
+              { "id": "m1", "label": "M" },
+              { "id": "m2", "label": "M" },
+              { "id": "m3", "label": "M" },
+              { "id": "m4", "label": "M" },
+              { "id": "m5", "label": "M" },
+              { "id": "m6", "label": "M" },
+              { "id": "m7", "label": "M" },
+              { "id": "m8", "label": "M" },
+              { "id": "m9", "label": "M" },
+              { "id": "m10", "label": "M" },
+              { "id": "m11", "label": "M" },
+              { "id": "m12", "label": "M" },
+              { "id": "m13", "label": "M" },
+              { "id": "m14", "label": "M" },
+              { "id": "m15", "label": "M" },
+              { "id": "m16", "label": "M" }
             ]
           }
         }
@@ -1298,10 +1206,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "actions": { "id": "a" }
-          }
+          "header": { "title": "Lobby", "actions": { "id": "a" } }
         }
       }
     },
@@ -1316,12 +1221,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A" }]
           }
         }
       }
@@ -1337,13 +1237,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A",
-                "icon": "Bad Icon"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A", "icon": "Bad Icon" }]
           }
         }
       }
@@ -1359,13 +1253,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "/screens",
-                "label": "A",
-                "icon": "home"
-              }
-            ]
+            "actions": [{ "id": "/screens", "label": "A", "icon": "home" }]
           }
         }
       }
@@ -1382,19 +1270,8 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A",
-                "icon": "home"
-              }
-            ],
-            "menu": [
-              {
-                "id": "a",
-                "label": "Again"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A", "icon": "home" }],
+            "menu": [{ "id": "a", "label": "Again" }]
           }
         }
       }
@@ -1408,10 +1285,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "navigation": 1
-          }
+          "header": { "title": "Lobby", "navigation": 1 }
         }
       }
     },
@@ -1447,11 +1321,7 @@
       "name": "presentation/close without a presentation id",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "presentation/close",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "presentation/close", "payload": {} }
     },
     {
       "name": "presentation/navigate without a path",
@@ -1657,11 +1527,7 @@
       "name": "a native message type this version does not define",
       "direction": "nativeToFrontend",
       "outcome": "unknownType",
-      "message": {
-        "version": 1,
-        "type": "share/open",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "share/open", "payload": {} }
     },
     {
       "name": "auth/signed-out sent to Studio",
@@ -1673,11 +1539,7 @@
       "name": "a native message from protocol version 3",
       "direction": "nativeToFrontend",
       "outcome": "unsupportedVersion",
-      "message": {
-        "version": 3,
-        "type": "navigation/request",
-        "payload": {}
-      }
+      "message": { "version": 3, "type": "navigation/request", "payload": {} }
     },
     {
       "name": "presentation/show",
@@ -1700,10 +1562,7 @@
       "message": {
         "version": 1,
         "type": "presentation/show",
-        "payload": {
-          "presentationId": "p-1",
-          "path": "/__native/modal"
-        }
+        "payload": { "presentationId": "p-1", "path": "/__native/modal" }
       }
     },
     {
@@ -1764,9 +1623,7 @@
       "message": {
         "version": 1,
         "type": "presentation/show",
-        "payload": {
-          "path": "/__native/modal/live-stream/screen-1"
-        }
+        "payload": { "path": "/__native/modal/live-stream/screen-1" }
       }
     },
     {
@@ -1916,9 +1773,19 @@
           "capabilities": {
             "nativeNavigation": true,
             "authLifecycle": true,
-            "nativePresentations": true
+            "nativePresentations": true,
+            "systemShare": true,
+            "systemHaptics": true,
+            "nativeMediaIntake": true,
+            "deepLinks": true
           }
         }
+      },
+      "hostCapabilities": {
+        "systemShare": true,
+        "systemHaptics": true,
+        "nativeMediaIntake": true,
+        "deepLinks": true
       }
     },
     {
@@ -1930,10 +1797,7 @@
         "ok": true,
         "payload": {
           "protocolVersion": 1,
-          "capabilities": {
-            "nativeNavigation": true,
-            "nativeShare": true
-          }
+          "capabilities": { "nativeNavigation": true, "nativeShare": true }
         }
       }
     },
@@ -2005,9 +1869,19 @@
           "capabilities": {
             "nativeNavigation": false,
             "authLifecycle": false,
-            "nativePresentations": true
+            "nativePresentations": true,
+            "systemShare": true,
+            "systemHaptics": true,
+            "nativeMediaIntake": false,
+            "deepLinks": false
           }
         }
+      },
+      "hostCapabilities": {
+        "systemShare": true,
+        "systemHaptics": true,
+        "nativeMediaIntake": false,
+        "deepLinks": false
       }
     },
     {
@@ -2020,10 +1894,7 @@
         "ok": true,
         "payload": {
           "protocolVersion": 1,
-          "capabilities": {
-            "nativeNavigation": true,
-            "authLifecycle": true
-          }
+          "capabilities": { "nativeNavigation": true, "authLifecycle": true }
         }
       }
     },
@@ -2038,9 +1909,7 @@
         "payload": {
           "protocolVersion": 1,
           "context": "widget",
-          "capabilities": {
-            "nativePresentations": true
-          }
+          "capabilities": { "nativePresentations": true }
         }
       }
     },
@@ -2049,11 +1918,7 @@
       "direction": "reply",
       "outcome": "accept",
       "encodes": "forbiddenReply",
-      "message": {
-        "version": 1,
-        "ok": false,
-        "error": { "code": "forbidden" }
-      }
+      "message": { "version": 1, "ok": false, "error": { "code": "forbidden" } }
     },
     {
       "name": "unavailable reply",
@@ -2065,6 +1930,666 @@
         "ok": false,
         "error": { "code": "unavailable" }
       }
+    },
+    {
+      "name": "system/haptic selection",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "selection",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "selection" }
+      }
+    },
+    {
+      "name": "system/haptic success",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "success",
+      "studioEncodes": "hapticSuccess",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "success" }
+      }
+    },
+    {
+      "name": "system/haptic warning",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "warning",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "warning" }
+      }
+    },
+    {
+      "name": "system/haptic error",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "error",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "error" }
+      }
+    },
+    {
+      "name": "system/haptic start",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "start",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "start" }
+      }
+    },
+    {
+      "name": "system/haptic stop",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": "stop",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "stop" }
+      }
+    },
+    {
+      "name": "system/haptic with a feedback the host does not know",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "hapticFeedback": null,
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "rumble-long" }
+      }
+    },
+    {
+      "name": "system/haptic without feedback",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "system/haptic", "payload": {} }
+    },
+    {
+      "name": "system/haptic with a numeric feedback",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": 3 }
+      }
+    },
+    {
+      "name": "system/haptic with a feedback outside the token pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "Success" }
+      }
+    },
+    {
+      "name": "system/haptic with an oversized feedback",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+      }
+    },
+    {
+      "name": "system/share with a URL and a title",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "shareUrl",
+      "share": {
+        "title": "Lobby display",
+        "text": null,
+        "url": "https://signage.example.org/preview/lobby"
+      },
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "title": "Lobby display",
+          "url": "https://signage.example.org/preview/lobby"
+        }
+      }
+    },
+    {
+      "name": "system/share with text only",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "share": { "title": null, "text": "Doors open at nine.", "url": null },
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "text": "Doors open at nine." }
+      }
+    },
+    {
+      "name": "system/share with text, URL, and a property a newer Studio adds",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "share": {
+        "title": null,
+        "text": "Menu",
+        "url": "http://menu.local:8080/today?day=1"
+      },
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "text": "Menu",
+          "url": "http://menu.local:8080/today?day=1",
+          "image": "x"
+        }
+      }
+    },
+    {
+      "name": "system/share with nothing to share",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": false,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "title": "Only a title" }
+      }
+    },
+    {
+      "name": "system/share with an empty payload",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": { "version": 1, "type": "system/share", "payload": {} }
+    },
+    {
+      "name": "system/share with a javascript URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "javascript:alert(1)" }
+      }
+    },
+    {
+      "name": "system/share with a file URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "file:///private/var/mobile/secret.txt" }
+      }
+    },
+    {
+      "name": "system/share with a data URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "data:text/html,<script>1</script>" }
+      }
+    },
+    {
+      "name": "system/share with a relative URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "/preview/lobby" }
+      }
+    },
+    {
+      "name": "system/share with a URL that has user information",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://user:pass@signage.example.org/" }
+      }
+    },
+    {
+      "name": "system/share with a URL that has a backslash",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://signage.example.org\\evil.example/" }
+      }
+    },
+    {
+      "name": "system/share with a URL that has whitespace",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://signage.example.org/a b" }
+      }
+    },
+    {
+      "name": "system/share with an oversized URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "url": "https://signage.example.org/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "system/share with oversized text",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "system/share with an oversized title",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "text": "x"
+        }
+      }
+    },
+    {
+      "name": "system/share with a non-string URL",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": ["https://signage.example.org/"] }
+      }
+    },
+    {
+      "name": "system/share with an access token in the query",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "url": "https://signage.example.org/preview?access_token=abc"
+        }
+      }
+    },
+    {
+      "name": "system/share with a CSRF token in the query",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://signage.example.org/preview?x=1&csrf=abc" }
+      }
+    },
+    {
+      "name": "system/share with a credential in the fragment",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://signage.example.org/cb#access_token=abc" }
+      }
+    },
+    {
+      "name": "system/share with an OAuth code in the query",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": {
+          "url": "https://signage.example.org/cb?code=abc&state=xyz"
+        }
+      }
+    },
+    {
+      "name": "system/share with a Tilecast access token in the text",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "text": "tca_0123456789abcdef" }
+      }
+    },
+    {
+      "name": "system/share with a Tilecast device credential in the URL path",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/share",
+        "payload": { "url": "https://signage.example.org/tc_device_abc.def" }
+      }
+    },
+    {
+      "name": "system/media-intake-status",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-status",
+        "payload": {},
+        "id": "m1"
+      }
+    },
+    {
+      "name": "system/media-intake",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "mediaIntake",
+      "mediaIntake": {
+        "requestId": "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+        "kinds": ["image", "video"],
+        "multiple": true
+      },
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": {
+          "requestId": "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+          "accept": ["image", "video"],
+          "multiple": true
+        }
+      }
+    },
+    {
+      "name": "system/media-intake with only a request id",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "mediaIntake": {
+        "requestId": "mi-1",
+        "kinds": ["image", "video"],
+        "multiple": true
+      },
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "mi-1" }
+      }
+    },
+    {
+      "name": "system/media-intake with a kind the host does not know",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "mediaIntake": {
+        "requestId": "mi-2",
+        "kinds": ["video"],
+        "multiple": true
+      },
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "mi-2", "accept": ["video", "audio"] }
+      }
+    },
+    {
+      "name": "system/media-intake for one item",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "mediaIntake": {
+        "requestId": "mi-3",
+        "kinds": ["image", "video"],
+        "multiple": false
+      },
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "mi-3", "multiple": false }
+      }
+    },
+    {
+      "name": "system/media-intake without a request id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "accept": ["image"] }
+      }
+    },
+    {
+      "name": "system/media-intake with a request id outside the pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "Not Valid" }
+      }
+    },
+    {
+      "name": "system/media-intake with too many kinds",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "mi-4", "accept": ["a", "b", "c", "d", "e"] }
+      }
+    },
+    {
+      "name": "system/media-intake with a destination path",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "mediaIntake": {
+        "requestId": "mi-5",
+        "kinds": ["image", "video"],
+        "multiple": true
+      },
+      "message": {
+        "version": 1,
+        "type": "system/media-intake",
+        "payload": { "requestId": "mi-5", "destination": "/tmp/x" }
+      }
+    },
+    {
+      "name": "system/media-intake-completed",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "mediaIntakeCompleted",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+          "outcome": "completed",
+          "uploadedCount": 3
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed partial",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-1",
+          "outcome": "partial",
+          "uploadedCount": 1
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed cancelled",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-1",
+          "outcome": "cancelled",
+          "uploadedCount": 0
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed with an unknown outcome",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-1",
+          "outcome": "queued",
+          "uploadedCount": 0
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed with a negative count",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-1",
+          "outcome": "failed",
+          "uploadedCount": -1
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed with a fractional count",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": {
+          "requestId": "mi-1",
+          "outcome": "failed",
+          "uploadedCount": 1.5
+        }
+      }
+    },
+    {
+      "name": "system/media-intake-completed without a request id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/media-intake-completed",
+        "payload": { "outcome": "failed", "uploadedCount": 0 }
+      }
+    },
+    {
+      "name": "system/haptic sent to Studio",
+      "direction": "nativeToFrontend",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "system/haptic",
+        "payload": { "feedback": "success" }
+      }
+    },
+    {
+      "name": "system/media-intake-status reply",
+      "direction": "reply",
+      "outcome": "accept",
+      "encodes": "mediaIntakeStatusReply",
+      "message": {
+        "version": 1,
+        "id": "m1",
+        "ok": true,
+        "payload": { "available": true }
+      }
+    },
+    {
+      "name": "frontend/ready from a Studio before media intake and deep links",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": {
+        "authLifecycle": true,
+        "nativePresentations": true,
+        "nativeMediaIntake": false,
+        "deepLinks": false
+      },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": {
+          "capabilities": { "authLifecycle": true, "nativePresentations": true }
+        }
+      }
     }
-  ]
+  ],
+  "deepLinkPaths": {
+    "$comment": "Paths a deep link may open. Native code validates the path before it queues it, and Studio validates it again before it navigates. Both refuse the reserved authentication paths in addition to the ordinary Studio path rules.",
+    "accept": [
+      "/",
+      "/screens",
+      "/screens/screen-1?tab=activity",
+      "/settings/general#x",
+      "/oauthx",
+      "/loginx",
+      "/setupx",
+      "/a%20b"
+    ],
+    "refuse": [
+      "",
+      "screens",
+      "//evil.example",
+      "/\\evil.example",
+      "https://evil.example/",
+      "javascript:alert(1)",
+      "/screens/../../settings",
+      "/screens/%2E%2e/settings",
+      "/__native/modal",
+      "/__native/other",
+      "/login",
+      "/login?next=/",
+      "/login/",
+      "/setup",
+      "/setup#x",
+      "/oauth/approve",
+      "/oauth",
+      "/oauth?x=1",
+      "/screens?a=1 b",
+      "/screens\u0000",
+      "/screens\n",
+      "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]
+  }
 }
