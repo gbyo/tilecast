@@ -97,6 +97,13 @@ export function OperationsDashboard() {
     queryFn: () => getPlaybackCompliance({ ...lastDay(), dimension: "reason" }),
     refetchInterval: 300_000,
   });
+  // The same query Fleet health issues for its default window, so the
+  // summary sparklines share its cache instead of adding a request.
+  const uptime = useQuery({
+    queryKey: ["fleet-uptime", "24h"],
+    queryFn: () => api.fleetUptime("24h"),
+    refetchInterval: 60_000,
+  });
   const contentHealth = useQuery({
     queryKey: ["content-health"],
     queryFn: api.contentHealth,
@@ -190,6 +197,7 @@ export function OperationsDashboard() {
               attentionCount={attention.length}
               attentionPending={incidents.isLoading}
               confirmed={confirmed}
+              trend={uptime.data?.buckets}
             />
           )}
 

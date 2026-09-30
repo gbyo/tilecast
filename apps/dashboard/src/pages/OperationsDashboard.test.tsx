@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -100,6 +106,8 @@ function mockAll({
     items: deployments,
   });
   vi.spyOn(api, "contentHealth").mockResolvedValue(healthyContent);
+  // Fleet health itself is mocked; this is the summary's sparkline data.
+  vi.spyOn(api, "fleetUptime").mockRejectedValue(new Error("not under test"));
   vi.mocked(activity.listIncidents).mockResolvedValue({
     items: incidents,
   } as never);
@@ -230,6 +238,33 @@ describe("Overview fleet status", () => {
         name: /Playing: 3 of 4 screens in service/,
       }),
     ).toHaveAttribute("href", "/activity");
+  });
+
+  it("draws a trend line per figure only from measured uptime hours", async () => {
+    mockAll();
+    const bucket = (upPercent: number | null) => ({
+      start: "2026-09-30T00:00:00Z",
+      upPercent: upPercent ?? 0,
+      impairedPercent: 0,
+      downPercent: upPercent === null ? 0 : 100 - upPercent,
+      unknownPercent: upPercent === null ? 100 : 0,
+      uptimePercent: upPercent,
+      screensDown: 0,
+    });
+    vi.spyOn(api, "fleetUptime").mockResolvedValue({
+      buckets: [bucket(90), bucket(95), bucket(null), bucket(100)],
+    } as Awaited<ReturnType<typeof api.fleetUptime>>);
+    renderPage();
+    const status = await screen.findByTestId("fleet-status");
+    await waitFor(() =>
+      expect(status.querySelectorAll("svg[viewBox='0 0 100 30']")).toHaveLength(
+        3,
+      ),
+    );
+    // The unmeasured hour breaks each line: one two-hour run is drawn, the
+    // single trailing hour is not.
+    const [online] = status.querySelectorAll("svg[viewBox='0 0 100 30']");
+    expect(online!.querySelectorAll("g")).toHaveLength(1);
   });
 
   it("reports the playing figure as unavailable rather than zero when analytics fail", async () => {
