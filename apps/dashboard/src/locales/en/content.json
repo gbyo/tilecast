@@ -431,6 +431,7 @@
       "playlistNoSources": "Nothing in this playlist reads a data source.",
       "sourceKind": "Data source",
       "sourceFailed": "Last refresh failed",
+      "sourceMissing": "Linked data source {{id}} is unavailable.",
       "records_one": "{{count}} record",
       "records_other": "{{count}} records",
       "sourcesError": "Data sources could not be resolved"
