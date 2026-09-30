@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentReviewPage } from "./ContentReviewPage";
 import { api } from "../api/client";
+import { formatLocale, i18n } from "../i18n";
 import type { ContentReviewItem } from "../api/types";
 
 let role = "editor";
@@ -51,9 +52,10 @@ describe("Content review", () => {
   beforeEach(() => {
     role = "editor";
   });
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    if (i18n.language !== "en") await i18n.changeLanguage("en");
   });
 
   it("says approval is not enforced when the setting is off", async () => {
@@ -76,6 +78,38 @@ describe("Content review", () => {
     expect(await screen.findByText("Cafeteria Menu")).toBeTruthy();
     expect(screen.getByText(/Already on 3 screens/)).toBeTruthy();
     expect(screen.getByText(/revision 7/)).toBeTruthy();
+  });
+
+  it("formats updated timestamps with the Studio locale in every review surface", async () => {
+    await i18n.changeLanguage("ru");
+    const locale = formatLocale("ru");
+    const updatedDate = new Date(pending.updatedAt);
+    const formattedDate = updatedDate.toLocaleString(locale);
+    const dateFormat = vi.spyOn(Date.prototype, "toLocaleString");
+    vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [pending],
+    });
+    renderPage();
+
+    const dateLabels = () =>
+      screen.getAllByText((content) => content.includes(formattedDate));
+    await waitFor(() => expect(dateLabels()).toHaveLength(2));
+    expect(
+      dateFormat.mock.calls.filter(([usedLocale]) => usedLocale === locale)
+        .length,
+    ).toBeGreaterThanOrEqual(2);
+
+    const user = userEvent.setup();
+    const reviewLabel = i18n.t("contentReview.table.reviewAction", {
+      ns: "review",
+    });
+    await user.click(screen.getAllByRole("button", { name: reviewLabel })[0]!);
+    await waitFor(() => expect(dateLabels()).toHaveLength(3));
+    expect(
+      dateFormat.mock.calls.filter(([usedLocale]) => usedLocale === locale)
+        .length,
+    ).toBeGreaterThanOrEqual(3);
   });
 
   it("sends the revision that was reviewed, so a later edit cannot inherit the approval", async () => {

@@ -13,6 +13,7 @@ import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -65,6 +66,7 @@ const columnHelper = createColumnHelper<typeof features, ContentReviewItem>();
 // will wonder why something they approved is here again.
 export function ContentReviewPage() {
   const { t } = useTranslation(["review", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -146,7 +148,11 @@ export function ContentReviewPage() {
                   {item.name}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  {itemMeta(t, item, new Date(item.updatedAt).toLocaleString())}
+                  {itemMeta(
+                    t,
+                    item,
+                    new Date(item.updatedAt).toLocaleString(formatLocale),
+                  )}
                 </span>
               </div>
             );
@@ -196,7 +202,7 @@ export function ContentReviewPage() {
             ]
           : []),
       ]),
-    [canDecide, t],
+    [canDecide, formatLocale, t],
   );
   const table = useTable({
     features,
@@ -318,7 +324,7 @@ export function ContentReviewPage() {
                       {itemMeta(
                         t,
                         item,
-                        new Date(item.updatedAt).toLocaleString(),
+                        new Date(item.updatedAt).toLocaleString(formatLocale),
                       )}
                     </p>
                   </div>
@@ -405,7 +411,7 @@ export function ContentReviewPage() {
                 {itemMeta(
                   t,
                   selected,
-                  new Date(selected.updatedAt).toLocaleString(),
+                  new Date(selected.updatedAt).toLocaleString(formatLocale),
                 )}
               </SheetDescription>
             </SheetHeader>
