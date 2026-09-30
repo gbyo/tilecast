@@ -1,0 +1,27 @@
+// Shared build settings for the Tilecast iOS app. Keep project-file
+// settings minimal; change them here.
+
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+TARGETED_DEVICE_FAMILY = 1,2
+SDKROOT = iphoneos
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_APPROACHABLE_CONCURRENCY = YES
+SWIFT_EMIT_LOC_STRINGS = YES
+LOCALIZATION_PREFERS_STRING_CATALOGS = YES
+ENABLE_USER_SCRIPT_SANDBOXING = YES
+ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
+DEAD_CODE_STRIPPING = YES
+
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+TILECAST_BUNDLE_ID = org.tilecast.app
+
+// Signing: simulator builds need nothing. For a device, copy
+// Local.xcconfig.example to Local.xcconfig and set your team.
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+#include? "Local.xcconfig"
+ALWAYS_SEARCH_USER_PATHS = NO

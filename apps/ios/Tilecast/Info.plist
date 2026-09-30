@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array><string>tilecast-ios</string></array>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- The only ATS exception. It permits cleartext to IP addresses,
+		     unqualified names, and .local hosts; ServerAddressPolicy narrows
+		     that to private, link-local, and loopback addresses. Cleartext to
+		     public host names stays blocked, and certificate validation is
+		     never relaxed. -->
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Tilecast connects to Tilecast servers on your local network.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<!-- One window until scenes can each own a server safely. -->
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
+	<!-- Geist, the Studio typeface, for native chrome. See Typography.swift. -->
+	<key>UIAppFonts</key>
+	<array>
+		<string>Geist-Variable.ttf</string>
+		<string>Geist-Italic-Variable.ttf</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

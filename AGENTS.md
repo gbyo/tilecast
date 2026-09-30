@@ -65,6 +65,9 @@ apps/dashboard/              React, TypeScript, Vite, TanStack Query
   src/navigation/            route metadata and workspace tab definitions
   src/pages/                 authenticated Studio routes
   src/plugin-host/           plugin discovery and the @tilecast/studio surface
+apps/ios/                    native iOS and iPadOS host for Studio (see docs/ios-app.md)
+  Tilecast/                  SwiftUI app: scenes, server switching, localized text
+  TilecastKit/               Swift package: server profiles, WebKit hosting, policies
 apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests

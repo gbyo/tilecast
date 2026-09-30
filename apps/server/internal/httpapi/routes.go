@@ -60,11 +60,12 @@ func (s *server) routes() chi.Router {
 		api.With(s.authRateLimit).Post("/auth/passkey/login/options", s.beginPasskeyLogin)
 		api.With(s.authRateLimit).Post("/auth/passkey/login", s.finishPasskeyLogin)
 
-		// Narrow built-in OAuth: authorization codes with PKCE for loopback
-		// operators. The token endpoints are public and rate-limited; PKCE is
+		// Narrow built-in OAuth: authorization codes with PKCE for first-party
+		// clients. The token endpoints are public and rate-limited; PKCE is
 		// the client authentication. Approval stays inside the enrolled
 		// dashboard session on the routes below.
 		api.With(s.authRateLimit).Post("/oauth/token", s.oauthToken)
+		api.With(s.authRateLimit).Post("/oauth/ios-session", s.oauthIOSSession)
 		api.With(s.authRateLimit).Post("/oauth/revoke", s.oauthRevoke)
 
 		// Security self-service sits outside the dashboard group because a
