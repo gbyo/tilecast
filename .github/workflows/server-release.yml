@@ -106,19 +106,37 @@ jobs:
           fi
           version="${tag#server-v}"
 
-          notes="$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$tag" \
-            -f target_commitish="$GITHUB_SHA" \
-            --jq .body)"
-          if [ -z "$notes" ]; then
-            notes="Tilecast Server $version"
-          fi
-          printf '%s\n' "$notes" > "$RUNNER_TEMP/tilecast-release-notes.md"
-
           exists=false
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             exists=true
             echo "Release $tag already exists; this run resumes at alias promotion."
+          fi
+
+          # GitHub's generated release notes are repository-wide by default.
+          # Tilecast has independent Server, Player, Linux Player, and Edge
+          # release trains, so always scope Server notes to the previous
+          # published server-vX.Y.Z release. The first Server release has no
+          # meaningful previous Server tag, so use an explicit first-release
+          # note instead of comparing against an unrelated component release.
+          if [ "$exists" != "true" ]; then
+            previous_tag="$(
+              gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 \
+                --json tagName,publishedAt \
+                --jq '[.[] | select(.tagName | test("^server-v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""'
+            )"
+            if [ -n "$previous_tag" ]; then
+              notes="$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+                -f tag_name="$tag" \
+                -f target_commitish="$GITHUB_SHA" \
+                -f previous_tag_name="$previous_tag" \
+                --jq .body)"
+            else
+              notes="First Stable Tilecast Server release."
+            fi
+            if [ -z "$notes" ]; then
+              notes="Tilecast Server $version"
+            fi
+            printf '%s\n' "$notes" > "$RUNNER_TEMP/tilecast-release-notes.md"
           fi
 
           {
