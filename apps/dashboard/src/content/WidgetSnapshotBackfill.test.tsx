@@ -200,10 +200,18 @@ describe("WidgetSnapshotBackfill", () => {
     expect(captureWidgetPreview).not.toHaveBeenCalled();
     expect(animationFrames).toHaveLength(1);
 
+    // Record the captured element at call time: the backfill settles and
+    // tears the mount down right after the capture, so reading the live
+    // node afterwards races the disposal.
+    let capturedWidget: Element | null | undefined;
+    captureWidgetPreview.mockImplementationOnce((captureRoot: HTMLElement) => {
+      capturedWidget = captureRoot.querySelector("tc-widget-clock");
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+
     runNextAnimationFrame(2);
     await waitFor(() => expect(captureWidgetPreview).toHaveBeenCalledTimes(1));
-    const captureRoot = captureWidgetPreview.mock.calls[0]?.[0] as HTMLElement;
-    expect(captureRoot.querySelector("tc-widget-clock")).toBe(widget);
+    expect(capturedWidget).toBe(widget);
     await waitFor(() =>
       expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
         "clock-asset",
