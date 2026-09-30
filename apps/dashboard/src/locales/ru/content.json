@@ -575,6 +575,8 @@
         "columns": "Столбцы",
         "none": "Нет",
         "remove": "Удалить",
+        "fallbackPickerTitle": "Выберите резервное изображение",
+        "fallbackPickerDescription": "Найдите готовые изображения или просмотрите библиотеку.",
         "valueField": "Поле значения",
         "labelField": "Поле подписи",
         "titleField": "Поле заголовка",

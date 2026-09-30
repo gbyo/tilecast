@@ -543,6 +543,8 @@
         "columns": "Columns",
         "none": "None",
         "remove": "Remove",
+        "fallbackPickerTitle": "Choose a fallback image",
+        "fallbackPickerDescription": "Search or browse ready images.",
         "valueField": "Value field",
         "labelField": "Label field",
         "titleField": "Title field",
