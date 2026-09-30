@@ -575,6 +575,46 @@ describe("resources", () => {
     expect(resources.dataDocument("granted")).toBeNull();
     expect(resources.media("a1", "v1")).toBeNull();
   });
+
+  it("prevents one Widget from mutating a Data Document shared by another", () => {
+    const sharedDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "current",
+          kind: "records",
+          records: [
+            {
+              id: "record-1",
+              values: { title: { kind: "text", text: "Original" } },
+            },
+          ],
+        },
+      ],
+    };
+    const sharedDocuments = new Map([["source", sharedDocument]]);
+    const grant = { dataSources: ["source"] };
+    const mutatingWidget = createWidgetResources(
+      { documents: sharedDocuments },
+      grant,
+    );
+    const observingWidget = createWidgetResources(
+      { documents: sharedDocuments },
+      grant,
+    );
+
+    const title = mutatingWidget.dataset("source", "current")?.records?.[0]
+      ?.values.title;
+    expect(title).toBeDefined();
+    expect(Reflect.set(title!, "text", "Changed by another Widget")).toBe(
+      false,
+    );
+    const observedTitle = observingWidget.dataset("source", "current")
+      ?.records?.[0]?.values.title;
+    const sharedTitle = sharedDocument.datasets[0]?.records?.[0]?.values.title;
+    expect(observedTitle?.text).toBe("Original");
+    expect(Object.isFrozen(sharedTitle)).toBe(true);
+  });
 });
 
 describe("theme", () => {

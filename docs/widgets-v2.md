@@ -164,6 +164,8 @@ Time-sensitive Widgets use the `ClockController` from `@tilecast/widget-kit`. It
 
 `WidgetResources` answers only for Data Sources and media variants that the component presentation declares (§6). Every other lookup returns `null`. The resources object has no network, file, storage or host access.
 
+Before the SDK returns a prepared Data Document to a Widget, it freezes the document and its nested values. A Widget must create its own objects when it needs to transform data. This keeps one Widget from changing data that another reader shares. The SDK skips objects that it already froze, so repeated lookups do not traverse the same resource graph again.
+
 ## 6. Manifest v16 component presentation
 
 ```json
