@@ -2,11 +2,6 @@ name: validate-plugins
 
 on:
   workflow_call:
-    inputs:
-      runner:
-        description: Runner label used by this validation job.
-        type: string
-        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -15,7 +10,7 @@ permissions:
 jobs:
   validate:
     name: Plugin conformance
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
