@@ -7,44 +7,56 @@ A Tilecast Server update can include database migrations, Studio changes, server
 
 import { Steps } from "@astrojs/starlight/components";
 
+## Server release channels
+
+Tilecast Server has two release channels:
+
+- **Stable** is the recommended channel for normal installations. Stable releases are published as versioned images such as `ghcr.io/gbyo/tilecast-server:0.11.0`, with `stable` and `latest` as aliases for the latest Stable release.
+- **Development** tracks `main` through the `development` image tag and may be unstable. Use it only for development and testing.
+
+Tilecast itself is still pre-1.0, so Stable means stable relative to Development, not a claim of mature or enterprise stability.
+
+`TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, or pin an explicit release for controlled upgrades.
+
 ## Before you update
 
 - Read the release notes for the version you plan to install.
-- Create and verify a [Tilecast backup](../backups/).
+- Create and verify a [Tilecast backup](../backups/). A database migration can make the upgraded database unreadable to the older version, so the backup is the recovery path.
 - Save your deployment configuration and external secrets separately.
-- Record the Git tag or commit that is currently running.
+- Record the server version and commit that is currently running. Studio shows them under **Settings** → **Operations** as the version, channel, and commit.
 
 A full recovery needs PostgreSQL data and Tilecast media from the same point in time.
 
-## Update a source-based Compose installation
+## Update a Stable installation
+
+If this installation still uses the former Compose file that builds the server from source (its `server` service has a `build:` section), update the deployment files first. The simplest path is to pull them in the existing checkout:
+
+```sh title="Repository root · One-time Compose file transition"
+git pull --ff-only
+```
+
+This one-time transition is the last update that touches the Git checkout. Confirm `deploy/docker/compose.yml` now selects a published image through `TILECAST_VERSION` and has no `build:` section under `server` before continuing.
 
 <Steps>
 
-1. From the repository clone, fetch the version you want to install.
+1. Set `TILECAST_VERSION` in `deploy/docker/.env` to the release you want to install, for example `0.11.0`.
 
-   ```sh title="Repository clone · Fetch releases"
-   git fetch --tags origin
+2. Pull the new image and recreate the services without deleting their volumes.
+
+   ```sh title="Repository root · Update Tilecast"
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
    ```
 
-2. Check out the release tag or reviewed commit. Do not update a production server from an unreviewed working tree.
+   After the one-time transition above, a production update never needs `git pull`, `git checkout`, or `--build`.
 
-   ```sh title="Repository clone · Check out the release"
-   git checkout <release-tag>
-   ```
-
-3. Rebuild and recreate the services without deleting their volumes.
-
-   ```sh title="Repository root · Rebuild Tilecast"
-   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
-   ```
-
-4. Wait for Tilecast Server to finish startup and any database migrations, then check readiness.
+3. Wait for Tilecast Server to finish startup and any database migrations, then check readiness.
 
    ```sh title="Check server readiness"
    curl --fail https://signage.example.org/readyz
    ```
 
-5. Open Studio and check the fleet, Activity, media library, and at least one Player before considering the update finished.
+4. Open Studio and check the fleet, Activity, media library, and at least one Player before considering the update finished.
 
 </Steps>
 
@@ -58,9 +70,24 @@ Read the server log before making more changes:
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml logs server
 ```
 
-A database migration can make an older Tilecast version unable to use the upgraded database. Checking out the previous source code and starting it against that database is not always a safe rollback.
+A database migration can make an older Tilecast version unable to use the upgraded database. Changing `TILECAST_VERSION` back and starting the older image against that database is not always a safe rollback.
 
 Unless the release notes specifically say an application-only rollback is supported, restore the verified pre-update backup so the database and media return to the same point in time.
+
+## Development installs
+
+To deliberately track `main` instead of Stable releases, set `TILECAST_VERSION=development` and pull:
+
+```sh title="Repository root · Track Development builds"
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
+```
+
+Development builds report a `-dev` version and the `development` channel in **Settings** → **Operations**, so they are never mistaken for a Stable release. To build and run the server from a source checkout instead, add the development Compose override:
+
+```sh title="Repository root · Run from source"
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml up -d --build
+```
 
 ## Player versions are separate
 

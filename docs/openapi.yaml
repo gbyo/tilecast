@@ -548,7 +548,7 @@ paths:
     get:
       operationId: describeOAuthApproval
       description: >-
-        Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+        Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
       parameters:
         - {
             in: query,
@@ -595,7 +595,7 @@ paths:
     post:
       operationId: approveOAuthRequest
       description: >-
-        Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+        Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code, the state, and iss (RFC 9207): the origin of the approval page as the browser reports it in Origin. A tilecast-ios approval without a usable Origin is refused instead of returning a redirect without iss.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -605,7 +605,7 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
         "200":
-          description: Loopback redirect carrying the code
+          description: Validated redirect carrying the code
           content:
             application/json:
               schema:
@@ -622,7 +622,7 @@ paths:
     post:
       operationId: denyOAuthRequest
       description: >-
-        Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied.
+        Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the redirect carrying access_denied, the state, and iss. A tilecast-ios denial without a usable Origin is refused instead of returning a redirect without iss.
       parameters:
         - { $ref: "#/components/parameters/CSRFToken" }
       requestBody:
@@ -632,7 +632,7 @@ paths:
             schema: { $ref: "#/components/schemas/OAuthDecision" }
       responses:
         "200":
-          description: Loopback redirect carrying access_denied
+          description: Validated redirect carrying access_denied
           content:
             application/json:
               schema:
@@ -666,6 +666,35 @@ paths:
         "400":
           description: >-
             Expired, used, mismatched, or revoked grant
+        "429": { description: Too many authentication attempts }
+  /api/v1/oauth/ios-session:
+    post:
+      operationId: createIOSStudioSession
+      description: >-
+        Public and rate-limited. The Tilecast for iOS bootstrap. With authorization_code, exchanges a single-use code issued to tilecast-ios with its PKCE verifier and the callback tilecast-ios://oauth/callback, sets a normal HttpOnly Studio session cookie, and returns the grant's native credential. With refresh_token, rotates a tilecast-ios refresh token and sets a new Studio session cookie only when studio_session is true. When the session cannot start during a refresh, the rotated credential is still returned with authenticated false and no cookie. A refresh token of any other client is refused before it is consumed. The Studio session belongs to the grant: revoking the grant ends the session, and signing the session out revokes the grant. The app imports the cookie into the configured server's isolated WebKit data store and keeps the credential out of the web view.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IOSSessionRequest" }
+      responses:
+        "200":
+          description: >-
+            The native credential, and a Studio session cookie when authenticated is true
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/IOSSession" }
+        "400":
+          description: >-
+            Invalid, expired, used, mismatched, or revoked code or refresh token, or a refresh token of another client
+        "401": { description: The account is no longer active }
         "429": { description: Too many authentication attempts }
   /api/v1/oauth/revoke:
     post:
@@ -10363,6 +10392,9 @@ components:
         organizationName: { type: string }
         installationId: { type: string }
         tilecastVersion: { type: string }
+        serverChannel: { type: string }
+        buildCommit: { type: string }
+        buildDate: { type: string }
         schemaVersion: { type: integer, minimum: 1 }
         createdAt: { type: string, format: date-time }
         sizeBytes: { type: integer, minimum: 0 }
@@ -10486,6 +10518,7 @@ components:
       required:
         [
           tilecastVersion,
+          channel,
           buildCommit,
           buildDate,
           uptimeSeconds,
@@ -10500,6 +10533,7 @@ components:
         ]
       properties:
         tilecastVersion: { type: string }
+        channel: { type: string, enum: [stable, development] }
         buildCommit: { type: string }
         buildDate: { type: string }
         uptimeSeconds: { type: integer, minimum: 0 }
@@ -12486,11 +12520,14 @@ components:
     PlaylistItemInput:
       type: object
       additionalProperties: false
+      # Exactly one of assetId and layoutId; a Layout also needs durationMs.
+      # Equivalent to excluding the other field in each branch, written
+      # without "not", which the Swift OpenAPI generator cannot translate.
       oneOf:
         - required: [assetId]
-          not: { required: [layoutId] }
-        - required: [layoutId, durationMs]
-          not: { required: [assetId] }
+        - required: [layoutId]
+      dependentRequired:
+        layoutId: [durationMs]
       properties:
         assetId: { type: string, format: uuid }
         layoutId:
@@ -12522,11 +12559,11 @@ components:
     PlaylistBulkItemInput:
       type: object
       additionalProperties: false
+      # Exactly one of transition and durationMs: an object with both
+      # matches both branches, which oneOf refuses.
       oneOf:
         - required: [transition]
-          not: { required: [durationMs] }
         - required: [durationMs]
-          not: { required: [transition] }
       properties:
         itemIds:
           type: array
@@ -15036,6 +15073,41 @@ components:
         redirect_uri: { type: string, format: uri }
         code_verifier: { type: string }
         refresh_token: { type: string }
+    IOSSessionRequest:
+      type: object
+      additionalProperties: false
+      required: [grant_type, client_id]
+      properties:
+        grant_type: { type: string, enum: [authorization_code, refresh_token] }
+        client_id: { type: string, enum: [tilecast-ios] }
+        code: { type: string, description: "authorization_code only." }
+        redirect_uri:
+          {
+            type: string,
+            format: uri,
+            description: "authorization_code only: tilecast-ios://oauth/callback.",
+          }
+        code_verifier: { type: string, description: "authorization_code only." }
+        refresh_token: { type: string, description: "refresh_token only." }
+        studio_session:
+          type: boolean
+          default: false
+          description: >-
+            refresh_token only. Also start a new Studio session and set its cookie, replacing the grant's earlier session. An authorization_code exchange always sets the cookie.
+    IOSSession:
+      # Open, like OAuthTokens: the app decodes this bootstrap before it
+      # knows the server's version, so a later server may add properties
+      # without breaking installed apps.
+      type: object
+      required: [authenticated]
+      properties:
+        authenticated:
+          type: boolean
+          description: Whether the response set a Studio session cookie.
+        credential:
+          $ref: "#/components/schemas/OAuthTokens"
+          description: >-
+            The grant's native credential. A server released before native API access omits it, and the app then uses Studio only.
     OAuthApprovalClient:
       type: object
       additionalProperties: false
@@ -15068,8 +15140,9 @@ components:
       properties:
         redirectUri: { type: string, format: uri }
     OAuthTokens:
+      # Open: native clients decode it, and a later server may add
+      # properties to a token issuance.
       type: object
-      additionalProperties: false
       required: [access_token, refresh_token, token_type, expires_at]
       properties:
         access_token: { type: string }
