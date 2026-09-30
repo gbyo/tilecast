@@ -1248,6 +1248,10 @@ stored as a blank Widget.
 
 Do not capture while source previews are loading.
 
+The V2 editor waits for the organization regional profile to load before it
+enables Save or starts a thumbnail capture. Do not use the temporary locale
+and timezone fallbacks in a stored thumbnail.
+
 Generated `::before`/`::after` content is part of the Widget's pixels.
 Preserve it in captures with its computed style.
 

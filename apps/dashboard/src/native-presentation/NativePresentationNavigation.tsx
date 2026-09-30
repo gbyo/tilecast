@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { useNativeHost } from "@/native-host/NativeHostProvider";
-import { isStudioPath } from "@/native-host/protocol";
+import { isDeepLinkPath } from "@/native-host/protocol";
 
 /**
  * In the main Studio page, carries out navigation that a native
@@ -11,26 +11,31 @@ import { isStudioPath } from "@/native-host/protocol";
  * and redirects apply, and native selection follows the next
  * navigation/state. It also refetches active queries when a presentation
  * ends: the presentation is a separate document with its own query cache, so
- * whatever it saved is stale here. Inert in a browser and in a presentation
- * page.
+ * whatever it saved is stale here.
+ *
+ * The same message carries a deep link. The host validated the link and
+ * queued it until this page was ready, and Studio validates the path again
+ * here: a link never reaches sign-in, setup, or OAuth approval. Inert in a
+ * browser and in a presentation page.
  */
 export function NativePresentationNavigation() {
   const host = useNativeHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const enabled =
-    host.status === "ready" &&
-    host.context === "main" &&
-    host.capabilities.nativePresentations;
+  const main = host.status === "ready" && host.context === "main";
+  const enabled = main && host.capabilities.nativePresentations;
+  const opensPaths =
+    main &&
+    (host.capabilities.nativePresentations || host.capabilities.deepLinks);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!opensPaths) return;
     return host.subscribe("navigation/open-path", ({ path }) => {
-      if (!isStudioPath(path)) return false;
+      if (!isDeepLinkPath(path)) return false;
       void navigate(path);
       return true;
     });
-  }, [enabled, host, navigate]);
+  }, [opensPaths, host, navigate]);
 
   useEffect(() => {
     if (!enabled) return;
