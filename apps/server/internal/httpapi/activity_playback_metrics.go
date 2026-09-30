@@ -3,6 +3,9 @@ package httpapi
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
 // Confirmed screen playback time is wall-clock time: the union of root
@@ -60,11 +63,21 @@ type playbackDurations struct {
 	ContentExposureMS int64
 }
 
-func (s *server) playbackDurations(ctx context.Context, from, to time.Time) (playbackDurations, error) {
+func (s *server) playbackDurations(ctx context.Context, from, to time.Time, scopeUser uuid.UUID, scoped bool) (playbackDurations, error) {
 	var durations playbackDurations
-	if err := s.db.QueryRow(ctx, confirmedScreenPlaybackSQL, from, to).Scan(&durations.ConfirmedScreenMS); err != nil {
+	confirmedQuery := confirmedScreenPlaybackSQL
+	contentQuery := contentExposureSQL
+	args := []any{from, to}
+	if scoped {
+		// The merged islands carry no screens alias, so the scope joins
+		// screens back at the outer level rather than inside the CTEs.
+		confirmedQuery += ` JOIN screens s ON s.id = merged.screen_id WHERE ` + devices.InScopeSQL("s", "$3")
+		contentQuery += ` AND ` + devices.InScopeSQL("s", "$3")
+		args = append(args, scopeUser)
+	}
+	if err := s.db.QueryRow(ctx, confirmedQuery, args...).Scan(&durations.ConfirmedScreenMS); err != nil {
 		return durations, err
 	}
-	err := s.db.QueryRow(ctx, contentExposureSQL, from, to).Scan(&durations.ContentExposureMS)
+	err := s.db.QueryRow(ctx, contentQuery, args...).Scan(&durations.ContentExposureMS)
 	return durations, err
 }
