@@ -30,5 +30,5 @@ export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
     "widget.tilecast.weather": 1,
   });
 
-/** Presentation schema of kind "component" presentations. */
-export const COMPONENT_PRESENTATION_SCHEMA_VERSION = 2;
+/** Latest component presentation schema supported by this runtime. */
+export const COMPONENT_PRESENTATION_SCHEMA_VERSION = 3;

@@ -10,10 +10,14 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 )
 
-// ManifestSchemaComponents is the first manifest schema that carries kind
-// "component" Widget presentations (docs/widgets-v2.md). It includes every
-// v15 feature; v11–v15 keep their meaning.
-const ManifestSchemaComponents = 16
+const (
+	// ManifestSchemaComponents first carries kind "component" Widget
+	// presentations with component presentation schema 2.
+	ManifestSchemaComponents = 16
+	// ManifestSchemaComponentEmptyPolicy carries component presentation schema 3.
+	ManifestSchemaComponentEmptyPolicy = 17
+	componentPresentationSchemaLegacy  = 2
+)
 
 // ComponentPresentation references a first-class Widget component. Prepared
 // Data Documents stay in the manifest's dataSources; the component lists only
@@ -24,6 +28,7 @@ type ComponentPresentation struct {
 	Config      map[string]any      `json:"config"`
 	DataSources []string            `json:"dataSources"`
 	Media       []ComponentMediaRef `json:"media"`
+	Empty       string              `json:"empty,omitempty"`
 }
 
 type ComponentMediaRef struct {
@@ -35,6 +40,13 @@ type ComponentMediaRef struct {
 // when the component cannot preserve a saved behavior. Manifest generation
 // then uses the compatibility presentation when one exists.
 func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
+	return s.compileWidgetComponentForSchema(provider, raw, contentdefs.ComponentPresentationSchemaVersion)
+}
+
+func (s *Service) compileWidgetComponentForSchema(provider string, raw json.RawMessage, schemaVersion int) (*WidgetPresentation, error) {
+	if schemaVersion != componentPresentationSchemaLegacy && schemaVersion != contentdefs.ComponentPresentationSchemaVersion {
+		return nil, fmt.Errorf("unsupported component presentation schema %d", schemaVersion)
+	}
 	definition, ok := s.definitions.Widget(provider)
 	if !ok || definition.Component == nil {
 		return nil, nil
@@ -46,11 +58,12 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 			return nil, err
 		}
 	}
-	// Component playback does not apply a Widget's playlist auto-skip signal
-	// yet. Keep an opted-in Widget on its compatibility presentation until the
-	// selected component can preserve that behavior.
+	// Schema 2 cannot carry the component empty policy. Preserve an opted-in
+	// Widget's compatibility behavior for those Players. Schema 3 applies the
+	// policy from the declared component spec at fullscreen mount time.
 	if definition.HasFallback() {
-		if autoSkip, _ := configuration["autoSkipWhenEmpty"].(bool); autoSkip {
+		if autoSkip, _ := configuration["autoSkipWhenEmpty"].(bool); autoSkip &&
+			(schemaVersion < contentdefs.ComponentPresentationSchemaVersion || spec.Empty != "skip-eligible") {
 			return nil, nil
 		}
 	}
@@ -81,14 +94,22 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 		grant(managed)
 	}
 	return &WidgetPresentation{
-		SchemaVersion:        contentdefs.ComponentPresentationSchemaVersion,
+		SchemaVersion:        schemaVersion,
 		Kind:                 "component",
 		RequiredCapabilities: map[string]int{spec.Capability(): spec.Version},
 		Component: &ComponentPresentation{
 			Type: spec.Type, Version: spec.Version, Config: config,
 			DataSources: dataSources, Media: componentMedia(definition, configuration),
+			Empty: componentEmptyPolicy(spec, schemaVersion),
 		},
 	}, nil
+}
+
+func componentEmptyPolicy(spec contentdefs.ComponentSpec, schemaVersion int) string {
+	if schemaVersion < contentdefs.ComponentPresentationSchemaVersion {
+		return ""
+	}
+	return spec.Empty
 }
 
 // componentMedia grants the media variants a component may display: each

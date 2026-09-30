@@ -144,6 +144,18 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 		t.Fatalf("component manifest still carries the persisted configuration: %s", widget.Configuration)
 	}
 
+	// A Player that reports component schema 3 receives the bounded empty
+	// policy in manifest v17. Schema 2 Players keep the v16 contract above.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{"widget.tilecast.clock": 2})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3Widget := onlyWidget(t, manifest)
+	if manifest.SchemaVersion != ManifestSchemaComponentEmptyPolicy || v3Widget.Presentation.SchemaVersion != 3 || v3Widget.Presentation.Component.Empty != "render" {
+		t.Fatalf("component schema 3 was not negotiated: schema=%d presentation=%+v", manifest.SchemaVersion, v3Widget.Presentation)
+	}
+
 	// The persisted Widget is unchanged by any of this.
 	var stored json.RawMessage
 	if err := f.pool.QueryRow(f.ctx, `SELECT configuration FROM widgets WHERE provider='clock'`).Scan(&stored); err != nil {
@@ -154,7 +166,7 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 	}
 
 	// Assignment validation agrees with manifest generation for every profile.
-	for _, schemas := range []string{"{1}", "{1,2}"} {
+	for _, schemas := range []string{"{1}", "{1,2}", "{1,2,3}"} {
 		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.clock": 2})
 		if err := f.service.ValidatePresentationTargets(f.ctx, &playlistID, nil, []uuid.UUID{f.screen}, nil); err != nil {
 			t.Fatalf("schemas %s: valid Clock content rejected: %v", schemas, err)

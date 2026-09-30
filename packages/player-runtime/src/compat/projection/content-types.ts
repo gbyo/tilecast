@@ -221,13 +221,15 @@ export interface WebSandboxPresentation {
   } | null;
 }
 
-/** Manifest v16 first-class Widget component (docs/widgets-v2.md). */
+/** Manifest v16/v17 first-class Widget component (docs/widgets-v2.md). */
 export interface ComponentPresentation {
   type: string;
   version: number;
   config: Record<string, unknown>;
   dataSources?: string[];
   media?: { assetId: string; variantId: string }[];
+  /** Present in component presentation schema 3. */
+  empty?: "render" | "skip-eligible";
 }
 
 export interface WidgetPresentation {

@@ -19,8 +19,10 @@ type presentationWidgetRequirement struct {
 	PresetID      *string
 	Configuration json.RawMessage
 	Presentation  *WidgetPresentation
-	// Component is the first-class presentation, when the Widget has one.
+	// Component is presentation schema 3, which carries the empty policy.
 	Component *WidgetPresentation
+	// ComponentV2 preserves the released component contract for older Players.
+	ComponentV2 *WidgetPresentation
 }
 
 type playerPresentationCapabilities struct {
@@ -91,7 +93,7 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 			}
 			for _, requirement := range requirements {
 				if requirement.Presentation == nil {
-					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player))
+					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, componentRequirement(requirement), player))
 				}
 			}
 			continue
@@ -221,7 +223,11 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}
-		if requirement.Presentation == nil && requirement.Component == nil {
+		requirement.ComponentV2, err = s.compileWidgetComponentForSchema(requirement.Provider, requirement.Configuration, componentPresentationSchemaLegacy)
+		if err != nil {
+			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+		}
+		if requirement.Presentation == nil && requirement.Component == nil && requirement.ComponentV2 == nil {
 			continue
 		}
 		if v13Blocker == "" && s.widgetRequiresV13(requirement.Provider) {
@@ -385,15 +391,24 @@ func checkPresentationCompatibility(ctx context.Context, q presentationQuery, sc
 // component or, failing that, its compatibility presentation. A Widget without
 // a compatibility presentation is reported against its component.
 func checkWidgetCompatibility(ctx context.Context, q presentationQuery, screenID uuid.UUID, requirement presentationWidgetRequirement, player playerPresentationCapabilities) error {
-	if requirement.Component != nil {
-		if supported, _ := presentationSupported(requirement.Component, player); supported {
-			return nil
-		}
-		if requirement.Presentation == nil {
-			return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player)
+	for _, component := range []*WidgetPresentation{requirement.Component, requirement.ComponentV2} {
+		if component != nil {
+			if supported, _ := presentationSupported(component, player); supported {
+				return nil
+			}
 		}
 	}
+	if requirement.Presentation == nil {
+		return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, componentRequirement(requirement), player)
+	}
 	return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Presentation, player)
+}
+
+func componentRequirement(requirement presentationWidgetRequirement) *WidgetPresentation {
+	if requirement.Component != nil {
+		return requirement.Component
+	}
+	return requirement.ComponentV2
 }
 
 // widgetCapabilityError describes exactly why a screen cannot display a Widget:

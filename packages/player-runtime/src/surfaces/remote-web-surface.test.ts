@@ -139,6 +139,7 @@ function harness(
       sink.fallbackShownCount += 1;
     },
     zoneFailed: () => undefined,
+    widgetEmpty: () => undefined,
   };
   const env: SurfaceEnvironment = { clock, sink, animationScale: 0 };
   const host = scriptedHost();

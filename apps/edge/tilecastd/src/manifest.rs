@@ -92,9 +92,10 @@ pub mod profile {
     /// helper, shown through the renderer's remote web surface.
     pub const WEB_RUNTIME_VERSION: u32 = 1;
 
-    /// Presentation schemas the runtime renders: 1 (declarative and web)
-    /// and 2 (first-class Widget components, docs/widgets-v2.md).
-    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
+    /// Presentation schemas the runtime renders: 1 (declarative and web),
+    /// 2 (first-class Widget components), and 3 (component empty policy).
+    pub const PRESENTATION_SCHEMAS: &[u32] =
+        &[1, 2, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
 
     /// Declarative capabilities and `widget.<type>` components, as reported.
     pub fn native_capability(name: &str) -> u32 {
