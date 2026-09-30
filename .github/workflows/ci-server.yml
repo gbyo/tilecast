@@ -6,10 +6,6 @@ on:
       race:
         type: boolean
         default: false
-      runner:
-        description: Runner label used by the server validation job.
-        type: string
-        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -18,7 +14,7 @@ permissions:
 jobs:
   validate:
     name: Server CI
-    runs-on: ${{ inputs.runner }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
