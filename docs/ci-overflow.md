@@ -2,7 +2,7 @@
 
 Tilecast can use a self-hosted Linux runner for trusted heavy CI without consuming a GitHub-hosted Linux slot. The first workload moved to it is the scheduled Go race suite.
 
-The runner label is `tilecast-overflow`. Pull request validation remains on GitHub-hosted runners.
+The runner label is `tilecast-overflow`. Trusted same-repository pull requests authored and triggered by `gbyo` can also use it for Linux validation. Fork PRs and other actors remain on GitHub-hosted runners.
 
 ## Security boundary
 
@@ -11,10 +11,11 @@ Do not use this runner for pull request jobs. This repository is public, and the
 The pre-job hook in `deploy/ci-runner/pre-job.sh` refuses:
 
 - jobs for repositories other than `gbyo/tilecast`
-- `pull_request` and `pull_request_target` events
-- refs other than `refs/heads/main`
+- every `pull_request_target` event
+- pull requests whose author, triggering actor, sender, or head repository is not the trusted `gbyo` / `gbyo/tilecast` combination
+- non-PR jobs whose ref is not `refs/heads/main`
 
-That is a guardrail, not a sandbox. If this runner is expanded to execute arbitrary PR code, move it into a disposable VM first.
+That is a guardrail, not a sandbox. Never broaden this to arbitrary public PR code on the host runner. A disposable VM is required before untrusted PR execution.
 
 ## Configure the runner on bell
 
@@ -100,3 +101,19 @@ If the home runner is unavailable, manually dispatch the same workflow with `ubu
 This first stage deliberately offloads only a trusted scheduled workload. It reduces GitHub-hosted contention without changing required PR checks.
 
 A later dispatcher can watch GitHub-hosted queue time and route additional trusted `main` jobs to `tilecast-overflow` when the hosted queue is saturated. GitHub does not dynamically retarget an already queued `ubuntu-latest` job, so that stage requires selecting the runner before the job is created rather than trying to steal a queued job afterward.
+
+
+## Trusted PR overflow
+
+Pull request validation chooses `tilecast-overflow` when all of these are true:
+
+- the event is a `pull_request`
+- the PR head repository is `gbyo/tilecast`
+- the PR author is `gbyo`
+- the actor that triggered the run is `gbyo`
+
+The affected-area detector, required-status aggregator, and the following reusable Linux checks can run on `bell`: CI contracts, server, dashboard, Linux player, plugins, container, docs, CLI, and data sources.
+
+Android and iOS stay on GitHub-hosted platform runners. Browser visual/E2E and Widgets visual also stay GitHub-hosted for now because their Playwright dependency installation assumes the hosted image's passwordless package-management setup.
+
+The home runner handles one Actions job at a time, so selected jobs queue behind each other instead of consuming multiple GitHub-hosted Linux concurrency slots.
