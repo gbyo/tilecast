@@ -21,7 +21,11 @@ import {
 import { Spinner } from "@tilecast/studio/ui/spinner";
 import { toast } from "@tilecast/studio/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
-import { useFormatLocale, usePluginTranslation } from "@tilecast/studio";
+import {
+  apiErrorMessage,
+  useFormatLocale,
+  usePluginTranslation,
+} from "@tilecast/studio";
 import en from "../locales/en.json";
 
 // OutputsPanel shows the generated dataset for each saved view plus projection status, and lets a
@@ -62,7 +66,7 @@ export function OutputsPanel({
         <AlertTitle>{t("outputs.loadError")}</AlertTitle>
         <AlertDescription>
           {outputs.error instanceof Error
-            ? outputs.error.message
+            ? apiErrorMessage(outputs.error)
             : t("outputs.retry")}
         </AlertDescription>
       </Alert>
@@ -120,7 +124,7 @@ export function OutputsPanel({
           <AlertTitle>{t("outputs.rebuildError")}</AlertTitle>
           <AlertDescription>
             {rebuild.error instanceof Error
-              ? rebuild.error.message
+              ? apiErrorMessage(rebuild.error)
               : t("outputs.retry")}
           </AlertDescription>
         </Alert>
