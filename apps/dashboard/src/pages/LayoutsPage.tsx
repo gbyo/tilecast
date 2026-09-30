@@ -326,7 +326,8 @@ export function LayoutsPage() {
         },
         csrf,
       );
-      if (template === "blank") return created;
+      if (template === "blank")
+        return { layout: created, templateApplied: true };
       const document = structuredClone(created.draft);
       document.placements.push(
         {
@@ -372,15 +373,28 @@ export function LayoutsPage() {
           },
         },
       );
-      return api.saveLayoutDraft(
-        created.id,
-        created.draftRevision,
-        document,
-        csrf,
-      );
+      try {
+        const initialized = await api.saveLayoutDraft(
+          created.id,
+          created.draftRevision,
+          document,
+          csrf,
+        );
+        return { layout: initialized, templateApplied: true };
+      } catch {
+        // Creation already committed. Treat the durable Layout as the result
+        // so Retry cannot create another one; the editor can recover the
+        // announcement content on this same resource.
+        return { layout: created, templateApplied: false };
+      }
     },
-    onSuccess: (layout) => {
-      toast.add({ title: "Layout created.", type: "success" });
+    onSuccess: ({ layout, templateApplied }) => {
+      toast.add({
+        title: templateApplied
+          ? "Layout created."
+          : "Layout created, but the announcement template could not be applied.",
+        type: templateApplied ? "success" : "error",
+      });
       void queryClient.invalidateQueries({ queryKey: ["layouts"] });
       void navigate(`/layouts/${layout.id}`);
     },
