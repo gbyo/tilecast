@@ -481,6 +481,13 @@
       "addItem": "Add item",
       "selectPlaceholder": "Select…",
       "selectSourceFirst": "Select a Data Source first",
+      "mediaAsset": {
+        "none": "No media selected",
+        "clear": "Clear media selection",
+        "pickerTitle": "Choose media",
+        "pickerDescription": "Search or browse the full media library.",
+        "pickerConfirm": "Select media"
+      },
       "removeItem": "Remove {{label}} item {{index}}",
       "guide": {
         "shapeRecords": "record rows",
