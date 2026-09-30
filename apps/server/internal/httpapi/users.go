@@ -205,7 +205,7 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !active || passwordHash != nil {
-		if _, err := tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id=$1`, id); err != nil {
+		if err := auth.RevokeUserSessions(r.Context(), tx, id); err != nil {
 			s.internalError(w, r, err)
 			return
 		}
@@ -275,7 +275,7 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if _, err := tx.Exec(r.Context(), `DELETE FROM sessions WHERE user_id=$1`, id); err != nil {
+	if err := auth.RevokeUserSessions(r.Context(), tx, id); err != nil {
 		s.internalError(w, r, err)
 		return
 	}

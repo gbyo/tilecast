@@ -78,12 +78,67 @@ enum JSONValue: Equatable, Sendable {
 public enum NativeBridgeProtocol {
     public static let version = 1
 
+    /// The kind of page a bridge belongs to. It decides which messages the
+    /// bridge accepts, and Studio reads it from the `config/get` reply.
+    public enum Context: String, Equatable, Sendable {
+        /// The one main Studio page: native navigation, the auth
+        /// lifecycle, and opening presentations.
+        case main
+        /// The reusable presentation page: presentation lifecycle and
+        /// chrome only.
+        case presentation
+    }
+
+    /// What Studio reports it supports in `frontend/ready`. A capability
+    /// that is absent or not `true` is unavailable, so the app never sends a
+    /// message that an older Studio would not understand.
+    public struct FrontendCapabilities: Equatable, Sendable {
+        /// Studio handles `auth/sign-out-request` and reports `auth/signed-out`.
+        public var authLifecycle: Bool
+        /// Studio has the presentation routes and messages, and handles
+        /// `navigation/open-path`.
+        public var nativePresentations: Bool
+        /// Studio handles `alert/action`, so the app may show its alert.
+        public var nativeAlerts: Bool
+
+        public init(authLifecycle: Bool = false, nativePresentations: Bool = false, nativeAlerts: Bool = false) {
+            self.authLifecycle = authLifecycle
+            self.nativePresentations = nativePresentations
+            self.nativeAlerts = nativeAlerts
+        }
+    }
+
     /// A message Studio sends to the app.
     public enum FrontendMessage: Equatable, Sendable {
         case configGet
-        case frontendReady
+        case frontendReady(FrontendCapabilities)
         case navigationCatalog(NavigationCatalog)
         case navigationState(NavigationState)
+        /// Studio completed its own sign-out. It carries no credential.
+        case authSignedOut
+        /// The main page asks for a presentation.
+        case presentationOpen(NativePresentation)
+        /// The presentation page is signed in and receives `presentation/show`.
+        case presentationReady
+        case presentationUpdate(PresentationUpdate)
+        case presentationClose(presentationID: String)
+        /// Dismiss, then have the main page navigate to `path`.
+        case presentationNavigate(presentationID: String, path: String)
+        /// Main page: the chrome of the page Studio shows.
+        case navigationChrome(NavigationChrome)
+        /// Either page asks for a native alert.
+        case alertPresent(NativeAlert)
+        /// Either page withdraws an alert it presented.
+        case alertCancel(alertID: String)
+
+        /// The bridge context allowed to send this message.
+        var context: Context? {
+            switch self {
+            case .configGet, .frontendReady, .alertPresent, .alertCancel: nil
+            case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen: .main
+            case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
+            }
+        }
     }
 
     public enum Decoded: Equatable, Sendable {
@@ -128,9 +183,21 @@ public enum NativeBridgeProtocol {
         let message: FrontendMessage?
         switch type {
         case "config/get": message = .configGet
-        case "frontend/ready": message = .frontendReady
+        case "frontend/ready": message = frontendCapabilities(payload).map(FrontendMessage.frontendReady)
+        case "auth/signed-out": message = .authSignedOut
         case "navigation/catalog": message = catalog(payload).map(FrontendMessage.navigationCatalog)
         case "navigation/state": message = state(payload).map(FrontendMessage.navigationState)
+        case "presentation/open": message = presentationOpen(payload).map(FrontendMessage.presentationOpen)
+        case "presentation/ready": message = .presentationReady
+        case "presentation/update": message = presentationUpdate(payload).map(FrontendMessage.presentationUpdate)
+        case "presentation/close": message = opaqueID(payload["presentationId"]).map { .presentationClose(presentationID: $0) }
+        case "presentation/navigate":
+            guard let presentationID = opaqueID(payload["presentationId"]),
+                  let path = payload["path"]?.string, PresentationPaths.isStudioPath(path) else { message = nil; break }
+            message = .presentationNavigate(presentationID: presentationID, path: path)
+        case "navigation/chrome": message = navigationChrome(payload).map(FrontendMessage.navigationChrome)
+        case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
+        case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
         default: return .unknownType(type, id: requestID)
         }
         guard let message else { return .malformed(type: type, id: requestID) }
@@ -153,11 +220,69 @@ public enum NativeBridgeProtocol {
         return .object(reply)
     }
 
-    static func configPayload(nativeNavigation: Bool) -> [String: JSONValue] {
+    /// What the app offers each kind of page. Only the main page publishes
+    /// navigation and follows the auth lifecycle.
+    static func configPayload(context: Context) -> [String: JSONValue] {
         [
             "protocolVersion": .number(Double(version)),
-            "capabilities": .object(["nativeNavigation": .bool(nativeNavigation)]),
+            "context": .string(context.rawValue),
+            "capabilities": .object([
+                "nativeNavigation": .bool(context == .main),
+                "authLifecycle": .bool(context == .main),
+                "nativePresentations": .bool(true),
+                "nativeAlerts": .bool(true),
+            ]),
         ]
+    }
+
+    private static func message(_ type: String, _ payload: [String: JSONValue]) -> JSONValue {
+        .object(["version": .number(Double(version)), "type": .string(type), "payload": .object(payload)])
+    }
+
+    /// Tells the presentation page which route to show, without a load.
+    static func presentationShow(presentationID: String, path: String) -> JSONValue {
+        message("presentation/show", ["presentationId": .string(presentationID), "path": .string(path)])
+    }
+
+    static func presentationAction(presentationID: String, actionID: String) -> JSONValue {
+        message("presentation/action", ["presentationId": .string(presentationID), "actionId": .string(actionID)])
+    }
+
+    static func presentationDismissed(presentationID: String) -> JSONValue {
+        message("presentation/dismissed", ["presentationId": .string(presentationID)])
+    }
+
+    /// Tells the main page a presentation ended, so it can refetch what the
+    /// presentation may have changed. The presentation had its own query cache.
+    static func presentationEnded(presentationID: String) -> JSONValue {
+        message("presentation/ended", ["presentationId": .string(presentationID)])
+    }
+
+    /// The user tapped the native back button. It carries no path: Studio's
+    /// router decides where back goes.
+    static func navigationBack() -> JSONValue {
+        message("navigation/back", [:])
+    }
+
+    /// The user chose a button of an alert. `actionID` is one of the ids
+    /// Studio sent.
+    static func alertAction(alertID: String, actionID: String) -> JSONValue {
+        message("alert/action", ["alertId": .string(alertID), "actionId": .string(actionID)])
+    }
+
+    /// Relays a presentation's navigation to the main page's router.
+    static func openPath(_ path: String) -> JSONValue {
+        message("navigation/open-path", ["path": .string(path)])
+    }
+
+    /// Asks Studio to sign out with its own logout. Like every message the
+    /// app sends, it carries no credential.
+    static func signOutRequest() -> JSONValue {
+        .object([
+            "version": .number(Double(version)),
+            "type": .string("auth/sign-out-request"),
+            "payload": .object([:]),
+        ])
     }
 
     static func navigationRequest(destinationID: String) -> JSONValue {
@@ -169,6 +294,189 @@ public enum NativeBridgeProtocol {
     }
 
     // MARK: Payloads
+
+    private static func frontendCapabilities(_ payload: [String: JSONValue]) -> FrontendCapabilities? {
+        switch payload["capabilities"] {
+        case nil: return FrontendCapabilities()
+        case .object(let capabilities)?:
+            return FrontendCapabilities(
+                authLifecycle: capabilities["authLifecycle"] == .bool(true),
+                nativePresentations: capabilities["nativePresentations"] == .bool(true),
+                nativeAlerts: capabilities["nativeAlerts"] == .bool(true)
+            )
+        default: return nil
+        }
+    }
+
+    static let maximumHeaderActions = 4
+    static let maximumMenuItems = 16
+
+    private static func presentationOpen(_ payload: [String: JSONValue]) -> NativePresentation? {
+        guard let id = opaqueID(payload["presentationId"]),
+              let path = payload["path"]?.string, PresentationPaths.isPresentationPath(path),
+              let title = payload["title"]?.string, isBounded(title, 200),
+              let subtitle = optionalText(payload["subtitle"]),
+              let size = optionalSize(payload["size"]),
+              let dismissible = optionalBool(payload["dismissible"]) else { return nil }
+        return NativePresentation(
+            id: id,
+            path: path,
+            header: PresentationHeader(title: title, subtitle: subtitle ?? nil),
+            size: size ?? .full,
+            isDismissible: dismissible ?? true
+        )
+    }
+
+    private static func navigationChrome(_ payload: [String: JSONValue]) -> NavigationChrome? {
+        guard Set(payload.keys).isSubset(of: ["title", "back"]) else { return nil }
+        let title: String?
+        switch payload["title"] {
+        case nil: title = nil
+        case .string(let text)? where isBounded(text, 200): title = text
+        default: return nil
+        }
+        let backLabel: String?
+        switch payload["back"] {
+        case nil: backLabel = nil
+        case .object(let back)? where Set(back.keys) == ["label"]:
+            guard let label = back["label"]?.string, isBounded(label, 200) else { return nil }
+            backLabel = label
+        default: return nil
+        }
+        return NavigationChrome(title: title, backLabel: backLabel)
+    }
+
+    private static func alertPresent(_ payload: [String: JSONValue]) -> NativeAlert? {
+        guard Set(payload.keys).isSubset(of: ["alertId", "title", "message", "actions"]),
+              let id = opaqueID(payload["alertId"]),
+              let title = payload["title"]?.string, isBounded(title, 200),
+              case .array(let rawButtons)? = payload["actions"],
+              (1...NativeAlert.maximumButtons).contains(rawButtons.count) else { return nil }
+        let message: String?
+        switch payload["message"] {
+        case nil: message = nil
+        case .string(let text)? where isBounded(text, 1000): message = text
+        default: return nil
+        }
+        var seen = Set<String>()
+        var buttons: [NativeAlert.Button] = []
+        for raw in rawButtons {
+            guard let button = raw.object, Set(button.keys).isSubset(of: ["id", "label", "role"]),
+                  let buttonID = opaqueID(button["id"]), seen.insert(buttonID).inserted,
+                  let label = button["label"]?.string, isBounded(label, 60) else { return nil }
+            let role: String?
+            switch button["role"] {
+            case nil: role = nil
+            case .string(let token)? where ["default", "cancel", "destructive"].contains(token): role = token
+            default: return nil
+            }
+            buttons.append(NativeAlert.Button(id: buttonID, label: label, role: .init(token: role)))
+        }
+        return NativeAlert(id: id, title: title, message: message, buttons: buttons)
+    }
+
+    private static func presentationUpdate(_ payload: [String: JSONValue]) -> PresentationUpdate? {
+        guard let id = opaqueID(payload["presentationId"]),
+              let size = optionalSize(payload["size"]),
+              let dismissible = optionalBool(payload["dismissible"]) else { return nil }
+        let header: PresentationHeader?
+        switch payload["header"] {
+        case nil: header = nil
+        case .object(let object)?:
+            guard let decoded = presentationHeader(object) else { return nil }
+            header = decoded
+        default: return nil
+        }
+        return PresentationUpdate(presentationID: id, header: header, size: size, isDismissible: dismissible)
+    }
+
+    private static func presentationHeader(_ header: [String: JSONValue]) -> PresentationHeader? {
+        guard let title = header["title"]?.string, isBounded(title, 200),
+              let subtitle = optionalText(header["subtitle"]),
+              let navigationLabel = optionalText(header["navigationLabel"]),
+              let menuLabel = optionalText(header["menuLabel"]) else { return nil }
+        let navigation: PresentationHeader.Navigation
+        switch header["navigation"] {
+        case nil: navigation = .close
+        case .string(let value)? where isToken(value, 32): navigation = value == "back" ? .back : .close
+        default: return nil
+        }
+        var seen = Set<String>()
+        var actions: [PresentationHeader.Action] = []
+        switch header["actions"] {
+        case nil: break
+        case .array(let items)? where items.count <= maximumHeaderActions:
+            for item in items {
+                guard let item = item.object,
+                      let id = opaqueID(item["id"]), seen.insert(id).inserted,
+                      let label = item["label"]?.string, isBounded(label, 200),
+                      let icon = item["icon"]?.string, isIconToken(icon) else { return nil }
+                actions.append(.init(id: id, label: label, icon: icon))
+            }
+        default: return nil
+        }
+        var menu: [PresentationHeader.MenuItem] = []
+        switch header["menu"] {
+        case nil: break
+        case .array(let items)? where items.count <= maximumMenuItems:
+            for item in items {
+                guard let item = item.object,
+                      let id = opaqueID(item["id"]), seen.insert(id).inserted,
+                      let label = item["label"]?.string, isBounded(label, 200),
+                      let disabled = optionalBool(item["disabled"]) else { return nil }
+                let icon: String?
+                switch item["icon"] {
+                case nil: icon = nil
+                case .string(let value)? where isIconToken(value): icon = value
+                default: return nil
+                }
+                menu.append(.init(id: id, label: label, icon: icon, isDisabled: disabled ?? false))
+            }
+        default: return nil
+        }
+        return PresentationHeader(
+            title: title,
+            subtitle: subtitle ?? nil,
+            navigation: navigation,
+            navigationLabel: navigationLabel ?? nil,
+            menuLabel: menuLabel ?? nil,
+            actions: actions,
+            menu: menu
+        )
+    }
+
+    // Optional values decode to `.some(nil)` when absent and to nil when
+    // present but invalid, so a guard refuses only invalid values.
+
+    private static func optionalText(_ value: JSONValue?) -> String?? {
+        switch value {
+        case nil: .some(nil)
+        case .string(let text)? where isBounded(text, 200): .some(text)
+        default: nil
+        }
+    }
+
+    private static func optionalBool(_ value: JSONValue?) -> Bool?? {
+        switch value {
+        case nil: .some(nil)
+        case .bool(let flag)?: .some(flag)
+        default: nil
+        }
+    }
+
+    private static func optionalSize(_ value: JSONValue?) -> PresentationSize?? {
+        switch value {
+        case nil: .some(nil)
+        case .string(let token)? where isToken(token, 32): .some(PresentationSize(token: token))
+        default: nil
+        }
+    }
+
+    /// Presentation and action ids: the destination id pattern, at most 64.
+    private static func opaqueID(_ value: JSONValue?) -> String? {
+        guard let id = value?.string, isIdentifier(id, maximumLength: 64) else { return nil }
+        return id
+    }
 
     private static func catalog(_ payload: [String: JSONValue]) -> NavigationCatalog? {
         guard case .array(let rawGroups)? = payload["groups"], rawGroups.count <= 32 else { return nil }
@@ -250,7 +558,12 @@ public enum NativeBridgeProtocol {
 
     /// `^[a-z][a-z0-9-]*$`, at most 40 characters.
     private static func isIconToken(_ value: String) -> Bool {
-        guard isBounded(value, 40), let first = value.unicodeScalars.first, ("a"..."z").contains(first) else { return false }
+        isToken(value, 40)
+    }
+
+    /// `^[a-z][a-z0-9-]*$`.
+    private static func isToken(_ value: String, _ maximum: Int) -> Bool {
+        guard isBounded(value, maximum), let first = value.unicodeScalars.first, ("a"..."z").contains(first) else { return false }
         return value.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "-" }
     }
 }

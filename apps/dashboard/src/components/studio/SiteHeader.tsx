@@ -95,10 +95,18 @@ export function SiteHeader({
         <SidebarTrigger aria-label={t("header.toggleNavigation")} />
       )}
       {navigationTrigger && editor && (
-        <Separator orientation="vertical" className="h-4 self-center" />
+        <Separator
+          orientation="vertical"
+          className="h-4 self-center max-sm:hidden"
+        />
       )}
       {breadcrumbs.length > 0 ? (
-        <Breadcrumb className={cn("min-w-0", editor ? "min-w-24" : "flex-1")}>
+        <Breadcrumb
+          className={cn(
+            "min-w-0",
+            editor ? "max-sm:flex-1 sm:min-w-24" : "flex-1",
+          )}
+        >
           <BreadcrumbList className="flex-nowrap overflow-hidden">
             {breadcrumbs.map((item, index) => (
               <span className="contents" key={`${item.to}:${item.label}`}>
