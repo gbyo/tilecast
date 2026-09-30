@@ -185,7 +185,7 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
             <Alert variant="destructive">
               <AlertDescription>
                 {t("operations.system.diagnosticsError", {
-                  error: query.error.message,
+                  error: apiErrorMessage(query.error),
                 })}
               </AlertDescription>
             </Alert>
@@ -290,7 +290,9 @@ export function SystemPanel({ canManage }: { canManage: boolean }) {
           </div>
           {maintenance.error && (
             <Alert variant="destructive">
-              <AlertDescription>{maintenance.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(maintenance.error)}
+              </AlertDescription>
             </Alert>
           )}
         </section>
