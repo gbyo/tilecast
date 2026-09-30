@@ -640,8 +640,9 @@ three stacked, slanted tiles. The logo has one color.
 - `.github/logos/tilecast-logo-black.svg` is the logo for light surfaces.
 - `.github/logos/tilecast-logo-white.svg` is the logo for dark surfaces.
 - In Studio, the logo components use the current text color.
-- Application icons and the documentation favicon show the mark only, in light
-  color on the signal background.
+- Application icons show the mark only, in light color on the signal
+  background. The Studio and documentation favicons show the mark in white on
+  black.
 
 Do not redraw, distort, or recolor the logo per page.
 

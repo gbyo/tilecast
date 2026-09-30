@@ -53,18 +53,18 @@ const westWing = {
 } as unknown as ScreenGroup;
 
 function mockLists() {
-  vi.spyOn(api, "playlists").mockResolvedValue({
+  // The editor reads the fetch-all wrappers while the picker reads single
+  // pages; the wrappers call the domain fetchers directly, so mock both.
+  const empty = {
     items: [],
     total: 0,
     page: 1,
     pageSize: 100,
-  });
-  vi.spyOn(api, "layouts").mockResolvedValue({
-    items: [],
-    total: 0,
-    page: 1,
-    pageSize: 100,
-  });
+  };
+  vi.spyOn(api, "playlists").mockResolvedValue(empty);
+  vi.spyOn(api, "playlistPage").mockResolvedValue(empty);
+  vi.spyOn(api, "layouts").mockResolvedValue(empty);
+  vi.spyOn(api, "layoutPage").mockResolvedValue(empty);
   vi.spyOn(api, "screens").mockResolvedValue({
     items: [lobby, hall],
     total: 2,
@@ -213,12 +213,16 @@ describe("ScheduleBuilder presentation picker", () => {
       sourceType: "manual",
       items: [],
     } as unknown as Playlist;
-    const playlists = vi.spyOn(api, "playlists").mockResolvedValue({
+    const morningPage = {
       items: [morning],
       total: 1,
       page: 1,
       pageSize: 100,
-    });
+    };
+    vi.spyOn(api, "playlists").mockResolvedValue(morningPage);
+    const playlists = vi
+      .spyOn(api, "playlistPage")
+      .mockResolvedValue(morningPage);
     const user = userEvent.setup();
     renderEditor();
 

@@ -191,16 +191,16 @@ function Actions({ children }: { children: ReactNode }) {
   return <div className="flex flex-wrap items-center gap-2">{children}</div>;
 }
 
-function LoadingButton({
+export function LoadingButton({
   loading,
   children,
   ...props
 }: ComponentProps<typeof Button> & { loading?: boolean }) {
   return (
     <Button
-      disabled={loading ?? props.disabled}
-      aria-busy={loading || undefined}
       {...props}
+      disabled={loading || props.disabled}
+      aria-busy={loading || undefined}
     >
       {loading ? <Spinner /> : null}
       {children}

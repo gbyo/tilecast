@@ -353,16 +353,18 @@ func runPairingApprove(cmd *cobra.Command, env *environment, id string) error {
 	replaceCredential, _ := flags.GetBool("replace-existing-credential")
 	replaceHardware, _ := flags.GetBool("replace-hardware")
 	replacementScreenID, _ := flags.GetString("replacement-screen-id")
-	if replaceHardware {
-		if replacementScreenID == "" {
-			return fmt.Errorf("approve needs --replacement-screen-id with --replace-hardware")
-		}
-	} else if strings.TrimSpace(name) == "" {
+	if replaceHardware && replaceCredential {
+		return fmt.Errorf("--replace-hardware and --replace-existing-credential cannot be used together")
+	}
+	if !replaceHardware && strings.TrimSpace(name) == "" {
 		return fmt.Errorf("approve needs --name unless --replace-hardware is used")
+	}
+	if replaceHardware && replacementScreenID == "" {
+		return fmt.Errorf("approve needs --replacement-screen-id with --replace-hardware")
 	}
 	confirmation := fmt.Sprintf("approve pairing %s as %q?", id, name)
 	if replaceHardware {
-		confirmation = fmt.Sprintf("approve pairing %s as replacement hardware for screen %s?", id, replacementScreenID)
+		confirmation = fmt.Sprintf("approve pairing %s as replacement hardware for %s?", id, replacementScreenID)
 	}
 	if err := confirmChange(cmd, confirmation); err != nil {
 		return err

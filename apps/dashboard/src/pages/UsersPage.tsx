@@ -486,7 +486,7 @@ function UserEditorDialog({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
         {confirmDialog}
         <DialogHeader>
           <DialogTitle>

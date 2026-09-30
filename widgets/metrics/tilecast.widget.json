@@ -3,6 +3,7 @@
   "apiVersion": 1,
   "id": "metric",
   "version": 1,
+  "configVersion": 2,
   "name": "Metrics",
   "description": "Show one numeric KPI or a responsive grid of up to six values.",
   "category": "Data display",

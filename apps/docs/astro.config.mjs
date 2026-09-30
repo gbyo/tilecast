@@ -113,7 +113,7 @@ export default defineConfig({
         alt: "",
         replacesTitle: true,
       },
-      favicon: "/favicon.svg",
+      favicon: "/favicon.png",
       social: [{ icon: "github", label: "GitHub", href: repository }],
       editLink: {
         baseUrl: `${repository}/edit/main/apps/docs/`,

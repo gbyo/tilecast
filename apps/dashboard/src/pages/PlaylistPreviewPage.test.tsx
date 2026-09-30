@@ -146,6 +146,106 @@ it("renders only ready playlist items in the popup player", async () => {
   expect(screen.getByRole("button", { name: "Pause preview" })).toBeEnabled();
 });
 
+it("starts each non-video duration after that item is ready", async () => {
+  vi.spyOn(authModule, "useAuth").mockReturnValue({
+    status: {
+      authenticated: true,
+      setupRequired: false,
+      user: { id: "u1", name: "Owner", username: "owner", role: "owner" },
+      csrfToken: "token",
+    },
+    isLoading: false,
+  } as ReturnType<typeof authModule.useAuth>);
+  vi.spyOn(api, "playlist").mockResolvedValue({
+    id: "p1",
+    name: "Dwell timing",
+    description: "",
+    revision: 1,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    itemCount: 2,
+    warnings: [],
+    layoutUsage: [],
+    items: [
+      {
+        id: "first",
+        assetId: "asset-1",
+        position: 0,
+        durationMs: 12_345,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: false,
+        volume: 0,
+        deliveryPolicy: "download",
+        assetName: "First",
+        assetType: "image",
+        assetStatus: "ready",
+        thumbnailUrl: "/thumb-1",
+      },
+      {
+        id: "second",
+        assetId: "asset-2",
+        position: 1,
+        durationMs: 23_456,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: false,
+        volume: 0,
+        deliveryPolicy: "download",
+        assetName: "Second",
+        assetType: "image",
+        assetStatus: "ready",
+        thumbnailUrl: "/thumb-2",
+      },
+    ],
+  });
+  const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+  const router = createMemoryRouter(
+    [{ path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> }],
+    { initialEntries: ["/playlists/p1/preview"] },
+  );
+
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+
+  expect(await screen.findByText("1 of 2 · First")).toBeInTheDocument();
+  expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 12_345);
+  fireEvent.load(screen.getByRole("presentation"));
+  await waitFor(() =>
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 12_345),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Next item" }));
+  expect(screen.getByText("2 of 2 · Second")).toBeInTheDocument();
+  expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 23_456);
+  fireEvent.load(screen.getByRole("presentation"));
+  await waitFor(() =>
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 23_456),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Next item" }));
+  expect(screen.getByText("1 of 2 · First")).toBeInTheDocument();
+  expect(
+    setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 12_345),
+  ).toHaveLength(1);
+  const firstDurationCalls = setTimeoutSpy.mock.calls.filter(
+    ([, delay]) => delay === 12_345,
+  ).length;
+  fireEvent.load(screen.getByRole("presentation"));
+  await waitFor(() =>
+    expect(
+      setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 12_345),
+    ).toHaveLength(firstDurationCalls + 1),
+  );
+});
+
 it("keeps the outgoing item visible until the incoming crossfade item is ready", async () => {
   vi.spyOn(authModule, "useAuth").mockReturnValue({
     status: {

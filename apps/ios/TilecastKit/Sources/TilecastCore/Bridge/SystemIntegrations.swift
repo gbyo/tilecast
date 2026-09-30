@@ -147,6 +147,10 @@ public final class SystemIntegrationHandlers {
     public var haptic: (@MainActor (HapticFeedback) -> Void)?
     /// Presents the system share sheet. Returns whether it did.
     public var share: (@MainActor (SystemShare) -> Bool)?
+    /// Chooses files for a web `<input type="file">`, with the system
+    /// pickers. Nil when the person cancels. The files are readable by the
+    /// page and live in temporary space.
+    public var chooseFiles: (@MainActor (_ allowsMultiple: Bool) async -> [URL]?)?
 
     public init() {}
 

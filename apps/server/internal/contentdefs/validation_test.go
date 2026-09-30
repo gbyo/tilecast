@@ -55,6 +55,24 @@ func TestValidBaselineDefinitionsAreAccepted(t *testing.T) {
 	}
 }
 
+func TestWidgetConfigVersionDefaultsToOneAndRejectsZero(t *testing.T) {
+	if got := validReleaseWidget().PersistedConfigVersion(); got != 1 {
+		t.Fatalf("omitted config version = %d, want 1", got)
+	}
+	version := 7
+	widget := validReleaseWidget()
+	widget.ConfigVersion = &version
+	if got := widget.PersistedConfigVersion(); got != version {
+		t.Fatalf("explicit config version = %d, want %d", got, version)
+	}
+
+	invalid := 0
+	widget.ConfigVersion = &invalid
+	if _, err := New([]WidgetDefinition{widget}, nil); err == nil {
+		t.Fatal("zero config version was accepted")
+	}
+}
+
 func TestOutputSchemaValidation(t *testing.T) {
 	expectSourceError(t, func(s *DataSourceDefinition) {
 		s.OutputSchema.Fields = append(s.OutputSchema.Fields, OutputField{Key: "status", Label: "Dup", Type: "text"})

@@ -156,7 +156,7 @@ export function QuickPresentDialog({
           if (!nextOpen && picker === undefined) onClose();
         }}
       >
-        <DialogContent className="max-h-[min(90vh,54rem)] max-w-xl overflow-y-auto">
+        <DialogContent className="max-h-[min(90dvh,54rem)] max-w-xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("quickPresent.title")}</DialogTitle>
             <DialogDescription>
