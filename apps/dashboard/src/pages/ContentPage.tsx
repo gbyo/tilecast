@@ -1017,7 +1017,10 @@ export function ContentPage() {
           archived={libraryView === "archive"}
           onDuplicate={(asset) =>
             void api.duplicateWidget(asset.id, csrf).then(() => {
-              toast.add({ title: "Widget duplicated.", type: "success" });
+              toast.add({
+                title: t("widgets.duplicateSuccess"),
+                type: "success",
+              });
               return queryClient.invalidateQueries({
                 queryKey: ["assets"],
               });

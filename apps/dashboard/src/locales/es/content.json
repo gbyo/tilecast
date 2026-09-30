@@ -388,6 +388,7 @@
     }
   },
   "widgets": {
+    "duplicateSuccess": "Widget duplicado.",
     "list": {
       "title": "Widgets",
       "create": "Crear widget",
@@ -711,6 +712,7 @@
     }
   },
   "dataSources": {
+    "deleteSuccess": "Fuente de datos eliminada.",
     "calendar": {
       "addCalendar": "Agregar calendario",
       "calendarsLegend": "Calendarios",
