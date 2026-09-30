@@ -85,3 +85,29 @@ extension StudioLoadFailure {
         }
     }
 }
+
+extension MediaUploadError {
+    /// Why one file did not upload, in words a person can act on.
+    var message: String {
+        switch self {
+        case .unauthenticated:
+            String(localized: "Tilecast isn’t signed in to this server. Sign in again.")
+        case .unsupportedType:
+            String(localized: "This server doesn’t accept this type of file.")
+        case .tooLarge:
+            String(localized: "This file is larger than the server allows.")
+        case .insufficientStorage:
+            String(localized: "The server has no space left.")
+        case .rejected:
+            String(localized: "The server didn’t accept this upload.")
+        case .unavailable:
+            String(localized: "Couldn’t reach the server. Check your connection and try again.")
+        case .unreadable:
+            String(localized: "Couldn’t read this file.")
+        case .processingFailed:
+            String(localized: "The server couldn’t process this file.")
+        case .cancelled:
+            String(localized: "Cancelled")
+        }
+    }
+}
