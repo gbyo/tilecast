@@ -654,11 +654,14 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 - Trust classes such as Official, Verified, and Community can be added later.
   Every bundled plugin is Official.
 
-## Deviations from the plan
+## Platform integration details
 
-- **Android Player.** The Android Player is native Kotlin and does not run the
-  shared runtime. Its plugin code stays in the Android application. It
-  ignores plugin types that it does not render.
+- **Android Player.** The Kotlin application packages the verified shared
+  runtime artifact and hosts it in a trusted WebView. `AndroidRuntimeHost`
+  implements the Android side of `TilecastRuntimeHostV1`. Bundled plugin
+  runtime code therefore uses the same implementation on Android, Electron,
+  and WPE. The Kotlin application keeps device lifecycle, security policy, and
+  device APIs.
 - **Edge daemon profile.** `tilecastd` compiles its renderer feature list,
   which names plugin types. The list declares what the installed renderer
   supports. It does not decide rendering. It stays in the Edge release.

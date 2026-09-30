@@ -116,6 +116,7 @@ export function renderLayout(
 
   const zones: LayoutZone[] = [];
   let hasVisiblePlacement = false;
+  let hasVisiblePlacementInViewport = false;
   const ordered = [...document.placements].sort((a, b) => a.layer - b.layer);
   for (const placement of ordered) {
     if (!placement.visible) {
@@ -129,6 +130,10 @@ export function renderLayout(
       continue;
     }
     hasVisiblePlacement = true;
+    if (viewport && !intersectsViewport(placement, viewport)) {
+      continue;
+    }
+    hasVisiblePlacementInViewport = true;
     const zone = renderPlacement(placement, ctx);
     if (zone) {
       const projected = viewport ? clipZone(zone, viewport) : zone;
@@ -156,7 +161,16 @@ export function renderLayout(
   // then apply the screen's branded no-content/fallback policy. An explicitly
   // empty layout remains valid, and a valid background remains a renderable
   // canvas even when it has no zones.
-  if (hasVisiblePlacement && zones.length === 0 && !backgroundImage) {
+  const allVisiblePlacementsClipped =
+    viewport !== undefined &&
+    hasVisiblePlacement &&
+    !hasVisiblePlacementInViewport;
+  if (
+    hasVisiblePlacement &&
+    zones.length === 0 &&
+    !backgroundImage &&
+    !allVisiblePlacementsClipped
+  ) {
     return null;
   }
 
@@ -194,6 +208,27 @@ function clipZone(zone: LayoutZone, viewport: SpanViewport): LayoutZone | null {
     width: right - left,
     height: bottom - top,
   };
+}
+
+function intersectsViewport(
+  placement: Pick<LayoutPlacement, "x" | "y" | "width" | "height">,
+  viewport: SpanViewport,
+): boolean {
+  if (
+    ![placement.x, placement.y, placement.width, placement.height].every(
+      Number.isFinite,
+    ) ||
+    placement.width <= 0 ||
+    placement.height <= 0
+  ) {
+    return true;
+  }
+  return (
+    placement.x < viewport.x + viewport.width &&
+    placement.x + placement.width > viewport.x &&
+    placement.y < viewport.y + viewport.height &&
+    placement.y + placement.height > viewport.y
+  );
 }
 
 function renderPlacement(

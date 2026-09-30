@@ -124,22 +124,32 @@ export class LayoutSurface implements MediaSurface {
       if (!this.disposed)
         this.env.sink.evidence("layout-zone-rendered", zone.id);
     };
+    const zoneFailed = (message: string) => {
+      if (!this.disposed) this.env.sink.zoneFailed(zone.id, message);
+    };
 
     if (zone.component) {
       const widgets = this.env.widgets;
-      if (widgets) {
-        let reported = false;
+      if (!widgets) {
+        zoneFailed("widget components are unavailable");
+      } else {
+        let readinessReported = false;
         this.widgetMounts.push(
           widgets.mount(el, zone.component, (state) => {
-            // Ready or expected-empty is a rendered zone; an error leaves the
-            // zone outstanding, which is what the Layout evidence is for.
+            if (this.disposed) return;
+            if (state.state === "error") {
+              zoneFailed(`widget ${state.code}`);
+              return;
+            }
+            // Readiness evidence is a first-render signal. Later lifecycle
+            // errors still report through the Layout failure path.
             if (
-              reported ||
+              readinessReported ||
               (state.state !== "ready" && state.state !== "empty")
             ) {
               return;
             }
-            reported = true;
+            readinessReported = true;
             rendered();
           }),
         );
