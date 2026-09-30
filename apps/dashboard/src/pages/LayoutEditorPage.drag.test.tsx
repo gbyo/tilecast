@@ -85,11 +85,24 @@ function mockAuth() {
 function renderLayoutEditor(assets: Asset[] = []) {
   const layout = buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
-  vi.spyOn(api, "assets").mockResolvedValue({
-    items: assets,
-    total: assets.length,
-    page: 1,
-    pageSize: 100,
+  // Mirror the server's type filter: the unfiltered resolution page sees
+  // every asset while each Recent-shelf pool sees only its own section.
+  vi.spyOn(api, "assets").mockImplementation((params) => {
+    const type = params.get("type");
+    const items =
+      type === null
+        ? assets
+        : assets.filter((asset) =>
+            type === "widget"
+              ? asset.type === "widget"
+              : asset.type === "image" || asset.type === "video",
+          );
+    return Promise.resolve({
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: 100,
+    });
   });
   vi.spyOn(api, "playlists").mockResolvedValue({
     items: [],

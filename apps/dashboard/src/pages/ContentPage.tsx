@@ -154,6 +154,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
@@ -3341,7 +3342,7 @@ export function WebsiteEditor({
         </Alert>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        {!readOnly && (
+        {!readOnly && !page && (
           <Button disabled={save.isPending} onClick={() => save.mutate()}>
             {save.isPending && <Spinner aria-hidden="true" />}
             {t("media.website.save")}
@@ -3423,15 +3424,31 @@ export function WebsiteEditor({
             <h1 className="text-xl font-semibold">{title}</h1>
             <p className="text-sm text-muted-foreground">{subtitle}</p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("common:actions.close")}
-            onClick={requestClose}
-          >
-            <X aria-hidden="true" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {!readOnly && (
+              <EditorHeaderActions
+                dirty={dirty}
+                dirtyLabel={t("widgets.editors.v2.unsaved")}
+                onSave={() => save.mutate()}
+                saveDisabled={save.isPending}
+                saveLabel={
+                  <>
+                    {save.isPending && <Spinner aria-hidden="true" />}
+                    {t("media.website.save")}
+                  </>
+                }
+              />
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("common:actions.close")}
+              onClick={requestClose}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
         </div>
         {form}
       </section>
