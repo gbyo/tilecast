@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { ReactNode } from "react";
 import { AlertTriangle, Database, Layers3, ListVideo } from "lucide-react";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
+import type { DataSourceDetail } from "../api/types";
 import type { PlaylistAssignment } from "../api/types";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -67,13 +68,33 @@ export function ScreenContentChain({
     queryFn: () => api.playlist(playlistId!),
     enabled: Boolean(playlistId),
   });
+  // Dependency IDs are known up front, so resolve them directly instead of
+  // intersecting against a catalog page. A 404 means the source is gone;
+  // anything else fails the whole lookup like before.
+  const layoutDepIds = (layout.data?.dependencies ?? [])
+    .filter((dependency) => dependency.type === "data_source")
+    .map((dependency) => dependency.id);
+  const playlistDepIds = playlist.data?.dataSourceIds ?? [];
+  const depIds = [...new Set([...layoutDepIds, ...playlistDepIds])];
   const sources = useQuery({
-    queryKey: ["screen-chain-data-sources"],
+    queryKey: ["screen-chain-data-sources", [...depIds].sort().join(",")],
     queryFn: () =>
-      api.listDataSources(
-        new URLSearchParams({ page: "1", pageSize: "100", sort: "name" }),
+      Promise.all(
+        depIds.map(async (id) => {
+          try {
+            return { id, detail: await api.getDataSource(id) };
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 404)
+              return { id, detail: null };
+            throw error;
+          }
+        }),
       ),
-    enabled: Boolean(layoutId || playlistId),
+    enabled:
+      Boolean(layoutId || playlistId) &&
+      (!layoutId || layout.data != null) &&
+      (!playlistId || playlist.data != null) &&
+      depIds.length > 0,
   });
 
   if (!layoutId && !playlistId) {
@@ -84,14 +105,19 @@ export function ScreenContentChain({
     );
   }
 
-  const resolve = (ids: string[]) =>
-    (sources.data?.items ?? []).filter((source) => ids.includes(source.id));
-  const layoutSources = resolve(
-    (layout.data?.dependencies ?? [])
-      .filter((dependency) => dependency.type === "data_source")
-      .map((dependency) => dependency.id),
+  const details = new Map(
+    (sources.data ?? []).map((entry) => [entry.id, entry.detail] as const),
   );
-  const playlistSources = resolve(playlist.data?.dataSourceIds ?? []);
+  const pick = (ids: string[]): DataSourceDetail[] =>
+    ids
+      .map((id) => details.get(id))
+      .filter((detail): detail is DataSourceDetail => detail != null);
+  const missing = (ids: string[]) =>
+    ids.filter((id) => details.get(id) === null);
+  const layoutSources = pick(layoutDepIds);
+  const layoutMissing = missing(layoutDepIds);
+  const playlistSources = pick(playlistDepIds);
+  const playlistMissing = missing(playlistDepIds);
   const widgetItems = (playlist.data?.items ?? []).filter(
     (item) => item.assetType === "widget",
   );
@@ -135,21 +161,26 @@ export function ScreenContentChain({
               </ItemDescription>
             </ItemContent>
           </Item>
-          {layout.isLoading ? (
+          {layout.isLoading || sources.isLoading ? (
             <Skeleton className="my-2 h-10 w-full" />
           ) : layout.error ? (
             <DependencyError
               title={t("widgets.chain.layoutDepsError")}
               message={apiErrorMessage(layout.error)}
             />
-          ) : layoutSources.length === 0 ? (
+          ) : layoutDepIds.length === 0 ? (
             <p className="py-3 text-sm text-muted-foreground">
               {t("widgets.chain.layoutNoSources")}
             </p>
           ) : (
-            layoutSources.map((source) => (
-              <SourceItem key={source.id} source={source} t={t} />
-            ))
+            <>
+              {layoutSources.map((source) => (
+                <SourceItem key={source.id} source={source} t={t} />
+              ))}
+              {layoutMissing.map((id) => (
+                <MissingSourceItem key={id} id={id} t={t} />
+              ))}
+            </>
           )}
         </ItemGroup>
       )}
@@ -177,7 +208,7 @@ export function ScreenContentChain({
               </ItemDescription>
             </ItemContent>
           </Item>
-          {playlist.isLoading ? (
+          {playlist.isLoading || sources.isLoading ? (
             <Skeleton className="my-2 h-10 w-full" />
           ) : playlist.error ? (
             <DependencyError
@@ -204,7 +235,10 @@ export function ScreenContentChain({
               {playlistSources.map((source) => (
                 <SourceItem key={source.id} source={source} t={t} />
               ))}
-              {!widgetItems.length && !playlistSources.length && (
+              {playlistMissing.map((id) => (
+                <MissingSourceItem key={id} id={id} t={t} />
+              ))}
+              {!widgetItems.length && playlistDepIds.length === 0 && (
                 <p className="py-3 text-sm text-muted-foreground">
                   {t("widgets.chain.playlistNoSources")}
                 </p>
@@ -305,6 +339,23 @@ function SourceItem({
       <ItemActions>
         <Badge variant={status.variant}>{status.label}</Badge>
       </ItemActions>
+    </Item>
+  );
+}
+
+function MissingSourceItem({ id, t }: { id: string; t: WidgetsT }) {
+  return (
+    <Item size="xs" className="rounded-none px-0">
+      <ItemContent>
+        <ItemTitle>
+          <AlertTriangle
+            className="size-4 text-muted-foreground"
+            aria-hidden="true"
+          />
+          {t("widgets.chain.sourceMissing", { id })}
+        </ItemTitle>
+        <ItemDescription>{t("widgets.chain.sourceKind")}</ItemDescription>
+      </ItemContent>
     </Item>
   );
 }
