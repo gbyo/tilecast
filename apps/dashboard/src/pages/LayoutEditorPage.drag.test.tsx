@@ -85,11 +85,24 @@ function mockAuth() {
 function renderLayoutEditor(assets: Asset[] = []) {
   const layout = buildLayout();
   vi.spyOn(api, "layout").mockResolvedValue(layout);
-  vi.spyOn(api, "assets").mockResolvedValue({
-    items: assets,
-    total: assets.length,
-    page: 1,
-    pageSize: 100,
+  // Mirror the server's type filter: the unfiltered resolution page sees
+  // every asset while each Recent-shelf pool sees only its own section.
+  vi.spyOn(api, "assets").mockImplementation((params) => {
+    const type = params.get("type");
+    const items =
+      type === null
+        ? assets
+        : assets.filter((asset) =>
+            type === "widget"
+              ? asset.type === "widget"
+              : asset.type === "image" || asset.type === "video",
+          );
+    return Promise.resolve({
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: 100,
+    });
   });
   vi.spyOn(api, "playlists").mockResolvedValue({
     items: [],
@@ -154,6 +167,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
   window.matchMedia = defaultMatchMedia;
 });
@@ -403,6 +418,9 @@ describe("Layout editor chrome", () => {
 
 describe("Layout editor layers and zoom controls", () => {
   it("opens Layout preview in a popup and keeps history as a dialog", async () => {
+    vi.stubEnv("TZ", "America/Los_Angeles");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-30T06:30:00.000Z"));
     mockAuth();
     vi.spyOn(api, "layoutRevisions").mockResolvedValue({
       items: [],
@@ -441,7 +459,7 @@ describe("Layout editor layers and zoom controls", () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(
         expect.stringMatching(
-          /^\/layouts\/layout-1\/preview\?date=\d{4}-\d{2}-\d{2}$/,
+          /^\/layouts\/layout-1\/preview\?date=2026-09-29$/,
         ),
       ),
     );
@@ -527,6 +545,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("groups zoom as minus, percent, plus, and fit", async () => {
+    // The minus, percent, plus, and fit group is the desktop toolbar.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -542,6 +562,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps related inspector sections independently expandable", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     await screen.findByText("New text");
@@ -603,6 +625,8 @@ describe("Layout editor layers and zoom controls", () => {
   });
 
   it("keeps deletion local to focused inputs and editable controls", async () => {
+    // The inspector is the desktop side panel; narrow screens use a sheet.
+    mockDesktop();
     mockAuth();
     renderLayoutEditor();
     const placement = await screen.findByText("New text");
