@@ -185,12 +185,28 @@ function CampaignLibrary() {
           </div>
         )}
       </header>
+      {query.isError && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("campaigns.library.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {query.isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : !query.data?.items.length ? (
+      ) : query.isError && !query.data ? null : !query.data?.items.length ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">

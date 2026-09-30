@@ -3,6 +3,7 @@
     "library": {
       "title": "Campañas",
       "description": "Coordina publicaciones inmutables de contenido entre pantallas y grupos. Una publicación reutiliza el programador y nunca cambia lo que está en vivo hasta publicarse.",
+      "loadError": "No se pudieron cargar las campañas.",
       "createButton": "Crea la campaña",
       "emptyTitle": "Sin campañas todavía",
       "emptyBody": "Crea una campaña para coordinar contenido y destinos en una sola publicación revisada.",
