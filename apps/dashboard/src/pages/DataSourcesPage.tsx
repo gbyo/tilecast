@@ -353,7 +353,6 @@ export function DataSourcesPage() {
             </TableBody>
           </Table>
         </div>
-      )}
         </>
       )}
       <AlertDialog
