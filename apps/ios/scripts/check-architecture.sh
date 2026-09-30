@@ -61,6 +61,47 @@ if grep -rnE "SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|FileManager|URLSessio
   exit 1
 fi
 
+# System integrations (Milestone 8A). Each one uses the system's own
+# interface and stays inside the boundary the architecture rules draw.
+media=TilecastKit/Sources/TilecastCore/Media
+
+# Native media intake chooses media with the system pickers. It never
+# reads the Photos library, so it never asks for that permission.
+if grep -rnE "PHPhotoLibrary|PHAsset|PHFetch|PHAssetCollection|NSPhotoLibrary|requestAuthorization" "${sources[@]}" Tilecast/Info.plist; then
+  echo "check-architecture: media intake must use the system pickers, never the Photos library or its permission." >&2
+  exit 1
+fi
+
+# The intake uploads with the generated client, whose transport and
+# middleware own authentication, cookies, and redirects. It adds no HTTP
+# client of its own, keeps nothing outside temporary files, and reaches
+# neither the web pages nor credentials directly.
+if grep -rnE "URLSession|URLRequest|UserDefaults|SecItem|kSec[A-Z]|HTTPCookie|httpCookieStore|WKWebsiteDataStore|WebPage|callJavaScript|Authorization" "$media" Tilecast/Features/Media; then
+  echo "check-architecture: native media intake must use the generated client, temporary files only, and no web page or credential." >&2
+  exit 1
+fi
+
+# Haptics are semantic requests mapped onto SwiftUI's SensoryFeedback.
+# There is no custom vibration pattern and no page-specific effect.
+if grep -rnE "CHHapticEngine|CHHapticPattern|CoreHaptics|UIImpactFeedbackGenerator|UINotificationFeedbackGenerator|UISelectionFeedbackGenerator|AudioServicesPlaySystemSound" "${sources[@]}"; then
+  echo "check-architecture: haptics must use SwiftUI SensoryFeedback, never a custom pattern." >&2
+  exit 1
+fi
+
+# The system share sheet is presented by one isolated adapter. SwiftUI has
+# no imperative share API, so the adapter is the only UIKit use.
+if grep -rnE "UIActivityViewController" "${sources[@]}" | grep -v "^Tilecast/Features/System/SystemSharePresenter.swift:"; then
+  echo "check-architecture: only SystemSharePresenter may present UIActivityViewController." >&2
+  exit 1
+fi
+
+# Tilecast installations live on unrelated domains, so the app claims no
+# universal links. A deep link is the app's own URL scheme.
+if grep -rnE "associated-domains|applinks:|webcredentials:" Tilecast Config; then
+  echo "check-architecture: the app must not claim associated domains. Deep links use the tilecast-ios scheme." >&2
+  exit 1
+fi
+
 # One ATS exception only; never arbitrary loads.
 if grep -rnE "NSAllowsArbitraryLoads|NSExceptionAllowsInsecureHTTPLoads|NSExceptionDomains" Tilecast; then
   echo "check-architecture: only NSAllowsLocalNetworking is permitted. See docs/ios-app.md." >&2

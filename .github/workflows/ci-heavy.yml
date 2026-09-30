@@ -3,6 +3,14 @@ on:
   schedule:
     - cron: "41 3 * * 2,5"
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Where to run the race suite.
+        type: choice
+        default: tilecast-overflow
+        options:
+          - tilecast-overflow
+          - ubuntu-latest
 permissions:
   contents: read
   checks: write
@@ -14,3 +22,4 @@ jobs:
     uses: ./.github/workflows/ci-server.yml
     with:
       race: true
+      runner: ${{ github.event_name == 'workflow_dispatch' && inputs.runner || 'tilecast-overflow' }}
