@@ -29,6 +29,8 @@ The Layout library loads the first 100 matches. Search to narrow results across 
 
 The Media picker can also upload an image or video; it is added to the Media library. A Playlist zone loops its Playlist independently inside the Layout. It needs a Playlist with playable content.
 
+If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
+
 ## Show changing values in text
 
 Select a text layer and set **Content mode** to **Dynamic field**. Choose a Data Source and field, then set a format and optional fallback text. The Layout can bind text directly to one field; use a Widget when you need to display a repeating list of records. See [Data Sources](../data-sources/) and [Widgets](../widgets/).
