@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { toast } from "../components/ui/toast";
 import type {
+  Asset,
   ContentDefinitionField,
   WidgetDefinition,
   WidgetPresentation,
@@ -15,6 +17,7 @@ import { GenericWidgetEditor } from "./GenericDefinitionEditors";
 import * as sourceEditors from "./SourceEditors";
 import { WidgetProviderGallery } from "./SourceEditors";
 import { V2WidgetEditor } from "./V2WidgetEditor";
+import * as widgetPreviewCapture from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import qrManifest from "../../../../widgets/qr-code/tilecast.widget.json";
 import menuManifest from "../../../../widgets/menu-board/tilecast.widget.json";
@@ -758,6 +761,118 @@ describe("Widget editor experience", () => {
     expect(
       screen.getByRole("complementary", { name: "Live preview" }),
     ).toBeTruthy();
+  });
+
+  it("saves a catalog Widget when thumbnail capture fails", async () => {
+    const definition = {
+      id: "notice",
+      version: 1,
+      name: "Notice",
+      description: "Show a short notice.",
+      category: "Text",
+      icon: "text",
+      runtime: "native",
+      configurationSchema: { fields: [] },
+      defaultConfiguration: {},
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "Show nothing",
+    } satisfies WidgetDefinition;
+    const created = {
+      id: "asset-preview-failure",
+      name: "Notice",
+      description: "",
+      type: "widget",
+    } as Asset;
+    vi.spyOn(api, "createWidget").mockResolvedValue(created);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue(undefined);
+    vi.spyOn(widgetPreviewCapture, "captureWidgetPreview").mockRejectedValue(
+      new Error("canvas unavailable"),
+    );
+    const toastSpy = vi.spyOn(toast, "add");
+    const onSaved = vi.fn();
+
+    renderEditor(
+      <GenericWidgetEditor
+        definition={definition}
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={onSaved}
+      />,
+    );
+    const save = await screen.findByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(created));
+    expect(api.createWidget).toHaveBeenCalledOnce();
+    expect(api.uploadWidgetPreview).not.toHaveBeenCalled();
+    expect(toastSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "The Widget was saved, but its thumbnail could not be updated.",
+        type: "warning",
+      }),
+    );
+  });
+
+  it("keeps an edited catalog Widget saved when thumbnail upload fails", async () => {
+    const definition = {
+      id: "notice",
+      version: 1,
+      name: "Notice",
+      description: "Show a short notice.",
+      category: "Text",
+      icon: "text",
+      runtime: "native",
+      configurationSchema: { fields: [] },
+      defaultConfiguration: {},
+      presentationSchemaVersion: 1,
+      requiredCapabilities: {},
+      emptyStateBehavior: "Show nothing",
+    } satisfies WidgetDefinition;
+    const existing = {
+      id: "asset-existing",
+      name: "Notice",
+      description: "",
+      type: "widget",
+      metadata: {},
+      widget: { provider: "notice", configuration: {} },
+    } as Asset;
+    const updated = { ...existing, name: "Updated notice" };
+    vi.spyOn(api, "updateWidget").mockResolvedValue(updated);
+    vi.spyOn(api, "uploadWidgetPreview").mockRejectedValue(
+      new Error("thumbnail upload failed"),
+    );
+    vi.spyOn(widgetPreviewCapture, "captureWidgetPreview").mockResolvedValue(
+      new Blob(["preview"], { type: "image/jpeg" }),
+    );
+    const toastSpy = vi.spyOn(toast, "add");
+    const onSaved = vi.fn();
+
+    renderEditor(
+      <GenericWidgetEditor
+        definition={definition}
+        asset={existing}
+        csrf="csrf"
+        onClose={vi.fn()}
+        onSaved={onSaved}
+      />,
+    );
+    const save = await screen.findByRole("button", { name: "Save Widget" });
+    await waitFor(() => expect(save).toBeEnabled());
+    await userEvent.click(save);
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(updated));
+    expect(api.updateWidget).toHaveBeenCalledOnce();
+    await waitFor(() =>
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title:
+            "The Widget was saved, but its thumbnail could not be updated.",
+          type: "warning",
+        }),
+      ),
+    );
   });
 
   it("names a plugin-owned Widget's provenance while its plugin is installed", async () => {

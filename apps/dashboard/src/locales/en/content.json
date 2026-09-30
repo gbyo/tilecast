@@ -600,6 +600,8 @@
         "contentHint": "Choose what appears on screen and how it should be presented.",
         "previewLabel": "Live preview",
         "previewHint": "Updates as you make changes.",
+        "previewUpdateFailed": "The Widget was saved, but its thumbnail could not be updated.",
+        "previewUpdateFailedHint": "Visit the Widgets library later to retry the preview.",
         "diagnostics": {
           "label": "App source health",
           "title": "App source",
@@ -626,7 +628,6 @@
         "statusEmpty": "Preview is empty: {{reason}}",
         "statusError": "Preview cannot render: {{code}}",
         "sourceError": "A connected Data Source failed to load, so this preview cannot render. Reconnect the source or try again.",
-        "captureFailed": "The Widget preview failed to render, so nothing was saved. Try again.",
         "sections": {
           "data": "Data",
           "content": "Content",
