@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompliancePanel } from "./ActivityCompliance";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+import { i18n } from "../i18n";
 
 const range: ResolvedTimeRange = {
   from: "2026-07-26T00:00:00.000Z",
@@ -83,10 +84,11 @@ function renderPanel(body: unknown = report) {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  await i18n.changeLanguage("en");
 });
 
 beforeEach(() => {
@@ -141,6 +143,43 @@ describe("Playback compliance", () => {
     expect(
       screen.getByText("Never started").closest("a, article")!.textContent,
     ).toContain("1 while offline");
+  });
+
+  it("formats compliance values using the selected Studio locale", async () => {
+    await i18n.changeLanguage("ru");
+    const grouped = new Intl.NumberFormat("ru").format(1234);
+    const percent = new Intl.NumberFormat("ru", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(50.5);
+    renderPanel({
+      ...report,
+      measurableExpectedMs: 1234 * 60_000,
+      confirmedMs: 1234 * 60_000,
+      missedMs: 1234 * 60_000,
+      compliancePercent: 50.5,
+      windows: 1234,
+      lateStarts: 1234,
+      earlyEndings: 1234,
+      neverStarted: 1234,
+      offlineMisses: 1234,
+      breakdown: [
+        {
+          ...report.breakdown[0]!,
+          measurableExpectedMs: 1234 * 60_000,
+          confirmedMs: 1234 * 60_000,
+          missedMs: 1234 * 60_000,
+          compliancePercent: 50.5,
+        },
+      ],
+    });
+
+    const panel = await screen.findByRole("region");
+    expect(panel.textContent).toContain(`${grouped} min`);
+    expect(panel.textContent).toContain(`${percent}%`);
+    expect(panel.textContent).toContain(grouped);
+    expect(panel.textContent).not.toContain("1,234");
+    expect(panel.textContent).not.toContain("50.5%");
   });
 
   it("names the main reason time went missing", async () => {
