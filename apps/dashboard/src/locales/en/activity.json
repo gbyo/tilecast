@@ -561,14 +561,18 @@
       "playingLoading": "Loading confirmed playback",
       "attentionLoading": "Loading screens that need attention",
       "loading": "Loading fleet status",
-      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault."
+      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault.",
+      "onlineDetail": "Connected now",
+      "playingDetail": "Confirmed by the Player",
+      "attentionDetail": "Needs review"
     },
     "attention": {
       "title": "Needs attention",
       "description": "Most urgent first.",
       "more_one": "{{count}} more screen needs attention.",
       "more_other": "{{count}} more screens need attention.",
-      "incidentsUnavailable": "Incident details could not be loaded, so playback, storage, and safe-mode problems may not be listed."
+      "incidentsUnavailable": "Incident details could not be loaded, so playback, storage, and safe-mode problems may not be listed.",
+      "viewAll": "View all"
     },
     "reasons": {
       "updateFailed": "Player update failed",
@@ -584,19 +588,18 @@
     "onAir": {
       "title": "On air now",
       "description": "What online screens are set to show.",
-      "playlist": "Playlist · {{name}}",
-      "presentation": "Presentation · {{name}}",
       "loading": "Loading screens",
       "noneOnline": "No screens are online.",
       "noneAssigned": "Online screens have nothing assigned.",
-      "more_one": "{{count}} more online screen has content assigned.",
-      "more_other": "{{count}} more online screens have content assigned.",
-      "unassigned_one": "{{count}} online screen has nothing assigned.",
-      "unassigned_other": "{{count}} online screens have nothing assigned."
+      "screenCount_one": "{{count}} screen",
+      "screenCount_other": "{{count}} screens",
+      "moreGroups_one": "{{count}} more",
+      "moreGroups_other": "{{count}} more",
+      "footer": "{{assigned}} assigned · {{unassigned}} unassigned"
     },
     "schedulesLoading": "Loading schedules",
-    "upcomingStarts": "Starts · {{name}}",
-    "upcomingEnds": "Ends · {{name}}",
+    "upcomingStartsAt": "Starts {{time}}",
+    "upcomingEndsAt": "Ends {{time}}",
     "upcomingDetail": "{{content}} · {{targets}}",
     "upcomingPartial": "Based on the first {{shown}} of {{total}} schedules.",
     "updatesLoading": "Loading player updates",

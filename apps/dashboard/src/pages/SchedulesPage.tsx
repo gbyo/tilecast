@@ -20,10 +20,17 @@ import { useConfirm } from "../components/ConfirmDialog";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
@@ -37,7 +44,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import { hasNextPage } from "../api/pagination";
 import type { ScreenGroup } from "../api/types";
@@ -249,12 +256,33 @@ export function GroupsPage() {
   );
 }
 
+export type GroupDetailTab =
+  "overview" | "members" | "content" | "display" | "policy";
+
+const groupDetailTabs: readonly GroupDetailTab[] = [
+  "overview",
+  "members",
+  "content",
+  "display",
+  "policy",
+];
+
+export function normalizeGroupDetailTab(
+  requestedTab: string | null,
+): GroupDetailTab {
+  return groupDetailTabs.includes(requestedTab as GroupDetailTab)
+    ? (requestedTab as GroupDetailTab)
+    : "overview";
+}
+
 export function GroupDetailPage() {
   const { id = "" } = useParams(),
     navigate = useNavigate(),
     auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = normalizeGroupDetailTab(searchParams.get("tab"));
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
@@ -263,6 +291,26 @@ export function GroupDetailPage() {
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [policyDirty, setPolicyDirty] = useState(false);
+  const [pendingDestination, setPendingDestination] =
+    useState<GroupDetailTab | null>(null);
+  const commitDestination = (destination: GroupDetailTab) => {
+    const next = new URLSearchParams(searchParams);
+    if (destination === "overview") next.delete("tab");
+    else next.set("tab", destination);
+    setSearchParams(next);
+    setPendingDestination(null);
+    setPolicyDirty(false);
+  };
+  const selectTab = (nextTab: string) => {
+    if (!groupDetailTabs.includes(nextTab as GroupDetailTab)) return;
+    if (nextTab === tab) return;
+    if (policyDirty && tab === "policy" && nextTab !== "policy") {
+      setPendingDestination(nextTab as GroupDetailTab);
+      return;
+    }
+    commitDestination(nextTab as GroupDetailTab);
+  };
   const { confirm, dialog: confirmDialog } = useConfirm();
   const group = useQuery({
       queryKey: ["screen-groups", id],
@@ -564,330 +612,443 @@ export function GroupDetailPage() {
         onClose={() => setQuickPresentOpen(false)}
       />
 
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <dl className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">
-              {t("groups.detail.screensLabel")}
-            </dt>
-            <dd>{groupData.membershipCount}</dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">
-              {t("groups.detail.modeLabel")}
-            </dt>
-            <dd>
-              {groupData.displayMode === "span"
-                ? t("groups.detail.modeSpan")
-                : t("groups.detail.modeMirror")}
-            </dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">
-              {t("groups.detail.fallbackLabel")}
-            </dt>
-            <dd className="flex flex-wrap gap-x-2">
-              <span>{groupFallbackType(groupData, t)}</span>
-              <strong>{groupFallbackName(groupData, t)}</strong>
-            </dd>
-          </div>
-          <div className="flex flex-wrap gap-x-2">
-            <dt className="text-muted-foreground">
-              {t("groups.detail.updatedLabel")}
-            </dt>
-            <dd>{formatGroupDate(groupData.updatedAt, t, formatLocale)}</dd>
-          </div>
-        </dl>
-      </section>
+      <Tabs
+        value={tab}
+        onValueChange={selectTab}
+        className="w-full min-w-0 gap-4"
+      >
+        <TabsList
+          aria-label={t("groups.detail.tabsLabel")}
+          variant="line"
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
+        >
+          <TabsTrigger value="overview" className="flex-none px-2">
+            {t("groups.detail.tabOverview")}
+          </TabsTrigger>
+          <TabsTrigger value="members" className="flex-none px-2">
+            {t("groups.detail.tabMembers")}
+          </TabsTrigger>
+          <TabsTrigger value="content" className="flex-none px-2">
+            {t("groups.detail.tabContent")}
+          </TabsTrigger>
+          <TabsTrigger value="display" className="flex-none px-2">
+            {t("groups.detail.tabDisplay")}
+          </TabsTrigger>
+          <TabsTrigger value="policy" className="flex-none px-2">
+            {t("groups.detail.tabPolicy")}{" "}
+            {policyDirty && (
+              <Badge variant="secondary">
+                {t("groups.detail.unsavedBadge")}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      <SpanWallEditor
-        group={groupData}
-        manageable={manageable}
-        csrfToken={csrf}
-      />
+        {tab === "overview" && (
+          <TabsContent
+            value="overview"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <section className="grid gap-3 rounded-xl border border-border p-4">
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-muted-foreground">
+                    {t("groups.detail.screensLabel")}
+                  </dt>
+                  <dd>{groupData.membershipCount}</dd>
+                </div>
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-muted-foreground">
+                    {t("groups.detail.modeLabel")}
+                  </dt>
+                  <dd>
+                    {groupData.displayMode === "span"
+                      ? t("groups.detail.modeSpan")
+                      : t("groups.detail.modeMirror")}
+                  </dd>
+                </div>
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-muted-foreground">
+                    {t("groups.detail.fallbackLabel")}
+                  </dt>
+                  <dd className="flex flex-wrap gap-x-2">
+                    <span>{groupFallbackType(groupData, t)}</span>
+                    <strong>{groupFallbackName(groupData, t)}</strong>
+                  </dd>
+                </div>
+                <div className="flex flex-wrap gap-x-2">
+                  <dt className="text-muted-foreground">
+                    {t("groups.detail.updatedLabel")}
+                  </dt>
+                  <dd>
+                    {formatGroupDate(groupData.updatedAt, t, formatLocale)}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+          </TabsContent>
+        )}
 
-      <DisplayControlGroupActions
-        groupId={groupData.id}
-        memberCount={groupData.membershipCount}
-        manageable={manageable}
-        csrfToken={csrf}
-      />
+        {tab === "display" && (
+          <TabsContent
+            value="display"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <SpanWallEditor
+              group={groupData}
+              manageable={manageable}
+              csrfToken={csrf}
+            />
 
-      {manageable && groupData.screens.length > 0 && (
-        <section className="grid gap-3 rounded-xl border border-border p-4">
-          <header className="grid gap-1">
-            <h3 className="text-base font-semibold">
-              {t("groups.detail.gatewayTitle")}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("groups.detail.gatewayDescription")}
-            </p>
-          </header>
-          <Field>
-            <FieldLabel htmlFor="group-gateway">
-              {t("groups.detail.gatewayLabel")}
-            </FieldLabel>
-            <Select
-              items={[
-                {
-                  value: "automatic",
-                  label: t("groups.detail.gatewayAutomatic"),
-                },
-                ...groupData.screens.map((screen) => ({
-                  value: screen.id,
-                  label: screen.name,
-                })),
-              ]}
-              value={groupData.presentationGatewayScreenId || "automatic"}
-              onValueChange={(next) => {
-                if (!next || next === "automatic") {
-                  update.mutate({
-                    name: groupData.name,
-                    description: groupData.description,
-                    clearPresentationGateway: true,
-                  });
-                  return;
-                }
-                update.mutate({
-                  name: groupData.name,
-                  description: groupData.description,
-                  presentationGatewayScreenId: next,
-                });
-              }}
-              disabled={update.isPending}
-            >
-              <SelectTrigger
-                id="group-gateway"
-                aria-label={t("groups.detail.gatewayLabel")}
-              >
-                <SelectValue>
-                  {groupData.presentationGatewayScreenId
-                    ? (groupData.screens.find(
-                        (screen) =>
-                          screen.id === groupData.presentationGatewayScreenId,
-                      )?.name ?? groupData.presentationGatewayScreenId)
-                    : t("groups.detail.gatewayAutomatic")}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="automatic">
-                  {t("groups.detail.gatewayAutomatic")}
-                </SelectItem>
-                {groupData.screens.map((screen) => (
-                  <SelectItem key={screen.id} value={screen.id}>
-                    {screen.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </section>
-      )}
+            <DisplayControlGroupActions
+              groupId={groupData.id}
+              memberCount={groupData.membershipCount}
+              manageable={manageable}
+              csrfToken={csrf}
+            />
+          </TabsContent>
+        )}
 
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">
-            {t("groups.detail.syncTitle")}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {t("groups.detail.syncDescription")}
-          </p>
-        </header>
-        {manageable ? (
-          <div className="flex flex-wrap items-end gap-2">
-            <Field className="min-w-52 flex-1">
-              <FieldLabel htmlFor="group-fallback">
-                {t("groups.detail.fallbackFieldLabel")}
-              </FieldLabel>
-              <Select
-                items={[
-                  {
-                    value: "none",
-                    label: t("groups.detail.noFallbackOption"),
-                  },
-                  ...(playlists.data?.items ?? []).map((playlist) => ({
-                    value: `playlist:${playlist.id}`,
-                    label: t("groups.detail.optionPlaylist", {
-                      name: playlist.name,
-                    }),
-                  })),
-                  ...(layouts.data?.items ?? [])
-                    .filter((layout) => layout.publishedRevision)
-                    .map((layout) => ({
-                      value: `layout:${layout.id}`,
-                      label: t("groups.detail.optionLayout", {
-                        name: layout.name,
-                      }),
-                    })),
-                ]}
-                value={selectedPresentation || "none"}
-                onValueChange={(next) =>
-                  setSelectedPresentation(!next || next === "none" ? "" : next)
-                }
-              >
-                <SelectTrigger
-                  id="group-fallback"
-                  aria-label={t("groups.detail.fallbackFieldLabel")}
-                >
-                  <SelectValue>
-                    {selectedPresentation
-                      ? fallbackOptionLabel(selectedPresentation)
-                      : t("groups.detail.noFallbackOption")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    {t("groups.detail.noFallbackOption")}
-                  </SelectItem>
-                  {playlists.data?.items?.map((playlist) => (
-                    <SelectItem
-                      key={playlist.id}
-                      value={`playlist:${playlist.id}`}
+        {tab === "content" && (
+          <TabsContent
+            value="content"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            {manageable && groupData.screens.length > 0 && (
+              <section className="grid gap-3 rounded-xl border border-border p-4">
+                <header className="grid gap-1">
+                  <h3 className="text-base font-semibold">
+                    {t("groups.detail.gatewayTitle")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("groups.detail.gatewayDescription")}
+                  </p>
+                </header>
+                <Field>
+                  <FieldLabel htmlFor="group-gateway">
+                    {t("groups.detail.gatewayLabel")}
+                  </FieldLabel>
+                  <Select
+                    items={[
+                      {
+                        value: "automatic",
+                        label: t("groups.detail.gatewayAutomatic"),
+                      },
+                      ...groupData.screens.map((screen) => ({
+                        value: screen.id,
+                        label: screen.name,
+                      })),
+                    ]}
+                    value={groupData.presentationGatewayScreenId || "automatic"}
+                    onValueChange={(next) => {
+                      if (!next || next === "automatic") {
+                        update.mutate({
+                          name: groupData.name,
+                          description: groupData.description,
+                          clearPresentationGateway: true,
+                        });
+                        return;
+                      }
+                      update.mutate({
+                        name: groupData.name,
+                        description: groupData.description,
+                        presentationGatewayScreenId: next,
+                      });
+                    }}
+                    disabled={update.isPending}
+                  >
+                    <SelectTrigger
+                      id="group-gateway"
+                      aria-label={t("groups.detail.gatewayLabel")}
                     >
-                      {t("groups.detail.optionPlaylist", {
-                        name: playlist.name,
-                      })}
-                    </SelectItem>
-                  ))}
-                  {layouts.data?.items
-                    .filter((layout) => layout.publishedRevision)
-                    .map((layout) => (
-                      <SelectItem key={layout.id} value={`layout:${layout.id}`}>
-                        {t("groups.detail.optionLayout", {
-                          name: layout.name,
-                        })}
+                      <SelectValue>
+                        {groupData.presentationGatewayScreenId
+                          ? (groupData.screens.find(
+                              (screen) =>
+                                screen.id ===
+                                groupData.presentationGatewayScreenId,
+                            )?.name ?? groupData.presentationGatewayScreenId)
+                          : t("groups.detail.gatewayAutomatic")}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="automatic">
+                        {t("groups.detail.gatewayAutomatic")}
                       </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Button
-              type="button"
-              disabled={
-                assignContent.isPending ||
-                selectedPresentation === savedPresentation
-              }
-              onClick={() => assignContent.mutate(selectedPresentation)}
-            >
-              {assignContent.isPending
-                ? t("groups.detail.applying")
-                : t("groups.detail.apply")}
-            </Button>
-          </div>
-        ) : (
-          <p className="flex flex-wrap gap-x-2 text-sm">
-            <span className="text-muted-foreground">
-              {groupFallbackType(groupData, t)}
-            </span>
-            <strong>{groupFallbackName(groupData, t)}</strong>
-          </p>
-        )}
-      </section>
+                      {groupData.screens.map((screen) => (
+                        <SelectItem key={screen.id} value={screen.id}>
+                          {screen.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </section>
+            )}
 
-      <section className="grid gap-3 rounded-xl border border-border p-4">
-        <header className="grid gap-1">
-          <h3 className="text-base font-semibold">
-            {t("groups.detail.screensLabel")}
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {t("groups.detail.membersSummary", {
-              count: groupData.membershipCount,
-            })}
-          </p>
-        </header>
-        {manageable && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="group-screen-search">
-                {t("groups.detail.searchLabel")}
-              </FieldLabel>
-              <Input
-                id="group-screen-search"
-                type="search"
-                placeholder={t("groups.detail.searchPlaceholder")}
-                value={screenSearch}
-                onChange={(event) => setScreenSearch(event.target.value)}
-              />
-              <FieldDescription>
-                {t("groups.detail.searchHint")}
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="group-add-screen">
-                {t("groups.detail.addLabel")}
-              </FieldLabel>
-              <Select
-                items={available.map((screen) => ({
-                  value: screen.id,
-                  label: `${screen.name}${screen.location ? ` — ${screen.location}` : ""}`,
-                }))}
-                value=""
-                disabled={available.length === 0 || add.isPending}
-                onValueChange={(next) => {
-                  if (next) add.mutate(next);
-                }}
-              >
-                <SelectTrigger
-                  id="group-add-screen"
-                  aria-label={t("groups.detail.addLabel")}
-                >
-                  <SelectValue>
-                    {available.length
-                      ? t("groups.detail.chooseOption")
-                      : t("groups.detail.noOptions")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {available.map((screen) => (
-                    <SelectItem value={screen.id} key={screen.id}>
-                      {screen.name}
-                      {screen.location ? ` — ${screen.location}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-        )}
-        <div className="grid gap-2">
-          {(groupData.screens ?? []).map((screen) => (
-            <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
-              key={screen.id}
-            >
-              <span className="grid min-w-0 gap-0.5">
-                <strong className="truncate text-sm">{screen.name}</strong>
-                <small className="truncate text-xs text-muted-foreground">
-                  {screen.location || t("groups.detail.noLocation")}
-                </small>
-              </span>
-              {manageable && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate(screen.id)}
-                >
-                  {t("groups.detail.removeOption")}
-                </Button>
+            <section className="grid gap-3 rounded-xl border border-border p-4">
+              <header className="grid gap-1">
+                <h3 className="text-base font-semibold">
+                  {t("groups.detail.syncTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("groups.detail.syncDescription")}
+                </p>
+              </header>
+              {manageable ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field className="min-w-52 flex-1">
+                    <FieldLabel htmlFor="group-fallback">
+                      {t("groups.detail.fallbackFieldLabel")}
+                    </FieldLabel>
+                    <Select
+                      items={[
+                        {
+                          value: "none",
+                          label: t("groups.detail.noFallbackOption"),
+                        },
+                        ...(playlists.data?.items ?? []).map((playlist) => ({
+                          value: `playlist:${playlist.id}`,
+                          label: t("groups.detail.optionPlaylist", {
+                            name: playlist.name,
+                          }),
+                        })),
+                        ...(layouts.data?.items ?? [])
+                          .filter((layout) => layout.publishedRevision)
+                          .map((layout) => ({
+                            value: `layout:${layout.id}`,
+                            label: t("groups.detail.optionLayout", {
+                              name: layout.name,
+                            }),
+                          })),
+                      ]}
+                      value={selectedPresentation || "none"}
+                      onValueChange={(next) =>
+                        setSelectedPresentation(
+                          !next || next === "none" ? "" : next,
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        id="group-fallback"
+                        aria-label={t("groups.detail.fallbackFieldLabel")}
+                      >
+                        <SelectValue>
+                          {selectedPresentation
+                            ? fallbackOptionLabel(selectedPresentation)
+                            : t("groups.detail.noFallbackOption")}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {t("groups.detail.noFallbackOption")}
+                        </SelectItem>
+                        {playlists.data?.items?.map((playlist) => (
+                          <SelectItem
+                            key={playlist.id}
+                            value={`playlist:${playlist.id}`}
+                          >
+                            {t("groups.detail.optionPlaylist", {
+                              name: playlist.name,
+                            })}
+                          </SelectItem>
+                        ))}
+                        {layouts.data?.items
+                          .filter((layout) => layout.publishedRevision)
+                          .map((layout) => (
+                            <SelectItem
+                              key={layout.id}
+                              value={`layout:${layout.id}`}
+                            >
+                              {t("groups.detail.optionLayout", {
+                                name: layout.name,
+                              })}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Button
+                    type="button"
+                    disabled={
+                      assignContent.isPending ||
+                      selectedPresentation === savedPresentation
+                    }
+                    onClick={() => assignContent.mutate(selectedPresentation)}
+                  >
+                    {assignContent.isPending
+                      ? t("groups.detail.applying")
+                      : t("groups.detail.apply")}
+                  </Button>
+                </div>
+              ) : (
+                <p className="flex flex-wrap gap-x-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {groupFallbackType(groupData, t)}
+                  </span>
+                  <strong>{groupFallbackName(groupData, t)}</strong>
+                </p>
               )}
-            </div>
-          ))}
-          {groupData.screens.length === 0 && (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>{t("groups.detail.emptyTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("groups.detail.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-        </div>
-      </section>
+            </section>
+          </TabsContent>
+        )}
 
-      <PlayerPolicyEditor target="group" id={id} />
+        {tab === "members" && (
+          <TabsContent
+            value="members"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <section className="grid gap-3 rounded-xl border border-border p-4">
+              <header className="grid gap-1">
+                <h3 className="text-base font-semibold">
+                  {t("groups.detail.screensLabel")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("groups.detail.membersSummary", {
+                    count: groupData.membershipCount,
+                  })}
+                </p>
+              </header>
+              {manageable && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="group-screen-search">
+                      {t("groups.detail.searchLabel")}
+                    </FieldLabel>
+                    <Input
+                      id="group-screen-search"
+                      type="search"
+                      placeholder={t("groups.detail.searchPlaceholder")}
+                      value={screenSearch}
+                      onChange={(event) => setScreenSearch(event.target.value)}
+                    />
+                    <FieldDescription>
+                      {t("groups.detail.searchHint")}
+                    </FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="group-add-screen">
+                      {t("groups.detail.addLabel")}
+                    </FieldLabel>
+                    <Select
+                      items={available.map((screen) => ({
+                        value: screen.id,
+                        label: `${screen.name}${screen.location ? ` — ${screen.location}` : ""}`,
+                      }))}
+                      value=""
+                      disabled={available.length === 0 || add.isPending}
+                      onValueChange={(next) => {
+                        if (next) add.mutate(next);
+                      }}
+                    >
+                      <SelectTrigger
+                        id="group-add-screen"
+                        aria-label={t("groups.detail.addLabel")}
+                      >
+                        <SelectValue>
+                          {available.length
+                            ? t("groups.detail.chooseOption")
+                            : t("groups.detail.noOptions")}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {available.map((screen) => (
+                          <SelectItem value={screen.id} key={screen.id}>
+                            {screen.name}
+                            {screen.location ? ` — ${screen.location}` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              )}
+              <div className="grid gap-2">
+                {(groupData.screens ?? []).map((screen) => (
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3"
+                    key={screen.id}
+                  >
+                    <span className="grid min-w-0 gap-0.5">
+                      <strong className="truncate text-sm">
+                        {screen.name}
+                      </strong>
+                      <small className="truncate text-xs text-muted-foreground">
+                        {screen.location || t("groups.detail.noLocation")}
+                      </small>
+                    </span>
+                    {manageable && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={remove.isPending}
+                        onClick={() => remove.mutate(screen.id)}
+                      >
+                        {t("groups.detail.removeOption")}
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {groupData.screens.length === 0 && (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>{t("groups.detail.emptyTitle")}</EmptyTitle>
+                      <EmptyDescription>
+                        {t("groups.detail.emptyDescription")}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )}
+              </div>
+            </section>
+          </TabsContent>
+        )}
+
+        {tab === "policy" && (
+          <TabsContent
+            value="policy"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <PlayerPolicyEditor
+              target="group"
+              id={id}
+              onDirtyChange={setPolicyDirty}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
+      <Dialog
+        open={pendingDestination !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDestination(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("groups.detail.discardTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("groups.detail.discardBody")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingDestination(null)}
+            >
+              {t("groups.detail.keepEditing")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDestination) commitDestination(pendingDestination);
+              }}
+            >
+              {t("groups.detail.discardAction")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

@@ -453,7 +453,7 @@ export function PlaylistLibraryPage() {
                   {playlist.name}
                 </ItemTitle>
                 <ItemDescription>
-                  {playlist.description || t("list.noDescription")}
+                  {playlist.description || t("library.noDescription")}
                 </ItemDescription>
                 <ItemDescription className="flex flex-wrap items-center gap-x-2">
                   <span>{t("count.items", { count: playlist.itemCount })}</span>
