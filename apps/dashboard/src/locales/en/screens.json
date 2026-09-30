@@ -5,6 +5,14 @@
     "create": "Create Display Group",
     "loading": "Loading Display Groups",
     "loadError": "Display Groups could not be loaded. Try refreshing the page.",
+    "errors": {
+      "create": "Could not create the Display Group.",
+      "update": "Could not update the Display Group.",
+      "delete": "Could not delete the Display Group.",
+      "addScreen": "Could not add the screen to the Display Group.",
+      "removeScreen": "Could not remove the screen from the Display Group.",
+      "assignment": "Could not update the Display Group assignment."
+    },
     "noDescription": "No description",
     "count_one": "{{count}} screen",
     "count_other": "{{count}} screens",
