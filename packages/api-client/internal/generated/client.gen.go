@@ -12204,6 +12204,9 @@ type ApproveOAuthRequestJSONRequestBody = OAuthDecision
 // DenyOAuthRequestJSONRequestBody defines body for DenyOAuthRequest for application/json ContentType.
 type DenyOAuthRequestJSONRequestBody = OAuthDecision
 
+// CreateIOSStudioSessionJSONRequestBody defines body for CreateIOSStudioSession for application/json ContentType.
+type CreateIOSStudioSessionJSONRequestBody = OAuthTokenRequest
+
 // RevokeOAuthCredentialJSONRequestBody defines body for RevokeOAuthCredential for application/json ContentType.
 type RevokeOAuthCredentialJSONRequestBody RevokeOAuthCredentialJSONBody
 
@@ -13416,13 +13419,13 @@ type ClientInterface interface {
 	// StopAirplaySessionWithBody performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySessionWithBody(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// StopAirplaySession performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySession(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetNwsMonitor Read the NWS monitor, rules, active matches, and poll health
@@ -14645,18 +14648,18 @@ type ClientInterface interface {
 	// ApproveOAuthRequestWithBody performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 	ApproveOAuthRequestWithBody(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApproveOAuthRequest performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 	ApproveOAuthRequest(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DescribeOAuthApproval performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
 	//
-	// Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+	// Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
 	DescribeOAuthApproval(ctx context.Context, params *DescribeOAuthApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DenyOAuthRequestWithBody performs a POST /api/v1/oauth/deny (the `DenyOAuthRequest` operationId) request,
@@ -14670,6 +14673,18 @@ type ClientInterface interface {
 	//
 	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied.
 	DenyOAuthRequest(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIOSStudioSessionWithBody performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+	CreateIOSStudioSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIOSStudioSession performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+	CreateIOSStudioSession(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RevokeOAuthCredentialWithBody performs a POST /api/v1/oauth/revoke (the `RevokeOAuthCredential` operationId) request,
 	// with any type of body and a specified content type.
@@ -16619,7 +16634,7 @@ func (c *Client) GetAirplaySession(ctx context.Context, id openapi_types.UUID, r
 // StopAirplaySessionWithBody performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *Client) StopAirplaySessionWithBody(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStopAirplaySessionRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
@@ -16635,7 +16650,7 @@ func (c *Client) StopAirplaySessionWithBody(ctx context.Context, id openapi_type
 // StopAirplaySession performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *Client) StopAirplaySession(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStopAirplaySessionRequest(c.Server, id, params, body)
 	if err != nil {
@@ -20078,7 +20093,7 @@ func (c *Client) TestNotificationWebhook(ctx context.Context, id ResourceID, par
 // ApproveOAuthRequestWithBody performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 func (c *Client) ApproveOAuthRequestWithBody(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveOAuthRequestRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -20094,7 +20109,7 @@ func (c *Client) ApproveOAuthRequestWithBody(ctx context.Context, params *Approv
 // ApproveOAuthRequest performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 func (c *Client) ApproveOAuthRequest(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveOAuthRequestRequest(c.Server, params, body)
 	if err != nil {
@@ -20109,7 +20124,7 @@ func (c *Client) ApproveOAuthRequest(ctx context.Context, params *ApproveOAuthRe
 
 // DescribeOAuthApproval performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
 //
-// Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+// Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
 func (c *Client) DescribeOAuthApproval(ctx context.Context, params *DescribeOAuthApprovalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDescribeOAuthApprovalRequest(c.Server, params)
 	if err != nil {
@@ -20144,6 +20159,38 @@ func (c *Client) DenyOAuthRequestWithBody(ctx context.Context, params *DenyOAuth
 // Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied.
 func (c *Client) DenyOAuthRequest(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDenyOAuthRequestRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateIOSStudioSessionWithBody performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
+// with any type of body and a specified content type.
+//
+// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+func (c *Client) CreateIOSStudioSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIOSStudioSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateIOSStudioSession performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+func (c *Client) CreateIOSStudioSession(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIOSStudioSessionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -34055,6 +34102,46 @@ func NewDenyOAuthRequestRequestWithBody(server string, params *DenyOAuthRequestP
 	return req, nil
 }
 
+// NewCreateIOSStudioSessionRequest calls the generic CreateIOSStudioSession builder with application/json body
+func NewCreateIOSStudioSessionRequest(server string, body CreateIOSStudioSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIOSStudioSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateIOSStudioSessionRequestWithBody constructs an http.Request for the CreateIOSStudioSession method, with any body, and a specified content type
+func NewCreateIOSStudioSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/oauth/ios-session")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewRevokeOAuthCredentialRequest calls the generic RevokeOAuthCredential builder with application/json body
 func NewRevokeOAuthCredentialRequest(server string, body RevokeOAuthCredentialJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -42392,7 +42479,7 @@ type ClientWithResponsesInterface interface {
 	// StopAirplaySessionWithBodyWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	StopAirplaySessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error)
@@ -42400,7 +42487,7 @@ type ClientWithResponsesInterface interface {
 	// StopAirplaySessionWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 	StopAirplaySessionWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error)
 
 	// GetNwsMonitorWithResponse Read the NWS monitor, rules, active matches, and poll health
@@ -43953,7 +44040,7 @@ type ClientWithResponsesInterface interface {
 	// ApproveOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ApproveOAuthRequestWithBodyWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error)
@@ -43961,12 +44048,12 @@ type ClientWithResponsesInterface interface {
 	// ApproveOAuthRequestWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+	// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 	ApproveOAuthRequestWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error)
 
 	// DescribeOAuthApprovalWithResponse performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
 	//
-	// Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+	// Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DescribeOAuthApprovalWithResponse(ctx context.Context, params *DescribeOAuthApprovalParams, reqEditors ...RequestEditorFn) (*DescribeOAuthApprovalResponse, error)
@@ -43984,6 +44071,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Requires an enrolled dashboard session and the X-CSRF-Token header. Records nothing and returns the loopback redirect carrying access_denied.
 	DenyOAuthRequestWithResponse(ctx context.Context, params *DenyOAuthRequestParams, body DenyOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*DenyOAuthRequestResponse, error)
+
+	// CreateIOSStudioSessionWithBodyWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateIOSStudioSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error)
+
+	// CreateIOSStudioSessionWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+	CreateIOSStudioSessionWithResponse(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error)
 
 	// RevokeOAuthCredentialWithBodyWithResponse performs a POST /api/v1/oauth/revoke (the `RevokeOAuthCredential` operationId) request,
 	// with any type of body and a specified content type.
@@ -53769,6 +53870,62 @@ func (r DenyOAuthRequestResponse) ContentType() string {
 	return ""
 }
 
+// CreateIOSStudioSessionResponse200Headers the declared response headers of an HTTP 200 response for CreateIOSStudioSession
+type CreateIOSStudioSessionResponse200Headers struct {
+	SetCookie *string
+}
+
+type CreateIOSStudioSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Authenticated bool `json:"authenticated"`
+		} `json:"data"`
+	}
+	// Headers200 the parsed response headers for an HTTP 200 response
+	Headers200 *CreateIOSStudioSessionResponse200Headers
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CreateIOSStudioSessionResponse) GetJSON200() *struct {
+	Data struct {
+		Authenticated bool `json:"authenticated"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateIOSStudioSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIOSStudioSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIOSStudioSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateIOSStudioSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RevokeOAuthCredentialResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -62306,7 +62463,7 @@ func (c *ClientWithResponses) GetAirplaySessionWithResponse(ctx context.Context,
 // StopAirplaySessionWithBodyWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) StopAirplaySessionWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error) {
@@ -62320,7 +62477,7 @@ func (c *ClientWithResponses) StopAirplaySessionWithBodyWithResponse(ctx context
 // StopAirplaySessionWithResponse performs a POST /api/v1/airplay/sessions/{id}/stop (the `StopAirplaySession` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503.
 func (c *ClientWithResponses) StopAirplaySessionWithResponse(ctx context.Context, id openapi_types.UUID, params *StopAirplaySessionParams, body StopAirplaySessionJSONRequestBody, reqEditors ...RequestEditorFn) (*StopAirplaySessionResponse, error) {
 	rsp, err := c.StopAirplaySession(ctx, id, params, body, reqEditors...)
 	if err != nil {
@@ -65205,7 +65362,7 @@ func (c *ClientWithResponses) TestNotificationWebhookWithResponse(ctx context.Co
 // ApproveOAuthRequestWithBodyWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request,
 // with any type of body and a specified content type.
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ApproveOAuthRequestWithBodyWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error) {
@@ -65219,7 +65376,7 @@ func (c *ClientWithResponses) ApproveOAuthRequestWithBodyWithResponse(ctx contex
 // ApproveOAuthRequestWithResponse performs a POST /api/v1/oauth/approve (the `ApproveOAuthRequest` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code.
+// Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code.
 func (c *ClientWithResponses) ApproveOAuthRequestWithResponse(ctx context.Context, params *ApproveOAuthRequestParams, body ApproveOAuthRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ApproveOAuthRequestResponse, error) {
 	rsp, err := c.ApproveOAuthRequest(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -65230,7 +65387,7 @@ func (c *ClientWithResponses) ApproveOAuthRequestWithResponse(ctx context.Contex
 
 // DescribeOAuthApprovalWithResponse performs a GET /api/v1/oauth/authorize (the `DescribeOAuthApproval` operationId) request.
 //
-// Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
+// Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DescribeOAuthApprovalWithResponse(ctx context.Context, params *DescribeOAuthApprovalParams, reqEditors ...RequestEditorFn) (*DescribeOAuthApprovalResponse, error) {
@@ -65265,6 +65422,32 @@ func (c *ClientWithResponses) DenyOAuthRequestWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseDenyOAuthRequestResponse(rsp)
+}
+
+// CreateIOSStudioSessionWithBodyWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request,
+// with any type of body and a specified content type.
+//
+// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateIOSStudioSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error) {
+	rsp, err := c.CreateIOSStudioSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIOSStudioSessionResponse(rsp)
+}
+
+// CreateIOSStudioSessionWithResponse performs a POST /api/v1/oauth/ios-session (the `CreateIOSStudioSession` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store.
+func (c *ClientWithResponses) CreateIOSStudioSessionWithResponse(ctx context.Context, body CreateIOSStudioSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIOSStudioSessionResponse, error) {
+	rsp, err := c.CreateIOSStudioSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIOSStudioSessionResponse(rsp)
 }
 
 // RevokeOAuthCredentialWithBodyWithResponse performs a POST /api/v1/oauth/revoke (the `RevokeOAuthCredential` operationId) request,
@@ -69459,6 +69642,9 @@ func ParseStopAirplaySessionResponse(rsp *http.Response) (*StopAirplaySessionRes
 		break // No content-type
 
 	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 503:
 		break // No content-type
 
 	}
@@ -73823,6 +74009,55 @@ func ParseDenyOAuthRequestResponse(rsp *http.Response) (*DenyOAuthRequestRespons
 	case rsp.StatusCode == 403:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseCreateIOSStudioSessionResponse parses an HTTP response from a CreateIOSStudioSessionWithResponse call
+func ParseCreateIOSStudioSessionResponse(rsp *http.Response) (*CreateIOSStudioSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIOSStudioSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Authenticated bool `json:"authenticated"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	switch {
+	case rsp.StatusCode == 200:
+		var headers CreateIOSStudioSessionResponse200Headers
+		if values := rsp.Header.Values("Set-Cookie"); len(values) > 0 {
+			var value string
+			if err := runtime.BindStyledParameterWithOptions("simple", "Set-Cookie", values[0], &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			}
+			headers.SetCookie = &value
+		}
+		response.Headers200 = &headers
 	}
 
 	return response, nil

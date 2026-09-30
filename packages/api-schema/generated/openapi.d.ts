@@ -469,7 +469,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Requires an enrolled dashboard session. Describes one loopback authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters. */
+    /** @description Requires an enrolled dashboard session. Describes one first-party authorization request (client, scopes, redirect) for the approval screen. Stores nothing; approval revalidates the same parameters. */
     get: operations["describeOAuthApproval"];
     put?: never;
     post?: never;
@@ -488,7 +488,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the loopback redirect carrying the single-use authorization code. */
+    /** @description Browser ceremony: requires an enrolled dashboard session and the X-CSRF-Token header, and refuses bearer grants. Records the grant and returns the validated redirect carrying the single-use authorization code. */
     post: operations["approveOAuthRequest"];
     delete?: never;
     options?: never;
@@ -524,6 +524,23 @@ export interface paths {
     put?: never;
     /** @description Public and rate-limited. Exchanges a single-use code with its PKCE verifier, or rotates a refresh token. PKCE is the client authentication for loopback clients. Reusing a rotated refresh token revokes the whole grant. */
     post: operations["issueOAuthTokens"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/oauth/ios-session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Public and rate-limited. Exchanges a single-use authorization code issued to tilecast-ios with PKCE, revokes the temporary grant, and sets a normal HttpOnly Studio session cookie. The callback URI must be tilecast-ios://oauth/callback. The app imports the cookie into the configured server's isolated WebKit data store. */
+    post: operations["createIOSStudioSession"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1844,7 +1861,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Stop an AirPlay Present session. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token. The server commits the stop transition and required Player cleanup commands together. Retry if the server returns 503. */
     post: operations["stopAirplaySession"];
     delete?: never;
     options?: never;
@@ -11411,7 +11428,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Loopback redirect carrying the code */
+      /** @description Validated redirect carrying the code */
       200: {
         headers: {
           [name: string]: unknown;
@@ -11461,7 +11478,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Loopback redirect carrying access_denied */
+      /** @description Validated redirect carrying access_denied */
       200: {
         headers: {
           [name: string]: unknown;
@@ -11520,6 +11537,49 @@ export interface operations {
         };
       };
       /** @description Expired, used, mismatched, or revoked grant */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many authentication attempts */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createIOSStudioSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OAuthTokenRequest"];
+      };
+    };
+    responses: {
+      /** @description Studio session cookie set */
+      200: {
+        headers: {
+          "Set-Cookie"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              authenticated: boolean;
+            };
+          };
+        };
+      };
+      /** @description Invalid, expired, or used authorization code */
       400: {
         headers: {
           [name: string]: unknown;
@@ -15629,6 +15689,13 @@ export interface operations {
       };
       /** @description Stop reason too long */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Stop transition or required Player cleanup command could not be committed; retry the request */
+      503: {
         headers: {
           [name: string]: unknown;
         };

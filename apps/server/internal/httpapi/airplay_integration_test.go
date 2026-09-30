@@ -189,7 +189,8 @@ func TestAirplayManualStopReportsDatabaseFailureAndRollsBackQueuedCommand(t *tes
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		airplayCreateTestSetup(t, env)
 		sessionID := createAirplaySessionForStopTest(t, env)
-		installAirplayStoppedStateFailure(t, env)
+		removeStateFailure := installAirplayStoppedStateFailure(t, env)
+		defer removeStateFailure()
 
 		stopped := httptest.NewRecorder()
 		env.server.stopAirplaySession(stopped, airplayDashboardRequest(http.MethodPost, "/api/v1/airplay/sessions/"+sessionID.String()+"/stop", []byte(`{"reason":"manual_stop"}`), env.owner))
@@ -244,7 +245,7 @@ $$`); err != nil {
 	return remove
 }
 
-func installAirplayStoppedStateFailure(t *testing.T, env activityTestEnvironment) {
+func installAirplayStoppedStateFailure(t *testing.T, env activityTestEnvironment) func() {
 	t.Helper()
 	_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stopped_state ON external_presentation_screen_states`)
 	_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stopped_state()`)
@@ -261,10 +262,14 @@ $$`); err != nil {
 	if _, err := env.pool.Exec(context.Background(), `CREATE TRIGGER tilecast_test_reject_airplay_stopped_state BEFORE UPDATE ON external_presentation_screen_states FOR EACH ROW EXECUTE FUNCTION tilecast_test_reject_airplay_stopped_state()`); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
+	// t.Cleanup alone runs after the fixture pool closes, which would leak
+	// the trigger into later tests: callers remove it eagerly too.
+	remove := func() {
 		_, _ = env.pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS tilecast_test_reject_airplay_stopped_state ON external_presentation_screen_states`)
 		_, _ = env.pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS tilecast_test_reject_airplay_stopped_state()`)
-	})
+	}
+	t.Cleanup(remove)
+	return remove
 }
 
 func assertAirplayStopFailure(t *testing.T, response *httptest.ResponseRecorder) {
