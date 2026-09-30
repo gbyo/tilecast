@@ -104,6 +104,7 @@ final class FixtureStudioServer: @unchecked Sendable {
         <h1 id="page"></h1>
         <p id="document"></p>
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
+        <p><button id="drill" type="button">Open screen detail</button></p>
         <p id="opened"></p>
         <p id="ended">Ended 0</p>
         <p><button id="ask" type="button">Delete fixture</button></p>
@@ -131,15 +132,24 @@ final class FixtureStudioServer: @unchecked Sendable {
         const active = () => Object.keys(paths).find((id) => paths[id] === location.pathname) ?? null;
         const render = () => {
           const id = active();
-          document.getElementById("page").textContent = id ? `${titles[id]} page` : "No destination";
+          document.getElementById("page").textContent = location.pathname === "/fleet/screen-1" ? "Screen detail page"
+            : id ? `${titles[id]} page` : "No destination";
           document.getElementById("document").textContent = `Document ${documentId}`;
         };
         const handler = window.webkit?.messageHandlers?.tilecastNative;
         const send = (type, payload) => handler.postMessage({ version: 1, type, payload });
-        const publish = () => {
+        // A drill-in page describes its trail, as Studio does from its breadcrumbs.
+        const chrome = () => location.pathname === "/fleet/screen-1"
+          ? { title: "Lobby north", back: { label: "Fleet" } } : { title: titles[active()] ?? "Fleet" };
+        const publish = async () => {
           render();
-          return send("navigation/state", { activeDestinationId: active(), path: location.pathname });
+          await send("navigation/state", { activeDestinationId: active(), path: location.pathname });
+          await send("navigation/chrome", chrome());
         };
+        document.getElementById("drill").addEventListener("click", () => {
+          history.pushState(null, "", "/fleet/screen-1");
+          void publish();
+        });
         // A presentation is its own document with its own data, so Studio
         // refetches when one ends. The fixture just counts.
         let ended = 0;
@@ -150,6 +160,11 @@ final class FixtureStudioServer: @unchecked Sendable {
           }
           if (message?.type === "alert/action") {
             document.getElementById("chosen").textContent = `Chose ${message.payload.actionId}`;
+            return true;
+          }
+          if (message?.type === "navigation/back") {
+            history.pushState(null, "", "/fleet");
+            void publish();
             return true;
           }
           const path = message?.type === "navigation/request" ? paths[message.payload.destinationId]
@@ -212,6 +227,7 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="close" type="button">Close from page</button></p>
         <p><button id="leave" type="button">Go to Layouts</button></p>
         <p><button id="ask" type="button">Ask from sheet</button></p>
+        <p><button id="grow" type="button">Grow sheet</button></p>
         <p id="chosen"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
@@ -258,6 +274,13 @@ final class FixtureStudioServer: @unchecked Sendable {
         };
         document.getElementById("close").addEventListener("click", () => {
           if (current) void send("presentation/close", { presentationId: current });
+        });
+        // A dialog inside a compact presentation asks the sheet for the full
+        // height, as Studio's dialog primitives do.
+        document.getElementById("grow").addEventListener("click", async () => {
+          if (!current) return;
+          await send("presentation/update", { presentationId: current, size: "full" });
+          text("action", "Grew");
         });
         document.getElementById("ask").addEventListener("click", () => {
           void send("alert/present", {

@@ -133,6 +133,10 @@ describe("messages Studio sends", () => {
         { id: "confirm", label: "Delete", role: "destructive" },
       ],
     }),
+    navigationChrome: frontendMessage("navigation/chrome", {
+      title: "Lobby north",
+      back: { label: "Fleet" },
+    }),
     alertCancel: frontendMessage("alert/cancel", {
       alertId: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
     }),

@@ -111,6 +111,21 @@ final class NativePresentationUITests: XCTestCase {
     }
 
     @MainActor
+    func testADrillInPageGetsANativeBackBar() throws {
+        launchWithFixtureServer()
+        XCTAssertFalse(app.buttons["native.back"].exists, "a top-level page has no bar")
+        app.webViews.buttons["Open screen detail"].tap()
+        XCTAssertTrue(webText("Screen detail page").waitForExistence(timeout: 10))
+        let back = app.buttons["native.back"]
+        XCTAssertTrue(back.waitForExistence(timeout: 10), "SwiftUI shows Studio's back button")
+        XCTAssertEqual(back.label, "Fleet", "named for the page it leads to")
+        XCTAssertTrue(app.navigationBars.staticTexts["Lobby north"].exists, "Studio's title")
+        back.tap()
+        XCTAssertTrue(webText("Fleet page").waitForExistence(timeout: 10), "Studio's router went back")
+        XCTAssertTrue(back.waitForNonExistence(timeout: 10), "the bar goes away with the drill-in")
+    }
+
+    @MainActor
     func testStudioConfirmationsAreNativeAlerts() throws {
         launchWithFixtureServer()
         app.webViews.buttons["Delete fixture"].tap()
@@ -121,6 +136,31 @@ final class NativePresentationUITests: XCTestCase {
         alert.buttons["Delete"].tap()
         XCTAssertTrue(alert.waitForNonExistence(timeout: 10))
         XCTAssertTrue(webText("Chose confirm").waitForExistence(timeout: 10), "Studio hears which button")
+    }
+
+    @MainActor
+    func testACompactSheetGrowsWhenItsPageAsksForFullHeight() throws {
+        launchWithFixtureServer()
+        openSheet()
+        let grow = app.webViews.buttons["Grow sheet"]
+        XCTAssertTrue(grow.waitForExistence(timeout: 20))
+        grow.tap()
+        XCTAssertTrue(webText("Grew").waitForExistence(timeout: 10), "the app survived the resize")
+        XCTAssertTrue(sheetTitle.exists, "the sheet is still up")
+        app.buttons["presentation.close"].tap()
+        XCTAssertTrue(sheetTitle.waitForNonExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testDraggingACompactSheetToFullHeightKeepsTheApp() throws {
+        launchWithFixtureServer()
+        openSheet()
+        XCTAssertTrue(webText("Showing fixture/sheet, time 1").waitForExistence(timeout: 20))
+        let grabber = app.otherElements["Sheet Grabber"].firstMatch
+        let handle = grabber.exists ? grabber : sheetTitle
+        handle.swipeUp(velocity: .fast)
+        XCTAssertTrue(sheetTitle.waitForExistence(timeout: 10), "the app survived the drag")
+        XCTAssertTrue(webText("Showing fixture/sheet, time 1").exists)
     }
 
     @MainActor

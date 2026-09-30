@@ -29,6 +29,10 @@ The app never changes Studio's address when you tap a tab. It asks Studio, and R
 
 The [native bridge contract](https://github.com/gbyo/tilecast/tree/main/packages/native-bridge-schema) describes the messages exactly.
 
+## Detail pages get a native back button
+
+When you open a page from a list, such as a screen's details or a Layout, the app shows a native navigation bar with a back button named for the page you came from, and the page's title. Studio sends this from its breadcrumb trail, so a new page gets it with no app change. Top-level pages have no bar. Studio hides its own breadcrumbs in the app so the trail isn't drawn twice. In a browser, and in an older app, nothing changes.
+
 ## Some screens open in a native sheet
 
 The app can show a Studio screen in a native iOS sheet with a native title and Close button. Studio still draws everything inside the sheet, so it's the same React page you'd see in a browser. The screens that do this today are Live stream, the Layout and Playlist previews, a media asset's details, an Activity incident's details, and an update deployment's status. Confirmations, such as "Delete this schedule?", are native iOS alerts too. In a browser, or in an older app, they open exactly as before: a dialog, a popup, or a side panel.

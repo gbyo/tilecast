@@ -100,10 +100,12 @@ type Sent = { version: number; type: string; payload: Record<string, unknown> };
 function installNativeHost({
   context = "main",
   nativePresentations = true,
+  nativeAlerts = false,
   openReply = "ok",
 }: {
   context?: "main" | "presentation";
   nativePresentations?: boolean;
+  nativeAlerts?: boolean;
   openReply?: "ok" | "unavailable";
 } = {}) {
   const sent: Sent[] = [];
@@ -120,6 +122,7 @@ function installNativeHost({
             nativeNavigation: context === "main",
             authLifecycle: false,
             nativePresentations,
+            nativeAlerts,
           },
         },
       });
@@ -830,8 +833,8 @@ describe("media asset details as a native presentation", () => {
     },
   ];
 
-  async function showAsset() {
-    const host = installNativeHost({ context: "presentation" });
+  async function showAsset(nativeAlerts = false) {
+    const host = installNativeHost({ context: "presentation", nativeAlerts });
     renderRoutes(routes, "/__native/modal");
     await waitFor(() => expect(host.types()).toContain("presentation/ready"));
     host.deliver("presentation/show", {
@@ -903,6 +906,51 @@ describe("media asset details as a native presentation", () => {
         { presentationId: "p-1" },
       ]),
     );
+  });
+
+  it("confirms the archive with a native alert, without growing the sheet", async () => {
+    const host = await showAsset(true);
+    await userEvent.click(screen.getByRole("button", { name: /Archive/ }));
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(1));
+    const alert = host.ofType("alert/present")[0] as {
+      alertId: string;
+      actions: { id: string; label: string; role: string }[];
+    };
+    expect(alert.actions.at(-1)).toEqual({
+      id: "confirm",
+      label: "Move to archive",
+      role: "default",
+    });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(host.ofType("presentation/update")).not.toContainEqual({
+      presentationId: "p-1",
+      size: "full",
+    });
+    host.deliver("alert/action", {
+      alertId: alert.alertId,
+      actionId: "confirm",
+    });
+    await waitFor(() =>
+      expect(mocks.api.archiveAssets).toHaveBeenCalledWith(["asset-1"], "csrf"),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/close")).toEqual([
+        { presentationId: "p-1" },
+      ]),
+    );
+  });
+
+  it("archives nothing when the alert is cancelled", async () => {
+    const host = await showAsset(true);
+    await userEvent.click(screen.getByRole("button", { name: /Archive/ }));
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(1));
+    host.deliver("alert/action", {
+      alertId: (host.ofType("alert/present")[0] as { alertId: string }).alertId,
+      actionId: "cancel",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mocks.api.archiveAssets).not.toHaveBeenCalled();
+    expect(host.ofType("presentation/close")).toEqual([]);
   });
 
   it("shows the error when the asset cannot be loaded", async () => {
