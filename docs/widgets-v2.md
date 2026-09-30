@@ -270,6 +270,10 @@ displayed placement and scale both ways with Studio zoom, while the Widget
 keeps its logical intrinsic geometry. Hidden capture surfaces keep
 deterministic intrinsic geometry and never inherit editor zoom.
 
+Studio projects saved typed previews into the Widget resource model. It keeps
+time-series points, timezone, and units so a Widget receives the same dataset
+metadata in preview and playback.
+
 A fixed date in the Widget editor freezes the Widget's own clock and passes
 the selected local calendar date to its Data Source previews. A Layout
 preview date does the same for each zone, so time-sensitive Widgets agree
