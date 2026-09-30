@@ -266,7 +266,7 @@ To add a destination, add a Studio route with `navigation` metadata and a locali
 
 ## Native presentations
 
-Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The first surface is Live Stream. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
+Studio owns the content. SwiftUI owns the presentation. A supported Studio surface can show in a native SwiftUI sheet with native chrome, and Studio renders everything inside it. The surfaces are Live Stream, the Layout preview, and the Playlist preview. A browser still opens the preview in a popup. The Layout editor saves the draft first, then opens the sheet, as it does for the popup. The decision record is [ADR: two WebPages, one data store](adr/ios-native-presentations.md).
 
 ### Two pages, one data store
 

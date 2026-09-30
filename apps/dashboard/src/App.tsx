@@ -92,6 +92,8 @@ const settingsSearch: Partial<
  */
 const presentationRoutes: RouteObject[] = [
   { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
+  { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+  { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
 ];
 
 export const studioRoutes: RouteObject[] = [

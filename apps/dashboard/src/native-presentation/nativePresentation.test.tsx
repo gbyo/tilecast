@@ -21,8 +21,11 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LivePreviewPanel } from "@/components/LivePreviewPanel";
 import { LiveStreamPresentation } from "@/components/LiveStreamPresentation";
+import { useOpenPlaylistPreview } from "@/components/playlist-editor/playlistEditorModel";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { NativeHostProvider } from "@/native-host/NativeHostProvider";
+import { LayoutPreviewPage } from "@/pages/LayoutPreviewPage";
+import { PlaylistPreviewPage } from "@/pages/PlaylistPreviewPage";
 import { NativePresentationHost } from "./NativePresentationHost";
 import { NativePresentationNavigation } from "./NativePresentationNavigation";
 import {
@@ -37,6 +40,9 @@ const mocks = vi.hoisted(() => ({
     renewScreenPreview: vi.fn(),
     screenPreviewImageUrl: () => "/preview.jpg",
     preferences: vi.fn(),
+    settings: vi.fn(),
+    playlist: vi.fn(),
+    layout: vi.fn(),
     startLiveStream: vi.fn(),
     renewLiveStream: vi.fn(),
     screenLiveStreamUrl: (screenId: string, sessionId: string) =>
@@ -167,6 +173,21 @@ beforeEach(() => {
   });
   mocks.api.renewScreenPreview.mockResolvedValue({ active: true });
   mocks.api.preferences.mockResolvedValue({ values: {} });
+  mocks.api.settings.mockResolvedValue({ values: {} });
+  mocks.api.playlist.mockResolvedValue({
+    id: "playlist-1",
+    name: "Lobby loop",
+    revision: 1,
+    items: [],
+  });
+  mocks.api.layout.mockResolvedValue({
+    id: "layout-1",
+    name: "Welcome board",
+    draft: {
+      canvas: { width: 1920, height: 1080, backgroundColor: "#000000" },
+      placements: [],
+    },
+  });
   mocks.api.startLiveStream.mockResolvedValue({
     id: "session-1",
     screenId: "screen-1",
@@ -641,5 +662,125 @@ describe("the presentation page", () => {
       expect.objectContaining({ method: "DELETE", keepalive: true }),
     );
     expect(screen.queryByAltText("Live Tilecast output from Lobby")).toBeNull();
+  });
+});
+
+describe("previews as native presentations", () => {
+  const children: RouteObject[] = [
+    { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
+    { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
+  ];
+  const routes: RouteObject[] = [
+    {
+      path: "/__native/modal",
+      element: <NativePresentationHost routes={children} />,
+      children,
+    },
+    { path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> },
+    { path: "/layouts/:id/preview", element: <LayoutPreviewPage /> },
+    { path: "/", element: <OpenPlaylistPreview /> },
+  ];
+
+  function OpenPlaylistPreview() {
+    const open = useOpenPlaylistPreview();
+    return (
+      <button
+        type="button"
+        onClick={() => open({ id: "playlist 1", name: "Lobby loop" })}
+      >
+        Preview playlist
+      </button>
+    );
+  }
+
+  it("shows a playlist preview under the native header, without its own Close", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/playlist-preview/playlist-1",
+    });
+    expect(
+      await screen.findByRole("region", { name: "Playlist preview" }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Lobby loop",
+          navigation: "close",
+          navigationLabel: "Close preview",
+        },
+        size: "full",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Close preview" })).toBeNull();
+  });
+
+  it("shows a layout preview under the native header, keeping its date control", async () => {
+    const host = installNativeHost({ context: "presentation" });
+    renderRoutes(routes, "/__native/modal");
+    await waitFor(() => expect(host.types()).toContain("presentation/ready"));
+    host.deliver("presentation/show", {
+      presentationId: "p-1",
+      path: "/__native/modal/layout-preview/layout-1?date=2026-09-29",
+    });
+    expect(await screen.findByText("1920 × 1080")).toBeVisible();
+    await waitFor(() =>
+      expect(host.ofType("presentation/update")).toContainEqual({
+        presentationId: "p-1",
+        header: {
+          title: "Preview Welcome board",
+          navigation: "close",
+          navigationLabel: "Close preview",
+        },
+        size: "full",
+      }),
+    );
+    expect(screen.queryByRole("button", { name: "Close preview" })).toBeNull();
+    expect(mocks.api.layout).toHaveBeenCalledWith("layout-1");
+  });
+
+  it("keeps its own header and Close in a browser popup", async () => {
+    renderRoutes(routes, "/playlists/playlist-1/preview");
+    expect(
+      await screen.findByRole("button", { name: "Close preview" }),
+    ).toBeVisible();
+    expect(screen.getByText("Lobby loop")).toBeVisible();
+  });
+
+  it("asks a native host to present the playlist preview", async () => {
+    const host = installNativeHost();
+    const open = vi.spyOn(window, "open");
+    renderRoutes(routes, "/");
+    await waitFor(() => expect(host.types()).toContain("frontend/ready"));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Preview playlist" }),
+    );
+    await waitFor(() =>
+      expect(host.ofType("presentation/open")).toEqual([
+        expect.objectContaining({
+          path: "/__native/modal/playlist-preview/playlist%201",
+          title: "Lobby loop",
+          size: "full",
+        }),
+      ]),
+    );
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it("opens the popup in a browser", async () => {
+    const popup = { opener: {}, focus: vi.fn() } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(popup);
+    renderRoutes(routes, "/");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Preview playlist" }),
+    );
+    expect(open).toHaveBeenCalledWith(
+      "/playlists/playlist%201/preview",
+      "tilecast-playlist-preview-playlist 1",
+      expect.stringContaining("popup=yes"),
+    );
   });
 });
