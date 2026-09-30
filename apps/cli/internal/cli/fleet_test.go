@@ -85,8 +85,16 @@ func TestPairingCeremony(t *testing.T) {
 	if f.lastPairingApproval["name"] != "Kiosk" || f.lastPairingApproval["roomNumber"] != "3" {
 		t.Fatalf("approve body = %v", f.lastPairingApproval)
 	}
-	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--name", "Kiosk", "--yes"); err == nil {
-		t.Fatal("approve without room details accepted")
+	// Room details are optional like on the server: a name alone approves.
+	out, err = f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--name", "Kiosk", "--yes")
+	if err != nil || !strings.Contains(out, "approved Kiosk") {
+		t.Fatalf("approve without room details = %q, %v", out, err)
+	}
+	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--yes"); err == nil {
+		t.Fatal("approve without a name accepted")
+	}
+	if _, err := f.execute(t, "", "pairing", "approve", "44444444-4444-4444-4444-444444444444", "--replace-hardware", "--yes"); err == nil {
+		t.Fatal("replace-hardware approve without a replacement screen accepted")
 	}
 	out, err = f.execute(t, "", "pairing", "reject", "44444444-4444-4444-4444-444444444444", "--reason", "unknown device", "--yes")
 	if err != nil || !strings.Contains(out, "rejected 44444444") {
