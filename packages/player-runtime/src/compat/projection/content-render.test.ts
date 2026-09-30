@@ -1059,4 +1059,49 @@ describe("renderLayout", () => {
     });
     expect(payload.backgroundImageViewport?.x).toBe(1920);
   });
+
+  it("keeps the canvas background when every visible placement is outside a Span panel", () => {
+    const document: LayoutDocument = {
+      schemaVersion: 2,
+      canvas: {
+        width: 3840,
+        height: 1080,
+        orientation: "landscape",
+        backgroundColor: "#101418",
+      },
+      placements: [
+        {
+          id: "off-panel",
+          type: "primitive",
+          name: "off-panel",
+          x: 2400,
+          y: 0,
+          width: 800,
+          height: 200,
+          layer: 1,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          primitive: { kind: "text", text: "other panel" },
+        },
+      ],
+    };
+
+    const payload = renderLayout(
+      document,
+      { manifest, widgets: new Map(), dataSources: new Map(), at },
+      {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        rotation: 0,
+        order: 0,
+        canvasWidth: 3840,
+        canvasHeight: 1080,
+      },
+    );
+
+    expect(payload).toMatchObject({ background: "#101418", zones: [] });
+  });
 });
