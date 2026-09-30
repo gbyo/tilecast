@@ -23,6 +23,12 @@ import Testing
         #expect(main("about:blank") == .allow)
     }
 
+    @Test func sendsLoginToSystemAuthentication() {
+        #expect(main("https://signage.example.org/login?returnTo=%2Fscreens") == .signIn)
+        #expect(main("https://signage.example.org/setup") == .allow)
+        #expect(subframe("https://signage.example.org/login") == .allow)
+    }
+
     @Test func sendsOtherSitesToTheSystem() {
         let external = URL(string: "https://docs.tilecast.org/")!
         #expect(main(external.absoluteString) == .openExternally(external))

@@ -431,7 +431,7 @@ function ScreenRow({
 }) {
   const { t } = useTranslation("activity");
   return (
-    <div className="grid grid-cols-[minmax(9rem,1fr)_minmax(7rem,2fr)_4rem] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[minmax(11rem,1fr)_minmax(8rem,2fr)_4rem_minmax(8rem,auto)]">
+    <div className="grid grid-cols-[minmax(0,1fr)_4rem] items-center gap-x-3 gap-y-1 py-2 text-sm sm:grid-cols-[minmax(11rem,1fr)_minmax(8rem,2fr)_4rem_minmax(8rem,auto)]">
       <Link
         className="truncate font-medium hover:underline"
         to={`/screens/${screen.screenId}`}
@@ -439,7 +439,7 @@ function ScreenRow({
         {screen.screenName}
       </Link>
       <div
-        className="flex h-3 min-w-0 gap-px overflow-hidden rounded-sm"
+        className="col-span-2 row-start-2 flex h-3 min-w-0 gap-px overflow-hidden rounded-sm sm:col-span-1 sm:col-start-2 sm:row-start-1"
         role="img"
         aria-label={
           screen.downSeconds > 0
@@ -468,7 +468,7 @@ function ScreenRow({
       <span className="text-right font-medium tabular-nums">
         {formatPercent(screen.uptimePercent)}
       </span>
-      <span className="col-span-3 text-xs text-muted-foreground sm:col-span-1">
+      <span className="col-span-2 row-start-3 text-xs text-muted-foreground sm:col-span-1 sm:col-start-4 sm:row-start-1">
         {screen.downSeconds > 0
           ? t("uptime.rowDown", {
               value: formatSeconds(screen.downSeconds),

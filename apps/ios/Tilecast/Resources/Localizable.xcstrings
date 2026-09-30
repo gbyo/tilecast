@@ -209,6 +209,22 @@
         }
       }
     },
+    "Close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
     "Connect to your organization’s Tilecast server to manage screens, content, and schedules.": {
       "localizations": {
         "es": {
@@ -849,6 +865,22 @@
         }
       }
     },
+    "This view stopped unexpectedly.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta vista se detuvo inesperadamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это окно неожиданно закрылось."
+          }
+        }
+      }
+    },
     "Tilecast": {
       "localizations": {
         "es": {
@@ -877,6 +909,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось загрузить Tilecast Studio (%1$@ %2$lld)."
+          }
+        }
+      }
+    },
+    "Tilecast Studio couldn’t open this view.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio no pudo abrir esta vista."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio не удалось открыть это окно."
           }
         }
       }
@@ -1007,6 +1055,58 @@
             "value": "Данные сайта для %@ на этом устройстве, включая ваш вход, будут удалены. Продолжайте, только если сервер был намеренно переустановлен или восстановлен."
           }
         }
+      }
+    },
+    "Couldn’t Open This View": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir esta vista"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть это окно"
+          }
+        }
+      }
+    },
+    "Couldn’t Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "No se pudo iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось войти" } }
+      }
+    },
+    "Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти" } }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Cerrar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
+      }
+    },
+    "Sign In to Tilecast": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión en Tilecast" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти в Tilecast" } }
+      }
+    },
+    "Sign in securely to %@ using the system browser.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Inicia sesión de forma segura en %@ con el navegador del sistema." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войдите на %@ безопасно через системный браузер." } }
+      }
+    },
+    "Try signing in again.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Intenta iniciar sesión de nuevo." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Попробуйте войти ещё раз." } }
       }
     },
     "Welcome to Tilecast": {

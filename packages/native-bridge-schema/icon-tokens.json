@@ -1,0 +1,21 @@
+{
+  "$comment": "Semantic navigation icon tokens that native hosts recognize. A host shows its generic icon for any other token, so Studio can use a token that is not listed here.",
+  "version": 1,
+  "fallback": "generic",
+  "tokens": [
+    "home",
+    "screens",
+    "groups",
+    "media",
+    "widgets",
+    "data",
+    "playlists",
+    "layouts",
+    "campaigns",
+    "schedules",
+    "plugins",
+    "activity",
+    "settings",
+    "plugin"
+  ]
+}

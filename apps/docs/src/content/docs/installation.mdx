@@ -3,7 +3,7 @@ title: Installation
 description: Run Tilecast Server with Docker Compose and choose a safe address for Studio and Players.
 ---
 
-Tilecast Server runs on a host you control with Docker Engine and Docker Compose v2. The repository Compose file builds the server and starts PostgreSQL beside it. Cloudflare Tunnel is optional.
+Tilecast Server runs on a host you control with Docker Engine and Docker Compose v2. The Compose file runs a published Stable server image and starts PostgreSQL beside it. Cloudflare Tunnel is optional.
 
 import { FileTree, Steps } from "@astrojs/starlight/components";
 
@@ -25,7 +25,7 @@ Run these commands from the root of a clone of the [Tilecast repository](https:/
    cp deploy/docker/.env.example deploy/docker/.env
    ```
 
-2. Edit `deploy/docker/.env`. Replace `POSTGRES_PASSWORD` with a long, random value. Do not commit this file.
+2. Edit `deploy/docker/.env`. Replace `POSTGRES_PASSWORD` with a long, random value. Do not commit this file. `TILECAST_VERSION` selects the installed server version: keep `stable` to follow Stable releases, or pin a release such as `0.11.0` for controlled upgrades.
 
 3. Set the address and cookie setting for your access path.
 
@@ -36,10 +36,11 @@ Run these commands from the root of a clone of the [Tilecast repository](https:/
 
    The Player requires HTTPS for public hostnames. It accepts HTTP for local addresses such as a private IPv4 address, `localhost`, or a `.local` name. HTTP traffic is not encrypted.
 
-4. Start the services.
+4. Pull the server image and start the services.
 
    ```sh title="Repository root · Start Tilecast"
-   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d --build
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
+   docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
    ```
 
 5. Open `TILECAST_PUBLIC_URL` in a browser. On first visit, enter the organization name and create the first Owner account.
