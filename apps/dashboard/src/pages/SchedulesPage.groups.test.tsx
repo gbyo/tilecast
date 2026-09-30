@@ -14,7 +14,11 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
-import { GroupDetailPage, GroupsPage } from "./SchedulesPage";
+import {
+  GroupDetailPage,
+  GroupsPage,
+  normalizeGroupDetailTab,
+} from "./SchedulesPage";
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -58,7 +62,15 @@ vi.mock("../components/ui/toast", () => ({
 }));
 
 vi.mock("../settings/PlayerPolicyEditor", () => ({
-  PlayerPolicyEditor: () => null,
+  PlayerPolicyEditor: ({
+    onDirtyChange,
+  }: {
+    onDirtyChange?: (dirty: boolean) => void;
+  }) => (
+    <button type="button" onClick={() => onDirtyChange?.(true)}>
+      Make policy dirty
+    </button>
+  ),
 }));
 
 vi.mock("../components/AirPlayPresentDialog", () => ({
@@ -142,14 +154,14 @@ function renderGroups() {
   );
 }
 
-function renderGroupDetail() {
+function renderGroupDetail(entries: string[] = ["/groups/group-1"]) {
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter initialEntries={["/groups/group-1"]}>
+      <MemoryRouter initialEntries={entries}>
         <Routes>
           <Route path="/groups/:id" element={<GroupDetailPage />} />
         </Routes>
@@ -236,6 +248,7 @@ describe("Display Group mutation failures", () => {
     );
     renderGroupDetail();
 
+    await user.click(await screen.findByRole("tab", { name: "Members" }));
     await user.click(
       await screen.findByRole("combobox", { name: "Add screen" }),
     );
@@ -251,8 +264,11 @@ describe("Display Group mutation failures", () => {
     );
 
     mocks.toastAdd.mockClear();
+    await user.click(await screen.findByRole("tab", { name: "Content" }));
     await user.click(
-      screen.getByRole("combobox", { name: "Display Group fallback content" }),
+      await screen.findByRole("combobox", {
+        name: "Display Group fallback content",
+      }),
     );
     await user.click(
       await screen.findByRole("option", { name: "Playlist · Morning" }),
@@ -271,5 +287,102 @@ describe("Display Group mutation failures", () => {
     expect(
       screen.getByRole("heading", { name: "North Wing" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("GroupDetailPage sections", () => {
+  it("normalizes tab parameters to known sections", () => {
+    expect(normalizeGroupDetailTab(null)).toBe("overview");
+    expect(normalizeGroupDetailTab("members")).toBe("members");
+    expect(normalizeGroupDetailTab("content")).toBe("content");
+    expect(normalizeGroupDetailTab("display")).toBe("display");
+    expect(normalizeGroupDetailTab("policy")).toBe("policy");
+    expect(normalizeGroupDetailTab("bogus")).toBe("overview");
+  });
+
+  it("shows one section at a time starting from overview", async () => {
+    const user = userEvent.setup();
+    renderGroupDetail();
+
+    const tabs = await screen.findAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      "Overview",
+      "Members",
+      "Content",
+      "Display",
+      "Policy",
+    ]);
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Overview",
+    );
+    expect(
+      screen.queryByRole("combobox", { name: "Add screen" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", {
+        name: "Display Group fallback content",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Members" }));
+    expect(
+      await screen.findByRole("combobox", { name: "Add screen" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", {
+        name: "Display Group fallback content",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Content" }));
+    expect(
+      await screen.findByRole("combobox", {
+        name: "Display Group fallback content",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("honors deep-linked sections", async () => {
+    renderGroupDetail(["/groups/group-1?tab=members"]);
+    expect(
+      await screen.findByRole("combobox", { name: "Add screen" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Members",
+    );
+  });
+
+  it("guards navigation away from a dirty policy", async () => {
+    const user = userEvent.setup();
+    renderGroupDetail(["/groups/group-1?tab=policy"]);
+
+    await user.click(
+      await screen.findByRole("button", { name: "Make policy dirty" }),
+    );
+    expect(
+      await screen.findByRole("tab", { name: /Policy.*Unsaved/ }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(
+      await screen.findByRole("heading", {
+        name: "Discard unsaved group settings?",
+      }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Policy",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Discard changes" }),
+    );
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent(
+      "Overview",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Make policy dirty" }),
+    ).not.toBeInTheDocument();
   });
 });
