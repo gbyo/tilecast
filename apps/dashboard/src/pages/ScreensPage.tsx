@@ -1850,7 +1850,9 @@ export function ScreenListContent({
                 <Badge
                   key={filter.facet}
                   variant="secondary"
-                  className={cn("gap-1.5", filter.narrowOnly && "lg:hidden")}
+                  className={
+                    filter.narrowOnly ? "gap-1.5 lg:hidden" : "gap-1.5"
+                  }
                 >
                   <span>
                     {filter.facet}: {filter.value}
