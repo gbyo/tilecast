@@ -4,6 +4,7 @@ import TilecastCore
 @main
 struct TilecastApp: App {
     @State private var host = StudioHost.live()
+    @State private var feedback = SystemFeedback()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -15,7 +16,17 @@ struct TilecastApp: App {
             RootView()
                 .font(.geist(.body))
                 .environment(host)
-                .task { await host.start() }
+                .systemFeedback(feedback)
+                // The bridge asks; the app decides how. Set before Studio loads.
+                .task {
+                    host.system.haptic = { [feedback] in feedback.perform($0) }
+                    host.system.share = { SystemSharePresenter.present($0) }
+                    await host.start()
+                }
+                // A link that brings the person back into a configured
+                // installation. The OAuth callback is the sign-in session's
+                // own and is ignored here.
+                .onOpenURL { url in Task { await host.open(url) } }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { host.recordState() }
@@ -28,7 +39,7 @@ extension StudioHost {
     /// run starts with no servers and writes nothing to disk.
     static func live(arguments: [String] = ProcessInfo.processInfo.arguments) -> StudioHost {
         let storage: any ServerDirectoryStorage
-        let credentials: any NativeCredentialStore
+        var credentials: any NativeCredentialStore
         if arguments.contains("-TilecastEphemeralServers") {
             storage = InMemoryServerDirectoryStorage()
             credentials = InMemoryCredentialStore()
@@ -39,6 +50,9 @@ extension StudioHost {
             storage = InMemoryServerDirectoryStorage()
             credentials = InMemoryCredentialStore()
         }
+        #if DEBUG
+        if FixtureLaunch.nativeCredential { credentials = FixtureCredentialStore() }
+        #endif
         return StudioHost(
             directory: ServerDirectory(storage: storage),
             dataStores: WebsiteDataStores(),

@@ -368,7 +368,10 @@
       "dismiss": "Dismiss {{name}}",
       "activeConfirmBody": "Transfers keep running in the background, but this view stops showing their progress.",
       "dialogDescription": "Uploaded images and videos land in the media library once processing finishes.",
-      "done": "Done"
+      "done": "Done",
+      "nativeCompleted": "Uploaded from this device. Processing continues in the media library.",
+      "nativePartial": "Some files were uploaded from this device. The others could not be uploaded.",
+      "nativeFailed": "The files from this device could not be uploaded. Try again."
     },
     "tabs": {
       "library": "Library",

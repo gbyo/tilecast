@@ -81,6 +81,52 @@ final class NativeNavigationUITests: XCTestCase {
         XCTAssertEqual(documentLabel, document, "the same page survives every destination change")
     }
 
+    /// The iOS 26 tab bar floats over its content. Studio's web view must
+    /// extend beneath it, so the glass samples the page, instead of ending
+    /// above the bar and leaving an empty strip.
+    @MainActor
+    func testStudioReachesBeneathTheFloatingTabBar() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPad in regular width uses the sidebar")
+        launchWithFixtureServer()
+        assertStudioReachesBeneathTheTabBar()
+    }
+
+    /// The same composition with the phone on its side, where the safe
+    /// areas differ.
+    @MainActor
+    func testStudioReachesBeneathTheTabBarInLandscape() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPad in regular width uses the sidebar")
+        XCUIDevice.shared.orientation = .landscapeLeft
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        launchWithFixtureServer()
+        assertStudioReachesBeneathTheTabBar()
+    }
+
+    @MainActor private func assertStudioReachesBeneathTheTabBar() {
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 20))
+        // A short page: the fixed marker sits at the bottom of the web view.
+        XCTAssertTrue(studioText("Overview page").waitForExistence(timeout: 10))
+        let webView = app.webViews.firstMatch
+        let marker = app.webViews.staticTexts["Viewport bottom"]
+        XCTAssertTrue(marker.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(webView.frame.maxY, tabBar.frame.minY, "the web view continues beneath the tab bar")
+        XCTAssertEqual(webView.frame.maxY, app.frame.maxY, accuracy: 1, "the web view reaches the screen bottom")
+        XCTAssertLessThanOrEqual(marker.frame.maxY, tabBar.frame.minY + 1, "fixed bottom content stays above the bar")
+
+        // A long page: the last control scrolls into reach above the bar.
+        tabBar.buttons["Fleet"].tap()
+        XCTAssertTrue(studioText("Fleet page").waitForExistence(timeout: 5))
+        let bottom = app.webViews.buttons["Bottom action"]
+        for _ in 0..<15 where !(bottom.exists && bottom.isHittable && bottom.frame.maxY <= tabBar.frame.minY) {
+            app.webViews.firstMatch.swipeUp()
+        }
+        XCTAssertTrue(bottom.isHittable)
+        XCTAssertLessThanOrEqual(bottom.frame.maxY, tabBar.frame.minY, "the last control is not left under the tab bar")
+        bottom.tap()
+        XCTAssertTrue(studioText("Bottom action pressed").waitForExistence(timeout: 5))
+    }
+
     @MainActor
     func testRegularWidthIPadShowsTheSidebar() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "iPhone uses tabs")
