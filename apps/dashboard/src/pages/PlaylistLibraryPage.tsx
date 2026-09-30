@@ -16,10 +16,7 @@ import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
-import {
-  FilterBar,
-  type FilterDefinition,
-} from "../components/FilterBar";
+import { FilterBar, type FilterDefinition } from "../components/FilterBar";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -265,8 +262,7 @@ export function PlaylistLibraryPage() {
       key: "filter",
       kind: "select",
       label: t("library.filterLabel"),
-      allLabel:
-        translatedFilterOptions[0]?.label ?? t("library.filters.all"),
+      allLabel: translatedFilterOptions[0]?.label ?? t("library.filters.all"),
       options: translatedFilterOptions.slice(1),
     },
   ];
