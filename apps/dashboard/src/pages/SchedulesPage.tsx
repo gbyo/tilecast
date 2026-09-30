@@ -37,7 +37,7 @@ import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 import type { ScreenGroup } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -353,6 +353,45 @@ export function GroupDetailPage() {
           : "",
     );
   }, [group.data?.layoutId, group.data?.playlistId]);
+  if (group.isPending)
+    return (
+      <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
+  if (group.isError && !group.data) {
+    const notFound =
+      group.error instanceof ApiError &&
+      group.error.status === 404 &&
+      group.error.code === "schedule_not_found";
+    return (
+      <section className="grid max-w-xl gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {notFound
+            ? t("groups.detail.notFoundTitle")
+            : t("groups.detail.loadErrorTitle")}
+        </h1>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {notFound
+              ? t("groups.detail.notFoundBody")
+              : t("groups.detail.loadErrorBody")}
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-wrap gap-2">
+          {!notFound && (
+            <Button type="button" onClick={() => void group.refetch()}>
+              {t("common:actions.retry")}
+            </Button>
+          )}
+          <Link to="/groups" className={buttonVariants({ variant: "outline" })}>
+            {t("groups.detail.backToGroups")}
+          </Link>
+        </div>
+      </section>
+    );
+  }
   if (!group.data)
     return (
       <div className="grid gap-2" aria-label={t("groups.detail.loading")}>
