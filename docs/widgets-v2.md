@@ -274,9 +274,10 @@ deterministic intrinsic geometry and never inherit editor zoom.
 
 A fixed date in the Widget editor freezes the Widget's own clock and passes
 the selected local calendar date to its Data Source previews. A Layout
-preview date does the same for each zone, so time-sensitive Widgets agree
-with the Layout's text bindings. Without a selected date, the preview stays
-live and uses current Data Source previews.
+preview date defaults to the browser's local calendar date and does the same
+for each zone, so time-sensitive Widgets agree with the Layout's text
+bindings. Without a selected date, the preview stays live and uses current
+Data Source previews.
 
 The binding Studio editor redesign, source-connection flow, shared preview
 host, and first-wave Widget migration are defined in
@@ -285,6 +286,10 @@ host, and first-wave Widget migration are defined in
 ## 11. Layout zones
 
 `RuntimeLayoutZone.component` carries the same component payload as a fullscreen Widget. `LayoutSurface` mounts it with `WidgetMount`. The zone reports `layout-zone-rendered` when the mount is `ready` or `empty`. The Widget implementation does not know whether it is fullscreen or in a zone; only its container size changes.
+
+A component zone reports first-render evidence once. A later Widget lifecycle
+error reports a failure for that zone through the playback error path. The
+Layout remains active, and the error does not count as another render.
 
 ## 12. Android
 

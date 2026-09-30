@@ -187,6 +187,22 @@ func TestSeedScenariosAreDeterministicAndRerunnable(t *testing.T) {
 		return counts
 	}
 	before := snapshot()
+
+	// Every screen uptime tracks has a month of history, so each Fleet health
+	// range is populated on first load. Simulated screens get only closed
+	// intervals, leaving the live heartbeat to open the next one; each silent
+	// screen ends on the one open interval its last contact left behind.
+	assertCount(t, pool, `SELECT count(*) FROM screens s WHERE s.enabled
+		AND NOT EXISTS (SELECT 1 FROM screen_state_intervals i WHERE i.screen_id=s.id AND i.started_at<=now()-interval '29 days')`, 0)
+	simulated := make([]uuid.UUID, len(first))
+	for i, player := range first {
+		simulated[i] = player.ScreenID
+	}
+	var openOnSimulated int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM screen_state_intervals WHERE ended_at IS NULL AND screen_id=ANY($1)`, simulated).Scan(&openOnSimulated); err != nil || openOnSimulated != 0 {
+		t.Fatalf("open intervals on simulated screens = %d, want 0 (err %v)", openOnSimulated, err)
+	}
+	assertCount(t, pool, `SELECT count(*) FROM screen_state_intervals WHERE started_at>now()`, 0)
 	want := map[string]int{"users": 4, "locations": 4, "screens": 13, "screen_groups": 4, "screen_group_memberships": 10, "playlists": 5, "layouts": 2, "schedules": 3, "campaigns": 1, "content_tags": 4, "assets": 10, "plugin_installations": 1}
 	for table, count := range want {
 		if before[table] != count {
