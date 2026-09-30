@@ -443,6 +443,7 @@
       "playlistNoSources": "Nada en esta lista lee una fuente de datos.",
       "sourceKind": "Fuente de datos",
       "sourceFailed": "Falló la última actualización.",
+      "sourceMissing": "La fuente de datos vinculada {{id}} no está disponible.",
       "records_one": "{{count}} registro",
       "records_many": "{{count}} registros",
       "records_other": "{{count}} registros",

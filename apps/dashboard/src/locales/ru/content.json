@@ -455,6 +455,7 @@
       "playlistNoSources": "В этом плейлисте нет обращений к источникам данных.",
       "sourceKind": "Источник данных",
       "sourceFailed": "Последнее обновление не удалось.",
+      "sourceMissing": "Связанный источник данных {{id}} недоступен.",
       "records_one": "{{count}} запись",
       "records_few": "{{count}} записи",
       "records_many": "{{count}} записей",
