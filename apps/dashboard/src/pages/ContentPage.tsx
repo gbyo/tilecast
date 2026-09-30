@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Archive,
   ArchiveRestore,
@@ -23,6 +28,7 @@ import { signalColors } from "@tilecast/design-tokens/values";
 import {
   Fragment,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -440,25 +446,44 @@ export function ContentPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
-  const params = new URLSearchParams({ page: "1", pageSize: "48", sort });
-  if (libraryView === "archive") params.set("archived", "true");
-  if (search) params.set("search", search);
-  if (["media", "image", "video"].includes(contentFilter))
-    params.set("type", contentFilter);
-  if (status) params.set("status", status);
-  if (folderFilter) params.set("folderId", folderFilter);
-  if (collectionFilter) params.set("collectionId", collectionFilter);
-  if (tagFilter) params.set("tagId", tagFilter);
-  const assets = useQuery({
-    queryKey: ["assets", params.toString()],
-    queryFn: () => api.assets(params),
+  const paramsKey = `${libraryView}|${search}|${contentFilter}|${status}|${sort}|${folderFilter}|${collectionFilter}|${tagFilter}`;
+  const assets = useInfiniteQuery({
+    queryKey: ["assets", "library", paramsKey],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        pageSize: "48",
+        sort,
+      });
+      if (libraryView === "archive") params.set("archived", "true");
+      if (search) params.set("search", search);
+      if (["media", "image", "video"].includes(contentFilter))
+        params.set("type", contentFilter);
+      if (status) params.set("status", status);
+      if (folderFilter) params.set("folderId", folderFilter);
+      if (collectionFilter) params.set("collectionId", collectionFilter);
+      if (tagFilter) params.set("tagId", tagFilter);
+      return api.assets(params);
+    },
+    getNextPageParam: (last) =>
+      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
     refetchInterval: (query) =>
-      query.state.data?.items?.some((item) =>
-        ["queued", "inspecting", "processing"].includes(item.processingStatus),
+      query.state.data?.pages?.some((page) =>
+        page.items.some((item) =>
+          ["queued", "inspecting", "processing"].includes(
+            item.processingStatus,
+          ),
+        ),
       )
         ? 3000
         : false,
   });
+  const libraryItems = useMemo(
+    () => assets.data?.pages.flatMap((page) => page.items) ?? [],
+    [assets.data],
+  );
+  const libraryTotal = assets.data?.pages[0]?.total;
   const folders = useQuery({
     queryKey: ["content-folders"],
     queryFn: api.contentFolders,
@@ -490,14 +515,14 @@ export function ContentPage() {
     setDetailsOpen(true);
   };
   useEffect(() => {
-    const delay = nextExpirationDelay(assets.data?.items ?? []);
+    const delay = nextExpirationDelay(libraryItems);
     if (delay == null) return;
     const timer = window.setTimeout(
       () => void queryClient.invalidateQueries({ queryKey: ["assets"] }),
       Math.min(delay, 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
-  }, [assets.data?.items, queryClient]);
+  }, [libraryItems, queryClient]);
   useEffect(() => {
     setCheckedAssetIds(new Set());
     setDetailsOpen(false);
@@ -675,11 +700,11 @@ export function ContentPage() {
           {libraryView === "active"
             ? t("media.library.descriptionActive")
             : t("media.library.descriptionArchived")}
-          {typeof assets.data?.total === "number" && (
+          {typeof libraryTotal === "number" && (
             <>
               {" "}
               {t("media.library.totalAssets", {
-                count: assets.data.total,
+                count: libraryTotal,
               })}
             </>
           )}
@@ -951,9 +976,7 @@ export function ContentPage() {
           }}
           onCatalogChanged={refreshOrganization}
           onSelectAll={() =>
-            setCheckedAssetIds(
-              new Set((assets.data?.items ?? []).map((asset) => asset.id)),
-            )
+            setCheckedAssetIds(new Set(libraryItems.map((asset) => asset.id)))
           }
           onClear={() => setCheckedAssetIds(new Set())}
           archiveMode={libraryView === "archive"}
@@ -993,7 +1016,7 @@ export function ContentPage() {
             {t("media.library.loading")}
           </p>
         </div>
-      ) : assets.data?.items?.length === 0 ? (
+      ) : libraryItems.length === 0 ? (
         <ContentEmpty
           canManage={canManage && libraryView === "active"}
           onChoose={() => fileInput.current?.click()}
@@ -1001,47 +1024,61 @@ export function ContentPage() {
           archived={libraryView === "archive"}
         />
       ) : (
-        <AssetCollection
-          items={assets.data?.items ?? []}
-          view={view}
-          folderNames={
-            new Map(
-              (folders.data ?? []).map((folder) => [folder.id, folder.name]),
-            )
-          }
-          onSelect={(asset) =>
-            libraryView === "archive"
-              ? (setSelected(asset), setDetailsOpen(true))
-              : void openAssetDetails(asset)
-          }
-          canManage={canManage}
-          archived={libraryView === "archive"}
-          onDuplicate={(asset) =>
-            void api.duplicateWidget(asset.id, csrf).then(() => {
-              toast.add({ title: "Widget duplicated.", type: "success" });
-              return queryClient.invalidateQueries({
-                queryKey: ["assets"],
+        <div className="grid gap-6">
+          <AssetCollection
+            items={libraryItems}
+            view={view}
+            folderNames={
+              new Map(
+                (folders.data ?? []).map((folder) => [folder.id, folder.name]),
+              )
+            }
+            onSelect={(asset) =>
+              libraryView === "archive"
+                ? (setSelected(asset), setDetailsOpen(true))
+                : void openAssetDetails(asset)
+            }
+            canManage={canManage}
+            archived={libraryView === "archive"}
+            onDuplicate={(asset) =>
+              void api.duplicateWidget(asset.id, csrf).then(() => {
+                toast.add({ title: "Widget duplicated.", type: "success" });
+                return queryClient.invalidateQueries({
+                  queryKey: ["assets"],
+                });
+              })
+            }
+            onArchive={(asset) => void confirmArchiveAsset(asset)}
+            onRestore={(asset) => {
+              void api.restoreAssets([asset.id], csrf).then(() => {
+                toast.add({ title: "Asset restored.", type: "success" });
+                refreshOrganization();
               });
-            })
-          }
-          onArchive={(asset) => void confirmArchiveAsset(asset)}
-          onRestore={(asset) => {
-            void api.restoreAssets([asset.id], csrf).then(() => {
-              toast.add({ title: "Asset restored.", type: "success" });
-              refreshOrganization();
-            });
-          }}
-          onDelete={(asset) => void confirmDeleteAsset(asset)}
-          selectedIds={checkedAssetIds}
-          onToggle={(id) =>
-            setCheckedAssetIds((current) => {
-              const next = new Set(current);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              return next;
-            })
-          }
-        />
+            }}
+            onDelete={(asset) => void confirmDeleteAsset(asset)}
+            selectedIds={checkedAssetIds}
+            onToggle={(id) =>
+              setCheckedAssetIds((current) => {
+                const next = new Set(current);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              })
+            }
+          />
+          {assets.hasNextPage && (
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-self-center"
+              disabled={assets.isFetchingNextPage}
+              onClick={() => void assets.fetchNextPage()}
+            >
+              {assets.isFetchingNextPage && <Spinner aria-hidden="true" />}
+              {t("common:actions.loadMore")}
+            </Button>
+          )}
+        </div>
       )}
       {selected && (
         <AssetDetails
@@ -2148,7 +2185,7 @@ function ContentOrganizer({
               size="sm"
               onClick={onSelectAll}
             >
-              {t("media.organize.selectPage")}
+              {t("media.organize.selectLoaded")}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={onClear}>
               {t("media.organize.clear")}
