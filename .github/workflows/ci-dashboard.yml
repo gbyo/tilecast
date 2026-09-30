@@ -28,7 +28,16 @@ jobs:
           key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/dashboard/eslint.config.js', 'apps/dashboard/tsconfig*.json') }}
           restore-keys: |
             eslint-${{ runner.os }}-
-      - run: npm run format:check
+      - name: Check formatting for changed files
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          FORMAT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$FORMAT_BASE_SHA"
+          node scripts/ci/format-changed.mjs
+      - name: Check repository formatting
+        if: ${{ github.event_name != 'pull_request' }}
+        run: npm run format:check
       - run: npm run lint
       - name: Test
         working-directory: apps/dashboard
