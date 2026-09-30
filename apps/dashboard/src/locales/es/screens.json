@@ -763,6 +763,7 @@
   "bulk": {
     "title": "Cambios masivos",
     "body": "Aplica un cambio a muchas pantallas. Tilecast muestra exactamente qué cambiará antes de que ocurra nada, incluidas las pantallas incorporadas por un grupo de pantallas.",
+    "accessDenied": "Solo los propietarios y administradores pueden usar los cambios masivos.",
     "screensTitle": "Pantallas",
     "screensBody": "Una pantalla en un grupo de pantallas comparte la asignación de ese grupo, así que seleccionar un miembro incluye al resto. La vista previa las lista.",
     "selectedCount": "{{selected}} de {{total}} seleccionadas",
