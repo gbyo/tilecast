@@ -326,6 +326,10 @@ function ResponsesTab({
 
   const total = records.data?.total ?? 0;
   const items = records.data?.items ?? [];
+  // A failed load with no usable data owns the content area: the alert is
+  // the state, not a companion to an empty list. Stale data still renders
+  // alongside the alert.
+  const loadFailed = records.isError && !records.data;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // Record rows are real links to the same responses URL the row click used,
@@ -437,7 +441,7 @@ function ResponsesTab({
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner aria-hidden="true" /> {t("detail.loadingResponses")}
         </p>
-      ) : items.length === 0 ? (
+      ) : loadFailed ? null : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyTitle>{t("detail.noResponses")}</EmptyTitle>
