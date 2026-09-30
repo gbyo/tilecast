@@ -90,6 +90,15 @@ understands exactly these types:
 
 A module that declares another type fails validation.
 
+The `number`, `percent`, and `currency` types accept finite base-10 numbers.
+The `integer` type accepts base-10 integers from
+`-9007199254740991` through `9007199254740991`. The `duration` type accepts a
+nonnegative base-10 integer in seconds up to `9007199254740991`; it projects as
+`durationSeconds`. The `asset` type accepts a UUID for a Tilecast Media asset
+and projects as `kind: "asset"` with a canonical lowercase `assetId`. An empty
+value projects as `null`. A malformed or out-of-range value remains text and
+does not become a media grant.
+
 ## 4. Adapters
 
 The manifest names one exact Server adapter ID. The registry lives in

@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 )
@@ -19,6 +22,10 @@ const (
 	PresentationSchemaVersion = 1
 	WebRuntimeVersion         = 2
 )
+
+const maxSafeDocumentInteger int64 = 1<<53 - 1
+
+var documentDecimalNumber = regexp.MustCompile(`^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
 
 var NativePresentationCapabilities = presentationcaps.Baseline()
 
@@ -338,11 +345,11 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 	}
 	switch kind {
 	case "number", "percent", "currency":
-		if value, err := strconv.ParseFloat(raw, 64); err == nil {
+		if value, ok := parseDocumentNumber(raw); ok {
 			return DocumentValue{Kind: kind, Number: &value}
 		}
 	case "integer":
-		if value, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil && value >= -maxSafeDocumentInteger && value <= maxSafeDocumentInteger {
 			return DocumentValue{Kind: kind, Integer: &value}
 		}
 	case "boolean":
@@ -357,12 +364,29 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 		if _, err := time.Parse(time.RFC3339, raw); err == nil {
 			return DocumentValue{Kind: kind, DateTime: &raw}
 		}
+	case "duration":
+		if value, err := strconv.ParseInt(raw, 10, 64); err == nil && value >= 0 && value <= maxSafeDocumentInteger {
+			return DocumentValue{Kind: kind, Duration: &value}
+		}
 	case "url":
 		if parsed, err := url.Parse(raw); err == nil && parsed.Scheme != "" && parsed.Host != "" {
 			return DocumentValue{Kind: kind, URL: &raw}
 		}
+	case "asset":
+		if id, err := uuid.Parse(raw); err == nil && id != uuid.Nil && id.String() == strings.ToLower(raw) {
+			canonical := id.String()
+			return DocumentValue{Kind: kind, AssetID: &canonical}
+		}
 	}
 	return DocumentValue{Kind: "text", Text: &raw}
+}
+
+func parseDocumentNumber(raw string) (float64, bool) {
+	if !documentDecimalNumber.MatchString(raw) {
+		return 0, false
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	return value, err == nil && !math.IsNaN(value) && !math.IsInf(value, 0)
 }
 
 // compileWidgetPresentation compiles a Widget's compatibility presentation:
