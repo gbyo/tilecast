@@ -54,6 +54,17 @@ import WebKit
         await page.websiteDataStore.httpCookieStore.allCookies().map(\.value).sorted()
     }
 
+    /// Polls for an async side effect instead of trusting a fixed sleep,
+    /// which a loaded runner can outrun.
+    func eventually(_ description: String, _ condition: () throws -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline {
+            if try condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("timed out waiting for \(description)")
+    }
+
     @Test func signInImportsTheCookieAndKeepsTheRefreshToken() async throws {
         let profile = try addServer("a.example.org")
         let host = makeHost()
@@ -156,7 +167,10 @@ import WebKit
 
         host.studioSignedOut(page)
         #expect(directory.server(withID: profile.id)?.signedOutAt != nil)
-        try await Task.sleep(for: .milliseconds(50))
+        try await eventually("sign-out side effects") {
+            try credentials.storedKeys().isEmpty
+                && servers["a.example.org"].revokedTokens == ["tcr_refresh1"]
+        }
         #expect(try credentials.storedKeys().isEmpty)
         #expect(servers["a.example.org"].revokedTokens == ["tcr_refresh1"])
 
