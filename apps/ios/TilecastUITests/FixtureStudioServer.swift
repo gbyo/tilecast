@@ -105,6 +105,7 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="document"></p>
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
         <p id="opened"></p>
+        <p id="ended">Ended 0</p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const paths = {
@@ -137,7 +138,14 @@ final class FixtureStudioServer: @unchecked Sendable {
           render();
           return send("navigation/state", { activeDestinationId: active(), path: location.pathname });
         };
+        // A presentation is its own document with its own data, so Studio
+        // refetches when one ends. The fixture just counts.
+        let ended = 0;
         window.tilecastNativeReceiver = (message) => {
+          if (message?.type === "presentation/ended") {
+            document.getElementById("ended").textContent = `Ended ${++ended}`;
+            return true;
+          }
           const path = message?.type === "navigation/request" ? paths[message.payload.destinationId]
             : message?.type === "navigation/open-path" ? message.payload.path : undefined;
           if (!path) return false;
