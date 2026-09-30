@@ -1,10 +1,20 @@
-import { Grid2X2, List } from "lucide-react";
+import { Grid2X2, List, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   ContentCollection,
   ContentFolder,
   ContentTag,
 } from "../../api/types";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../ui/sheet";
 import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
 import {
   Select,
@@ -21,23 +31,22 @@ function PickerSelect({
   onChange,
   options,
   className = "w-36",
+  showLabel = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: readonly { value: string; label: string }[];
   className?: string;
+  showLabel?: boolean;
 }) {
-  return (
+  const control = (
     <Select
       items={options}
       value={value}
       onValueChange={(next) => onChange(next ?? "")}
     >
-      <SelectTrigger
-        aria-label={label}
-        className={`${className} max-sm:flex-1`}
-      >
+      <SelectTrigger aria-label={label} className={className}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -48,6 +57,13 @@ function PickerSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+  if (!showLabel) return control;
+  return (
+    <div className="grid gap-1.5">
+      <span className="text-sm font-medium">{label}</span>
+      {control}
+    </div>
   );
 }
 
@@ -125,16 +141,15 @@ export function ContentPickerToolbar({
     },
   ];
   const typeOptions = filters.filter(({ type }) => !type || allowed.has(type));
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <DashboardSearch
-        value={search}
-        onValueChange={onSearch}
-        label={t("picker.toolbar.searchContent")}
-        placeholder={t("picker.toolbar.searchContent")}
-        clearLabel={t("picker.toolbar.clearContentSearch")}
-        className="max-w-none basis-60"
-      />
+  const activeFilterCount = [
+    filter !== "all",
+    Boolean(folderFilter),
+    Boolean(collectionFilter),
+    Boolean(tagFilter),
+  ].filter(Boolean).length;
+
+  const renderSecondaryControls = (mobile: boolean) => (
+    <>
       {typeOptions.length > 2 && (
         <PickerSelect
           label={t("picker.toolbar.contentType")}
@@ -144,7 +159,8 @@ export function ContentPickerToolbar({
             value,
             label: value === "all" ? t("picker.toolbar.allTypes") : label,
           }))}
-          className="w-32"
+          className={mobile ? "w-full" : "w-32"}
+          showLabel={mobile}
         />
       )}
       {folders.length > 0 && onFolderFilter && (
@@ -159,6 +175,8 @@ export function ContentPickerToolbar({
               label: folder.name,
             })),
           ]}
+          className={mobile ? "w-full" : "w-36"}
+          showLabel={mobile}
         />
       )}
       {collections.length > 0 && onCollectionFilter && (
@@ -173,6 +191,8 @@ export function ContentPickerToolbar({
               label: collection.name,
             })),
           ]}
+          className={mobile ? "w-full" : "w-36"}
+          showLabel={mobile}
         />
       )}
       {tags.length > 0 && onTagFilter && (
@@ -184,10 +204,12 @@ export function ContentPickerToolbar({
             { value: "", label: t("picker.toolbar.allTags") },
             ...tags.map((tag) => ({ value: tag.id, label: tag.name })),
           ]}
+          className={mobile ? "w-full" : "w-36"}
+          showLabel={mobile}
         />
       )}
       <PickerSelect
-        className="w-44"
+        className={mobile ? "w-full" : "w-44"}
         label={t("picker.toolbar.sortContent")}
         value={sort}
         onChange={onSort}
@@ -197,26 +219,86 @@ export function ContentPickerToolbar({
           { value: "oldest", label: t("picker.toolbar.sortOldest") },
           { value: "name", label: t("picker.toolbar.sortName") },
         ]}
+        showLabel={mobile}
       />
-      <ToggleGroup
-        className="ml-auto"
-        aria-label={t("picker.toolbar.contentView")}
-        variant="outline"
-        spacing={0}
-        multiple={false}
-        value={[view]}
-        onValueChange={(next) => {
-          const first = next[0] as "grid" | "list" | undefined;
-          if (first !== undefined) onView(first);
-        }}
-      >
-        <ToggleGroupItem value="grid" aria-label={t("picker.toolbar.gridView")}>
-          <Grid2X2 size={16} aria-hidden="true" />
-        </ToggleGroupItem>
-        <ToggleGroupItem value="list" aria-label={t("picker.toolbar.listView")}>
-          <List size={16} aria-hidden="true" />
-        </ToggleGroupItem>
-      </ToggleGroup>
+      <div className={mobile ? "grid gap-1.5" : "ml-auto"}>
+        {mobile && (
+          <span className="text-sm font-medium">
+            {t("picker.toolbar.contentView")}
+          </span>
+        )}
+        <ToggleGroup
+          aria-label={t("picker.toolbar.contentView")}
+          variant="outline"
+          spacing={0}
+          multiple={false}
+          value={[view]}
+          onValueChange={(next) => {
+            const first = next[0] as "grid" | "list" | undefined;
+            if (first !== undefined) onView(first);
+          }}
+        >
+          <ToggleGroupItem
+            value="grid"
+            aria-label={t("picker.toolbar.gridView")}
+          >
+            <Grid2X2 size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="list"
+            aria-label={t("picker.toolbar.listView")}
+          >
+            <List size={16} aria-hidden="true" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="flex items-center gap-2">
+      <DashboardSearch
+        value={search}
+        onValueChange={onSearch}
+        label={t("picker.toolbar.searchContent")}
+        placeholder={t("picker.toolbar.searchContent")}
+        clearLabel={t("picker.toolbar.clearContentSearch")}
+        className="max-w-none min-w-0 basis-60"
+      />
+      <div className="hidden min-w-0 flex-1 items-center gap-2 lg:flex">
+        {renderSecondaryControls(false)}
+      </div>
+      <Sheet>
+        <SheetTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 lg:hidden"
+            />
+          }
+        >
+          <SlidersHorizontal aria-hidden="true" />
+          {t("common:filters.title")}
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary">{activeFilterCount}</Badge>
+          )}
+        </SheetTrigger>
+        <SheetContent
+          side="bottom"
+          className="max-h-[82dvh] gap-0 overflow-y-auto rounded-t-xl"
+        >
+          <SheetHeader>
+            <SheetTitle>{t("common:filters.title")}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {t("picker.toolbar.searchContent")}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-4 px-4 pb-5">
+            {renderSecondaryControls(true)}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
