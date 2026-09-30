@@ -23,10 +23,10 @@ TILECAST_PUBLIC_URL=http://YOUR_SERVER_ADDRESS:8080
 TILECAST_COOKIE_SECURE=false
 ```
 
-Start the stack:
+Start the stack (this pulls the published Stable server image selected by `TILECAST_VERSION`):
 
 ```sh
-docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d --build
+docker compose   --env-file deploy/docker/.env   -f deploy/docker/compose.yml   up -d
 ```
 
 Check it:

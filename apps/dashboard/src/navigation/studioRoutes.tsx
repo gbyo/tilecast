@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { RouteObject } from "react-router";
 import type { User } from "../api/types";
+import type { StudioNavigationMetadata } from "./studioNavigation";
 
 export type BreadcrumbResource =
   | "screen"
@@ -23,6 +24,12 @@ export type BreadcrumbResourceLoader = {
 };
 
 export type StudioRouteHandle = {
+  /**
+   * Present on a route that is a navigation destination. The browser sidebar
+   * and native hosts render the destination from this metadata; the route's
+   * own path is where it leads. See studioNavigation.tsx.
+   */
+  navigation?: StudioNavigationMetadata;
   /** The English breadcrumb, and the fallback for breadcrumbKey. */
   breadcrumb?: string;
   /**

@@ -4,13 +4,13 @@
 // or a session cookie.
 //
 // The scope is deliberately small: authorization code flow with PKCE S256
-// only, loopback redirects for first-party clients, explicit per-grant user
+// only, fixed callbacks for first-party clients, explicit per-grant user
 // approval, opaque short-lived access tokens, and rotating refresh tokens
 // with reuse detection. This installation acts as authorization server only
 // for itself and its own clients; Tilecast is not a general OAuth or OIDC
 // provider, and there is no client registration of any kind.
 //
-// First-party OAuth client IDs (tilecast-cli, tilecast-mcp) are stable
+// First-party OAuth client IDs are stable
 // protocol constants, not database rows: the protocol sends
 // client_id=tilecast-cli and the server validates that exact string.
 // Display names are constants in code. Personal access tokens ride the
@@ -60,6 +60,7 @@ var Scopes = map[string]string{
 const (
 	ClientCLI = "tilecast-cli"
 	ClientMCP = "tilecast-mcp"
+	ClientIOS = "tilecast-ios"
 )
 
 // Display names for first-party clients. The client_id is the identity;
@@ -67,6 +68,7 @@ const (
 const (
 	ClientCLIDisplayName = "Tilecast CLI"
 	ClientMCPDisplayName = "Tilecast MCP"
+	ClientIOSDisplayName = "Tilecast for iOS"
 )
 
 // DisplayNameForClient returns the presentation name for a first-party
@@ -77,6 +79,8 @@ func DisplayNameForClient(clientID string) (string, bool) {
 		return ClientCLIDisplayName, true
 	case ClientMCP:
 		return ClientMCPDisplayName, true
+	case ClientIOS:
+		return ClientIOSDisplayName, true
 	}
 	return "", false
 }
@@ -203,6 +207,8 @@ func isLoopback(raw string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+const IOSRedirectURI = "tilecast-ios://oauth/callback"
+
 // ValidateAuthorize checks an authorization request without storing
 // anything. Approval and denial happen against the same validation. The
 // client ID must be a known first-party value; it is the protocol string,
@@ -212,8 +218,8 @@ func (s *Service) ValidateAuthorize(ctx context.Context, clientID, redirectURI, 
 	if !ok {
 		return AuthorizeRequest{}, ErrUnknownClient
 	}
-	if !isLoopback(redirectURI) {
-		return AuthorizeRequest{}, fmt.Errorf("%w: first-party clients use loopback IP literals only", ErrBadRedirect)
+	if (clientID == ClientIOS && redirectURI != IOSRedirectURI) || (clientID != ClientIOS && !isLoopback(redirectURI)) {
+		return AuthorizeRequest{}, fmt.Errorf("%w: invalid first-party callback", ErrBadRedirect)
 	}
 	scopes, err := ValidateScopes(scope)
 	if err != nil {
@@ -337,12 +343,27 @@ func (s *Service) issueTokens(ctx context.Context, tx pgx.Tx, grantID uuid.UUID)
 	return Tokens{AccessToken: accessSecret, RefreshToken: refreshSecret, ExpiresAt: expires}, refreshHash, nil
 }
 
-// Refresh rotates a refresh token: the presented secret dies, a new pair
+// Refresh rotates a refresh token for the general token endpoint. The
+// tilecast-ios client refreshes through its own session endpoint, so its
+// refresh tokens are refused here before anything is consumed.
+func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+	return s.refresh(ctx, refreshSecret, func(clientID string) bool { return clientID != ClientIOS })
+}
+
+// RefreshForClient rotates a refresh token only when its grant belongs to
+// clientID. A token issued to any other client is refused before it is
+// consumed, rotated, or checked for reuse, so presenting it at the wrong
+// endpoint changes nothing.
+func (s *Service) RefreshForClient(ctx context.Context, clientID, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+	return s.refresh(ctx, refreshSecret, func(grantClientID string) bool { return grantClientID == clientID })
+}
+
+// refresh rotates a refresh token: the presented secret dies, a new pair
 // is issued, and any reuse of an already-rotated secret revokes the whole
 // grant and reports reuse. The row lock (FOR UPDATE) makes the consume
 // atomic: two concurrent refreshes serialize, the loser observes used_at
 // and takes the reuse path, so one secret can never mint two pairs.
-func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uuid.UUID, bool, error) {
+func (s *Service) refresh(ctx context.Context, refreshSecret string, allowClient func(string) bool) (Tokens, uuid.UUID, bool, error) {
 	if !strings.HasPrefix(refreshSecret, RefreshPrefix) {
 		return Tokens{}, uuid.Nil, false, ErrTokenExpired
 	}
@@ -354,9 +375,15 @@ func (s *Service) Refresh(ctx context.Context, refreshSecret string) (Tokens, uu
 	var grantID uuid.UUID
 	var usedAt *time.Time
 	var expiresAt time.Time
-	err = tx.QueryRow(ctx, `SELECT grant_id,used_at,expires_at FROM oauth_refresh_tokens WHERE token_hash=$1 FOR UPDATE`, hashSecret(refreshSecret)).Scan(&grantID, &usedAt, &expiresAt)
+	var clientID *string
+	err = tx.QueryRow(ctx, `SELECT t.grant_id,t.used_at,t.expires_at,g.client_id FROM oauth_refresh_tokens t
+		JOIN api_grants g ON g.id=t.grant_id
+		WHERE t.token_hash=$1 AND g.kind='oauth' FOR UPDATE OF t`, hashSecret(refreshSecret)).Scan(&grantID, &usedAt, &expiresAt, &clientID)
 	if err != nil {
 		return Tokens{}, uuid.Nil, false, ErrTokenExpired
+	}
+	if clientID == nil || !allowClient(*clientID) {
+		return Tokens{}, uuid.Nil, false, ErrClientMismatch
 	}
 	if usedAt != nil {
 		if _, err := tx.Exec(ctx, `UPDATE api_grants SET revoked_at=now() WHERE id=$1 AND revoked_at IS NULL`, grantID); err != nil {
