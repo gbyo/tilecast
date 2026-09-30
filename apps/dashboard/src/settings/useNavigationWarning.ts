@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useRef } from "react";
+import { useBlocker, useNavigate } from "react-router";
 import { useConfirm } from "../components/ConfirmDialog";
 
 export function useNavigationWarning(
@@ -9,6 +9,32 @@ export function useNavigationWarning(
 ) {
   const navigate = useNavigate();
   const { confirm, dialog } = useConfirm();
+  // Set while a confirmed link replays, so the blocker below lets it pass.
+  const confirmed = useRef(false);
+  // Navigation that does not start from a link click, such as a native
+  // host's navigation request or the command palette, reaches React Router
+  // directly; the blocker gives it the same confirmation.
+  const blocker = useBlocker(
+    ({ nextLocation }) =>
+      dirty &&
+      !confirmed.current &&
+      !nextLocation.pathname.startsWith(allowPrefix),
+  );
+  const blockerRef = useRef(blocker);
+  blockerRef.current = blocker;
+  const asking = useRef(false);
+
+  useEffect(() => {
+    if (blocker.state !== "blocked" || asking.current) return;
+    asking.current = true;
+    void confirm({ title: message, action: "Discard changes" }).then((ok) => {
+      asking.current = false;
+      const current = blockerRef.current;
+      if (current.state !== "blocked") return;
+      if (ok) current.proceed();
+      else current.reset();
+    });
+  }, [blocker.state, confirm, message]);
 
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
@@ -47,7 +73,12 @@ export function useNavigationWarning(
           url.origin === window.location.origin &&
           (url.protocol === "http:" || url.protocol === "https:")
         ) {
-          void navigate(`${url.pathname}${url.search}${url.hash}`);
+          confirmed.current = true;
+          void Promise.resolve(
+            navigate(`${url.pathname}${url.search}${url.hash}`),
+          ).finally(() => {
+            confirmed.current = false;
+          });
         } else {
           window.location.assign(link.href);
         }

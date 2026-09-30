@@ -126,7 +126,7 @@ func cliBackupCreate(ctx context.Context, logger *slog.Logger) {
 		UpdatesRoot:       cfg.Updates.Root,
 		BackupRoot:        cfg.Backup.Root,
 		Kind:              backup.KindManual,
-		TilecastVersion:   version.Version,
+		Build:             version.CurrentBuild(),
 		ReservedFreeBytes: cfg.Backup.ReservedFreeBytes,
 		Limits:            cliLimits(cfg),
 		Progress: func(phase string, percent int) {
@@ -142,7 +142,7 @@ func cliBackupCreate(ctx context.Context, logger *slog.Logger) {
 		logger.Warn("backup finished but registering it in the catalog failed", "error", err)
 	}
 	fmt.Printf("\nBackup complete: %s (%d bytes)\n", result.Path, result.SizeBytes)
-	fmt.Printf("  Tilecast version: %s\n  Schema version: %d\n  Files: %d\n", result.Manifest.TilecastVersion, result.Manifest.SchemaVersion, len(result.Manifest.Files))
+	fmt.Printf("  Tilecast version: %s\n  Server channel: %s\n  Build commit: %s\n  Schema version: %d\n  Files: %d\n", result.Manifest.TilecastVersion, result.Manifest.ServerChannel, result.Manifest.BuildCommit, result.Manifest.SchemaVersion, len(result.Manifest.Files))
 }
 
 func registerCLIResult(ctx context.Context, service *backup.Service, result backup.CreateResult) error {
@@ -196,7 +196,7 @@ func printManifestSummary(manifest backup.Manifest, size int64) {
 	fmt.Printf("  Organization: %s\n", manifest.OrganizationName)
 	fmt.Printf("  Installation: %s\n", manifest.InstallationID)
 	fmt.Printf("  Created: %s\n", manifest.CreatedAt.Format("2006-01-02 15:04:05 MST"))
-	fmt.Printf("  Tilecast version: %s\n", manifest.TilecastVersion)
+	fmt.Printf("  Tilecast version: %s\n  Server channel: %s\n  Build commit: %s\n", manifest.TilecastVersion, manifest.ServerChannel, manifest.BuildCommit)
 	fmt.Printf("  Schema version: %d\n", manifest.SchemaVersion)
 	fmt.Printf("  Archive size: %d bytes\n", size)
 	fmt.Printf("  Components:\n")
@@ -305,7 +305,7 @@ func cliRestoreApply(ctx context.Context, logger *slog.Logger, args []string) {
 		UpdatesRoot:             cfg.Updates.Root,
 		BackupRoot:              cfg.Backup.Root,
 		ArchivePath:             path,
-		TilecastVersion:         version.Version,
+		Build:                   version.CurrentBuild(),
 		ReservedFreeBytes:       cfg.Backup.ReservedFreeBytes,
 		Limits:                  cliLimits(cfg),
 		SkipPreRestoreBackup:    *skipPreRestore,

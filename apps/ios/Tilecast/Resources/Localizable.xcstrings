@@ -33,6 +33,22 @@
         }
       }
     },
+    "Add Media": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agregar contenido multimedia"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить медиафайлы"
+          }
+        }
+      }
+    },
     "Add Server": {
       "localizations": {
         "es": {
@@ -109,6 +125,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Отмена"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelado"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменено"
+          }
+        }
+      }
+    },
+    "Can’t Open Link": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede abrir el enlace"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удаётся открыть ссылку"
           }
         }
       }
@@ -209,6 +257,38 @@
         }
       }
     },
+    "Choose Files…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elegir archivos…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выбрать файлы…"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerrar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закрыть"
+          }
+        }
+      }
+    },
     "Connect to your organization’s Tilecast server to manage screens, content, and schedules.": {
       "localizations": {
         "es": {
@@ -253,6 +333,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "Couldn’t reach the server. Check your connection and try again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось связаться с сервером. Проверьте подключение и повторите попытку."
+          }
+        }
+      }
+    },
+    "Couldn’t read this file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo leer este archivo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось прочитать этот файл."
           }
         }
       }
@@ -385,6 +497,22 @@
         }
       }
     },
+    "Item %lld": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elemento %lld"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Элемент %lld"
+          }
+        }
+      }
+    },
     "Its website data on this device, including your sign-in, is deleted.": {
       "localizations": {
         "es": {
@@ -509,6 +637,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Организация"
+          }
+        }
+      }
+    },
+    "Photo Library": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fototeca"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Медиатека"
+          }
+        }
+      }
+    },
+    "Preparing…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparando…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подготовка…"
+          }
+        }
+      }
+    },
+    "Processing on the server…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procesando en el servidor…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обработка на сервере…"
           }
         }
       }
@@ -769,6 +945,54 @@
         }
       }
     },
+    "The server couldn’t process this file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor no pudo procesar este archivo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер не смог обработать этот файл."
+          }
+        }
+      }
+    },
+    "The server didn’t accept this upload.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor no aceptó esta carga."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сервер не принял эту загрузку."
+          }
+        }
+      }
+    },
+    "The server has no space left.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El servidor no tiene espacio disponible."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На сервере не осталось места."
+          }
+        }
+      }
+    },
     "The server’s certificate isn’t valid or isn’t trusted by this device.": {
       "localizations": {
         "es": {
@@ -797,6 +1021,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сертификат сервера недействителен или не является доверенным для этого устройства. Tilecast подключается только к серверам с доверенным сертификатом."
+          }
+        }
+      }
+    },
+    "This file is larger than the server allows.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este archivo es más grande de lo que permite el servidor."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот файл больше, чем разрешено на сервере."
+          }
+        }
+      }
+    },
+    "This link can’t be opened.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede abrir este enlace."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эту ссылку не удаётся открыть."
+          }
+        }
+      }
+    },
+    "This link is for a Tilecast server that isn’t set up on this device. Add the server first, then open the link again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este enlace es para un servidor de Tilecast que no está configurado en este dispositivo. Agrega primero el servidor y vuelve a abrir el enlace."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Эта ссылка относится к серверу Tilecast, который не настроен на этом устройстве. Сначала добавьте сервер, затем откройте ссылку снова."
+          }
+        }
+      }
+    },
+    "This server doesn’t accept this type of file.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Este servidor no acepta este tipo de archivo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Этот сервер не принимает файлы такого типа."
           }
         }
       }
@@ -849,6 +1137,22 @@
         }
       }
     },
+    "This view stopped unexpectedly.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta vista se detuvo inesperadamente."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это окно неожиданно закрылось."
+          }
+        }
+      }
+    },
     "Tilecast": {
       "localizations": {
         "es": {
@@ -865,6 +1169,22 @@
         }
       }
     },
+    "Tilecast isn’t signed in to this server. Sign in again.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast no ha iniciado sesión en este servidor. Inicia sesión de nuevo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast не выполнил вход на этом сервере. Войдите снова."
+          }
+        }
+      }
+    },
     "Tilecast Studio couldn’t be loaded (%@ %lld).": {
       "localizations": {
         "es": {
@@ -877,6 +1197,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Не удалось загрузить Tilecast Studio (%1$@ %2$lld)."
+          }
+        }
+      }
+    },
+    "Tilecast Studio couldn’t open this view.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio no pudo abrir esta vista."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast Studio не удалось открыть это окно."
           }
         }
       }
@@ -925,6 +1261,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "Повторить"
+          }
+        }
+      }
+    },
+    "Uploaded": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subido"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загружено"
+          }
+        }
+      }
+    },
+    "Uploading… %lld%%": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subiendo… %lld%%"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка… %lld%%"
+          }
+        }
+      }
+    },
+    "Uploading Media": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subiendo contenido multimedia"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка медиафайлов"
           }
         }
       }
@@ -1007,6 +1391,58 @@
             "value": "Данные сайта для %@ на этом устройстве, включая ваш вход, будут удалены. Продолжайте, только если сервер был намеренно переустановлен или восстановлен."
           }
         }
+      }
+    },
+    "Couldn’t Open This View": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo abrir esta vista"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось открыть это окно"
+          }
+        }
+      }
+    },
+    "Couldn’t Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "No se pudo iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Не удалось войти" } }
+      }
+    },
+    "Sign In": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти" } }
+      }
+    },
+    "Sign Out": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Cerrar sesión" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Выйти" } }
+      }
+    },
+    "Sign In to Tilecast": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Iniciar sesión en Tilecast" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войти в Tilecast" } }
+      }
+    },
+    "Sign in securely to %@ using the system browser.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Inicia sesión de forma segura en %@ con el navegador del sistema." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Войдите на %@ безопасно через системный браузер." } }
+      }
+    },
+    "Try signing in again.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Intenta iniciar sesión de nuevo." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Попробуйте войти ещё раз." } }
       }
     },
     "Welcome to Tilecast": {

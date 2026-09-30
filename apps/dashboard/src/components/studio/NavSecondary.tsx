@@ -1,62 +1,31 @@
-import type { ReactNode } from "react";
-import { Link, useLocation } from "react-router";
 import {
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { StudioNavItem } from "./NavMain";
+import type { ResolvedNavigationDestination } from "@/navigation/studioNavigation";
+import { NavRow } from "./NavMain";
 
-export function SecondaryNavRow({ item }: { item: StudioNavItem }) {
-  const location = useLocation();
-  const active = item.end
-    ? location.pathname === item.url
-    : location.pathname === item.url ||
-      location.pathname.startsWith(`${item.url}/`);
-  return (
-    <SidebarMenuItem key={item.url}>
-      <SidebarMenuButton
-        tooltip={item.title}
-        isActive={active}
-        render={
-          <Link to={item.url} aria-current={active ? "page" : undefined} />
-        }
-      >
-        {item.icon}
-        <span>{item.title}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
-}
-
+/**
+ * The bottom of the sidebar: Activity, plugin-contributed navigation, and
+ * Settings, in the order the navigation model resolved.
+ */
 export function NavSecondary({
-  label,
   items,
-  children,
+  activeId,
   className,
 }: {
-  label?: string;
-  items: StudioNavItem[];
-  /**
-   * Rows rendered after the static items in the same menu. The sidebar uses
-   * this for plugin-contributed navigation: each contributed row manages its
-   * own visibility, so hooks stay valid while static entries render first.
-   */
-  children?: ReactNode;
+  items: ResolvedNavigationDestination[];
+  activeId?: string;
   className?: string;
 }) {
   return (
     <SidebarGroup className={className}>
-      {label ? <SidebarGroupLabel>{label}</SidebarGroupLabel> : null}
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
-            <SecondaryNavRow key={item.url} item={item} />
+            <NavRow key={item.id} item={item} activeId={activeId} />
           ))}
-          {children}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

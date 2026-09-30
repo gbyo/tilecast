@@ -1,10 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router";
-import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import type { DiscoveredStudioPlugin } from "./discovery";
 import type { StudioPluginSecondaryNavItem } from "./kit";
-import { pluginNamespace } from "./translation";
 
 export interface ContributedSecondaryNavItem {
   pluginId: string;
@@ -34,6 +31,20 @@ export function collectSecondaryNavItems(
       if (item.id.trim() === "") {
         throw new Error(
           `plugins/${plugin.id} contributes a secondary-navigation item without an id`,
+        );
+      }
+      // The id becomes part of an opaque native navigation destination id.
+      if (!/^[a-z0-9][a-z0-9-]*$/.test(item.id)) {
+        throw new Error(
+          `plugins/${plugin.id} secondary-navigation item ${JSON.stringify(item.id)} must use lowercase letters, digits, and hyphens`,
+        );
+      }
+      if (
+        item.iconToken !== undefined &&
+        !/^[a-z][a-z0-9-]*$/.test(item.iconToken)
+      ) {
+        throw new Error(
+          `plugins/${plugin.id} secondary-navigation item ${JSON.stringify(item.id)} has an invalid iconToken ${JSON.stringify(item.iconToken)}`,
         );
       }
       const owner = seen.get(item.id);
@@ -68,85 +79,48 @@ function isOwnedStudioPath(
   return owned.some((base) => to === base || to.startsWith(`${base}/`));
 }
 
-function ContributedSecondaryNavRow({
-  pluginId,
-  item,
-}: ContributedSecondaryNavItem) {
-  const { t } = useTranslation();
-  // Item labels live in plugin namespaces the typed resources do not list.
-  const translateKey = t as unknown as (
-    key: string,
-    options: { ns: string; defaultValue: string },
-  ) => string;
-  const location = useLocation();
+function isVisible(
+  item: StudioPluginSecondaryNavItem,
+  query: { isError: boolean; isLoading: boolean; data: unknown },
+): boolean {
   const visibility = item.visibility;
-  // One query per mounted item, always called in the same order: the item
-  // list is deterministic, so hooks stay valid while visibility resolves.
-  const query = useQuery({
-    queryKey: [
-      "plugin-secondary-nav",
-      pluginId,
-      item.id,
-      ...(visibility?.queryKey ?? []),
-    ],
-    queryFn: visibility?.queryFn ?? (() => Promise.resolve(undefined)),
-    enabled: visibility !== undefined,
-    retry: false,
-    staleTime: 30_000,
-  });
-  if (visibility !== undefined) {
-    if (query.isError || query.isLoading) return null;
-    let show: boolean;
-    try {
-      show = visibility.visible(query.data);
-    } catch {
-      return null;
-    }
-    if (!show) return null;
+  if (visibility === undefined) return true;
+  if (query.isError || query.isLoading) return false;
+  try {
+    return Boolean(visibility.visible(query.data));
+  } catch {
+    return false;
   }
-  const title = translateKey(item.labelKey, {
-    ns: pluginNamespace(pluginId),
-    defaultValue: item.id,
-  });
-  const active =
-    location.pathname === item.to ||
-    location.pathname.startsWith(`${item.to}/`);
-  const Icon = item.icon;
-  return (
-    <SidebarMenuItem key={item.id}>
-      <SidebarMenuButton
-        tooltip={title}
-        isActive={active}
-        render={
-          <Link to={item.to} aria-current={active ? "page" : undefined} />
-        }
-      >
-        <Icon />
-        <span>{title}</span>
-      </SidebarMenuButton>
-    </SidebarMenuItem>
-  );
 }
 
 /**
- * The sidebar renders this between Activity and Settings. Each row manages
- * its own visibility query, so one plugin's slow inbox never blocks another
- * plugin's item — or the core entries around them.
+ * The contributions visible to the current viewer. Each item's visibility
+ * query runs once, under a plugin-namespaced key, and every consumer (the
+ * browser sidebar and the native navigation catalog) reads this one result.
+ * Loading, errors, and predicate exceptions hide an item, and one plugin's
+ * slow query never blocks another plugin's item.
  */
-export function PluginSecondaryNavItems({
-  items,
-}: {
-  items: ContributedSecondaryNavItem[];
-}) {
-  return (
-    <>
-      {items.map(({ pluginId, item }) => (
-        <ContributedSecondaryNavRow
-          key={`${pluginId}/${item.id}`}
-          pluginId={pluginId}
-          item={item}
-        />
-      ))}
-    </>
+export function usePluginSecondaryNavigation(
+  items: ContributedSecondaryNavItem[],
+): ContributedSecondaryNavItem[] {
+  const results = useQueries({
+    queries: items.map(({ pluginId, item }) => ({
+      queryKey: [
+        "plugin-secondary-nav",
+        pluginId,
+        item.id,
+        ...(item.visibility?.queryKey ?? []),
+      ],
+      queryFn: item.visibility?.queryFn ?? (() => Promise.resolve(null)),
+      enabled: item.visibility !== undefined,
+      retry: false,
+      staleTime: 30_000,
+    })),
+  });
+  const shown = items.map((entry, index) =>
+    isVisible(entry.item, results[index]!),
   );
+  const key = shown.map((value) => (value ? "1" : "0")).join("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- key encodes shown
+  return useMemo(() => items.filter((_, index) => shown[index]), [items, key]);
 }
