@@ -26,9 +26,9 @@ import type { LayoutOrientation, LayoutSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+  FilterBar,
+  type FilterDefinition,
+} from "../components/FilterBar";
 import { LayoutPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
@@ -498,6 +498,28 @@ export function LayoutsPage() {
     value: option.value,
     label: t(option.labelKey),
   }));
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("library.searchLabel"),
+      placeholder: t("library.searchPlaceholder"),
+    },
+    {
+      key: "orientation",
+      kind: "select",
+      label: t("library.filterOrientation"),
+      allLabel: orientationOptions[0]?.label ?? t("library.orientationAll"),
+      options: orientationOptions.slice(1),
+    },
+    {
+      key: "publication",
+      kind: "select",
+      label: t("library.filterStatus"),
+      allLabel: publicationOptions[0]?.label ?? t("library.statusAll"),
+      options: publicationOptions.slice(1),
+    },
+  ];
 
   const closeCreate = () => {
     setCreating(false);
@@ -590,55 +612,26 @@ export function LayoutsPage() {
           </div>
         )}
       </header>
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("library.searchLabel")}
-          placeholder={t("library.searchPlaceholder")}
-        />
-        <Select
-          items={orientationOptions}
-          value={orientation}
-          onValueChange={(next) =>
-            setOrientation(next as LayoutLibraryOrientationFilter)
-          }
-        >
-          <SelectTrigger
-            aria-label={t("library.filterOrientation")}
-            className="w-40 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {orientationOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          items={publicationOptions}
-          value={publication}
-          onValueChange={(next) =>
-            setPublication(next as LayoutLibraryPublicationFilter)
-          }
-        >
-          <SelectTrigger
-            aria-label={t("library.filterStatus")}
-            className="w-48 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {publicationOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <FilterBar
+        definitions={filterDefinitions}
+        values={{
+          search,
+          orientation: orientation === "all" ? "" : orientation,
+          publication: publication === "all" ? "" : publication,
+        }}
+        onChange={(key, value) => {
+          if (key === "search") setSearch(value);
+          if (key === "orientation")
+            setOrientation(
+              (value || "all") as LayoutLibraryOrientationFilter,
+            );
+          if (key === "publication")
+            setPublication(
+              (value || "all") as LayoutLibraryPublicationFilter,
+            );
+        }}
+        onClear={clearLibraryFilters}
+      >
         <Select
           items={sortOptions}
           value={sort}
@@ -675,7 +668,7 @@ export function LayoutsPage() {
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
-      </DashboardListToolbar>
+      </FilterBar>
 
       {!layouts.isLoading && allLayouts.length > 0 && (
         <div className="text-sm text-muted-foreground" aria-live="polite">

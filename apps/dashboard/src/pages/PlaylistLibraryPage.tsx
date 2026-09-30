@@ -17,9 +17,9 @@ import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
 import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+  FilterBar,
+  type FilterDefinition,
+} from "../components/FilterBar";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -246,6 +246,30 @@ export function PlaylistLibraryPage() {
       filterAndSortPlaylists(allPlaylists, search, filter, sort, formatLocale),
     [allPlaylists, filter, formatLocale, search, sort],
   );
+  const translatedFilterOptions = playlistFilterOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const translatedSortOptions = playlistSortOptions.map((option) => ({
+    value: option.value,
+    label: t(option.labelKey),
+  }));
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("library.searchLabel"),
+      placeholder: t("library.searchPlaceholder"),
+    },
+    {
+      key: "filter",
+      kind: "select",
+      label: t("library.filterLabel"),
+      allLabel:
+        translatedFilterOptions[0]?.label ?? t("library.filters.all"),
+      options: translatedFilterOptions.slice(1),
+    },
+  ];
 
   const closeCreate = () => {
     setCreating(false);
@@ -280,40 +304,21 @@ export function PlaylistLibraryPage() {
           </div>
         )}
       </header>
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("library.searchLabel")}
-          placeholder={t("library.searchPlaceholder")}
-        />
+      <FilterBar
+        definitions={filterDefinitions}
+        values={{
+          search,
+          filter: filter === "all" ? "" : filter,
+        }}
+        onChange={(key, value) => {
+          if (key === "search") setSearch(value);
+          if (key === "filter")
+            setFilter((value || "all") as PlaylistLibraryFilter);
+        }}
+        onClear={clearLibraryFilters}
+      >
         <Select
-          items={playlistFilterOptions.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          }))}
-          value={filter}
-          onValueChange={(next) => setFilter(next as PlaylistLibraryFilter)}
-        >
-          <SelectTrigger
-            aria-label={t("library.filterLabel")}
-            className="w-48 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {playlistFilterOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {t(option.labelKey)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          items={playlistSortOptions.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          }))}
+          items={translatedSortOptions}
           value={sort}
           onValueChange={(next) => setSort(next as PlaylistLibrarySort)}
         >
@@ -324,9 +329,9 @@ export function PlaylistLibraryPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {playlistSortOptions.map((option) => (
+            {translatedSortOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
-                {t(option.labelKey)}
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -348,7 +353,7 @@ export function PlaylistLibraryPage() {
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
-      </DashboardListToolbar>
+      </FilterBar>
 
       {query.isError && (
         <Alert variant="destructive">

@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { DashboardSearch } from "./DashboardListToolbar";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -19,6 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./ui/sheet";
 
 export type FilterOption = { value: string; label: string };
 
@@ -108,12 +116,24 @@ export function FilterBar({
   values: FilterValues;
   onChange: (key: string, value: string) => void;
   onClear: () => void;
-  /** Extra controls, such as an advanced-filter disclosure. */
+  /** Extra controls, such as sort/view actions or an advanced disclosure. */
   children?: ReactNode;
   label?: string;
   className?: string;
 }) {
   const { t } = useTranslation("common");
+  const visible = definitions.filter(
+    (definition) => definition.kind === "search" || !definition.hidden,
+  );
+  const searches = visible.filter((definition) => definition.kind === "search");
+  const secondary = visible.filter(
+    (definition) => definition.kind !== "search",
+  );
+  const activeSecondaryCount = definitions.filter(
+    (definition) =>
+      definition.kind !== "search" && Boolean(values[definition.key]),
+  ).length;
+
   return (
     <div className={`grid gap-2 ${className}`.trim()}>
       <div
@@ -121,11 +141,16 @@ export function FilterBar({
         role="group"
         aria-label={label ?? t("filters.title")}
       >
-        {definitions
-          .filter(
-            (definition) => definition.kind === "search" || !definition.hidden,
-          )
-          .map((definition) => (
+        {searches.map((definition) => (
+          <FilterControl
+            key={definition.key}
+            definition={definition}
+            value={values[definition.key] ?? ""}
+            onChange={(value) => onChange(definition.key, value)}
+          />
+        ))}
+        <div className="hidden sm:contents">
+          {secondary.map((definition) => (
             <FilterControl
               key={definition.key}
               definition={definition}
@@ -133,6 +158,54 @@ export function FilterBar({
               onChange={(value) => onChange(definition.key, value)}
             />
           ))}
+        </div>
+        {secondary.length > 0 && (
+          <Sheet>
+            <SheetTrigger
+              render={
+                <Button type="button" variant="outline" className="sm:hidden" />
+              }
+            >
+              <SlidersHorizontal aria-hidden="true" />
+              {t("filters.title")}
+              {activeSecondaryCount > 0 && (
+                <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">
+                  {activeSecondaryCount}
+                </span>
+              )}
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="w-[min(22rem,90vw)] overflow-y-auto"
+            >
+              <SheetHeader>
+                <SheetTitle>{t("filters.title")}</SheetTitle>
+                <SheetDescription className="sr-only">
+                  {label ?? t("filters.title")}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="grid gap-3 px-4 pb-4">
+                {secondary.map((definition) => (
+                  <div key={definition.key} className="grid gap-1.5">
+                    <span className="text-sm font-medium">
+                      {definition.label}
+                    </span>
+                    <FilterControl
+                      definition={definition}
+                      value={values[definition.key] ?? ""}
+                      onChange={(value) => onChange(definition.key, value)}
+                    />
+                  </div>
+                ))}
+                {activeSecondaryCount > 0 && (
+                  <Button type="button" variant="outline" onClick={onClear}>
+                    {t("actions.clearAll")}
+                  </Button>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+        )}
         {children}
       </div>
       <FilterChips
@@ -222,7 +295,7 @@ function FilterControl({
         placeholder={definition.placeholder}
         onChange={(event) => typed.onChange(event.target.value)}
         onBlur={typed.onBlur}
-        className="w-44 max-sm:flex-1"
+        className="w-full sm:w-44"
       />
     );
   }
@@ -241,10 +314,7 @@ function FilterControl({
         onChange(!next || next === "__all__" ? "" : next)
       }
     >
-      <SelectTrigger
-        className="w-48 max-sm:flex-1"
-        aria-label={definition.label}
-      >
+      <SelectTrigger className="w-full sm:w-48" aria-label={definition.label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
