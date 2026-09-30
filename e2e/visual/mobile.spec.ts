@@ -31,7 +31,9 @@ test("mobile overview keeps uptime rows inside the viewport", async ({
   const perScreen = page.getByRole("button", { name: /^Per screen ·/ });
   await perScreen.click();
   await expect(
-    page.getByRole("link", { name: "Cafeteria East" }),
+    page
+      .getByRole("region", { name: "Fleet health" })
+      .getByRole("link", { name: "Cafeteria East" }),
   ).toBeVisible();
   await expectNoPageOverflow(page);
 });
