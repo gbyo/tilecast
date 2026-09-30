@@ -11,6 +11,7 @@ Group=tilecast-ci
 SupplementaryGroups=docker
 WorkingDirectory=/opt/tilecast-actions-runner
 Environment=ACTIONS_RUNNER_HOOK_JOB_STARTED=/usr/local/lib/tilecast-ci/pre-job.sh
+Environment=TILECAST_RUNNER_TRUSTED_PR_ACTOR=gbyo
 Environment=TILECAST_RUNNER_MAX_LOAD_PER_CPU=0.60
 Environment=TILECAST_RUNNER_MIN_MEM_MIB=6144
 Environment=TILECAST_RUNNER_MIN_DISK_GIB=30
