@@ -450,7 +450,7 @@ function ResponsesTab({
         </Empty>
       ) : (
         <>
-          <div className="grid gap-2 md:hidden">
+          <div className="grid gap-2 lg:hidden">
             {items.map((record) => (
               <article
                 key={record.id}
@@ -502,7 +502,7 @@ function ResponsesTab({
               </article>
             ))}
           </div>
-          <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
+          <div className="hidden overflow-x-auto rounded-xl border border-border lg:block">
             <Table className="min-w-[48rem]">
               <TableHeader>
                 <TableRow>
