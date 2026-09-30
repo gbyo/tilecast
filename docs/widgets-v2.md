@@ -284,6 +284,10 @@ host, and first-wave Widget migration are defined in
 
 `RuntimeLayoutZone.component` carries the same component payload as a fullscreen Widget. `LayoutSurface` mounts it with `WidgetMount`. The zone reports `layout-zone-rendered` when the mount is `ready` or `empty`. The Widget implementation does not know whether it is fullscreen or in a zone; only its container size changes.
 
+A component zone reports first-render evidence once. A later Widget lifecycle
+error reports a failure for that zone through the playback error path. The
+Layout remains active, and the error does not count as another render.
+
 ## 12. Android
 
 No V2 Widget has Kotlin or Compose code. Android Players do not report component capabilities, so they receive the compatibility presentation. The Android convergence is a separate project: it hosts the built runtime in a trusted local WebView, implements the host contract and runs the conformance suite. Widgets V2 is not complete across platforms until that convergence reaches parity.

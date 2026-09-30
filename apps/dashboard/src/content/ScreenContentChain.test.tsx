@@ -9,8 +9,13 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api/client";
-import type { DataSource, Layout, Playlist } from "../api/types";
+import { ApiError, api } from "../api/client";
+import type {
+  DataSource,
+  DataSourceDetail,
+  Layout,
+  Playlist,
+} from "../api/types";
 import { ScreenContentChain } from "./ScreenContentChain";
 
 afterEach(() => {
@@ -31,6 +36,16 @@ function source(id: string, name: string, status = "ready"): DataSource {
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
   };
+}
+
+function mockSources(byId: Record<string, DataSource>, missing: string[] = []) {
+  return vi.spyOn(api, "getDataSource").mockImplementation((id: string) => {
+    if (missing.includes(id))
+      return Promise.reject(new ApiError("Not found", 404, "not_found"));
+    const found = byId[id];
+    if (!found) throw new Error(`unexpected source request: ${id}`);
+    return Promise.resolve(found as unknown as DataSourceDetail);
+  });
 }
 
 function chain(assignment: {
@@ -58,15 +73,10 @@ function chain(assignment: {
 describe("ScreenContentChain playlist leg", () => {
   it("resolves the Data Sources a playlist reaches, with their status", async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, "listDataSources").mockResolvedValue({
-      items: [
-        source("src-1", "Lunch rows"),
-        source("src-2", "Allergen notes", "error"),
-        source("src-3", "Unrelated feed"),
-      ],
-      total: 3,
-      page: 1,
-      pageSize: 100,
+    const list = vi.spyOn(api, "listDataSources");
+    const details = mockSources({
+      "src-1": source("src-1", "Lunch rows"),
+      "src-2": source("src-2", "Allergen notes", "error"),
     });
     vi.spyOn(api, "playlist").mockResolvedValue({
       id: "playlist-1",
@@ -99,17 +109,40 @@ describe("ScreenContentChain playlist leg", () => {
     expect(
       screen.getByRole("link", { name: /Allergen notes/ }),
     ).toHaveTextContent("Last refresh failed");
-    // Sources the playlist does not reach stay out.
-    expect(screen.queryByText("Unrelated feed")).toBeNull();
+    // Known IDs resolve directly; the catalog is never listed.
+    expect(list).not.toHaveBeenCalled();
+    expect(details.mock.calls.map(([id]) => id).sort()).toEqual([
+      "src-1",
+      "src-2",
+    ]);
+  });
+
+  it("marks a deleted dependency instead of silently dropping it", async () => {
+    mockSources({ "src-1": source("src-1", "Lunch rows") }, ["src-gone"]);
+    vi.spyOn(api, "playlist").mockResolvedValue({
+      id: "playlist-1",
+      name: "Cafeteria loop",
+      revision: 7,
+      itemCount: 1,
+      items: [],
+      dataSourceIds: ["src-1", "src-gone"],
+    } as unknown as Playlist);
+
+    chain({ playlistId: "playlist-1", playlistName: "Cafeteria loop" });
+
+    expect(
+      await screen.findByRole("link", { name: /Lunch rows/ }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("Linked data source src-gone is unavailable."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Nothing in this playlist reads a data source/i),
+    ).toBeNull();
   });
 
   it("says so when a playlist reads no data at all", async () => {
-    vi.spyOn(api, "listDataSources").mockResolvedValue({
-      items: [source("src-1", "Lunch rows")],
-      total: 1,
-      page: 1,
-      pageSize: 100,
-    });
+    const details = mockSources({});
     vi.spyOn(api, "playlist").mockResolvedValue({
       id: "playlist-1",
       name: "Images only",
@@ -123,16 +156,12 @@ describe("ScreenContentChain playlist leg", () => {
     expect(
       await screen.findByText(/Nothing in this playlist reads a data source/i),
     ).toBeTruthy();
+    expect(details).not.toHaveBeenCalled();
   });
 
   it("still resolves a Layout assignment through its stored dependencies", async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, "listDataSources").mockResolvedValue({
-      items: [source("src-1", "Lunch rows"), source("src-9", "Other")],
-      total: 2,
-      page: 1,
-      pageSize: 100,
-    });
+    const details = mockSources({ "src-1": source("src-1", "Lunch rows") });
     vi.spyOn(api, "layout").mockResolvedValue({
       id: "layout-1",
       name: "Cafeteria Layout",
@@ -157,7 +186,7 @@ describe("ScreenContentChain playlist leg", () => {
     expect(
       await screen.findByRole("link", { name: /Lunch rows/ }),
     ).toHaveAttribute("href", "/data-sources/src-1");
-    expect(screen.queryByText("Other")).toBeNull();
+    expect(details.mock.calls.map(([id]) => id)).toEqual(["src-1"]);
   });
 
   it("explains the absence of a direct assignment", () => {
