@@ -66,7 +66,8 @@ for (const [name, path, ready] of states) {
         .filter({ hasText: "Lobby Clock" })
         .first()
         .locator("img");
-      await expect(preview).toBeVisible();
+      // The capture runs in a real headless renderer, which is slower on CI.
+      await expect(preview).toBeVisible({ timeout: 30_000 });
       await expect
         .poll(() =>
           preview.evaluate(
@@ -110,8 +111,8 @@ test("overview", async ({ page }) => {
     // Coming up shows how far away each change is and its date, both relative
     // to the real clock.
     page
-      .locator("p")
-      .filter({ hasText: /^(in \d+ (minutes?|hours?|days?)|tomorrow)/ }),
+      .getByRole("region", { name: "Coming up" })
+      .locator('[data-slot="item"]'),
     page.locator(".recharts-wrapper"),
     page.getByRole("region", { name: "Fleet health" }).locator(".tabular-nums"),
     page.getByRole("button", { name: /^Per screen ·/ }).locator("span"),

@@ -49,6 +49,22 @@ Dashboard CI scans changed Studio TypeScript files against the PR base and fails
 
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
+## Run tests for changed code
+
+Fetch `origin/main`, then ask Vitest to run tests related to changed files in Dashboard or Linux Player:
+
+```sh title="Run tests related to changes"
+git fetch origin main
+git merge-base origin/main HEAD >/dev/null 2>&1 || {
+  printf 'Fetch a base that shares history with HEAD, or run the full suite.\n' >&2
+  exit 1
+}
+npm test --workspace @tilecast/dashboard -- --changed=origin/main --passWithNoTests
+npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main --passWithNoTests
+```
+
+The merge-base check stops if `origin/main` is missing or has no common history with your branch. Fetch a usable base or run the full suite in that case. `--passWithNoTests` lets documentation-only changes finish when Vitest finds no related tests. For Go, run the affected package from `apps/server`, such as `go test ./internal/devices`. Run each package when a change spans packages. These commands support local iteration; CI still runs the complete selected test suites.
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.

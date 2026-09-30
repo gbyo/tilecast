@@ -71,6 +71,9 @@ func (s *server) screenTimeline(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
 		return
 	}
+	if !s.authorizeScreen(w, r, screenID) {
+		return
+	}
 	window, err := parseActivityWindow(r)
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "activity_range_invalid", err.Error())
