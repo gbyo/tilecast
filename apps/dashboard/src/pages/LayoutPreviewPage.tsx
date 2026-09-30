@@ -10,6 +10,10 @@ import { LayoutPlacementView } from "../components/layout-editor/LayoutPlacement
 import { previewRecordsFromDatasets } from "../components/layout-editor/previewDatasets";
 import type { LivePreviewData } from "../components/layout-editor/WidgetLivePreview";
 import { Button } from "../components/ui/button";
+import {
+  useNativePresentation,
+  usePresentationChrome,
+} from "../native-presentation/presentationContext";
 
 type LayoutPreviewData = {
   assets: Asset[];
@@ -61,7 +65,7 @@ async function loadLayoutPreviewData(
     result.status === "fulfilled" ? [result.value] : [],
   );
 
-  let previewValues: Record<string, Record<string, string>> = {};
+  let previewValues: Record<string, Record<string, string>>;
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const dataSourceIds = new Set<string>();
   document.placements.forEach((placement) => {
@@ -174,10 +178,22 @@ export function LayoutPreviewPage() {
   const { id = "" } = useParams();
   const location = useLocation();
   const auth = useAuth();
+  const presentation = useNativePresentation();
   const query = useQuery({
     queryKey: ["layouts", id, "popup-preview"],
     queryFn: () => api.layout(id),
     enabled: Boolean(id && auth.status?.authenticated),
+  });
+  // In a native presentation the sheet's header carries the name and Close.
+  usePresentationChrome({
+    header: query.data
+      ? {
+          title: t("editor.previewTitle", { name: query.data.name }),
+          navigation: "close",
+          navigationLabel: t("editor.previewClose"),
+        }
+      : undefined,
+    size: "full",
   });
   const requestedDate = new URLSearchParams(location.search).get("date");
   const [previewDate, setPreviewDate] = useState(() =>
@@ -224,9 +240,7 @@ export function LayoutPreviewPage() {
   );
   const playlistsById = useMemo(
     () =>
-      new Map(
-        previewData.playlists.map((playlist) => [playlist.id, playlist]),
-      ),
+      new Map(previewData.playlists.map((playlist) => [playlist.id, playlist])),
     [previewData.playlists],
   );
 
@@ -258,7 +272,7 @@ export function LayoutPreviewPage() {
   return (
     <main className="layout-preview-page">
       <header className="layout-preview-toolbar">
-        <strong>{query.data.name}</strong>
+        {!presentation && <strong>{query.data.name}</strong>}
         <span>
           {layoutDocument.canvas.width} × {layoutDocument.canvas.height}
         </span>
@@ -278,9 +292,11 @@ export function LayoutPreviewPage() {
             {t("editor.previewUnavailable", { count: previewData.failures })}
           </span>
         )}
-        <Button variant="secondary" onClick={() => window.close()}>
-          {t("editor.previewClose")}
-        </Button>
+        {!presentation && (
+          <Button variant="secondary" onClick={() => window.close()}>
+            {t("editor.previewClose")}
+          </Button>
+        )}
       </header>
       <div
         className="layout-preview-frame"
