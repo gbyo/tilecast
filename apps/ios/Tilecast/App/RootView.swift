@@ -6,11 +6,14 @@ struct RootView: View {
     @Environment(StudioHost.self) private var host
 
     var body: some View {
-        if host.directory.servers.isEmpty {
-            WelcomeView()
-        } else {
-            StudioShell()
+        Group {
+            if host.directory.servers.isEmpty {
+                WelcomeView()
+            } else {
+                StudioShell()
+            }
         }
+        .deepLinkNotice()
     }
 }
 
@@ -22,8 +25,10 @@ struct WelcomeView: View {
         NavigationStack {
             ContentUnavailableView {
                 Label("Welcome to Tilecast", systemImage: "rectangle.3.group")
+                    .font(.geist(.title2).weight(.bold))
             } description: {
                 Text("Connect to your organization’s Tilecast server to manage screens, content, and schedules.")
+                    .font(.geist(.body))
             } actions: {
                 Button("Add Server") { addingServer = true }
                     .buttonStyle(.borderedProminent)

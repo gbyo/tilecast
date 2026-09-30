@@ -2,10 +2,11 @@ import Foundation
 
 /// How the app authenticates to one server.
 ///
-/// Milestone 1 has no native credentials: the embedded Studio signs in with
-/// its own HttpOnly session cookie, which lives only in this server's WebKit
-/// data store. Native OAuth (`tilecast-ios`) adds a case in Milestone 3; its
-/// refresh credential will live in the Keychain, never in this record.
+/// Studio signs in with its own HttpOnly session cookie, which lives only in
+/// this server's WebKit data store. The native OAuth credential that the same
+/// sign-in produces is not recorded here: its refresh token lives in the
+/// Keychain, keyed by this profile and its installation, and whether one
+/// exists is read from the Keychain, never from this record.
 public enum ServerAuthentication: String, Codable, Sendable {
     case studioSession
 }
@@ -31,6 +32,10 @@ public struct ServerProfile: Identifiable, Hashable, Codable, Sendable {
     public var lastStudioPath: String?
     public let createdAt: Date
     public var lastOpenedAt: Date?
+    /// When the user last signed out explicitly. While set, the app waits
+    /// for the user to choose Sign In instead of opening the system sign-in
+    /// sheet by itself. A completed sign-in clears it.
+    public var signedOutAt: Date?
 
     public init(
         id: UUID = UUID(),
@@ -50,5 +55,6 @@ public struct ServerProfile: Identifiable, Hashable, Codable, Sendable {
         self.lastStudioPath = nil
         self.createdAt = createdAt
         self.lastOpenedAt = nil
+        self.signedOutAt = nil
     }
 }

@@ -50,21 +50,20 @@ import {
   type ScreenUpdateTone,
 } from "./playerUpdateStates";
 
-export function UpdateDeploymentDrawer({
+/**
+ * The parts of an update deployment's status: the summary and per-screen
+ * list, and the cancel footer. The web Sheet and Drawer, and the native
+ * presentation, arrange the same parts in their own frame.
+ */
+export function useUpdateDeployment({
   deploymentId,
   screens,
   manageable,
-  open,
-  onOpenChange,
-  onOpenChangeComplete,
 }: {
   deploymentId: string;
   /** The fleet list the panel already holds, for live reachability per target. */
   screens: Screen[];
   manageable: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onOpenChangeComplete: (open: boolean) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
@@ -133,41 +132,8 @@ export function UpdateDeploymentDrawer({
   const reachability = new Map(screens.map((item) => [item.id, item.status]));
   const active =
     deployment?.status === "active" || deployment?.status === "paused";
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
-    <SheetHeader>
-      <SheetDescription>
-        {deployment
-          ? // i18n-ignore: Android and Linux are platform names, not language text
-            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
-          : t("updates.deploymentFallback")}
-      </SheetDescription>
-      <SheetTitle>
-        {deployment?.name ?? t("updates.deploymentTitle")}
-      </SheetTitle>
-    </SheetHeader>
-  ) : (
-    <DrawerHeader>
-      <DrawerDescription>
-        {deployment
-          ? // i18n-ignore: Android and Linux are platform names, not language text
-            `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
-          : t("updates.deploymentFallback")}
-      </DrawerDescription>
-      <DrawerTitle>
-        {deployment?.name ?? t("updates.deploymentTitle")}
-      </DrawerTitle>
-    </DrawerHeader>
-  );
-
-  const content = (
-    <div
-      className={
-        desktop
-          ? "grid gap-4 px-6 pb-6"
-          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-4"
-      }
-    >
+  const body = (
+    <>
       {detail.isLoading && (
         <span className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner />
@@ -320,7 +286,7 @@ export function UpdateDeploymentDrawer({
           )}
         </>
       )}
-    </div>
+    </>
   );
   const footer = manageable && active && (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -339,6 +305,75 @@ export function UpdateDeploymentDrawer({
         )}
         {t("updates.cancel")}
       </Button>
+    </div>
+  );
+  return { deployment, body, footer };
+}
+
+/** The deployment's platform and version, or a fallback while it loads. */
+export function deploymentDescription(
+  deployment:
+    { platform: string; versionName: string; versionCode: number } | undefined,
+  t: TFunction<["settings", "common"]>,
+) {
+  return deployment
+    ? // i18n-ignore: Android and Linux are platform names, not language text
+      `${deployment.platform === "linux" ? "Linux" : "Android"} · ${deployment.versionName} (${deployment.versionCode})`
+    : t("updates.deploymentFallback");
+}
+
+export function UpdateDeploymentDrawer({
+  deploymentId,
+  screens,
+  manageable,
+  open,
+  onOpenChange,
+  onOpenChangeComplete,
+}: {
+  deploymentId: string;
+  /** The fleet list the panel already holds, for live reachability per target. */
+  screens: Screen[];
+  manageable: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenChangeComplete: (open: boolean) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const { deployment, body, footer } = useUpdateDeployment({
+    deploymentId,
+    screens,
+    manageable,
+  });
+  const desktop = useDesktopLayout();
+  const header = desktop ? (
+    <SheetHeader>
+      <SheetDescription>
+        {deploymentDescription(deployment, t)}
+      </SheetDescription>
+      <SheetTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </SheetTitle>
+    </SheetHeader>
+  ) : (
+    <DrawerHeader>
+      <DrawerDescription>
+        {deploymentDescription(deployment, t)}
+      </DrawerDescription>
+      <DrawerTitle>
+        {deployment?.name ?? t("updates.deploymentTitle")}
+      </DrawerTitle>
+    </DrawerHeader>
+  );
+
+  const content = (
+    <div
+      className={
+        desktop
+          ? "grid gap-4 px-6 pb-6"
+          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6 grid gap-4"
+      }
+    >
+      {body}
     </div>
   );
   return desktop ? (

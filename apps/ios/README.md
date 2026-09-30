@@ -7,7 +7,7 @@ A native host for Tilecast Studio. Read [`docs/ios-app.md`](../../docs/ios-app.m
 - Xcode 26 or later
 - an iOS 26 or later simulator, or a device
 
-The app has no third-party packages. You do not need other tools.
+The app's only packages are Apple's [Swift OpenAPI Generator](https://github.com/apple/swift-openapi-generator), OpenAPI Runtime, OpenAPI URLSession, and HTTP Types. `TilecastKit/Package.resolved` pins them; Xcode and `swift test` both use it. You do not need other tools.
 
 ## Build and run
 
@@ -26,17 +26,71 @@ cd apps/ios/TilecastKit
 swift test
 ```
 
-The full suite runs on the iOS Simulator, as in CI:
+The full suite runs on the iOS Simulator, as in CI. The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the UI tests a second time with `scripts/simulator-destination.py --ipad` to test the iPad sidebar.
 
 ```sh
 cd apps/ios
 scripts/check-architecture.sh
 DESTINATION=$(scripts/simulator-destination.py)
-xcodebuild build-for-testing -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData
+xcodebuild build-for-testing -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -skipPackagePluginValidation
 scripts/check-localization.py build/DerivedData
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastCoreTests
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastUITests
 ```
+
+## Generated API client
+
+`TilecastKit/Sources/TilecastAPI` is generated at build time from the composed contract. Its `openapi.yaml` is a symbolic link to `docs/openapi.yaml`. Change the contract in `docs/openapi/core.yaml` or a plugin's `api/openapi.yaml`, run `npm run plugins:generate`, and rebuild. Do not copy the contract or check in generated Swift.
+
+The generator runs as a package build plugin. Xcode asks you to trust it the first time. From the command line, pass `-skipPackagePluginValidation` to `xcodebuild`, as the commands above do. To update a dependency, run `swift package update` in `TilecastKit` and commit `Package.resolved`. CI resolves with `-disableAutomaticPackageResolution`, so a stale `Package.resolved` fails the build.
+
+Native API code lives in `TilecastCore/Auth/`. Read [Authentication](../../docs/ios-app.md#authentication) before you change it: the access token stays in memory, the refresh token stays in the Keychain, and neither may reach page JavaScript or the bridge.
+
+## Native bridge and navigation
+
+Studio sends the app its navigation catalog through the native bridge. The app renders the catalog and never names a Studio route or destination. Read [Native bridge](../../docs/ios-app.md#native-bridge) and [Native navigation](../../docs/ios-app.md#native-navigation) before you change `TilecastKit/Sources/TilecastCore/Bridge/` or `TilecastKit/Sources/TilecastCore/Navigation/`. The protocol contract is [`packages/native-bridge-schema`](../../packages/native-bridge-schema/README.md). Its fixtures run in the Core tests and in the Studio tests.
+
+The app shows the one Studio web view through `StudioOverlay`. A `WebPage` can have only one `WebView`, so a layout marks where Studio goes with `StudioSlotView` and never creates a `WebView` itself.
+
+## System integrations
+
+Read [System integrations](../../docs/ios-app.md#system-integrations) before you change haptics, share, deep links, or media intake. The code is in `TilecastKit/Sources/TilecastCore/{Bridge,DeepLinks,Media}/` and `Tilecast/Features/{System,Media}/`.
+
+### Test media intake by hand
+
+Automated tests replace the system pickers with generated files, so a real check with the pickers is a manual step.
+
+1. Start a Tilecast server and add it to the app in the simulator (`http://127.0.0.1:8080`, or your port). Sign in with the system sign-in sheet. Native intake needs the native credential that this sign-in gives. An older server, or an app that signed out, uses Studio's own uploader.
+2. Add photos and videos to the simulator: drag files onto the simulator window, or run `xcrun simctl addmedia booted <file>`. Put other files in the Files app the same way, in **On My iPhone**.
+3. Open the media library or the **Upload media** command in Studio, and tap **Choose files**. The app asks for **Photo Library** or **Choose Files…**. Each opens the system picker. The app never asks for Photos library access.
+4. Choose one or more items. A progress sheet shows each file. When the upload ends, Studio refetches the library. Tap **Done**.
+
+Photos gives JPEG for a photo and a compatible video encoding, not HEIC. A file type that the server does not accept ends with a message on its row.
+
+### Test a deep link by hand
+
+With the simulator open and a server added, replace the installation ID with the value from `/api/v1/system/identity` of that server:
+
+```sh
+xcrun simctl openurl booted 'tilecast-ios://open?installation=<installation-id>&path=%2Fscreens'
+```
+
+The path must be percent-encoded. A link for an installation that is not configured on the device shows a notice and contacts no host.
+
+### UI test launch arguments
+
+Debug builds accept two arguments that only the UI tests use. Release builds do not contain them.
+
+- `-TilecastFixtureMediaPicker` replaces the system pickers with two generated images.
+- `-TilecastFixtureNativeCredential` gives each server a stored refresh token, so native intake is available against `FixtureStudioServer`.
+
+## Typography
+
+Native text uses Geist, the Studio typeface. Use `Font.geist(.body)`, `Font.geist(.footnote)`, and so on, not a system text style. Read [Typography](../../docs/ios-app.md#typography) for the parts of UIKit chrome that `Typography.applyAppearance()` covers and the system surfaces that keep the system font.
+
+## Navigation icons
+
+Tabs, the More list, and the iPad sidebar use Studio's Lucide icons. The icon assets and their Swift maps are generated from Studio. Do not edit them. Run `npm run ios:icons:generate` from the repository root after you change `apps/dashboard/src/navigation/NavigationIcon.tsx` or update `lucide-react`. Read [Icons](../../docs/ios-app.md#icons).
 
 ## Localization
 

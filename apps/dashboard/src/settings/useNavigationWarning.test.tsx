@@ -13,6 +13,7 @@ vi.mock("../components/ConfirmDialog", () => ({
 
 vi.mock("react-router", () => ({
   useNavigate: () => mocks.navigate,
+  useBlocker: () => ({ state: "unblocked" }),
 }));
 
 import { useNavigationWarning } from "./useNavigationWarning";
