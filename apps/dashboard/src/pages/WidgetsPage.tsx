@@ -14,23 +14,13 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { toast } from "../components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+import { FilterBar, type FilterDefinition } from "../components/FilterBar";
 import {
   WidgetProviderGallery,
   YouTubeSourceEditor,
@@ -72,9 +62,24 @@ export function WidgetsPage() {
     queryFn: api.contentDefinitions,
   });
   const filterProviders = definitions.data?.widgets ?? [];
-  const providerOptions = [
-    { value: "", label: t("widgets.list.allTypes") },
-    ...filterProviders.map((item) => ({ value: item.id, label: item.name })),
+  const providerOptions = filterProviders.map((item) => ({
+    value: item.id,
+    label: item.name,
+  }));
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("widgets.list.search"),
+      placeholder: t("widgets.list.search"),
+    },
+    {
+      key: "provider",
+      kind: "select",
+      label: t("widgets.list.filterProvider"),
+      allLabel: t("widgets.list.allTypes"),
+      options: providerOptions,
+    },
   ];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
@@ -99,35 +104,18 @@ export function WidgetsPage() {
           {t("widgets.list.subtitle")}
         </p>
       </header>
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("widgets.list.search")}
-          placeholder={t("widgets.list.search")}
-        />
-        <Select
-          items={providerOptions}
-          value={provider}
-          onValueChange={(next) => {
-            if (typeof next === "string") setProvider(next);
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("widgets.list.filterProvider")}
-            className="w-56 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">{t("widgets.list.allTypes")}</SelectItem>
-            {filterProviders.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <FilterBar
+        definitions={filterDefinitions}
+        values={{ search, provider }}
+        onChange={(key, value) => {
+          if (key === "search") setSearch(value);
+          if (key === "provider") setProvider(value);
+        }}
+        onClear={() => {
+          setSearch("");
+          setProvider("");
+        }}
+      >
         <ToggleGroup
           aria-label={t("widgets.list.view")}
           variant="outline"
@@ -146,7 +134,7 @@ export function WidgetsPage() {
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
-      </DashboardListToolbar>
+      </FilterBar>
       {widgets.isLoading ? (
         <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
           <Skeleton className="h-24" />
