@@ -25,6 +25,8 @@ import { ArchivedScreensPage } from "./pages/ArchivedScreensPage";
 import { ContentPage } from "./pages/ContentPage";
 import { PlaylistEditorPage } from "./pages/PlaylistsPage";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
+import { ActivityIncidentPresentation } from "./pages/ActivityIncidentPresentation";
+import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
 import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
 import {
@@ -96,6 +98,14 @@ const presentationRoutes: RouteObject[] = [
   { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
   { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },
   { path: "asset/:id", element: <MediaAssetPresentation /> },
+  {
+    path: "update-deployment/:id",
+    element: <UpdateDeploymentPresentation />,
+  },
+  {
+    path: "activity-incident/:id",
+    element: <ActivityIncidentPresentation />,
+  },
 ];
 
 export const studioRoutes: RouteObject[] = [
