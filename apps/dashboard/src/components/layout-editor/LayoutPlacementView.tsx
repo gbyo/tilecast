@@ -92,6 +92,7 @@ export function LayoutPlacementView({
             placement={item}
             playlist={playlist}
             assetsById={assetsById ?? new Map()}
+            previewDate={previewDate}
           />
         ) : playlistPreviewItem?.thumbnailUrl ? (
           <img

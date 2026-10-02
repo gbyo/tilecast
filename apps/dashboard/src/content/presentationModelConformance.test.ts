@@ -12,8 +12,9 @@ import {
 import {
   playlistPreviewDuration,
   isPlaylistZoneMediaItem,
+  availablePlaylistZoneItems,
 } from "../components/layout-editor/WidgetLivePreview";
-import type { PlaylistItem } from "../api/types";
+import type { Asset, Playlist, PlaylistItem } from "../api/types";
 
 describe("Studio adopts Presentation Model fixtures", () => {
   it.each(mediaFixtures.cases)("$name", (fixture) => {
@@ -36,6 +37,27 @@ describe("Studio adopts Presentation Model fixtures", () => {
     expect(
       nextAvailabilityTransition([fixture.window], at)?.toISOString() ?? null,
     ).toBe(fixture.next);
+    for (const target of ["item", "asset"]) {
+      const item = {
+        id: "item",
+        assetId: "asset",
+        assetType: "image",
+        assetStatus: "ready",
+        ...(target === "item" ? fixture.window : {}),
+      } as PlaylistItem;
+      const asset = {
+        id: "asset",
+        type: "image",
+        ...(target === "asset" ? fixture.window : {}),
+      } as Asset;
+      expect(
+        availablePlaylistZoneItems(
+          { items: [item] } as Playlist,
+          new Map([["asset", asset]]),
+          at,
+        ).map((entry) => entry.id),
+      ).toEqual(fixture.available ? ["item"] : []);
+    }
   });
   it.each(fixtures.settings)("$name", (fixture) => {
     const item = { ...fixtures.item, ...fixture.item };

@@ -45,6 +45,8 @@ results. Model, Studio, and runtime tests consume the same fixtures. They
 cover future and expired assets and items, half-open bounds, DST offsets,
 duration defaults, explicit overrides, fade and crossfade, and value limits.
 The Studio tests also exercise the existing static-item preview duration.
+Layout zone filtering applies the same window fixtures to both items and
+assets. Studio owns the preview clock and bounded availability timers.
 
 `fixtures/media-eligibility.json` covers supported media, unsupported item
 kinds, missing assets, reference mismatches, and item and asset windows.
