@@ -1256,6 +1256,10 @@ The V2 editor waits for the organization regional profile to load before it
 enables Save or starts a thumbnail capture. Do not use the temporary locale
 and timezone fallbacks in a stored thumbnail.
 
+When a content manager opens the Widgets library, Studio discovers capture
+candidates with sequential, unfiltered pages. Process at most one Widget
+capture at a time, independent of the visible search and provider filters.
+
 Generated `::before`/`::after` content is part of the Widget's pixels.
 Preserve it in captures with its computed style.
 
