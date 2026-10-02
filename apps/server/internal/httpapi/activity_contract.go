@@ -35,6 +35,14 @@ const (
 	terminalUnknown              = "unknown"
 )
 
+// minimumPlaybackSessionMS is the shortest a piece of content can be on screen
+// and still count as a play. Studio refuses item durations under a second, so
+// a child session that ended "as expected" in less than that was not shown: it
+// is a Player remounting an item, or a slot a host computed as a millisecond.
+// Recording each one as a completed play is how a single stuck item produced
+// tens of thousands of zero-length sessions that no viewer ever saw.
+const minimumPlaybackSessionMS = 1000
+
 var activityTerminalReasons = []string{
 	terminalExpectedItemBoundary, terminalCompletedDuration, terminalScheduleTransition,
 	terminalManifestReplacement, terminalDirectAssignment, terminalTakeover,

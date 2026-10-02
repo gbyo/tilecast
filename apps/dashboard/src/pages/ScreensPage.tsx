@@ -3,6 +3,8 @@ import {
   screenQueries,
   SCREEN_STATUS_REFRESH_MS,
 } from "../data/screens";
+
+import { formatBytes } from "../lib/formatBytes";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -347,16 +349,6 @@ export function normalizeScreenDetailTab(
     ? (requestedTab as ScreenDetailTab)
     : "overview";
 }
-const formatBytes = (value: number) => {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let amount = value;
-  let unit = 0;
-  while (amount >= 1024 && unit < units.length - 1) {
-    amount /= 1024;
-    unit += 1;
-  }
-  return `${amount.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
-};
 export const formatReportedStatus = (
   value: unknown,
   t: ScreensT,
@@ -4510,7 +4502,10 @@ export function ScreenDetailPage() {
                       <dd>
                         {screen.availableStorageBytes == null
                           ? t("shared.notReported")
-                          : formatBytes(screen.availableStorageBytes)}
+                          : formatBytes(
+                              screen.availableStorageBytes,
+                              formatLocale,
+                            )}
                       </dd>
                     </div>
                     <div>

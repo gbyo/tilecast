@@ -2684,9 +2684,11 @@ async fn a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count
     fake.link.store(LINK_REFUSED, Ordering::SeqCst);
     let activation = renderer.last().unwrap();
     let (item, _) = first_item(&activation).unwrap();
-    // Each restart of the item ends one session and opens the next: two
-    // events apiece, 700 in all.
+    // Each lap of the looping item ends one session and opens the next: two
+    // events apiece, 700 in all. A lap reports its boundary first; a second
+    // start with no boundary is a remount, not another play.
     for _ in 0..350 {
+        renderer.evidence(&activation, EvidenceKind::ItemTransition, Some(&item)).await;
         renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
     }
     wait_long("the outbox to reach its bound", 30, async || {

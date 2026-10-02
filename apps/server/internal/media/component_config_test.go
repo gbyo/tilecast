@@ -101,17 +101,24 @@ func TestComponentConfigNormalizerRejectsCustomDerivedVariant(t *testing.T) {
 		Runtime: "native",
 		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
 			{Key: "logoAssetId", Label: "Logo", Control: "media_asset"},
+			{Key: "watermark", Label: "Watermark", Control: "media_asset"},
+			{Key: "slides", Label: "Slides", Control: "repeating_group", MaximumItems: 3, ItemFields: []contentdefs.FieldDefinition{
+				{Key: "poster", Label: "Poster", Control: "media_asset"},
+			}},
 		}},
 		Component: &contentdefs.ComponentSpec{
 			Type:           "example.media_sampler",
 			Version:        1,
 			TagName:        "example-media-sampler",
-			ConfigTemplate: json.RawMessage(`{"logo":{"assetId":{"$config":"logoAssetId"},"variantId":{"$config":"logoVariantId"}}}`),
+			ConfigTemplate: json.RawMessage(`{"logo":{"assetId":{"$config":"logoAssetId"},"variantId":{"$config":"logoVariantId"}},"watermark":{"$config":"watermarkVariantId"},"poster":{"$config":"posterVariantId"}}`),
 		},
 	}
-	_, err := (componentConfigNormalizer{definition: definition}).Normalize(context.Background(), json.RawMessage(`{"logoVariantId":"33333333-3333-4333-8333-333333333333"}`))
-	if err == nil || !strings.Contains(err.Error(), `unknown field "logoVariantId"`) {
-		t.Fatalf("custom derived variant was accepted, err=%v", err)
+	for _, key := range []string{"logoVariantId", "watermarkVariantId", "posterVariantId"} {
+		raw, _ := json.Marshal(map[string]string{key: "33333333-3333-4333-8333-333333333333"})
+		_, err := (componentConfigNormalizer{definition: definition}).Normalize(context.Background(), raw)
+		if err == nil || !strings.Contains(err.Error(), `unknown field "`+key+`"`) {
+			t.Fatalf("custom derived variant %s was accepted, err=%v", key, err)
+		}
 	}
 }
 
