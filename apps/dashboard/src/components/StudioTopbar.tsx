@@ -1,4 +1,6 @@
 import { useNativeNavigationChrome } from "@/native-host/useNativeNavigationChrome";
+import { layoutKeys } from "../data/layouts";
+
 import { playlistKeys } from "../data/playlists";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -396,7 +398,7 @@ function breadcrumbQueryKey(resource?: BreadcrumbResource, id?: string) {
     case "playlist":
       return playlistKeys.detail(id ?? "");
     case "layout":
-      return ["layout", id] as const;
+      return layoutKeys.detail(id ?? "");
     case "campaign":
       return ["campaign", id] as const;
     case "schedule":
