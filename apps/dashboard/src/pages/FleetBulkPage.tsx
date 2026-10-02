@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { layoutQueries } from "../data/layouts";
+
+import { playlistQueries } from "../data/playlists";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, History, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -127,10 +129,7 @@ function FleetBulkWorkspace({ csrf }: { csrf: string }) {
   const client = useQueryClient();
 
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
-  const playlists = useQuery({
-    queryKey: ["playlists"],
-    queryFn: () => api.playlists(),
-  });
+  const playlists = useQuery(playlistQueries.list());
   const layouts = useQuery(layoutQueries.list());
   const operations = useQuery({
     queryKey: ["bulk-operations"],

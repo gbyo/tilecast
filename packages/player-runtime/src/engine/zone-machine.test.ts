@@ -99,4 +99,23 @@ describe("layout playlist-zone playback", () => {
       true,
     );
   });
+
+  it("reads a zero duration as unset instead of swapping at timer speed", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const zero = { ...item("a"), durationMs: 0 };
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [zero, { ...item("b"), durationMs: 0 }],
+        loop: true,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    clock.advance(9_999);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
+  });
 });

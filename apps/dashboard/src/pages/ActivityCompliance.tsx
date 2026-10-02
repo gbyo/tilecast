@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { translateKnown, useFormatLocale } from "../i18n";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Field, FieldLabel } from "../components/ui/field";
@@ -125,6 +126,7 @@ function formatMinutes(milliseconds: number, locale: string) {
  */
 export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const locale = useFormatLocale();
   const [dimension, setDimension] = useState<ComplianceDimension>("screen");
   const params = activityParams(range, { dimension });
@@ -272,7 +274,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
             <EmptyDescription>{t("compliance.empty")}</EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : (
+      ) : desktop ? (
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table className="w-full min-w-[42rem] text-sm">
             <TableHeader>
@@ -329,6 +331,57 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
             </TableBody>
           </Table>
         </div>
+      ) : (
+        <ul className="grid gap-2">
+          {breakdown.map((item) => (
+            <li
+              key={item.key || item.label}
+              className="grid gap-1.5 rounded-xl border border-border p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                {/* Labels come from the server already readable — a screen or
+                    location name must not be re-cased into "Lobby North". */}
+                <strong className="font-medium">{item.label}</strong>
+                <span className="tabular-nums">
+                  {formatPercent(item.compliancePercent, locale)}
+                </span>
+              </div>
+              <dl className="grid grid-cols-3 gap-2 text-[13px]">
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">
+                    {t("compliance.table.expected")}
+                  </dt>
+                  <dd className="tabular-nums">
+                    {formatDuration(item.measurableExpectedMs)}
+                  </dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">
+                    {t("compliance.table.confirmed")}
+                  </dt>
+                  <dd className="tabular-nums">
+                    {formatDuration(item.confirmedMs)}
+                  </dd>
+                </div>
+                <div className="grid gap-0.5">
+                  <dt className="text-xs text-muted-foreground">
+                    {t("compliance.table.missed")}
+                  </dt>
+                  <dd className="tabular-nums">
+                    {formatDuration(item.missedMs)}
+                  </dd>
+                </div>
+              </dl>
+              {/* Named only when time actually went missing. */}
+              {item.missedMs > 0 && item.topFailureReason ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {t("compliance.table.mainReason")}:{" "}
+                  {humanize(item.topFailureReason)}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
