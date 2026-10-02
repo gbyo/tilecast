@@ -730,7 +730,10 @@ export function GroupDetailPage() {
                   </FieldLabel>
                   <Select
                     items={[
-                      { value: "automatic", label: "Automatic" },
+                      {
+                        value: "automatic",
+                        label: t("groups.detail.gatewayAutomatic"),
+                      },
                       ...groupData.screens.map((screen) => ({
                         value: screen.id,
                         label: screen.name,
@@ -800,16 +803,23 @@ export function GroupDetailPage() {
                     </FieldLabel>
                     <Select
                       items={[
-                        { value: "none", label: "No fallback presentation" },
+                        {
+                          value: "none",
+                          label: t("groups.detail.noFallbackOption"),
+                        },
                         ...(playlists.data?.items ?? []).map((playlist) => ({
                           value: `playlist:${playlist.id}`,
-                          label: `Playlist · ${playlist.name}`,
+                          label: t("groups.detail.optionPlaylist", {
+                            name: playlist.name,
+                          }),
                         })),
                         ...(layouts.data?.items ?? [])
                           .filter((layout) => layout.publishedRevision)
                           .map((layout) => ({
                             value: `layout:${layout.id}`,
-                            label: `Layout · ${layout.name}`,
+                            label: t("groups.detail.optionLayout", {
+                              name: layout.name,
+                            }),
                           })),
                       ]}
                       value={selectedPresentation || "none"}

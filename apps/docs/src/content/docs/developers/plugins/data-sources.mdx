@@ -23,6 +23,8 @@ The service handles core `data_sources` rows, refresh-state storage, cached type
 
 The provider is bound by the host, so the plugin cannot use this service to operate on another provider's rows. A plugin without a `DataSourceProvider` cannot use the provider-scoped service.
 
+Data Source fields may include an optional `role` so Widgets can map concepts such as a headline or start time when field keys differ. Use a lowercase identifier of up to 40 characters, beginning with a letter and containing only letters, digits, and underscores. Tilecast carries the role into the Player Data Document. Use the shared vocabulary in the [Widget authoring guide](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-authoring-and-first-wave.md).
+
 ## Publish projection data
 
 Write output through `Host.DataSources`, then invalidate through the same service so Widgets and Layout bindings receive the new data through the normal manifest path.

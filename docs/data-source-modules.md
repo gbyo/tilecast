@@ -99,6 +99,12 @@ and projects as `kind: "asset"` with a canonical lowercase `assetId`. An empty
 value projects as `null`. A malformed or out-of-range value remains text and
 does not become a media grant.
 
+Output fields may declare an optional semantic `role`. Use a lowercase
+identifier of up to 40 characters, beginning with a letter and containing
+only letters, digits, and underscores. Prefer the shared roles listed in
+`docs/widgets-v2-authoring-and-first-wave.md`; the Server preserves the role
+in Player Data Documents.
+
 ## 4. Adapters
 
 The manifest names one exact Server adapter ID. The registry lives in
