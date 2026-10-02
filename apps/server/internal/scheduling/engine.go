@@ -113,17 +113,8 @@ func Resolve(at time.Time, schedules []Schedule) Result {
 		}
 	}
 	sort.Slice(active, func(i, j int) bool {
-		a, b := active[i], active[j]
-		if a.Schedule.Priority != b.Schedule.Priority {
-			return a.Schedule.Priority > b.Schedule.Priority
-		}
-		if a.Schedule.Specificity != b.Schedule.Specificity {
-			return a.Schedule.Specificity > b.Schedule.Specificity
-		}
-		if !a.Start.Equal(b.Start) {
-			return a.Start.After(b.Start)
-		}
-		return a.Schedule.ID.String() < b.Schedule.ID.String()
+		before, _ := precedes(active[i], active[j])
+		return before
 	})
 	var winner *Active
 	if len(active) > 0 {
