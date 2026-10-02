@@ -124,6 +124,12 @@ Regional formatting changes do not add a Player-config version or a required fie
 
 Currency remains field metadata rather than a locale default. Manual and typed data-source projections carry an optional ISO 4217 code through their field descriptors. A legacy field of type `currency` without that metadata renders as a locale-formatted number with no currency symbol; Players must not guess USD, EUR, or another currency.
 
+Data Document field descriptors also carry an optional semantic `role`. The
+Server preserves it from the Data Source field, and Player schemas accept a
+lowercase identifier of up to 40 letters, digits, or underscores, beginning
+with a letter. The shared Widget role vocabulary is defined in
+`docs/widgets-v2-authoring-and-first-wave.md`.
+
 Configuration v1 also carries typed `reliability`, `power`, `managedKiosk`, and `accessibility` sections. Status reports distinguish configured and effective reliability mode and include throttled foreground, boot attempts, commissioning step and completion, cached fallback, last healthy playback/sync/connection, lock-task, accessibility, active-hours, sleep/wake, recovery, safe-mode, self-test, update-readiness, and maintenance-session state. Foreground package is omitted from non-administrative diagnostics and is never retained as unbounded history.
 
 The persistent command allowlist includes bounded recovery operations: retry or skip the current item, recreate the renderer or playback session, restart the activity or Player process, resynchronize content and configuration, clear safe mode, and run the local self-test. Payloads cannot specify applications, URLs, paths, or executable actions. Device reboot is not exposed without confirmed device-owner capability.
