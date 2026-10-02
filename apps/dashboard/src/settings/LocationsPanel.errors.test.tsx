@@ -69,7 +69,7 @@ describe("Locations panel errors", () => {
 
   it("translates API error codes when saving a location", async () => {
     await i18n.changeLanguage("es");
-    vi.spyOn(api, "locations").mockResolvedValue({ items: [] });
+    vi.spyOn(api, "locations").mockResolvedValue({ items: [], total: 0 });
     vi.spyOn(api, "createLocation").mockRejectedValue(
       new ApiError("English server wording", 429, "rate_limited"),
     );
@@ -98,7 +98,10 @@ describe("Locations panel errors", () => {
 
   it("keeps the localized conflict message after a 409 delete failure", async () => {
     await i18n.changeLanguage("es");
-    vi.spyOn(api, "locations").mockResolvedValue({ items: [location] });
+    vi.spyOn(api, "locations").mockResolvedValue({
+      items: [location],
+      total: 1,
+    });
     vi.spyOn(api, "deleteLocation").mockRejectedValue(
       new ApiError("raw server conflict", 409, "location_in_use"),
     );
