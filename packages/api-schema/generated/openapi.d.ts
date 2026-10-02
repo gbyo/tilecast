@@ -2893,6 +2893,25 @@ export interface paths {
     patch: operations["updatePlaylistItem"];
     trace?: never;
   };
+  "/api/v1/screens/{id}/playback-plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    /** @description Inspect expected presentation selection for one Screen. Requires the read scope and access to the Screen. Omit at to use captured server time. Instants before captured server time use recorded expected playback windows. Historical gaps do not use current configuration. Current and future instants evaluate current configuration in one read-only snapshot. Reported capability and synchronization evidence describes current state, including for future predictions. This endpoint does not prove actual play. */
+    get: operations["getScreenPlaybackPlan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/screens/{id}/playlist-assignment": {
     parameters: {
       query?: never;
@@ -8289,6 +8308,195 @@ export interface components {
       presentationType: "playlist" | "layout";
       priority: number;
       enabled: boolean;
+    };
+    PlaybackPlanError: {
+      error: {
+        code: string;
+        message: string;
+      };
+    };
+    /** @description Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state. */
+    PlaybackPlan: {
+      /** Format: uuid */
+      screenId: string;
+      /** Format: date-time */
+      at: string;
+      /** Format: date-time */
+      evaluatedAt: string;
+      /** @enum {string} */
+      basis:
+        | "current_configuration"
+        | "recorded_expectation"
+        | "historical_expectation_unavailable";
+      current?: components["schemas"]["PlaybackPlanCurrent"];
+      historical?: components["schemas"]["PlaybackPlanHistorical"];
+    };
+    PlaybackPlanCurrent: {
+      selected?: components["schemas"]["PlaybackPlanSelection"];
+      candidates: components["schemas"]["PlaybackPlanCandidate"][];
+      /**
+       * Format: date-time
+       * @description Next reevaluation boundary, not a guarantee that selected content changes.
+       */
+      nextEvaluationAt?: string;
+      synchronization: components["schemas"]["PlaybackPlanSynchronization"];
+      capabilities: components["schemas"]["PlaybackPlanCapabilities"];
+    };
+    PlaybackPlanSelection: {
+      /** @enum {string} */
+      source: "takeover" | "quick_present" | "schedule" | "assignment";
+      /** @enum {string} */
+      contentType: "playlist" | "layout" | "asset";
+      /** Format: uuid */
+      contentId: string;
+      /** Format: uuid */
+      selectionId?: string;
+      /**
+       * Format: int64
+       * @description Known assignment revision; absent when the selection reader does not establish a revision.
+       */
+      revision?: number;
+      reason: components["schemas"]["PlaybackPlanSelectionReason"];
+    };
+    /** @enum {string} */
+    PlaybackPlanSelectionReason:
+      | "active_takeover"
+      | "active_quick_present"
+      | "assigned_fallback"
+      | "schedule_highest_precedence"
+      | "schedule_disabled"
+      | "schedule_not_active"
+      | "schedule_lower_priority"
+      | "schedule_less_specific"
+      | "schedule_earlier_start"
+      | "schedule_stable_id_tiebreak"
+      | "no_active_takeover"
+      | "no_active_quick_present"
+      | "no_assignment";
+    PlaybackPlanCandidate: {
+      /** @enum {string} */
+      source: "takeover" | "quick_present" | "schedule" | "assignment";
+      /** Format: uuid */
+      id?: string;
+      /** @enum {string} */
+      status: "selected" | "superseded" | "inactive";
+      reason: components["schemas"]["PlaybackPlanSelectionReason"];
+      scheduleReason?: components["schemas"]["PlaybackPlanSelectionReason"];
+      schedule?: components["schemas"]["PlaybackPlanScheduleCandidate"];
+    };
+    /** @description Scheduling authority evidence remains available when a temporary presentation supersedes the schedule. */
+    PlaybackPlanScheduleCandidate: {
+      /** Format: uuid */
+      scheduleId: string;
+      /** @enum {string} */
+      status: "selected" | "superseded" | "inactive";
+      reason: components["schemas"]["PlaybackPlanSelectionReason"];
+      priority: number;
+      specificity: number;
+      /** Format: date-time */
+      start?: string;
+      /** Format: date-time */
+      end?: string;
+    };
+    /** @description Latest reported manifest synchronization; not content readiness or proof of playback. */
+    PlaybackPlanSynchronization: {
+      /** @enum {string} */
+      status: "not_reported" | "current" | "preparing" | "out_of_date";
+      /** Format: int64 */
+      manifestVersion: number;
+      /** Format: int64 */
+      activeManifestVersion?: number;
+      /** Format: int64 */
+      pendingManifestVersion?: number;
+    };
+    PlaybackPlanCapabilities: {
+      /** @enum {string} */
+      status:
+        "supported" | "blocked" | "unknown" | "not_applicable" | "unavailable";
+      /** @enum {string} */
+      reason:
+        | "no_selected_content"
+        | "selected_content_not_found"
+        | "selected_content_not_published"
+        | "presentation_requirements_invalid"
+        | "reported_requirements_supported"
+        | "player_capabilities_not_reported"
+        | "no_widget_presentation_requirements"
+        | "manifest_v13_capabilities_not_reported"
+        | "widget_requirements_unsupported";
+      evidence?: components["schemas"]["PlaybackPlanCapabilityEvidence"];
+    };
+    /** @description Widget presentation requirements and reported support. No Data Source configuration or content payload is returned. Media decoder, network, readiness, and actual rendering behavior are outside this evidence. */
+    PlaybackPlanCapabilityEvidence: {
+      /** Format: uuid */
+      screenId: string;
+      /** @enum {string} */
+      status: "supported" | "blocked" | "unknown" | "not_applicable";
+      /** @enum {string} */
+      reason:
+        | "reported_requirements_supported"
+        | "player_capabilities_not_reported"
+        | "no_widget_presentation_requirements"
+        | "manifest_v13_capabilities_not_reported"
+        | "widget_requirements_unsupported";
+      reported: boolean;
+      schemaVersions: number[];
+      nativeCapabilities: {
+        [key: string]: number;
+      };
+      webRuntimeVersion: number;
+      requiresManifestV13: boolean;
+      widgets: components["schemas"]["PlaybackPlanWidgetCapabilities"][];
+    };
+    PlaybackPlanWidgetCapabilities: {
+      /** Format: uuid */
+      assetId: string;
+      name: string;
+      /** @enum {string} */
+      status: "supported" | "blocked" | "unknown";
+      /** @enum {string} */
+      reason:
+        | "player_capabilities_not_reported"
+        | "component_capabilities_not_reported"
+        | "no_presentation_requirements"
+        | "presentation_requirements_unsupported"
+        | "reported_requirements_supported";
+      /** @enum {string} */
+      selectedRenderer?: "component" | "compatibility";
+      component?: components["schemas"]["PlaybackPlanPresentationRequirements"];
+      compatibility?: components["schemas"]["PlaybackPlanPresentationRequirements"];
+    };
+    PlaybackPlanPresentationRequirements: {
+      schemaVersion: number;
+      capabilities: {
+        [key: string]: number;
+      };
+      /** @description Null until the Player reports its presentation profile. */
+      supported: boolean | null;
+    };
+    PlaybackPlanHistorical: {
+      expectation?: components["schemas"]["PlaybackPlanRecordedExpectation"];
+    };
+    PlaybackPlanRecordedExpectation: {
+      /** Format: uuid */
+      windowId: string;
+      presentationType: string;
+      presentationId: string;
+      presentationRevision: string;
+      /** Format: int64 */
+      manifestVersion?: number;
+      scheduleId?: string;
+      source: string;
+      timezone: string;
+      /** Format: date-time */
+      start: string;
+      /** Format: date-time */
+      end?: string;
+      /** Format: date-time */
+      supersededAt?: string;
+      supersededReason?: string;
+      contentType?: string;
+      contentId?: string;
     };
     ScreenPlaylistAssignment: {
       /** Format: uuid */
@@ -18640,6 +18848,72 @@ export interface operations {
           "application/json": {
             data: components["schemas"]["Playlist"];
           };
+        };
+      };
+    };
+  };
+  getScreenPlaybackPlan: {
+    parameters: {
+      query?: {
+        /** @description One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected. */
+        at?: string;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Expected selection or explicit historical evidence gap */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaybackPlan"];
+          };
+        };
+      };
+      /** @description invalid_playback_plan_instant */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlaybackPlanError"];
+        };
+      };
+      /** @description Management authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Grant lacks the read scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid Screen ID, screen_not_found, or Screen outside account scope */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description playback_expectation_ambiguous; recorded windows overlap */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PlaybackPlanError"];
         };
       };
     };

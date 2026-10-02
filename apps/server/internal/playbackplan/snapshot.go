@@ -15,6 +15,7 @@ import (
 type TransactionalAssignments interface {
 	ReadAssignmentStateInTx(context.Context, pgx.Tx, uuid.UUID) (playlists.Assignment, error)
 	ActiveTakeoverAtInTx(context.Context, pgx.Tx, uuid.UUID, time.Time) (*playlists.ManifestTakeover, error)
+	PresentationCapabilityEvidenceInTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) (playlists.CapabilityEvidence, error)
 }
 type TransactionalSchedules interface {
 	RelevantForInspectionInTx(context.Context, pgx.Tx, uuid.UUID) ([]scheduling.Record, error)
@@ -46,10 +47,28 @@ func (s *SnapshotCurrent) At(ctx context.Context, screen uuid.UUID, at time.Time
 		return CurrentPlan{}, err
 	}
 	defer tx.Rollback(ctx)
-	readers := snapshotReaders{tx: tx, assignments: s.assignments, schedules: s.schedules, overrides: s.overrides}
+	readers := &snapshotReaders{tx: tx, assignments: s.assignments, schedules: s.schedules, overrides: s.overrides}
 	plan, err := NewCurrent(readers, readers, readers).At(ctx, screen, at)
 	if err != nil {
 		return CurrentPlan{}, err
+	}
+	a := readers.assignment
+	plan.Synchronization = &Synchronization{Status: playlists.AssignmentSynchronizationStatus(a), ManifestVersion: a.ManifestVersion, ActiveManifestVersion: a.PlayerActiveManifestVersion, PendingManifestVersion: a.PlayerPendingManifestVersion}
+	plan.Capabilities = &CapabilityAssessment{Status: "not_applicable", Reason: "no_selected_content"}
+	if plan.Selected != nil {
+		evidence, evidenceErr := s.assignments.PresentationCapabilityEvidenceInTx(ctx, tx, screen, plan.Selected.ContentType, plan.Selected.ContentID)
+		switch {
+		case errors.Is(evidenceErr, playlists.ErrNotFound):
+			plan.Capabilities = &CapabilityAssessment{Status: "unavailable", Reason: "selected_content_not_found"}
+		case errors.Is(evidenceErr, playlists.ErrUnpublishedPresentation):
+			plan.Capabilities = &CapabilityAssessment{Status: "unavailable", Reason: "selected_content_not_published"}
+		case errors.Is(evidenceErr, playlists.ErrConflict):
+			plan.Capabilities = &CapabilityAssessment{Status: "unavailable", Reason: "presentation_requirements_invalid"}
+		case evidenceErr != nil:
+			return CurrentPlan{}, evidenceErr
+		default:
+			plan.Capabilities = &CapabilityAssessment{Status: evidence.Status, Reason: evidence.Reason, Evidence: &evidence}
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return CurrentPlan{}, err
@@ -62,10 +81,12 @@ type snapshotReaders struct {
 	assignments TransactionalAssignments
 	schedules   TransactionalSchedules
 	overrides   TransactionalOverrides
+	assignment  playlists.Assignment
 }
 
-func (r snapshotReaders) ReadAssignment(ctx context.Context, screen uuid.UUID) (playlists.Assignment, error) {
+func (r *snapshotReaders) ReadAssignment(ctx context.Context, screen uuid.UUID) (playlists.Assignment, error) {
 	a, err := r.assignments.ReadAssignmentStateInTx(ctx, r.tx, screen)
+	r.assignment = a
 	if errors.Is(err, playlists.ErrNotFound) {
 		return playlists.Assignment{}, ErrNotFound
 	}

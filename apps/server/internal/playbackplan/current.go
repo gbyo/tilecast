@@ -47,6 +47,8 @@ type CurrentPlan struct {
 	// This is a reevaluation boundary, not a promise that the winner changes.
 	NextEvaluationAt    *time.Time             `json:"nextEvaluationAt,omitempty"`
 	ScheduleExplanation scheduling.Explanation `json:"scheduleExplanation"`
+	Synchronization     *Synchronization       `json:"synchronization,omitempty"`
+	Capabilities        *CapabilityAssessment  `json:"capabilities,omitempty"`
 }
 type Current struct {
 	assignments AssignmentReader
