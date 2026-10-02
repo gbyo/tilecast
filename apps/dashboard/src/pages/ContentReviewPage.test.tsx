@@ -12,9 +12,10 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentReviewPage } from "./ContentReviewPage";
-import { ApiError, api } from "../api/client";
-import { i18n } from "../i18n";
+import { api, ApiError } from "../api/client";
 import type { ContentReviewItem } from "../api/types";
+import { i18n } from "../i18n";
+import { formatLocale } from "../i18n/languages";
 
 // The page renders a card list for narrow screens and a table from lg up,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -188,6 +189,29 @@ describe("Content review", () => {
 
     await user.click(screen.getByRole("button", { name: "All" }));
     await waitFor(() => expect(reviews).toHaveBeenCalledWith(""));
+  });
+
+  it("formats queue and sheet dates in the selected Studio locale", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentReviews").mockResolvedValue({
+      required: true,
+      items: [pending],
+    });
+    renderPage();
+    const expected = new Date(pending.updatedAt).toLocaleString(
+      formatLocale("es"),
+    );
+    // The queue renders both cards and a table; either proves the locale.
+    await screen.findAllByText("Cafeteria Menu");
+    expect(document.body.textContent).toContain(expected);
+
+    const user = userEvent.setup();
+    const actions = await screen.findAllByRole("button", {
+      name: i18n.t("review:contentReview.table.reviewAction"),
+    });
+    await user.click(actions[0]!);
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(expected);
   });
 
   it("presents queue load failures through the localized API error path", async () => {

@@ -50,6 +50,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { useFormatLocale } from "../i18n";
 
 const stateLabelKeys = {
   pending: "contentReview.state.pending",
@@ -66,6 +67,7 @@ const columnHelper = createColumnHelper<typeof features, ContentReviewItem>();
 // will wonder why something they approved is here again.
 export function ContentReviewPage() {
   const { t } = useTranslation(["review", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
@@ -147,7 +149,11 @@ export function ContentReviewPage() {
                   {item.name}
                 </Link>
                 <span className="text-xs text-muted-foreground">
-                  {itemMeta(t, item, new Date(item.updatedAt).toLocaleString())}
+                  {itemMeta(
+                    t,
+                    item,
+                    new Date(item.updatedAt).toLocaleString(formatLocale),
+                  )}
                 </span>
               </div>
             );
@@ -197,7 +203,7 @@ export function ContentReviewPage() {
             ]
           : []),
       ]),
-    [canDecide, t],
+    [canDecide, formatLocale, t],
   );
   const table = useTable({
     features,
@@ -319,7 +325,7 @@ export function ContentReviewPage() {
                       {itemMeta(
                         t,
                         item,
-                        new Date(item.updatedAt).toLocaleString(),
+                        new Date(item.updatedAt).toLocaleString(formatLocale),
                       )}
                     </p>
                   </div>
@@ -406,7 +412,7 @@ export function ContentReviewPage() {
                 {itemMeta(
                   t,
                   selected,
-                  new Date(selected.updatedAt).toLocaleString(),
+                  new Date(selected.updatedAt).toLocaleString(formatLocale),
                 )}
               </SheetDescription>
             </SheetHeader>

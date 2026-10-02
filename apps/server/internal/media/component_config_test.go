@@ -92,6 +92,29 @@ func TestComponentConfigNormalizerRejects(t *testing.T) {
 	}
 }
 
+func TestComponentConfigNormalizerRejectsCustomDerivedVariant(t *testing.T) {
+	// A definition-owned variant key the component template reads must be
+	// refused exactly like the built-in imageVariantId: projection writes it,
+	// clients never submit it.
+	definition := contentdefs.WidgetDefinition{
+		ID:      "media-sampler",
+		Runtime: "native",
+		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+			{Key: "logoAssetId", Label: "Logo", Control: "media_asset"},
+		}},
+		Component: &contentdefs.ComponentSpec{
+			Type:           "example.media_sampler",
+			Version:        1,
+			TagName:        "example-media-sampler",
+			ConfigTemplate: json.RawMessage(`{"logo":{"assetId":{"$config":"logoAssetId"},"variantId":{"$config":"logoVariantId"}}}`),
+		},
+	}
+	_, err := (componentConfigNormalizer{definition: definition}).Normalize(context.Background(), json.RawMessage(`{"logoVariantId":"33333333-3333-4333-8333-333333333333"}`))
+	if err == nil || !strings.Contains(err.Error(), `unknown field "logoVariantId"`) {
+		t.Fatalf("custom derived variant was accepted, err=%v", err)
+	}
+}
+
 func TestComponentConfigNormalizerAllowsThemeColors(t *testing.T) {
 	// An optional color left blank follows the display theme.
 	text, err := normalizeComponent(t, "text", `{"body":"Hi","backgroundColor":"","foregroundColor":""}`)
