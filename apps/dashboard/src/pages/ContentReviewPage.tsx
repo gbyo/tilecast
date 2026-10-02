@@ -11,6 +11,7 @@ import { Link } from "react-router";
 import { Check, Inbox, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -118,7 +119,7 @@ export function ContentReviewPage() {
       toast.add({
         title:
           err instanceof Error
-            ? err.message
+            ? apiErrorMessage(err)
             : t("contentReview.toast.decisionFailed"),
         type: "error",
       }),
@@ -285,7 +286,7 @@ export function ContentReviewPage() {
         </div>
       ) : queue.error ? (
         <Alert variant="destructive">
-          <AlertDescription>{queue.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(queue.error)}</AlertDescription>
         </Alert>
       ) : !items.length ? (
         <Empty>
@@ -392,7 +393,7 @@ export function ContentReviewPage() {
 
       {decide.error && (
         <Alert variant="destructive">
-          <AlertDescription>{decide.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(decide.error)}</AlertDescription>
         </Alert>
       )}
 
