@@ -301,6 +301,16 @@ language (an `en-GB` browser in English still gets day-first dates). Otherwise
 it uses the interface language. For relative times with `date-fns`, pass the
 matching `date-fns/locale` (`es`, `ru`) through the same choice.
 
+Use `formatDateTime()` from `src/lib/dateTime.ts` for Studio timestamps that
+need a medium date and a short time. Pass `useFormatLocale()` and, if needed,
+a translated missing-value label. Missing or invalid instants use that label.
+The helper uses the browser timezone.
+
+Use `formatDurationClock()` from `src/lib/formatDuration.ts` for elapsed
+durations in `minutes:seconds` notation. Minutes can exceed 59. The helper
+discards fractional seconds. Playlist and upload callers round to the nearest
+second before formatting; media metadata discards fractional seconds.
+
 Use `src/lib/formatBytes.ts` for byte counts in Studio.
 Pass the locale from `useFormatLocale()` to `formatBytes(bytes, locale)`.
 The function uses binary units: `B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, and `EiB`.
