@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createWidgetResources } from "@tilecast/widget-sdk";
 import { previewToDataDocument } from "./widgetPreviewResources";
+import valueFixtures from "../../../../packages/manifest-schema/data-document-value-fixtures.json";
 import type {
   CalendarPreview,
   StructuredPreview,
@@ -67,6 +68,20 @@ function typedRecords(): TypedRecordData {
 }
 
 describe("previewToDataDocument", () => {
+  it.each(valueFixtures)(
+    "agrees with the shared $kind fixture for '$raw'",
+    ({ kind, raw, expected }) => {
+      const preview: TypedRecordData = {
+        fields: [{ key: "value", label: "Value", type: kind }],
+        records: [{ id: "record", values: { value: raw } }],
+        usingCachedData: false,
+        unavailable: false,
+      };
+      expect(
+        previewToDataDocument(preview)?.datasets[0]?.records?.[0]?.values.value,
+      ).toEqual(expected);
+    },
+  );
   it("projects typed records with typed values and attribution", () => {
     const document = previewToDataDocument(typedRecords());
     expect(document?.schemaVersion).toBe(1);

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -26,6 +27,7 @@ const (
 const maxSafeDocumentInteger int64 = 1<<53 - 1
 
 var documentDecimalNumber = regexp.MustCompile(`^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$`)
+var documentDateTime = regexp.MustCompile(`^[0-9]{4}-[0-9]{2}-[0-9]{2}T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$`)
 
 var NativePresentationCapabilities = presentationcaps.Baseline()
 
@@ -379,7 +381,7 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 			return DocumentValue{Kind: kind, Date: &raw}
 		}
 	case "datetime":
-		if _, err := time.Parse(time.RFC3339, raw); err == nil {
+		if _, err := time.Parse(time.RFC3339, raw); documentDateTime.MatchString(raw) && err == nil {
 			return DocumentValue{Kind: kind, DateTime: &raw}
 		}
 	case "duration":
@@ -387,7 +389,7 @@ func coerceDocumentValue(kind, raw string) DocumentValue {
 			return DocumentValue{Kind: kind, Duration: &value}
 		}
 	case "url":
-		if parsed, err := url.Parse(raw); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		if parsed, err := url.Parse(raw); err == nil && parsed.Scheme != "" && parsed.Host != "" && strings.IndexFunc(raw, unicode.IsSpace) < 0 {
 			return DocumentValue{Kind: kind, URL: &raw}
 		}
 	case "asset":

@@ -3,6 +3,8 @@ package playlists
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -14,6 +16,28 @@ import (
 // for unit tests that exercise compilation without dependency injection.
 func presentationTestService() *Service {
 	return &Service{definitions: contentdefs.MustLoad()}
+}
+
+func TestDocumentValuesAgreeWithSharedFixtures(t *testing.T) {
+	raw, err := os.ReadFile("../../../../packages/manifest-schema/data-document-value-fixtures.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixtures []struct {
+		Kind     string        `json:"kind"`
+		Raw      string        `json:"raw"`
+		Expected DocumentValue `json:"expected"`
+	}
+	if err := json.Unmarshal(raw, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.Kind+":"+fixture.Raw, func(t *testing.T) {
+			if got := coerceDocumentValue(fixture.Kind, fixture.Raw); !reflect.DeepEqual(got, fixture.Expected) {
+				t.Fatalf("value = %#v, want %#v", got, fixture.Expected)
+			}
+		})
+	}
 }
 
 func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
