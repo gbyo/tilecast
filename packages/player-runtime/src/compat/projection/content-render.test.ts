@@ -855,7 +855,7 @@ describe("renderLayout", () => {
               variantId: "v2",
               assetType: "image",
               fitMode: "contain",
-              transition: "none",
+              transition: "crossfade",
               audioEnabled: true,
               volume: 1,
               deliveryPolicy: "download",
@@ -902,6 +902,7 @@ describe("renderLayout", () => {
             visible: true,
             locked: false,
             playlistId: "p1",
+            playback: { loop: false, fallback: "previous", cornerRadius: 12 },
           },
         ],
       },
@@ -925,6 +926,8 @@ describe("renderLayout", () => {
         fit: "cover",
         muted: true,
         volume: 0.25,
+        transition: "crossfade",
+        radius: 12,
       },
       {
         id: "clip",
@@ -934,6 +937,10 @@ describe("renderLayout", () => {
         videoEndOffsetMs: 4_000,
       },
     ]);
+    expect(payload.zones[0]).toMatchObject({
+      loop: false,
+      fallback: "previous",
+    });
   });
 
   it("does not produce a blank layout when every visible zone is unavailable", () => {

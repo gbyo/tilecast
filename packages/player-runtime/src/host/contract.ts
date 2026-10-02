@@ -279,6 +279,8 @@ export interface RuntimeLayoutZonePlaylistItem {
   loop: boolean;
   videoStartOffsetMs?: number | null;
   videoEndOffsetMs?: number | null;
+  radius?: number;
+  transition?: "none" | "fade" | "crossfade";
 }
 
 export interface RuntimeLayoutZone {
@@ -290,6 +292,9 @@ export interface RuntimeLayoutZone {
   layer: number;
   opacity: number;
   radius?: number;
+  /** Playlist-zone behavior; omitted older manifests keep the historical defaults. */
+  loop?: boolean;
+  fallback?: "hide" | "background" | "previous";
   render?: RenderNodeV1;
   /** A Website or Web Widget placed in the zone. */
   remoteWeb?: RuntimeRemoteWebSpecV1;

@@ -138,6 +138,8 @@ export interface LayoutZone {
   layer: number;
   opacity: number;
   radius?: number;
+  loop?: boolean;
+  fallback?: "hide" | "background" | "previous";
   /** Exactly one of the following is set. */
   render?: RenderNode; // widget or primitive
   component?: RuntimeWidgetComponentPayload; // first-class Widget
@@ -158,6 +160,8 @@ export interface LayoutPlaylistItem {
   loop: boolean;
   videoStartOffsetMs?: number | null;
   videoEndOffsetMs?: number | null;
+  radius?: number;
+  transition?: "none" | "fade" | "crossfade";
 }
 
 export interface LayoutRenderPayload {

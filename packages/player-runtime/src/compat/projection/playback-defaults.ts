@@ -75,7 +75,11 @@ export function resolvePlaybackItemSettings(
       : item.fitMode || playback?.["defaultFitMode"] || "contain",
   );
   const configuredFit =
-    fitMode === "cover" ? "cover" : fitMode === "stretch" ? "stretch" : "contain";
+    fitMode === "cover"
+      ? "cover"
+      : fitMode === "stretch"
+        ? "stretch"
+        : "contain";
   const transition = String(
     usePlayerDefaults
       ? playback?.["defaultTransition"] || "none"
@@ -87,7 +91,11 @@ export function resolvePlaybackItemSettings(
       ? Math.max(0, Math.min(1, item.volume))
       : Math.max(0, Math.min(1, numberConfig("defaultVolume", 0.5)));
   const configuredTransition =
-    transition === "fade" ? "fade" : transition === "crossfade" ? "crossfade" : "none";
+    transition === "fade"
+      ? "fade"
+      : transition === "crossfade"
+        ? "crossfade"
+        : "none";
   return {
     durationMs:
       usePlayerDefaults && item.assetType === "image"
