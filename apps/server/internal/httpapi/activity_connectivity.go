@@ -123,6 +123,11 @@ func (s *server) recordHeartbeatActivity(r *http.Request, screenID uuid.UUID, sn
 	}
 
 	s.recordHeartbeatStateTransitions(r, tx, screenID, snapshot.state, after, now)
+	// Incidents are action queues, not a historical echo of the last bad event.
+	// A player that currently reports healthy playback is authoritative evidence
+	// that any still-open playback incident has ended, even if the player did not
+	// emit one of the older explicit renderer/presentation recovery events.
+	s.reconcilePlaybackIncidentFromHeartbeat(r, tx, screenID, after, now)
 	s.anchorHeartbeatStateInterval(r, tx, screenID, after, now)
 	// The expectation is materialized at the moment the selection becomes
 	// effective, so compliance is always measured against the plan that was in
@@ -192,6 +197,39 @@ func heartbeatConfirmsHealthy(status heartbeatActivityState) bool {
 		return false
 	}
 	return !storagePressure(status)
+}
+
+// reconcilePlaybackIncidentFromHeartbeat closes a stale playback incident when
+// the current player-status authority says playback is healthy. Incident
+// derivation normally closes playback problems from explicit recovery events,
+// but not every player/version emits those events. Without this reconciliation,
+// a renderer/decoder failure can remain in Needs attention indefinitely after
+// playback has resumed.
+//
+// We emit the same recovery event the incident model already understands so the
+// automatic recovery is preserved in Activity history and recovery analytics.
+// The active-incident existence check keeps healthy heartbeats from producing a
+// synthetic recovery event on every status report.
+func (s *server) reconcilePlaybackIncidentFromHeartbeat(r *http.Request, tx pgx.Tx, screenID uuid.UUID, status heartbeatActivityState, now time.Time) {
+	if !heartbeatConfirmsHealthy(status) {
+		return
+	}
+	ctx := activityContextWithoutCancel(r.Context())
+	key := incidentDedupeKey(screenID, incidentPlayback)
+	var active bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(
+		SELECT 1 FROM incidents WHERE dedupe_key=$1 AND status IN('open','acknowledged')
+	)`, key).Scan(&active); err != nil {
+		s.logger.Error("playback incident reconciliation failed", "screen_id", screenID, "error", err)
+		return
+	}
+	if !active {
+		return
+	}
+	s.recordServerTransition(r, tx, screenID, playerActivityEventInput{
+		ID: uuid.New(), EventType: "renderer.recovered", Category: "reliability", Severity: "info",
+		OccurredAt: now, Result: "recovered", Priority: 8,
+	})
 }
 
 func (s *server) readHeartbeatActivityState(ctx context.Context, screenID uuid.UUID) (heartbeatActivityState, error) {
