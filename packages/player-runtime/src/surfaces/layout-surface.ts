@@ -124,22 +124,32 @@ export class LayoutSurface implements MediaSurface {
       if (!this.disposed)
         this.env.sink.evidence("layout-zone-rendered", zone.id);
     };
+    const zoneFailed = (message: string) => {
+      if (!this.disposed) this.env.sink.zoneFailed(zone.id, message);
+    };
 
     if (zone.component) {
       const widgets = this.env.widgets;
-      if (widgets) {
-        let reported = false;
+      if (!widgets) {
+        zoneFailed("widget components are unavailable");
+      } else {
+        let readinessReported = false;
         this.widgetMounts.push(
           widgets.mount(el, zone.component, (state) => {
-            // Ready or expected-empty is a rendered zone; an error leaves the
-            // zone outstanding, which is what the Layout evidence is for.
+            if (this.disposed) return;
+            if (state.state === "error") {
+              zoneFailed(`widget ${state.code}`);
+              return;
+            }
+            // Readiness evidence is a first-render signal. Later lifecycle
+            // errors still report through the Layout failure path.
             if (
-              reported ||
+              readinessReported ||
               (state.state !== "ready" && state.state !== "empty")
             ) {
               return;
             }
-            reported = true;
+            readinessReported = true;
             rendered();
           }),
         );
@@ -168,7 +178,13 @@ export class LayoutSurface implements MediaSurface {
     } else if (zone.remoteWeb) {
       this.startRemoteZone(el, zone, rendered);
     } else if (zone.playlistItems && zone.playlistItems.length > 0) {
-      this.startZonePlaylist(el, zone.playlistItems, rendered);
+      this.startZonePlaylist(
+        el,
+        zone.playlistItems,
+        rendered,
+        zone.loop ?? true,
+        zone.fallback ?? "background",
+      );
     } else {
       // An empty zone owes nothing; reporting for it keeps the pending set
       // honest rather than leaving a zone permanently outstanding.
@@ -245,57 +261,153 @@ export class LayoutSurface implements MediaSurface {
     container: HTMLElement,
     items: RuntimeLayoutZonePlaylistItem[],
     onAdvance: () => void,
+    loop: boolean,
+    fallback: "hide" | "background" | "previous",
   ): void {
-    let video: HTMLVideoElement | null = null;
-    const release = () => {
-      if (!video) return;
-      video.onended = null;
-      video.onerror = null;
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-      video = null;
+    container.style.position = "relative";
+    let activeElement: HTMLElement | null = null;
+    let lastGood: HTMLElement | null = null;
+    let transition: Animation[] = [];
+    let transitionToken = 0;
+    const cancelTransition = () => {
+      transitionToken += 1;
+      for (const animation of transition) animation.cancel();
+      transition = [];
     };
-    this.zoneTeardowns.push(release);
+    const releaseNode = (node: HTMLElement) => {
+      if (node instanceof HTMLVideoElement) {
+        node.onended = null;
+        node.onloadeddata = null;
+        node.onerror = null;
+        node.pause();
+        node.removeAttribute("src");
+        node.load();
+      } else if (node instanceof HTMLImageElement) {
+        node.onload = null;
+        node.onerror = null;
+      }
+      node.remove();
+    };
+    const teardown = () => {
+      cancelTransition();
+      for (const child of Array.from(container.children)) {
+        releaseNode(child as HTMLElement);
+      }
+      activeElement = null;
+      lastGood = null;
+    };
+    this.zoneTeardowns.push(teardown);
     const actor = createActor(zoneMachine, {
-      input: { items, clock: this.env.clock, onAdvance },
+      input: { items, loop, clock: this.env.clock, onAdvance },
     });
     let mounted = -1;
+    const failed = (epoch: number) => {
+      if (epoch !== mounted || this.disposed) return;
+      cancelTransition();
+      if (fallback === "previous" && lastGood) {
+        for (const child of Array.from(container.children)) {
+          if (child !== lastGood) releaseNode(child as HTMLElement);
+        }
+        if (lastGood instanceof HTMLVideoElement) lastGood.pause();
+        container.replaceChildren(lastGood);
+        activeElement = lastGood;
+      } else {
+        for (const child of Array.from(container.children))
+          releaseNode(child as HTMLElement);
+        activeElement = null;
+        if (fallback === "hide") {
+          container.style.visibility = "hidden";
+        }
+      }
+      actor.send({ type: "MEDIA_FAILED", epoch });
+    };
     actor.subscribe((snapshot) => {
-      const { shown } = snapshot.context;
-      if (shown === mounted || this.disposed) return;
-      mounted = shown;
-      const current = zoneEntry(snapshot.context);
-      if (!current) return;
-      const { entry, loop } = current;
+      const { shown, epoch } = snapshot.context;
+      if (epoch === mounted || this.disposed) return;
+      mounted = epoch;
+      const selected = zoneEntry(snapshot.context);
+      if (!selected) return;
+      const { entry } = selected;
+      container.style.visibility = "visible";
+      const outgoing = activeElement;
+      // A rapid retry can interrupt a previous dissolve. Keep only the latest
+      // outgoing layer before staging the next one.
+      cancelTransition();
+      for (const child of Array.from(container.children)) {
+        if (child !== outgoing && child !== lastGood)
+          releaseNode(child as HTMLElement);
+      }
+      const incoming = document.createElement(
+        entry.kind === "video" ? "video" : "img",
+      ) as HTMLVideoElement | HTMLImageElement;
+      incoming.style.position = "absolute";
+      incoming.style.inset = "0";
+      incoming.style.width = "100%";
+      incoming.style.height = "100%";
+      incoming.style.objectFit = objectFit(entry.fit);
+      incoming.style.borderRadius = `${entry.radius ?? 0}px`;
+      const accept = () => {
+        if (epoch !== mounted || this.disposed) return;
+        const previous = lastGood;
+        lastGood = incoming;
+        if (
+          previous &&
+          previous !== incoming &&
+          (previous !== outgoing || !previous.isConnected)
+        )
+          releaseNode(previous);
+      };
+      incoming.onerror = () => failed(epoch);
       if (entry.kind === "video") {
-        const next = document.createElement("video");
+        const next = incoming as HTMLVideoElement;
         next.src = entry.src;
         next.muted = entry.muted;
         next.volume = Math.min(Math.max(entry.volume, 0), 1);
         next.autoplay = true;
-        next.loop = loop;
+        next.loop = selected.loop;
         next.playsInline = true;
-        next.style.width = "100%";
-        next.style.height = "100%";
-        next.style.objectFit = objectFit(entry.fit);
-        next.onended = () => actor.send({ type: "MEDIA_ENDED", shown });
-        next.onerror = () => actor.send({ type: "MEDIA_FAILED", shown });
-        release();
-        video = next;
-        container.replaceChildren(next);
-        void next
-          .play()
-          .catch(() => actor.send({ type: "MEDIA_FAILED", shown }));
+        next.onloadeddata = accept;
+        next.onended = () => actor.send({ type: "MEDIA_ENDED", epoch });
+        next.onerror = () => failed(epoch);
+        container.appendChild(next);
+        void next.play().catch(() => failed(epoch));
       } else {
-        const img = document.createElement("img");
+        const img = incoming as HTMLImageElement;
         img.alt = "";
         img.src = entry.src;
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.objectFit = objectFit(entry.fit);
-        release();
-        container.replaceChildren(img);
+        img.onload = accept;
+        container.appendChild(img);
+      }
+      activeElement = incoming;
+      if (
+        outgoing &&
+        (entry.transition === "fade" || entry.transition === "crossfade") &&
+        typeof incoming.animate === "function"
+      ) {
+        const options: KeyframeAnimationOptions = {
+          duration: 300,
+          easing: "ease",
+          fill: "both",
+        };
+        transition = [
+          incoming.animate([{ opacity: 0 }, { opacity: 1 }], options),
+          outgoing.animate([{ opacity: 1 }, { opacity: 0 }], options),
+        ];
+        const running = transition;
+        const token = transitionToken;
+        void Promise.all(running.map((animation) => animation.finished))
+          .catch(() => undefined)
+          .then(() => {
+            if (token !== transitionToken) return;
+            if (outgoing.parentElement === container) {
+              if (outgoing === lastGood) outgoing.remove();
+              else releaseNode(outgoing);
+            }
+            if (transition === running) transition = [];
+          });
+      } else if (outgoing) {
+        if (outgoing === lastGood) outgoing.remove();
+        else releaseNode(outgoing);
       }
     });
     this.zones.push(actor);

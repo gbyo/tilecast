@@ -22,8 +22,7 @@ export class RouteErrorBoundary extends Component<
 
   render() {
     // A class component cannot call useTranslation. Trans reads the same
-    // i18next context, so the message still follows language changes. The
-    // raw error message is runtime output and stays untranslated.
+    // i18next context, so the user-facing message follows language changes.
     if (this.state.error) {
       return (
         <Alert variant="destructive">
@@ -31,9 +30,7 @@ export class RouteErrorBoundary extends Component<
             <Trans i18nKey="error.title" ns="navigation" />
           </AlertTitle>
           <AlertDescription>
-            {this.state.error.message || (
-              <Trans i18nKey="error.fallback" ns="navigation" />
-            )}
+            <Trans i18nKey="error.fallback" ns="navigation" />
           </AlertDescription>
           <Button
             type="button"

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { translateKnown } from "../i18n";
+import { translateKnown, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
@@ -85,12 +85,12 @@ const dimensions = [
   { value: "reason", labelKey: "compliance.dimensions.reason" },
 ] as const;
 
-function formatPercent(value: number | null) {
+function formatPercent(value: number | null, locale: string) {
   // Null means nothing measurable was expected. Showing 0% would say every
   // expected play was missed, when in fact none was expected.
   return value == null
     ? translateKnown("activity:shared.noData", "No data")
-    : `${value.toFixed(1)}%`;
+    : `${value.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
 
 const emptyReport: ComplianceReport = {
@@ -112,8 +112,8 @@ const emptyReport: ComplianceReport = {
   dimension: "screen",
 };
 
-function formatMinutes(milliseconds: number) {
-  return `${Math.round(milliseconds / 60_000).toLocaleString()} min`;
+function formatMinutes(milliseconds: number, locale: string) {
+  return `${Math.round(milliseconds / 60_000).toLocaleString(locale)} min`;
 }
 
 /**
@@ -127,6 +127,7 @@ function formatMinutes(milliseconds: number) {
 export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   const { t } = useTranslation("activity");
   const desktop = useDesktopLayout();
+  const locale = useFormatLocale();
   const [dimension, setDimension] = useState<ComplianceDimension>("screen");
   const params = activityParams(range, { dimension });
   const query = useQuery({
@@ -201,25 +202,25 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <MetricTile
           label={t("compliance.tiles.compliance")}
-          value={formatPercent(data.compliancePercent)}
+          value={formatPercent(data.compliancePercent, locale)}
           hint={t("compliance.tiles.complianceHint")}
         />
         <MetricTile
           label={t("compliance.tiles.expected")}
-          value={formatMinutes(data.measurableExpectedMs)}
+          value={formatMinutes(data.measurableExpectedMs, locale)}
           hint={t("compliance.tiles.windows", {
             count: data.windows,
-            display: data.windows.toLocaleString(),
+            display: data.windows.toLocaleString(locale),
           })}
         />
         <MetricTile
           label={t("compliance.tiles.confirmed")}
-          value={formatMinutes(data.confirmedMs)}
+          value={formatMinutes(data.confirmedMs, locale)}
           hint={t("compliance.tiles.confirmedHint")}
         />
         <MetricTile
           label={t("compliance.tiles.missed")}
-          value={formatMinutes(data.missedMs)}
+          value={formatMinutes(data.missedMs, locale)}
           hint={t("compliance.tiles.missedHint")}
         />
         <MetricTile
@@ -227,7 +228,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
           value={data.lateStarts}
           hint={t("compliance.tiles.endedEarly", {
             count: data.earlyEndings,
-            display: data.earlyEndings.toLocaleString(),
+            display: data.earlyEndings.toLocaleString(locale),
           })}
         />
         <MetricTile
@@ -235,7 +236,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
           value={data.neverStarted}
           hint={t("compliance.tiles.whileOffline", {
             count: data.offlineMisses,
-            display: data.offlineMisses.toLocaleString(),
+            display: data.offlineMisses.toLocaleString(locale),
           })}
         />
       </div>
@@ -248,19 +249,19 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
           <li className="flex items-center justify-between gap-2">
             <span>{t("compliance.takeoverExcluded")}</span>
             <span className="tabular-nums">
-              {formatMinutes(data.takeoverOverriddenMs)}
+              {formatMinutes(data.takeoverOverriddenMs, locale)}
             </span>
           </li>
           <li className="flex items-center justify-between gap-2">
             <span>{t("compliance.cancelledExcluded")}</span>
             <span className="tabular-nums">
-              {formatMinutes(data.cancelledMs)}
+              {formatMinutes(data.cancelledMs, locale)}
             </span>
           </li>
           <li className="flex items-center justify-between gap-2">
             <span>{t("compliance.notMeasurable")}</span>
             <span className="tabular-nums">
-              {formatMinutes(data.notMeasurableMs)}
+              {formatMinutes(data.notMeasurableMs, locale)}
             </span>
           </li>
         </ul>
@@ -308,7 +309,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
                       location name must not be re-cased into "Lobby North". */}
                   <TableCell className="px-3 py-2">{item.label}</TableCell>
                   <TableCell className="px-3 py-2 text-right tabular-nums">
-                    {formatPercent(item.compliancePercent)}
+                    {formatPercent(item.compliancePercent, locale)}
                   </TableCell>
                   <TableCell className="px-3 py-2 text-right tabular-nums">
                     {formatDuration(item.measurableExpectedMs)}
@@ -342,7 +343,7 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
                     location name must not be re-cased into "Lobby North". */}
                 <strong className="font-medium">{item.label}</strong>
                 <span className="tabular-nums">
-                  {formatPercent(item.compliancePercent)}
+                  {formatPercent(item.compliancePercent, locale)}
                 </span>
               </div>
               <dl className="grid grid-cols-3 gap-2 text-[13px]">

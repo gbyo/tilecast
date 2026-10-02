@@ -12,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompliancePanel } from "./ActivityCompliance";
+import { i18n } from "../i18n";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 
 const defaultMatchMedia = window.matchMedia.bind(window);
@@ -100,11 +101,12 @@ function renderPanel(body: unknown = report) {
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   window.matchMedia = defaultMatchMedia;
+  await i18n.changeLanguage("en");
 });
 
 beforeEach(() => {
@@ -253,5 +255,29 @@ describe("Playback compliance", () => {
     expect(panel.textContent).toContain(
       "not against the current configuration",
     );
+  });
+
+  it("formats headline numbers in the Studio language, not the browser locale", async () => {
+    await i18n.changeLanguage("ru");
+    renderPanel({
+      ...report,
+      measurableExpectedMs: 1234 * 60_000,
+      compliancePercent: 66.666,
+      windows: 1234,
+      earlyEndings: 1100,
+      offlineMisses: 1050,
+      breakdown: [],
+    });
+
+    // The range label is language-independent, so it waits for the render
+    // without depending on translated copy.
+    await screen.findByText(/last 24 hours/);
+    const text = document.body.textContent ?? "";
+    // Russian grouping uses a non-breaking space and a comma decimal; the
+    // browser default (en-US) would render 1,234 with a comma and 66.7%.
+    expect(text).toContain("1\u00A0234 min");
+    expect(text).toContain("66,7%");
+    expect(text).not.toContain("1,234");
+    expect(text).not.toContain("66.7%");
   });
 });

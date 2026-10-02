@@ -80,6 +80,7 @@ import {
   CollapsibleTrigger,
 } from "../components/studio/StudioCollapsible";
 import type { ProofRecord } from "./ActivityShared";
+import { useFormatLocale } from "../i18n";
 
 export function ProofTab({
   range,
@@ -104,6 +105,7 @@ export function ProofTab({
 }) {
   const { t } = useTranslation("activity");
   const desktop = useDesktopLayout();
+  const locale = useFormatLocale();
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
   );
@@ -243,7 +245,7 @@ export function ProofTab({
             <MetricTile
               icon={PlayCircle}
               label={t("proof.tiles.plays")}
-              value={metrics.records.toLocaleString()}
+              value={metrics.records.toLocaleString(locale)}
               hint={t("proof.tiles.playsHint")}
             />
             <MetricTile
@@ -261,7 +263,7 @@ export function ProofTab({
             <MetricTile
               icon={MonitorCheck}
               label={t("proof.tiles.completionRate")}
-              value={`${metrics.completion.toFixed(0)}%`}
+              value={`${metrics.completion.toLocaleString(locale, { maximumFractionDigits: 0 })}%`}
               hint={t("proof.tiles.acrossScreens", {
                 count: metrics.screens,
               })}
@@ -269,10 +271,10 @@ export function ProofTab({
             <MetricTile
               icon={AlertTriangle}
               label={t("proof.tiles.failed")}
-              value={metrics.failures.toLocaleString()}
+              value={metrics.failures.toLocaleString(locale)}
               hint={t("proof.tiles.endedUnexpectedly", {
                 count: metrics.interrupted,
-                value: metrics.interrupted.toLocaleString(),
+                value: metrics.interrupted.toLocaleString(locale),
               })}
             />
           </div>
@@ -301,7 +303,10 @@ export function ProofTab({
                     </span>
                     <span className="tabular-nums">
                       {t("proof.percentCompleted", {
-                        value: item.sessionCompletionPercent.toFixed(0),
+                        value: item.sessionCompletionPercent.toLocaleString(
+                          locale,
+                          { maximumFractionDigits: 0 },
+                        ),
                       })}
                     </span>
                     <span className="tabular-nums">
