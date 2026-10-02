@@ -429,6 +429,15 @@ drop-in source:
 Nothing loads this file at runtime. It can be deleted once the conversion is
 complete.
 
+## Clipboard feedback
+
+Use `src/lib/clipboard.ts` to copy text in Studio.
+Pass localized success and failure messages to `copyText()`.
+The function reports success only after the Clipboard API accepts the write.
+It returns `false` when the API is unavailable or the write fails.
+Feedback must not include the copied value or a browser exception.
+Controls keep their own copied state and may supply existing action-specific messages.
+
 ## Adding a language
 
 1. Add the code to `SUPPORTED_LANGUAGES` and `NATIVE_LANGUAGE_NAMES` in
