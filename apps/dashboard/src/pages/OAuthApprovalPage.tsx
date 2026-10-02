@@ -17,6 +17,7 @@ import { useSearchParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type { OAuthDecision } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -118,7 +119,7 @@ export function OAuthApprovalPage() {
           <AlertTitle>{t("oauth.invalidTitle")}</AlertTitle>
           <AlertDescription role="alert">
             {approval.error instanceof ApiError
-              ? approval.error.message
+              ? apiErrorMessage(approval.error)
               : t("oauth.invalidDescription")}
           </AlertDescription>
         </Alert>
@@ -186,7 +187,7 @@ export function OAuthApprovalPage() {
             <Alert variant="destructive">
               <AlertDescription role="alert">
                 {decide.error instanceof ApiError
-                  ? decide.error.message
+                  ? apiErrorMessage(decide.error)
                   : t("oauth.decisionError")}
               </AlertDescription>
             </Alert>

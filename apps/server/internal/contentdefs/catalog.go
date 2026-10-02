@@ -48,6 +48,33 @@ var DerivedConfigurationKeys = map[string]bool{
 	"appProviderName":     true,
 }
 
+// DerivedVariantKey maps a media_asset field key to the configuration key manifest
+// projection writes its resolved variant under ("logoAssetId" gives "logoVariantId").
+// Only AssetId-suffixed fields project; Studio preview grants use the same rule, so a
+// field that cannot project on the Player cannot grant in a preview either.
+func DerivedVariantKey(assetKey string) (string, bool) {
+	if !strings.HasSuffix(assetKey, "AssetId") || assetKey == "AssetId" {
+		return "", false
+	}
+	return strings.TrimSuffix(assetKey, "AssetId") + "VariantId", true
+}
+
+// SchemaDerivedKeys returns every top-level variant key a definition's media_asset
+// fields project. Presentation templates may reference these and manifest projection
+// resolves them; clients may never submit them.
+func SchemaDerivedKeys(fields []FieldDefinition) map[string]bool {
+	derived := map[string]bool{}
+	for _, field := range fields {
+		if field.Control != "media_asset" {
+			continue
+		}
+		if variantKey, ok := DerivedVariantKey(field.Key); ok {
+			derived[variantKey] = true
+		}
+	}
+	return derived
+}
+
 // supportedOutputFieldTypes bounds the typed values a Data Source may declare. The set
 // mirrors the scalar kinds the Player's Data Document projector understands.
 var supportedOutputFieldTypes = map[string]bool{
@@ -1082,7 +1109,7 @@ func validateTemplate(raw json.RawMessage, schema ConfigurationSchema, capabilit
 	for _, field := range schema.Fields {
 		fields[field.Key] = field
 	}
-	if err := walkTemplate(root, fields); err != nil {
+	if err := walkTemplate(root, fields, SchemaDerivedKeys(schema.Fields)); err != nil {
 		return err
 	}
 	used := map[string]bool{}
@@ -1181,17 +1208,17 @@ func validateTemplateCondition(value any) error {
 	return validateTemplateBinding(binding)
 }
 
-func walkTemplate(value any, fields map[string]FieldDefinition) error {
+func walkTemplate(value any, fields map[string]FieldDefinition, derived map[string]bool) error {
 	switch typed := value.(type) {
 	case []any:
 		for _, item := range typed {
-			if err := walkTemplate(item, fields); err != nil {
+			if err := walkTemplate(item, fields, derived); err != nil {
 				return err
 			}
 		}
 	case map[string]any:
 		if key, ok := typed["$config"].(string); ok {
-			if _, exists := fields[key]; !exists && !DerivedConfigurationKeys[key] {
+			if _, exists := fields[key]; !exists && !DerivedConfigurationKeys[key] && !derived[key] {
 				return fmt.Errorf("presentation template references unknown configuration %q", key)
 			}
 		}
@@ -1220,7 +1247,7 @@ func walkTemplate(value any, fields map[string]FieldDefinition) error {
 			return fmt.Errorf("presentation template uses unsupported node %q", nodeType)
 		}
 		for _, item := range typed {
-			if err := walkTemplate(item, fields); err != nil {
+			if err := walkTemplate(item, fields, derived); err != nil {
 				return err
 			}
 		}
