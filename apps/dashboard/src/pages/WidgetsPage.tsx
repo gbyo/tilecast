@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,6 +20,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { Skeleton } from "../components/ui/skeleton";
+import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
@@ -46,17 +52,24 @@ export function WidgetsPage() {
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
-  const params = new URLSearchParams({
-    page: "1",
-    pageSize: "100",
-    type: "widget",
+  const paramsKey = `${search}|${provider}`;
+  const widgets = useInfiniteQuery({
+    queryKey: ["assets", "widgets", paramsKey],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => {
+      const params = new URLSearchParams({
+        page: String(pageParam),
+        pageSize: "100",
+        type: "widget",
+      });
+      if (search) params.set("search", search);
+      if (provider) params.set("provider", provider);
+      return api.assets(params);
+    },
+    getNextPageParam: (last) =>
+      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
   });
-  if (search) params.set("search", search);
-  if (provider) params.set("provider", provider);
-  const widgets = useQuery({
-    queryKey: ["assets", "widgets", params.toString()],
-    queryFn: () => api.assets(params),
-  });
+  const items = widgets.data?.pages.flatMap((page) => page.items) ?? [];
   const definitions = useQuery({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
@@ -84,7 +97,7 @@ export function WidgetsPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
-      toast.add({ title: "Widget duplicated.", type: "success" });
+      toast.add({ title: t("widgets.duplicateSuccess"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       void navigate(`/widgets/${widget.id}`);
     },
@@ -149,7 +162,7 @@ export function WidgetsPage() {
               : t("widgets.list.loadError")}
           </AlertDescription>
         </Alert>
-      ) : widgets.data?.items?.length === 0 ? (
+      ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -172,20 +185,29 @@ export function WidgetsPage() {
       ) : (
         <>
           <AssetCollection
-            items={widgets.data?.items ?? []}
+            items={items}
             view={view}
             onSelect={(widget) => void navigate(`/widgets/${widget.id}`)}
             canManage={canManage}
             onDuplicate={(widget) => duplicate.mutate(widget.id)}
           />
-          {/* Storing a capture is an editor-or-above action, so viewers browse the library without
-              it and simply see the unavailable state until someone who can manage content visits. */}
-          <WidgetSnapshotBackfill
-            assets={widgets.data?.items ?? []}
-            enabled={canManage}
-          />
+          {widgets.hasNextPage && (
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-self-center"
+              disabled={widgets.isFetchingNextPage}
+              onClick={() => void widgets.fetchNextPage()}
+            >
+              {widgets.isFetchingNextPage && <Spinner aria-hidden="true" />}
+              {t("common:actions.loadMore")}
+            </Button>
+          )}
         </>
       )}
+      {/* Discovery runs independently of visible search and provider filters, including while the
+          filtered library is empty or still loading. Only content managers can upload captures. */}
+      <WidgetSnapshotBackfill enabled={canManage} />
     </section>
   );
 }

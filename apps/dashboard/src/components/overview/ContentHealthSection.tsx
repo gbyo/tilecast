@@ -14,6 +14,7 @@ import {
   ItemTitle,
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
+import { listBleed, rowBleed } from "./layout";
 import { RailSection } from "./RailSection";
 
 /**
@@ -95,7 +96,7 @@ export function ContentHealthSection({
     >
       {isLoading ? (
         <div role="status" aria-label={t("operations.content.loading")}>
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-11 w-full" />
         </div>
       ) : isError || !report ? (
         <Alert variant="destructive">
@@ -108,13 +109,13 @@ export function ContentHealthSection({
           {t("operations.content.healthy")}
         </p>
       ) : (
-        <ItemGroup className="-mx-1 gap-0">
+        <ItemGroup className={listBleed}>
           {rows.map((row) => (
             <Item
               key={row.key}
               size="xs"
               render={<Link to={destination} />}
-              className="min-h-11 py-1"
+              className={rowBleed}
             >
               <ItemContent className="min-w-0 gap-0">
                 <ItemTitle className="max-w-full">{row.title}</ItemTitle>

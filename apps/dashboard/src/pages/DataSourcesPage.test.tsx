@@ -10,7 +10,6 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { DataSource, DataSourceDefinition } from "../api/types";
@@ -20,6 +19,7 @@ import {
   sourceIcon,
 } from "../content/dataSourceProviderMeta";
 import { DataSourcesPage } from "./DataSourcesPage";
+import userEvent from "@testing-library/user-event";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -185,6 +185,67 @@ describe("Data Source card actions", () => {
     expect(screen.queryByText("Staff announcements")).toBeNull();
   });
 
+  it("shows only the load error when the list query fails", async () => {
+    vi.spyOn(api, "listDataSourcesPage").mockRejectedValue(
+      new Error("Network unavailable"),
+    );
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [],
+    });
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [],
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <DataSourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText("Data Sources could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No Data Sources yet")).toBeNull();
+  });
+
+  it("confirms in a dialog before deleting a Data Source", async () => {
+    const remove = vi
+      .spyOn(api, "deleteDataSource")
+      .mockResolvedValue(undefined);
+    renderPage();
+    fireEvent.click(
+      await (
+        await desktop()
+      ).findByRole("button", { name: "Actions for District news" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    expect(
+      screen.getByRole("alertdialog", { name: "Delete District news?" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(remove).not.toHaveBeenCalled();
+    fireEvent.click(
+      (await desktop()).getByRole("button", {
+        name: "Actions for District news",
+      }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(remove).toHaveBeenCalledWith("source-1", "csrf-token"),
+    );
+  });
+
   it("narrows the server query through the provider facet", async () => {
     const list = vi
       .spyOn(api, "listDataSourcesPage")
@@ -267,33 +328,5 @@ describe("Data Source card actions", () => {
     const pressed = sort.getAttribute("aria-pressed");
     await user.click(sort);
     expect(sort.getAttribute("aria-pressed")).not.toBe(pressed);
-  });
-
-  it("confirms in a dialog before deleting a Data Source", async () => {
-    const remove = vi
-      .spyOn(api, "deleteDataSource")
-      .mockResolvedValue(undefined);
-    renderPage();
-    fireEvent.click(
-      await (
-        await desktop()
-      ).findByRole("button", { name: "Actions for District news" }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(
-      screen.getByRole("alertdialog", { name: "Delete District news?" }),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(remove).not.toHaveBeenCalled();
-    fireEvent.click(
-      (await desktop()).getByRole("button", {
-        name: "Actions for District news",
-      }),
-    );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    await waitFor(() =>
-      expect(remove).toHaveBeenCalledWith("source-1", "csrf-token"),
-    );
   });
 });
