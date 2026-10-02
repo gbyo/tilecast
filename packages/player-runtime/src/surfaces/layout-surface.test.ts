@@ -7,6 +7,7 @@ import type {
   RuntimeLayoutZone,
 } from "../host/contract";
 import { LayoutSurface } from "./layout-surface";
+import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
 import type { SurfaceEnvironment, SurfaceSink } from "./surface";
 
 let originalAnimate: PropertyDescriptor | undefined;
@@ -112,6 +113,33 @@ function playlistZone(
 }
 
 describe("LayoutSurface playlist zones", () => {
+  it.each(fixtures.fallback)("$name", (fixture) => {
+    const first = playlistZone().playlistItems![0]!;
+    const { surface, clock } = surfaceFor([
+      playlistZone({
+        fallback: fixture.fallback as "hide" | "background" | "previous",
+        playlistItems: [
+          first,
+          { ...first, id: "second", src: "tcmedia://second" },
+        ],
+      }),
+    ]);
+    const zone = surface.element.firstElementChild as HTMLElement;
+    const previous = zone.firstElementChild as HTMLImageElement;
+    if (fixture.hasPrevious) previous.onload?.(new Event("load"));
+    clock.advance(100);
+    const current = zone.firstElementChild as HTMLImageElement;
+    if (fixture.failed) current.onerror?.(new Event("error"));
+    if (fixture.expected === "previous")
+      expect(zone.firstElementChild).toBe(previous);
+    else if (fixture.expected === "current")
+      expect(zone.firstElementChild).toBe(current);
+    else expect(zone.childElementCount).toBe(0);
+    expect(zone.style.visibility).toBe(
+      fixture.expected === "hide" ? "hidden" : "visible",
+    );
+    surface.dispose();
+  });
   it("applies item radius and hides a failed zone when selected", () => {
     const { surface } = surfaceFor([playlistZone({ fallback: "hide" })]);
     const zone = surface.element.firstElementChild as HTMLElement;
