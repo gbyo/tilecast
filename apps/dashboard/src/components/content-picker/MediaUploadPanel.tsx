@@ -1,3 +1,4 @@
+import { formatDurationClock } from "../../lib/formatDuration";
 import {
   CircleCheck,
   Clock,
@@ -112,9 +113,7 @@ function readyLabel(t: UploadT, asset?: Asset) {
   if (asset.width && asset.height) parts.push(`${asset.width}×${asset.height}`);
   if (asset.durationSeconds != null) {
     const seconds = Math.round(asset.durationSeconds);
-    parts.push(
-      `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`,
-    );
+    parts.push(formatDurationClock(seconds));
   }
   return parts.join(" · ");
 }

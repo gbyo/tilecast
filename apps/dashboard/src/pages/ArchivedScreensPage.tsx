@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatDateTime } from "../lib/dateTime";
 import { Archive, MonitorOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -34,12 +35,7 @@ export function ArchivedScreensPage() {
 
   const screens = archived.data?.items ?? [];
   const formatDate = (value?: string) =>
-    value
-      ? new Date(value).toLocaleString(formatLocale, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : t("shared.unknown");
+    formatDateTime(value, formatLocale, t("shared.unknown"));
 
   return (
     <div className="screens-page w-full min-w-0 space-y-4">

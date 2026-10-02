@@ -1,3 +1,4 @@
+import { formatDurationClock } from "../lib/formatDuration";
 import {
   useInfiniteQuery,
   useMutation,
@@ -248,14 +249,6 @@ function formatBytes(value: number) {
     unit++;
   }
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
-}
-
-function formatDuration(seconds?: number) {
-  if (seconds == null) return "";
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0")}`;
 }
 
 export function isExpiredAsset(asset: Asset, now = Date.now()) {
@@ -1363,7 +1356,7 @@ function assetStatusBadge(
 function AssetSummary({ asset }: { asset: Asset }) {
   return (
     <>
-      {asset.type === "video" && formatDuration(asset.durationSeconds)}
+      {asset.type === "video" && formatDurationClock(asset.durationSeconds)}
       {asset.type === "widget" &&
         (asset.widget?.provider === "youtube"
           ? // i18n-ignore: brand name stays Latin in every language

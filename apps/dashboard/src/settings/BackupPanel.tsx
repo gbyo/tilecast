@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDateTime } from "../lib/dateTime";
 import { useTranslation } from "react-i18next";
 import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
@@ -154,10 +155,10 @@ export function BackupPanel({ owner }: { owner: boolean }) {
           {data?.lastSuccessful && (
             <p className="text-sm text-muted-foreground">
               {t("backups.lastSuccessful")}{" "}
-              {formatDate(data.lastSuccessful.createdAt, locale)}
+              {formatDateTime(data.lastSuccessful.createdAt, locale)}
               {data.schedule.nextRunAt
                 ? t("backups.nextScheduled", {
-                    date: formatDate(data.schedule.nextRunAt, locale),
+                    date: formatDateTime(data.schedule.nextRunAt, locale),
                   })
                 : ""}
             </p>
@@ -197,7 +198,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {archive.fileName}
                     </ItemTitle>
                     <ItemDescription>
-                      {formatDate(archive.createdAt, locale)} ·{" "}
+                      {formatDateTime(archive.createdAt, locale)} ·{" "}
                       {formatBytes(archive.sizeBytes)} · {archive.kind}
                     </ItemDescription>
                     <ItemDescription className="flex flex-wrap items-center gap-2">
@@ -286,7 +287,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {title(job.kind)}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      {formatDate(job.createdAt, locale)} · {job.trigger}
+                      {formatDateTime(job.createdAt, locale)} · {job.trigger}
                     </small>
                   </span>
                   <span className="text-sm text-muted-foreground">
@@ -325,12 +326,6 @@ function JobProgress({ job }: { job: BackupJob }) {
 class CancelledAction extends Error {}
 function title(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-function formatDate(value: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
