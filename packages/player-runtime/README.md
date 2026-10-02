@@ -4,6 +4,8 @@ The shared Tilecast Player Runtime: the trusted display document that the Electr
 
 The design, the host contract (`TilecastRuntimeHostV1`), the Lit and XState architecture, the conformance suite and the measured performance are in [`docs/player-runtime.md`](../../docs/player-runtime.md).
 
+Availability and playback defaults delegate to the pure [`Presentation Model`](../../docs/presentation-model.md). Runtime tests run its shared fixtures first. The Node build compiles the model dependency before compiling the host entry points.
+
 | Directory         | Contents                                                                                              |
 | ----------------- | ----------------------------------------------------------------------------------------------------- |
 | `src/host`        | The host contract. Hosts that run in Node import it through `@tilecast/player-runtime/host-contract`. |

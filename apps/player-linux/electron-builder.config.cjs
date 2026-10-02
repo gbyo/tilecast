@@ -21,6 +21,9 @@ module.exports = {
     "!node_modules/@tilecast/player-runtime/dist/conformance/**",
     "!node_modules/@tilecast/player-runtime/*.{ts,json}",
     "node_modules/@tilecast/player-runtime/package.json",
+    "!node_modules/@tilecast/presentation-model/src/**",
+    "!node_modules/@tilecast/presentation-model/*.{ts,json}",
+    "node_modules/@tilecast/presentation-model/package.json",
   ],
   linux: {
     target: ["AppImage"],

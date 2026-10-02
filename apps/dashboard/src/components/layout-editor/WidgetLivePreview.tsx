@@ -11,9 +11,9 @@ import { api } from "../../api/client";
 import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
-  playbackDefaultsFromSettings,
   resolvePlaybackItemSettings,
-} from "@tilecast/player-runtime/playback-settings";
+} from "@tilecast/presentation-model";
+import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
 import type {
   Asset,
   CalendarEvent,
