@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
+import { i18n } from "../i18n";
 import { AuthPage } from "./AuthPage";
 
 const status = {
@@ -271,5 +272,105 @@ describe("sign-in with a second factor", () => {
     expect(
       screen.queryByRole("button", { name: "Sign in with a passkey" }),
     ).toBeNull();
+  });
+});
+
+describe("localized authentication errors", () => {
+  afterEach(async () => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    await i18n.changeLanguage("en");
+  });
+
+  it("presents login failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/auth/status"))
+        return Promise.resolve(jsonResponse(status));
+      if (url.endsWith("/auth/login"))
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: "rate_limited",
+                message: "Server-provided login failure.",
+              },
+            },
+            false,
+            429,
+          ),
+        );
+      throw new Error(`unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLogin();
+    await userEvent.type(
+      await screen.findByLabelText("Электронная почта или имя пользователя"),
+      "owner@example.org",
+    );
+    await userEvent.type(screen.getByLabelText("Пароль"), "a long password");
+    await userEvent.click(screen.getByRole("button", { name: "Войти" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Слишком много попыток. Подождите немного и повторите попытку.",
+    );
+    expect(alert).not.toHaveTextContent("Server-provided login failure.");
+  });
+
+  it("presents MFA verification failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    const fetchMock = vi.fn((input: string | Request) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/auth/status"))
+        return Promise.resolve(jsonResponse(status));
+      if (url.endsWith("/auth/login"))
+        return Promise.resolve(
+          jsonResponse({
+            mfaRequired: true,
+            challengeToken: "challenge-token",
+            methods: ["totp"],
+          }),
+        );
+      if (url.endsWith("/auth/mfa/verify"))
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: "rate_limited",
+                message: "Server-provided verification failure.",
+              },
+            },
+            false,
+            429,
+          ),
+        );
+      throw new Error(`unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderLogin();
+    await userEvent.type(
+      await screen.findByLabelText("Электронная почта или имя пользователя"),
+      "owner@example.org",
+    );
+    await userEvent.type(screen.getByLabelText("Пароль"), "a long password");
+    await userEvent.click(screen.getByRole("button", { name: "Войти" }));
+    await userEvent.type(
+      await screen.findByLabelText("Код подтверждения"),
+      "000000",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Проверить" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Слишком много попыток. Подождите немного и повторите попытку.",
+    );
+    expect(alert).not.toHaveTextContent(
+      "Server-provided verification failure.",
+    );
   });
 });

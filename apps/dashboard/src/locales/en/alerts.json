@@ -126,6 +126,7 @@
     "wakeDisplay": "Wake display if needed",
     "showing": "Showing…",
     "showNow": "Show now",
+    "started": "Show Now started.",
     "playlistPicker": {
       "title": "Choose playlist",
       "description": "Select a playlist from your library to show now.",

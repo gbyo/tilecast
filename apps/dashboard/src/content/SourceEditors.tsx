@@ -13,6 +13,7 @@ import {
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import { FallbackImagePicker } from "./FallbackImagePicker";
+import { EditorHeaderActions } from "./EditorHeaderActions";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
@@ -1365,15 +1366,30 @@ export function YouTubeSourceEditor({
               {t("widgets.editors.youtube.hint")}
             </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("common:actions.close")}
-            onClick={close}
-          >
-            <X aria-hidden="true" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {page && !readOnly && (
+              <EditorHeaderActions
+                dirty={dirty}
+                dirtyLabel={t("widgets.editors.v2.unsaved")}
+                onSave={() => save.mutate()}
+                saveDisabled={save.isPending || !name.trim()}
+                saveLabel={
+                  save.isPending
+                    ? t("common:actions.saving")
+                    : t("widgets.editors.shared.saveWidget")
+                }
+              />
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("common:actions.close")}
+              onClick={close}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
         </div>
         <Field>
           <FieldLabel htmlFor="name">
@@ -1632,7 +1648,7 @@ export function YouTubeSourceEditor({
           </Alert>
         )}
         <footer className="flex flex-wrap items-center gap-2">
-          {!readOnly && (
+          {!readOnly && !page && (
             <Button
               disabled={save.isPending || !name.trim()}
               onClick={() => save.mutate()}
