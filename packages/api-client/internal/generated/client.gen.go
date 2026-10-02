@@ -7360,7 +7360,8 @@ type LayoutPlacement struct {
 	Name    string              `json:"name"`
 	Opacity float32             `json:"opacity"`
 
-	// Overrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+	// Overrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Overrides  *LayoutPlacementOverrides `json:"overrides,omitempty"`
 	Playback   *LayoutPlayback           `json:"playback,omitempty"`
 	PlaylistId *openapi_types.UUID       `json:"playlistId,omitempty"`
@@ -7377,7 +7378,9 @@ type LayoutPlacement struct {
 // LayoutPlacementType defines model for LayoutPlacement.Type.
 type LayoutPlacementType string
 
-// LayoutPlacementOverrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+// LayoutPlacementOverrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type LayoutPlacementOverrides struct {
 	Alignment          *LayoutPlacementOverridesAlignment          `json:"alignment,omitempty"`
 	BackgroundColor    *string                                     `json:"backgroundColor,omitempty"`
