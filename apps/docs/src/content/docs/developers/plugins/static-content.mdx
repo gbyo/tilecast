@@ -21,6 +21,8 @@ npm run widgets:new -- scoreboard --plugin athletics
 
 The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime entry point, and fixtures. No second Widget type exists, and Plugin API v1 does not change.
 
+Use the SDK's `announceReady`, `announceEmpty`, and `announceError` helpers to report rendering state. Each input update gets a new readiness deadline. If rendering starts asynchronous work, capture `widgetInputRevision(this)` before starting and pass it to the announce helper when the work finishes. A result from an older revision is ignored. See the [Widget lifecycle contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the exact rules.
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:
