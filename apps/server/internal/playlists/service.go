@@ -1539,17 +1539,23 @@ func (s *Service) assignmentDetails(ctx context.Context, screenID uuid.UUID, a A
 		a.RelevantSchedules = append(a.RelevantSchedules, x)
 	}
 	scheduleRows.Close()
-	a.SynchronizationStatus = "not_reported"
+	a.SynchronizationStatus = AssignmentSynchronizationStatus(a)
+	return a, nil
+}
+
+// AssignmentSynchronizationStatus is the shared interpretation of manifest
+// versions. It describes synchronization, not successful playback.
+func AssignmentSynchronizationStatus(a Assignment) string {
 	if a.PlayerActiveManifestVersion != nil {
 		if *a.PlayerActiveManifestVersion == a.ManifestVersion {
-			a.SynchronizationStatus = "current"
+			return "current"
 		} else if a.PlayerPendingManifestVersion != nil && *a.PlayerPendingManifestVersion == a.ManifestVersion {
-			a.SynchronizationStatus = "preparing"
+			return "preparing"
 		} else {
-			a.SynchronizationStatus = "out_of_date"
+			return "out_of_date"
 		}
 	}
-	return a, nil
+	return "not_reported"
 }
 
 func (s *Service) projectSpanVideo(ctx context.Context, screenID, assetID, sourceVariantID uuid.UUID, asset *ManifestAsset, enabled bool) (uuid.UUID, error) {

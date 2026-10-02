@@ -1,7 +1,38 @@
 # Playback Plan evidence
 
 `apps/server/internal/playbackplan` selects playback evidence for an instant.
-It does not expose an HTTP route or Studio control.
+The management API exposes this evidence at
+`GET /api/v1/screens/{id}/playback-plan`. Studio has no control for this API.
+
+## Management API
+
+The route requires management authentication, the `read` scope, and access to
+the Screen. A Player credential does not authorize inspection. Use one `at`
+query parameter with an RFC 3339 instant and a time zone. Omit `at` to use
+captured server time. The route rejects duplicate, empty, invalid, and unknown
+query parameters with `invalid_playback_plan_instant` and HTTP 400.
+
+The success envelope contains `screenId`, `at`, `evaluatedAt`, and `basis`.
+Exactly one of `current` and `historical` is present. The current branch
+contains selection, candidates, optional `nextEvaluationAt`, synchronization,
+and capability assessment. Schedule candidates retain priority, target
+specificity, interval, and the scheduling authority's reason. Temporary
+presentations do not erase that schedule evidence.
+
+Selected content includes its current name when the resource exists. A
+playlist includes its current revision. A Layout includes its published
+revision. An asset has no common presentation revision. Missing resources
+have no current name or revision. These reads use the same snapshot as
+selection. Schedule names also come from that snapshot.
+
+The historical branch contains an optional recorded expectation. A gap is
+HTTP 200 with `historical_expectation_unavailable`. Overlapping recorded
+windows return `playback_expectation_ambiguous` and HTTP 409. The route does
+not guess a winner. A missing or inaccessible Screen returns HTTP 404.
+An existing Screen without manifest state also returns HTTP 404 for current
+inspection. Inspection does not initialize that state.
+
+The typed contract is in [core OpenAPI](openapi/core.yaml).
 
 ## Inspection basis
 
@@ -34,11 +65,26 @@ alternatives in the explanation and do not create evaluation boundaries.
 
 `Current.At` remains the deterministic composition entry point for supplied
 readers. Production inspection uses `SnapshotCurrent.At` to obtain consistent
-selection evidence. The snapshot does not reserve configuration for a later
-mutation. A mutation must validate its own current transaction state.
+selection, synchronization, and capability evidence. The snapshot does not
+reserve configuration for a later mutation. A mutation must validate its own
+current transaction state.
 
-This selection foundation does not establish content health, dependencies,
-Player compatibility, or observed playback.
+Synchronization uses the assignment authority's manifest-version comparison.
+It describes the latest reported state at inspection time. It does not prove
+content readiness or successful playback. Future predictions use that same
+current reported state.
+
+Capability assessment uses the assignment validator's Widget requirement
+graph, renderer choice, and reported Player profile in the same transaction.
+An unreported profile does not mean reported unsupported capability. Nested
+requirement `supported` values are null until the Player reports a profile.
+Missing or unpublished selected content remains selected. Its capability
+assessment is `unavailable` with a stable reason. Invalid presentation
+requirements also return an unavailable assessment. Database errors remain
+errors. Inspection does not select alternative content to hide these limits.
+
+This API does not establish content health, a dependency inventory, device
+decoder behavior, content readiness, or observed playback.
 
 ## Historical expectations
 
