@@ -105,6 +105,10 @@ func TestCapabilityEvidenceIncludesSourceOnlyManifestRequirement(t *testing.T) {
 	f := setupCapabilityFixture(t)
 	source := f.createSchoolStatusSource(t, "Source-only status")
 	layout := f.createLayoutBoundToSource(t, source)
+	unpublished := uuid.New()
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO layouts(id,organization_id,name,orientation,canvas_width,canvas_height,draft_document,created_by) SELECT $1,organization_id,'Unpublished','landscape',1920,1080,draft_document,created_by FROM layouts WHERE id=$2`, unpublished, layout); err != nil {
+		t.Fatal(err)
+	}
 	read := func() CapabilityEvidence {
 		t.Helper()
 		tx, err := f.pool.BeginTx(f.ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
@@ -112,6 +116,9 @@ func TestCapabilityEvidenceIncludesSourceOnlyManifestRequirement(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer tx.Rollback(f.ctx)
+		if _, err = f.service.PresentationCapabilityEvidenceInTx(f.ctx, tx, f.screen, "layout", unpublished); !errors.Is(err, ErrConflict) {
+			t.Fatalf("unpublished Layout evidence error=%v", err)
+		}
 		evidence, err := f.service.PresentationCapabilityEvidenceInTx(f.ctx, tx, f.screen, "layout", layout)
 		if err != nil {
 			t.Fatal(err)
