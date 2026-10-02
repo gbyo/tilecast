@@ -9,7 +9,7 @@ All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `plugins`, `review`, `schedules`, `screens`, `settings`) have locale files.
 The full-tree scan still reports existing untranslated strings. Dashboard CI
 scans changed `.ts` and `.tsx` files under `src/` against the PR base. It fails
-for new findings and leaves existing findings visible for separate fixes. Use
+for new findings. Use the full scan to see existing findings. Use
 `--base origin/main` for the same incremental check on a focused file. Run the
 full scan to review all remaining findings.
 

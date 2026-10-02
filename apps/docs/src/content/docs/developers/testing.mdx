@@ -47,6 +47,8 @@ Ordinary settings, user, authentication, backup, and content administration HTTP
 
 Dashboard CI scans changed Studio TypeScript files against the PR base and fails for new untranslated text. See the [localization guide](https://github.com/gbyo/tilecast/blob/main/docs/localization.md) for focused and full scan commands.
 
+Run `npm run test:ci` when you change the scanner or its CI integration. Its Git-fixture tests check baseline comparison, duplicate text, new files, ignore comments, and missing comparison refs.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 ## Run tests for changed code
