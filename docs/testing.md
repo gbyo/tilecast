@@ -52,6 +52,18 @@ On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no re
 
 Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`, compared with the PR base. It fails for new findings. The full scan reports existing findings for separate fixes. See [localization.md](localization.md) for focused and full scan commands.
 
+## Studio architecture checks
+
+Run `npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx` for a changed Studio file. Omit `--base` to see all findings. Dashboard CI uses the same file list and comparison ref as the localization check.
+
+The architecture mode uses the existing TypeScript AST scanner. It reports new local byte formatters and local `CancelledAction` classes. It reports raw error messages in JSX and toast feedback. Use `apiErrorMessage()` for localized API failures. The localization mode reports new English toast text.
+
+Query-key checks activate when a domain has a module in `src/data/`. Key factories belong in that directory. UI consumers use the factories. The check reports inline keys in query options and common query-client operations. Existing inline keys remain incremental migration work.
+
+The transport check reports generic `request<T>()` calls with static core paths. It also reports literal core API `fetch()` calls with JSON bodies or JSON reads. Dynamic plugin routes, typed transport, external requests, and binary reads retain their boundaries. The scanner is a structural check, not type-level data-flow analysis.
+
+A genuine transport exception can use `architecture-ignore: <reason>` on the finding's line or the previous line. State the reason, such as a specialized upload. Do not use an exception to bypass an ordinary core JSON route. Git-fixture tests verify baseline comparison, missing refs, and domain activation. Run `npm run test:ci` after changes to these checks.
+
 ## Fast local iteration
 
 Use changed tests while iterating, then use the full suite required by CI before merge. Fetch the comparison ref first:

@@ -17,11 +17,21 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { queryDomains, scanArchitecture } from "./studio-architecture.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const summary = args.includes("--summary");
 const check = args.includes("--check");
+const architecture = args.includes("--architecture");
+const migratedDomains = new Set(
+  Object.values(queryDomains).filter((domain) =>
+    fs.existsSync(path.join(root, "src/data", `${domain}.ts`)),
+  ),
+);
+const scanSource = architecture
+  ? (file, source) => scanArchitecture(file, source, migratedDomains)
+  : scanI18nSource;
 const baseIndex = args.indexOf("--base");
 const baseRef = baseIndex === -1 ? null : args[baseIndex + 1];
 if (baseIndex !== -1 && (!baseRef || baseRef.startsWith("--"))) {
@@ -199,7 +209,7 @@ function literalContext(node) {
   return null;
 }
 
-function scanSource(file, source) {
+function scanI18nSource(file, source) {
   const lines = source.split("\n");
   const sourceFile = ts.createSourceFile(
     file,
@@ -304,6 +314,6 @@ if (summary) {
   }
 }
 console.log(
-  `${total} ${baseCommit ? "new " : ""}untranslated string${total === 1 ? "" : "s"} in ${results.length} file${results.length === 1 ? "" : "s"}`,
+  `${total} ${baseCommit ? "new " : ""}${architecture ? "architecture finding" : "untranslated string"}${total === 1 ? "" : "s"} in ${results.length} file${results.length === 1 ? "" : "s"}`,
 );
 if (check && total > 0) process.exit(1);
