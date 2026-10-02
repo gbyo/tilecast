@@ -73,7 +73,8 @@ identities and revisions; they do not borrow today's names.
 
 This response describes expected selection. It does not prove what appeared
 on the physical display, report media readiness, or reproduce device decoder
-behavior. There is no Studio control for this endpoint yet. See the
+behavior. The [Screen playback explanation](../../screens/explain-playback/)
+uses this endpoint in Studio. See the
 [Playback Plan engineering contract](https://github.com/gbyo/tilecast/blob/main/docs/playback-plan.md)
 for evidence boundaries and error codes.
 

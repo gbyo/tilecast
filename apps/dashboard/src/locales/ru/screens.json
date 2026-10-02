@@ -1,4 +1,115 @@
 {
+  "playbackPlan": {
+    "title": "Ожидаемая презентация",
+    "loading": "Загрузка объяснения воспроизведения",
+    "content": "Выбранный контент",
+    "selectedBy": "Источник выбора",
+    "nextEvaluation": "Следующая переоценка",
+    "noBoundary": "Нет известной границы",
+    "missingContent": "Выбранный контент недоступен",
+    "noContent": "Контент не назначен",
+    "noSelection": "Ничего не выбрано",
+    "why": "Почему выбран этот контент?",
+    "inspectAt": "Проверить момент времени",
+    "inspect": "Проверить",
+    "useNow": "Использовать время сервера",
+    "timezone": "Дата и время указаны в часовом поясе браузера: {{timezone}}.",
+    "invalidInstant": "Выберите допустимую дату и время.",
+    "inspectedTime": "Запрошено: {{at}} · Вычислено: {{evaluatedAt}}",
+    "selection": "Выбор и альтернативы",
+    "precedence": "Приоритет {{priority}} · Специфичность цели {{specificity}}",
+    "synchronization": "Сообщённая синхронизация",
+    "synchronizationLimit": "Синхронизация манифеста не доказывает готовность контента или успешное воспроизведение.",
+    "capabilities": "Сообщённая поддержка презентаций виджетов",
+    "capabilityLimit": "Сообщённая поддержка не подтверждает готовность медиа, поведение декодера, доступ к сети или фактическое отображение.",
+    "boundaryLimit": "Следующая переоценка может не изменить выбранный контент. Прогнозы используют текущую конфигурацию и последнее сообщённое состояние Player.",
+    "observationLimit": "Это ожидаемый выбор, а не доказательство того, что появилось на экране.",
+    "viewActivity": "Посмотреть Активность, подтверждённую Player",
+    "recordedPresentation": "Записанная презентация",
+    "recordedRevision": "{{type}} · Ревизия {{revision}}",
+    "recordedInterval": "Записанный интервал",
+    "openWindow": "Открытый записанный интервал",
+    "historyGap": "На этот момент нет записанного ожидания. Текущие назначения не могут заполнить этот исторический пробел.",
+    "presentationId": "ID презентации",
+    "revision": "Ревизия",
+    "recordedSource": "Записанный источник",
+    "otherRecordedSource": "Записанный источник: {{source}}",
+    "requiredSchema": "Требуется схема презентации {{version}}",
+    "requiredCapability": "Требуется {{name}}@{{version}} · сообщено {{reported}}",
+    "reportedSchemas": "Сообщённые схемы: {{versions}}",
+    "noneReported": "Не сообщено",
+    "renderer": "Выбранный рендерер: {{renderer}}",
+    "types": {
+      "playlist": "Плейлист",
+      "layout": "Макет",
+      "asset": "Ресурс",
+      "presentation": "Презентация"
+    },
+    "renderers": {
+      "component": "Компонент",
+      "compatibility": "Совместимая презентация"
+    },
+    "sources": {
+      "takeover": "Перехват",
+      "quick_present": "Показать сейчас",
+      "schedule": "Расписание",
+      "assignment": "Резервное назначение"
+    },
+    "basis": {
+      "current_configuration": "Прогноз по текущей конфигурации",
+      "recorded_expectation": "Записанное историческое ожидание",
+      "historical_expectation_unavailable": "Историческое ожидание недоступно"
+    },
+    "status": {
+      "selected": "Выбрано",
+      "superseded": "Переопределено",
+      "inactive": "Неактивно",
+      "supported": "Поддерживается",
+      "blocked": "Заблокировано",
+      "unknown": "Неизвестно",
+      "not_applicable": "Неприменимо",
+      "unavailable": "Недоступно"
+    },
+    "synchronizationStatus": {
+      "not_reported": "Не сообщено",
+      "current": "Актуально",
+      "preparing": "Подготовка",
+      "out_of_date": "Устарело"
+    },
+    "reasons": {
+      "active_takeover": "Активный перехват имеет приоритет.",
+      "active_quick_present": "Активный сеанс «Показать сейчас» имеет приоритет.",
+      "assigned_fallback": "Нет активной презентации с более высоким приоритетом; используется резервное назначение.",
+      "schedule_highest_precedence": "Это расписание выигрывает по правилам приоритета сервера.",
+      "schedule_disabled": "Это расписание отключено.",
+      "schedule_not_active": "Это расписание неактивно в запрошенный момент.",
+      "schedule_lower_priority": "Другое активное расписание имеет более высокий приоритет.",
+      "schedule_less_specific": "Другое активное расписание точнее указывает этот экран.",
+      "schedule_earlier_start": "Другое равноценное расписание началось позже.",
+      "schedule_stable_id_tiebreak": "Другое равноценное расписание выигрывает окончательный стабильный выбор.",
+      "no_active_takeover": "В этот момент нет активного перехвата.",
+      "no_active_quick_present": "В этот момент нет активного сеанса «Показать сейчас».",
+      "no_assignment": "Резервная презентация не назначена."
+    },
+    "capabilityReasons": {
+      "no_selected_content": "Нет выбранного контента для оценки.",
+      "selected_content_not_found": "Выбранный контент больше не существует.",
+      "selected_content_not_published": "У выбранного Макета нет опубликованной ревизии.",
+      "presentation_requirements_invalid": "Требования выбранного контента к презентации недоступны.",
+      "reported_requirements_supported": "Player сообщает о поддержке требований выбранных презентаций виджетов.",
+      "player_capabilities_not_reported": "Player не сообщил профиль возможностей презентации.",
+      "no_widget_presentation_requirements": "У этого выбора нет требований к презентациям виджетов.",
+      "manifest_v13_capabilities_not_reported": "Этот контент требует поддержки манифеста v13, но Player не сообщил свои возможности.",
+      "widget_requirements_unsupported": "Как минимум одно требование виджета не поддерживается сообщённым профилем этого Player."
+    },
+    "widgetReasons": {
+      "player_capabilities_not_reported": "Player не сообщил свои возможности презентации.",
+      "component_capabilities_not_reported": "Этому виджету только с компонентом нужен сообщённый профиль Player.",
+      "no_presentation_requirements": "У этого виджета нет требований к презентации.",
+      "presentation_requirements_unsupported": "Сообщённый профиль не поддерживает требования выбранного рендерера.",
+      "reported_requirements_supported": "Сообщённый профиль поддерживает выбранный рендерер этого виджета."
+    }
+  },
   "groups": {
     "title": "Группы экранов",
     "subtitle": "Держите набор экранов на одном контенте, расписании и позиции воспроизведения. Зеркальные группы сохраняют синхронизированное воспроизведение.",

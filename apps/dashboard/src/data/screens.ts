@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { archivedScreens } from "../api/archivedScreens";
+import { getScreenPlaybackPlan } from "../api/domains/playbackPlan";
 
 export const SCREEN_STATUS_REFRESH_MS = 10_000;
 
@@ -13,6 +14,8 @@ export const screenKeys = {
   detail: (id: string) => [...screenKeys.all, id] as const,
   assignment: (id: string) =>
     [...screenKeys.detail(id), "playlist-assignment"] as const,
+  playbackPlan: (id: string, at?: string) =>
+    [...screenKeys.detail(id), "playback-plan", at ?? "now"] as const,
   commands: (id: string) => [...screenKeys.detail(id), "commands"] as const,
   reliability: (id: string) =>
     [...screenKeys.detail(id), "reliability"] as const,
@@ -26,6 +29,12 @@ export const screenKeys = {
 };
 
 export const screenQueries = {
+  playbackPlan: (id: string, at?: string) =>
+    queryOptions({
+      queryKey: screenKeys.playbackPlan(id, at),
+      queryFn: ({ signal }) => getScreenPlaybackPlan(id, { at, signal }),
+      refetchInterval: at === undefined ? SCREEN_STATUS_REFRESH_MS : false,
+    }),
   list: () =>
     queryOptions({ queryKey: screenKeys.list(), queryFn: api.screens }),
   archive: () =>

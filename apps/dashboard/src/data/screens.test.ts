@@ -45,10 +45,13 @@ describe("Screen query contracts", () => {
       screenKeys.list(),
       screenKeys.detail("lobby"),
       screenKeys.assignment("lobby"),
+      screenKeys.playbackPlan("lobby"),
+      screenKeys.playbackPlan("lobby", "2026-10-01T16:00:00Z"),
       screenKeys.commands("lobby"),
       screenKeys.reliability("lobby"),
       screenKeys.playerHistory("lobby"),
       screenKeys.detail("library"),
+      screenKeys.playbackPlan("library"),
       screenKeys.pendingPairings(),
       screenKeys.preview("lobby"),
     ];

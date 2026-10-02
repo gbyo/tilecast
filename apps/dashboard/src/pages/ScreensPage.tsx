@@ -1,3 +1,4 @@
+import { PlaybackPlanPanel } from "../components/PlaybackPlanPanel";
 import {
   screenKeys,
   screenQueries,
@@ -3868,14 +3869,6 @@ export function ScreenDetailPage() {
                   value={<StatusLabel status={screen.status} />}
                 />
                 <OverviewFact
-                  label={t("grid.nowPlaying")}
-                  value={
-                    assignment.data?.layoutName ??
-                    assignment.data?.playlistName ??
-                    t("detail.factNoContent")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factLocation")}
                   value={
                     [screen.location, roomLabel(screen, t)]
@@ -3904,16 +3897,6 @@ export function ScreenDetailPage() {
                   }
                 />
                 <OverviewFact
-                  label={t("detail.factNextChange")}
-                  value={
-                    assignment.data?.nextTransitionAt
-                      ? new Date(
-                          assignment.data.nextTransitionAt,
-                        ).toLocaleString(formatLocale)
-                      : t("detail.noneScheduled")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factPlayerSettings")}
                   value={
                     <Link
@@ -3928,6 +3911,7 @@ export function ScreenDetailPage() {
                   }
                 />
               </dl>
+              <PlaybackPlanPanel key={id} screenId={id} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"

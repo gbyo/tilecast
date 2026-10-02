@@ -2,7 +2,30 @@
 
 `apps/server/internal/playbackplan` selects playback evidence for an instant.
 The management API exposes this evidence at
-`GET /api/v1/screens/{id}/playback-plan`. Studio has no control for this API.
+`GET /api/v1/screens/{id}/playback-plan`. Studio shows this evidence in the
+Screen Overview.
+
+## Studio inspection
+
+The Expected presentation panel shows selected content, its source, and the
+next reevaluation boundary. The Why this selection control shows candidate
+reasons, schedule context, reported synchronization, and Widget support.
+These decisions come from the API. Studio does not evaluate precedence or
+capability compatibility.
+
+The panel refreshes server-time inspection every ten seconds. A specified
+instant uses a separate Screen query key. Use Refresh to read it again.
+Screen invalidation includes both current and specified-instant inspections.
+Query cancellation reaches the typed transport. A loading or failed request
+does not display another instant's cached evidence.
+
+The time picker and displayed dates use the browser time zone. The panel
+states that time zone. The shared calendar includes the next ten years when
+the caller does not set a date ceiling. An explicit ceiling controls calendar
+navigation and date selection. Use server time removes the explicit instant. A past
+request shows recorded expectation or a gap. It does not resolve today's
+content names. The Activity link opens Player-confirmed observed evidence.
+Expected selection does not prove actual playback.
 
 ## Management API
 
