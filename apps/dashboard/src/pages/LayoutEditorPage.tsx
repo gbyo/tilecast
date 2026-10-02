@@ -1,3 +1,4 @@
+import { contentQueries } from "../data/content";
 import { cn } from "cn";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
@@ -697,8 +698,7 @@ export function LayoutEditorPage() {
   // instead of racing Widget loads with an arbitrary delay.
   const captureCoordinator = useMemo(() => new LayoutCaptureCoordinator(), []);
   const definitionsQuery = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: () => api.contentDefinitions(),
+    ...contentQueries.definitions(),
   });
   // Placement ids whose V2 Widgets a thumbnail must wait for: visible,
   // directly placed Widgets with a migrated component. Playlist zones join

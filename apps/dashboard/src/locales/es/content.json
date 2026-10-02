@@ -570,6 +570,8 @@
         "columns": "Columnas",
         "none": "Ninguno",
         "remove": "Eliminar",
+        "fallbackPickerTitle": "Elige una imagen de reserva",
+        "fallbackPickerDescription": "Busca imágenes listas o explora la biblioteca.",
         "valueField": "Campo de valor",
         "labelField": "Campo de etiqueta",
         "titleField": "Campo de título",

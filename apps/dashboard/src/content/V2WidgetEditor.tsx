@@ -202,9 +202,13 @@ export function V2WidgetEditor({
   }, [clock, previewTime]);
 
   const managedDataSourceId = asset?.widget?.managedDataSourceId;
-  const previewMedia = widgetPreviewMedia(
-    definition.configurationSchema.fields,
-    widgetPreviewConfiguration(configuration, managedDataSourceId),
+  const previewMedia = useMemo(
+    () =>
+      widgetPreviewMedia(
+        definition.configurationSchema.fields,
+        widgetPreviewConfiguration(configuration, managedDataSourceId),
+      ),
+    [definition.configurationSchema.fields, configuration, managedDataSourceId],
   );
   const previewConfiguration = previewMedia.configuration;
   const dataSourceIds = widgetPreviewDataSourceIds(

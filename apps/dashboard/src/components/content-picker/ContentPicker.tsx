@@ -1,3 +1,4 @@
+import { contentKeys, contentQueries } from "../../data/content";
 import {
   useInfiniteQuery,
   useQuery,
@@ -6,7 +7,6 @@ import {
 import { AlertCircle, LibraryBig, Plus, SearchX, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { api } from "../../api/client";
 import type { Asset, WidgetProvider } from "../../api/types";
 import { apiErrorMessage } from "../../i18n";
 import {
@@ -111,18 +111,15 @@ export function ContentPicker({
   const [confirming, setConfirming] = useState(false);
   const [failures, setFailures] = useState<ContentPickerResult["failures"]>([]);
   const folders = useQuery({
-    queryKey: ["content-folders"],
-    queryFn: api.contentFolders,
+    ...contentQueries.folders(),
     enabled: open,
   });
   const collections = useQuery({
-    queryKey: ["content-collections"],
-    queryFn: api.contentCollections,
+    ...contentQueries.collections(),
     enabled: open,
   });
   const tags = useQuery({
-    queryKey: ["content-tags"],
-    queryFn: api.contentTags,
+    ...contentQueries.tags(),
     enabled: open,
   });
   // Selection and newly uploaded assets belong to one picker session. The
@@ -155,42 +152,22 @@ export function ContentPicker({
           : scopeType === "image,video"
             ? "media"
             : "";
-  const paramsKey = `${search}|${filter}|${folderFilter}|${collectionFilter}|${tagFilter}|${sort}|${scopeType}`;
-  const library = useInfiniteQuery({
-    queryKey: ["assets", "content-picker", paramsKey],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({
-        page: String(pageParam),
-        pageSize: "48",
-        sort,
-      });
-      if (search) params.set("search", search);
-      if (filter === "all" && defaultType) params.set("type", defaultType);
-      if (["image", "video", "widget"].includes(filter))
-        params.set("type", filter);
-      if (filter === "website" || filter === "youtube") {
-        params.set("type", "widget");
-        params.set("provider", filter);
-      }
-      if (folderFilter) params.set("folderId", folderFilter);
-      if (collectionFilter) params.set("collectionId", collectionFilter);
-      if (tagFilter) params.set("tagId", tagFilter);
-      return api.assets(params);
-    },
-    getNextPageParam: (last) =>
-      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
-    refetchInterval: (query) =>
-      query.state.data?.pages?.some((page) =>
-        page.items.some((asset) =>
-          ["queued", "inspecting", "processing"].includes(
-            asset.processingStatus,
-          ),
-        ),
-      )
-        ? 3000
-        : false,
+  const params = new URLSearchParams({
+    pageSize: "48",
+    sort,
   });
+  if (search) params.set("search", search);
+  if (filter === "all" && defaultType) params.set("type", defaultType);
+  if (["image", "video", "widget"].includes(filter)) params.set("type", filter);
+  if (filter === "website" || filter === "youtube") {
+    params.set("type", "widget");
+    params.set("provider", filter);
+  }
+  if (folderFilter) params.set("folderId", folderFilter);
+  if (collectionFilter) params.set("collectionId", collectionFilter);
+  if (tagFilter) params.set("tagId", tagFilter);
+  const library = useInfiniteQuery(contentQueries.assetPages(params));
+
   const loaded = useMemo(
     () => library.data?.pages.flatMap((page) => page.items) ?? [],
     [library.data],
@@ -238,7 +215,7 @@ export function ContentPicker({
       });
     }
     if (first || asset.processingStatus === "ready") {
-      void queryClient.invalidateQueries({ queryKey: ["assets"] });
+      void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
     }
   };
   const allowed = new Set(allowedTypes);
