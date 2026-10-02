@@ -232,33 +232,41 @@ export function previewToDataDocument(
   }
   const data = preview.configuration?.data;
   if (!data || !Array.isArray(data.records)) return null;
+  const fieldSchema = preview.fieldSchema;
   return {
     schemaVersion: 1,
     datasets: [
       {
         id: "records",
         kind: "records",
-        records: data.records.map((record) => ({
-          id: record.id,
-          values: {
-            title: { kind: "text", text: record.title },
-            ...(record.subtitle
-              ? { subtitle: { kind: "text", text: record.subtitle } }
-              : null),
-            ...(record.date
-              ? { date: { kind: "text", text: record.date } }
-              : null),
-            ...(record.author
-              ? { author: { kind: "text", text: record.author } }
-              : null),
+        fields: widgetFields(fieldSchema),
+        records: data.records.map((record) => {
+          const values: Record<string, string> = {
+            title: record.title,
+            ...(record.subtitle ? { subtitle: record.subtitle } : null),
+            ...(record.date ? { date: record.date } : null),
+            ...(record.author ? { author: record.author } : null),
             ...(record.description
-              ? {
-                  description: { kind: "text", text: record.description },
-                }
+              ? { description: record.description }
               : null),
-            ...recordValues(record.values ?? {}, undefined),
-          },
-        })),
+            ...(record.source ? { source: record.source } : null),
+            ...(record.imageUrl ? { imageUrl: record.imageUrl } : null),
+            ...(record.link ? { link: record.link } : null),
+            ...(record.values ?? {}),
+          };
+          const declared = fieldSchema
+            ? new Set(fieldSchema.map((field) => field.key))
+            : null;
+          const declaredValues = declared
+            ? Object.fromEntries(
+                Object.entries(values).filter(([key]) => declared.has(key)),
+              )
+            : values;
+          return {
+            id: record.id,
+            values: recordValues(declaredValues, fieldSchema),
+          };
+        }),
       },
     ],
     cache: {

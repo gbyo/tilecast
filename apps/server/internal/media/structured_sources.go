@@ -715,7 +715,15 @@ func (s *Service) StructuredPreview(ctx context.Context, provider string, raw js
 	if c.DateSelection.Enabled {
 		prepared.Records = selectStructuredRecords(prepared.Records, c.DateSelection, previewDate, s.organizationFirstDayOfWeek(ctx))
 	}
-	return StructuredPreview{Configuration: StructuredPlayerConfig{Presentation: c.Presentation, Fields: c.Fields, EmptyState: c.EmptyState, DateSelection: c.DateSelection, Data: prepared}, Diagnostics: diagnostics}, nil
+	fieldConfig, err := json.Marshal(c)
+	if err != nil {
+		return StructuredPreview{}, fmt.Errorf("encode structured source configuration: %w", err)
+	}
+	return StructuredPreview{
+		Configuration: StructuredPlayerConfig{Presentation: c.Presentation, Fields: c.Fields, EmptyState: c.EmptyState, DateSelection: c.DateSelection, Data: prepared},
+		FieldSchema:   s.availableDataSourceFields(provider, fieldConfig),
+		Diagnostics:   diagnostics,
+	}, nil
 }
 
 func selectStructuredRecords(records []StructuredRecord, selection DateSelection, previewDate string, firstDays ...time.Weekday) []StructuredRecord {
