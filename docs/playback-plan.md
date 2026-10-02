@@ -19,6 +19,12 @@ and capability assessment. Schedule candidates retain priority, target
 specificity, interval, and the scheduling authority's reason. Temporary
 presentations do not erase that schedule evidence.
 
+Selected content includes its current name when the resource exists. A
+playlist includes its current revision. A Layout includes its published
+revision. An asset has no common presentation revision. Missing resources
+have no current name or revision. These reads use the same snapshot as
+selection. Schedule names also come from that snapshot.
+
 The historical branch contains an optional recorded expectation. A gap is
 HTTP 200 with `historical_expectation_unavailable`. Overlapping recorded
 windows return `playback_expectation_ambiguous` and HTTP 409. The route does

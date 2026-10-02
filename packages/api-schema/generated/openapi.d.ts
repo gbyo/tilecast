@@ -8331,11 +8331,15 @@ export interface components {
       contentType: "playlist" | "layout" | "asset";
       /** Format: uuid */
       contentId: string;
+      /** @description Current selected content name; absent for a missing resource. */
+      name?: string;
+      /** @description Current selected schedule name, when a schedule selects the content. */
+      scheduleName?: string;
       /** Format: uuid */
       selectionId?: string;
       /**
        * Format: int64
-       * @description Known assignment revision; absent when the selection reader does not establish a revision.
+       * @description Current playlist or published Layout revision; absent for assets, missing resources, and unpublished Layouts.
        */
       revision?: number;
       reason: components["schemas"]["PlaybackPlanSelectionReason"];
@@ -8364,6 +8368,8 @@ export interface components {
       status: "selected" | "superseded" | "inactive";
       reason: components["schemas"]["PlaybackPlanSelectionReason"];
       scheduleReason?: components["schemas"]["PlaybackPlanSelectionReason"];
+      /** @description Current schedule candidate name, when available. */
+      name?: string;
       schedule?: components["schemas"]["PlaybackPlanScheduleCandidate"];
     };
     /** @description Scheduling authority evidence remains available when a temporary presentation supersedes the schedule. */

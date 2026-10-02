@@ -8355,7 +8355,10 @@ type PlaybackPlanBasis string
 
 // PlaybackPlanCandidate defines model for PlaybackPlanCandidate.
 type PlaybackPlanCandidate struct {
-	Id     *openapi_types.UUID         `json:"id,omitempty"`
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// Name Current schedule candidate name, when available.
+	Name   *string                     `json:"name,omitempty"`
 	Reason PlaybackPlanSelectionReason `json:"reason"`
 
 	// Schedule Scheduling authority evidence remains available when a temporary presentation supersedes the schedule.
@@ -8475,12 +8478,18 @@ type PlaybackPlanScheduleCandidateStatus string
 type PlaybackPlanSelection struct {
 	ContentId   openapi_types.UUID               `json:"contentId"`
 	ContentType PlaybackPlanSelectionContentType `json:"contentType"`
-	Reason      PlaybackPlanSelectionReason      `json:"reason"`
 
-	// Revision Known assignment revision; absent when the selection reader does not establish a revision.
-	Revision    *int64                      `json:"revision,omitempty"`
-	SelectionId *openapi_types.UUID         `json:"selectionId,omitempty"`
-	Source      PlaybackPlanSelectionSource `json:"source"`
+	// Name Current selected content name; absent for a missing resource.
+	Name   *string                     `json:"name,omitempty"`
+	Reason PlaybackPlanSelectionReason `json:"reason"`
+
+	// Revision Current playlist or published Layout revision; absent for assets, missing resources, and unpublished Layouts.
+	Revision *int64 `json:"revision,omitempty"`
+
+	// ScheduleName Current selected schedule name, when a schedule selects the content.
+	ScheduleName *string                     `json:"scheduleName,omitempty"`
+	SelectionId  *openapi_types.UUID         `json:"selectionId,omitempty"`
+	Source       PlaybackPlanSelectionSource `json:"source"`
 }
 
 // PlaybackPlanSelectionContentType defines model for PlaybackPlanSelection.ContentType.

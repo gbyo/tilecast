@@ -67,6 +67,10 @@ reported Widget presentation support. A reevaluation boundary does not promise
 that the content changes. Synchronization and capability reports describe the
 latest known state, including when you ask about the future.
 
+Selected content also includes its current name and known revision. Layout
+revisions refer to the published version. Historical responses keep recorded
+identities and revisions; they do not borrow today's names.
+
 This response describes expected selection. It does not prove what appeared
 on the physical display, report media readiness, or reproduce device decoder
 behavior. There is no Studio control for this endpoint yet. See the

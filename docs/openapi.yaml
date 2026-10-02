@@ -12900,11 +12900,21 @@ components:
           }
         contentType: { type: string, enum: [playlist, layout, asset] }
         contentId: { type: string, format: uuid }
+        name:
+          {
+            type: string,
+            description: "Current selected content name; absent for a missing resource.",
+          }
+        scheduleName:
+          {
+            type: string,
+            description: "Current selected schedule name, when a schedule selects the content.",
+          }
         selectionId: { type: string, format: uuid }
         revision:
           type: integer
           format: int64
-          description: Known assignment revision; absent when the selection reader does not establish a revision.
+          description: Current playlist or published Layout revision; absent for assets, missing resources, and unpublished Layouts.
         reason: { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
     PlaybackPlanSelectionReason:
       type: string
@@ -12939,6 +12949,11 @@ components:
         reason: { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
         scheduleReason:
           { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
+        name:
+          {
+            type: string,
+            description: "Current schedule candidate name, when available.",
+          }
         schedule: { $ref: "#/components/schemas/PlaybackPlanScheduleCandidate" }
     PlaybackPlanScheduleCandidate:
       type: object
