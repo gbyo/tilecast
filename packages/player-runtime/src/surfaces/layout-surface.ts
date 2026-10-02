@@ -366,10 +366,7 @@ export class LayoutSurface implements MediaSurface {
         next.muted = entry.muted;
         next.volume = Math.min(Math.max(entry.volume, 0), 1);
         next.autoplay = true;
-        // Native looping restarts at zero. Let the zone actor restart trimmed
-        // clips so every pass applies the authored start offset.
-        next.loop =
-          selected.loop && !entry.videoStartOffsetMs && !entry.videoEndOffsetMs;
+        next.loop = selected.loop;
         next.playsInline = true;
         if (entry.videoStartOffsetMs && entry.videoStartOffsetMs > 0) {
           next.onloadedmetadata = () => {

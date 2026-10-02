@@ -214,6 +214,17 @@ export function PlaylistZonePreview({
       defaultImageDurationMsForPlayback(playback),
     ),
   );
+  const finishVideo = (video: HTMLVideoElement) => {
+    if (shownItem!.id !== current.id) return;
+    video.pause();
+    const loop = placement.playback?.loop !== false;
+    if (loop && nextPlaylistPreviewIndex(index, items.length, loop) === index) {
+      video.currentTime = (shownItem!.videoStartOffsetMs ?? 0) / 1000;
+      void video.play().catch(failCurrent);
+    } else {
+      advance();
+    }
+  };
   const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${!failed && (itemPlayback.transition === "fade" || itemPlayback.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
@@ -257,9 +268,9 @@ export function PlaylistZonePreview({
             event.currentTarget.currentTime >=
               shownItem!.videoEndOffsetMs / 1000
           )
-            advance();
+            finishVideo(event.currentTarget);
         }}
-        onEnded={shownItem!.id === current.id ? advance : undefined}
+        onEnded={(event) => finishVideo(event.currentTarget)}
         onError={shownItem!.id === current.id ? failCurrent : undefined}
       />
     );

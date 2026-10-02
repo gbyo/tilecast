@@ -913,6 +913,7 @@ describe("renderLayout", () => {
         playback: {
           defaultFitMode: "cover",
           defaultImageDurationSeconds: 7,
+          defaultTransition: "crossfade",
           defaultVolume: 0.25,
           defaultAudioEnabled: false,
         },
