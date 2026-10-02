@@ -3,6 +3,7 @@ package playlists
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 
@@ -74,6 +75,15 @@ func (s *Service) PresentationCapabilityEvidenceInTx(ctx context.Context, tx pgx
 	}
 	if !exists {
 		return CapabilityEvidence{}, ErrNotFound
+	}
+	if contentType == "layout" {
+		var published bool
+		if err := tx.QueryRow(ctx, `SELECT published_revision_id IS NOT NULL FROM layouts WHERE id=$1`, contentID).Scan(&published); err != nil {
+			return CapabilityEvidence{}, err
+		}
+		if !published {
+			return CapabilityEvidence{}, fmt.Errorf("%w: Layout is not published", ErrConflict)
+		}
 	}
 	requirements, blocker, err := s.presentationRequirementsForRoot(ctx, tx, playlistID, layoutID, assetID)
 	if err != nil {
