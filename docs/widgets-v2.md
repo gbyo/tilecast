@@ -279,11 +279,13 @@ time-series points, timezone, and units so a Widget receives the same dataset
 metadata in preview and playback.
 
 A fixed date in the Widget editor freezes the Widget's own clock and passes
-the selected local calendar date to its Data Source previews. A Layout
-preview date defaults to the browser's local calendar date and does the same
-for each zone, so time-sensitive Widgets agree with the Layout's text
-bindings. Without a selected date, the preview stays live and uses current
-Data Source previews.
+the selected local calendar date to time-dependent Data Source projections.
+A Layout preview date defaults to the browser's local calendar date and does
+the same for each zone, so time-sensitive Widgets agree with the Layout's text
+bindings. Without a selected date, the preview stays live. A source with no
+time-dependent projection keeps its current prepared data.
+Saved manual objects and approved Form snapshots keep their actual update
+times and cache metadata when the preview date changes.
 
 The binding Studio editor redesign, source-connection flow, shared preview
 host, and first-wave Widget migration are defined in

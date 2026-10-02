@@ -12,6 +12,13 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { EditorHeaderActions } from "./EditorHeaderActions";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
@@ -115,16 +122,6 @@ export function WidgetProviderGallery({
   });
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [onClose]);
 
   const catalog = definitions.data?.widgets ?? [];
   // Provenance for plugin-owned Widgets: the gallery is built from the
@@ -253,23 +250,10 @@ export function WidgetProviderGallery({
       sourceInfo(definition)?.unavailable == null,
   );
 
-  return (
-    <div
-      className={
-        page
-          ? "w-full min-w-0 space-y-5"
-          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
-      }
-      role={page ? undefined : "presentation"}
-    >
+  const gallery = (
+    <div className="w-full min-w-0 space-y-5">
       <section
-        className={
-          page
-            ? "w-full min-w-0 space-y-5"
-            : "mx-auto w-full max-w-4xl space-y-5 rounded-xl bg-background p-5"
-        }
-        role={page ? undefined : "dialog"}
-        aria-modal={page ? undefined : true}
+        className="w-full min-w-0 space-y-5"
         aria-labelledby="source-gallery-title"
       >
         <div className="flex items-start justify-between gap-3">
@@ -358,6 +342,29 @@ export function WidgetProviderGallery({
         </div>
       </section>
     </div>
+  );
+  if (page) return gallery;
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[calc(100dvh-2rem)] w-[min(56rem,calc(100vw-2rem))] max-w-none overflow-y-auto"
+      >
+        <DialogHeader className="sr-only">
+          <DialogTitle render={<div />}>
+            {t("widgets.gallery.title")}
+          </DialogTitle>
+          <DialogDescription>{t("widgets.gallery.subtitle")}</DialogDescription>
+        </DialogHeader>
+        {gallery}
+      </DialogContent>
+    </Dialog>
   );
 }
 export function DeclarativePresentationPreview({

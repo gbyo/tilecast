@@ -10,7 +10,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Lightbulb, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
@@ -371,17 +370,18 @@ export function ConnectDataFlow({
       : provider !== undefined
         ? providerLabel(provider, t)
         : "";
-  if (!provider)
-    return createPortal(
-      <DataSourceProviderGallery
-        providers={providers}
-        exclude={exclude}
-        description={t("dataSources.createFlow.connectDescription")}
-        onChoose={onChooseProvider}
-        onClose={onClose}
-      />,
-      document.body,
-    );
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+  const previousProvider = useRef(provider);
+  useEffect(() => {
+    if (previousProvider.current === provider) return;
+    previousProvider.current = provider;
+    dialogContentRef.current
+      ?.querySelector<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus();
+  }, [provider]);
+  const dialogDescription = t("dataSources.createFlow.connectDescription");
   return (
     <Dialog
       open
@@ -389,24 +389,44 @@ export function ConnectDataFlow({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:w-[calc(100vw-2rem)] sm:max-w-5xl">
+      <DialogContent
+        ref={dialogContentRef}
+        showCloseButton={provider !== undefined}
+        className={
+          provider === undefined
+            ? "max-h-[calc(100dvh-2rem)] w-[min(48rem,calc(100vw-2rem))] max-w-none overflow-y-auto"
+            : "max-h-[calc(100dvh-2rem)] overflow-y-auto sm:w-[calc(100vw-2rem)] sm:max-w-5xl"
+        }
+      >
         <DialogHeader className="sr-only">
-          {/* The shell renders the visible heading; this names the dialog only. */}
           <DialogTitle render={<div />}>
-            {t("dataSources.createFlow.createTitle", { label: dialogLabel })}
+            {provider === undefined
+              ? t("dataSources.createFlow.galleryTitle")
+              : t("dataSources.createFlow.createTitle", {
+                  label: dialogLabel,
+                })}
           </DialogTitle>
-          <DialogDescription>
-            {t("dataSources.createFlow.connectDescription")}
-          </DialogDescription>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
-        <DataSourceCreateShell
-          provider={provider}
-          definition={definition}
-          csrf={csrf}
-          backLabel={t("dataSources.createFlow.backAll")}
-          onClose={onBack}
-          onSaved={(created) => onCreated(created.id)}
-        />
+        {provider === undefined ? (
+          <DataSourceProviderGallery
+            providers={providers}
+            exclude={exclude}
+            description={dialogDescription}
+            onChoose={onChooseProvider}
+            onClose={onClose}
+            page
+          />
+        ) : (
+          <DataSourceCreateShell
+            provider={provider}
+            definition={definition}
+            csrf={csrf}
+            backLabel={t("dataSources.createFlow.backAll")}
+            onClose={onBack}
+            onSaved={(created) => onCreated(created.id)}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

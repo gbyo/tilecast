@@ -652,5 +652,11 @@
     "file": "00110_ios_session_grants.sql",
     "owner": "core",
     "sha256": "7981a45d66c75377c866b212b084fb105e07c1dea168781dbf9a81763c2ce15f"
+  },
+  {
+    "version": 111,
+    "file": "00111_playback_micro_sessions.sql",
+    "owner": "core",
+    "sha256": "d3cfa4e24a191829f08d3bf83658ebbb857237a562045410e2675d63817a89a8"
   }
 ]
