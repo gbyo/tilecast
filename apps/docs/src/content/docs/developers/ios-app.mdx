@@ -76,6 +76,13 @@ Tabs and the iPad sidebar show the same Lucide icons as Studio's sidebar. The ic
 swift test
 ```
 
+On the iOS simulator, select **TilecastHostTests** in the **Tilecast** scheme.
+It compiles the same Core tests inside the app so real WebKit pages receive
+application events. The scheme starts with in-memory server profiles and
+credentials. A regression test fails if the iOS bridge suite runs without an
+application host. The separate UI tests still exercise native controls with their
+loopback fixture server.
+
 To try Photos and Files upload by hand, follow [Test media intake by hand](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md#test-media-intake-by-hand). The automated tests replace the pickers with generated files.
 
 The full simulator suite, the localization check, and the architecture check are listed in [`apps/ios/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md). CI runs them on an iPhone and an iPad simulator whenever a pull request changes `apps/ios/`, the native bridge contract, or the OpenAPI contract. The UI tests use a small local stand-in server, so they don't need a real Tilecast server or the internet.

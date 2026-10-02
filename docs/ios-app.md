@@ -699,4 +699,12 @@ Everything not listed as native stays in Studio. After Milestone 8 most of the p
 
 ## Build and test
 
+The simulator uses `TilecastHostTests`, an app-hosted unit-test target.
+It compiles the same Core test sources as the Swift package.
+Real WebKit pages thus receive the `UIApplication` lifecycle and events.
+The scheme passes `-TilecastEphemeralServers` to keep host profiles and credentials in memory.
+An iOS bridge test requires an application bundle as its process host.
+CI keeps the bridge suite in a separate step with its existing time limits and retry policy.
+The macOS `swift test` command still uses the package target.
+
 See `apps/ios/README.md` for commands. CI runs the `ios_ci` job in `.github/workflows/ci-ios.yml` on `macos-26` when a pull request changes `apps/ios/`, `packages/native-bridge-schema/`, the OpenAPI contract (`docs/openapi/` and `docs/openapi.yaml`), or the shared server address corpus. A change to the bridge schema also runs the dashboard checks, because Studio tests run the same fixtures. An ordinary Studio or server change does not build the app, because the app loads Studio from the server at runtime. This includes Studio's own bridge code in `apps/dashboard/src/native-host/`, which the dashboard tests cover. `scripts/ci/affected.mjs` records these edges. Add one when the app starts to compile or test against another contract, such as the settings schema.
