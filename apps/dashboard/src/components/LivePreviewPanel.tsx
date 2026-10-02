@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -259,7 +260,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           <dt>{t("livePreview.image")}</dt>
           <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.width && preview.data?.height
-              ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize ?? 0)}`
+              ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize, formatLocale)}`
               : t("livePreview.noImage")}
           </dd>
         </div>
@@ -352,9 +353,4 @@ function stateDescription(
 ) {
   if (renewalError) return renewalError;
   return t(stateDescriptionKeys[state]);
-}
-
-function formatBytes(bytes: number) {
-  if (!bytes) return "0 KB";
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }

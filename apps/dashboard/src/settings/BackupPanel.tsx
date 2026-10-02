@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDateTime } from "../lib/dateTime";
 import { useTranslation } from "react-i18next";
@@ -199,7 +200,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     </ItemTitle>
                     <ItemDescription>
                       {formatDateTime(archive.createdAt, locale)} ·{" "}
-                      {formatBytes(archive.sizeBytes)} · {archive.kind}
+                      {formatBytes(archive.sizeBytes, locale)} · {archive.kind}
                     </ItemDescription>
                     <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
@@ -326,15 +327,4 @@ function JobProgress({ job }: { job: BackupJob }) {
 class CancelledAction extends Error {}
 function title(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let amount = value / 1024;
-  let unit = units[0];
-  for (let index = 1; index < units.length && amount >= 1024; index++) {
-    amount /= 1024;
-    unit = units[index];
-  }
-  return `${amount.toFixed(amount >= 10 ? 1 : 2)} ${unit}`;
 }

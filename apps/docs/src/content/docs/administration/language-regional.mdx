@@ -22,6 +22,10 @@ Backup dates, archived Screen dates, and Data Source update times use your Studi
 
 Media and playlist duration labels use `minutes:seconds`, so an hour appears as `60:00`. Playlist and upload labels round to the nearest second; media metadata discards fractional seconds. See the [localization contract](https://github.com/gbyo/tilecast/blob/main/docs/localization.md#dates-and-numbers) for contributor guidance.
 
+File sizes and Player storage use binary units such as **KiB** and **MiB** throughout Studio. One KiB is 1,024 bytes. Numbers follow your Studio language, so the same size can appear as `1.5 MiB` in English or `1,5 MiB` in Spanish. A dash means the size is unavailable.
+
+Contributors can find the shared formatter contract in the [localization reference](https://github.com/gbyo/tilecast/blob/main/docs/localization.md#dates-and-numbers).
+
 ## Organization locale and timezone
 
 Open **Settings** > **General** to choose the organization's locale, timezone, date and time formats, and first day of the week.

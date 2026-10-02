@@ -1,3 +1,5 @@
+import { useFormatLocale } from "../i18n";
+import { formatBytes } from "../lib/formatBytes";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -509,6 +511,7 @@ function PolicyRow({
   onChange: (value: unknown) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const title = titleFor(definition);
   const inheritedValue = inherited?.value ?? organizationValue;
   const source = inherited?.source ?? t("policies.organizationDefault");
@@ -534,7 +537,7 @@ function PolicyRow({
         </Collapsible>
         <p className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-medium">
-            {formatSettingValue(definition, effectiveValue, t)}
+            {formatSettingValue(definition, effectiveValue, t, locale)}
           </span>
           <Badge variant="secondary">
             {overridden ? overrideSource : source}
@@ -597,11 +600,12 @@ function formatSettingValue(
   definition: SettingDefinition,
   value: unknown,
   t: TFunction<["settings", "common"]>,
+  locale: string,
 ) {
   if (definition.key === "player.playback.default_volume")
     return `${Math.round(Number(value) * 100)}%`;
   if (definition.type === "int64" && definition.key.includes("bytes"))
-    return formatBytes(Number(value));
+    return formatBytes(Number(value), locale);
   if (definition.type === "weekday_list") {
     return Array.isArray(value)
       ? value
@@ -638,16 +642,6 @@ function formatDurationSeconds(
   if (value >= 60 && value % 60 === 0)
     return t("policies.duration.minutes", { count: value / 60 });
   return t("policies.duration.seconds", { count: value });
-}
-
-function formatBytes(bytes: number) {
-  const units = [
-    [1024 ** 4, "TB"],
-    [1024 ** 3, "GB"],
-    [1024 ** 2, "MB"],
-  ] as const;
-  const [size, unit] = units.find(([size]) => bytes >= size) ?? units[2];
-  return `${Number((bytes / size).toFixed(2))} ${unit}`;
 }
 
 function samePolicyValues(

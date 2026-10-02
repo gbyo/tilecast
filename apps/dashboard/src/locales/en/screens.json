@@ -746,6 +746,7 @@
     "title": "Screen archive",
     "body": "Players with revoked pairings are retained for history but are detached from all live Tilecast configuration.",
     "loading": "Loading archived screens…",
+    "loadError": "Archived screens could not be loaded.",
     "emptyTitle": "No archived screens",
     "emptyBody": "Revoked player pairings will appear here automatically.",
     "back": "Back to screens",

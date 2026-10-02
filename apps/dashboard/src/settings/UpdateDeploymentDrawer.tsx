@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -465,7 +466,7 @@ function DeploymentScreenRow({
             <small className="text-xs text-muted-foreground">
               {t("updates.downloadProgress", {
                 percent,
-                size: formatBytes(artifactSizeBytes),
+                size: formatBytes(artifactSizeBytes, locale),
               })}
             </small>
           </span>
@@ -626,12 +627,6 @@ function humanize(value: string) {
   return value
     .replaceAll("_", " ")
     .replace(/^./, (letter) => letter.toUpperCase());
-}
-
-function formatBytes(value: number) {
-  return value >= 1024 ** 3
-    ? `${(value / 1024 ** 3).toFixed(1)} GB`
-    : `${(value / 1024 ** 2).toFixed(1)} MB`;
 }
 
 function formatRelative(value: string, t: TFunction<["settings", "common"]>) {

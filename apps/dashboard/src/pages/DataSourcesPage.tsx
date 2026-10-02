@@ -30,10 +30,7 @@ import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+import { FilterBar, type FilterDefinition } from "../components/FilterBar";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -68,13 +65,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { toast } from "../components/ui/toast";
 import {
@@ -133,11 +123,23 @@ export function DataSourcesPage() {
     queryFn: api.providerCatalog,
   });
   const hiddenProviders = new Set(galleryHiddenProviders(catalog.data));
-  const providerOptions = [
-    { value: "", label: t("dataSources.list.allTypes") },
-    ...(definitions.data?.dataSources ?? [])
-      .filter((item) => !hiddenProviders.has(item.id))
-      .map((item) => ({ value: item.id, label: item.name })),
+  const providerOptions = (definitions.data?.dataSources ?? [])
+    .filter((item) => !hiddenProviders.has(item.id))
+    .map((item) => ({ value: item.id, label: item.name }));
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("dataSources.list.searchLabel"),
+      placeholder: t("dataSources.list.searchLabel"),
+    },
+    {
+      key: "provider",
+      kind: "select",
+      label: t("dataSources.list.providerFilter"),
+      allLabel: t("dataSources.list.allTypes"),
+      options: providerOptions,
+    },
   ];
   const definitionsByProvider = new Map<string, DataSourceDefinition>(
     (definitions.data?.dataSources ?? [])
@@ -224,34 +226,18 @@ export function DataSourcesPage() {
           {t("dataSources.list.subtitle")}
         </p>
       </header>
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("dataSources.list.searchLabel")}
-          placeholder={t("dataSources.list.searchLabel")}
-        />
-        <Select
-          items={providerOptions}
-          value={provider}
-          onValueChange={(next) => {
-            if (typeof next === "string") setProvider(next);
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("dataSources.list.providerFilter")}
-            className="w-52 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {providerOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <FilterBar
+        definitions={filterDefinitions}
+        values={{ search, provider }}
+        onChange={(key, value) => {
+          if (key === "search") setSearch(value);
+          if (key === "provider") setProvider(value);
+        }}
+        onClear={() => {
+          setSearch("");
+          setProvider("");
+        }}
+      >
         <Button
           type="button"
           variant="outline"
@@ -266,7 +252,7 @@ export function DataSourcesPage() {
           )}
           {t("dataSources.list.updatedButton")}
         </Button>
-      </DashboardListToolbar>
+      </FilterBar>
       {dataSources.isError && (
         <Alert variant="destructive">
           <AlertDescription>

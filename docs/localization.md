@@ -311,6 +311,15 @@ durations in `minutes:seconds` notation. Minutes can exceed 59. The helper
 discards fractional seconds. Playlist and upload callers round to the nearest
 second before formatting; media metadata discards fractional seconds.
 
+Use `src/lib/formatBytes.ts` for byte counts in Studio.
+Pass the locale from `useFormatLocale()` to `formatBytes(bytes, locale)`.
+The function uses binary units: `B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, and `EiB`.
+Each unit is 1,024 times the previous unit.
+The output uses at most one decimal place for units above bytes.
+Zero is `0 B`; missing, negative, or non-finite values are `—`.
+Media, uploads, backups, Player storage, Live Preview, updates, and Player
+policies use this function. Do not add a local byte formatter.
+
 Do not translate the organization's regional-format settings
 (`organization.locale`, timezones, first day of week). They describe the
 installation, not the reader. The separate regional-formatting contract
@@ -438,6 +447,15 @@ drop-in source:
 
 Nothing loads this file at runtime. It can be deleted once the conversion is
 complete.
+
+## Clipboard feedback
+
+Use `src/lib/clipboard.ts` to copy text in Studio.
+Pass localized success and failure messages to `copyText()`.
+The function reports success only after the Clipboard API accepts the write.
+It returns `false` when the API is unavailable or the write fails.
+Feedback must not include the copied value or a browser exception.
+Controls keep their own copied state and may supply existing action-specific messages.
 
 ## Adding a language
 
