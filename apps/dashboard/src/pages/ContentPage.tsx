@@ -1,3 +1,4 @@
+import { formatDurationClock } from "../lib/formatDuration";
 import { formatBytes } from "../lib/formatBytes";
 import {
   useInfiniteQuery,
@@ -162,6 +163,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
@@ -238,14 +240,6 @@ function queueStateLabel(
     processing: t("media.status.processing"),
     failed: t("media.status.failed"),
   }[state];
-}
-
-function formatDuration(seconds?: number) {
-  if (seconds == null) return "";
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0")}`;
 }
 
 export function isExpiredAsset(asset: Asset, now = Date.now()) {
@@ -1351,7 +1345,7 @@ function assetStatusBadge(
 function AssetSummary({ asset }: { asset: Asset }) {
   return (
     <>
-      {asset.type === "video" && formatDuration(asset.durationSeconds)}
+      {asset.type === "video" && formatDurationClock(asset.durationSeconds)}
       {asset.type === "widget" &&
         (asset.widget?.provider === "youtube"
           ? // i18n-ignore: brand name stays Latin in every language
@@ -3008,18 +3002,6 @@ export function WebsiteEditor({
     addEventListener("beforeunload", handler);
     return () => removeEventListener("beforeunload", handler);
   }, [dirty]);
-  const images = useQuery({
-    queryKey: ["assets", "website-fallbacks"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          type: "image",
-          status: "ready",
-        }),
-      ),
-  });
   const diagnostics = useQuery({
     queryKey: ["assets", asset?.id, "website-diagnostics"],
     queryFn: () => api.websiteDiagnostics(asset!.id),
@@ -3164,19 +3146,20 @@ export function WebsiteEditor({
         <FieldLabel htmlFor="website-fallback">
           {t("media.website.fallbackImage")}
         </FieldLabel>
-        <FilterSelect
+        <FallbackImagePicker
           id="website-fallback"
           label={t("media.website.fallbackImage")}
+          value={input.fallbackImageAssetId}
+          onChange={(next) => set("fallbackImageAssetId", next)}
           disabled={readOnly}
-          value={input.fallbackImageAssetId ?? ""}
-          onChange={(value) => set("fallbackImageAssetId", value || undefined)}
-          options={[
-            { value: "", label: t("media.website.noneOption") },
-            ...(images.data?.items?.map((image) => ({
-              value: image.id,
-              label: image.name,
-            })) ?? []),
-          ]}
+          csrf={csrf}
+          noneLabel={t("media.website.noneOption")}
+          clearLabel={t("common:actions.remove")}
+          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+          pickerDescription={t(
+            "widgets.editors.shared.fallbackPickerDescription",
+          )}
+          pickerConfirm={t("common:actions.confirm")}
         />
       </Field>
       <Collapsible>
