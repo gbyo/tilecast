@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import {
   useInfiniteQuery,
   useMutation,
@@ -238,18 +239,6 @@ function queueStateLabel(
   }[state];
 }
 
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = value / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit++;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
-}
-
 function formatDuration(seconds?: number) {
   if (seconds == null) return "";
   const minutes = Math.floor(seconds / 60);
@@ -363,6 +352,7 @@ function FilterSelect({
 
 export function ContentPage() {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const { t: tErrors } = useTranslation("errors");
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
@@ -772,8 +762,8 @@ export function ContentPage() {
                   <AttachmentTitle>{item.filename}</AttachmentTitle>
                   <AttachmentDescription>
                     {t("media.upload.progress", {
-                      uploaded: formatBytes(item.uploadedBytes),
-                      total: formatBytes(item.sizeBytes),
+                      uploaded: formatBytes(item.uploadedBytes, locale),
+                      total: formatBytes(item.sizeBytes, locale),
                       percent,
                       state: queueStateLabel(item.state, t),
                     })}
@@ -1437,6 +1427,7 @@ function MediaAssetCard({
   actions: AssetMenuAction[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   const openLabel = archived
     ? t("media.card.viewAsset", { name: asset.name })
@@ -1493,7 +1484,7 @@ function MediaAssetCard({
               <AssetSummary asset={asset} />
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatBytes(asset.originalSize)}
+              {formatBytes(asset.originalSize, locale)}
             </span>
             <AssetOrganizationChips asset={asset} folderNames={folderNames} />
           </span>
@@ -1575,6 +1566,7 @@ function MediaAssetListRow({
   actions: AssetMenuAction[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   return (
     <Item size="sm">
@@ -1603,7 +1595,8 @@ function MediaAssetListRow({
           </Button>
         </ItemTitle>
         <ItemDescription>
-          <AssetSummary asset={asset} /> · {formatBytes(asset.originalSize)}
+          <AssetSummary asset={asset} /> ·{" "}
+          {formatBytes(asset.originalSize, locale)}
         </ItemDescription>
       </ItemContent>
       <Badge variant={status.variant}>{status.label}</Badge>

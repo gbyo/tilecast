@@ -301,6 +301,15 @@ language (an `en-GB` browser in English still gets day-first dates). Otherwise
 it uses the interface language. For relative times with `date-fns`, pass the
 matching `date-fns/locale` (`es`, `ru`) through the same choice.
 
+Use `src/lib/formatBytes.ts` for byte counts in Studio.
+Pass the locale from `useFormatLocale()` to `formatBytes(bytes, locale)`.
+The function uses binary units: `B`, `KiB`, `MiB`, `GiB`, `TiB`, `PiB`, and `EiB`.
+Each unit is 1,024 times the previous unit.
+The output uses at most one decimal place for units above bytes.
+Zero is `0 B`; missing, negative, or non-finite values are `—`.
+Media, uploads, backups, Player storage, Live Preview, updates, and Player
+policies use this function. Do not add a local byte formatter.
+
 Do not translate the organization's regional-format settings
 (`organization.locale`, timezones, first day of week). They describe the
 installation, not the reader. The separate regional-formatting contract
