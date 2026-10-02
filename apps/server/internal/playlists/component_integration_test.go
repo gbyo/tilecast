@@ -204,6 +204,10 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	identity, err := f.service.PresentationIdentityInTx(f.ctx, tx, "layout", layoutID)
+	if err != nil || identity.Name != "Lobby" || identity.Revision == nil || *identity.Revision != 1 {
+		t.Fatalf("published Layout identity=%#v err=%v", identity, err)
+	}
 	evidence, err := f.service.PresentationCapabilityEvidenceInTx(f.ctx, tx, f.screen, "layout", layoutID)
 	if err != nil || evidence.Status != "supported" || len(evidence.Widgets) != 1 || evidence.Widgets[0].AssetID != widget.ID || evidence.Widgets[0].SelectedRenderer != "component" {
 		t.Fatalf("Layout capability evidence=%#v err=%v", evidence, err)

@@ -99,13 +99,13 @@ func TestPlaybackPlanHTTPBoundary(t *testing.T) {
 		if fromCookie.Current.Selected.ContentID != fallback || fromCookie.Basis != playbackplan.BasisCurrent {
 			t.Fatal("session and bearer inspection disagree on selection")
 		}
-		if prediction.Current.Selected.ContentID != scheduled || prediction.Current.Selected.Source != "schedule" {
+		if prediction.Current.Selected.ContentID != scheduled || prediction.Current.Selected.Source != "schedule" || prediction.Current.Selected.Name != "Plan content" || prediction.Current.Selected.Revision == nil || *prediction.Current.Selected.Revision != 4 || prediction.Current.Selected.ScheduleName != "Plan schedule" {
 			t.Fatalf("prediction=%#v", prediction.Current)
 		}
 		foundSchedule := false
 		for _, candidate := range prediction.Current.Candidates {
 			if candidate.ID != nil && *candidate.ID == scheduleID {
-				foundSchedule = candidate.Schedule != nil && candidate.Schedule.Specificity == 1 && candidate.Schedule.Priority == 0 && candidate.Status == "selected" && candidate.Schedule.Start.Equal(future)
+				foundSchedule = candidate.Schedule != nil && candidate.Name == "Plan schedule" && candidate.Schedule.Specificity == 1 && candidate.Schedule.Priority == 0 && candidate.Status == "selected" && candidate.Schedule.Start.Equal(future)
 			}
 		}
 		if !foundSchedule {

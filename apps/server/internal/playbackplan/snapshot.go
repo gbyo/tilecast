@@ -16,6 +16,7 @@ type TransactionalAssignments interface {
 	ReadAssignmentStateInTx(context.Context, pgx.Tx, uuid.UUID) (playlists.Assignment, error)
 	ActiveTakeoverAtInTx(context.Context, pgx.Tx, uuid.UUID, time.Time) (*playlists.ManifestTakeover, error)
 	PresentationCapabilityEvidenceInTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID) (playlists.CapabilityEvidence, error)
+	PresentationIdentityInTx(context.Context, pgx.Tx, string, uuid.UUID) (playlists.PresentationIdentity, error)
 }
 type TransactionalSchedules interface {
 	RelevantForInspectionInTx(context.Context, pgx.Tx, uuid.UUID) ([]scheduling.Record, error)
@@ -56,6 +57,14 @@ func (s *SnapshotCurrent) At(ctx context.Context, screen uuid.UUID, at time.Time
 	plan.Synchronization = &Synchronization{Status: playlists.AssignmentSynchronizationStatus(a), ManifestVersion: a.ManifestVersion, ActiveManifestVersion: a.PlayerActiveManifestVersion, PendingManifestVersion: a.PlayerPendingManifestVersion}
 	plan.Capabilities = &CapabilityAssessment{Status: "not_applicable", Reason: "no_selected_content"}
 	if plan.Selected != nil {
+		identity, identityErr := s.assignments.PresentationIdentityInTx(ctx, tx, plan.Selected.ContentType, plan.Selected.ContentID)
+		if identityErr != nil && !errors.Is(identityErr, playlists.ErrNotFound) {
+			return CurrentPlan{}, identityErr
+		}
+		// A missing root retains its recorded selection reference, without a
+		// fabricated current name or revision.
+		plan.Selected.Name = identity.Name
+		plan.Selected.Revision = identity.Revision
 		evidence, evidenceErr := s.assignments.PresentationCapabilityEvidenceInTx(ctx, tx, screen, plan.Selected.ContentType, plan.Selected.ContentID)
 		switch {
 		case errors.Is(evidenceErr, playlists.ErrNotFound):

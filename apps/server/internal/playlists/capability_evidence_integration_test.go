@@ -37,6 +37,10 @@ func TestPresentationCapabilityEvidenceUsesPublishedWidgetGraph(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer tx.Rollback(f.ctx)
+			identity, err := f.service.PresentationIdentityInTx(f.ctx, tx, "asset", widget)
+			if err != nil || identity.Name != "Lobby Clock" || identity.Revision != nil {
+				t.Fatalf("asset presentation identity=%#v err=%v", identity, err)
+			}
 			report, err := f.service.PresentationCapabilityEvidenceInTx(f.ctx, tx, f.screen, "playlist", playlist)
 			if err != nil {
 				t.Fatal(err)
