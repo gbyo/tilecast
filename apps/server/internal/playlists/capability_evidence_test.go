@@ -62,9 +62,15 @@ func TestCapabilityEvidenceUnreportedProfileAndImmutability(t *testing.T) {
 		if report.Status != test.status || report.Reason != test.reason || report.Widgets[0].Status != "unknown" {
 			t.Fatalf("unreported=%#v", report)
 		}
+		if report.Widgets[0].Component.Supported != nil || report.Widgets[0].Compatibility.Supported != nil {
+			t.Fatal("unreported requirements were treated as known unsupported")
+		}
 	}
 	player := playerPresentationCapabilities{Reported: true, SchemaVersions: []int32{2, 1}, Native: map[string]int{"widget.example": 2, "text.core": 1}}
 	report := capabilityEvidence(uuid.New(), requirements, false, player)
+	if report.Widgets[0].Component.Supported == nil || !*report.Widgets[0].Component.Supported || report.Widgets[0].Compatibility.Supported == nil || !*report.Widgets[0].Compatibility.Supported {
+		t.Fatal("reported support evidence is missing")
+	}
 	if !reflect.DeepEqual(report.SchemaVersions, []int32{1, 2}) {
 		t.Fatalf("schemas=%v", report.SchemaVersions)
 	}

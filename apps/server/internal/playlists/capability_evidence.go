@@ -14,7 +14,7 @@ import (
 type PresentationRequirementEvidence struct {
 	SchemaVersion int            `json:"schemaVersion"`
 	Capabilities  map[string]int `json:"capabilities"`
-	Supported     bool           `json:"supported"`
+	Supported     *bool          `json:"supported"`
 }
 
 type WidgetCapabilityEvidence struct {
@@ -163,7 +163,11 @@ func requirementEvidence(presentation *WidgetPresentation, player playerPresenta
 	if presentation == nil {
 		return nil
 	}
-	supported, _ := presentationSupported(presentation, player)
+	var supported *bool
+	if player.Reported {
+		value, _ := presentationSupported(presentation, player)
+		supported = &value
+	}
 	capabilities := maps.Clone(presentation.RequiredCapabilities)
 	if capabilities == nil {
 		capabilities = map[string]int{}
