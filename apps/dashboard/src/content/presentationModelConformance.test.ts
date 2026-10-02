@@ -9,6 +9,11 @@ import {
 } from "@tilecast/presentation-model";
 import { playlistPreviewDuration } from "../components/layout-editor/WidgetLivePreview";
 import type { PlaylistItem } from "../api/types";
+import {
+  resolvePlaylistPreviewItem,
+  playlistPreviewItemDuration,
+  playlistPreviewItemAvailable,
+} from "../pages/PlaylistPreviewPage";
 
 describe("Studio adopts Presentation Model fixtures", () => {
   it.each(fixtures.availability)("$name", (fixture) => {
@@ -17,6 +22,12 @@ describe("Studio adopts Presentation Model fixtures", () => {
     expect(
       nextAvailabilityTransition([fixture.window], at)?.toISOString() ?? null,
     ).toBe(fixture.next);
+    expect(
+      playlistPreviewItemAvailable(
+        { assetStatus: "ready", ...fixture.window } as PlaylistItem,
+        at.getTime(),
+      ),
+    ).toBe(fixture.available);
   });
   it.each(fixtures.settings)("$name", (fixture) => {
     const item = { ...fixtures.item, ...fixture.item };
@@ -27,6 +38,19 @@ describe("Studio adopts Presentation Model fixtures", () => {
     expect(
       resolvePlaybackItemSettings(item, fixture.playback, fallback),
     ).toEqual(fixture.expected);
+    expect(
+      resolvePlaylistPreviewItem(item as PlaylistItem, fixture.playback),
+    ).toMatchObject({
+      ...fixture.expected,
+      durationMs: fixture.expected.durationMs ?? undefined,
+    });
+    expect(
+      playlistPreviewItemDuration(item as PlaylistItem, fixture.playback),
+    ).toBe(
+      item.assetType === "video"
+        ? undefined
+        : (fixture.expected.durationMs ?? undefined),
+    );
     if (item.assetType !== "video")
       expect(
         playlistPreviewDuration(item as PlaylistItem, fixture.playback),
