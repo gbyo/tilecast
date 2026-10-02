@@ -26,11 +26,15 @@ For a screen using a multi-zone Layout, **confirmed screen playback** counts wal
 
 **Session completion rate** describes how playback sessions ended. It is not a measure of whether scheduled content played. For that, use **Playback compliance**, which compares Player-confirmed screen time with expected windows Tilecast recorded when a selection became effective. Takeover time and intentionally cancelled windows are reported separately and excluded from the percentage. If there is no measurable expected time, Studio shows **No data**, not `0%`.
 
+Proof of Play lists a session only when the content was on screen long enough to count as a play: at least one second. A Player that restarts the same item over and over, or reads an item with no duration as "zero seconds", would otherwise fill the report with plays nobody saw. Tilecast keeps the Player's raw events under **Screen Events** so you can still see that it happened, but it doesn't count them as plays. A play that failed is always listed, however short it was. If you see a screen whose **Screen Events** fill with item starts and completions a fraction of a second apart, update its Player and check the playlist item's duration.
+
 Expected windows are not reconstructed from today's schedules. Compliance has no historical expectation for periods before Tilecast began recording those windows.
 
 ## Follow an incident
 
 An incident represents a continuing condition, not every repeated error. Tilecast updates the same incident while the condition continues. When the condition ends on its own, it is marked recovered and remains in the report as history; it does not stay in the active list. A person can resolve an active incident, which is recorded separately from automatic recovery.
+
+A playback incident recovers on its own when the content that failed plays through to a normal end again. A different item playing fine on the same screen doesn't close it.
 
 Owners and Administrators can acknowledge, assign, add a note, resolve, ignore, and reopen incidents. Other roles can read incidents. Use [Understand a screen's status](../screen-status/) to separate connectivity from playback health.
 
