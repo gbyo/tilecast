@@ -1,7 +1,8 @@
+import { screenQueries } from "../data/screens";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api/client";
+
 import { copyText } from "../lib/clipboard";
 import { Button } from "./ui/button";
 
@@ -52,8 +53,7 @@ export function FireTvAccessibilityAdbPanel({
     "idle",
   );
   const screen = useQuery({
-    queryKey: ["screens", screenId],
-    queryFn: () => api.screen(screenId),
+    ...screenQueries.detail(screenId),
   });
 
   const isFireTv = isFireTvScreen(screen.data);
