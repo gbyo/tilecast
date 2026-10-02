@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
+import { i18n } from "../../i18n";
 import type { Asset } from "../../api/types";
 import { MediaUploadDialog } from "./MediaUploadDialog";
 import { attachmentState, MediaUploadPanel } from "./MediaUploadPanel";
@@ -49,6 +50,23 @@ const choose = (file: File) =>
   });
 
 describe("MediaUploadPanel", () => {
+  it("updates file-size formatting when the Studio language changes", async () => {
+    vi.spyOn(api, "createUpload").mockResolvedValue({
+      id: "s1",
+      offset: 0,
+    } as Awaited<ReturnType<typeof api.createUpload>>);
+    vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
+    render(<MediaUploadPanel csrf="csrf" />);
+    choose(new File([new Uint8Array(1536)], "Clip.mp4", { type: "video/mp4" }));
+    await waitFor(() => expect(row()).toHaveTextContent("1.5 KiB"));
+    try {
+      await act(() => i18n.changeLanguage("es"));
+      await waitFor(() => expect(row()).toHaveTextContent("1,5 KiB"));
+    } finally {
+      await act(() => i18n.changeLanguage("en"));
+    }
+  });
+
   it("maps the Tilecast upload lifecycle onto Attachment states", () => {
     expect(attachmentState("waiting")).toBe("idle");
     expect(attachmentState("uploading")).toBe("uploading");

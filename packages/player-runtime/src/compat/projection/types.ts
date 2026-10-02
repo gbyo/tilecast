@@ -406,19 +406,6 @@ export interface Heartbeat {
   nativePresentationCapabilities?: Record<string, number>;
   webRuntimeVersion?: number;
   webBundleLimitBytes?: number;
-  /**
-   * Render-progress facts. Deliberately separate from `playbackState`: a
-   * player can be running, with a live renderer, over a frozen screen.
-   */
-  lastMeaningfulProgressAt?: string;
-  stallStartedAt?: string;
-  stallDurationMs?: number;
-  stallReason?: string;
-  /** Whether the content on screen is supposed to be moving at all. */
-  expectedMotion?: boolean;
-  /** The renderer answers. Weaker than, and not a substitute for, progress. */
-  rendererResponding?: boolean;
-  currentItemStartedAt?: string;
   /** Numeric version code derived from playerVersion; drives update completion. */
   playerVersionCode?: number;
   /** ISO timestamp of the last healthy playback tick; required for update success. */

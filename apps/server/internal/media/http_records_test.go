@@ -85,6 +85,36 @@ func TestHTTPRecordsMapsJSONRecords(t *testing.T) {
 	}
 }
 
+func TestHTTPRecordsPreviewSelectsDateAndActiveRangeRows(t *testing.T) {
+	catalog := contentdefs.MustLoad()
+	holidayDefinition, ok := catalog.DataSource("public-holidays")
+	if !ok {
+		t.Fatal("public-holidays definition is missing")
+	}
+	holidayPayload := TypedDatasetPayload{Datasets: []TypedDataset{{ID: "records", Records: []TypedRecord{
+		{ID: "holiday-1", Values: map[string]string{"date": "2026-04-01"}},
+		{ID: "holiday-2", Values: map[string]string{"date": "2026-04-02"}},
+	}}}}
+	selectedHolidays := httpRecordsPreviewForDate(holidayPayload, holidayDefinition, "2026-04-02")
+	if got := selectedHolidays.Datasets[0].Records; len(got) != 1 || got[0].ID != "holiday-2" {
+		t.Fatalf("holiday preview records = %+v", got)
+	}
+
+	alertDefinition, ok := catalog.DataSource("weather-alerts-us")
+	if !ok {
+		t.Fatal("weather-alerts-us definition is missing")
+	}
+	alertPayload := TypedDatasetPayload{Datasets: []TypedDataset{{ID: "records", Records: []TypedRecord{
+		{ID: "active", Values: map[string]string{"start": "2026-04-01T18:00:00Z", "end": "2026-04-02T12:00:00Z"}},
+		{ID: "expired", Values: map[string]string{"start": "2026-04-01T00:00:00Z", "end": "2026-04-01T12:00:00Z"}},
+		{ID: "future", Values: map[string]string{"start": "2026-04-03T00:00:00Z", "end": "2026-04-04T00:00:00Z"}},
+	}}}}
+	selectedAlerts := httpRecordsPreviewForDate(alertPayload, alertDefinition, "2026-04-02")
+	if got := selectedAlerts.Datasets[0].Records; len(got) != 1 || got[0].ID != "active" {
+		t.Fatalf("alert preview records = %+v", got)
+	}
+}
+
 func TestHTTPRecordsHonorsTheRecordLimit(t *testing.T) {
 	spec := alertsSpec(t)
 	body := []byte(`{"features":[

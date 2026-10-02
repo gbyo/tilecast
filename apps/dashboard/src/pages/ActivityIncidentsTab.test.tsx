@@ -221,8 +221,24 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// The report tab strip is the desktop layout; narrow screens pick a report
+// from a menu instead.
+function mockDesktop() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: query === "(min-width: 1024px)",
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  }));
+}
+
 describe("Activity navigation", () => {
   it("offers Incidents between Proof of Play and Screen Events", async () => {
+    mockDesktop();
     renderTab("/activity?tab=incidents");
 
     const tabs = await screen.findByRole("tablist", {
@@ -242,6 +258,7 @@ describe("Activity navigation", () => {
   });
 
   it("keeps Screen Events privileged while Incidents stays available", async () => {
+    mockDesktop();
     role = "viewer";
     renderTab("/activity?tab=incidents");
 

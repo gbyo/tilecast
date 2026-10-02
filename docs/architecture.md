@@ -15,6 +15,7 @@ Tilecast is a self-hosted modular monolith with one organization per installatio
 - `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
 - `packages/api-schema` owns the generated OpenAPI TypeScript contract. `apps/dashboard/src/api/transport.ts` owns the typed first-party JSON transport. Domain modules in `apps/dashboard/src/api/domains/` expose operations to Studio. Dynamic plugin operations use the plugin API boundary.
+- `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
 - `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
@@ -61,9 +62,16 @@ invariant with a unique membership constraint. Assigning content through any
 member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
-for half-open interval evaluation and deterministic precedence: priority, later
-effective start, then stable ID. The Android `ScheduleEngine` implements the
+for half-open interval evaluation and deterministic precedence: priority,
+target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
 same transport semantics for offline evaluation.
+
+`scheduling.Explain` calls this same resolver. It returns a reason code for
+each selected, inactive, or superseded schedule. Selection and explanation
+use one precedence comparator. Disabled schedules do not contribute a next
+transition. The supplied schedules describe a configuration at an explicit
+instant; they do not establish a historical expectation. Historical reports
+must use recorded expected playback windows.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for

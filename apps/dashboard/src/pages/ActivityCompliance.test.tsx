@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import {
   cleanup,
   render,
@@ -13,6 +14,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CompliancePanel } from "./ActivityCompliance";
 import { i18n } from "../i18n";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+
+const defaultMatchMedia = window.matchMedia.bind(window);
+
+// Only the layout breakpoint: Base UI reads pointer queries too.
+function mockDesktop() {
+  window.matchMedia = (query: string) => ({
+    matches: query === "(min-width: 1024px)",
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  });
+}
 
 const range: ResolvedTimeRange = {
   from: "2026-07-26T00:00:00.000Z",
@@ -88,6 +105,7 @@ afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  window.matchMedia = defaultMatchMedia;
   await i18n.changeLanguage("en");
 });
 
@@ -148,7 +166,34 @@ describe("Playback compliance", () => {
   it("names the main reason time went missing", async () => {
     renderPanel();
 
-    const row = (await screen.findByText("Lobby north")).closest("tr")!;
+    const row = (await screen.findByText("Lobby north")).closest("tr, li")!;
+    expect(row.textContent).toContain("Screen Offline");
+  });
+
+  it("renders breakdown rows as cards without a table on narrow screens", async () => {
+    renderPanel();
+
+    await screen.findByText("Lobby north");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    const card = screen.getByText("Lobby north").closest("li")!;
+    expect(card.textContent).toContain("50.0%");
+    expect(card.textContent).toContain("Main reason");
+    expect(card.textContent).toContain("Screen Offline");
+  });
+
+  it("keeps the breakdown table on desktop", async () => {
+    mockDesktop();
+    renderPanel();
+
+    const table = await screen.findByRole("table");
+    expect(
+      within(table).getByRole("columnheader", { name: "Compliance" }),
+    ).toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", { name: "Expected" }),
+    ).toBeInTheDocument();
+    const row = within(table).getByText("Lobby north").closest("tr")!;
+    expect(row.textContent).toContain("50.0%");
     expect(row.textContent).toContain("Screen Offline");
   });
 
