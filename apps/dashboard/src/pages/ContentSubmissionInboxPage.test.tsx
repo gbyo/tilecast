@@ -12,8 +12,11 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentSubmissionInboxPage } from "./ContentSubmissionInboxPage";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { ContentSubmission } from "../api/types";
+import { i18n } from "../i18n";
+import { formatLocale } from "../i18n/languages";
+import { toast } from "../components/ui/toast";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -60,9 +63,10 @@ function renderPage() {
 }
 
 describe("Content submission inbox", () => {
-  afterEach(() => {
+  afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
   });
 
   it("lists submissions in a table and approves from the review sheet", async () => {
@@ -176,5 +180,123 @@ describe("Content submission inbox", () => {
 
     await user.click(screen.getByRole("button", { name: "All history" }));
     await waitFor(() => expect(list).toHaveBeenCalledWith(""));
+  });
+
+  it("formats table and sheet dates in the selected Studio locale", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [submission],
+    });
+    renderPage();
+    const expected = new Date(submission.submittedAt).toLocaleString(
+      formatLocale("es"),
+    );
+    const table = await screen.findByRole("table");
+    expect(table.textContent).toContain(expected);
+
+    const user = userEvent.setup();
+    await user.click(
+      within(table).getByRole("button", {
+        name: i18n.t("review:submissions.table.reviewAction"),
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.textContent).toContain(expected);
+  });
+
+  it("uses localized fallback copy for submission load failures", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentSubmissions").mockRejectedValue(
+      new Error("raw transport details"),
+    );
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        i18n.t("review:submissions.loadErrorDescription"),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("raw transport details")).not.toBeInTheDocument();
+  });
+
+  it("uses the action fallback instead of exposing unexpected error text", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [submission],
+    });
+    vi.spyOn(api, "approveContentSubmission").mockRejectedValue(
+      new Error("raw transport details"),
+    );
+    const addToast = vi.spyOn(toast, "add");
+    renderPage();
+    const user = userEvent.setup();
+    const table = await desktop();
+    await user.click(
+      await table.findByRole("button", {
+        name: i18n.t("review:submissions.table.reviewAction"),
+      }),
+    );
+    const sheet = await screen.findByRole("dialog");
+    await user.click(
+      within(sheet).getByRole("button", {
+        name: i18n.t("review:submissions.reviewForm.approve"),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith({
+        title: i18n.t("review:submissions.toast.approveFailed"),
+        type: "error",
+      }),
+    );
+    expect(addToast).not.toHaveBeenCalledWith({
+      title: "raw transport details",
+      type: "error",
+    });
+  });
+
+  it("localizes API error codes for submission actions", async () => {
+    await i18n.changeLanguage("es");
+    vi.spyOn(api, "contentSubmissions").mockResolvedValue({
+      policy: "everyone",
+      allowSelfApproval: false,
+      autoPublishOnApproval: false,
+      items: [submission],
+    });
+    vi.spyOn(api, "approveContentSubmission").mockRejectedValue(
+      new ApiError("English server wording", 429, "rate_limited"),
+    );
+    const addToast = vi.spyOn(toast, "add");
+    renderPage();
+    const user = userEvent.setup();
+    const table = await desktop();
+    await user.click(
+      await table.findByRole("button", {
+        name: i18n.t("review:submissions.table.reviewAction"),
+      }),
+    );
+    const sheet = await screen.findByRole("dialog");
+    await user.click(
+      within(sheet).getByRole("button", {
+        name: i18n.t("review:submissions.reviewForm.approve"),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(addToast).toHaveBeenCalledWith({
+        title: i18n.t("errors:codes.rate_limited"),
+        type: "error",
+      }),
+    );
+    expect(addToast).not.toHaveBeenCalledWith({
+      title: "English server wording",
+      type: "error",
+    });
   });
 });

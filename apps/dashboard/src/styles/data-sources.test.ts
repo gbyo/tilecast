@@ -6,6 +6,19 @@ const stylesheet = readFileSync(
   "utf8",
 );
 
+function ruleBody(selector: string): string | null {
+  for (const block of stylesheet.split("}")) {
+    const [head, ...rest] = block.split("{");
+    if (!head || rest.length === 0) continue;
+    const selectors = head
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (selectors.includes(selector)) return rest.join("{");
+  }
+  return null;
+}
+
 function ruleBodiesFor(className: string): string[] {
   const bodies: string[] = [];
   for (const block of stylesheet.split("}")) {
@@ -27,6 +40,17 @@ function ruleBodiesFor(className: string): string[] {
 }
 
 describe("data-sources editor stylesheet", () => {
+  it("keeps every generic editor footer sticky, not just widgets", () => {
+    // Both GenericWidgetEditor and GenericDataSourceEditor render
+    // GenericEditorShell with the shared `source-editor` class, so the
+    // sticky footer rule must hang off that class to keep Save reachable
+    // in long schema-driven Data Source forms too.
+    const body = ruleBody(".source-editor > footer");
+    expect(body).not.toBeNull();
+    expect(body).toMatch(/position\s*:\s*sticky/);
+    expect(body).toMatch(/bottom\s*:\s*0/);
+  });
+
   it("keeps Data Source bodies single-column at every width", () => {
     // GenericDataSourceEditor renders .source-editor__body in an unstyled
     // block-flow div, so its fields already stack in one column. No rule

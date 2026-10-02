@@ -48,22 +48,25 @@ pub struct OutboxStats {
 }
 
 fn bound(connection: &Connection) -> Result<()> {
-    let telemetry = connection.execute(
+    let telemetry_cap_dropped = connection.execute(
         "DELETE FROM outbox WHERE kind = 'telemetry_sample' AND id NOT IN
              (SELECT id FROM outbox WHERE kind = 'telemetry_sample' ORDER BY id DESC LIMIT ?1)",
         params![MAX_TELEMETRY_ROWS],
     )?;
-    let over: Vec<(i64, String)> = {
-        let mut statement = connection
-            .prepare("SELECT id, kind FROM outbox WHERE id NOT IN (SELECT id FROM outbox ORDER BY id DESC LIMIT ?1)")?;
-        let rows = statement.query_map(params![MAX_ROWS], |row| Ok((row.get(0)?, row.get(1)?)))?;
-        rows.collect::<rusqlite::Result<_>>()?
-    };
-    let activity = over.iter().filter(|(_, kind)| kind == "activity_event").count() as i64;
-    let telemetry = telemetry as i64 + (over.len() as i64 - activity);
-    for (id, _) in &over {
-        connection.execute("DELETE FROM outbox WHERE id = ?1", params![id])?;
-    }
+    let total: i64 = connection.query_row("SELECT COUNT(*) FROM outbox", [], |row| row.get(0))?;
+    let excess = (total - MAX_ROWS).max(0);
+    let telemetry_overflow_dropped = connection.execute(
+        "DELETE FROM outbox WHERE id IN
+             (SELECT id FROM outbox WHERE kind = 'telemetry_sample' ORDER BY id ASC LIMIT ?1)",
+        params![excess],
+    )? as i64;
+    let activity_overflow_dropped = connection.execute(
+        "DELETE FROM outbox WHERE id IN
+             (SELECT id FROM outbox WHERE kind = 'activity_event' ORDER BY id ASC LIMIT ?1)",
+        params![excess - telemetry_overflow_dropped],
+    )? as i64;
+    let telemetry = telemetry_cap_dropped as i64 + telemetry_overflow_dropped;
+    let activity = activity_overflow_dropped;
     if activity > 0 || telemetry > 0 {
         connection.execute(
             "UPDATE outbox_state SET dropped_activity = dropped_activity + ?1,
