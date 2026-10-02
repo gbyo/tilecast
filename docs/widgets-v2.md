@@ -395,7 +395,8 @@ Widget configuration and Data Source payloads. A supported component takes
 precedence over its compatibility presentation. A supported compatibility
 presentation remains a valid fallback when the component is unsupported.
 
-An unreported Player profile is `unknown`. A component-only Widget or content
+An unreported Player profile is `unknown`. Each requirement has a null
+`supported` value until the Player reports capabilities. A component-only Widget or content
 that requires manifest v13 is `blocked` when the Player has not reported
 capabilities. No Widget presentation requirements means `not_applicable`.
 This evidence does not establish content readiness, media decoder support,
