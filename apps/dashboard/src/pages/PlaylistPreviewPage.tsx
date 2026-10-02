@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { playlistQueries } from "../data/playlists";
 import {
   Pause,
   Play,
@@ -186,8 +187,7 @@ export function PlaylistPreviewPage() {
   const auth = useAuth();
   const presentation = useNativePresentation();
   const query = useQuery({
-    queryKey: ["playlists", id, "popup-preview"],
-    queryFn: () => api.playlist(id),
+    ...playlistQueries.detail(id),
     enabled: Boolean(id && auth.status?.authenticated),
   });
   // In a native presentation the sheet's header carries the name and Close.

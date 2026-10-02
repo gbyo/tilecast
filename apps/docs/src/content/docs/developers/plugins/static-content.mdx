@@ -23,6 +23,8 @@ The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime e
 
 Use the SDK's `announceReady`, `announceEmpty`, and `announceError` helpers to report rendering state. Each input update gets a new readiness deadline. If rendering starts asynchronous work, capture `widgetInputRevision(this)` before starting and pass it to the announce helper when the work finishes. A result from an older revision is ignored. See the [Widget lifecycle contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the exact rules.
 
+When your Widget declares a `media_asset` field, Tilecast resolves each selected asset before playback and gives the component the matching media grant. A key such as `logoAssetId` gets the derived key `logoVariantId`. Tilecast adds the variant inside each matching item when the field is inside a repeating group. The Studio preview uses the same field mapping. See the [Widgets V2 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the full key rule and manifest contract.
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:

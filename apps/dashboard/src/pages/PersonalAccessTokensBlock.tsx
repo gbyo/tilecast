@@ -1,4 +1,5 @@
 import { useDeferredValue, useState } from "react";
+import { copyText } from "../lib/clipboard";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
@@ -81,12 +82,13 @@ export function PersonalAccessTokensBlock() {
 
   const copyToken = async () => {
     if (!created) return;
-    try {
-      await navigator.clipboard.writeText(created.token);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
+    const label = t("pat.tokenLabel");
+    setCopied(
+      await copyText(created.token, {
+        success: t("common:clipboard.copied", { label }),
+        failure: t("common:clipboard.copyFailed", { label }),
+      }),
+    );
   };
 
   if (created) {

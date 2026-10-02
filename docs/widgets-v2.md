@@ -197,6 +197,8 @@ Before the SDK returns a prepared Data Document to a Widget, it freezes the docu
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
 
+During manifest projection, the Server resolves every selected `media_asset` field in the Widget schema. The Server writes the selected variant beside the asset field. If the field key ends in `AssetId`, the Server replaces that suffix with `VariantId`; otherwise, the Server appends `VariantId`. A field named `logoAssetId` therefore receives `logoVariantId`, and a field named `brandMark` receives `brandMarkVariantId`. For fields inside a `repeating_group`, the Server writes the variant key into the matching item. The component media grant contains each resolved asset and variant pair. An empty optional field adds no variant key or grant. Clients cannot submit derived variant keys.
+
 The Server compiles `config` from the persisted Widget configuration with the component's `configTemplate` in `tilecast.widget.json`. A template value is plain JSON or `{"$config": key, "default": value, "when": flag}`. No other directive exists. A `when` flag names a persisted key. A falsy flag value resolves the default instead of the mapped value. A missing flag resolves the mapped value. The Go compiler (`contentdefs.CompileComponentConfig`) and the TypeScript compiler (`compileComponentConfig`) implement the same rules, and every Widget fixture compiles in both. A persisted Widget record never changes because a release adds a V2 renderer.
 
 A legacy key that responsive design replaces is not mapped. Clock V2 ignores `textScale` and `contentPadding`: its type and insets follow its box. The keys stay in the persisted record, and Players that render the compatibility presentation still apply them.
@@ -275,11 +277,13 @@ time-series points, timezone, and units so a Widget receives the same dataset
 metadata in preview and playback.
 
 A fixed date in the Widget editor freezes the Widget's own clock and passes
-the selected local calendar date to its Data Source previews. A Layout
-preview date defaults to the browser's local calendar date and does the same
-for each zone, so time-sensitive Widgets agree with the Layout's text
-bindings. Without a selected date, the preview stays live and uses current
-Data Source previews.
+the selected local calendar date to time-dependent Data Source projections.
+A Layout preview date defaults to the browser's local calendar date and does
+the same for each zone, so time-sensitive Widgets agree with the Layout's text
+bindings. Without a selected date, the preview stays live. A source with no
+time-dependent projection keeps its current prepared data.
+Saved manual objects and approved Form snapshots keep their actual update
+times and cache metadata when the preview date changes.
 
 The binding Studio editor redesign, source-connection flow, shared preview
 host, and first-wave Widget migration are defined in
