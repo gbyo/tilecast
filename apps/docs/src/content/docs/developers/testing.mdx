@@ -65,7 +65,7 @@ The merge-base check stops if `origin/main` is missing or has no common history 
 
 ## Shared presentation decisions
 
-Availability and item-default decisions live in the pure Presentation Model. Its expected-result fixtures run in the model, Studio, and Player Runtime suites. When changing those decisions, run:
+Availability, item-default, and Layout zone media eligibility decisions live in the pure Presentation Model. Its expected-result fixtures run in the model, Studio, and Player Runtime suites. Media fixtures also exercise Studio's zone filter and the runtime's actual Layout projection. When changing those decisions, run:
 
 ```bash
 npm test --workspace @tilecast/presentation-model

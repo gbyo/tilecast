@@ -11,6 +11,7 @@ import { api } from "../../api/client";
 import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
+  isPlaylistZoneMediaItem,
   resolvePlaybackItemSettings,
 } from "@tilecast/presentation-model";
 import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
@@ -101,6 +102,8 @@ export function playlistPreviewDuration(
   return settings.durationMs ?? undefined;
 }
 
+export { isPlaylistZoneMediaItem } from "@tilecast/presentation-model";
+
 export function nextPlaylistPreviewIndex(
   index: number,
   length: number,
@@ -122,16 +125,10 @@ export function PlaylistZonePreview({
   placement,
   playlist,
   assetsById,
-  previewDate,
-  captureTracking,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
-  /** Layout-selected preview date, forwarded to V2 Widget zones. */
-  previewDate?: string;
-  /** Present only on the editor canvas, which Layout thumbnails capture. */
-  captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
   const settingsQuery = useQuery({
@@ -142,7 +139,9 @@ export function PlaylistZonePreview({
     () => playbackDefaultsFromSettings(settingsQuery.data?.values),
     [settingsQuery.data?.values],
   );
-  const items = playlist.items.filter((item) => item.assetStatus === "ready");
+  const items = playlist.items.filter(
+    (item) => item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+  );
   const [index, setIndex] = useState(0);
   const [failedItemId, setFailedItemId] = useState<string | null>(null);
   const [lastGoodItemId, setLastGoodItemId] = useState<string | null>(null);
@@ -193,7 +192,11 @@ export function PlaylistZonePreview({
       <div className="layout-playlist-zone">
         <ListVideo size={22} />
         <strong>{playlist.name}</strong>
-        <span>{t("preview.zoneEmpty")}</span>
+        <span>
+          {playlist.items.some((item) => item.assetStatus === "ready")
+            ? t("preview.zoneUnsupported")
+            : t("preview.zoneEmpty")}
+        </span>
       </div>
     );
   if (failed && fallback === "hide") return null;
@@ -228,19 +231,11 @@ export function PlaylistZonePreview({
   const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${!failed && (itemPlayback.transition === "fade" || itemPlayback.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
-  if (asset.type === "widget")
+  if (asset.type !== "image" && asset.type !== "video")
     return (
-      <div className={className} key={`${playlist.id}-${shownItem!.id}`}>
-        {asset.widget ? (
-          <WidgetLivePreview
-            asset={asset}
-            item={placement}
-            previewDate={previewDate}
-            captureTracking={captureTracking}
-          />
-        ) : (
-          <AppPlacementPreview asset={asset} item={placement} />
-        )}
+      <div className="layout-placement-placeholder">
+        <ListVideo size={22} />
+        <span>{t("preview.zoneUnsupported")}</span>
       </div>
     );
   if (asset.type === "video")

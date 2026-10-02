@@ -18,6 +18,7 @@ import {
 } from "./format";
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
+import { resolveMediaEligibility } from "@tilecast/presentation-model";
 import { renderWidget } from "./widget-render";
 import { projectWidgetComponent } from "../../widgets/projection";
 import type {
@@ -375,29 +376,14 @@ function buildZoneItems(
 ): LayoutPlaylistItem[] {
   const items: LayoutPlaylistItem[] = [];
   for (const item of playlist.items) {
-    if (!isAvailableAt(item, at)) {
-      continue;
-    }
-    if (item.layoutId || item.assetType === "website") {
-      continue; // nested layouts / websites not supported inside a zone
-    }
     const asset = manifest.assets.find(
       (a) => a.assetId === item.assetId && a.variantId === item.variantId,
     );
-    if (!asset) {
+    const eligibility = resolveMediaEligibility(item, asset, at);
+    if (!asset || eligibility.kind === null) {
       continue;
     }
-    if (!isAvailableAt(asset, at)) {
-      continue;
-    }
-    const kind = asset.mimeType.startsWith("video/")
-      ? "video"
-      : asset.mimeType.startsWith("image/")
-        ? "image"
-        : null;
-    if (!kind) {
-      continue;
-    }
+    const kind = eligibility.kind;
     const settings = resolvePlaybackItemSettings(
       item,
       playback,
