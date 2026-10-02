@@ -121,6 +121,68 @@ func TestIncidentRecoversAutomaticallyAndReopensIfTheConditionReturns(t *testing
 	})
 }
 
+func TestHealthyHeartbeatRecoversStalePlaybackIncident(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		start := time.Now().UTC().Add(-time.Hour)
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
+			activityEvent(1, "renderer.failure", start),
+		}}, http.StatusAccepted)
+
+		active := filterIncidents(readIncidents(t, env, ""), incidentPlayback)
+		if len(active) != 1 || active[0].Status != "open" {
+			t.Fatalf("renderer failure produced %+v, want one open playback incident", active)
+		}
+
+		// Some player versions recover in their status heartbeat without emitting
+		// renderer.recovered/presentation.recovered. Current healthy status is the
+		// authoritative evidence that the old failure is no longer happening.
+		if _, err := env.pool.Exec(context.Background(), `
+			INSERT INTO screen_player_status(screen_id,playback_state,last_playback_error,safe_mode,foreground_state)
+			VALUES($1,'playing','',FALSE,'foreground')
+			ON CONFLICT(screen_id) DO UPDATE SET
+				playback_state='playing',last_playback_error='',safe_mode=FALSE,foreground_state='foreground'`,
+			env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/player/heartbeat", nil)
+		env.server.recordHeartbeatActivity(request, env.screenID, heartbeatActivitySnapshot{
+			state: heartbeatActivityState{PlaybackState: "playing", PlaybackError: "renderer failed"},
+		}, time.Now().UTC())
+
+		recovered := filterIncidents(readIncidents(t, env, "?status=all"), incidentPlayback)
+		if len(recovered) != 1 || recovered[0].Status != "recovered" || recovered[0].RecoveryMode != "automatic" {
+			t.Fatalf("healthy heartbeat left playback incident %+v, want one automatic recovery", recovered)
+		}
+		if active := filterIncidents(readIncidents(t, env, ""), incidentPlayback); len(active) != 0 {
+			t.Fatalf("recovered playback incident still active: %+v", active)
+		}
+
+		var recoveryEvents int64
+		if err := env.pool.QueryRow(context.Background(), `
+			SELECT count(*) FROM player_activity_events
+			WHERE screen_id=$1 AND event_type='renderer.recovered'`, env.screenID).Scan(&recoveryEvents); err != nil {
+			t.Fatal(err)
+		}
+		if recoveryEvents != 1 {
+			t.Fatalf("renderer recovery events = %d, want 1", recoveryEvents)
+		}
+
+		// Healthy heartbeats after recovery must stay quiet rather than adding a
+		// synthetic recovery event on every status report.
+		env.server.recordHeartbeatActivity(request, env.screenID, heartbeatActivitySnapshot{
+			state: heartbeatActivityState{PlaybackState: "playing"},
+		}, time.Now().UTC().Add(time.Second))
+		if err := env.pool.QueryRow(context.Background(), `
+			SELECT count(*) FROM player_activity_events
+			WHERE screen_id=$1 AND event_type='renderer.recovered'`, env.screenID).Scan(&recoveryEvents); err != nil {
+			t.Fatal(err)
+		}
+		if recoveryEvents != 1 {
+			t.Fatalf("healthy follow-up heartbeat produced %d recovery events, want 1 total", recoveryEvents)
+		}
+	})
+}
+
 func TestIncidentActionsFollowTheLifecycle(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		start := time.Now().UTC().Add(-time.Hour)

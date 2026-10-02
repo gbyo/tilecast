@@ -97,6 +97,7 @@ import {
   isEditorCommandShortcutTarget,
   isInteractiveShortcutTarget,
 } from "../lib/keyboard";
+import { localDateInputValue } from "../lib/dateTime";
 import {
   Dialog,
   DialogContent,
@@ -648,6 +649,34 @@ export function LayoutEditorPage() {
           page: "1",
           pageSize: "100",
           sort: "name",
+        }),
+      ),
+  });
+  // Recent-shelf pools, one per asset section. No sort parameter: the assets
+  // endpoint defaults to newest-first by creation, so each pool holds the
+  // genuinely most recent eligible items instead of the newest slice of an
+  // alphabetic page. Kept separate from the resolution page above on purpose.
+  const recentWidgetsQuery = useQuery({
+    queryKey: ["layout-recent-widgets"],
+    queryFn: () =>
+      api.assets(
+        new URLSearchParams({
+          status: "ready",
+          type: "widget",
+          page: "1",
+          pageSize: "20",
+        }),
+      ),
+  });
+  const recentMediaQuery = useQuery({
+    queryKey: ["layout-recent-media"],
+    queryFn: () =>
+      api.assets(
+        new URLSearchParams({
+          status: "ready",
+          type: "media",
+          page: "1",
+          pageSize: "20",
         }),
       ),
   });
@@ -1374,20 +1403,26 @@ export function LayoutEditorPage() {
     () => (document ? selectedPlacements(document, selection) : []),
     [document, selection],
   );
-  const recentLibraryItems = useMemo(
-    () =>
-      (["media", "widgets", "playlists"] as const)
-        .flatMap((section) =>
-          recentLayoutLibraryItems(
-            section,
-            contentQuery.data?.items ?? [],
-            playlistsQuery.data?.items ?? [],
-          ),
-        )
-        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-        .slice(0, 4),
-    [contentQuery.data?.items, playlistsQuery.data?.items],
-  );
+  const recentLibraryItems = useMemo(() => {
+    const recentAssets = [
+      ...(recentWidgetsQuery.data?.items ?? []),
+      ...(recentMediaQuery.data?.items ?? []),
+    ];
+    return (["media", "widgets", "playlists"] as const)
+      .flatMap((section) =>
+        recentLayoutLibraryItems(
+          section,
+          recentAssets,
+          playlistsQuery.data?.items ?? [],
+        ),
+      )
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+      .slice(0, 4);
+  }, [
+    recentWidgetsQuery.data?.items,
+    recentMediaQuery.data?.items,
+    playlistsQuery.data?.items,
+  ]);
   const primary = selected.at(-1);
   useEffect(() => {
     if (desktop || (!primary && !settingsOpen)) setMobileInspectorOpen(false);
@@ -2348,7 +2383,7 @@ export function LayoutEditorPage() {
           path:
             presentationPath("layout-preview", id) +
             "?date=" +
-            encodeURIComponent(new Date().toISOString().slice(0, 10)),
+            encodeURIComponent(localDateInputValue()),
           title: t("layouts:editor.previewTitle", {
             name: layoutQuery.data?.name ?? "",
           }),
@@ -2370,7 +2405,7 @@ export function LayoutEditorPage() {
         popup.close();
         return;
       }
-      const date = new Date().toISOString().slice(0, 10);
+      const date = localDateInputValue();
       popup.location.replace(
         "/layouts/" +
           encodeURIComponent(id) +

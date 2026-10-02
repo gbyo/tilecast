@@ -43,4 +43,18 @@ describe("Forms plugin", () => {
       "/plugins/forms/new",
     );
   });
+
+  it("renders only the load error when the initial forms query fails", async () => {
+    vi.spyOn(formsApi, "listForms").mockRejectedValue(new Error("offline"));
+
+    renderPluginRoute(<FormsPluginPage />, {
+      path: "/plugins/forms",
+      patterns: ["/plugins/forms"],
+      role: "owner",
+    });
+
+    expect(await screen.findByText("Could not load forms")).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.queryByText("No forms yet")).not.toBeInTheDocument();
+  });
 });
