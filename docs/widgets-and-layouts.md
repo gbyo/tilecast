@@ -134,6 +134,8 @@ Web Integration Apps that opt into periodic reload require manifest v15 and `web
 
 A Layout arranges Media, Widgets, static text, shapes, playlist zones, and groups. Data Sources are never listed as normal draggable content.
 
+Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.
+
 Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
 A Widget placement stores only a Widget ID, bounds, layer, opacity, visibility, and provider-approved presentation overrides. Placements accept only the closed override keys `fit`, `alignment`, `foregroundColor`, `backgroundColor`, `fallbackVisibility`, and `muted`. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.

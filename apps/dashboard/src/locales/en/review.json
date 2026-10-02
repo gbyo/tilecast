@@ -92,6 +92,7 @@
     },
     "loading": "Loading submissions…",
     "loadErrorTitle": "Could not load submissions",
+    "loadErrorDescription": "If the problem continues, try reloading the page.",
     "emptyTitle": "No submissions match this view",
     "emptyDescription": "Submissions appear here once content is submitted for review.",
     "itemMeta": "Draft revision {{revision}} · submitted {{submittedAt}}",

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import { makeSetupSchema } from "../auth/schemas";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldGroup } from "../components/ui/field";
@@ -172,7 +173,7 @@ export function SetupFlow() {
         </header>
         {error && (
           <Alert variant="destructive" className="mb-4">
-            <AlertDescription>{error.message}</AlertDescription>
+            <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
           </Alert>
         )}
         <dl className="mb-6 grid gap-3 text-sm">
@@ -253,7 +254,7 @@ export function SetupFlow() {
       </header>
       {error && (
         <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
         </Alert>
       )}
       <Questionnaire

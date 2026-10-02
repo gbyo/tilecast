@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
+import { apiErrorMessage } from "../i18n";
 import {
   makeLoginSchema,
   makeMfaSchema,
@@ -155,7 +156,7 @@ function LoginFormView() {
   return (
     <form onSubmit={(event) => void submit(event)} noValidate>
       <FieldGroup>
-        {error && <AuthError message={error.message} />}
+        {error && <AuthError message={apiErrorMessage(error)} />}
         <Field>
           <FieldLabel htmlFor="username">{t("fields.username")}</FieldLabel>
           <Input
@@ -238,7 +239,7 @@ function ChallengeFormView() {
   // segmented one-time-code field.
   return (
     <div className="grid gap-4">
-      {error && <AuthError message={error.message} />}
+      {error && <AuthError message={apiErrorMessage(error)} />}
       {canUseCode && (
         <form onSubmit={(event) => void submit(event)} noValidate>
           <FieldGroup>

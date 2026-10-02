@@ -2,6 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -19,6 +20,7 @@ import type {
   ContentDefinitionField,
   WidgetDefinition,
 } from "../api/types";
+import type { WidgetContext } from "@tilecast/widget-sdk";
 import { V2WidgetEditor } from "./V2WidgetEditor";
 import { captureWidgetPreview } from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
@@ -236,6 +238,86 @@ describe("V2WidgetEditor", () => {
       expect(text).toContain("24");
       expect(text).toContain("2026");
     });
+  });
+
+  it("waits for organization regional settings before saving a thumbnail", async () => {
+    type Settings = Awaited<ReturnType<typeof api.settings>>;
+    let resolveSettings!: (value: Settings) => void;
+    vi.mocked(api.settings).mockImplementationOnce(
+      () =>
+        new Promise<Settings>((resolve) => {
+          resolveSettings = resolve;
+        }),
+    );
+    vi.spyOn(api, "createWidget").mockResolvedValue({
+      id: "asset-regional",
+      name: "Clock",
+      description: "",
+      provider: "clock",
+    } as never);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue(undefined);
+    const captureCount = vi.mocked(captureWidgetPreview).mock.calls.length;
+    let capturedContext: WidgetContext | undefined;
+    vi.mocked(captureWidgetPreview).mockImplementationOnce((element) => {
+      const widget = element.querySelector<
+        HTMLElement & { context?: WidgetContext }
+      >("tc-widget-clock");
+      capturedContext = widget?.context;
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+    const { container } = editor();
+    await screen.findByRole("img", { name: "Live preview" });
+    const save = screen.getByRole("button", { name: "Save Widget" });
+    const visibleWidget = await waitFor(
+      () =>
+        container.querySelector("tc-widget-clock") as HTMLElement & {
+          context: { timeZone: string };
+        },
+    );
+
+    expect(visibleWidget.context.timeZone).toBe("UTC");
+    expect(save).toBeDisabled();
+    fireEvent.click(save);
+    expect(vi.mocked(captureWidgetPreview).mock.calls).toHaveLength(
+      captureCount,
+    );
+
+    act(() => {
+      resolveSettings({
+        values: {
+          "organization.locale": "fr-FR",
+          "organization.timezone": "Europe/Paris",
+          "organization.time_format": "24-hour",
+        },
+      } as never);
+    });
+    await waitFor(() => {
+      expect(save).toBeEnabled();
+      expect(visibleWidget.context.timeZone).toBe("Europe/Paris");
+    });
+    expect(visibleWidget.context).toMatchObject({
+      locale: "fr-FR",
+      timeZone: "Europe/Paris",
+      hourCycle: "h23",
+    });
+
+    await userEvent.click(save);
+    await waitFor(() =>
+      expect(vi.mocked(captureWidgetPreview).mock.calls).toHaveLength(
+        captureCount + 1,
+      ),
+    );
+    expect(capturedContext).toMatchObject({
+      locale: "fr-FR",
+      timeZone: "Europe/Paris",
+    });
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "asset-regional",
+        expect.any(Blob),
+        "test-csrf",
+      ),
+    );
   });
 
   it("disables save while the configuration cannot render", async () => {
