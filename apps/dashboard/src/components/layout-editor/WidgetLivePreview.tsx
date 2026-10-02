@@ -163,10 +163,15 @@ export function PlaylistZonePreview({
   );
   useEffect(() => {
     if (fixedAvailabilityAt !== null || !nextTransition) return;
-    const delayMs = Math.max(0, nextTransition.getTime() - Date.now());
+    // Browsers clamp an overflowing timeout to almost zero. Wake in bounded
+    // steps for far-future windows and reevaluate at each step.
+    const delayMs = Math.min(
+      2_147_483_647,
+      Math.max(0, nextTransition.getTime() - Date.now()) + 1,
+    );
     const timer = window.setTimeout(
       () => setLiveAvailabilityAt(Date.now()),
-      delayMs + 1,
+      delayMs,
     );
     return () => window.clearTimeout(timer);
   }, [fixedAvailabilityAt, nextTransition]);
