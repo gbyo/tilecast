@@ -93,6 +93,7 @@
     },
     "loading": "Cargando envíos…",
     "loadErrorTitle": "No se pudieron cargar los envíos",
+    "loadErrorDescription": "Si el problema continúa, vuelve a cargar la página.",
     "emptyTitle": "Ningún envío coincide con esta vista",
     "emptyDescription": "Los envíos aparecen aquí una vez que el contenido se envía a revisión.",
     "itemMeta": "Borrador de revisión {{revision}} · enviado {{submittedAt}}",

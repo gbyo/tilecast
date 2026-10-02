@@ -10,7 +10,8 @@ import type { TFunction } from "i18next";
 import { Link } from "react-router";
 import { Check, Clock3, Inbox, Send, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   ContentSubmission,
   SubmissionFilter,
@@ -91,8 +92,13 @@ const statusKeys = {
 const features = tableFeatures({});
 const columnHelper = createColumnHelper<typeof features, ContentSubmission>();
 
+function submissionErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? apiErrorMessage(error) : fallback;
+}
+
 export function ContentSubmissionInboxPage() {
   const { t } = useTranslation(["review", "common"]);
+  const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const role = auth.status?.user?.role ?? "viewer";
@@ -127,10 +133,10 @@ export function ContentSubmissionInboxPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("submissions.toast.approveFailed"),
+        title: submissionErrorMessage(
+          err,
+          t("submissions.toast.approveFailed"),
+        ),
         type: "error",
       }),
   });
@@ -150,10 +156,10 @@ export function ContentSubmissionInboxPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("submissions.toast.requestChangesFailed"),
+        title: submissionErrorMessage(
+          err,
+          t("submissions.toast.requestChangesFailed"),
+        ),
         type: "error",
       }),
   });
@@ -167,10 +173,10 @@ export function ContentSubmissionInboxPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("submissions.toast.publishFailed"),
+        title: submissionErrorMessage(
+          err,
+          t("submissions.toast.publishFailed"),
+        ),
         type: "error",
       }),
   });
@@ -189,10 +195,10 @@ export function ContentSubmissionInboxPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("submissions.toast.scheduleFailed"),
+        title: submissionErrorMessage(
+          err,
+          t("submissions.toast.scheduleFailed"),
+        ),
         type: "error",
       }),
   });
@@ -208,10 +214,10 @@ export function ContentSubmissionInboxPage() {
     },
     onError: (err) =>
       toast.add({
-        title:
-          err instanceof Error
-            ? err.message
-            : t("submissions.toast.cancelScheduleFailed"),
+        title: submissionErrorMessage(
+          err,
+          t("submissions.toast.cancelScheduleFailed"),
+        ),
         type: "error",
       }),
   });
@@ -251,7 +257,7 @@ export function ContentSubmissionInboxPage() {
                   {submissionMeta(
                     t,
                     item,
-                    new Date(item.submittedAt).toLocaleString(),
+                    new Date(item.submittedAt).toLocaleString(formatLocale),
                   )}
                 </span>
               </div>
@@ -299,7 +305,7 @@ export function ContentSubmissionInboxPage() {
           ),
         }),
       ]),
-    [t],
+    [formatLocale, t],
   );
   const table = useTable({
     features,
@@ -372,7 +378,12 @@ export function ContentSubmissionInboxPage() {
       ) : query.error ? (
         <Alert variant="destructive">
           <AlertTitle>{t("submissions.loadErrorTitle")}</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
+          <AlertDescription>
+            {submissionErrorMessage(
+              query.error,
+              t("submissions.loadErrorDescription"),
+            )}
+          </AlertDescription>
         </Alert>
       ) : !items.length ? (
         <Empty>
@@ -407,7 +418,7 @@ export function ContentSubmissionInboxPage() {
                       {submissionMeta(
                         t,
                         item,
-                        new Date(item.submittedAt).toLocaleString(),
+                        new Date(item.submittedAt).toLocaleString(formatLocale),
                       )}
                     </p>
                   </div>
@@ -497,7 +508,7 @@ export function ContentSubmissionInboxPage() {
                 {submissionMeta(
                   t,
                   selected,
-                  new Date(selected.submittedAt).toLocaleString(),
+                  new Date(selected.submittedAt).toLocaleString(formatLocale),
                 )}
               </SheetDescription>
             </SheetHeader>
@@ -742,7 +753,7 @@ function PublishActions({
         </FieldLabel>
         <DateTimeInput
           id="submission-publish-at"
-          aria-label="Publish at"
+          aria-label={t("submissions.publish.publishAtLabel")}
           timeLabel={t("submissions.publish.publishAtTimeLabel")}
           value={schedule}
           onChange={onSchedule}

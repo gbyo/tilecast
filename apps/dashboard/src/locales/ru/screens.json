@@ -92,7 +92,18 @@
       "dialogNameLabel": "Название группы",
       "dialogDescriptionLabel": "Описание",
       "dialogDescriptionHint": "Экраны этой группы используют общие резервный контент, расписания и позицию воспроизведения.",
-      "dialogCreateAction": "Создать группу"
+      "dialogCreateAction": "Создать группу",
+      "tabsLabel": "Сведения о группе экранов",
+      "tabOverview": "Обзор",
+      "tabMembers": "Участники",
+      "tabContent": "Контент",
+      "tabDisplay": "Дисплей",
+      "tabPolicy": "Политика",
+      "unsavedBadge": "Не сохранено",
+      "discardTitle": "Отбросить несохранённые настройки группы?",
+      "discardBody": "Ваши правки политики группы не сохранены. Отбросить их и продолжить?",
+      "keepEditing": "Продолжить правку",
+      "discardAction": "Отбросить изменения"
     }
   },
   "shared": {
@@ -142,6 +153,9 @@
     "title": "Экраны",
     "loadingInventory": "Загрузка списка экранов…",
     "pairScreen": "Подключить экран",
+    "viewsAriaLabel": "Виды экранов",
+    "fleetTab": "Парк экранов",
+    "archiveTab": "Архив",
     "inventorySummary_one": "{{count}} плеер {{locationPart}}",
     "inventorySummary_few": "{{count}} плеера {{locationPart}}",
     "inventorySummary_many": "{{count}} плееров {{locationPart}}",
@@ -767,7 +781,10 @@
     "groups": "Группы экранов",
     "noGroups": "Групп экранов нет.",
     "saved": "Область экранов сохранена.",
-    "saveAction": "Сохранить область экранов"
+    "saveAction": "Сохранить область экранов",
+    "searchLabel": "Поиск мест",
+    "searchPlaceholder": "Фильтр мест и групп экранов",
+    "noMatch": "Ничего не найдено."
   },
   "archive": {
     "title": "Архив экранов",

@@ -121,8 +121,10 @@ describe("Integration tokens", () => {
     const user = userEvent.setup();
     const today = new Date();
     const day = today.getDate();
+    // "October 2" must not also match October 20 through 29, so the day number
+    // may not be followed by another digit.
     const calendarDay = new RegExp(
-      today.toLocaleString("en-US", { month: "long" }) + " " + day,
+      today.toLocaleString("en-US", { month: "long" }) + " " + day + "(?!\\d)",
     );
 
     await user.type(await screen.findByLabelText("Name"), "Menu importer");
@@ -295,5 +297,83 @@ describe("Integration tokens", () => {
     await waitFor(() => expect(create).toHaveBeenCalled());
     const [body] = create.mock.calls[0] ?? [];
     expect(body?.dataSourceIds).toEqual(["d1"]);
+  });
+
+  it("searches the source list instead of rendering an unbounded wall", async () => {
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [
+        { id: "d1", name: "Lunch menu", provider: "manual" },
+        { id: "d2", name: "Allergen notes", provider: "manual" },
+        { id: "d3", name: "Bus times", provider: "manual" },
+      ],
+      total: 3,
+    } as Awaited<ReturnType<typeof api.listDataSources>>);
+    renderPanel();
+    const user = userEvent.setup();
+
+    await screen.findByRole("checkbox", { name: /Bus times/ });
+    await user.type(
+      await screen.findByLabelText("Search Data Sources"),
+      "aller",
+    );
+    expect(screen.queryByRole("checkbox", { name: /Lunch menu/ })).toBeNull();
+    expect(
+      screen.getByRole("checkbox", { name: /Allergen notes/ }),
+    ).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Search Data Sources"));
+    await user.type(screen.getByLabelText("Search Data Sources"), "zzz");
+    expect(
+      await screen.findByText("No Data Source matches this search."),
+    ).toBeInTheDocument();
+  });
+
+  it("summarizes the selection and keeps it across searches", async () => {
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items: [
+        { id: "d1", name: "Lunch menu", provider: "manual" },
+        { id: "d2", name: "Allergen notes", provider: "manual" },
+      ],
+      total: 2,
+    } as Awaited<ReturnType<typeof api.listDataSources>>);
+    renderPanel();
+    const user = userEvent.setup();
+
+    expect(await screen.findByText("0 selected")).toBeInTheDocument();
+    await user.click(await screen.findByRole("checkbox", { name: /Lunch/ }));
+    expect(await screen.findByText("1 selected")).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Search Data Sources"), "aller");
+    expect(screen.queryByRole("checkbox", { name: /Lunch menu/ })).toBeNull();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText("Search Data Sources"));
+    expect(
+      await screen.findByRole("checkbox", { name: /Lunch menu/ }),
+    ).toBeChecked();
+  });
+
+  it("leaves the token unrestricted when no source is named", async () => {
+    const create = vi.spyOn(api, "createIntegrationToken").mockResolvedValue({
+      token: {
+        id: "t1",
+        name: "Wide importer",
+        publicId: "abc",
+        scopes: ["data_source:write"],
+        dataSourceIds: [],
+        createdAt: "2026-03-04T12:00:00Z",
+      },
+      secret: "tci_abc.secret",
+      notice: "",
+    });
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByLabelText("Name"), "Wide importer");
+    await user.click(screen.getByRole("button", { name: "Create token" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    const [body] = create.mock.calls[0] ?? [];
+    expect(body?.dataSourceIds).toEqual([]);
   });
 });
