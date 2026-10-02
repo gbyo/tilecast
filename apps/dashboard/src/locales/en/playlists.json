@@ -8,6 +8,7 @@
   },
   "library": {
     "title": "Playlists",
+    "noDescription": "No description",
     "subtitle": "Find, preview, and organize fullscreen playback for your screens.",
     "loadError": "Playlists could not be loaded.",
     "create": "Create playlist",

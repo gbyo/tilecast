@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
+import { i18n } from "../i18n";
 import { AuthPage } from "./AuthPage";
 
 function renderSetup() {
@@ -41,10 +42,14 @@ function requestUrl(input: string | Request): string {
   return typeof input === "string" ? input : input.url;
 }
 
-async function answerCurrentQuestion(label: string, value: string) {
+async function answerCurrentQuestion(
+  label: string,
+  value: string,
+  nextName = "Next",
+) {
   const input = await screen.findByLabelText(label);
   await userEvent.type(input, value);
-  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.click(screen.getByRole("button", { name: nextName }));
 }
 
 describe("guided first-install setup", () => {
@@ -182,5 +187,73 @@ describe("guided first-install setup", () => {
     expect(
       screen.queryByRole("heading", { name: "Review and create" }),
     ).toBeNull();
+  });
+});
+
+describe("localized setup errors", () => {
+  afterEach(async () => {
+    cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    await i18n.changeLanguage("en");
+  });
+
+  it("presents setup failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    const fetchMock = vi.fn((input: string | Request, init?: RequestInit) => {
+      const url = requestUrl(input);
+      if (url.endsWith("/auth/status"))
+        return Promise.resolve(
+          jsonResponse({ setupRequired: true, authenticated: false }),
+        );
+      if (url.endsWith("/auth/setup"))
+        return Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: "rate_limited",
+                message: "Server-provided setup failure.",
+              },
+            },
+            false,
+            429,
+          ),
+        );
+      throw new Error(`unexpected request: ${url} ${init?.method}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderSetup();
+
+    await answerCurrentQuestion(
+      "Название организации",
+      "Acme Library",
+      "Далее",
+    );
+    await answerCurrentQuestion("Ваше имя", "Ada Lovelace", "Далее");
+    await answerCurrentQuestion(
+      "Электронная почта или имя пользователя",
+      "ada",
+      "Далее",
+    );
+    await answerCurrentQuestion("Пароль", "a very long password", "Далее");
+    await userEvent.type(
+      await screen.findByLabelText("Подтверждение пароля"),
+      "a very long password",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "К проверке" }));
+    expect(
+      await screen.findByRole("heading", { name: "Проверьте и создайте" }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Создать установку" }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Слишком много попыток. Подождите немного и повторите попытку.",
+    );
+    expect(alert).not.toHaveTextContent("Server-provided setup failure.");
   });
 });
