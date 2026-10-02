@@ -162,6 +162,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
@@ -3008,18 +3009,6 @@ export function WebsiteEditor({
     addEventListener("beforeunload", handler);
     return () => removeEventListener("beforeunload", handler);
   }, [dirty]);
-  const images = useQuery({
-    queryKey: ["assets", "website-fallbacks"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          type: "image",
-          status: "ready",
-        }),
-      ),
-  });
   const diagnostics = useQuery({
     queryKey: ["assets", asset?.id, "website-diagnostics"],
     queryFn: () => api.websiteDiagnostics(asset!.id),
@@ -3164,19 +3153,20 @@ export function WebsiteEditor({
         <FieldLabel htmlFor="website-fallback">
           {t("media.website.fallbackImage")}
         </FieldLabel>
-        <FilterSelect
+        <FallbackImagePicker
           id="website-fallback"
           label={t("media.website.fallbackImage")}
+          value={input.fallbackImageAssetId}
+          onChange={(next) => set("fallbackImageAssetId", next)}
           disabled={readOnly}
-          value={input.fallbackImageAssetId ?? ""}
-          onChange={(value) => set("fallbackImageAssetId", value || undefined)}
-          options={[
-            { value: "", label: t("media.website.noneOption") },
-            ...(images.data?.items?.map((image) => ({
-              value: image.id,
-              label: image.name,
-            })) ?? []),
-          ]}
+          csrf={csrf}
+          noneLabel={t("media.website.noneOption")}
+          clearLabel={t("common:actions.remove")}
+          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+          pickerDescription={t(
+            "widgets.editors.shared.fallbackPickerDescription",
+          )}
+          pickerConfirm={t("common:actions.confirm")}
         />
       </Field>
       <Collapsible>

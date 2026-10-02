@@ -27,6 +27,7 @@ import {
   firstRecordsDataset,
   parseHexColor,
   ready,
+  widgetInputRevision,
   type ConfigResult,
   type WidgetField,
   type WidgetResources,
@@ -352,12 +353,14 @@ export class TilecastSpotlightWidget extends TilecastWidgetElement<
       return;
     }
     const attempt = ++this.decoding;
+    const revision = widgetInputRevision(this);
     image.decode().then(
       () => {
-        if (attempt === this.decoding) announceReady(this);
+        if (attempt === this.decoding) announceReady(this, revision);
       },
       () => {
-        if (attempt === this.decoding) announceError(this, "image_unavailable");
+        if (attempt === this.decoding)
+          announceError(this, "image_unavailable", revision);
       },
     );
   }

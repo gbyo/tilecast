@@ -23,6 +23,7 @@ import {
   empty,
   parseHexColor,
   ready,
+  widgetInputRevision,
   type ConfigResult,
   type WidgetResolution,
   type WidgetResources,
@@ -177,12 +178,14 @@ export class TilecastImageNoticeWidget extends TilecastWidgetElement<
       return;
     }
     const attempt = ++this.decoding;
+    const revision = widgetInputRevision(this);
     image.decode().then(
       () => {
-        if (attempt === this.decoding) announceReady(this);
+        if (attempt === this.decoding) announceReady(this, revision);
       },
       () => {
-        if (attempt === this.decoding) announceError(this, "image_unavailable");
+        if (attempt === this.decoding)
+          announceError(this, "image_unavailable", revision);
       },
     );
   }
