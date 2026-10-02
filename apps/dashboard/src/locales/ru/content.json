@@ -401,6 +401,7 @@
     }
   },
   "widgets": {
+    "duplicateSuccess": "Виджет продублирован.",
     "list": {
       "title": "Виджеты",
       "create": "Создать виджет",
@@ -741,6 +742,7 @@
     }
   },
   "dataSources": {
+    "deleteSuccess": "Источник данных удалён.",
     "calendar": {
       "addCalendar": "Добавить календарь",
       "calendarsLegend": "Календари",
