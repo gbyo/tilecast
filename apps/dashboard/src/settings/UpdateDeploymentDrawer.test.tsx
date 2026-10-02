@@ -111,7 +111,7 @@ describe("Update deployment drawer", () => {
 
   it("shows real download progress and no invented percentage elsewhere", async () => {
     renderDrawer();
-    expect(await screen.findByText(/50% of 40.0 MB/)).toBeTruthy();
+    expect(await screen.findByText(/50% of 40 MiB/)).toBeTruthy();
     expect(document.querySelectorAll("progress")).toHaveLength(1);
   });
 

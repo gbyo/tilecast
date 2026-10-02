@@ -69,6 +69,12 @@ Overview, compliance, and incident views use `apps/dashboard/src/data/activity.t
 
 The HTTP-boundary tests check range and dimension separation, API request bounds, related-event normalization, and incident invalidation. Keep unmeasured compliance as null. The [Activity reference](https://github.com/gbyo/tilecast/blob/main/docs/activity.md) and [event contract](https://github.com/gbyo/tilecast/blob/main/docs/activity-event-contract.md) define the metrics; queries fetch and cache their results.
 
+## Playlist query contracts
+
+Use the factories in `apps/dashboard/src/data/playlists.ts` for Playlist queries. The editor, popup preview, and Screen dependency view share detail data, so a saved draft update reaches each consumer through the same cache. Complete lists and infinite pages use separate keys. API domain helpers still normalize responses; query factories do not duplicate that work.
+
+The HTTP-boundary tests check normalized detail reuse, draft cache updates, search parameters, two-page loading, and invalidation. Rendering remains with the existing preview and Player components. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.

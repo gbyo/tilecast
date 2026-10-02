@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { playlistKeys, playlistQueries } from "../data/playlists";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { History } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -43,10 +44,7 @@ export function PlaylistRevisionsPanel({
   const [visibleRevisionCount, setVisibleRevisionCount] =
     useState(initialRevisionCount);
 
-  const revisions = useQuery({
-    queryKey: ["playlist-revisions", playlistId],
-    queryFn: () => api.playlistRevisions(playlistId),
-  });
+  const revisions = useQuery(playlistQueries.revisions(playlistId));
 
   const restore = useMutation({
     mutationFn: (revision: number) =>
@@ -65,10 +63,12 @@ export function PlaylistRevisionsPanel({
               to: data.newRevision,
             }),
       );
-      void client.invalidateQueries({ queryKey: ["playlist-revisions"] });
+      void client.invalidateQueries({ queryKey: playlistKeys.revisionLists });
       // The editor caches under ["playlists", id]; invalidating ["playlist"]
       // left the revision badge and timeline stale after a restore.
-      void client.invalidateQueries({ queryKey: ["playlists", playlistId] });
+      void client.invalidateQueries({
+        queryKey: playlistKeys.detail(playlistId),
+      });
     },
   });
 

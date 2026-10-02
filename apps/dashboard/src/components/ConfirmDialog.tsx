@@ -1,4 +1,10 @@
-import { useCallback, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useNativeAlert } from "../native-host/useNativeAlert";
 import {
@@ -20,6 +26,12 @@ export type ConfirmRequest = {
   destructive?: boolean;
 };
 
+type PendingConfirmation = {
+  request: ConfirmRequest;
+  resolve: (value: boolean) => void;
+  present: () => Promise<string | null>;
+};
+
 /**
  * Base UI replacement for window.confirm. Awaiting the returned promise keeps
  * the call site reading like the synchronous version without blocking the
@@ -31,49 +43,89 @@ export type ConfirmRequest = {
  */
 export function useConfirm() {
   const { t } = useTranslation("common");
-  const [pending, setPending] = useState<{
-    request: ConfirmRequest;
-    resolve: (value: boolean) => void;
-  } | null>(null);
+  const [queue, setQueue] = useState<PendingConfirmation[]>([]);
+  const [pending, setPending] = useState<PendingConfirmation | null>(null);
+  const outstanding = useRef(new Set<PendingConfirmation>());
+  const mounted = useRef(false);
 
   const presentNativeAlert = useNativeAlert();
 
   const confirm = useCallback(
-    async (request: ConfirmRequest) => {
-      if (request.body === undefined || typeof request.body === "string") {
-        const chosen = await presentNativeAlert({
-          title: request.title,
-          ...(request.body ? { message: request.body } : {}),
-          actions: [
-            { id: "cancel", label: t("actions.cancel"), role: "cancel" },
-            {
-              id: "confirm",
-              label: request.action ?? t("actions.confirm"),
-              role: request.destructive ? "destructive" : "default",
-            },
-          ],
-        });
-        if (chosen !== null) return chosen === "confirm";
-      }
+    (request: ConfirmRequest) => {
+      if (!mounted.current) return Promise.resolve(false);
       return new Promise<boolean>((resolve) => {
-        setPending({ request, resolve });
+        const entry: PendingConfirmation = {
+          request,
+          resolve,
+          present: () =>
+            request.body === undefined || typeof request.body === "string"
+              ? presentNativeAlert({
+                  title: request.title,
+                  ...(request.body ? { message: request.body } : {}),
+                  actions: [
+                    {
+                      id: "cancel",
+                      label: t("actions.cancel"),
+                      role: "cancel",
+                    },
+                    {
+                      id: "confirm",
+                      label: request.action ?? t("actions.confirm"),
+                      role: request.destructive ? "destructive" : "default",
+                    },
+                  ],
+                })
+              : Promise.resolve(null),
+        };
+        outstanding.current.add(entry);
+        setQueue((current) => [...current, entry]);
       });
     },
     [presentNativeAlert, t],
   );
 
-  const settle = useCallback((value: boolean) => {
-    setPending((current) => {
-      current?.resolve(value);
-      return null;
-    });
+  const settle = useCallback((entry: PendingConfirmation, value: boolean) => {
+    if (!outstanding.current.delete(entry)) return;
+    entry.resolve(value);
+    if (!mounted.current) return;
+    setPending((current) => (current === entry ? null : current));
+    setQueue((current) => current.filter((item) => item !== entry));
   }, []);
+
+  useEffect(() => {
+    mounted.current = true;
+    const requests = outstanding.current;
+    return () => {
+      mounted.current = false;
+      for (const entry of requests) entry.resolve(false);
+      requests.clear();
+    };
+  }, []);
+
+  const active = queue[0];
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void active.present().then(
+      (chosen) => {
+        if (cancelled || !outstanding.current.has(active)) return;
+        if (chosen === null) setPending(active);
+        else settle(active, chosen === "confirm");
+      },
+      () => {
+        if (!cancelled) settle(active, false);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [active, settle]);
 
   const dialog = (
     <AlertDialog
       open={pending !== null}
       onOpenChange={(open) => {
-        if (!open) settle(false);
+        if (!open && pending) settle(pending, false);
       }}
     >
       <AlertDialogContent>
@@ -86,7 +138,7 @@ export function useConfirm() {
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => settle(false)}>
+          <AlertDialogCancel onClick={() => pending && settle(pending, false)}>
             {t("actions.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
@@ -95,7 +147,7 @@ export function useConfirm() {
                 ? buttonVariants({ variant: "destructive" })
                 : undefined
             }
-            onClick={() => settle(true)}
+            onClick={() => pending && settle(pending, true)}
           >
             {pending?.request.action ?? t("actions.confirm")}
           </AlertDialogAction>
