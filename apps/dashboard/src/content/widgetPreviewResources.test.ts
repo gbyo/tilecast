@@ -4,6 +4,7 @@ import {
   previewDataSourceMedia,
   previewToDataDocument,
 } from "./widgetPreviewResources";
+import valueFixtures from "../../../../packages/manifest-schema/data-document-value-fixtures.json";
 import type {
   CalendarPreview,
   StructuredPreview,
@@ -20,6 +21,12 @@ function typedRecords(): TypedRecordData {
       { key: "live", label: "Live", type: "boolean" },
       { key: "playedAt", label: "Played", type: "datetime" },
       { key: "price", label: "Price", type: "currency", currency: "USD" },
+      { key: "winRate", label: "Win rate", type: "percent" },
+      { key: "playedOn", label: "Played on", type: "date" },
+      { key: "elapsed", label: "Elapsed", type: "duration" },
+      { key: "link", label: "Link", type: "url" },
+      { key: "cover", label: "Cover", type: "asset" },
+      { key: "blank", label: "Blank", type: "asset" },
     ],
     records: [
       {
@@ -31,11 +38,29 @@ function typedRecords(): TypedRecordData {
           live: "true",
           playedAt: "2026-09-28T14:00:00Z",
           price: "12.5",
+          winRate: "0.75",
+          playedOn: "2026-09-28",
+          elapsed: "5400",
+          link: "https://example.org/image.png",
+          cover: "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF",
+          blank: "",
         },
       },
       {
         id: "r2",
-        values: { home: "Hilltop", goals: "many", live: "yes" },
+        values: {
+          home: "Hilltop",
+          goals: "9007199254740992",
+          live: "yes",
+          rating: "NaN",
+          price: "not-money",
+          winRate: "Infinity",
+          playedAt: "not-a-timestamp",
+          playedOn: "2026-02-30",
+          elapsed: "1h30m",
+          link: "/relative/path",
+          cover: "not-a-uuid",
+        },
       },
     ],
     cachedAt: "2026-09-28T15:00:00Z",
@@ -46,6 +71,20 @@ function typedRecords(): TypedRecordData {
 }
 
 describe("previewToDataDocument", () => {
+  it.each(valueFixtures)(
+    "agrees with the shared $kind fixture for '$raw'",
+    ({ kind, raw, expected }) => {
+      const preview: TypedRecordData = {
+        fields: [{ key: "value", label: "Value", type: kind }],
+        records: [{ id: "record", values: { value: raw } }],
+        usingCachedData: false,
+        unavailable: false,
+      };
+      expect(
+        previewToDataDocument(preview)?.datasets[0]?.records?.[0]?.values.value,
+      ).toEqual(expected);
+    },
+  );
   it("projects typed records with typed values and attribution", () => {
     const document = previewToDataDocument(typedRecords());
     expect(document?.schemaVersion).toBe(1);
@@ -65,6 +104,21 @@ describe("previewToDataDocument", () => {
     // never in the value: formatWidgetValue renders value.text before any
     // numeric branch, so stamping it here would hide the amount.
     expect(first?.["price"]).toEqual({ kind: "currency", number: 12.5 });
+    expect(first?.["winRate"]).toEqual({ kind: "percent", number: 0.75 });
+    expect(first?.["playedOn"]).toEqual({ kind: "date", date: "2026-09-28" });
+    expect(first?.["elapsed"]).toEqual({
+      kind: "duration",
+      durationSeconds: 5400,
+    });
+    expect(first?.["cover"]).toEqual({
+      kind: "asset",
+      assetId: "abcdefab-cdef-4abc-8def-abcdefabcdef",
+    });
+    expect(first?.["link"]).toEqual({
+      kind: "url",
+      url: "https://example.org/image.png",
+    });
+    expect(first?.["blank"]).toEqual({ kind: "null" });
     expect(dataset?.fields?.find((field) => field.key === "price")).toEqual({
       key: "price",
       label: "Price",
@@ -79,8 +133,22 @@ describe("previewToDataDocument", () => {
     });
     // Unparseable values degrade to text instead of failing the preview.
     const second = dataset?.records?.[1]?.values;
-    expect(second?.["goals"]).toEqual({ kind: "text", text: "many" });
+    expect(second?.["goals"]).toEqual({
+      kind: "text",
+      text: "9007199254740992",
+    });
     expect(second?.["live"]).toEqual({ kind: "text", text: "yes" });
+    expect(second?.["rating"]).toEqual({ kind: "text", text: "NaN" });
+    expect(second?.["price"]).toEqual({ kind: "text", text: "not-money" });
+    expect(second?.["winRate"]).toEqual({ kind: "text", text: "Infinity" });
+    expect(second?.["playedAt"]).toEqual({
+      kind: "text",
+      text: "not-a-timestamp",
+    });
+    expect(second?.["playedOn"]).toEqual({ kind: "text", text: "2026-02-30" });
+    expect(second?.["link"]).toEqual({ kind: "text", text: "/relative/path" });
+    expect(second?.["elapsed"]).toEqual({ kind: "text", text: "1h30m" });
+    expect(second?.["cover"]).toEqual({ kind: "text", text: "not-a-uuid" });
     expect(document?.cache?.usingCachedData).toBe(false);
   });
 
