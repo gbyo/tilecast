@@ -31,6 +31,64 @@ beforeEach(() => {
   vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
 });
 
+it("shows future content and removes expired content without refetching", async () => {
+  vi.useFakeTimers();
+  const start = Date.parse("2026-10-02T12:00:00Z");
+  vi.setSystemTime(start);
+  vi.spyOn(authModule, "useAuth").mockReturnValue({
+    status: {
+      authenticated: true,
+      setupRequired: false,
+      csrfToken: "test-csrf",
+      user: { id: "owner", name: "Owner", username: "owner", role: "owner" },
+    },
+    isLoading: false,
+  } as ReturnType<typeof authModule.useAuth>);
+  const fetchPlaylist = vi.spyOn(api, "playlist");
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity } },
+  });
+  client.setQueryData(["settings"], { values: {} });
+  client.setQueryData(["playlists", "p1", "popup-preview"], {
+    id: "p1",
+    name: "Availability rotation",
+    revision: 1,
+    items: [
+      {
+        id: "image",
+        assetId: "image",
+        assetType: "image",
+        assetStatus: "ready",
+        durationMs: 10000,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: false,
+        volume: 0,
+        availableFrom: new Date(start + 1000).toISOString(),
+        expiresAt: new Date(start + 2000).toISOString(),
+      },
+    ],
+  });
+  const router = createMemoryRouter(
+    [{ path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> }],
+    { initialEntries: ["/playlists/p1/preview"] },
+  );
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  expect(view.container.querySelector("img")).toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(1001));
+  expect(view.container.querySelector("img")).not.toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(fetchPlaylist).not.toHaveBeenCalled();
+  view.unmount();
+  client.clear();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
 it("waits for playback defaults and applies them to the displayed item", async () => {
   vi.spyOn(authModule, "useAuth").mockReturnValue({
     status: {
