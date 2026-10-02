@@ -11,7 +11,7 @@ import type {
 function typedRecords(): TypedRecordData {
   return {
     fields: [
-      { key: "home", label: "Home", type: "text" },
+      { key: "home", label: "Home", type: "text", role: "headline" },
       { key: "goals", label: "Goals", type: "integer" },
       { key: "rating", label: "Rating", type: "number" },
       { key: "live", label: "Live", type: "boolean" },
@@ -68,6 +68,12 @@ describe("previewToDataDocument", () => {
       type: "currency",
       currency: "USD",
     });
+    expect(dataset?.fields?.find((field) => field.key === "home")).toEqual({
+      key: "home",
+      label: "Home",
+      type: "text",
+      role: "headline",
+    });
     // Unparseable values degrade to text instead of failing the preview.
     const second = dataset?.records?.[1]?.values;
     expect(second?.["goals"]).toEqual({ kind: "text", text: "many" });
@@ -75,9 +81,19 @@ describe("previewToDataDocument", () => {
     expect(document?.cache?.usingCachedData).toBe(false);
   });
 
-  it("projects typed dataset payloads with datasets and attribution", () => {
+  it("projects time-series points, metadata, and object datasets", () => {
     const payload: TypedDatasetPayload = {
       datasets: [
+        {
+          id: "hourly",
+          kind: "time_series",
+          fields: [{ key: "pm25", label: "PM2.5", type: "number" }],
+          points: [{ at: "2026-09-28T14:00:00Z", values: { pm25: "12.5" } }],
+          timezone: "America/New_York",
+          units: { pm25: "µg/m³" },
+          usingCachedData: false,
+          unavailable: false,
+        },
         {
           id: "matches",
           kind: "records",
@@ -87,13 +103,43 @@ describe("previewToDataDocument", () => {
           usingCachedData: false,
           unavailable: false,
         },
+        {
+          id: "current",
+          kind: "object",
+          fields: [{ key: "status", label: "Status", type: "text" }],
+          values: { status: "Open" },
+          attribution: "Library feed",
+          usingCachedData: false,
+          unavailable: false,
+        },
       ],
     };
     const document = previewToDataDocument(payload);
-    expect(document?.datasets).toHaveLength(1);
-    expect(document?.datasets[0]?.records?.[0]?.values["home"]).toEqual({
+    expect(document?.datasets).toHaveLength(3);
+    expect(document?.datasets[0]).toMatchObject({
+      id: "hourly",
+      kind: "time_series",
+      timezone: "America/New_York",
+      units: { pm25: "µg/m³" },
+      points: [
+        {
+          at: "2026-09-28T14:00:00Z",
+          values: { pm25: { kind: "number", number: 12.5 } },
+        },
+      ],
+    });
+    expect(document?.datasets[1]?.records?.[0]?.values["home"]).toEqual({
       kind: "text",
       text: "Riverside",
+    });
+    expect(document?.datasets[2]).toMatchObject({
+      id: "current",
+      kind: "object",
+      attribution: "Library feed",
+      value: {
+        kind: "object",
+        object: { status: { kind: "text", text: "Open" } },
+      },
     });
   });
 
