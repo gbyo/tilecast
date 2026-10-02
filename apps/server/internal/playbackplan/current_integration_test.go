@@ -77,6 +77,23 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 	schedules := scheduling.NewService(pool, nil, scheduling.Limits{})
 	quick := presentations.NewService(pool, nil)
 	service := NewCurrent(assignments, schedules, quick)
+	inspector := NewInspector(service, NewHistory(pool))
+	inspector.now = func() time.Time { return at }
+	historicalStart, historicalEnd := at.Add(-2*time.Hour), at.Add(-time.Hour)
+	exec(`INSERT INTO expected_playback_windows(id,screen_id,presentation_type,presentation_id,presentation_revision,trigger_source,expected_start,expected_end) VALUES($1,$2,'layout','removed-layout','3','schedule',$3,$4)`, uuid.New(), screen, historicalStart, historicalEnd)
+	historical, err := inspector.Inspect(ctx, screen, &historicalStart)
+	if err != nil || historical.Basis != BasisRecorded || historical.Current != nil || historical.Historical == nil || historical.Historical.Expectation == nil || historical.Historical.Expectation.PresentationID != "removed-layout" {
+		t.Fatalf("historical inspection=%#v err=%v", historical, err)
+	}
+	gap := at.Add(-30 * time.Minute)
+	unavailable, err := inspector.Inspect(ctx, screen, &gap)
+	if err != nil || unavailable.Basis != BasisUnavailable || unavailable.Current != nil || unavailable.Historical == nil || unavailable.Historical.Expectation != nil {
+		t.Fatalf("historical gap used current content: inspection=%#v err=%v", unavailable, err)
+	}
+	current, err := inspector.Inspect(ctx, screen, nil)
+	if err != nil || current.Basis != BasisCurrent || current.Historical != nil || current.Current == nil || current.Current.Selected == nil || current.Current.Selected.ContentID != takeover {
+		t.Fatalf("current inspection=%#v err=%v", current, err)
+	}
 	for _, test := range []struct {
 		at     time.Time
 		source string

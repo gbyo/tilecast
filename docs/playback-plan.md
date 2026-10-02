@@ -1,7 +1,34 @@
 # Playback Plan evidence
 
-`apps/server/internal/playbackplan` reads recorded expected playback evidence.
+`apps/server/internal/playbackplan` selects playback evidence for an instant.
 It does not expose an HTTP route or Studio control.
+
+## Inspection basis
+
+`Inspector.Inspect` captures server time once. If the caller omits the instant,
+the inspector uses that captured time. An instant before the captured time
+uses `History.RecordedAt`. An instant at or after the captured time uses
+`Current.At`. The response includes the requested instant and evaluation time.
+It contains exactly one current or historical evidence branch.
+
+A historical gap returns `historical_expectation_unavailable`. A historical
+reader error remains an error. Neither result evaluates current configuration
+as a substitute. A current reader error does not use historical evidence as
+a substitute.
+
+## Current configuration
+
+`Current.At` composes existing readers for assignment, schedule explanation,
+Quick Present, and Takeover selection. The source order is Takeover, Quick
+Present, schedule, then assignment. Display-control schedules do not select
+content. The response retains the scheduling authority's candidate reasons.
+
+The next evaluation time is the earliest schedule transition or active
+temporary-presentation expiry. It does not guarantee a change in selected
+content. Inspection does not initialize manifest state or expire a temporary
+presentation. These readers do not use a shared database snapshot. This
+selection foundation does not establish content health, dependencies,
+Player compatibility, or observed playback.
 
 ## Historical expectations
 
