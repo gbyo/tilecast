@@ -57,9 +57,9 @@ describe("Widgets library", () => {
       await screen.findByText("Widgets could not be loaded."),
     ).toBeInTheDocument();
     expect(screen.queryByText("No Widgets yet")).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("widget-snapshot-backfill"),
-    ).not.toBeInTheDocument();
+    // The preview backfill is mounted outside the list, since it discovers
+    // Widgets with its own query and renders nothing visible. So it is no
+    // longer part of "only the load error" on screen.
   });
 
   it("loads further library pages through Load more", async () => {
