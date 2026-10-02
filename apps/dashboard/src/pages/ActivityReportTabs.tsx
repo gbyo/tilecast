@@ -104,6 +104,7 @@ export function ProofTab({
   onViewScreenEvents?: () => void;
 }) {
   const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const locale = useFormatLocale();
   const [selectedRecord, setSelectedRecord] = useState<ProofRecord | null>(
     null,
@@ -323,7 +324,7 @@ export function ProofTab({
         <header className="grid gap-1">
           <h3 className="text-base font-semibold">{t("proof.tableTitle")}</h3>
         </header>
-        {records.length > 0 && (
+        {records.length > 0 && desktop && (
           <div className="overflow-x-auto rounded-xl border border-border">
             <Table className="w-full min-w-[52rem] text-sm">
               <TableHeader>
@@ -453,6 +454,64 @@ export function ProofTab({
               </TableBody>
             </Table>
           </div>
+        )}
+        {records.length > 0 && !desktop && (
+          <ul className="grid gap-2">
+            {records.map((item) => (
+              <li
+                key={item.id}
+                className="grid gap-1.5 rounded-xl border border-border p-3 text-sm"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <ResultBadge value={item.result} />
+                  <time className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                    {formatWhen(item.startedAt)}
+                  </time>
+                </div>
+                <span className="grid gap-0.5">
+                  <Link
+                    to={`/screens/${item.screenId}?tab=activity`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {item.screenName}
+                  </Link>
+                  <small className="text-xs text-muted-foreground">
+                    {item.groupName}
+                  </small>
+                </span>
+                <p className="truncate text-[13px] text-muted-foreground">
+                  {[
+                    item.presentationName || item.presentationId,
+                    item.contentName || item.contentId,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="tabular-nums">
+                    {item.actualDurationMs == null
+                      ? t("proof.inProgress")
+                      : formatDuration(item.actualDurationMs)}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("proof.openRecordDetails", {
+                      screen: item.screenName,
+                    })}
+                    className="rounded-md p-1 hover:bg-muted hover:text-foreground"
+                    onClick={() => {
+                      setSelectedRecord(item);
+                      setDetailsOpen(true);
+                    }}
+                  >
+                    <ChevronRight size={17} aria-hidden="true" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
         {!records.length && (
           <Empty>
@@ -786,6 +845,7 @@ export function EventsTab({
   filters: Record<string, string>;
 }) {
   const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -811,116 +871,188 @@ export function EventsTab({
           {t("events.description")}
         </p>
       </header>
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <Table className="w-full min-w-[56rem] text-sm">
-          <TableHeader>
-            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.severity")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.time")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.screen")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.event")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.resource")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.result")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("events.headers.details")}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {query.data?.items?.map((item) => (
-              <TableRow
-                key={item.id}
-                className="border-b border-border align-top last:border-0"
-              >
-                <TableCell className="px-3 py-2">
-                  <ResultBadge value={item.severity} />
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <time className="whitespace-nowrap tabular-nums">
-                      {formatWhen(item.timestamp)}
-                    </time>
-                    <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                      {t("events.receivedAt", {
-                        when: formatWhen(item.receivedAt),
-                      })}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <Link
-                      to={`/screens/${item.screenId}?tab=activity`}
-                      className="font-medium text-primary hover:underline"
-                    >
-                      {item.screenName}
-                    </Link>
-                    <small className="text-xs text-muted-foreground">
-                      {item.groupName}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <strong className="font-medium">
-                      {humanize(item.eventType)}
-                    </strong>
-                    <small className="text-xs text-muted-foreground">
-                      {t("events.sequence", {
-                        category: item.category,
-                        sequence: item.sequence ?? t("events.serverAssigned"),
-                      })}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  {item.relatedId ? (
+      {desktop ? (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="w-full min-w-[56rem] text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.severity")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.time")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.screen")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.event")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.resource")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.result")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("events.headers.details")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {query.data?.items?.map((item) => (
+                <TableRow
+                  key={item.id}
+                  className="border-b border-border align-top last:border-0"
+                >
+                  <TableCell className="px-3 py-2">
+                    <ResultBadge value={item.severity} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
                     <span className="grid gap-0.5">
-                      <strong className="font-medium">
-                        <ResourceLink
-                          type={item.relatedType}
-                          id={item.relatedId}
-                          label={item.relatedId}
-                        />
-                      </strong>
-                      <small className="text-xs text-muted-foreground">
-                        {item.relatedType}
+                      <time className="whitespace-nowrap tabular-nums">
+                        {formatWhen(item.timestamp)}
+                      </time>
+                      <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                        {t("events.receivedAt", {
+                          when: formatWhen(item.receivedAt),
+                        })}
                       </small>
                     </span>
-                  ) : (
-                    "—"
-                  )}
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <ResultBadge value={item.result} />
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <TechnicalDetails
-                    value={{
-                      failureCode: item.failureCode,
-                      failureMessage: item.failureMessage,
-                      manifestVersion: item.manifestVersion,
-                      ...item.details,
-                    }}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <span className="grid gap-0.5">
+                      <Link
+                        to={`/screens/${item.screenId}?tab=activity`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {item.screenName}
+                      </Link>
+                      <small className="text-xs text-muted-foreground">
+                        {item.groupName}
+                      </small>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">
+                        {humanize(item.eventType)}
+                      </strong>
+                      <small className="text-xs text-muted-foreground">
+                        {t("events.sequence", {
+                          category: item.category,
+                          sequence: item.sequence ?? t("events.serverAssigned"),
+                        })}
+                      </small>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    {item.relatedId ? (
+                      <span className="grid gap-0.5">
+                        <strong className="font-medium">
+                          <ResourceLink
+                            type={item.relatedType}
+                            id={item.relatedId}
+                            label={item.relatedId}
+                          />
+                        </strong>
+                        <small className="text-xs text-muted-foreground">
+                          {item.relatedType}
+                        </small>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <ResultBadge value={item.result} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <TechnicalDetails
+                      value={{
+                        failureCode: item.failureCode,
+                        failureMessage: item.failureMessage,
+                        manifestVersion: item.manifestVersion,
+                        ...item.details,
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <ul className="grid gap-2">
+          {query.data?.items?.map((item) => (
+            <li
+              key={item.id}
+              className="grid gap-1.5 rounded-xl border border-border p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <ResultBadge value={item.severity} />
+                <span className="grid justify-items-end gap-0.5">
+                  <time className="whitespace-nowrap tabular-nums">
+                    {formatWhen(item.timestamp)}
+                  </time>
+                  <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+                    {t("events.receivedAt", {
+                      when: formatWhen(item.receivedAt),
+                    })}
+                  </small>
+                </span>
+              </div>
+              <span className="grid gap-0.5">
+                <strong className="font-medium">
+                  {humanize(item.eventType)}
+                </strong>
+                <small className="text-xs text-muted-foreground">
+                  {t("events.sequence", {
+                    category: item.category,
+                    sequence: item.sequence ?? t("events.serverAssigned"),
+                  })}
+                </small>
+              </span>
+              <span className="grid gap-0.5">
+                <Link
+                  to={`/screens/${item.screenId}?tab=activity`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {item.screenName}
+                </Link>
+                <small className="text-xs text-muted-foreground">
+                  {item.groupName}
+                </small>
+              </span>
+              {item.relatedId ? (
+                <span className="grid gap-0.5">
+                  <strong className="font-medium">
+                    <ResourceLink
+                      type={item.relatedType}
+                      id={item.relatedId}
+                      label={item.relatedId}
+                    />
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {item.relatedType}
+                  </small>
+                </span>
+              ) : null}
+              <div className="flex items-center justify-between gap-2">
+                <ResultBadge value={item.result} />
+                <TechnicalDetails
+                  value={{
+                    failureCode: item.failureCode,
+                    failureMessage: item.failureMessage,
+                    manifestVersion: item.manifestVersion,
+                    ...item.details,
+                  }}
+                />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       {!query.data?.items?.length && (
         <Empty className="min-h-40 p-6">
           <EmptyHeader>
@@ -945,6 +1077,7 @@ export function AuditTab({
   filters: Record<string, string>;
 }) {
   const { t } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const params = activityParams(range, filters);
   const pagination = useActivityCursor(params.toString());
   const pageParams = new URLSearchParams(params);
@@ -966,92 +1099,136 @@ export function AuditTab({
           {t("audit.description")}
         </p>
       </header>
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <Table className="w-full min-w-[56rem] text-sm">
-          <TableHeader>
-            <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.time")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.actor")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.action")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.resource")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.result")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.summary")}
-              </TableHead>
-              <TableHead className="px-3 py-2 font-medium">
-                {t("audit.headers.details")}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {query.data?.items?.map((item) => (
-              <TableRow
-                key={item.id}
-                className="border-b border-border align-top last:border-0"
-              >
-                <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
-                  <time>{formatWhen(item.timestamp)}</time>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <strong className="font-medium">{item.actorName}</strong>
-                    <small className="text-xs text-muted-foreground">
-                      {item.actorUsername}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <strong className="font-medium">
-                      {humanize(item.action)}
-                    </strong>
-                    <small className="text-xs text-muted-foreground">
-                      {item.action}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <span className="grid gap-0.5">
-                    <strong className="font-medium">
-                      <ResourceLink
-                        type={item.resourceType}
-                        id={item.resourceId}
-                        label={item.resourceName || item.resourceId || "—"}
-                      />
-                    </strong>
-                    <small className="text-xs text-muted-foreground">
-                      {item.resourceType}
-                    </small>
-                  </span>
-                </TableCell>
-                <TableCell className="px-3 py-2">
-                  <ResultBadge value={item.result} />
-                </TableCell>
-                <TableCell className="px-3 py-2">{item.summary}</TableCell>
-                <TableCell className="px-3 py-2">
-                  <TechnicalDetails
-                    value={{
-                      requestId: item.requestId,
-                      ipAddress: item.ipAddress,
-                      ...item.metadata,
-                    }}
-                  />
-                </TableCell>
+      {desktop ? (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table className="w-full min-w-[56rem] text-sm">
+            <TableHeader>
+              <TableRow className="border-b border-border text-left text-xs text-muted-foreground">
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.time")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.actor")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.action")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.resource")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.result")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.summary")}
+                </TableHead>
+                <TableHead className="px-3 py-2 font-medium">
+                  {t("audit.headers.details")}
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {query.data?.items?.map((item) => (
+                <TableRow
+                  key={item.id}
+                  className="border-b border-border align-top last:border-0"
+                >
+                  <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
+                    <time>{formatWhen(item.timestamp)}</time>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">{item.actorName}</strong>
+                      <small className="text-xs text-muted-foreground">
+                        {item.actorUsername}
+                      </small>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">
+                        {humanize(item.action)}
+                      </strong>
+                      <small className="text-xs text-muted-foreground">
+                        {item.action}
+                      </small>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <span className="grid gap-0.5">
+                      <strong className="font-medium">
+                        <ResourceLink
+                          type={item.resourceType}
+                          id={item.resourceId}
+                          label={item.resourceName || item.resourceId || "—"}
+                        />
+                      </strong>
+                      <small className="text-xs text-muted-foreground">
+                        {item.resourceType}
+                      </small>
+                    </span>
+                  </TableCell>
+                  <TableCell className="px-3 py-2">
+                    <ResultBadge value={item.result} />
+                  </TableCell>
+                  <TableCell className="px-3 py-2">{item.summary}</TableCell>
+                  <TableCell className="px-3 py-2">
+                    <TechnicalDetails
+                      value={{
+                        requestId: item.requestId,
+                        ipAddress: item.ipAddress,
+                        ...item.metadata,
+                      }}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <ul className="grid gap-2">
+          {query.data?.items?.map((item) => (
+            <li
+              key={item.id}
+              className="grid gap-1.5 rounded-xl border border-border p-3 text-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <ResultBadge value={item.result} />
+                <time className="whitespace-nowrap tabular-nums">
+                  {formatWhen(item.timestamp)}
+                </time>
+              </div>
+              <span className="grid gap-0.5">
+                <strong className="font-medium">{humanize(item.action)}</strong>
+                <small className="text-xs text-muted-foreground">
+                  {item.actorName} · {item.actorUsername}
+                </small>
+              </span>
+              <span className="grid gap-0.5">
+                <strong className="font-medium">
+                  <ResourceLink
+                    type={item.resourceType}
+                    id={item.resourceId}
+                    label={item.resourceName || item.resourceId || "—"}
+                  />
+                </strong>
+                <small className="text-xs text-muted-foreground">
+                  {item.resourceType}
+                </small>
+              </span>
+              {item.summary ? <p>{item.summary}</p> : null}
+              <TechnicalDetails
+                value={{
+                  requestId: item.requestId,
+                  ipAddress: item.ipAddress,
+                  ...item.metadata,
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
       {!query.data?.items?.length && (
         <Empty className="min-h-40 p-6">
           <EmptyHeader>
