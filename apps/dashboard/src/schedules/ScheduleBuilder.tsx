@@ -1,3 +1,4 @@
+import { scheduleKeys, scheduleQueries } from "../data/schedules";
 import {
   useMutation,
   useQuery,
@@ -128,11 +129,7 @@ export function ScheduleEditorPage() {
   const formatLocale = useFormatLocale();
   const csrf = auth.status?.csrfToken ?? "";
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const existing = useQuery({
-    queryKey: ["schedules", id],
-    queryFn: () => api.schedule(id!),
-    enabled: Boolean(id),
-  });
+  const existing = useQuery(scheduleQueries.detail(id ?? ""));
   const playlists = useQuery({
     queryKey: ["playlists", "schedule"],
     queryFn: () => api.playlists(),
@@ -146,10 +143,7 @@ export function ScheduleEditorPage() {
     queryKey: ["screen-groups"],
     queryFn: () => api.screenGroups(),
   });
-  const defaults = useQuery({
-    queryKey: ["schedules", "defaults"],
-    queryFn: () => api.schedules(),
-  });
+  const defaults = useQuery(scheduleQueries.defaults());
   const [input, setInput] = useState<ScheduleInput>(initialSchedule);
   const [baseline, setBaseline] = useState<ScheduleInput>(initialSchedule);
   const [attempted, setAttempted] = useState(false);
@@ -216,14 +210,12 @@ export function ScheduleEditorPage() {
     input.targets.find((target) => target.type === "screen")?.id ??
     resolvedGroups[0]?.screens[0]?.id ??
     "";
+  const previewTimestamp = useMemo(
+    () => schedulePreviewTimestamp(input),
+    [input],
+  );
   const preview = useQuery({
-    queryKey: ["schedule-preview", input, previewScreenId],
-    queryFn: () =>
-      api.previewSchedule(
-        previewScreenId,
-        schedulePreviewTimestamp(input),
-        input,
-      ),
+    ...scheduleQueries.preview(previewScreenId, previewTimestamp, input),
     enabled: Boolean(
       previewScreenId &&
       (input.playlistId || input.layoutId || input.displayAction) &&
@@ -253,7 +245,8 @@ export function ScheduleEditorPage() {
       const next = scheduleToInput(schedule);
       setBaseline(next);
       setInput(next);
-      void client.invalidateQueries({ queryKey: ["schedules"] });
+      void client.invalidateQueries({ queryKey: scheduleKeys.all });
+      void client.invalidateQueries({ queryKey: scheduleKeys.previews });
       void navigate(`/schedules/${schedule.id}`, { replace: true });
     },
   });
@@ -261,6 +254,8 @@ export function ScheduleEditorPage() {
     mutationFn: () => api.deleteSchedule(id!, csrf),
     onSuccess: () => {
       toast.add({ title: t("notifications.deleted"), type: "success" });
+      void client.invalidateQueries({ queryKey: scheduleKeys.all });
+      void client.invalidateQueries({ queryKey: scheduleKeys.previews });
       void navigate("/schedules");
     },
   });
