@@ -63,6 +63,12 @@ npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main 
 
 The merge-base check stops if `origin/main` is missing or has no common history with your branch. Fetch a usable base or run the full suite in that case. `--passWithNoTests` lets documentation-only changes finish when Vitest finds no related tests. For Go, run the affected package from `apps/server`, such as `go test ./internal/devices`. Run each package when a change spans packages. These commands support local iteration; CI still runs the complete selected test suites.
 
+## Content query contracts
+
+Use `apps/dashboard/src/data/content.ts` for Content catalog queries. The library and picker share asset pagination and processing refresh. Asset-page keys include the actual request filters, including archive state, provider, and page size. Local selection and dialog state remain with their controls.
+
+HTTP-boundary tests check filters across multiple pages, equivalent filter reuse, independent archive/provider/page-size requests, caller-parameter snapshots, and normalized definition catalogs. Run Content picker and Widget capture tests when changing these integrations. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
