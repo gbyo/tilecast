@@ -12,6 +12,8 @@ import {
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
+import { FallbackImagePicker } from "./FallbackImagePicker";
+
 import {
   Dialog,
   DialogContent,
@@ -1303,18 +1305,6 @@ export function YouTubeSourceEditor({
     addEventListener("beforeunload", warn);
     return () => removeEventListener("beforeunload", warn);
   }, [dirty]);
-  const images = useQuery({
-    queryKey: ["assets", "source-fallbacks"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          type: "image",
-          status: "ready",
-        }),
-      ),
-  });
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -1642,41 +1632,21 @@ export function YouTubeSourceEditor({
           <FieldLabel htmlFor="youtube-fallback">
             {t("widgets.editors.youtube.fallback")}
           </FieldLabel>
-          <Select
-            items={[
-              { value: "", label: t("widgets.editors.shared.none") },
-              ...(images.data?.items ?? []).map((image) => ({
-                value: image.id,
-                label: image.name,
-              })),
-            ]}
+          <FallbackImagePicker
+            id="youtube-fallback"
+            label={t("widgets.editors.youtube.fallback")}
+            value={configuration.fallbackImageAssetId}
+            onChange={(next) => set("fallbackImageAssetId", next)}
             disabled={readOnly}
-            value={configuration.fallbackImageAssetId ?? ""}
-            onValueChange={(next) =>
-              set("fallbackImageAssetId", next || undefined)
-            }
-          >
-            <SelectTrigger
-              id="youtube-fallback"
-              aria-label={t("widgets.editors.youtube.fallback")}
-            >
-              <SelectValue>
-                {images.data?.items?.find(
-                  (image) => image.id === configuration.fallbackImageAssetId,
-                )?.name ?? t("widgets.editors.shared.none")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">
-                {t("widgets.editors.shared.none")}
-              </SelectItem>
-              {images.data?.items?.map((image) => (
-                <SelectItem key={image.id} value={image.id}>
-                  {image.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            csrf={csrf}
+            noneLabel={t("widgets.editors.shared.none")}
+            clearLabel={t("common:actions.remove")}
+            pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+            pickerDescription={t(
+              "widgets.editors.shared.fallbackPickerDescription",
+            )}
+            pickerConfirm={t("common:actions.confirm")}
+          />
         </Field>
         {save.error && (
           <Alert variant="destructive">
