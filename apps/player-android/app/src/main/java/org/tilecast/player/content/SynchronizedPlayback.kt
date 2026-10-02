@@ -30,7 +30,11 @@ internal fun synchronizedPlaybackStart(
 }
 
 internal fun effectiveDurationMs(item: ManifestItem, assets: List<ManifestAsset>): Long {
-    item.durationMs?.let { return it.coerceAtLeast(1) }
+    // Zero is how stored data spells "no duration", not a one-millisecond slot.
+    // Linux and Edge already read it as unset; reading it literally here put a
+    // screen in a synchronized group on a cycle that rolled over every
+    // millisecond.
+    item.durationMs?.takeIf { it > 0 }?.let { return it }
     if (item.assetType == "website" || item.assetType == "widget") return 30_000
     val asset = item.variantId?.let { variant -> assets.firstOrNull { it.variantId == variant } }
     if (asset?.mimeType?.startsWith("video/") == true) {
