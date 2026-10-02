@@ -3,7 +3,8 @@ import { Archive, MonitorOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { archivedScreens, type ArchivedScreen } from "../api/archivedScreens";
-import { useFormatLocale } from "../i18n";
+import { ApiError } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
@@ -46,7 +47,11 @@ export function ArchivedScreensPage() {
       <PageHeader title={t("archive.title")} description={t("archive.body")} />
       {archived.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{archived.error.message}</AlertDescription>
+          <AlertDescription>
+            {archived.error instanceof ApiError
+              ? apiErrorMessage(archived.error)
+              : t("archive.loadError")}
+          </AlertDescription>
         </Alert>
       )}
 

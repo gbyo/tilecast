@@ -50,13 +50,30 @@ var DerivedConfigurationKeys = map[string]bool{
 
 // DerivedVariantKey maps a media_asset field key to the configuration key manifest
 // projection writes its resolved variant under ("logoAssetId" gives "logoVariantId").
-// Only AssetId-suffixed fields project; Studio preview grants use the same rule, so a
-// field that cannot project on the Player cannot grant in a preview either.
+// Other declared media fields append VariantId. The same alias rule applies in Studio.
 func DerivedVariantKey(assetKey string) (string, bool) {
-	if !strings.HasSuffix(assetKey, "AssetId") || assetKey == "AssetId" {
+	if assetKey == "" {
 		return "", false
 	}
 	return strings.TrimSuffix(assetKey, "AssetId") + "VariantId", true
+}
+
+// IsLevelDerivedConfigurationKey checks aliases in the current configuration object.
+func IsLevelDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
+	return DerivedConfigurationKeys[key] || SchemaDerivedKeys(fields)[key]
+}
+
+// IsDerivedConfigurationKey also rejects nested aliases submitted at the root.
+func IsDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
+	if IsLevelDerivedConfigurationKey(fields, key) {
+		return true
+	}
+	for _, field := range fields {
+		if field.Control == "repeating_group" && IsDerivedConfigurationKey(field.ItemFields, key) {
+			return true
+		}
+	}
+	return false
 }
 
 // SchemaDerivedKeys returns every top-level variant key a definition's media_asset
@@ -243,9 +260,9 @@ type OutputField struct {
 }
 
 type WidgetDefinition struct {
-	ID      string `json:"id"`
+	ID string `json:"id"`
 	// Version tracks the release-owned Widget definition.
-	Version int    `json:"version"`
+	Version int `json:"version"`
 	// ConfigVersion is the version of the persisted Widget configuration.
 	// Omitted legacy definitions use version 1.
 	ConfigVersion *int `json:"configVersion,omitempty"`
@@ -994,6 +1011,17 @@ func validateSchemaFields(fields []FieldDefinition) error {
 				return err
 			}
 		}
+	}
+	derived := map[string]bool{}
+	for _, field := range fields {
+		if field.Control != "media_asset" {
+			continue
+		}
+		key, _ := DerivedVariantKey(field.Key)
+		if seen[key] || derived[key] {
+			return fmt.Errorf("media_asset field %q derives configuration key %q that conflicts with another field", field.Key, key)
+		}
+		derived[key] = true
 	}
 	return nil
 }

@@ -178,7 +178,6 @@
       "collectionOption": "{{name}} ({{count}})",
       "filterByStatus": "Filtrar por estado",
       "folderOption": "{{name}} ({{count}})",
-      "resetFilters": "Borrar filtros",
       "search": "Buscar multimedia",
       "sortMedia": "Ordenar multimedia",
       "tagOption": "{{name}} ({{count}})",

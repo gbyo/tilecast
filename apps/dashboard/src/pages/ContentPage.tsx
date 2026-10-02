@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import {
   useInfiniteQuery,
   useMutation,
@@ -46,9 +47,10 @@ import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { rfc3339ToLocalDateTime } from "../lib/dateTime";
 import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+  FilterBar,
+  type FilterDefinition,
+  type FilterValues,
+} from "../components/FilterBar";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -238,18 +240,6 @@ function queueStateLabel(
   }[state];
 }
 
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = value / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit++;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
-}
-
 function formatDuration(seconds?: number) {
   if (seconds == null) return "";
   const minutes = Math.floor(seconds / 60);
@@ -363,6 +353,7 @@ function FilterSelect({
 
 export function ContentPage() {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const { t: tErrors } = useTranslation("errors");
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
@@ -496,6 +487,91 @@ export function ContentPage() {
     queryKey: ["content-tags"],
     queryFn: api.contentTags,
   });
+  const filterValues: FilterValues = {
+    search,
+    status,
+    folder: folderFilter,
+    collection: collectionFilter,
+    tag: tagFilter,
+  };
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("media.toolbar.search"),
+      placeholder: t("media.toolbar.search"),
+    },
+    {
+      key: "status",
+      kind: "select",
+      label: t("media.toolbar.filterByStatus"),
+      allLabel: t("media.toolbar.allStatuses"),
+      options: [
+        { value: "ready", label: t("media.status.ready") },
+        { value: "queued", label: t("media.status.waiting") },
+        { value: "inspecting", label: t("media.status.inspecting") },
+        { value: "processing", label: t("media.status.processing") },
+        { value: "failed", label: t("media.status.failed") },
+      ],
+    },
+    {
+      key: "folder",
+      kind: "select",
+      label: t("picker.toolbar.filterByFolder"),
+      allLabel: t("picker.toolbar.allFolders"),
+      options:
+        folders.data?.map((folder) => ({
+          value: folder.id,
+          label: t("media.toolbar.folderOption", {
+            name: folder.name,
+            count: folder.assetCount,
+          }),
+        })) ?? [],
+    },
+    {
+      key: "collection",
+      kind: "select",
+      label: t("picker.toolbar.filterByCollection"),
+      allLabel: t("picker.toolbar.allCollections"),
+      options:
+        collections.data?.map((collection) => ({
+          value: collection.id,
+          label: t("media.toolbar.collectionOption", {
+            name: collection.name,
+            count: collection.assetCount,
+          }),
+        })) ?? [],
+    },
+    {
+      key: "tag",
+      kind: "select",
+      label: t("picker.toolbar.filterByTag"),
+      allLabel: t("picker.toolbar.allTags"),
+      options:
+        tags.data?.map((tag) => ({
+          value: tag.id,
+          label: t("media.toolbar.tagOption", {
+            name: tag.name,
+            count: tag.assetCount ?? 0,
+          }),
+        })) ?? [],
+    },
+  ];
+  const setFilterValue = (key: string, value: string) => {
+    if (key === "search") setSearch(value);
+    else if (key === "status") setStatus(value);
+    else if (key === "folder") setFolderFilter(value);
+    else if (key === "collection") setCollectionFilter(value);
+    else if (key === "tag") setTagFilter(value);
+  };
+  const clearFilters = () => {
+    setSearch("");
+    setContentFilter("media");
+    setStatus("");
+    setFolderFilter("");
+    setCollectionFilter("");
+    setTagFilter("");
+  };
   // A native host shows a media asset's details in its own sheet. Widgets
   // and websites edit in Studio, and a browser always uses the Sheet or
   // Drawer.
@@ -772,8 +848,8 @@ export function ContentPage() {
                   <AttachmentTitle>{item.filename}</AttachmentTitle>
                   <AttachmentDescription>
                     {t("media.upload.progress", {
-                      uploaded: formatBytes(item.uploadedBytes),
-                      total: formatBytes(item.sizeBytes),
+                      uploaded: formatBytes(item.uploadedBytes, locale),
+                      total: formatBytes(item.sizeBytes, locale),
                       percent,
                       state: queueStateLabel(item.state, t),
                     })}
@@ -814,13 +890,12 @@ export function ContentPage() {
         </section>
       )}
 
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("media.toolbar.search")}
-          placeholder={t("media.toolbar.search")}
-        />
+      <FilterBar
+        definitions={filterDefinitions}
+        values={filterValues}
+        onChange={setFilterValue}
+        onClear={clearFilters}
+      >
         <SingleToggleGroup
           label={t("media.toolbar.typeFilters")}
           value={contentFilter}
@@ -844,72 +919,6 @@ export function ContentPage() {
           ]}
         />
         <FilterSelect
-          label={t("media.toolbar.filterByStatus")}
-          className="w-40 max-sm:flex-1"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "", label: t("media.toolbar.allStatuses") },
-            { value: "ready", label: t("media.status.ready") },
-            { value: "queued", label: t("media.status.waiting") },
-            { value: "inspecting", label: t("media.status.inspecting") },
-            { value: "processing", label: t("media.status.processing") },
-            { value: "failed", label: t("media.status.failed") },
-          ]}
-        />
-        {libraryView === "active" && (
-          <>
-            <FilterSelect
-              label={t("picker.toolbar.filterByFolder")}
-              className="w-44 max-sm:flex-1"
-              value={folderFilter}
-              onChange={setFolderFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allFolders") },
-                ...(folders.data?.map((folder) => ({
-                  value: folder.id,
-                  label: t("media.toolbar.folderOption", {
-                    name: folder.name,
-                    count: folder.assetCount,
-                  }),
-                })) ?? []),
-              ]}
-            />
-            <FilterSelect
-              label={t("picker.toolbar.filterByCollection")}
-              className="w-44 max-sm:flex-1"
-              value={collectionFilter}
-              onChange={setCollectionFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allCollections") },
-                ...(collections.data?.map((collection) => ({
-                  value: collection.id,
-                  label: t("media.toolbar.collectionOption", {
-                    name: collection.name,
-                    count: collection.assetCount,
-                  }),
-                })) ?? []),
-              ]}
-            />
-            <FilterSelect
-              label={t("picker.toolbar.filterByTag")}
-              className="w-44 max-sm:flex-1"
-              value={tagFilter}
-              onChange={setTagFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allTags") },
-                ...(tags.data?.map((tag) => ({
-                  value: tag.id,
-                  label: t("media.toolbar.tagOption", {
-                    name: tag.name,
-                    count: tag.assetCount ?? 0,
-                  }),
-                })) ?? []),
-              ]}
-            />
-          </>
-        )}
-        <FilterSelect
           label={t("media.toolbar.sortMedia")}
           className="w-44 max-sm:flex-1"
           value={sort}
@@ -921,27 +930,6 @@ export function ContentPage() {
             { value: "name", label: t("picker.toolbar.sortName") },
           ]}
         />
-        {(search ||
-          contentFilter !== "media" ||
-          status ||
-          folderFilter ||
-          collectionFilter ||
-          tagFilter) && (
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={() => {
-              setSearch("");
-              setContentFilter("media");
-              setStatus("");
-              setFolderFilter("");
-              setCollectionFilter("");
-              setTagFilter("");
-            }}
-          >
-            {t("media.toolbar.resetFilters")}
-          </Button>
-        )}
         <SingleToggleGroup
           label={t("media.toolbar.viewLabel")}
           variant="outline"
@@ -961,7 +949,7 @@ export function ContentPage() {
             },
           ]}
         />
-      </DashboardListToolbar>
+      </FilterBar>
 
       {canManage && (libraryView === "active" || checkedAssetIds.size > 0) && (
         <ContentOrganizer
@@ -1437,6 +1425,7 @@ function MediaAssetCard({
   actions: AssetMenuAction[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   const openLabel = archived
     ? t("media.card.viewAsset", { name: asset.name })
@@ -1493,7 +1482,7 @@ function MediaAssetCard({
               <AssetSummary asset={asset} />
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatBytes(asset.originalSize)}
+              {formatBytes(asset.originalSize, locale)}
             </span>
             <AssetOrganizationChips asset={asset} folderNames={folderNames} />
           </span>
@@ -1575,6 +1564,7 @@ function MediaAssetListRow({
   actions: AssetMenuAction[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   return (
     <Item size="sm">
@@ -1603,7 +1593,8 @@ function MediaAssetListRow({
           </Button>
         </ItemTitle>
         <ItemDescription>
-          <AssetSummary asset={asset} /> · {formatBytes(asset.originalSize)}
+          <AssetSummary asset={asset} /> ·{" "}
+          {formatBytes(asset.originalSize, locale)}
         </ItemDescription>
       </ItemContent>
       <Badge variant={status.variant}>{status.label}</Badge>
@@ -2030,7 +2021,7 @@ function ManageOrganizationDialog({
   );
 }
 
-function ContentOrganizer({
+export function ContentOrganizer({
   csrf,
   folders,
   collections,
@@ -2124,117 +2115,125 @@ function ContentOrganizer({
       aria-label={t("media.organize.sectionLabel")}
     >
       {!archiveMode && assetIds.length === 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("folder");
-              setCreateOpen(true);
-            }}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button type="button" variant="ghost" size="sm" />}
           >
             <FolderPlus size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.folderTitle")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("collection");
-              setCreateOpen(true);
-            }}
+            {t("media.organize.sectionLabel")}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            aria-label={t("media.organize.sectionLabel")}
           >
-            <Library size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.collectionTitle")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("tag");
-              setCreateOpen(true);
-            }}
-          >
-            <Tags size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.tagTitle")}
-          </Button>
-          {(folders.length > 0 ||
-            collections.length > 0 ||
-            tags.length > 0) && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setManaging(true)}
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("folder");
+                setCreateOpen(true);
+              }}
             >
-              <Pencil size={15} aria-hidden="true" />{" "}
-              {t("media.organize.manage")}
-            </Button>
-          )}
-        </div>
+              <FolderPlus size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.folderTitle")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("collection");
+                setCreateOpen(true);
+              }}
+            >
+              <Library size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.collectionTitle")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("tag");
+                setCreateOpen(true);
+              }}
+            >
+              <Tags size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.tagTitle")}
+            </DropdownMenuItem>
+            {(folders.length > 0 ||
+              collections.length > 0 ||
+              tags.length > 0) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setManaging(true)}>
+                  <Pencil size={15} aria-hidden="true" />{" "}
+                  {t("media.organize.manage")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       {assetIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-          <strong className="text-sm font-medium">
-            {t("picker.tray.selectedCount", { count: assetIds.length })}
-          </strong>
-          <span className="flex flex-wrap items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onSelectAll}
-            >
-              {t("media.organize.selectLoaded")}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-              {t("media.organize.clear")}
-            </Button>
-          </span>
-          <span className="flex flex-wrap items-center gap-1">
-            {!archiveMode && (
+        <div
+          className="fixed bottom-4 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-border bg-card shadow-lg"
+          role="toolbar"
+          aria-label={t("picker.tray.selectedCount", {
+            count: assetIds.length,
+          })}
+        >
+          <div className="flex items-center gap-x-3 gap-y-2 overflow-x-auto px-3 py-2">
+            <strong className="flex-none text-sm font-medium">
+              {t("picker.tray.selectedCount", { count: assetIds.length })}
+            </strong>
+            <span className="flex flex-none items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setOrganizing(true)}
+                onClick={onSelectAll}
               >
-                <Folder size={15} aria-hidden="true" />{" "}
-                {t("media.organize.organize")}
+                {t("media.organize.selectLoaded")}
               </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => void run(archiveMode ? onRestore : onArchive)}
-            >
-              {archiveMode ? (
-                <ArchiveRestore size={15} aria-hidden="true" />
-              ) : (
-                <Archive size={15} aria-hidden="true" />
+              <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+                {t("media.organize.clear")}
+              </Button>
+            </span>
+            <span className="flex flex-none items-center gap-1">
+              {!archiveMode && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOrganizing(true)}
+                >
+                  <Folder size={15} aria-hidden="true" />{" "}
+                  {t("media.organize.organize")}
+                </Button>
               )}
-              {archiveMode
-                ? t("media.organize.restore")
-                : t("media.card.archive")}
-            </Button>
-            {archiveMode && (
               <Button
                 type="button"
-                variant="destructive"
+                variant="ghost"
                 size="sm"
                 disabled={busy}
-                onClick={() => void run(onDelete)}
+                onClick={() => void run(archiveMode ? onRestore : onArchive)}
               >
-                <Trash2 size={15} aria-hidden="true" />{" "}
-                {t("media.action.deletePermanently")}
+                {archiveMode ? (
+                  <ArchiveRestore size={15} aria-hidden="true" />
+                ) : (
+                  <Archive size={15} aria-hidden="true" />
+                )}
+                {archiveMode
+                  ? t("media.organize.restore")
+                  : t("media.card.archive")}
               </Button>
-            )}
-          </span>
+              {archiveMode && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void run(onDelete)}
+                >
+                  <Trash2 size={15} aria-hidden="true" />{" "}
+                  {t("media.action.deletePermanently")}
+                </Button>
+              )}
+            </span>
+          </div>
         </div>
       )}
       {error && (

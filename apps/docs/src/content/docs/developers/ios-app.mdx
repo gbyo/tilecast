@@ -13,6 +13,8 @@ Native code is for app chrome, system features like the camera or Share sheet, a
 
 ## Navigation comes from Studio
 
+Use Studio's shared `useConfirm` hook for confirmations. It queues overlapping requests in order and uses native iOS alerts for plain text, with the shared web dialog as a fallback. Leaving the component cancels its active and queued requests. See the [alert contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#alerts) for the exact lifecycle.
+
 Once you sign in, the app replaces Studio's sidebar with native navigation: tabs on iPhone, and a sidebar on iPad. Studio still draws everything else, including its top bar with breadcrumbs, search, notifications, and your account menu.
 
 Studio decides what the app shows. Each navigation destination is metadata on its Studio route: an ID, a translated label, a group, an icon token, an order, and whether it prefers a tab on iPhone. Studio sends the app that list, already translated, and the app just draws it. Swift never has a list of Tilecast pages.

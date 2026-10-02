@@ -7,7 +7,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ArchivedScreensPage } from "./ArchivedScreensPage";
 import { archivedScreens } from "../api/archivedScreens";
-import { i18n } from "../i18n";
+import { ApiError } from "../api/client";
+import { apiErrorMessage, i18n } from "../i18n";
 
 vi.mock("../api/archivedScreens", () => ({
   archivedScreens: vi.fn(),
@@ -71,5 +72,36 @@ describe("ArchivedScreensPage", () => {
     expect(within(card).getByText(/BrightSign/)).toBeInTheDocument();
     const wrapper = card.parentElement;
     expect(wrapper?.className).toContain("lg:hidden");
+  });
+});
+
+describe("ArchivedScreensPage load errors", () => {
+  beforeEach(() => {
+    vi.mocked(archivedScreens).mockRejectedValue(new Error("boom"));
+  });
+  afterEach(async () => {
+    cleanup();
+    vi.restoreAllMocks();
+    await i18n.changeLanguage("en");
+  });
+
+  it("shows localized copy instead of the raw error", async () => {
+    renderPage();
+
+    expect(
+      await screen.findByText("Archived screens could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("boom")).toBeNull();
+    expect(screen.queryByText("No archived screens")).toBeNull();
+  });
+
+  it("routes structured API errors through the shared formatter", async () => {
+    const failure = new ApiError("Server error.", 500, "internal_error");
+    vi.mocked(archivedScreens).mockRejectedValue(failure);
+    renderPage();
+
+    expect(
+      await screen.findByText(apiErrorMessage(failure)),
+    ).toBeInTheDocument();
   });
 });
