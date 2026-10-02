@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
@@ -198,6 +199,17 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.clock": 2})
 	if err := f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err != nil {
 		t.Fatalf("Layout with a component Clock rejected: %v", err)
+	}
+	tx, err := f.pool.BeginTx(f.ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, err := f.service.PresentationCapabilityEvidenceInTx(f.ctx, tx, f.screen, "layout", layoutID)
+	if err != nil || evidence.Status != "supported" || len(evidence.Widgets) != 1 || evidence.Widgets[0].AssetID != widget.ID || evidence.Widgets[0].SelectedRenderer != "component" {
+		t.Fatalf("Layout capability evidence=%#v err=%v", evidence, err)
+	}
+	if err = tx.Commit(f.ctx); err != nil {
+		t.Fatal(err)
 	}
 	playlist, err := f.service.Create(f.ctx, f.user, "Lobby rotation", "", "static")
 	if err != nil {
