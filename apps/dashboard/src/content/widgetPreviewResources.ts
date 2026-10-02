@@ -200,6 +200,10 @@ export function previewToDataDocument(
           id: record.id,
           values: recordValues(record.values, dataset.fields),
         })),
+        points: dataset.points?.map((point) => ({
+          at: point.at,
+          values: recordValues(point.values, dataset.fields),
+        })),
         value:
           dataset.values !== undefined
             ? {

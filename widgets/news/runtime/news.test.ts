@@ -173,6 +173,58 @@ describe("News slot resolution", () => {
 });
 
 describe("News data resolution", () => {
+  it("resolves nonstandard field keys by the projected semantic roles", () => {
+    const documents = documentWith(
+      [
+        {
+          id: "story-1",
+          values: {
+            story_heading: { kind: "text", text: "Library opens Sundays" },
+            publication_time: {
+              kind: "datetime",
+              datetime: "2026-09-27T14:00:00Z",
+            },
+            outlet: { kind: "text", text: "City Wire" },
+          },
+        },
+      ],
+      [
+        {
+          key: "story_heading",
+          label: "Title",
+          type: "text",
+          role: "headline",
+        },
+        {
+          key: "publication_time",
+          label: "Date",
+          type: "datetime",
+          role: "published_at",
+        },
+        { key: "outlet", label: "Source", type: "text", role: "source_name" },
+      ],
+    );
+    const resolved = resolveNewsData(base, fixtureResources({ documents }));
+    expect(resolved).toMatchObject({
+      state: "ready",
+      data: {
+        keys: {
+          headline: "story_heading",
+          published: "publication_time",
+          sourceName: "outlet",
+        },
+        stories: [
+          {
+            id: "story-1",
+            values: {
+              story_heading: { kind: "text", text: "Library opens Sundays" },
+            },
+          },
+        ],
+      },
+    });
+  });
+
   it("resolves stories within the story bound", () => {
     const resolved = resolveNewsData(
       { ...base, maxStories: 1 },

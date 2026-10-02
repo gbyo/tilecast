@@ -610,12 +610,13 @@ describe("resources", () => {
   });
 
   it("prevents one Widget from mutating a Data Document shared by another", () => {
-    const sharedDocument = {
+    const sharedDocument: WidgetDataDocument = {
       schemaVersion: 1,
       datasets: [
         {
           id: "current",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           records: [
             {
               id: "record-1",
