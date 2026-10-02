@@ -25,7 +25,7 @@ function PrimarySidebarState() {
   return <output aria-label="primary sidebar">{useSidebar().state}</output>;
 }
 
-function renderShell({
+function shellTree({
   active = "general",
   dirty = [],
   onNavigate = () => true,
@@ -34,7 +34,7 @@ function renderShell({
   dirty?: SettingsSectionId[];
   onNavigate?: (next: SettingsSectionId) => boolean;
 } = {}) {
-  return render(
+  return (
     <MemoryRouter initialEntries={["/settings/general"]}>
       <SidebarProvider>
         <SettingsShell
@@ -46,19 +46,39 @@ function renderShell({
           <PrimarySidebarState />
         </SettingsShell>
       </SidebarProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+}
+
+function renderShell(
+  opts: {
+    active?: SettingsSectionId;
+    dirty?: SettingsSectionId[];
+    onNavigate?: (next: SettingsSectionId) => boolean;
+  } = {},
+) {
+  return render(shellTree(opts));
 }
 
 const sections = () =>
   screen.getByRole("navigation", { name: "Settings sections" });
 
+async function expandGroup(nav: HTMLElement, name: string | RegExp) {
+  const trigger = within(nav).getByRole("button", { name });
+  if (trigger.getAttribute("aria-expanded") === "false") {
+    await userEvent.click(trigger);
+  }
+}
+
 describe("SettingsShell navigation", () => {
-  it("renders every group and section as a link", () => {
+  it("renders every group and section as a link", async () => {
     renderShell();
     const nav = sections();
     for (const group of settingsNavigation) {
-      expect(within(nav).getByText(group.label)).toBeInTheDocument();
+      expect(
+        within(nav).getByRole("button", { name: group.label }),
+      ).toBeInTheDocument();
+      await expandGroup(nav, group.label);
       for (const item of group.items) {
         expect(
           within(nav).getByRole("link", { name: item.label }),
@@ -67,7 +87,51 @@ describe("SettingsShell navigation", () => {
     }
   });
 
-  it("marks only the active section as current", () => {
+  it("starts with only the active group expanded", () => {
+    renderShell({ active: "general" });
+    const nav = sections();
+    expect(
+      within(nav).getByRole("link", { name: "General" }),
+    ).toBeInTheDocument();
+    expect(
+      within(nav).queryByRole("link", { name: "Data retention" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(nav).getByRole("button", { name: "Organization" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(nav).getByRole("button", { name: "Operations" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("collapses and reopens groups on toggle", async () => {
+    renderShell({ active: "general" });
+    const nav = sections();
+    const trigger = within(nav).getByRole("button", { name: "Organization" });
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(
+      within(nav).queryByRole("link", { name: "General" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(
+      within(nav).getByRole("link", { name: "General" }),
+    ).toBeInTheDocument();
+  });
+
+  it("expands the newly active group when navigation lands elsewhere", () => {
+    const view = renderShell({ active: "general" });
+    expect(
+      within(sections()).queryByRole("link", { name: "Data retention" }),
+    ).not.toBeInTheDocument();
+    view.rerender(shellTree({ active: "retention" }));
+    expect(
+      within(sections()).getByRole("link", { name: "Data retention" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("marks only the active section as current", async () => {
     renderShell({ active: "presentation-networks" });
     const nav = sections();
     const current = within(nav).getByRole("link", {
@@ -80,21 +144,26 @@ describe("SettingsShell navigation", () => {
         .getAllByRole("link")
         .filter((link) => link.hasAttribute("aria-current")),
     ).toEqual([current]);
+    await expandGroup(nav, "Organization");
     const general = within(nav).getByRole("link", { name: "General" });
     expect(general).not.toHaveAttribute("aria-current");
     expect(general).not.toHaveAttribute("data-active");
   });
 
-  it("shows a text unsaved indicator on dirty sections", () => {
+  it("surfaces a dirty section on its collapsed group until expanded", async () => {
     renderShell({ dirty: ["takeover"] });
     const nav = sections();
+    expect(
+      within(nav).queryByRole("link", { name: "Takeovers and commands" }),
+    ).not.toBeInTheDocument();
+    const trigger = within(nav).getByRole("button", { name: /Operations/ });
+    expect(within(trigger).getByText("Unsaved")).toBeInTheDocument();
+    expect(within(nav).getAllByText("Unsaved")).toHaveLength(1);
+    await userEvent.click(trigger);
     expect(
       within(nav).getByRole("link", { name: "Takeovers and commands" }),
     ).toHaveAccessibleDescription("Unsaved");
     expect(within(nav).getAllByText("Unsaved")).toHaveLength(1);
-    expect(
-      within(nav).getByRole("link", { name: "General" }),
-    ).not.toHaveAccessibleDescription();
   });
 
   it("uses translated labels", async () => {
@@ -116,8 +185,10 @@ describe("SettingsShell navigation", () => {
   it("navigates immediately from a clean section", async () => {
     const onNavigate = vi.fn(() => true);
     renderShell({ onNavigate });
+    const nav = sections();
+    await expandGroup(nav, "Operations");
     await userEvent.click(
-      within(sections()).getByRole("link", { name: "Data retention" }),
+      within(nav).getByRole("link", { name: "Data retention" }),
     );
     expect(onNavigate).toHaveBeenCalledWith("retention");
     expect(screen.getByLabelText("location")).toHaveTextContent(
@@ -128,8 +199,10 @@ describe("SettingsShell navigation", () => {
   it("lets onNavigate hold navigation for a dirty section", async () => {
     const onNavigate = vi.fn(() => false);
     renderShell({ dirty: ["general"], onNavigate });
+    const nav = sections();
+    await expandGroup(nav, "Operations");
     await userEvent.click(
-      within(sections()).getByRole("link", { name: "Data retention" }),
+      within(nav).getByRole("link", { name: "Data retention" }),
     );
     expect(onNavigate).toHaveBeenCalledTimes(1);
     expect(onNavigate).toHaveBeenCalledWith("retention");
@@ -175,8 +248,17 @@ describe("SettingsShell mobile section picker", () => {
     expect(users).toHaveAccessibleDescription(
       i18n.t("settings:shell.unsavedBadge"),
     );
+    // Only the current section's group starts open; Retention lives under
+    // Operations.
     await user.click(
-      sheet.getByRole("link", { name: i18n.t("settings:nav.items.retention") }),
+      sheet.getByRole("button", {
+        name: new RegExp(i18n.t("settings:nav.groups.operations")),
+      }),
+    );
+    await user.click(
+      await sheet.findByRole("link", {
+        name: i18n.t("settings:nav.items.retention"),
+      }),
     );
     expect(onNavigate).toHaveBeenCalledWith("retention");
     expect(screen.getByLabelText("location")).toHaveTextContent(
@@ -211,6 +293,7 @@ describe("SettingsShell workspace sections", () => {
     expect(
       within(nav).getByRole("link", { name: "Dependency Explorer" }),
     ).toHaveAttribute("aria-current", "page");
+    await expandGroup(nav, "Operations");
     await user.click(within(nav).getByRole("link", { name: "Data retention" }));
     expect(onNavigate).toHaveBeenCalledWith("retention");
     expect(screen.getByLabelText("location")).toHaveTextContent(

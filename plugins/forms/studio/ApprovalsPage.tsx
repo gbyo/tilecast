@@ -27,7 +27,11 @@ import {
   TableRow,
 } from "@tilecast/studio/ui/table";
 import { Skeleton } from "@tilecast/studio/ui/skeleton";
-import { Pagination, usePluginTranslation } from "@tilecast/studio";
+import {
+  Pagination,
+  useFormatLocale,
+  usePluginTranslation,
+} from "@tilecast/studio";
 import type { PluginT } from "@tilecast/studio";
 import en from "./locales/en.json";
 
@@ -41,6 +45,7 @@ const columnHelper = createColumnHelper<typeof features, FormApprovalItem>();
 // Responses tab. Items leave the inbox automatically once they are no longer pending.
 export function ApprovalsPage() {
   const { t } = usePluginTranslation("forms", en);
+  const locale = useFormatLocale();
   const [page, setPage] = useState(1);
   const approvals = useQuery({
     queryKey: ["approvals", page],
@@ -96,7 +101,7 @@ export function ApprovalsPage() {
           header: t("approvals.table.submitted"),
           cell: ({ row }) => (
             <span className="whitespace-nowrap tabular-nums">
-              {new Date(row.original.submittedAt).toLocaleString()}
+              {new Date(row.original.submittedAt).toLocaleString(locale)}
             </span>
           ),
         }),
@@ -129,7 +134,7 @@ export function ApprovalsPage() {
           },
         }),
       ]),
-    [t],
+    [locale, t],
   );
   const table = useTable({
     features,
@@ -206,7 +211,9 @@ export function ApprovalsPage() {
                   <span>
                     {item.submitterName || t("approvals.unknownSubmitter")}
                   </span>
-                  <span>{new Date(item.submittedAt).toLocaleString()}</span>
+                  <span>
+                    {new Date(item.submittedAt).toLocaleString(locale)}
+                  </span>
                   <span>
                     {displayWindow(t, item.displayAt, item.expiresAt)}
                   </span>

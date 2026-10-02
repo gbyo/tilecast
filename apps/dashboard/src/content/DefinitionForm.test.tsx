@@ -30,6 +30,37 @@ import {
   resolveDataSourceKey,
 } from "./DefinitionForm";
 
+vi.mock("../components/content-picker", () => ({
+  ContentPicker: (props: {
+    open: boolean;
+    mode: string;
+    allowedTypes?: string[];
+    selectedIds?: string[];
+    onConfirm: (items: { id: string; name: string }[]) => void;
+    onClose: () => void;
+  }) =>
+    props.open ? (
+      <div
+        data-testid="media-picker"
+        data-mode={props.mode}
+        data-types={(props.allowedTypes ?? []).join(",")}
+        data-selected={(props.selectedIds ?? []).join(",")}
+      >
+        <button
+          type="button"
+          onClick={() =>
+            props.onConfirm([{ id: "picked-1", name: "Picked clip" }])
+          }
+        >
+          confirm-picked
+        </button>
+        <button type="button" onClick={props.onClose}>
+          close-picker
+        </button>
+      </div>
+    ) : null,
+}));
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -856,5 +887,94 @@ describe("DefinitionForm automatic semantic mapping", () => {
         expect.objectContaining({ titleField: "sweet" }),
       ),
     );
+  });
+});
+
+describe("DefinitionForm large libraries", () => {
+  it("surfaces a valid Data Source past a hundred incompatible entries", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(
+      catalog([
+        definition("csv", [{ key: "title", label: "Title", type: "text" }]),
+        definition("weather", [
+          { key: "temperature", label: "Temperature", type: "number" },
+        ]),
+      ]),
+    );
+    const items = Array.from({ length: 140 }, (_, index) =>
+      source(`s-legacy-${index}`, "legacy", `Legacy feed ${index}`),
+    );
+    items.push(source("s-weather", "weather", "Campus weather"));
+    items.push(source("s-weather-2", "weather", "Harbor weather"));
+    vi.spyOn(api, "listDataSources").mockResolvedValue({
+      items,
+      total: items.length,
+      page: 1,
+      pageSize: 100,
+    });
+
+    form([
+      {
+        key: "dataSourceId",
+        label: "Data",
+        control: "data_source",
+        requiredFields: { temperature: "number" },
+      },
+    ]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^Data: / })).toHaveTextContent(
+        "2 compatible sources",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^Data: / }));
+    const chooser = await screen.findByRole("dialog", { name: "Choose data" });
+    expect(within(chooser).getByText("Campus weather")).toBeTruthy();
+    expect(within(chooser).queryByText("Legacy feed 139")).toBeNull();
+    await userEvent.type(
+      within(chooser).getByRole("searchbox", {
+        name: "Search compatible sources",
+      }),
+      "Campus",
+    );
+    expect(within(chooser).getByText("Campus weather")).toBeTruthy();
+    expect(within(chooser).queryByText("Harbor weather")).toBeNull();
+  });
+
+  it("selects media through the paginated picker instead of a page snapshot", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog([]));
+    const assets = vi.spyOn(api, "assets");
+    vi.spyOn(api, "asset").mockImplementation((id: string) =>
+      Promise.resolve({ id, name: "Current hero", type: "image" } as never),
+    );
+
+    const { onChange } = form(
+      [
+        {
+          key: "heroAssetId",
+          label: "Hero",
+          control: "media_asset",
+          mediaTypes: ["video"],
+        },
+      ],
+      { heroAssetId: "a-current" },
+    );
+
+    // The current selection resolves by ID; no fixed page is fetched.
+    expect(assets).not.toHaveBeenCalled();
+    const trigger = await screen.findByRole("button", { name: "Hero" });
+    await waitFor(() => expect(trigger).toHaveTextContent("Current hero"));
+    await userEvent.click(trigger);
+
+    const picker = await screen.findByTestId("media-picker");
+    expect(picker).toHaveAttribute("data-mode", "single");
+    expect(picker).toHaveAttribute("data-types", "video");
+    expect(picker).toHaveAttribute("data-selected", "a-current");
+    await userEvent.click(
+      screen.getByRole("button", { name: "confirm-picked" }),
+    );
+    expect(onChange).toHaveBeenCalledWith({ heroAssetId: "picked-1" });
+    expect(
+      screen.getByRole("button", { name: "Clear media selection" }),
+    ).toBeTruthy();
   });
 });

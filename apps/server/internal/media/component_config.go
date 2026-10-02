@@ -55,13 +55,14 @@ func (normalizer componentConfigNormalizer) normalize(ctx context.Context, raw j
 		schema[field.Key] = true
 	}
 	reads := contentdefs.TemplateReads(*normalizer.definition.Component)
+	derived := contentdefs.SchemaDerivedKeys(normalizer.definition.ConfigurationSchema.Fields)
 	retained := map[string]any{}
 	authored := map[string]any{}
 	for key, value := range upgraded {
 		switch {
 		case schema[key]:
 			authored[key] = value
-		case contentdefs.DerivedConfigurationKeys[key]:
+		case contentdefs.DerivedConfigurationKeys[key] || derived[key]:
 			// Derived keys come from manifest projection, never a client.
 			return nil, fmt.Errorf("configuration contains unknown field %q", key)
 		case reads[key]:

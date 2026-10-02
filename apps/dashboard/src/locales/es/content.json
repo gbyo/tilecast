@@ -388,6 +388,7 @@
     }
   },
   "widgets": {
+    "duplicateSuccess": "Widget duplicado.",
     "list": {
       "title": "Widgets",
       "create": "Crear widget",
@@ -498,6 +499,13 @@
       "addItem": "Añadir elemento",
       "selectPlaceholder": "Seleccionar…",
       "selectSourceFirst": "Selecciona primero una fuente de datos.",
+      "mediaAsset": {
+        "none": "Ningún medio seleccionado",
+        "clear": "Borrar la selección de medios",
+        "pickerTitle": "Elegir medio",
+        "pickerDescription": "Busca o explora toda la biblioteca de medios.",
+        "pickerConfirm": "Seleccionar medio"
+      },
       "removeItem": "Quitar elemento {{index}} de {{label}}",
       "guide": {
         "shapeRecords": "filas de registros",
@@ -712,6 +720,7 @@
     }
   },
   "dataSources": {
+    "deleteSuccess": "Fuente de datos eliminada.",
     "calendar": {
       "addCalendar": "Agregar calendario",
       "calendarsLegend": "Calendarios",
