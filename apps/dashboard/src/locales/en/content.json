@@ -130,7 +130,7 @@
       "removeTag": "Remove {{name}}",
       "restore": "Restore",
       "sectionLabel": "Content organization",
-      "selectPage": "Select page",
+      "selectLoaded": "Select loaded",
       "tagChange": "Tag change"
     },
     "organizer": {
@@ -378,6 +378,7 @@
     }
   },
   "widgets": {
+    "duplicateSuccess": "Widget duplicated.",
     "list": {
       "title": "Widgets",
       "create": "Create Widget",
@@ -430,6 +431,7 @@
       "playlistNoSources": "Nothing in this playlist reads a data source.",
       "sourceKind": "Data source",
       "sourceFailed": "Last refresh failed",
+      "sourceMissing": "Linked data source {{id}} is unavailable.",
       "records_one": "{{count}} record",
       "records_other": "{{count}} records",
       "sourcesError": "Data sources could not be resolved"
@@ -480,6 +482,13 @@
       "addItem": "Add item",
       "selectPlaceholder": "Select…",
       "selectSourceFirst": "Select a Data Source first",
+      "mediaAsset": {
+        "none": "No media selected",
+        "clear": "Clear media selection",
+        "pickerTitle": "Choose media",
+        "pickerDescription": "Search or browse the full media library.",
+        "pickerConfirm": "Select media"
+      },
       "removeItem": "Remove {{label}} item {{index}}",
       "guide": {
         "shapeRecords": "record rows",
@@ -692,6 +701,7 @@
     }
   },
   "dataSources": {
+    "deleteSuccess": "Data Source deleted.",
     "calendar": {
       "addCalendar": "Add calendar",
       "calendarsLegend": "Calendars",

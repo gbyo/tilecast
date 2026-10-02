@@ -295,15 +295,19 @@ export function V2WidgetEditor({
     name !== (asset?.name ?? definition.name) ||
     description !== (asset?.description ?? definition.description);
   const previewBlocked =
+    !regional.ready ||
     !component ||
     compiled.problem !== undefined ||
     sourcesLoading ||
     sourcesFailed;
+  const previewState: WidgetMountState = regional.ready
+    ? mountState
+    : { state: "pending" };
   const saveDisabled =
     readOnly ||
     previewBlocked ||
-    mountState.state === "pending" ||
-    mountState.state === "error" ||
+    previewState.state === "pending" ||
+    previewState.state === "error" ||
     !name.trim();
 
   // Save captures the canonical thumbnail frame, never the author's
@@ -495,7 +499,7 @@ export function V2WidgetEditor({
             )}
           </div>
           <p className="v2-editor__status" role="status">
-            <PreviewMountStatus state={mountState} />
+            <PreviewMountStatus state={previewState} />
           </p>
         </div>
         <div className="v2-editor__inspector">

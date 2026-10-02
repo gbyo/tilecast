@@ -108,8 +108,13 @@ export function FleetUptimePanel({
 
   return (
     <Card size="sm" role="region" aria-labelledby="uptime-heading">
-      <CardHeader>
-        <CardTitle id="uptime-heading" role="heading" aria-level={2}>
+      <CardHeader className="gap-0">
+        <CardTitle
+          id="uptime-heading"
+          role="heading"
+          aria-level={2}
+          className="flex min-h-8 items-center max-sm:min-h-10"
+        >
           {t("uptime.title")}
         </CardTitle>
         <CardDescription>
@@ -235,17 +240,17 @@ function UptimeBody({ report }: { report: UptimeReport }) {
   const hasChartData = chartData.length > 0;
   return (
     <>
-      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-        <div>
+      <div className="grid gap-3">
+        <div className="grid gap-0.5">
           <div className="text-2xl font-semibold tabular-nums tracking-tight">
             {formatPercent(report.uptimePercent)}
           </div>
-          <div className="mt-1 text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground">
             {t("uptime.upNow", { window: report.windowLabel })}
           </div>
+          <UptimeTrend report={report} />
         </div>
-        <UptimeTrend report={report} />
-        <dl className="ml-0 flex min-w-0 basis-full flex-wrap gap-x-5 gap-y-2 text-sm sm:ml-auto sm:w-auto sm:basis-auto">
+        <dl className="grid grid-cols-3 gap-x-4 border-t pt-3 text-sm">
           <Metric
             label={t("uptime.downLabel")}
             value={formatSeconds(report.downSeconds)}
@@ -407,8 +412,8 @@ function UptimeBody({ report }: { report: UptimeReport }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
+    <div className="min-w-0">
+      <dt className="truncate text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 font-medium tabular-nums">{value}</dd>
     </div>
   );

@@ -697,7 +697,7 @@ describe("content organizer entry point", () => {
     const bar = screen.getByRole("toolbar", { name: "2 selected" });
     expect(bar.className).toContain("fixed");
     expect(
-      within(bar).getByRole("button", { name: "Select page" }),
+      within(bar).getByRole("button", { name: "Select loaded" }),
     ).toBeInTheDocument();
     expect(
       within(bar).getByRole("button", { name: "Clear" }),

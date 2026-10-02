@@ -59,6 +59,10 @@ export function PluginsPage() {
 
   const plugins = catalog.data?.items ?? [];
   const installed = plugins.filter((plugin) => plugin.installed);
+  // A failed load with no usable data owns the content area: the alert is
+  // the state, not a companion to an empty list. Stale data still renders
+  // alongside the alert.
+  const loadFailed = catalog.isError && !catalog.data;
   const unsupported = (catalog.data?.unsupportedInstallations ?? []).filter(
     (item) => !item.retired,
   );
@@ -160,7 +164,7 @@ export function PluginsPage() {
             </Button>
           </EmptyContent>
         </Empty>
-      ) : (
+      ) : loadFailed ? null : (
         <ItemGroup className="gap-2" aria-label={t("list.installedLabel")}>
           {installed.map((plugin) => (
             <InstalledPlugin key={plugin.id} plugin={plugin} />
