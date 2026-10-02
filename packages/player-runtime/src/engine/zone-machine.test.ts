@@ -22,6 +22,28 @@ function item(
 }
 
 describe("layout playlist-zone playback", () => {
+  it("times images but waits for media completion on videos with a duration", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [item("first"), item("clip", "video")],
+        loop: true,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    clock.advance(100);
+    expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("clip");
+    clock.advance(100_000);
+    expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("clip");
+    actor.send({
+      type: "MEDIA_ENDED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("first");
+    actor.stop();
+  });
   it("stops on the last item when the zone loop is off", () => {
     const clock = new ManualClock({ wallMs: 0 });
     const actor = createActor(zoneMachine, {

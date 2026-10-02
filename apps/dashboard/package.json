@@ -22,6 +22,7 @@
     "@tilecast/api-schema": "*",
     "@tilecast/api-schema": "*",
     "@tilecast/design-tokens": "*",
+    "@tilecast/player-runtime": "*",
     "@tilecast/widget-kit": "*",
     "@tilecast/widget-sdk": "*",
     "class-variance-authority": "^0.7.1",

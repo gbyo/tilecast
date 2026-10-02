@@ -276,6 +276,8 @@ export class LayoutSurface implements MediaSurface {
     };
     const releaseNode = (node: HTMLElement) => {
       if (node instanceof HTMLVideoElement) {
+        node.onloadedmetadata = null;
+        node.ontimeupdate = null;
         node.onended = null;
         node.onloadeddata = null;
         node.onerror = null;
@@ -366,6 +368,20 @@ export class LayoutSurface implements MediaSurface {
         next.autoplay = true;
         next.loop = selected.loop;
         next.playsInline = true;
+        if (entry.videoStartOffsetMs && entry.videoStartOffsetMs > 0) {
+          next.onloadedmetadata = () => {
+            next.currentTime = entry.videoStartOffsetMs! / 1_000;
+          };
+        }
+        next.ontimeupdate = () => {
+          if (
+            entry.videoEndOffsetMs != null &&
+            next.currentTime >= entry.videoEndOffsetMs / 1_000
+          ) {
+            next.pause();
+            actor.send({ type: "MEDIA_ENDED", epoch });
+          }
+        };
         next.onloadeddata = accept;
         next.onended = () => actor.send({ type: "MEDIA_ENDED", epoch });
         next.onerror = () => failed(epoch);

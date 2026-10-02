@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,12 @@ import { V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
+import {
+  defaultImageDurationMsForPlayback,
+  fallbackDurationMsFor,
+  playbackDefaultsFromSettings,
+  resolvePlaybackItemSettings,
+} from "@tilecast/player-runtime/playback-settings";
 import type {
   Asset,
   CalendarEvent,
@@ -78,9 +84,21 @@ export function AssetPlaybackPreview({
   return <img {...common} alt="" draggable={false} />;
 }
 
-export function playlistPreviewDuration(item: PlaylistItem) {
-  if (item.durationMs && item.durationMs > 0) return item.durationMs;
-  return item.assetType === "video" ? undefined : 10_000;
+export function playlistPreviewDuration(
+  item: PlaylistItem,
+  playback?: Record<string, unknown>,
+) {
+  // Videos advance at the authored end offset or the media's natural end.
+  if (item.assetType === "video") return undefined;
+  const settings = resolvePlaybackItemSettings(
+    item,
+    playback,
+    fallbackDurationMsFor(
+      item.assetType,
+      defaultImageDurationMsForPlayback(playback),
+    ),
+  );
+  return settings.durationMs ?? undefined;
 }
 
 export function nextPlaylistPreviewIndex(
@@ -116,6 +134,14 @@ export function PlaylistZonePreview({
   captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.settings,
+  });
+  const playback = useMemo(
+    () => playbackDefaultsFromSettings(settingsQuery.data?.values),
+    [settingsQuery.data?.values],
+  );
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
   const [index, setIndex] = useState(0);
   const [failedItemId, setFailedItemId] = useState<string | null>(null);
@@ -138,12 +164,12 @@ export function PlaylistZonePreview({
     setLastGoodItemId(null);
   }, [playlist.id, playlist.revision]);
   useEffect(() => {
-    if (!current) return;
-    const duration = playlistPreviewDuration(current);
-    if (!duration) return;
-    const timer = window.setTimeout(advance, duration);
+    if (!current || !settingsQuery.isFetched) return;
+    const duration = playlistPreviewDuration(current, playback);
+    if (duration === undefined) return;
+    const timer = window.setTimeout(advance, Math.max(0, duration));
     return () => window.clearTimeout(timer);
-  }, [advance, current]);
+  }, [advance, current, playback, settingsQuery.isFetched]);
 
   const fallback = placement.playback?.fallback ?? "background";
   const failed = current !== undefined && failedItemId === current.id;
@@ -180,9 +206,28 @@ export function PlaylistZonePreview({
         <span>{shownItem?.assetName ?? current.assetName}</span>
       </div>
     );
-  const fit = placement.playback?.fit ?? shownItem!.fitMode;
+  const itemPlayback = resolvePlaybackItemSettings(
+    shownItem!,
+    playback,
+    fallbackDurationMsFor(
+      shownItem!.assetType,
+      defaultImageDurationMsForPlayback(playback),
+    ),
+  );
+  const finishVideo = (video: HTMLVideoElement) => {
+    if (shownItem!.id !== current.id) return;
+    video.pause();
+    const loop = placement.playback?.loop !== false;
+    if (loop && nextPlaylistPreviewIndex(index, items.length, loop) === index) {
+      video.currentTime = (shownItem!.videoStartOffsetMs ?? 0) / 1000;
+      void video.play().catch(failCurrent);
+    } else {
+      advance();
+    }
+  };
+  const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
-  const className = `layout-playlist-preview${!failed && (shownItem!.transition === "fade" || shownItem!.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
+  const className = `layout-playlist-preview${!failed && (itemPlayback.transition === "fade" || itemPlayback.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
   if (asset.type === "widget")
     return (
       <div className={className} key={`${playlist.id}-${shownItem!.id}`}>
@@ -207,10 +252,10 @@ export function PlaylistZonePreview({
         style={assetPreviewStyle(fit, radius)}
         autoPlay
         playsInline
-        muted={(placement.playback?.muted ?? true) || !shownItem!.audioEnabled}
+        muted={placement.playback?.muted ?? !itemPlayback.audioEnabled}
         preload="auto"
         onLoadedMetadata={(event) => {
-          event.currentTarget.volume = shownItem!.volume;
+          event.currentTarget.volume = itemPlayback.volume;
           if (shownItem!.videoStartOffsetMs)
             event.currentTarget.currentTime =
               shownItem!.videoStartOffsetMs / 1000;
@@ -223,9 +268,9 @@ export function PlaylistZonePreview({
             event.currentTarget.currentTime >=
               shownItem!.videoEndOffsetMs / 1000
           )
-            advance();
+            finishVideo(event.currentTarget);
         }}
-        onEnded={shownItem!.id === current.id ? advance : undefined}
+        onEnded={(event) => finishVideo(event.currentTarget)}
         onError={shownItem!.id === current.id ? failCurrent : undefined}
       />
     );
