@@ -1,3 +1,4 @@
+import { formatDateTime } from "../lib/dateTime";
 import {
   useInfiniteQuery,
   useMutation,
@@ -420,13 +421,7 @@ function DataSourceMobileCard({
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
   const menuLabel = t("dataSources.list.rowActions", { name: source.name });
-  const updated = new Date(source.updatedAt);
-  const updatedLabel = Number.isNaN(updated.getTime())
-    ? "—"
-    : updated.toLocaleString(locale, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
+  const updatedLabel = formatDateTime(source.updatedAt, locale);
   return (
     <article className="grid gap-3 rounded-xl border border-border p-3">
       <div className="flex min-w-0 items-start gap-3">
@@ -494,7 +489,6 @@ function DataSourceRow({
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
   const menuLabel = t("dataSources.list.rowActions", { name: source.name });
-  const updated = new Date(source.updatedAt);
   return (
     <ContextMenu>
       <ContextMenuTrigger render={<TableRow data-slot="data-source-row" />}>
@@ -518,14 +512,7 @@ function DataSourceRow({
           <SourceStatus status={source.status} />
         </TableCell>
         <TableCell>{source.cachedRecordCount}</TableCell>
-        <TableCell>
-          {Number.isNaN(updated.getTime())
-            ? "—"
-            : updated.toLocaleString(locale, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })}
-        </TableCell>
+        <TableCell>{formatDateTime(source.updatedAt, locale)}</TableCell>
         <TableCell>
           <Link
             to={`/data-sources/${source.id}`}
