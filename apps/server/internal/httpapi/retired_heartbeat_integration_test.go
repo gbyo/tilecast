@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 )
 
 // Noise Meter was removed, but Linux and Edge Players released with it still
@@ -73,9 +74,10 @@ func TestPlayerHeartbeatAcceptsLinuxShapeAndRetiredNoiseMeterSection(t *testing.
 		t.Fatal(err)
 	}
 	s := &server{
-		db:      pool,
-		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		devices: devices.NewService(pool, devices.NewPresenceHub(), "http://localhost"),
+		db:        pool,
+		logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		devices:   devices.NewService(pool, devices.NewPresenceHub(), "http://localhost"),
+		playlists: playlists.NewService(pool, nil),
 	}
 	post := func(body string) (int, map[string]any) {
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/player/heartbeat", bytes.NewReader([]byte(body)))
