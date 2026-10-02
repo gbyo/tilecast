@@ -10,9 +10,13 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import i18next from "i18next";
 import { api, ApiError } from "../api/client";
 import type { Asset, User } from "../api/types";
 import { WidgetProviderGallery } from "../content/SourceEditors";
+import enContent from "../locales/en/content.json";
+import esContent from "../locales/es/content.json";
+import ruContent from "../locales/ru/content.json";
 import {
   AssetCollection,
   AssetOrganization,
@@ -82,6 +86,41 @@ const asset: Asset = {
   tags: [],
   collectionIds: [],
 };
+
+describe("bulk deletion feedback localization", () => {
+  it("uses locale plural rules for one and multiple archived items", async () => {
+    const locale = i18next.createInstance();
+    await locale.init({
+      fallbackLng: false,
+      lng: "en",
+      resources: {
+        en: { content: enContent },
+        es: { content: esContent },
+        ru: { content: ruContent },
+      },
+      ns: ["content"],
+      defaultNS: "content",
+    });
+    const success = (count: number) =>
+      locale.t("media.bulkDelete.success", "", { count });
+
+    expect(success(1)).toBe("1 archived item permanently deleted.");
+    expect(success(2)).toBe("2 archived items permanently deleted.");
+
+    await locale.changeLanguage("es");
+    expect(success(1)).toBe(
+      "Se eliminó 1 elemento archivado de forma permanente.",
+    );
+    expect(success(2)).toBe(
+      "Se eliminaron 2 elementos archivados de forma permanente.",
+    );
+
+    await locale.changeLanguage("ru");
+    expect(success(1)).toBe("Безвозвратно удалён 1 архивный элемент.");
+    expect(success(2)).toBe("Безвозвратно удалено 2 архивных элемента.");
+    expect(success(5)).toBe("Безвозвратно удалено 5 архивных элементов.");
+  });
+});
 
 describe("content library", () => {
   it("enforces viewer read-only behavior", () => {

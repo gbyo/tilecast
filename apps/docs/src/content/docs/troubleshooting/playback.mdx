@@ -37,6 +37,18 @@ Around daylight-saving changes, Tilecast follows the selected timezone's calenda
 
 If a Player went offline before receiving a new one-time Schedule, it cannot know about that Schedule until it reconnects. Recurring rules the Player already has can continue offline when their required content is cached.
 
+## Screen Events show the same item starting and ending over and over
+
+Open **Activity** > **Screen Events** for the screen. If one item starts and completes several times a second, the Player is remounting it instead of showing it. The item flickers, and it uses the display's processor for nothing.
+
+Tilecast doesn't list these as plays in **Proof of Play**: a play needs at least one second on screen. It keeps the raw events so you can find the screen.
+
+Check these causes in order:
+
+1. **The item's duration.** An item stored with a duration of `0` used to be read as "zero seconds" by some Players. Open the playlist, set a duration of at least one second, and publish it.
+2. **The Player version.** Update the Player. Current versions read a missing or zero duration as "use the default", never show an item for less than one second, and don't restart an item that is already on screen.
+3. **Synchronized groups.** A group member with a zero-length slot affects every screen in the group. Fix the item's duration first.
+
 ## Cached content disappeared
 
 Cached content belongs to a specific Tilecast installation and screen.
