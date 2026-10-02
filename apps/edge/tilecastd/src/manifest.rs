@@ -1737,6 +1737,10 @@ mod tests {
         value["widgets"] = component("tilecast.clock", 2);
         value["widgets"][0]["presentation"]["schemaVersion"] = serde_json::json!(3);
         value["widgets"][0]["presentation"]["component"]["empty"] = serde_json::json!("render");
+        value["playlist"]["items"] = serde_json::json!([{
+            "id": ITEM, "assetId": WIDGET, "assetType": "widget",
+            "deliveryPolicy": "stream", "durationMs": 30000
+        }]);
         let candidate = parse(value.clone()).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         let resolved = candidate.presentation(1_000).unwrap();

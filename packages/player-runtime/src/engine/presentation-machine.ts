@@ -211,9 +211,13 @@ export const presentationMachine = setup({
           context.authority,
           context.items.length === 1 && item.kind === "video",
         ),
-        consecutiveEmptySkips: isAutoSkipWidget(item, context.authority)
-          ? context.consecutiveEmptySkips
-          : 0,
+        consecutiveEmptySkips:
+          isAutoSkipWidget(item, context.authority) ||
+          (context.authority === "local" &&
+            item.kind === "widget" &&
+            widgetComponent(item)?.component.empty === "skip-eligible")
+            ? context.consecutiveEmptySkips
+            : 0,
       };
     }),
     /** Evidence and deadlines that start with the occurrence itself. */
@@ -248,6 +252,7 @@ export const presentationMachine = setup({
         ? { ...context.stage, phase: "shown" as const }
         : null,
       consecutiveFailures: 0,
+      consecutiveEmptySkips: 0,
     })),
     markStageSkipping: assign(({ context }) => ({
       stage: context.stage

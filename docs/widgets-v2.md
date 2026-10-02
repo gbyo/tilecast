@@ -213,6 +213,8 @@ Manifest v16 uses component presentation schema 2 as shown. Manifest v17 uses sc
 
 `empty` is `render` or `skip-eligible`, from the Widget component declaration. The Player Runtime uses the policy with the actual `WidgetMount` state. An empty `skip-eligible` component advances only a local fullscreen playlist item. A `render` component, synchronized playback, and a Widget inside a Layout keep their existing behavior.
 
+A lap of empty Widgets pauses for 30 seconds before the next attempt. A shown Widget resets the empty-skip count. Events from a replaced mount cannot advance the current item.
+
 - `config` is a bounded JSON object: at most 8 KiB encoded, depth 6, 64 keys for each object, 200 items for each array and 2,000 characters for each string.
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.

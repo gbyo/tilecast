@@ -259,6 +259,32 @@ describe("presentation machine", () => {
     expect(h.log).toContain("widget-empty:changing");
   });
 
+  it("pauses an empty component lap and ignores replaced mount signals", () => {
+    const h = harness([
+      componentItem("x", "skip-eligible"),
+      componentItem("y", "skip-eligible"),
+    ]);
+    const firstMount = h.mount();
+    h.ready(true);
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("y");
+    h.actor.send({ type: "WIDGET_EMPTY", mount: firstMount });
+    expect(h.state()).toBe("preparing");
+    h.ready(true);
+    h.clock.advance(29_999);
+    expect(h.state()).toBe("skipping");
+    expect(h.stage()!.item.id).toBe("y");
+    h.clock.advance(1);
+    expect(h.stage()!.item.id).toBe("x");
+    expect(h.state()).toBe("preparing");
+    h.actor.send({ type: "WIDGET_EMPTY", mount: firstMount });
+    expect(h.state()).toBe("preparing");
+    expect(
+      h.log.filter((entry) => entry.startsWith("widget-empty:")),
+    ).toHaveLength(2);
+    h.actor.stop();
+  });
+
   it("renders empty components declared render and in synchronized playback", () => {
     const render = harness([componentItem("render", "render"), item("next")]);
     render.ready(true);
