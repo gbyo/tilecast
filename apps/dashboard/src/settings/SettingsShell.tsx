@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import {
+  Collapsible,
+  CollapsibleChevron,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/studio/StudioCollapsible";
 import {
   Sheet,
   SheetContent,
@@ -15,7 +22,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
@@ -198,52 +204,107 @@ function SettingsSectionsNav({
   onNavigate: (next: SettingsSectionId) => boolean;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const groupKeyOf = (id: SettingsSectionId) =>
+    settingsNavigation.find((group) =>
+      group.items.some((item) => item.id === id),
+    )?.labelKey;
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
+    const activeGroup = groupKeyOf(active);
+    return new Set(activeGroup ? [activeGroup] : []);
+  });
+  useEffect(() => {
+    const activeGroup = groupKeyOf(active);
+    if (!activeGroup) return;
+    setOpenGroups((prev) => {
+      if (prev.has(activeGroup)) return prev;
+      const next = new Set(prev);
+      next.add(activeGroup);
+      return next;
+    });
+  }, [active]);
+  const setGroupOpen = (key: string, open: boolean) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
   return (
     <Sidebar collapsible="none" className="h-auto w-full bg-transparent">
       <SidebarContent>
-        {settingsNavigation.map((group) => (
-          <SidebarGroup key={group.labelKey}>
-            <SidebarGroupLabel>{t(group.labelKey)}</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const Icon = sectionDetails[item.id].icon;
-                  const isActive = active === item.id;
-                  const isDirty = dirty.has(item.id);
-                  const badgeId = `settings-nav-unsaved-${item.id}`;
-                  return (
-                    <SidebarMenuItem key={item.id}>
-                      <SidebarMenuButton
-                        isActive={isActive}
-                        // Room for the widest translated badge, so a
-                        // long label truncates instead of running under it.
-                        className={isDirty ? "pr-24" : undefined}
-                        render={
-                          <Link
-                            to={`/settings/${item.path}`}
-                            aria-current={isActive ? "page" : undefined}
-                            aria-describedby={isDirty ? badgeId : undefined}
-                            onClick={(event) => {
-                              if (!onNavigate(item.id)) event.preventDefault();
-                            }}
-                          />
-                        }
-                      >
-                        <Icon aria-hidden="true" />
-                        <span>{t(item.labelKey)}</span>
-                      </SidebarMenuButton>
-                      {isDirty && (
-                        <SidebarMenuBadge id={badgeId}>
-                          {t("shell.unsavedBadge")}
-                        </SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+        {settingsNavigation.map((group) => {
+          const open = openGroups.has(group.labelKey);
+          const groupDirty = group.items.some((item) => dirty.has(item.id));
+          return (
+            <SidebarGroup key={group.labelKey}>
+              <Collapsible
+                open={open}
+                onOpenChange={(next) => setGroupOpen(group.labelKey, next)}
+              >
+                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+                  <span className="text-xs font-medium text-sidebar-foreground/70">
+                    {t(group.labelKey)}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    {!open && groupDirty ? (
+                      <Badge variant="secondary">
+                        {t("shell.unsavedBadge")}
+                      </Badge>
+                    ) : null}
+                    <CollapsibleChevron
+                      size={14}
+                      className="text-sidebar-foreground/70"
+                    />
+                  </span>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {group.items.map((item) => {
+                        const Icon = sectionDetails[item.id].icon;
+                        const isActive = active === item.id;
+                        const isDirty = dirty.has(item.id);
+                        const badgeId = `settings-nav-unsaved-${item.id}`;
+                        return (
+                          <SidebarMenuItem key={item.id}>
+                            <SidebarMenuButton
+                              isActive={isActive}
+                              // Room for the widest translated badge, so a
+                              // long label truncates instead of running under it.
+                              className={isDirty ? "pr-24" : undefined}
+                              render={
+                                <Link
+                                  to={`/settings/${item.path}`}
+                                  aria-current={isActive ? "page" : undefined}
+                                  aria-describedby={
+                                    isDirty ? badgeId : undefined
+                                  }
+                                  onClick={(event) => {
+                                    if (!onNavigate(item.id))
+                                      event.preventDefault();
+                                  }}
+                                />
+                              }
+                            >
+                              <Icon aria-hidden="true" />
+                              <span>{t(item.labelKey)}</span>
+                            </SidebarMenuButton>
+                            {isDirty && (
+                              <SidebarMenuBadge id={badgeId}>
+                                {t("shell.unsavedBadge")}
+                              </SidebarMenuBadge>
+                            )}
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
     </Sidebar>
   );

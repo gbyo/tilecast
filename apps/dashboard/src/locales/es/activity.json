@@ -582,7 +582,10 @@
       "playingLoading": "Cargando la reproducción confirmada",
       "attentionLoading": "Cargando las pantallas que requieren atención",
       "loading": "Cargando el estado de la flota",
-      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales."
+      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales.",
+      "onlineDetail": "Conectadas ahora",
+      "playingDetail": "Confirmado por el reproductor",
+      "attentionDetail": "Requiere revisión"
     },
     "attention": {
       "title": "Requieren atención",
@@ -590,7 +593,8 @@
       "more_one": "{{count}} pantalla más requiere atención.",
       "more_many": "{{count}} pantallas más requieren atención.",
       "more_other": "{{count}} pantallas más requieren atención.",
-      "incidentsUnavailable": "No se pudieron cargar los detalles de los incidentes, por lo que podrían faltar problemas de reproducción, almacenamiento y modo seguro."
+      "incidentsUnavailable": "No se pudieron cargar los detalles de los incidentes, por lo que podrían faltar problemas de reproducción, almacenamiento y modo seguro.",
+      "viewAll": "Ver todo"
     },
     "reasons": {
       "updateFailed": "Falló la actualización del reproductor",
@@ -606,21 +610,20 @@
     "onAir": {
       "title": "Al aire ahora",
       "description": "Lo que deben mostrar las pantallas en línea.",
-      "playlist": "Lista de reproducción · {{name}}",
-      "presentation": "Presentación · {{name}}",
       "loading": "Cargando pantallas",
       "noneOnline": "Ninguna pantalla está en línea.",
       "noneAssigned": "Las pantallas en línea no tienen nada asignado.",
-      "more_one": "{{count}} pantalla más en línea tiene contenido asignado.",
-      "more_many": "{{count}} pantallas más en línea tienen contenido asignado.",
-      "more_other": "{{count}} pantallas más en línea tienen contenido asignado.",
-      "unassigned_one": "{{count}} pantalla en línea no tiene nada asignado.",
-      "unassigned_many": "{{count}} pantallas en línea no tienen nada asignado.",
-      "unassigned_other": "{{count}} pantallas en línea no tienen nada asignado."
+      "screenCount_one": "{{count}} pantalla",
+      "screenCount_many": "{{count}} pantallas",
+      "screenCount_other": "{{count}} pantallas",
+      "moreGroups_one": "{{count}} más",
+      "moreGroups_many": "{{count}} más",
+      "moreGroups_other": "{{count}} más",
+      "footer": "{{assigned}} asignadas · {{unassigned}} sin asignar"
     },
     "schedulesLoading": "Cargando programaciones",
-    "upcomingStarts": "Comienza · {{name}}",
-    "upcomingEnds": "Termina · {{name}}",
+    "upcomingStartsAt": "Comienza {{time}}",
+    "upcomingEndsAt": "Termina {{time}}",
     "upcomingDetail": "{{content}} · {{targets}}",
     "upcomingPartial": "Según las primeras {{shown}} de {{total}} programaciones.",
     "updatesLoading": "Cargando actualizaciones del reproductor",
