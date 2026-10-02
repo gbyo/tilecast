@@ -6,7 +6,7 @@ import (
 )
 
 func TestPlaybackPlanInstant(t *testing.T) {
-	for _, query := range []string{"at=", "at=2026-10-02", "at=2026-10-02T16:00:00", "at=0001-01-01T00:00:00Z", "at=2026-10-02T16:00:00Z&at=2026-10-02T17:00:00Z", "at=%zz", "unknown=1", "at=2026-10-02T16:00:00Z;at=other"} {
+	for _, query := range []string{"at=", "at=2026-10-02", "at=2026-10-02T16:00:00", "at=0001-01-01T00:00:00Z", "at=2026-10-02T16:00:00Z&at=2026-10-02T17:00:00Z", "at=%zz", "unknown=1", "at=2026-10-02T16:00:00Z;at=other", "at=2026-10-02T16:00:00%2B24:00", "at=2026-10-02T16:00:00-04:60", "at=2026-10-02T16:00:00,123Z"} {
 		t.Run(query, func(t *testing.T) {
 			if _, err := playbackPlanInstant(query); err == nil {
 				t.Fatalf("accepted ambiguous or invalid query %q", query)

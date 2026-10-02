@@ -58,6 +58,7 @@ it("preserves machine-readable overlap errors through typed transport", async ()
         {
           error: {
             code: "playback_expectation_ambiguous",
+            // i18n-ignore: simulated API response, never displayed by this adapter.
             message: "Recorded expectations overlap.",
           },
         },
