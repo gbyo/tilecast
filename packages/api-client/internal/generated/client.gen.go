@@ -2413,6 +2413,8 @@ const (
 	PlayerManifestSchemaVersionN13 PlayerManifestSchemaVersion = 13
 	PlayerManifestSchemaVersionN14 PlayerManifestSchemaVersion = 14
 	PlayerManifestSchemaVersionN15 PlayerManifestSchemaVersion = 15
+	PlayerManifestSchemaVersionN16 PlayerManifestSchemaVersion = 16
+	PlayerManifestSchemaVersionN17 PlayerManifestSchemaVersion = 17
 )
 
 // Valid indicates whether the value is a known member of the PlayerManifestSchemaVersion enum.
@@ -2427,6 +2429,10 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 	case PlayerManifestSchemaVersionN14:
 		return true
 	case PlayerManifestSchemaVersionN15:
+		return true
+	case PlayerManifestSchemaVersionN16:
+		return true
+	case PlayerManifestSchemaVersionN17:
 		return true
 	default:
 		return false

@@ -9138,7 +9138,7 @@ export interface components {
     };
     PlayerManifest: {
       /** @enum {integer} */
-      schemaVersion: 11 | 12 | 13 | 14 | 15;
+      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17;
       /** Format: int64 */
       manifestVersion: number;
       /** Format: uuid */
