@@ -118,8 +118,9 @@ export function PlaylistZonePreview({
   const { t } = useTranslation("layouts");
   const items = playlist.items.filter((item) => item.assetStatus === "ready");
   const [index, setIndex] = useState(0);
+  const [failedItemId, setFailedItemId] = useState<string | null>(null);
+  const [lastGoodItemId, setLastGoodItemId] = useState<string | null>(null);
   const current = items[index % Math.max(1, items.length)];
-  const asset = current ? assetsById.get(current.assetId) : undefined;
   const advance = useCallback(
     () =>
       setIndex((value) => {
@@ -131,7 +132,11 @@ export function PlaylistZonePreview({
       }),
     [items.length, placement.playback?.loop],
   );
-  useEffect(() => setIndex(0), [playlist.id, playlist.revision]);
+  useEffect(() => {
+    setIndex(0);
+    setFailedItemId(null);
+    setLastGoodItemId(null);
+  }, [playlist.id, playlist.revision]);
   useEffect(() => {
     if (!current) return;
     const duration = playlistPreviewDuration(current);
@@ -139,6 +144,23 @@ export function PlaylistZonePreview({
     const timer = window.setTimeout(advance, duration);
     return () => window.clearTimeout(timer);
   }, [advance, current]);
+
+  const fallback = placement.playback?.fallback ?? "background";
+  const failed = current !== undefined && failedItemId === current.id;
+  const previous = lastGoodItemId
+    ? items.find((item) => item.id === lastGoodItemId)
+    : undefined;
+  const shownItem = failed && fallback === "previous" ? previous : current;
+  const asset = shownItem ? assetsById.get(shownItem.assetId) : undefined;
+  const failCurrent = () => {
+    if (current) setFailedItemId(current.id);
+    advance();
+  };
+  const markCurrentReady = () => {
+    if (!current || shownItem?.id !== current.id) return;
+    setLastGoodItemId(current.id);
+    setFailedItemId(null);
+  };
 
   if (!current)
     return (
@@ -148,19 +170,22 @@ export function PlaylistZonePreview({
         <span>{t("preview.zoneEmpty")}</span>
       </div>
     );
+  if (failed && fallback === "hide") return null;
+  if (failed && (fallback === "background" || !shownItem))
+    return <div className="layout-playlist-preview" aria-hidden="true" />;
   if (!asset)
     return (
       <div className="layout-placement-placeholder">
         <ListVideo size={22} />
-        <span>{current.assetName}</span>
+        <span>{shownItem?.assetName ?? current.assetName}</span>
       </div>
     );
-  const fit = placement.playback?.fit ?? current.fitMode;
+  const fit = placement.playback?.fit ?? shownItem!.fitMode;
   const radius = placement.playback?.cornerRadius;
-  const className = `layout-playlist-preview${current.transition === "fade" || current.transition === "crossfade" ? " layout-playlist-preview--fade" : ""}`;
+  const className = `layout-playlist-preview${!failed && (shownItem!.transition === "fade" || shownItem!.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
   if (asset.type === "widget")
     return (
-      <div className={className} key={`${playlist.id}-${current.id}`}>
+      <div className={className} key={`${playlist.id}-${shownItem!.id}`}>
         {asset.widget ? (
           <WidgetLivePreview
             asset={asset}
@@ -176,38 +201,43 @@ export function PlaylistZonePreview({
   if (asset.type === "video")
     return (
       <video
-        key={`${playlist.id}-${current.id}`}
+        key={`${playlist.id}-${shownItem!.id}`}
         className={className}
         src={api.assetPreviewUrl(asset.id)}
         style={assetPreviewStyle(fit, radius)}
         autoPlay
         playsInline
-        muted={(placement.playback?.muted ?? true) || !current.audioEnabled}
+        muted={(placement.playback?.muted ?? true) || !shownItem!.audioEnabled}
         preload="auto"
         onLoadedMetadata={(event) => {
-          event.currentTarget.volume = current.volume;
-          if (current.videoStartOffsetMs)
-            event.currentTarget.currentTime = current.videoStartOffsetMs / 1000;
+          event.currentTarget.volume = shownItem!.volume;
+          if (shownItem!.videoStartOffsetMs)
+            event.currentTarget.currentTime =
+              shownItem!.videoStartOffsetMs / 1000;
         }}
+        onLoadedData={markCurrentReady}
         onTimeUpdate={(event) => {
           if (
-            current.videoEndOffsetMs &&
-            event.currentTarget.currentTime >= current.videoEndOffsetMs / 1000
+            shownItem!.id === current.id &&
+            shownItem!.videoEndOffsetMs &&
+            event.currentTarget.currentTime >=
+              shownItem!.videoEndOffsetMs / 1000
           )
             advance();
         }}
-        onEnded={advance}
-        onError={advance}
+        onEnded={shownItem!.id === current.id ? advance : undefined}
+        onError={shownItem!.id === current.id ? failCurrent : undefined}
       />
     );
   return (
     <img
-      key={`${playlist.id}-${current.id}`}
+      key={`${playlist.id}-${shownItem!.id}`}
       className={className}
       src={api.assetPreviewUrl(asset.id)}
       style={assetPreviewStyle(fit, radius)}
       alt=""
-      onError={advance}
+      onLoad={markCurrentReady}
+      onError={shownItem!.id === current.id ? failCurrent : undefined}
     />
   );
 }
