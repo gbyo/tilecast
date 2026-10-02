@@ -92,7 +92,7 @@ export function WidgetsPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
-      toast.add({ title: "Widget duplicated.", type: "success" });
+      toast.add({ title: t("widgets.duplicateSuccess"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       void navigate(`/widgets/${widget.id}`);
     },
@@ -215,11 +215,11 @@ export function WidgetsPage() {
               {t("common:actions.loadMore")}
             </Button>
           )}
-          {/* Storing a capture is an editor-or-above action, so viewers browse the library without
-              it and simply see the unavailable state until someone who can manage content visits. */}
-          <WidgetSnapshotBackfill assets={items} enabled={canManage} />
         </>
       )}
+      {/* Discovery runs independently of visible search and provider filters, including while the
+          filtered library is empty or still loading. Only content managers can upload captures. */}
+      <WidgetSnapshotBackfill enabled={canManage} />
     </section>
   );
 }

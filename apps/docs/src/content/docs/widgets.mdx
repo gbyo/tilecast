@@ -78,7 +78,11 @@ The preview in the Widget editor uses the same Widget renderer as current Linux 
 - **Preview time** is **Live** by default. Select **At a time** to see how a Clock, Agenda, or other time-based Widget looks at a chosen date and time. The selected calendar date also drives date-sensitive Data Source previews, so both use the same day.
 - In **Live** mode, the preview uses the Data Source's current data. If the source has no data yet, the preview shows the Widget's empty message.
 
+For Widgets that chart time-series data, Studio uses the same points, timezone, and units as the Player.
+
 Below the preview, Studio reports whether the preview is ready, empty, or can't render, with the reason. If a connected Data Source fails to load, saving stays disabled until the source works or you disconnect it. Studio also waits for [organization regional settings](../administration/language-regional/) before it enables **Save Widget**, so the thumbnail uses the configured date and time formats. When you save, Studio stores a 16:9 render as the Widget's thumbnail, no matter which preview size you had selected. If Studio can't capture or upload the thumbnail, it still saves the Widget and shows a warning. Visit the Widgets library later to retry the missing preview.
+
+When a content manager opens **Widgets**, Studio checks the full library for missing or outdated thumbnails in the background. Search and provider filters do not limit this check, and Studio captures one Widget at a time.
 
 ## Choose a Clock style
 
