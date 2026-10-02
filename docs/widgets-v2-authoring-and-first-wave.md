@@ -556,6 +556,10 @@ while the Widget expects semantic concepts.
 
 Add an optional, small semantic-role vocabulary to Data Source output fields.
 
+The Server preserves a field's optional `role` in each Player Data Document.
+Roles use lowercase identifiers made from letters, digits, and underscores,
+with a 40-character limit. Widgets should use the shared roles listed below.
+
 Initial roles should exist only because a first-wave Widget consumes them.
 
 ### Feed/news roles
@@ -1251,6 +1255,10 @@ Do not capture while source previews are loading.
 The V2 editor waits for the organization regional profile to load before it
 enables Save or starts a thumbnail capture. Do not use the temporary locale
 and timezone fallbacks in a stored thumbnail.
+
+When a content manager opens the Widgets library, Studio discovers capture
+candidates with sequential, unfiltered pages. Process at most one Widget
+capture at a time, independent of the visible search and provider filters.
 
 Generated `::before`/`::after` content is part of the Widget's pixels.
 Preserve it in captures with its computed style.

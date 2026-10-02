@@ -39,6 +39,12 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { toast } from "../components/ui/toast";
 import { useFormatLocale } from "../i18n";
 
@@ -69,16 +75,48 @@ export function SecurityPage() {
  * authenticator QR/code step, passkey rename) expand inline beneath their
  * row; anything that needs a password confirmation or shows secrets once
  * interrupts in a Dialog instead.
+ *
+ * The five areas share one tab strip so a single task never requires
+ * scanning the other four. Panels stay mounted so in-progress flows and
+ * their queries survive switching, and the authenticator section opens
+ * first so required MFA enrollment stays directly accessible.
  */
 export function SecurityPanels({ status }: { status: SecurityStatus }) {
+  const { t } = useTranslation(["account", "common"]);
   return (
-    <div className="grid gap-6">
-      <AuthenticatorBlock status={status} />
-      <PasskeyBlock status={status} />
-      <RecoveryCodeBlock status={status} />
-      <OAuthGrantsBlock />
-      <PersonalAccessTokensBlock />
-    </div>
+    <Tabs defaultValue="authenticator">
+      <TabsList
+        aria-label={t("myAccount.sections.security.title")}
+        className="max-w-full overflow-x-auto"
+      >
+        <TabsTrigger value="authenticator">
+          {t("security.authenticator.title")}
+        </TabsTrigger>
+        <TabsTrigger value="passkeys">
+          {t("security.passkeys.title")}
+        </TabsTrigger>
+        <TabsTrigger value="recovery">
+          {t("security.recovery.title")}
+        </TabsTrigger>
+        <TabsTrigger value="oauth">{t("oauth.grantsTitle")}</TabsTrigger>
+        <TabsTrigger value="tokens">{t("pat.title")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="authenticator" keepMounted>
+        <AuthenticatorBlock status={status} />
+      </TabsContent>
+      <TabsContent value="passkeys" keepMounted>
+        <PasskeyBlock status={status} />
+      </TabsContent>
+      <TabsContent value="recovery" keepMounted>
+        <RecoveryCodeBlock status={status} />
+      </TabsContent>
+      <TabsContent value="oauth" keepMounted>
+        <OAuthGrantsBlock />
+      </TabsContent>
+      <TabsContent value="tokens" keepMounted>
+        <PersonalAccessTokensBlock />
+      </TabsContent>
+    </Tabs>
   );
 }
 

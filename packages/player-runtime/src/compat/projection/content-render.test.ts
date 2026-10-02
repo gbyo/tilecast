@@ -844,7 +844,7 @@ describe("renderLayout", () => {
               variantId: "v2",
               assetType: "image",
               fitMode: "contain",
-              transition: "none",
+              transition: "crossfade",
               audioEnabled: true,
               volume: 1,
               deliveryPolicy: "download",
@@ -877,6 +877,7 @@ describe("renderLayout", () => {
             visible: true,
             locked: false,
             playlistId: "p1",
+            playback: { loop: false, fallback: "previous", cornerRadius: 12 },
           },
         ],
       },
@@ -900,8 +901,14 @@ describe("renderLayout", () => {
         fit: "cover",
         muted: true,
         volume: 0.25,
+        transition: "crossfade",
+        radius: 12,
       },
     ]);
+    expect(payload.zones[0]).toMatchObject({
+      loop: false,
+      fallback: "previous",
+    });
   });
 
   it("does not produce a blank layout when every visible zone is unavailable", () => {
@@ -1058,5 +1065,50 @@ describe("renderLayout", () => {
       height: 200,
     });
     expect(payload.backgroundImageViewport?.x).toBe(1920);
+  });
+
+  it("keeps the canvas background when every visible placement is outside a Span panel", () => {
+    const document: LayoutDocument = {
+      schemaVersion: 2,
+      canvas: {
+        width: 3840,
+        height: 1080,
+        orientation: "landscape",
+        backgroundColor: "#101418",
+      },
+      placements: [
+        {
+          id: "off-panel",
+          type: "primitive",
+          name: "off-panel",
+          x: 2400,
+          y: 0,
+          width: 800,
+          height: 200,
+          layer: 1,
+          opacity: 1,
+          visible: true,
+          locked: false,
+          primitive: { kind: "text", text: "other panel" },
+        },
+      ],
+    };
+
+    const payload = renderLayout(
+      document,
+      { manifest, widgets: new Map(), dataSources: new Map(), at },
+      {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        rotation: 0,
+        order: 0,
+        canvasWidth: 3840,
+        canvasHeight: 1080,
+      },
+    );
+
+    expect(payload).toMatchObject({ background: "#101418", zones: [] });
   });
 });

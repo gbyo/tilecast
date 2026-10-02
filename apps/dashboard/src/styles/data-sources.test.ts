@@ -36,6 +36,17 @@ function mediaBlock(query: string): string | null {
 }
 
 describe("data-sources editor stylesheet", () => {
+  it("keeps every generic editor footer sticky, not just widgets", () => {
+    // Both GenericWidgetEditor and GenericDataSourceEditor render
+    // GenericEditorShell with the shared `source-editor` class, so the
+    // sticky footer rule must hang off that class to keep Save reachable
+    // in long schema-driven Data Source forms too.
+    const body = ruleBody(".source-editor > footer");
+    expect(body).not.toBeNull();
+    expect(body).toMatch(/position\s*:\s*sticky/);
+    expect(body).toMatch(/bottom\s*:\s*0/);
+  });
+
   it("keeps the V2 live preview stuck alongside long inspectors", () => {
     const body = ruleBody(".v2-editor__preview");
     expect(body).not.toBeNull();
