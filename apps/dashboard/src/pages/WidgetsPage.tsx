@@ -92,7 +92,7 @@ export function WidgetsPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
-      toast.add({ title: "Widget duplicated.", type: "success" });
+      toast.add({ title: t("widgets.duplicateSuccess"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       void navigate(`/widgets/${widget.id}`);
     },
