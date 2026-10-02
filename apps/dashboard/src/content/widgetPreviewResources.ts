@@ -148,6 +148,10 @@ export function previewToDataDocument(
         id: record.id,
         values: recordValues(record.values, dataset.fields),
       })),
+      points: dataset.points?.map((point) => ({
+        at: point.at,
+        values: recordValues(point.values, dataset.fields),
+      })),
       value:
         dataset.values !== undefined
           ? {
@@ -156,6 +160,8 @@ export function previewToDataDocument(
             }
           : null,
       attribution: dataset.attribution,
+      timezone: dataset.timezone,
+      units: dataset.units,
     }));
     return { schemaVersion: 1, datasets };
   }

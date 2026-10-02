@@ -158,7 +158,7 @@ export function DataSourcesPage() {
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteDataSource(id, csrf),
     onSuccess: () => {
-      toast.add({ title: "Data Source deleted.", type: "success" });
+      toast.add({ title: t("dataSources.deleteSuccess"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
     },
   });

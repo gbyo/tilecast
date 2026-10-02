@@ -970,7 +970,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           </FieldLabel>
                           <DateTimeInput
                             id={`block-start-${block.id}`}
-                            aria-label="Starts"
+                            aria-label={t("campaigns.editor.startsLabel")}
                             timeLabel={t("campaigns.editor.startTimeLabel")}
                             value={dateTimeInput(block.oneTimeStart)}
                             onChange={(value) =>
@@ -986,7 +986,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                           </FieldLabel>
                           <DateTimeInput
                             id={`block-end-${block.id}`}
-                            aria-label="Ends"
+                            aria-label={t("campaigns.editor.endsLabel")}
                             timeLabel={t("campaigns.editor.endTimeLabel")}
                             value={dateTimeInput(block.oneTimeEnd)}
                             onChange={(value) =>
@@ -1153,7 +1153,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   value={selectedContent}
                   onValueChange={(next) => setSelectedContent(next as string)}
                   items={[
-                    { value: "", label: "Select content" },
+                    {
+                      value: "",
+                      label: t("campaigns.editor.selectContent"),
+                    },
                     ...contentOptions.map((item) => ({
                       value: item.id,
                       label: item.name,
@@ -1290,7 +1293,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
                   value={destination}
                   onValueChange={(next) => setDestination(next as string)}
                   items={[
-                    { value: "", label: "Select destination" },
+                    {
+                      value: "",
+                      label: t("campaigns.editor.selectDestination"),
+                    },
                     ...destinationOptions.map((item) => ({
                       value: item.id,
                       label: item.name,

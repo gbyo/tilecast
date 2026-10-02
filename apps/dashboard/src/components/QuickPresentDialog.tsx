@@ -126,7 +126,7 @@ export function QuickPresentDialog({
         csrfToken,
       ),
     onSuccess: async () => {
-      toast.add({ title: "Show Now started.", type: "success" });
+      toast.add({ title: t("quickPresent.started"), type: "success" });
       await queryClient.invalidateQueries({
         queryKey: ["presentation-overrides"],
       });
