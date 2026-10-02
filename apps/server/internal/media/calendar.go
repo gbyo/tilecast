@@ -365,11 +365,23 @@ func filterCalendarEvents(events []CalendarEvent, config CalendarConfig) []Calen
 	return filtered
 }
 
-func (s *Service) refreshCalendar(ctx context.Context, assetID uuid.UUID, config CalendarConfig) (CalendarPreparedData, DataSourceDiagnostics, error) {
-	loc, _ := time.LoadLocation(config.Timezone)
+func calendarPreviewWindow(now time.Time, config CalendarConfig, previewDate string) (time.Time, time.Time) {
+	location, _ := time.LoadLocation(config.Timezone)
+	windowAt := now.In(location)
+	if target, ok := previewDateAt(previewDate, config.Timezone); ok {
+		windowAt = target
+	}
+	return windowAt.AddDate(0, 0, -1), windowAt.AddDate(0, 0, calendarWindowDays)
+}
+
+func (s *Service) refreshCalendar(ctx context.Context, assetID uuid.UUID, config CalendarConfig, previewDates ...string) (CalendarPreparedData, DataSourceDiagnostics, error) {
 	now := time.Now().UTC()
-	windowStart := now.Add(-24 * time.Hour)
-	windowEnd := now.AddDate(0, 0, calendarWindowDays)
+	previewDate := ""
+	if len(previewDates) > 0 {
+		previewDate = previewDates[0]
+	}
+	windowStart, windowEnd := calendarPreviewWindow(now, config, previewDate)
+	loc, _ := time.LoadLocation(config.Timezone)
 	all := []CalendarEvent{}
 	httpCategory := "success"
 	parseStatus := "not_attempted"
@@ -405,13 +417,13 @@ func (s *Service) refreshCalendar(ctx context.Context, assetID uuid.UUID, config
 	return prepared, diagnostics, nil
 }
 
-func (s *Service) CalendarPreview(ctx context.Context, raw json.RawMessage) (CalendarPreview, error) {
+func (s *Service) CalendarPreview(ctx context.Context, raw json.RawMessage, previewDates ...string) (CalendarPreview, error) {
 	normalized, err := (calendarSourceProvider{s}).Normalize(ctx, raw)
 	if err != nil {
 		return CalendarPreview{}, err
 	}
 	config := normalized.(CalendarConfig)
-	prepared, diagnostics, err := s.refreshCalendar(ctx, uuid.Nil, config)
+	prepared, diagnostics, err := s.refreshCalendar(ctx, uuid.Nil, config, previewDates...)
 	if err != nil {
 		return CalendarPreview{}, err
 	}

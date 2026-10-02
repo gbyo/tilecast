@@ -216,4 +216,37 @@ describe("playback controller", () => {
     h.controller.retry();
     expect(h.stage()!.mount).toBe(mount + 1);
   });
+
+  describe("synchronized timing with a degenerate duration", () => {
+    const run = (durationsMs: number[]) => {
+      const h = harness();
+      h.controller.present({
+        type: "presentation",
+        presentation: playing([item("a", { durationMs: 0 })], {
+          synchronized: true,
+        }),
+        timing: {
+          groupId: "g",
+          anchorMs: T0 - 5_000,
+          durationsMs,
+          clockOffsetMs: 0,
+        },
+      });
+      for (let step = 0; step < 600; step += 1) {
+        h.clock.advance(100);
+        if (h.stage()) h.ready();
+      }
+      return h.log.filter((entry) => entry.includes("item-started")).length;
+    };
+
+    it("does not roll the cycle over every millisecond", () => {
+      // Zero used to be clamped to one millisecond, so a minute of playback
+      // produced thousands of item-started / item-transition pairs.
+      expect(run([0])).toBeLessThanOrEqual(61);
+    });
+
+    it("treats a non-finite slot the same way", () => {
+      expect(run([Number.NaN])).toBeLessThanOrEqual(61);
+    });
+  });
 });
