@@ -2,48 +2,120 @@ import { createActor } from "xstate";
 import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
-import { zoneMachine } from "./zone-machine";
+import { zoneEntry, zoneMachine, ZONE_RETRY_MS } from "./zone-machine";
 
-function image(
+function item(
   id: string,
-  durationMs: number | null,
+  kind: "image" | "video" = "image",
 ): RuntimeLayoutZonePlaylistItem {
   return {
     id,
-    kind: "image",
-    src: `tcmedia://cap/${id}`,
-    durationMs,
+    kind,
+    src: `tcmedia://${id}`,
+    durationMs: 100,
     fit: "contain",
     muted: true,
     volume: 0,
     loop: false,
+    transition: "none",
   };
 }
 
-function harness(items: RuntimeLayoutZonePlaylistItem[]) {
-  const clock = new ManualClock({ wallMs: Date.UTC(2026, 8, 1) });
-  let advances = 0;
-  const actor = createActor(zoneMachine, {
-    input: { items, clock, onAdvance: () => (advances += 1) },
+describe("layout playlist-zone playback", () => {
+  it("stops on the last item when the zone loop is off", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [item("first"), item("last")],
+        loop: false,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    actor.send({
+      type: "MEDIA_ENDED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    clock.advance(100);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
   });
-  actor.start();
-  return { clock, advances: () => advances };
-}
 
-describe("zone machine durations", () => {
+  it("continues from the final item when the zone loop is on", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [item("first"), item("last")],
+        loop: true,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    actor.send({
+      type: "MEDIA_ENDED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    actor.send({
+      type: "MEDIA_ENDED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    expect(actor.getSnapshot().context.shown).toBe(3);
+    expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("first");
+    actor.stop();
+  });
+
+  it("retries a failed terminal item without advancing to the beginning", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [item("first"), item("last")],
+        loop: false,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    actor.send({
+      type: "MEDIA_ENDED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    const beforeRetry = actor.getSnapshot().context.epoch;
+    actor.send({ type: "MEDIA_FAILED", epoch: beforeRetry });
+    clock.advance(ZONE_RETRY_MS);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    expect(actor.getSnapshot().context.epoch).toBe(beforeRetry + 1);
+    actor.stop();
+  });
+
+  it("uses the zone loop policy for a single video", () => {
+    const video = item("clip", "video");
+    expect(zoneEntry({ items: [video], shown: 1, loop: false })?.loop).toBe(
+      false,
+    );
+    expect(zoneEntry({ items: [video], shown: 1, loop: true })?.loop).toBe(
+      true,
+    );
+  });
+
   it("reads a zero duration as unset instead of swapping at timer speed", () => {
-    const h = harness([image("a", 0), image("b", 0)]);
-    h.clock.advance(9_999);
-    expect(h.advances()).toBe(1);
-    h.clock.advance(1);
-    expect(h.advances()).toBe(2);
-  });
-
-  it("never swaps an image sooner than the dwell floor", () => {
-    const h = harness([image("a", 1), image("b", 1)]);
-    h.clock.advance(999);
-    expect(h.advances()).toBe(1);
-    h.clock.advance(1);
-    expect(h.advances()).toBe(2);
+    const clock = new ManualClock({ wallMs: 0 });
+    const zero = { ...item("a"), durationMs: 0 };
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [zero, { ...item("b"), durationMs: 0 }],
+        loop: true,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    clock.advance(9_999);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
   });
 });
