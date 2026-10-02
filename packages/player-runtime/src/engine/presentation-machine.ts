@@ -288,16 +288,18 @@ export const presentationMachine = setup({
     finish: enqueueActions(({ context, event, enqueue, self }) => {
       const source = completionSource(event);
       if (!source || !context.stage) return;
-      // Nothing completes before it has been on screen for the dwell floor.
-      // A zero or one-millisecond duration, or a surface that reports "ended"
-      // the instant it mounts, would otherwise advance, remount the same item
-      // and repeat as fast as the renderer can paint. The completion is not
-      // dropped: it is delivered again once the floor has passed, before the
-      // arbiter settles, so exactly one path still wins the occurrence.
+      // A duration timer never completes an occurrence before it has been on
+      // screen for the dwell floor. A zero or one-millisecond duration would
+      // otherwise advance, remount the same item and repeat as fast as the
+      // renderer can paint. The completion is not dropped: it is delivered
+      // again once the floor has passed, before the arbiter settles, so
+      // exactly one path still wins the occurrence. Completions the surface
+      // reports itself (media ended, end offset) come from the media's own
+      // clock, not from a number in the manifest, and are not delayed.
       const remainingDwellMs =
         MIN_ITEM_DWELL_MS -
         (context.clock.monotonicNow() - context.mountedAtMs);
-      if (remainingDwellMs > 0) {
+      if (source === "duration-timer" && remainingDwellMs > 0) {
         const timers = context.timers;
         enqueue(() => timers.after(remainingDwellMs, () => self.send(event)));
         return;

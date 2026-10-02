@@ -154,7 +154,7 @@ export class PlaybackSessionTracker {
       activitySessionId: session.id,
       sessionType: "presentation",
       terminalReason: reason,
-      durationMs: Math.max(0, this.now() - session.startedMs),
+      durationMs: this.elapsedMs(session),
       presentationType: session.context.presentationType,
       presentationId: session.context.presentationId,
       presentationRevision: session.context.presentationRevision,
@@ -251,7 +251,7 @@ export class PlaybackSessionTracker {
       activitySessionId: session.id,
       sessionType: this.sessionTypeFor(session.context),
       terminalReason: reason,
-      durationMs: Math.max(0, this.now() - session.startedMs),
+      durationMs: this.elapsedMs(session),
       contentType: session.context.contentType,
       contentId: session.context.contentId,
       playlistItemId: session.context.playlistItemId,
@@ -274,6 +274,14 @@ export class PlaybackSessionTracker {
    */
   shutdown(reason: TerminalReason = "process_exit"): void {
     this.stopPresentation(reason);
+  }
+
+  /**
+   * Whole milliseconds. The clock is monotonic, so it is fractional, and the
+   * server refuses a batch that carries a non-integer duration.
+   */
+  private elapsedMs(session: OpenSession): number {
+    return Math.max(0, Math.round(this.now() - session.startedMs));
   }
 
   private sessionTypeFor(context: ContentContext) {

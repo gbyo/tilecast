@@ -112,7 +112,6 @@ describe("presentation machine", () => {
     ]);
     const first = h.mount();
     h.ready();
-    h.clock.advance(1_000);
     h.actor.send({ type: "SURFACE_ENDED", mount: first, source: "ended" });
     h.clock.flush();
     expect(h.stage()!.item.id).toBe("b");
@@ -154,14 +153,10 @@ describe("presentation machine", () => {
       expect(h.stage()!.item.id).toBe("b");
     });
 
-    it("holds a surface that reports ended the instant it mounts", () => {
-      const h = harness([item("a", { durationMs: 20_000 }), item("b")]);
-      const first = h.mount();
+    it("delivers a floored timer completion exactly once", () => {
+      const h = harness([item("a", { durationMs: 1 }), item("b")]);
       h.ready();
-      h.actor.send({ type: "SURFACE_ENDED", mount: first, source: "ended" });
-      h.clock.flush();
-      expect(h.stage()!.item.id).toBe("a");
-      h.clock.advance(1_000);
+      h.clock.advance(5_000);
       expect(h.stage()!.item.id).toBe("b");
       expect(started(h, "a")).toBe(1);
       expect(

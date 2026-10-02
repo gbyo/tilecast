@@ -272,6 +272,33 @@ describe("degenerate playback", () => {
     expect(started[0]?.contentType).toBe("image");
   });
 
+  it("reports whole-millisecond durations from a fractional clock", () => {
+    const events: ActivityEventInput[] = [];
+    let clock = 1_000.25;
+    const subject = new PlaybackSessionTracker(
+      (event) => events.push(event),
+      () => clock,
+      () => "s",
+    );
+    subject.startPresentation(root);
+    subject.startContent({
+      contentId: "i",
+      contentType: "image",
+      playlistItemId: "i",
+    });
+    clock += 4_029.6638089999997;
+    subject.finishContent("completed", "expected_item_boundary");
+    subject.stopPresentation("schedule_transition", "partial");
+    for (const event of events) {
+      if (event.durationMs !== undefined) {
+        expect(Number.isInteger(event.durationMs)).toBe(true);
+      }
+    }
+    expect(
+      events.find((e) => e.eventType === "content.completed")?.durationMs,
+    ).toBe(4030);
+  });
+
   it("omits an expected duration of zero", () => {
     const { events, subject } = tracker();
     subject.startPresentation(root);
