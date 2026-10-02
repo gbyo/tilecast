@@ -1,6 +1,6 @@
-# Tilecast architecture through Milestone 4
+# Tilecast architecture
 
-Tilecast begins as a modular monolith. The server compiles into one Go binary, serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled dashboard. PostgreSQL is the source of truth. This keeps a small self-hosted installation understandable while preserving clean package boundaries for later player and media work.
+Tilecast is a self-hosted modular monolith with one organization per installation. The Server compiles into one Go binary. It serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled Studio application. PostgreSQL is the source of truth. This document describes the current architecture. The linked domain documents define the exact contracts.
 
 ## Boundaries
 
@@ -14,12 +14,11 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/playlists` owns ordered playlists, direct assignments, per-screen manifest versions, manifest contracts, and summarized synchronization status.
 - `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
-- `apps/dashboard/src/api` owns browser API types and transport behavior.
+- `packages/api-schema` owns the generated OpenAPI TypeScript contract. `apps/dashboard/src/api/transport.ts` owns the typed first-party JSON transport. Domain modules in `apps/dashboard/src/api/domains/` expose operations to Studio. Dynamic plugin operations use the plugin API boundary.
 - `apps/dashboard/src/data/content.ts` owns Content catalog query keys and options. Asset pages use the actual request filters as their cache key. The library and picker share pagination and processing refresh. The API domain module retains response normalization.
-
 - `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
-- `packages/*-schema` are reserved for stable, versioned cross-application contracts as those protocols are introduced.
+- `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
 ## Authentication model
 
@@ -31,7 +30,7 @@ An account may carry a second factor: an authenticator app, one or more WebAuthn
 
 ## Database evolution
 
-Goose migrations are embedded in the binary and run before the connection pool is opened to serve traffic. Applied versions are recorded by Goose. Migrations must be forward-safe; deployed player manifest schemas will follow separate compatibility rules once introduced.
+Goose migrations are embedded in the binary and run before the Server accepts traffic. Goose records applied versions. Migrations must be forward-safe. Player manifest schemas have separate versioned compatibility rules. See [player-protocol.md](player-protocol.md).
 
 ## Dashboard delivery
 
@@ -39,9 +38,9 @@ During development Vite runs separately and proxies `/api` to the server. The co
 
 Studio text is localized in the browser with react-i18next. English is bundled and each other language is a separate lazily loaded chunk, so the server embeds every locale but a browser only downloads the one it uses. The server API stays English; each person's language is the `preference.language` user preference. See [localization](localization.md).
 
-## Deferred decisions
+## Player enrollment and playback
 
-The player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager.
+The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
