@@ -231,6 +231,14 @@ func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.addReadyImageToPlaylist(t, playlist.ID)
+	var imageID uuid.UUID
+	if err = f.pool.QueryRow(f.ctx, `SELECT asset_id FROM playlist_items WHERE playlist_id=$1`, playlist.ID).Scan(&imageID); err != nil {
+		t.Fatal(err)
+	}
+	imageDuration := int64(10_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: imageID, DurationMS: &imageDuration}); err != nil {
+		t.Fatal(err)
+	}
 	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
 
 	layoutID, revisionID := uuid.New(), uuid.New()
