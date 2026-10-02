@@ -10,7 +10,8 @@
     "lint": "eslint . --max-warnings=0 --cache --cache-strategy content --cache-location .cache/eslint && eslint --max-warnings=0 ../../plugins",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "i18n:scan": "node scripts/i18n-scan.mjs"
+    "i18n:scan": "node scripts/i18n-scan.mjs",
+    "architecture:scan": "node scripts/i18n-scan.mjs --architecture"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

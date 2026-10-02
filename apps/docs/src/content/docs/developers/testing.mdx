@@ -49,6 +49,14 @@ Dashboard CI scans changed Studio TypeScript files against the PR base and fails
 
 Run `npm run test:ci` when you change the scanner or its CI integration. Its Git-fixture tests check baseline comparison, duplicate text, new files, ignore comments, and missing comparison refs.
 
+The architecture check uses the same comparison to flag new raw error feedback, local byte formatters, static generic API requests, and inline query keys in domains that have query contracts. Run it on a changed file with:
+
+```bash
+npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx
+```
+
+Use the shared formatting, localized API-error, typed transport, and query factories when the check finds a regression. It leaves existing findings for deliberate migration. The [engineering test reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#studio-architecture-checks) describes its scope and genuine transport exceptions.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 ## Run tests for changed code
