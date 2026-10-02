@@ -45,6 +45,9 @@ The Studio tests also exercise the existing static-item preview duration.
 The popup Playlist preview resolves its item settings with the same fixtures.
 It uses installation settings for generic preview. A specific Screen can have
 a different effective policy. Studio waits for settings before it shows media.
+The Studio availability clock reevaluates at window boundaries and on tab
+visibility changes. Long waits are bounded to the browser timer limit. A fixed
+preview instant does not follow the live clock. Unmount clears the timer.
 
 The source compiler has no DOM library. A purity test rejects host imports,
 browser globals, ambient clock reads, randomness, and runtime dependencies.
