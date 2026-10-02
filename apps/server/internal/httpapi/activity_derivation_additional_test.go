@@ -45,6 +45,26 @@ func TestPlaybackReplacementAndReconnectPreserveOpenSessions(t *testing.T) {
 	})
 }
 
+func TestReconnectPreservesConfirmedPlaybackCompliance(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		start := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Second)
+		end := start.Add(time.Hour)
+		windowID := insertWindow(t, env, start, end, nil)
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
+			{ID: uuid.New(), Sequence: 1, EventType: "presentation.started", OccurredAt: start, PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "playlist-a", ActivitySessionID: "reconnected-root", Result: "playing"},
+			{ID: uuid.New(), Sequence: 2, EventType: "connection.restored", OccurredAt: start.Add(30 * time.Minute), PlayerTimezone: "UTC", Result: "recovered"},
+			{ID: uuid.New(), Sequence: 3, EventType: "presentation.stopped", OccurredAt: end, PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "playlist-a", ActivitySessionID: "reconnected-root", Result: "completed", TerminalReason: "completed_duration", DurationMS: int64Pointer(time.Hour.Milliseconds())},
+		}}, http.StatusAccepted)
+		if err := env.server.evaluateExpectedWindows(context.Background(), &env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		status, confirmed := windowStatus(t, env, windowID)
+		if status != matchConfirmed || confirmed != time.Hour.Milliseconds() {
+			t.Fatalf("reconnect compliance status=%q confirmed=%d", status, confirmed)
+		}
+	})
+}
+
 func TestActivityRetentionPreservesOpenSessions(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		ctx := context.Background()
