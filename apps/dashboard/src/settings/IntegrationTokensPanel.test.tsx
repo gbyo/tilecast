@@ -121,8 +121,10 @@ describe("Integration tokens", () => {
     const user = userEvent.setup();
     const today = new Date();
     const day = today.getDate();
+    // "October 2" must not also match October 20 through 29, so the day number
+    // may not be followed by another digit.
     const calendarDay = new RegExp(
-      today.toLocaleString("en-US", { month: "long" }) + " " + day,
+      today.toLocaleString("en-US", { month: "long" }) + " " + day + "(?!\\d)",
     );
 
     await user.type(await screen.findByLabelText("Name"), "Menu importer");
