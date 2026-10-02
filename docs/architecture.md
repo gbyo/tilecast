@@ -61,9 +61,16 @@ invariant with a unique membership constraint. Assigning content through any
 member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
-for half-open interval evaluation and deterministic precedence: priority, later
-effective start, then stable ID. The Android `ScheduleEngine` implements the
+for half-open interval evaluation and deterministic precedence: priority,
+target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
 same transport semantics for offline evaluation.
+
+`scheduling.Explain` calls this same resolver. It returns a reason code for
+each selected, inactive, or superseded schedule. Selection and explanation
+use one precedence comparator. Disabled schedules do not contribute a next
+transition. The supplied schedules describe a configuration at an explicit
+instant; they do not establish a historical expectation. Historical reports
+must use recorded expected playback windows.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for
