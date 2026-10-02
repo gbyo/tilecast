@@ -40,7 +40,6 @@ export {
   type WidgetDateSelection,
   type WidgetDataDocument,
   type WidgetDataset,
-  type WidgetDateSelection,
   type WidgetField,
   type WidgetMediaRef,
   type WidgetPoint,
