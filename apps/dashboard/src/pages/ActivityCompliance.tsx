@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { activityQueries } from "../data/activity";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { translateKnown, useFormatLocale } from "../i18n";
@@ -26,12 +27,8 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
+import { type ComplianceDimension } from "../api/domains/activity";
 import {
-  getPlaybackCompliance,
-  type ComplianceDimension,
-} from "../api/domains/activity";
-import {
-  activityParams,
   ErrorNotice,
   formatDuration,
   humanize,
@@ -127,16 +124,9 @@ export function CompliancePanel({ range }: { range: ResolvedTimeRange }) {
   const { t } = useTranslation("activity");
   const locale = useFormatLocale();
   const [dimension, setDimension] = useState<ComplianceDimension>("screen");
-  const params = activityParams(range, { dimension });
-  const query = useQuery({
-    queryKey: ["activity", "compliance", params.toString()],
-    queryFn: () =>
-      getPlaybackCompliance({
-        from: range.from,
-        to: range.to,
-        dimension,
-      }),
-  });
+  const query = useQuery(
+    activityQueries.compliance({ from: range.from, to: range.to, dimension }),
+  );
 
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;
