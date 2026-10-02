@@ -21,7 +21,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import { hasNextPage } from "../api/pagination";
+import { layoutKeys, layoutQueries } from "../data/layouts";
 import type {
   LayoutDocument,
   LayoutOrientation,
@@ -373,12 +373,7 @@ export function LayoutsPage() {
     null,
   );
 
-  const layouts = useInfiniteQuery({
-    queryKey: ["layouts", "library", search],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.layoutPage(search, pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const layouts = useInfiniteQuery(layoutQueries.pages(search));
   const create = useMutation({
     mutationFn: async () => {
       const pendingAnnouncement = pendingAnnouncementRef.current;
@@ -434,12 +429,12 @@ export function LayoutsPage() {
       pendingAnnouncementRef.current = null;
       setPendingAnnouncementLayoutId(undefined);
       toast.add({ title: "Layout created.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
     onError: () => {
       if (pendingAnnouncementRef.current) {
-        void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+        void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       }
     },
   });
@@ -450,7 +445,7 @@ export function LayoutsPage() {
     onMutate: () => setActionError(""),
     onSuccess: (layout) => {
       toast.add({ title: "Layout duplicated.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
     onError: (error) =>
@@ -478,7 +473,7 @@ export function LayoutsPage() {
       toast.add({ title: "Layout renamed.", type: "success" });
       setRenaming(undefined);
       setRenameName("");
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>
       setActionError(
@@ -492,7 +487,7 @@ export function LayoutsPage() {
     onMutate: () => setActionError(""),
     onSuccess: () => {
       toast.add({ title: "Layout deleted.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>
       setActionError(
