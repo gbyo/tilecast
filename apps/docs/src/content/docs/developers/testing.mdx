@@ -69,6 +69,8 @@ Schedule pages, editor defaults, detail breadcrumbs, and proposed previews use t
 
 The query tests use MSW at the HTTP boundary and check multi-page loading, shared prefetched details, preview separation, and invalidation. Keep schedule selection on the Server; query factories only fetch and cache the result. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries) for ownership.
 
+Schedule create, update, and delete use `mutationOptions()` factories in the same module. These factories invalidate Schedule and preview caches after success. The editor supplies its own localized feedback and navigation through mutation callbacks. The mutation tests cover CSRF, rejected requests, and a submitting view leaving before the response arrives: cache invalidation must still happen, while feedback for the old view must stop.
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
