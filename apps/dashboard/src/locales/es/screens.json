@@ -1,4 +1,115 @@
 {
+  "playbackPlan": {
+    "title": "Presentación esperada",
+    "loading": "Cargando la explicación de reproducción",
+    "content": "Contenido seleccionado",
+    "selectedBy": "Seleccionado por",
+    "nextEvaluation": "Próxima reevaluación",
+    "noBoundary": "Sin límite conocido",
+    "missingContent": "El contenido seleccionado no está disponible",
+    "noContent": "Sin contenido asignado",
+    "noSelection": "Sin selección",
+    "why": "¿Por qué esta selección?",
+    "inspectAt": "Consultar un instante",
+    "inspect": "Consultar",
+    "useNow": "Usar la hora del servidor",
+    "timezone": "Las fechas y horas usan la zona horaria del navegador: {{timezone}}.",
+    "invalidInstant": "Elige una fecha y hora válidas.",
+    "inspectedTime": "Solicitado: {{at}} · Evaluado: {{evaluatedAt}}",
+    "selection": "Selección y alternativas",
+    "precedence": "Prioridad {{priority}} · Especificidad del destino {{specificity}}",
+    "synchronization": "Sincronización informada",
+    "synchronizationLimit": "La sincronización del manifiesto no demuestra que el contenido esté listo ni que se haya reproducido correctamente.",
+    "capabilities": "Compatibilidad informada de las presentaciones de Widgets",
+    "capabilityLimit": "La compatibilidad informada no garantiza la disponibilidad del contenido multimedia, el comportamiento del decodificador, el acceso a la red ni la representación real.",
+    "boundaryLimit": "La próxima reevaluación puede mantener el contenido seleccionado. Las predicciones futuras usan la configuración actual y el último estado informado del Player.",
+    "observationLimit": "Esta es la selección esperada, no una prueba de lo que apareció en la pantalla.",
+    "viewActivity": "Ver la Actividad confirmada por el Player",
+    "recordedPresentation": "Presentación registrada",
+    "recordedRevision": "{{type}} · Revisión {{revision}}",
+    "recordedInterval": "Intervalo registrado",
+    "openWindow": "Intervalo registrado abierto",
+    "historyGap": "Ninguna expectativa registrada cubre este instante. Las asignaciones actuales no pueden completar este vacío histórico.",
+    "presentationId": "ID de presentación",
+    "revision": "Revisión",
+    "recordedSource": "Origen registrado",
+    "otherRecordedSource": "Origen registrado: {{source}}",
+    "requiredSchema": "Requiere el esquema de presentación {{version}}",
+    "requiredCapability": "Requiere {{name}}@{{version}} · informado {{reported}}",
+    "reportedSchemas": "Esquemas informados: {{versions}}",
+    "noneReported": "Ninguno informado",
+    "renderer": "Representador seleccionado: {{renderer}}",
+    "types": {
+      "playlist": "Lista de reproducción",
+      "layout": "Diseño",
+      "asset": "Recurso",
+      "presentation": "Presentación"
+    },
+    "renderers": {
+      "component": "Componente",
+      "compatibility": "Presentación de compatibilidad"
+    },
+    "sources": {
+      "takeover": "Toma de control",
+      "quick_present": "Mostrar ahora",
+      "schedule": "Programación",
+      "assignment": "Asignación de respaldo"
+    },
+    "basis": {
+      "current_configuration": "Predicción basada en la configuración actual",
+      "recorded_expectation": "Expectativa histórica registrada",
+      "historical_expectation_unavailable": "Expectativa histórica no disponible"
+    },
+    "status": {
+      "selected": "Seleccionado",
+      "superseded": "Reemplazado",
+      "inactive": "Inactivo",
+      "supported": "Compatible",
+      "blocked": "Bloqueado",
+      "unknown": "Desconocido",
+      "not_applicable": "No corresponde",
+      "unavailable": "No disponible"
+    },
+    "synchronizationStatus": {
+      "not_reported": "No informado",
+      "current": "Actualizado",
+      "preparing": "Preparando",
+      "out_of_date": "Desactualizado"
+    },
+    "reasons": {
+      "active_takeover": "Una toma de control activa tiene prioridad.",
+      "active_quick_present": "Una sesión activa de Mostrar ahora tiene prioridad.",
+      "assigned_fallback": "No hay una presentación activa de mayor prioridad; la asignación es el respaldo.",
+      "schedule_highest_precedence": "Esta programación gana según las reglas de precedencia del servidor.",
+      "schedule_disabled": "Esta programación está deshabilitada.",
+      "schedule_not_active": "Esta programación no está activa en el instante solicitado.",
+      "schedule_lower_priority": "Otra programación activa tiene mayor prioridad.",
+      "schedule_less_specific": "Otra programación activa se dirige a esta pantalla de forma más específica.",
+      "schedule_earlier_start": "Otra programación equivalente comenzó más tarde.",
+      "schedule_stable_id_tiebreak": "Otra programación equivalente gana el desempate estable final.",
+      "no_active_takeover": "No hay una toma de control activa en este instante.",
+      "no_active_quick_present": "No hay una sesión activa de Mostrar ahora en este instante.",
+      "no_assignment": "No se ha asignado una presentación de respaldo."
+    },
+    "capabilityReasons": {
+      "no_selected_content": "No hay contenido seleccionado para evaluar.",
+      "selected_content_not_found": "El contenido seleccionado ya no existe.",
+      "selected_content_not_published": "El Diseño seleccionado no tiene una revisión publicada.",
+      "presentation_requirements_invalid": "Los requisitos de presentación del contenido seleccionado no están disponibles.",
+      "reported_requirements_supported": "El Player informa compatibilidad con los requisitos de presentación de los Widgets seleccionados.",
+      "player_capabilities_not_reported": "El Player no ha informado un perfil de capacidades de presentación.",
+      "no_widget_presentation_requirements": "Esta selección no tiene requisitos de presentación de Widgets.",
+      "manifest_v13_capabilities_not_reported": "Este contenido requiere compatibilidad con el manifiesto v13, pero el Player no ha informado sus capacidades.",
+      "widget_requirements_unsupported": "Al menos un requisito de Widget no puede usar el perfil informado de este Player."
+    },
+    "widgetReasons": {
+      "player_capabilities_not_reported": "El Player no ha informado sus capacidades de presentación.",
+      "component_capabilities_not_reported": "Este Widget solo de componente necesita un perfil informado del Player.",
+      "no_presentation_requirements": "Este Widget no tiene requisitos de presentación.",
+      "presentation_requirements_unsupported": "El perfil informado no admite los requisitos del representador seleccionado.",
+      "reported_requirements_supported": "El perfil informado admite el representador seleccionado de este Widget."
+    }
+  },
   "groups": {
     "title": "Grupos de pantallas",
     "subtitle": "Mantén un conjunto de pantallas con el mismo contenido, programación y posición de reproducción. Los grupos espejados conservan la reproducción sincronizada.",
