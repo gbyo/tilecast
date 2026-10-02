@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+var ErrUnpublishedPresentation = errors.New("Layout is not published")
+
 type PresentationRequirementEvidence struct {
 	SchemaVersion int            `json:"schemaVersion"`
 	Capabilities  map[string]int `json:"capabilities"`
@@ -82,7 +84,7 @@ func (s *Service) PresentationCapabilityEvidenceInTx(ctx context.Context, tx pgx
 			return CapabilityEvidence{}, err
 		}
 		if !published {
-			return CapabilityEvidence{}, fmt.Errorf("%w: Layout is not published", ErrConflict)
+			return CapabilityEvidence{}, fmt.Errorf("%w: %w", ErrConflict, ErrUnpublishedPresentation)
 		}
 	}
 	requirements, blocker, err := s.presentationRequirementsForRoot(ctx, tx, playlistID, layoutID, assetID)
