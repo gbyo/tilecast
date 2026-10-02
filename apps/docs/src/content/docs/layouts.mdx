@@ -31,6 +31,8 @@ The Media picker can also upload an image or video; it is added to the Media lib
 
 A Playlist zone supports image and video items only. Studio previews those items and shows a message when a Playlist has no supported content. Publishing is blocked if the zone Playlist contains a Widget, Website, or nested Layout. Assignment validation also rejects unsupported items added to the Playlist later.
 
+Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
+
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 
 ## Show changing values in text

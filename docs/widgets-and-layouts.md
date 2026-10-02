@@ -136,6 +136,8 @@ A Layout arranges Media, Widgets, static text, shapes, playlist zones, and group
 
 A Layout playlist zone supports only image and video items. Studio previews only those items. Layout publication and assignment validation reject a zone Playlist that contains a Widget, Website, or nested Layout, including content added after the Layout was published.
 
+A playlist zone uses the Player's image timing and playback defaults. An image uses its item duration or the configured default image duration. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset. Studio uses the same rules in the Layout preview.
+
 Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.
 
 A Widget placement stores only a Widget ID, bounds, layer, opacity, visibility, and provider-approved presentation overrides. Placements accept only the closed override keys `fit`, `alignment`, `foregroundColor`, `backgroundColor`, `fallbackVisibility`, and `muted`. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
