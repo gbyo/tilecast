@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { layoutQueries } from "../data/layouts";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
@@ -181,8 +182,7 @@ export function LayoutPreviewPage() {
   const auth = useAuth();
   const presentation = useNativePresentation();
   const query = useQuery({
-    queryKey: ["layouts", id, "popup-preview"],
-    queryFn: () => api.layout(id),
+    ...layoutQueries.detail(id),
     enabled: Boolean(id && auth.status?.authenticated),
   });
   // In a native presentation the sheet's header carries the name and Close.

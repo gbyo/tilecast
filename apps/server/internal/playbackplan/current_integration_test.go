@@ -2,11 +2,13 @@ package playbackplan
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
@@ -128,4 +130,52 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 	if err = pool.QueryRow(ctx, `SELECT stopped_at FROM presentation_overrides WHERE id=$1`, quickID).Scan(&stopped); err != nil || stopped != nil {
 		t.Fatalf("Quick Present changed: stopped=%v err=%v", stopped, err)
 	}
+	t.Run("snapshot_survives_concurrent_configuration_change", func(t *testing.T) {
+		exec := func(sql string, args ...any) {
+			t.Helper()
+			if _, err := pool.Exec(ctx, sql, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		inspectionAt := at.Add(20 * time.Minute)
+		newTakeover := uuid.New()
+		writer := afterAssignmentRead{TransactionalAssignments: assignments, after: func(ctx context.Context, tx pgx.Tx) {
+			var readOnly, isolation string
+			if err := tx.QueryRow(ctx, `SELECT current_setting('transaction_read_only'),current_setting('transaction_isolation')`).Scan(&readOnly, &isolation); err != nil || readOnly != "on" || isolation != "repeatable read" {
+				t.Fatalf("snapshot options: readOnly=%s isolation=%s err=%v", readOnly, isolation, err)
+			}
+			// These writes use another connection, after the inspector's first read.
+			exec(`UPDATE screen_playlist_assignments SET playlist_id=$2 WHERE screen_id=$1`, screen, override)
+			exec(`UPDATE schedules SET enabled=FALSE WHERE id=$1`, scheduleID)
+			exec(`INSERT INTO takeovers(id,organization_id,name,playlist_id,status,activated_at,expires_at,created_at) VALUES($1,$2,'Concurrent Takeover',$3,'active',$4,$5,$4)`, newTakeover, org, takeover, inspectionAt, end)
+			exec(`INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state) VALUES($1,$2,7,'pending')`, newTakeover, screen)
+		}}
+		got, err := NewSnapshotCurrent(pool, writer, schedules, quick).At(ctx, screen, inspectionAt)
+		if err != nil || got.Selected == nil || got.Selected.Source != "schedule" || got.Selected.ContentID != scheduled {
+			t.Fatalf("mixed configuration snapshot: selected=%#v err=%v", got.Selected, err)
+		}
+		if got.ScheduleExplanation.Resolution.Winner.Schedule.Specificity != 1 {
+			t.Fatal("transactional reader lost direct target specificity")
+		}
+		snapshot := NewSnapshotCurrent(pool, assignments, schedules, quick)
+		fresh, err := snapshot.At(ctx, screen, inspectionAt)
+		if err != nil || fresh.Selected == nil || fresh.Selected.Source != "takeover" || *fresh.Selected.SelectionID != newTakeover {
+			t.Fatalf("fresh snapshot missed committed change: selected=%#v err=%v", fresh.Selected, err)
+		}
+		exec(`UPDATE takeovers SET status='cancelled' WHERE id=$1`, newTakeover)
+		fallbackPlan, err := snapshot.At(ctx, screen, inspectionAt)
+		if err != nil || fallbackPlan.Selected == nil || fallbackPlan.Selected.ContentID != override || fallbackPlan.Selected.Source != "assignment" {
+			t.Fatalf("fresh fallback=%#v err=%v", fallbackPlan.Selected, err)
+		}
+		if len(fallbackPlan.ScheduleExplanation.Candidates) != 1 || fallbackPlan.ScheduleExplanation.Candidates[0].Reason != scheduling.ReasonDisabled || fallbackPlan.ScheduleExplanation.Candidates[0].Status != scheduling.CandidateInactive || fallbackPlan.NextEvaluationAt != nil {
+			t.Fatalf("disabled alternative trace=%#v", fallbackPlan)
+		}
+		manifestSchedules, err := schedules.Relevant(ctx, screen)
+		if err != nil || len(manifestSchedules) != 0 {
+			t.Fatalf("manifest reader included disabled schedule: records=%#v err=%v", manifestSchedules, err)
+		}
+		if _, err := snapshot.At(ctx, uuid.New(), inspectionAt); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("missing Screen error=%v", err)
+		}
+	})
 }
