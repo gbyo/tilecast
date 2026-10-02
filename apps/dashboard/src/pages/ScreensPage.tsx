@@ -1,3 +1,8 @@
+import {
+  screenKeys,
+  screenQueries,
+  SCREEN_STATUS_REFRESH_MS,
+} from "../data/screens";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -606,9 +611,8 @@ export function ScreensWorkspacePage() {
   const navigate = useNavigate();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const archive =
     location.pathname === "/screens/archive" ||
@@ -667,14 +671,12 @@ export function ScreensPage() {
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const pending = useQuery({
-    queryKey: ["screens", "pairing", "pending"],
-    queryFn: api.pendingPairings,
-    refetchInterval: 10_000,
+    ...screenQueries.pendingPairings(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
     enabled: manageable,
   });
   const locations = useQuery({
@@ -2580,8 +2582,7 @@ export function ScreenGridCard({
     };
   }, [canRequestPreview, csrfToken, screen.id]);
   const preview = useQuery({
-    queryKey: ["screen-preview-card", screen.id],
-    queryFn: () => api.screenPreview(screen.id),
+    ...screenQueries.previewCard(screen.id),
     enabled: visible,
     refetchInterval: visible ? GRID_PREVIEW_METADATA_REFRESH_MILLIS : false,
   });
@@ -2863,8 +2864,7 @@ export function PairScreenDialog() {
     if (code && !request) void lookup({ code });
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
   const pending = useQuery({
-    queryKey: ["screens", "pairing", "pending"],
-    queryFn: api.pendingPairings,
+    ...screenQueries.pendingPairings(),
     enabled: Boolean(requestId),
   });
   useEffect(() => {
@@ -2993,8 +2993,7 @@ function ApprovalPanel({
     queryFn: api.locations,
   });
   const screens = useQuery({
-    queryKey: ["screens", "pairing-replacement-options"],
-    queryFn: api.screens,
+    ...screenQueries.replacementOptions(),
     enabled: destination === "replace_hardware",
   });
   const approve = useMutation({
@@ -3020,9 +3019,9 @@ function ApprovalPanel({
     },
     onSuccess: async (screen) => {
       toast.add({ title: "Screen pairing approved.", type: "success" });
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
       await queryClient.invalidateQueries({
-        queryKey: ["screens", "pairing", "pending"],
+        queryKey: screenKeys.pendingPairings(),
       });
       onDone(screen.id);
     },
@@ -3379,14 +3378,12 @@ export function ScreenDetailPage() {
     if (searchParams.get("edit") === "details") setEditingDetails(true);
   }, [searchParams]);
   const query = useQuery({
-    queryKey: ["screens", id],
-    queryFn: () => api.screen(id),
-    refetchInterval: 10_000,
+    ...screenQueries.detail(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const detailsForm = useForm<ApprovalForm>({
     resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
@@ -3417,15 +3414,14 @@ export function ScreenDetailPage() {
       api.updateScreen(id, values, auth.status?.csrfToken ?? ""),
     onSuccess: async (updated) => {
       toast.add({ title: "Screen details saved.", type: "success" });
-      queryClient.setQueryData(["screens", id], updated);
+      queryClient.setQueryData(screenQueries.detail(id).queryKey, updated);
       setEditingDetails(false);
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const assignment = useQuery({
-    queryKey: ["screens", id, "playlist-assignment"],
-    queryFn: () => api.playlistAssignment(id),
-    refetchInterval: 10_000,
+    ...screenQueries.assignment(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const playlists = useQuery({
     queryKey: ["playlists", "assignment-picker"],
@@ -3466,7 +3462,7 @@ export function ScreenDetailPage() {
     onSuccess: async () => {
       toast.add({ title: "Presentation assignment updated.", type: "success" });
       await queryClient.invalidateQueries({
-        queryKey: ["screens", id, "playlist-assignment"],
+        queryKey: screenKeys.assignment(id),
       });
     },
   });
@@ -3478,7 +3474,7 @@ export function ScreenDetailPage() {
         title: enabled ? "Screen enabled." : "Screen disabled.",
         type: "success",
       });
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const revoke = useMutation({
@@ -3491,23 +3487,20 @@ export function ScreenDetailPage() {
     onSuccess: async () => {
       toast.add({ title: "Player credential revoked.", type: "success" });
       setConfirmRevoke(false);
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const commands = useQuery({
-    queryKey: ["screens", id, "commands"],
-    queryFn: () => api.screenCommands(id),
+    ...screenQueries.commands(id),
     refetchInterval: 5_000,
     enabled: true,
   });
   const reliability = useQuery({
-    queryKey: ["screens", id, "reliability"],
-    queryFn: () => api.screenReliability(id),
-    refetchInterval: 10_000,
+    ...screenQueries.reliability(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const playerHistory = useQuery({
-    queryKey: ["screens", id, "player-history"],
-    queryFn: () => api.screenPlayerHistory(id),
+    ...screenQueries.playerHistory(id),
   });
   const screenPolicy = useQuery({
     queryKey: ["screen", id, "policy"],
@@ -3528,10 +3521,10 @@ export function ScreenDetailPage() {
         type: "success",
       });
       void queryClient.invalidateQueries({
-        queryKey: ["screens", id, "commands"],
+        queryKey: screenKeys.commands(id),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["screens", id, "reliability"],
+        queryKey: screenKeys.reliability(id),
       });
     },
   });
