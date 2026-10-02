@@ -16,6 +16,7 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
 - `apps/dashboard/src/api` owns browser API types and transport behavior.
 - `apps/dashboard/src/data/schedules.ts` owns Schedule query keys and options. Infinite pages and complete lists use different keys. Schedule previews include the Screen, timestamp, and proposed input in their keys. The Server remains the schedule selection authority.
+- Schedule mutation options own typed requests and cache invalidation. The editor owns confirmation, feedback, and navigation. Domain success handlers remain active after a UI observer disconnects.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
 - `packages/*-schema` are reserved for stable, versioned cross-application contracts as those protocols are introduced.
 
