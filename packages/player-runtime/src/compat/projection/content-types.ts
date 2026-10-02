@@ -123,6 +123,7 @@ export interface DocumentField {
   label: string;
   type: string;
   currency?: string;
+  role?: string;
 }
 
 export interface DocumentDataset {

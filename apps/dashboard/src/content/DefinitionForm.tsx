@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { suggestFieldMapping } from "@tilecast/widget-kit";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import type {
+  Asset,
   ContentDefinitionField,
   DataSource,
   DataSourceDefinition,
   DataSourceField,
 } from "../api/types";
+import { ContentPicker } from "../components/content-picker";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Button } from "../components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
@@ -142,19 +144,6 @@ export function DefinitionForm({
     queryKey: ["content-definitions"],
     queryFn: api.contentDefinitions,
   });
-  const assets = useQuery({
-    queryKey: ["definition-form-media-assets"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          status: "ready",
-          sort: "name",
-        }),
-      ),
-    enabled: fields.some((field) => field.control === "media_asset"),
-  });
   const set = (key: string, next: unknown) =>
     onChange({ ...value, [key]: next });
 
@@ -174,7 +163,6 @@ export function DefinitionForm({
           csrf={csrf}
           dataSources={dataSources.data?.items ?? []}
           dataSourceDefinitions={definitions.data?.dataSources ?? []}
-          assets={assets.data?.items ?? []}
         />
       ))}
     </div>
@@ -382,6 +370,91 @@ export function dataFormatGuideFor(
   };
 }
 
+const pickerAssetTypes = ["image", "video", "widget"] as const;
+
+// MediaAssetControl selects through the searchable, paginated Media picker
+// instead of a fixed first-page snapshot, so every eligible asset stays
+// reachable no matter how large the library grows. The current selection
+// resolves by ID for display.
+function MediaAssetControl({
+  field,
+  labelText,
+  value,
+  setValue,
+  readOnly,
+  csrf,
+}: {
+  field: ContentDefinitionField;
+  labelText: string;
+  value: unknown;
+  setValue: (value: unknown) => void;
+  readOnly: boolean;
+  csrf?: string;
+}) {
+  const { t } = useTranslation(["content", "common"]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const id = fieldText(value);
+  const current = useQuery({
+    queryKey: ["asset", id],
+    queryFn: () => api.asset(id),
+    enabled: Boolean(id),
+  });
+  const allowedTypes = field.mediaTypes?.length
+    ? field.mediaTypes.filter(
+        (type): type is (typeof pickerAssetTypes)[number] =>
+          (pickerAssetTypes as readonly string[]).includes(type),
+      )
+    : undefined;
+  return (
+    <Field>
+      <FieldLabel htmlFor={`definition-${field.key}`}>{labelText}</FieldLabel>
+      <div className="flex items-center gap-2">
+        <Button
+          id={`definition-${field.key}`}
+          type="button"
+          variant="outline"
+          aria-label={labelText}
+          disabled={readOnly}
+          onClick={() => setPickerOpen(true)}
+          className="min-w-0 flex-1 justify-start truncate"
+        >
+          {current.data?.name ??
+            (current.isError ? id : t("widgets.form.mediaAsset.none"))}
+        </Button>
+        {id && !readOnly && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("widgets.form.mediaAsset.clear")}
+            onClick={() => setValue("")}
+          >
+            <X aria-hidden="true" />
+          </Button>
+        )}
+      </div>
+      <ContentPicker
+        open={pickerOpen}
+        mode="single"
+        csrf={csrf ?? ""}
+        allowedTypes={allowedTypes}
+        selectedIds={id ? [id] : []}
+        title={t("widgets.form.mediaAsset.pickerTitle")}
+        description={t("widgets.form.mediaAsset.pickerDescription")}
+        confirmLabel={t("widgets.form.mediaAsset.pickerConfirm")}
+        onConfirm={(items: Asset[]) => {
+          setValue(items[0]?.id ?? "");
+          setPickerOpen(false);
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
+      {field.description && (
+        <FieldDescription>{field.description}</FieldDescription>
+      )}
+    </Field>
+  );
+}
+
 function DefinitionControl({
   field,
   fields,
@@ -394,7 +467,6 @@ function DefinitionControl({
   csrf,
   dataSources,
   dataSourceDefinitions,
-  assets,
 }: {
   field: ContentDefinitionField;
   fields: ContentDefinitionField[];
@@ -408,7 +480,6 @@ function DefinitionControl({
   csrf?: string;
   dataSources: DataSource[];
   dataSourceDefinitions: DataSourceDefinition[];
-  assets: { id: string; name: string; type: string }[];
 }) {
   const { t } = useTranslation(["content", "common"]);
   // A field picker resolves against the source chosen by its own `data_source` control, not a
@@ -548,32 +619,31 @@ function DefinitionControl({
         )}
       </Field>
     );
-  if (
-    field.control === "select" ||
-    field.control === "data_source_field" ||
-    field.control === "media_asset"
-  ) {
+  if (field.control === "media_asset")
+    return (
+      <MediaAssetControl
+        field={field}
+        labelText={labelText}
+        value={value}
+        setValue={setValue}
+        readOnly={readOnly}
+        csrf={csrf}
+      />
+    );
+  if (field.control === "select" || field.control === "data_source_field") {
     const options =
       field.control === "select"
         ? (field.options ?? [])
-        : field.control === "data_source_field"
-          ? (fieldSource.data?.fields ?? [])
-              .filter(
-                (sourceField: DataSourceField) =>
-                  !field.dataSourceFieldTypes?.length ||
-                  field.dataSourceFieldTypes.includes(sourceField.type),
-              )
-              .map((sourceField: DataSourceField) => ({
-                value: sourceField.key,
-                label: `${sourceField.label} (${sourceField.type})`,
-              }))
-          : assets
-              .filter(
-                (asset) =>
-                  !field.mediaTypes?.length ||
-                  field.mediaTypes.includes(asset.type),
-              )
-              .map((asset) => ({ value: asset.id, label: asset.name }));
+        : (fieldSource.data?.fields ?? [])
+            .filter(
+              (sourceField: DataSourceField) =>
+                !field.dataSourceFieldTypes?.length ||
+                field.dataSourceFieldTypes.includes(sourceField.type),
+            )
+            .map((sourceField: DataSourceField) => ({
+              value: sourceField.key,
+              label: `${sourceField.label} (${sourceField.type})`,
+            }));
     const placeholder =
       field.control === "data_source_field" && !fieldSourceID
         ? t("widgets.form.selectSourceFirst")
