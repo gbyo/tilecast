@@ -36,17 +36,64 @@ export function widgetPreviewDataSourceIds(
 
 /**
  * The variant alias Studio previews use for a selected media asset. Player
- * manifest projection writes the real variant under the derived key
- * (`imageAssetId` gives `imageVariantId`); a preview has no manifest, so
- * it grants the asset's preview image under this alias instead.
+ * manifest projection writes the real variant under the schema-derived key;
+ * a preview has no manifest, so it grants the asset's preview image under
+ * the same alias instead.
  */
 export const PREVIEW_MEDIA_VARIANT = "preview";
 
 function mediaVariantKey(field: ContentDefinitionField): string | null {
-  if (field.control !== "media_asset" || !field.key.endsWith("AssetId")) {
+  if (field.control !== "media_asset") {
     return null;
   }
-  return `${field.key.slice(0, -"AssetId".length)}VariantId`;
+  return field.key.endsWith("AssetId")
+    ? `${field.key.slice(0, -"AssetId".length)}VariantId`
+    : `${field.key}VariantId`;
+}
+
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+function projectPreviewMedia(
+  fields: readonly ContentDefinitionField[],
+  values: Record<string, unknown>,
+  media: { assetId: string; variantId: string }[],
+): Record<string, unknown> {
+  let next: Record<string, unknown> | undefined;
+  for (const field of fields) {
+    const variantKey = mediaVariantKey(field);
+    if (variantKey) {
+      const assetId = values[field.key];
+      if (typeof assetId === "string" && assetId !== "") {
+        media.push({ assetId, variantId: PREVIEW_MEDIA_VARIANT });
+        next ??= { ...values };
+        next[variantKey] = PREVIEW_MEDIA_VARIANT;
+      }
+      continue;
+    }
+    if (field.control !== "repeating_group" || !field.itemFields) continue;
+    const items = values[field.key];
+    if (!isUnknownArray(items)) continue;
+    let nextItems: unknown[] | undefined;
+    items.forEach((item, index) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return;
+      const projected = projectPreviewMedia(
+        field.itemFields!,
+        item as Record<string, unknown>,
+        media,
+      );
+      if (projected !== item) {
+        nextItems ??= [...items];
+        nextItems[index] = projected;
+      }
+    });
+    if (nextItems) {
+      next ??= { ...values };
+      next[field.key] = nextItems;
+    }
+  }
+  return next ?? values;
 }
 
 /**
@@ -62,13 +109,8 @@ export function widgetPreviewMedia(
   media: { assetId: string; variantId: string }[];
 } {
   const media: { assetId: string; variantId: string }[] = [];
-  let next = configuration;
-  for (const field of fields) {
-    const variantKey = mediaVariantKey(field);
-    const assetId = configuration[field.key];
-    if (!variantKey || typeof assetId !== "string" || assetId === "") continue;
-    media.push({ assetId, variantId: PREVIEW_MEDIA_VARIANT });
-    next = { ...next, [variantKey]: PREVIEW_MEDIA_VARIANT };
-  }
-  return { configuration: next, media };
+  return {
+    configuration: projectPreviewMedia(fields, configuration, media),
+    media,
+  };
 }

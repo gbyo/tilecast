@@ -914,7 +914,9 @@ export class PlayerRuntime {
 
     this.sessions = new PlaybackSessionTracker(
       (event) => void this.activity?.record(event),
-      () => Date.now(),
+      // Monotonic, as the contract requires: a wall-clock correction while an
+      // item is on screen must not shorten, stretch, or negate its duration.
+      () => performance.now(),
       () => randomUUID(),
     );
 
@@ -1092,7 +1094,7 @@ export class PlayerRuntime {
       }
       this.activeManifest = manifest;
       this.pendingManifest = null;
-      this.evaluatePresentation(true);
+      this.evaluatePresentation();
       return;
     }
     // Seamless: hold until the next item boundary.
@@ -1108,7 +1110,7 @@ export class PlayerRuntime {
         manifestVersion: this.activeManifest.manifestVersion,
         graceSeconds: graceMilliseconds / 1_000,
       });
-      this.evaluatePresentation(true);
+      this.evaluatePresentation();
     }, graceMilliseconds);
     this.pendingActivationTimer.unref?.();
     log.info("manifest prepared; will activate at next item boundary", {
@@ -1425,7 +1427,7 @@ export class PlayerRuntime {
       log.info("activated pending manifest at item boundary", {
         manifestVersion: this.activeManifest.manifestVersion,
       });
-      this.evaluatePresentation(true);
+      this.evaluatePresentation();
     }
   }
 
@@ -1630,33 +1632,6 @@ export class PlayerRuntime {
     return assessment;
   }
 
-  /**
-   * The render-progress fields the server records. Reported every heartbeat so
-   * "the process is answering" and "the screen is actually working" stay
-   * visibly different facts.
-   */
-  private renderProgressHeartbeatFields() {
-    const assessment = this.renderProgressStatus();
-    return {
-      lastMeaningfulProgressAt:
-        assessment.lastMeaningfulProgressAt == null
-          ? undefined
-          : new Date(assessment.lastMeaningfulProgressAt).toISOString(),
-      stallStartedAt:
-        assessment.stallStartedAt == null
-          ? undefined
-          : new Date(assessment.stallStartedAt).toISOString(),
-      stallDurationMs: assessment.stallDurationMs,
-      stallReason: assessment.stallReason ?? undefined,
-      expectedMotion: assessment.expectedMotion,
-      rendererResponding: assessment.rendererResponding,
-      currentItemStartedAt:
-        this.renderProgress.itemStartedAtMs == null
-          ? undefined
-          : new Date(this.renderProgress.itemStartedAtMs).toISOString(),
-    };
-  }
-
   onPlaybackError(itemId: string | null, message: string): void {
     this.lastPlaybackError = message.slice(0, 240);
     log.warn("playback error reported", { itemId, message });
@@ -1688,6 +1663,10 @@ export class PlayerRuntime {
     const key = presentationIdentity(next);
     this.scheduleSelectionTransition();
     if (!force && key === this.lastPresentedKey) {
+      // A manifest that resolves to what is already on screen changes nothing
+      // for the viewer. Remounting it would restart the item and record a
+      // second, zero-length play beside the real one.
+      this.sessions?.noteManifestVersion(this.activeManifest?.manifestVersion);
       return;
     }
     this.lastPresentedKey = key;
@@ -2766,7 +2745,6 @@ export class PlayerRuntime {
       recoveryLevel: this.supervisorState.escalationStep,
       recoveryCount: this.supervisorState.ladderRunsAtMs.length,
       websiteRendererRecoveryCount: this.websiteRecoveryCount,
-      ...this.renderProgressHeartbeatFields(),
       ...this.autostartHeartbeatFields(),
     };
     if (this.airplayCapabilities) {

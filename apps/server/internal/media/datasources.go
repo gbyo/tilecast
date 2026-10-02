@@ -450,36 +450,55 @@ func (s *Service) PreviewDataSourceByID(ctx context.Context, id uuid.UUID, previ
 		return nil, err
 	}
 	if raw.Provider == "calendar" {
-		return s.CalendarPreview(ctx, raw.Configuration)
+		return s.CalendarPreview(ctx, raw.Configuration, previewDate)
 	}
 	if raw.Provider == "manual" {
-		return s.ManualPreview(ctx, raw.Configuration)
-	}
-	if definition, ok := s.definitions.DataSource(raw.Provider); ok && (definition.AdapterID == "manual_object" || definition.AdapterID == "manual_records") {
-		projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
-		if projectErr != nil {
-			return nil, projectErr
-		}
-		var payload TypedDatasetPayload
-		if err := json.Unmarshal(projected, &payload); err != nil {
-			return nil, err
-		}
-		return payload, nil
+		return s.ManualPreview(ctx, raw.Configuration, previewDate)
 	}
 	if raw.Provider == "weather" {
-		return s.WeatherPreview(ctx, raw.Configuration)
+		return s.WeatherPreview(ctx, raw.Configuration, previewDate)
 	}
-	_, fetchesRecords := s.httpRecordsSpec(raw.Provider)
-	if raw.Provider == "transit" || raw.Provider == "cap_alerts" || raw.Provider == "air_quality" || fetchesRecords {
-		projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
-		if projectErr != nil {
-			return nil, projectErr
+	if raw.Provider == "transit" || raw.Provider == "cap_alerts" || raw.Provider == "air_quality" {
+		normalizer, normalizeErr := s.DataSourceNormalizer(raw.Provider)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
-		var payload TypedDatasetPayload
-		if err := json.Unmarshal(projected, &payload); err != nil {
-			return nil, err
+		configuration, normalizeErr := normalizer.Normalize(ctx, raw.Configuration)
+		if normalizeErr != nil {
+			return nil, normalizeErr
 		}
-		return payload, nil
+		switch config := configuration.(type) {
+		case TransitSourceConfig:
+			preview, _, previewErr := s.RefreshTransitPreview(ctx, config, previewDate)
+			return preview, previewErr
+		case CAPAlertsSourceConfig:
+			preview, _, previewErr := s.RefreshCAPPreview(ctx, config, previewDate)
+			return preview, previewErr
+		case AirQualitySourceConfig:
+			preview, _, previewErr := s.RefreshAirQualityPreview(ctx, config, previewDate)
+			return preview, previewErr
+		default:
+			return nil, errors.New("data source preview configuration has an unexpected type")
+		}
+	}
+	if definition, ok := s.definitions.DataSource(raw.Provider); ok {
+		switch definition.AdapterID {
+		case "manual_records":
+			return s.ManualRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
+		case "http_records":
+			return s.HTTPRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
+		case "manual_object", "form_records":
+			// Date-independent snapshots retain their actual update time and cache metadata.
+			projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
+			if projectErr != nil {
+				return nil, projectErr
+			}
+			var payload TypedDatasetPayload
+			if err := json.Unmarshal(projected, &payload); err != nil {
+				return nil, err
+			}
+			return payload, nil
+		}
 	}
 	return s.StructuredPreview(ctx, raw.Provider, raw.Configuration, previewDate)
 }

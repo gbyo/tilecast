@@ -41,6 +41,41 @@ func TestReleaseDefinitionsValidateAndFingerprintDeterministically(t *testing.T)
 	}
 }
 
+func TestMediaVariantConfigurationKeysIncludeGenericAndNestedFields(t *testing.T) {
+	fields := []FieldDefinition{
+		{Key: "logoAssetId", Control: "media_asset"},
+		{Key: "backgroundAssetId", Control: "media_asset"},
+		{Key: "brandMark", Control: "media_asset"},
+		{Key: "slides", Control: "repeating_group", ItemFields: []FieldDefinition{
+			{Key: "posterAssetId", Control: "media_asset"},
+		}},
+	}
+	for _, key := range []string{"logoVariantId", "backgroundVariantId", "brandMarkVariantId", "posterVariantId"} {
+		if !IsDerivedConfigurationKey(fields, key) {
+			t.Errorf("%q was not recognized as a derived media variant key", key)
+		}
+	}
+	if IsLevelDerivedConfigurationKey(fields, "posterVariantId") {
+		t.Fatal("a repeating-group alias was treated as a root configuration key")
+	}
+	if !IsLevelDerivedConfigurationKey(fields, "logoVariantId") {
+		t.Fatal("a root media alias was not recognized at the root")
+	}
+	if IsDerivedConfigurationKey(fields, "unrelatedVariantId") {
+		t.Fatal("an undeclared media variant key was recognized")
+	}
+}
+
+func TestMediaVariantConfigurationKeyCannotShadowAnAuthoredField(t *testing.T) {
+	fields := []FieldDefinition{
+		{Key: "logoAssetId", Control: "media_asset"},
+		{Key: "logoVariantId", Control: "text"},
+	}
+	if err := validateSchemaFields(fields); err == nil {
+		t.Fatal("a media variant alias shadowing an authored field was accepted")
+	}
+}
+
 func TestCatalogRejectsDuplicateIDsAndUnsupportedControls(t *testing.T) {
 	duplicate := &Catalog{
 		Widgets: []WidgetDefinition{
