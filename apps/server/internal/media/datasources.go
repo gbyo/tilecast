@@ -150,7 +150,7 @@ func (s *Service) manualRefreshPayload(provider string, configuration any) (manu
 
 // ManualObjectPreview projects an unsaved manual_object configuration into the same
 // typed object payload the Player receives, so Studio previews match stored behavior.
-func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw json.RawMessage, previewDates ...string) (TypedDatasetPayload, error) {
+func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw json.RawMessage) (TypedDatasetPayload, error) {
 	definition, ok := s.definitions.DataSource(provider)
 	if !ok || definition.AdapterID != "manual_object" {
 		return TypedDatasetPayload{}, errors.New("data source provider is not a manual object")
@@ -167,11 +167,7 @@ func (s *Service) ManualObjectPreview(ctx context.Context, provider string, raw 
 	if err != nil {
 		return TypedDatasetPayload{}, err
 	}
-	updatedAt := time.Now().UTC()
-	if len(previewDates) > 0 {
-		updatedAt = previewTimeOrNow(previewDates[0], "UTC", updatedAt)
-	}
-	return manualObjectPayload(definition, config, updatedAt), nil
+	return manualObjectPayload(definition, config, time.Now().UTC()), nil
 }
 
 func (s *Service) CreateDataSource(ctx context.Context, user uuid.UUID, input DataSourceInput) (DataSource, error) {
@@ -487,15 +483,12 @@ func (s *Service) PreviewDataSourceByID(ctx context.Context, id uuid.UUID, previ
 	}
 	if definition, ok := s.definitions.DataSource(raw.Provider); ok {
 		switch definition.AdapterID {
-		case "manual_object":
-			return s.ManualObjectPreview(ctx, raw.Provider, raw.Configuration, previewDate)
 		case "manual_records":
 			return s.ManualRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
 		case "http_records":
 			return s.HTTPRecordsPreview(ctx, raw.Provider, raw.Configuration, previewDate)
-		case "form_records":
-			// Form projections are immutable approval snapshots. Their record dates remain
-			// visible to the Widget clock, so the adapter has no preview-date projection.
+		case "manual_object", "form_records":
+			// Date-independent snapshots retain their actual update time and cache metadata.
 			projected, projectErr := s.PlayerTypedDataSourceConfiguration(ctx, raw.ID, raw.Provider, raw.Configuration)
 			if projectErr != nil {
 				return nil, projectErr

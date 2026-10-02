@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 )
@@ -60,17 +59,5 @@ func TestStatusMessageDefinitionAndRolesAreGeneric(t *testing.T) {
 	}
 	if projected["status"] != "status" || projected["updatedAt"] != "updated_at" {
 		t.Fatalf("field discovery dropped semantic roles: %#v", projected)
-	}
-}
-
-func TestManualObjectPreviewUsesTheSelectedDateForGeneratedTimestamp(t *testing.T) {
-	definition, ok := contentdefs.MustLoad().DataSource("status-message")
-	if !ok {
-		t.Fatal("Status Message definition is missing")
-	}
-	updatedAt := previewTimeOrNow("2026-09-24", "UTC", time.Now())
-	payload := manualObjectPayload(definition, map[string]any{"status": "Delayed", "message": "Opening late"}, updatedAt)
-	if got := payload.Datasets[0].Values["updatedAt"]; got != "2026-09-24T00:00:00Z" {
-		t.Fatalf("preview updatedAt = %q", got)
 	}
 }

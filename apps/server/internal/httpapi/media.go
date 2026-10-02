@@ -617,7 +617,7 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		var err error
 		switch definition.AdapterID {
 		case "manual_object":
-			preview, err = s.media.ManualObjectPreview(r.Context(), provider, body.Configuration, body.PreviewDate)
+			preview, err = s.media.ManualObjectPreview(r.Context(), provider, body.Configuration)
 		case "manual_records":
 			preview, err = s.media.ManualRecordsPreview(r.Context(), provider, body.Configuration, body.PreviewDate)
 		default:
