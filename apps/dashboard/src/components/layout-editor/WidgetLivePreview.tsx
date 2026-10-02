@@ -12,6 +12,8 @@ import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
+  resolvePlaylistAdvance,
+  resolveZoneFallback,
 } from "@tilecast/presentation-model";
 import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
 import type {
@@ -106,9 +108,7 @@ export function nextPlaylistPreviewIndex(
   length: number,
   loop: boolean,
 ) {
-  if (!length) return 0;
-  if (index + 1 >= length) return loop ? 0 : index;
-  return index + 1;
+  return resolvePlaylistAdvance(index, length, loop).nextIndex;
 }
 
 export interface ZoneCaptureTracking {
@@ -176,7 +176,12 @@ export function PlaylistZonePreview({
   const previous = lastGoodItemId
     ? items.find((item) => item.id === lastGoodItemId)
     : undefined;
-  const shownItem = failed && fallback === "previous" ? previous : current;
+  const fallbackDecision = resolveZoneFallback(
+    failed,
+    fallback,
+    previous !== undefined,
+  );
+  const shownItem = fallbackDecision === "previous" ? previous : current;
   const asset = shownItem ? assetsById.get(shownItem.assetId) : undefined;
   const failCurrent = () => {
     if (current) setFailedItemId(current.id);
@@ -196,8 +201,8 @@ export function PlaylistZonePreview({
         <span>{t("preview.zoneEmpty")}</span>
       </div>
     );
-  if (failed && fallback === "hide") return null;
-  if (failed && (fallback === "background" || !shownItem))
+  if (fallbackDecision === "hide") return null;
+  if (fallbackDecision === "background")
     return <div className="layout-playlist-preview" aria-hidden="true" />;
   if (!asset)
     return (

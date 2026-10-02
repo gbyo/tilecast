@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
 import { zoneEntry, zoneMachine, ZONE_RETRY_MS } from "./zone-machine";
+import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
 
 function item(
   id: string,
@@ -22,6 +23,43 @@ function item(
 }
 
 describe("layout playlist-zone playback", () => {
+  it.each(fixtures.advance)("$name", (fixture) => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: Array.from({ length: fixture.count }, (_, i) => item(String(i))),
+        loop: fixture.loop,
+        clock,
+        onAdvance() {},
+      },
+    });
+    actor.start();
+    for (let i = 0; i < fixture.index; i++)
+      actor.send({ type: "NEXT", epoch: actor.getSnapshot().context.epoch });
+    const before = actor.getSnapshot().context.epoch;
+    actor.send({ type: "NEXT", epoch: before });
+    const selected = zoneEntry(actor.getSnapshot().context);
+    expect(selected?.entry.id ?? null).toBe(
+      fixture.count ? String(fixture.nextIndex) : null,
+    );
+    expect(actor.getSnapshot().context.epoch !== before).toBe(
+      fixture.canAdvance,
+    );
+    actor.stop();
+  });
+  it.each(fixtures.nativeLoop)("$name", (fixture) => {
+    const entry = {
+      ...item("clip", fixture.item.kind as "image" | "video"),
+      ...fixture.item,
+    } as RuntimeLayoutZonePlaylistItem;
+    expect(
+      zoneEntry({
+        items: Array.from({ length: fixture.count }, () => entry),
+        shown: 1,
+        loop: fixture.loop,
+      })?.loop,
+    ).toBe(fixture.expected);
+  });
   it("times images but waits for media completion on videos with a duration", () => {
     const clock = new ManualClock({ wallMs: 0 });
     const actor = createActor(zoneMachine, {
