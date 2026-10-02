@@ -19,7 +19,7 @@ func presentationTestService() *Service {
 func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	raw := json.RawMessage(`{
 		"fields":[
-			{"key":"name","label":"Name","type":"text"},
+			{"key":"name","label":"Name","type":"text","role":"headline"},
 			{"key":"price","label":"Price","type":"currency","currency":"EUR"},
 			{"key":"active","label":"Active","type":"boolean"}
 		],
@@ -37,6 +37,9 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	values := document.Datasets[0].Records[0].Values
 	if document.Datasets[0].Fields[1].Currency != "EUR" {
 		t.Fatalf("currency metadata was dropped: %#v", document.Datasets[0].Fields[1])
+	}
+	if document.Datasets[0].Fields[0].Role != "headline" {
+		t.Fatalf("semantic role metadata was dropped: %#v", document.Datasets[0].Fields[0])
 	}
 	if values["name"].Kind != "text" || values["price"].Kind != "currency" || values["price"].Number == nil || *values["price"].Number != 3.5 || values["active"].Boolean == nil || !*values["active"].Boolean {
 		t.Fatalf("typed values were not coerced: %#v", values)
@@ -179,7 +182,7 @@ func TestNewsFeedAndRSSTickerCompileToProviderAgnosticNativeNodes(t *testing.T) 
 }
 
 func TestProjectMultiDatasetDocument(t *testing.T) {
-	raw := json.RawMessage(`{"datasets":[{"id":"current","kind":"object","fields":[{"key":"aqi","label":"AQI","type":"integer"}],"values":{"aqi":"42"},"attribution":"Example"},{"id":"hourly","kind":"time_series","fields":[{"key":"price","label":"Price","type":"currency","currency":"EUR"}],"points":[{"at":"2026-07-16T12:00:00Z","values":{"price":"8.5"}}]}]}`)
+	raw := json.RawMessage(`{"datasets":[{"id":"current","kind":"object","fields":[{"key":"aqi","label":"AQI","type":"integer","role":"status"}],"values":{"aqi":"42"},"attribution":"Example"},{"id":"hourly","kind":"time_series","fields":[{"key":"price","label":"Price","type":"currency","currency":"EUR","role":"price"}],"points":[{"at":"2026-07-16T12:00:00Z","values":{"price":"8.5"}}]}]}`)
 	document, err := projectDataDocument(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -192,6 +195,26 @@ func TestProjectMultiDatasetDocument(t *testing.T) {
 	}
 	if document.Datasets[1].Fields[0].Currency != "EUR" {
 		t.Fatalf("dataset currency metadata was dropped: %#v", document.Datasets[1].Fields)
+	}
+	if document.Datasets[0].Fields[0].Role != "status" || document.Datasets[1].Fields[0].Role != "price" {
+		t.Fatalf("dataset role metadata was dropped: %#v", document.Datasets)
+	}
+}
+
+func TestProjectDataDocumentRejectsInvalidSemanticRole(t *testing.T) {
+	for _, role := range []string{"Headline", "_headline", "news-role", strings.Repeat("a", 41)} {
+		t.Run(role, func(t *testing.T) {
+			raw, err := json.Marshal(map[string]any{
+				"fields":  []any{map[string]any{"key": "title", "label": "Title", "type": "text", "role": role}},
+				"records": []any{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = projectDataDocument(raw); err == nil {
+				t.Fatalf("invalid role %q was accepted", role)
+			}
+		})
 	}
 }
 
