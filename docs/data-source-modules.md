@@ -90,6 +90,12 @@ understands exactly these types:
 
 A module that declares another type fails validation.
 
+Output fields may declare an optional semantic `role`. Use a lowercase
+identifier of up to 40 characters, beginning with a letter and containing
+only letters, digits, and underscores. Prefer the shared roles listed in
+`docs/widgets-v2-authoring-and-first-wave.md`; the Server preserves the role
+in Player Data Documents.
+
 ## 4. Adapters
 
 The manifest names one exact Server adapter ID. The registry lives in

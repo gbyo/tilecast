@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -112,6 +111,38 @@ func componentEmptyPolicy(spec contentdefs.ComponentSpec, schemaVersion int) str
 	return spec.Empty
 }
 
+// mediaSelection pairs a media_asset field with the configuration object holding its
+// selection: the root configuration for top-level fields, a repeating-group item below.
+type mediaSelection struct {
+	field  contentdefs.FieldDefinition
+	holder map[string]any
+}
+
+// collectMediaSelections walks media_asset fields recursively through repeating
+// groups, so nested media projects and grants exactly like top-level media.
+func collectMediaSelections(fields []contentdefs.FieldDefinition, values map[string]any) []mediaSelection {
+	selections := []mediaSelection{}
+	for _, field := range fields {
+		switch field.Control {
+		case "media_asset":
+			selections = append(selections, mediaSelection{field: field, holder: values})
+		case "repeating_group":
+			if len(field.ItemFields) == 0 {
+				continue
+			}
+			items, _ := values[field.Key].([]any)
+			for _, item := range items {
+				nested, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				selections = append(selections, collectMediaSelections(field.ItemFields, nested)...)
+			}
+		}
+	}
+	return selections
+}
+
 // componentMedia grants the media variants a component may display: each
 // media_asset field whose asset manifest projection resolved to a variant.
 // Projection writes the variant beside the asset under the derived key
@@ -120,16 +151,13 @@ func componentEmptyPolicy(spec contentdefs.ComponentSpec, schemaVersion int) str
 // activation. An asset without a projected variant grants nothing.
 func componentMedia(definition contentdefs.WidgetDefinition, configuration map[string]any) []ComponentMediaRef {
 	media := []ComponentMediaRef{}
-	for _, field := range definition.ConfigurationSchema.Fields {
-		if field.Control != "media_asset" || !strings.HasSuffix(field.Key, "AssetId") {
+	for _, selection := range collectMediaSelections(definition.ConfigurationSchema.Fields, configuration) {
+		variantKey, ok := contentdefs.DerivedVariantKey(selection.field.Key)
+		if !ok {
 			continue
 		}
-		variantKey := strings.TrimSuffix(field.Key, "AssetId") + "VariantId"
-		if !contentdefs.DerivedConfigurationKeys[variantKey] {
-			continue
-		}
-		assetID, _ := configuration[field.Key].(string)
-		variantID, _ := configuration[variantKey].(string)
+		assetID, _ := selection.holder[selection.field.Key].(string)
+		variantID, _ := selection.holder[variantKey].(string)
 		asset, assetErr := uuid.Parse(assetID)
 		variant, variantErr := uuid.Parse(variantID)
 		if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
