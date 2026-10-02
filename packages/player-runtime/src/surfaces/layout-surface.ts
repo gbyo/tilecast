@@ -130,7 +130,9 @@ export class LayoutSurface implements MediaSurface {
 
     if (zone.component) {
       const widgets = this.env.widgets;
-      if (!widgets) {
+      if (zone.component.hidden) {
+        requestAnimationFrame(rendered);
+      } else if (!widgets) {
         zoneFailed("widget components are unavailable");
       } else {
         let readinessReported = false;

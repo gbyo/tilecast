@@ -35,6 +35,10 @@ export class ComponentWidgetSurface implements MediaSurface {
   }
 
   prepare(): Promise<void> {
+    if (widgetComponent(this.item)?.hidden) {
+      this.element.style.display = "none";
+      return Promise.resolve();
+    }
     return new Promise((resolve, reject) => {
       const onState = (state: WidgetMountState) => {
         if (this.disposed) return;

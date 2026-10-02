@@ -1,5 +1,12 @@
 # Widgets V2
 
+Date selection conformance fixtures are in
+`packages/manifest-schema/date-selection-fixtures.json`. The Server preview
+and Runtime component projection test the same expected record IDs.
+`last_known_good` selects the latest cached date before the requested day.
+It does not require a previous mount. The default empty policy does not
+select past records.
+
 **Status:** binding. PR 1 (foundation and the Clock vertical slice) implements this document. Later PRs extend it; they do not change the contracts in §3–§7 without a new version.
 
 **Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.
@@ -47,6 +54,8 @@ No nonce and no `unsafe-inline` is necessary. The Android WebView baseline is re
 A **Data Source** owns acquisition, parsing, sanitization, refresh, caching, typed Data Documents, attribution, date-selection policy and diagnostics. Nothing in this document changes that.
 
 Data Document v1 has a `schemaVersion` and a list of datasets. Each dataset has an ID, a kind and a required `cache` object. The cache object has `usingCachedData` and `unavailable` flags. It can also have `cachedAt`, `staleAt`, `lastModified` and `upstreamExpiry` values. A dataset can also carry attribution, a time zone, units and date-selection rules. The document has no cache object at its root. The SDK types follow the manifest v16 schema.
+
+Before the Player gives a Data Document to a component Widget, it applies each dataset's date-selection rules with the corrected Player clock, the policy time zone and the organization's first day of the week. Compatibility Widgets use the same selection function. A local date change updates the selected rows while the Player is offline.
 
 A **Widget** owns visual meaning, field selection, semantic display choices, the visual variant, formatting, the empty presentation and time-aware presentation logic.
 
