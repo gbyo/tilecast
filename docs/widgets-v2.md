@@ -385,7 +385,9 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 Widget requirements for a playlist, published Layout, or asset. It uses the
 same compilation, renderer choice, and capability comparison as assignment
 validation. The caller supplies a transaction and authorizes resource access.
-The method does not expose an HTTP route or Studio control.
+The [Playback Plan API](playback-plan.md) uses this evidence for selected
+current content. Historical inspection does not read today's capability
+profile. Studio has no control for this API.
 An unpublished Layout returns a conflict; it does not return an empty report
 that could imply support for a published presentation.
 

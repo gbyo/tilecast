@@ -59,8 +59,9 @@ alternatives in the explanation and do not create evaluation boundaries.
 
 `Current.At` remains the deterministic composition entry point for supplied
 readers. Production inspection uses `SnapshotCurrent.At` to obtain consistent
-selection, synchronization, and capability evidence. The snapshot does not reserve configuration for a later
-mutation. A mutation must validate its own current transaction state.
+selection, synchronization, and capability evidence. The snapshot does not
+reserve configuration for a later mutation. A mutation must validate its own
+current transaction state.
 
 Synchronization uses the assignment authority's manifest-version comparison.
 It describes the latest reported state at inspection time. It does not prove

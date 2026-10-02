@@ -4,10 +4,13 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"time"
 
 	"github.com/tilecast/tilecast/apps/server/internal/playbackplan"
 )
+
+var playbackPlanTimeFormat = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)$`)
 
 func playbackPlanInstant(rawQuery string) (*time.Time, error) {
 	query, err := url.ParseQuery(rawQuery)
@@ -23,7 +26,7 @@ func playbackPlanInstant(rawQuery string) (*time.Time, error) {
 	if !present {
 		return nil, nil
 	}
-	if len(values) != 1 {
+	if len(values) != 1 || !playbackPlanTimeFormat.MatchString(values[0]) {
 		return nil, playbackplan.ErrInvalidInspection
 	}
 	at, err := time.Parse(time.RFC3339Nano, values[0])
