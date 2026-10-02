@@ -167,7 +167,7 @@ func TestPreviewDataSourceByIDUsesUploadedCSV(t *testing.T) {
 	service := NewService(pool, nil, Config{Website: WebsitePolicy{DefaultTimeoutSeconds: 20, MaxTimeoutSeconds: 120, MinRefreshSeconds: 30, MaxAllowedHosts: 25, MaxWebsites: 500}, SourceFetch: SourceFetchPolicy{AllowPrivateNetworks: true, Timeout: 5 * time.Second, MaximumBytes: 1 << 20, MaximumRedirects: 3, MinimumRefresh: 5 * time.Minute, MaximumRefresh: 24 * time.Hour}})
 	user := owner.User.ID
 
-	csvConfig := StructuredSourceConfig{Uploaded: true, UploadedContent: "title,option_2\nGrilled Cheese,Veggie Wrap\n", Presentation: "list", MaxItems: 10, Fields: StructuredFields{Title: true}, Sort: "source", Mapping: &StructuredMapping{Title: "title", ValueFields: map[string]string{"option_2": "option_2"}}, RefreshIntervalSeconds: 3600, StalenessLimitHours: 168, EmptyState: "No items available"}
+	csvConfig := StructuredSourceConfig{Uploaded: true, UploadedContent: "title,option_2,price\nGrilled Cheese,Veggie Wrap,4.25\n", Presentation: "list", MaxItems: 10, Fields: StructuredFields{Title: true}, Sort: "source", Mapping: &StructuredMapping{Title: "title", ValueFields: map[string]string{"option_2": "option_2", "price": "price"}, ValueFieldTypes: map[string]string{"price": "number"}}, RefreshIntervalSeconds: 3600, StalenessLimitHours: 168, EmptyState: "No items available"}
 	csvRaw, _ := json.Marshal(csvConfig)
 	dataSource, err := service.CreateDataSource(ctx, user, DataSourceInput{Provider: "csv", Name: "Lunch data", Configuration: csvRaw})
 	if err != nil {
@@ -197,14 +197,14 @@ func TestPreviewDataSourceByIDUsesUploadedCSV(t *testing.T) {
 		t.Fatalf("expected StructuredPreview, got %T", preview)
 	}
 	records := structured.Configuration.Data.Records
-	if len(records) != 1 || records[0].Title != "Grilled Cheese" || records[0].Values["option_2"] != "Veggie Wrap" {
+	if len(records) != 1 || records[0].Title != "Grilled Cheese" || records[0].Values["option_2"] != "Veggie Wrap" || records[0].Values["price"] != "4.25" {
 		t.Fatalf("records=%#v", records)
 	}
 	fieldTypes := map[string]string{}
 	for _, field := range structured.FieldSchema {
 		fieldTypes[field.Key] = field.Type
 	}
-	if fieldTypes["title"] != "text" || fieldTypes["option_2"] != "text" {
+	if fieldTypes["title"] != "text" || fieldTypes["option_2"] != "text" || fieldTypes["price"] != "number" {
 		t.Fatalf("fieldSchema=%#v", structured.FieldSchema)
 	}
 }
