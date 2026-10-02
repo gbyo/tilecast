@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
 func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
@@ -18,12 +19,16 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "activity_range_invalid", err.Error())
 		return
 	}
+	scopeUser, scoped, ok := s.callerScope(w, r)
+	if !ok {
+		return
+	}
 	var data activityOverviewData
 	data.Range.From, data.Range.To = window.From, window.To
 	// Marshal empty lists as [] rather than null; the dashboard indexes into
 	// these collections directly.
 	data.Timeline = []activityTimelineItem{}
-	fleet, err := s.fleetHealth(r.Context(), time.Now().UTC())
+	fleet, err := s.fleetHealth(r.Context(), time.Now().UTC(), scopeUser, scoped)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -33,31 +38,49 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 	// states a connectivity gap actually produces. The previous count also
 	// included renderer and storage impairment, which the drill-down could not
 	// show and the fleet-health section reports as impaired instead.
-	if err := s.db.QueryRow(r.Context(), `SELECT count(DISTINCT i.screen_id) FROM screen_state_intervals i JOIN screens s ON s.id=i.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND i.started_at<$2 AND COALESCE(i.ended_at,$2)>$1 AND (i.state IN('offline','unknown') OR (i.state='degraded' AND COALESCE(i.reason_code,'')='heartbeat_gap'))`, window.From, window.To).Scan(&data.Cards.ScreensWithReportingGaps); err != nil {
+	gapsFilter, gapsArgs := ``, []any{window.From, window.To}
+	if scoped {
+		gapsFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		gapsArgs = append(gapsArgs, scopeUser)
+	}
+	if err := s.db.QueryRow(r.Context(), `SELECT count(DISTINCT i.screen_id) FROM screen_state_intervals i JOIN screens s ON s.id=i.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND i.started_at<$2 AND COALESCE(i.ended_at,$2)>$1 AND (i.state IN('offline','unknown') OR (i.state='degraded' AND COALESCE(i.reason_code,'')='heartbeat_gap'))`+gapsFilter, gapsArgs...).Scan(&data.Cards.ScreensWithReportingGaps); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	durations, err := s.playbackDurations(r.Context(), window.From, window.To)
+	durations, err := s.playbackDurations(r.Context(), window.From, window.To, scopeUser, scoped)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	data.Cards.ConfirmedScreenPlaybackMS, data.Cards.ContentExposureMS = durations.ConfirmedScreenMS, durations.ContentExposureMS
+	failuresFilter, failuresArgs := ``, []any{window.From, window.To, interruptedTerminalReasons()}
+	if scoped {
+		failuresFilter = ` AND ` + devices.InScopeSQL("s", "$4")
+		failuresArgs = append(failuresArgs, scopeUser)
+	}
 	// An interruption is an unexpected ending, not merely a partial result. A
 	// scheduled changeover ends playback early and is exactly what was asked for.
 	if err := s.db.QueryRow(r.Context(), `
 		SELECT count(*) FILTER(WHERE result='failed'),
 		       count(*) FILTER(WHERE terminal_reason = ANY($3))
-		FROM playback_sessions p JOIN screens s ON s.id=p.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND p.started_at>=$1 AND p.started_at<$2`,
-		window.From, window.To, interruptedTerminalReasons()).Scan(&data.Cards.PlaybackFailures, &data.Cards.InterruptedPlays); err != nil {
+		FROM playback_sessions p JOIN screens s ON s.id=p.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND p.started_at>=$1 AND p.started_at<$2`+failuresFilter,
+		failuresArgs...).Scan(&data.Cards.PlaybackFailures, &data.Cards.InterruptedPlays); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM player_activity_events e JOIN screens s ON s.id=e.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND e.event_type='takeover.active'`, window.From, window.To).Scan(&data.Cards.TakeoverActivations); err != nil {
+	takeoverFilter, takeoverArgs := ``, []any{window.From, window.To}
+	updatesFilter, updatesArgs := ``, []any{window.From, window.To}
+	if scoped {
+		takeoverFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		takeoverArgs = append(takeoverArgs, scopeUser)
+		updatesFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		updatesArgs = append(updatesArgs, scopeUser)
+	}
+	if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM player_activity_events e JOIN screens s ON s.id=e.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND e.event_type='takeover.active'`+takeoverFilter, takeoverArgs...).Scan(&data.Cards.TakeoverActivations); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM player_activity_events e JOIN screens s ON s.id=e.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND e.category='updates' AND e.result='failed'`, window.From, window.To).Scan(&data.Cards.FailedPlayerUpdates); err != nil {
+	if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM player_activity_events e JOIN screens s ON s.id=e.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND e.category='updates' AND e.result='failed'`+updatesFilter, updatesArgs...).Scan(&data.Cards.FailedPlayerUpdates); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
@@ -66,17 +89,22 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	timelineFilter, timelineArgs := ``, []any{window.From, window.To}
+	if scoped {
+		timelineFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		timelineArgs = append(timelineArgs, scopeUser)
+	}
 	timelineRows, err := s.db.Query(r.Context(), `
 		SELECT e.id::text,e.occurred_at,'screen',e.severity,
 		       CASE WHEN e.content_id IS NOT NULL THEN replace(e.event_type,'.',' ')||' · '||e.content_id ELSE replace(e.event_type,'.',' ') END,
 		       e.screen_id,COALESCE(e.presentation_id,'')
 		FROM player_activity_events e JOIN screens s ON s.id=e.screen_id
-		WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND (e.severity IN('warning','error','critical') OR e.event_type IN('presentation.started','presentation.recovered','schedule.became_active','takeover.active','update.installation_failed'))
+		WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND (e.severity IN('warning','error','critical') OR e.event_type IN('presentation.started','presentation.recovered','schedule.became_active','takeover.active','update.installation_failed'))`+timelineFilter+`
 		UNION ALL
 		SELECT id::text,created_at,'audit',CASE WHEN result='failure' THEN 'error' ELSE 'info' END,
 		       COALESCE(NULLIF(summary,''),replace(action,'.',' ')),NULL,COALESCE(resource_id,'')
 		FROM audit_logs WHERE created_at>=$1 AND created_at<$2 AND result IN('success','failure')
-		ORDER BY 2 DESC LIMIT 40`, window.From, window.To)
+		ORDER BY 2 DESC LIMIT 40`, timelineArgs...)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -106,6 +134,9 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 	screenID, err := uuid.Parse(strings.TrimPrefix(r.URL.Path, "/api/v1/activity/screens/"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
+		return
+	}
+	if !s.authorizeScreen(w, r, screenID) {
 		return
 	}
 	var operational bool

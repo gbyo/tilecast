@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -160,9 +161,15 @@ LEFT JOIN screen_player_status p ON p.screen_id = s.id
 WHERE s.enabled = TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL
   AND EXISTS (SELECT 1 FROM device_credentials c WHERE c.screen_id = s.id AND c.revoked_at IS NULL)`
 
-func (s *server) fleetHealth(ctx context.Context, now time.Time) (activityFleetHealth, error) {
+func (s *server) fleetHealth(ctx context.Context, now time.Time, scopeUser uuid.UUID, scoped bool) (activityFleetHealth, error) {
 	var health activityFleetHealth
-	rows, err := s.db.Query(ctx, fleetHealthSQL)
+	query := fleetHealthSQL
+	var args []any
+	if scoped {
+		query += ` AND ` + devices.InScopeSQL("s", "$1")
+		args = append(args, scopeUser)
+	}
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return health, err
 	}

@@ -7,9 +7,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OAuthGrantsBlock } from "./OAuthGrantsBlock";
-import { ApiError, api } from "../api/client";
-import { i18n } from "../i18n";
+import { api, ApiError } from "../api/client";
 import type { OAuthGrant } from "../api/types";
+import { i18n } from "../i18n";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -40,10 +40,9 @@ function renderBlock() {
   );
 }
 
-afterEach(async () => {
+afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  await i18n.changeLanguage("en");
 });
 
 describe("OAuthGrantsBlock", () => {
@@ -75,6 +74,27 @@ describe("OAuthGrantsBlock", () => {
     expect(
       await screen.findByText("No operators are authorized."),
     ).toBeInTheDocument();
+  });
+
+  it("renders only the error when the grants query fails", async () => {
+    vi.spyOn(api, "listOAuthGrants").mockRejectedValue(new Error("offline"));
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <OAuthGrantsBlock />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    expect(
+      await screen.findByText("Authorization grants could not be loaded."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No operators are authorized."),
+    ).not.toBeInTheDocument();
   });
 
   it("presents revocation failures through the localized API error path", async () => {
