@@ -15,8 +15,8 @@ func TestDerivedVariantKey(t *testing.T) {
 		{"imageAssetId", "imageVariantId", true},
 		{"logoAssetId", "logoVariantId", true},
 		{"backgroundAssetId", "backgroundVariantId", true},
-		{"artwork", "", false},
-		{"AssetId", "", false},
+		{"artwork", "artworkVariantId", true},
+		{"AssetId", "VariantId", true},
 		{"", "", false},
 	}
 	for _, tc := range cases {

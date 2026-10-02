@@ -280,13 +280,26 @@ impl Tracker {
     }
 
     fn start_content(&mut self, item_id: &str, clocks: &dyn Clocks, out: &mut Vec<Event>) {
+        // A start for the item that is already open, with no boundary in
+        // between, is the renderer remounting the same thing, not a second
+        // play. A single-item playlist looping reports `item-transition`
+        // first, which closes the session, so it is unaffected.
+        if self.child.as_ref().is_some_and(|child| child.context.content_id == item_id) {
+            return;
+        }
+        // An item the player is not presenting is not on screen. The renderer
+        // can still report the start of a mount from a presentation that has
+        // since been replaced; recording it would invent a play, with a
+        // content type the player had to guess, for content nobody was shown.
+        let Some(item) = self.items.iter().find(|item| item.id == item_id).cloned() else { return };
         self.finish_content("completed", reason::EXPECTED_ITEM_BOUNDARY, None, clocks, out);
-        let item = self.items.iter().find(|item| item.id == item_id);
         let context = ContentContext {
             content_id: item_id.to_owned(),
-            content_type: item.map_or_else(|| "media".to_owned(), |item| item.kind.clone()),
+            content_type: item.kind.clone(),
             playlist_item_id: Some(item_id.to_owned()),
-            expected_duration_ms: item.and_then(|item| item.duration_ms),
+            // Zero is how stored data spells "no duration"; reporting it made
+            // every indefinite item look like a play cut short at zero.
+            expected_duration_ms: item.duration_ms.filter(|ms| *ms > 0),
         };
         let child =
             Open { id: clocks.uuid(), started_mono_ms: clocks.mono_ms(), started_wall_ms: clocks.wall_ms(), context };

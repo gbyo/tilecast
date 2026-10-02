@@ -30,6 +30,7 @@ import { Checkbox } from "../components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -129,35 +130,8 @@ export function UsersPage() {
     queryFn: () => withUserError(listUsers(), t("users.errors.requestFailed")),
     enabled: canManage,
   });
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("viewer");
   const [editing, setEditing] = useState<ManagedUser>();
-  const create = useMutation({
-    mutationFn: (input: UserInput) =>
-      withUserError(
-        createUser(
-          {
-            name: input.name,
-            username: input.username,
-            password: input.password ?? "",
-            role: input.role,
-            ...(input.active === undefined ? {} : { active: input.active }),
-          },
-          csrf,
-        ),
-        t("users.errors.requestFailed"),
-      ),
-    onSuccess: async () => {
-      toast.add({ title: t("users.toasts.created"), type: "success" });
-      setName("");
-      setUsername("");
-      setPassword("");
-      setRole("viewer");
-      await client.invalidateQueries({ queryKey: ["users"] });
-    },
-  });
+  const [createOpen, setCreateOpen] = useState(false);
 
   if (!canManage) {
     return (
@@ -173,112 +147,23 @@ export function UsersPage() {
 
   return (
     <section className="grid content-start gap-4">
-      <section
-        className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5"
-        aria-labelledby="add-user-title"
-      >
-        <div className="grid gap-0.5">
-          <h2 id="add-user-title" className="text-sm font-semibold">
-            {t("users.addForm.title")}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {t("users.addForm.passwordHint")}
-          </p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="users-add-name">
-              {t("users.addForm.nameLabel")}
-            </FieldLabel>
-            <Input
-              id="users-add-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="users-add-username">
-              {t("users.addForm.usernameLabel")}
-            </FieldLabel>
-            <Input
-              id="users-add-username"
-              value={username}
-              autoCapitalize="none"
-              autoCorrect="off"
-              onChange={(event) => setUsername(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="users-add-password">
-              {t("users.addForm.passwordLabel")}
-            </FieldLabel>
-            <Input
-              id="users-add-password"
-              type="password"
-              value={password}
-              autoComplete="new-password"
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="users-add-role">
-              {t("users.addForm.roleLabel")}
-            </FieldLabel>
-            <Select
-              items={allowedRoles.map((value) => ({
-                value,
-                label: t(roleKeys[value]),
-              }))}
-              value={role}
-              onValueChange={(value) => setRole(value ?? "viewer")}
-            >
-              <SelectTrigger id="users-add-role">
-                <SelectValue>{t(roleKeys[role])}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {allowedRoles.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {t(roleKeys[value])}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>{t(roleDescriptionKeys[role])}</FieldDescription>
-          </Field>
-        </div>
-        <div>
-          <Button
-            type="button"
-            variant="default"
-            disabled={
-              create.isPending ||
-              name.trim().length < 2 ||
-              username.trim().length < 3 ||
-              password.length < 12
-            }
-            onClick={() =>
-              create.mutate({
-                name: name.trim(),
-                username: username.trim(),
-                password,
-                role,
-              })
-            }
-          >
-            <Plus size={16} aria-hidden="true" />{" "}
-            {create.isPending
-              ? t("users.addForm.submitting")
-              : t("users.addForm.submit")}
-          </Button>
-        </div>
-        {create.error && (
-          <Alert variant="destructive">
-            <AlertDescription role="alert">
-              {create.error.message}
-            </AlertDescription>
-          </Alert>
-        )}
-      </section>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button type="button" onClick={() => setCreateOpen(true)}>
+          <Plus size={16} aria-hidden="true" /> {t("users.addForm.submit")}
+        </Button>
+      </div>
+
+      {createOpen && (
+        <UserCreateDialog
+          allowedRoles={allowedRoles}
+          csrf={csrf}
+          onClose={() => setCreateOpen(false)}
+          onCreated={async () => {
+            await client.invalidateQueries({ queryKey: ["users"] });
+            setCreateOpen(false);
+          }}
+        />
+      )}
 
       {users.isLoading ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -384,6 +269,165 @@ export function UsersPage() {
         />
       )}
     </section>
+  );
+}
+
+function UserCreateDialog({
+  allowedRoles,
+  csrf,
+  onClose,
+  onCreated,
+}: {
+  allowedRoles: UserRole[];
+  csrf: string;
+  onClose: () => void;
+  onCreated: () => Promise<void>;
+}) {
+  const { t } = useTranslation(["account", "common"]);
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("viewer");
+  const create = useMutation({
+    mutationFn: (input: UserInput) =>
+      withUserError(
+        createUser(
+          {
+            name: input.name,
+            username: input.username,
+            password: input.password ?? "",
+            role: input.role,
+            ...(input.active === undefined ? {} : { active: input.active }),
+          },
+          csrf,
+        ),
+        t("users.errors.requestFailed"),
+      ),
+    onSuccess: async () => {
+      toast.add({ title: t("users.toasts.created"), type: "success" });
+      await onCreated();
+    },
+  });
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t("users.addForm.title")}</DialogTitle>
+          <DialogDescription>
+            {t("users.addForm.passwordHint")}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="grid gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({
+              name: name.trim(),
+              username: username.trim(),
+              password,
+              role,
+            });
+          }}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="users-add-name">
+                {t("users.addForm.nameLabel")}
+              </FieldLabel>
+              <Input
+                id="users-add-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-add-username">
+                {t("users.addForm.usernameLabel")}
+              </FieldLabel>
+              <Input
+                id="users-add-username"
+                value={username}
+                autoCapitalize="none"
+                autoCorrect="off"
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-add-password">
+                {t("users.addForm.passwordLabel")}
+              </FieldLabel>
+              <Input
+                id="users-add-password"
+                type="password"
+                value={password}
+                autoComplete="new-password"
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="users-add-role">
+                {t("users.addForm.roleLabel")}
+              </FieldLabel>
+              <Select
+                items={allowedRoles.map((value) => ({
+                  value,
+                  label: t(roleKeys[value]),
+                }))}
+                value={role}
+                onValueChange={(value) => setRole(value ?? "viewer")}
+              >
+                <SelectTrigger id="users-add-role">
+                  <SelectValue>{t(roleKeys[role])}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedRoles.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {t(roleKeys[value])}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(roleDescriptionKeys[role])}
+              </FieldDescription>
+            </Field>
+          </div>
+          {create.error && (
+            <Alert variant="destructive">
+              <AlertDescription role="alert">
+                {create.error.message}
+              </AlertDescription>
+            </Alert>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t("common:actions.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              disabled={
+                create.isPending ||
+                name.trim().length < 2 ||
+                username.trim().length < 3 ||
+                password.length < 12
+              }
+            >
+              <Plus size={16} aria-hidden="true" />{" "}
+              {create.isPending
+                ? t("users.addForm.submitting")
+                : t("users.addForm.submit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

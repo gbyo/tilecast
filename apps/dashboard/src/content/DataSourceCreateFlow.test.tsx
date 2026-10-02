@@ -7,13 +7,21 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { DataSourceDefinition } from "../api/types";
-import { DataSourceProviderGallery } from "./DataSourceCreateFlow";
+import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
+import {
+  ConnectDataFlow,
+  DataSourceProviderGallery,
+} from "./DataSourceCreateFlow";
 import announcementsManifest from "../../../../data-sources/announcements/tilecast.datasource.json";
+
+vi.mock("./data-sources/dispatcher", () => ({
+  DataSourceEditor: () => <input aria-label="Mock data-source field" />,
+}));
 
 afterEach(() => {
   cleanup();
@@ -72,6 +80,26 @@ function renderGalleryWithPluginSource(
   return { editor, onChoose };
 }
 
+function ConnectFlowHarness() {
+  const [provider, setProvider] = useState<DataSourceProvider>();
+  const [open, setOpen] = useState(true);
+  return (
+    <>
+      <button type="button">Open Connect Data</button>
+      {open && (
+        <ConnectDataFlow
+          provider={provider}
+          csrf="csrf"
+          onChooseProvider={setProvider}
+          onBack={() => setProvider(undefined)}
+          onClose={() => setOpen(false)}
+          onCreated={vi.fn()}
+        />
+      )}
+    </>
+  );
+}
+
 describe("Data Source gallery provenance", () => {
   it("shows the migrated core module without a plugin badge", async () => {
     const { editor } = renderGalleryWithPluginSource(true);
@@ -105,5 +133,49 @@ describe("Data Source gallery provenance", () => {
     expect(card).toBeDisabled();
     expect(screen.getByText("Requires Emergency Alerts")).toBeTruthy();
     expect(onChoose).not.toHaveBeenCalled();
+  });
+});
+
+describe("Connect Data modal focus", () => {
+  it("keeps focus in the dialog when moving from the gallery to the editor", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [announcements],
+    });
+    vi.spyOn(api, "plugins").mockResolvedValue({
+      items: [],
+      unsupportedInstallations: [],
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <ConnectFlowHarness />
+      </QueryClientProvider>,
+    );
+
+    const provider = await screen.findByRole(
+      "button",
+      { name: /Announcements/ },
+      { timeout: 500 },
+    );
+    provider.focus();
+    fireEvent.click(provider);
+
+    const back = await screen.findByRole(
+      "button",
+      { name: "All providers" },
+      { timeout: 500 },
+    );
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() => {
+      expect(document.activeElement).toBe(back);
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    });
+    expect(screen.getByLabelText("Mock data-source field")).toBeInTheDocument();
   });
 });

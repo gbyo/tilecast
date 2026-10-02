@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { playlistKeys, playlistQueries } from "../../data/playlists";
 import { PanelsTopLeft } from "lucide-react";
 import {
   useEffect,
@@ -105,10 +106,7 @@ export function PlaylistEditorPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = useQuery({
-    queryKey: ["playlists", id],
-    queryFn: () => api.playlist(id),
-  });
+  const query = useQuery(playlistQueries.detail(id));
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -172,7 +170,7 @@ export function PlaylistEditorPage() {
   }, [dirty]);
 
   const update = (playlist: Playlist) =>
-    client.setQueryData(["playlists", id], playlist);
+    client.setQueryData(playlistQueries.detail(id).queryKey, playlist);
 
   const save = useMutation({
     mutationFn: () => api.updatePlaylist(id, { name, description }, csrf),
@@ -220,8 +218,8 @@ export function PlaylistEditorPage() {
           : t("editor.toasts.submitted"),
         type: "success",
       });
-      void client.invalidateQueries({ queryKey: ["playlists", id] });
-      void client.invalidateQueries({ queryKey: ["playlists"] });
+      void client.invalidateQueries({ queryKey: playlistKeys.detail(id) });
+      void client.invalidateQueries({ queryKey: playlistKeys.all });
       void client.invalidateQueries({ queryKey: ["content-submissions"] });
       void client.invalidateQueries({
         queryKey: ["content-history", "playlist", id],
