@@ -20,7 +20,6 @@
     "@tanstack/react-query": "^5.103.2",
     "@tanstack/react-table": "^9.2.4",
     "@tilecast/api-schema": "*",
-    "@tilecast/api-schema": "*",
     "@tilecast/design-tokens": "*",
     "@tilecast/widget-kit": "*",
     "@tilecast/widget-sdk": "*",
