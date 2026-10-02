@@ -10,8 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { api } from "../api/client";
-import { hasNextPage } from "../api/pagination";
+import { playlistQueries } from "../data/playlists";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -212,12 +211,7 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const query = useInfiniteQuery({
-    queryKey: ["playlists", "library", search],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.playlistPage(search, pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const query = useInfiniteQuery(playlistQueries.pages(search));
 
   useEffect(() => {
     if (searchParams.get("create") === "1") setCreating(true);

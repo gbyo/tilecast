@@ -69,6 +69,12 @@ Use `apps/dashboard/src/data/content.ts` for Content catalog queries. The librar
 
 HTTP-boundary tests check filters across multiple pages, equivalent filter reuse, independent archive/provider/page-size requests, caller-parameter snapshots, and normalized definition catalogs. Run Content picker and Widget capture tests when changing these integrations. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
 
+## Playlist query contracts
+
+Use the factories in `apps/dashboard/src/data/playlists.ts` for Playlist queries. The editor, popup preview, and Screen dependency view share detail data, so a saved draft update reaches each consumer through the same cache. Complete lists and infinite pages use separate keys. API domain helpers still normalize responses; query factories do not duplicate that work.
+
+The HTTP-boundary tests check normalized detail reuse, draft cache updates, search parameters, two-page loading, and invalidation. Rendering remains with the existing preview and Player components. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.

@@ -16,6 +16,8 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
 - `apps/dashboard/src/api` owns browser API types and transport behavior.
 - `apps/dashboard/src/data/content.ts` owns Content catalog query keys and options. Asset pages use the actual request filters as their cache key. The library and picker share pagination and processing refresh. The API domain module retains response normalization.
+
+- `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
 - `packages/*-schema` are reserved for stable, versioned cross-application contracts as those protocols are introduced.
 
@@ -62,9 +64,16 @@ invariant with a unique membership constraint. Assigning content through any
 member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
-for half-open interval evaluation and deterministic precedence: priority, later
-effective start, then stable ID. The Android `ScheduleEngine` implements the
+for half-open interval evaluation and deterministic precedence: priority,
+target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
 same transport semantics for offline evaluation.
+
+`scheduling.Explain` calls this same resolver. It returns a reason code for
+each selected, inactive, or superseded schedule. Selection and explanation
+use one precedence comparator. Disabled schedules do not contribute a next
+transition. The supplied schedules describe a configuration at an explicit
+instant; they do not establish a historical expectation. Historical reports
+must use recorded expected playback windows.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for
