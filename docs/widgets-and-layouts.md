@@ -181,7 +181,7 @@ The Layout preview opens in its own browser popup, leaving the editor available 
 
 Studio draws a catalog preview for each Widget rather than an icon. The preview is inline SVG built from the definition's `thumbnail` name, follows the active theme, and needs no asset or network request. An unknown or missing name falls back to a generic preview, so a definition from a later release never breaks the gallery.
 
-A Data Source that requires manifest v13 declares `requiresManifestV13` in its definition; the Server reads that metadata from the catalog rather than matching provider names. A Widget may reference more than one Data Source: every configuration field whose control is `data_source` is followed for manifest projection, usage tracking, deletion protection, assignment compatibility, and catalog invalidation.
+A Data Source that requires manifest v13 declares `requiresManifestV13` in its definition; the Server reads that metadata from the catalog rather than matching provider names. A Widget may reference more than one Data Source: every configuration field whose control is `data_source`, including fields inside `repeating_group` rows, is followed for manifest projection, usage tracking, deletion protection, assignment compatibility, and catalog invalidation.
 
 Presentations containing only legacy Widget configurations continue using manifest v11. Saving a generalized data-driven Widget upgrades it to configuration version 2 and requires manifest v12. Studio refuses to assign v12 content to a screen or synchronized group until every target reports a compatible Player version.
 
