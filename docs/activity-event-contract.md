@@ -34,7 +34,7 @@ These fields are what turn an event stream into proof of play. A start event ope
 | `parentActivitySessionId`                                                                           | child start        | The root presentation session this content plays inside.                                       |
 | `sessionType`                                                                                       | start              | `presentation`, `content`, `layout_placement`, `playlist_item`.                                |
 | `terminalReason`                                                                                    | end                | See below. Required on end events in version 2.                                                |
-| `expectedDurationMs`                                                                                | start, when known  | What the item was supposed to run for.                                                         |
+| `expectedDurationMs`                                                                                | start, when known  | What the item was supposed to run for. Omit it for an item with no duration. Never send zero.  |
 | `durationMs`                                                                                        | end                | Measured from the monotonic clock.                                                             |
 | `trigger`                                                                                           | start              | `schedule`, `direct`, `takeover`, `manual`.                                                    |
 | `presentationId` / `presentationType` / `presentationRevision`                                      | both               | Identifies the playlist or layout.                                                             |
@@ -122,7 +122,10 @@ Both players emit the version 2 name. The version 1 column is what the server st
 
 - Start a root `presentation` session whenever content begins playing, and end it when it stops.
 - Start a child session per media item, Widget, or layout placement, and end it with the same `activitySessionId`.
-- Report `expectedDurationMs` when the item has a known duration.
+- Report `expectedDurationMs` when the item has a known duration. An item with no duration, or a duration of zero, reports none.
+- Open one child session for one period of continuous display. If the renderer mounts the item that is already open again, with no end between, that is the same play: do not close the session and open another. A single-item playlist that loops ends each lap with an `item-transition` first, so each lap is its own session.
+- Open a child session only for content the Player is presenting. A renderer can report the start of a mount from a presentation that was replaced a moment earlier. That content is not on screen, so it is not a play, and the Player must not guess a content type for it.
+- Do not start a session for content that will not be on screen for at least one second. The server does not count a session that ended as expected in under 1000 ms as a play (see [minimum play](activity.md#minimum-play)).
 - Report a `terminalReason` on every end event.
 - Use idempotent event IDs and a sequence persisted across restarts.
 - Keep unsent events buffered through short outages and retry them.

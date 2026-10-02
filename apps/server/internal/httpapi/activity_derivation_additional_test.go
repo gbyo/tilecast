@@ -65,6 +65,33 @@ func TestReconnectPreservesConfirmedPlaybackCompliance(t *testing.T) {
 	})
 }
 
+func TestReconnectRetainsRootWhileMicroPlayIsDiscarded(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		start := time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond)
+		postActivityBatch(t, env, playerActivityBatchInput{Events: []playerActivityEventInput{
+			{ID: uuid.New(), Sequence: 1, EventType: "presentation.started", OccurredAt: start, PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "playlist-a", ActivitySessionID: "micro-reconnect-root", Result: "playing"},
+			{ID: uuid.New(), Sequence: 2, EventType: "content.started", OccurredAt: start, PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "playlist-a", ContentType: "media", ContentID: "image-a", ActivitySessionID: "micro-reconnect-child", ParentSessionID: "micro-reconnect-root", SessionType: "content", Result: "playing"},
+			{ID: uuid.New(), Sequence: 3, EventType: "connection.restored", OccurredAt: start.Add(250 * time.Millisecond), PlayerTimezone: "UTC", Result: "recovered"},
+			{ID: uuid.New(), Sequence: 4, EventType: "content.completed", OccurredAt: start.Add(500 * time.Millisecond), PlayerTimezone: "UTC", PresentationType: "playlist", PresentationID: "playlist-a", ContentType: "media", ContentID: "image-a", ActivitySessionID: "micro-reconnect-child", Result: "completed", TerminalReason: "expected_item_boundary", DurationMS: int64Pointer(500)},
+		}}, http.StatusAccepted)
+
+		var rootCount, childCount, rawCount int
+		ctx := context.Background()
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM playback_sessions WHERE activity_session_id='micro-reconnect-root' AND ended_at IS NULL AND result='playing'`).Scan(&rootCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM playback_sessions WHERE activity_session_id='micro-reconnect-child'`).Scan(&childCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM player_activity_events WHERE screen_id=$1`, env.screenID).Scan(&rawCount); err != nil {
+			t.Fatal(err)
+		}
+		if rootCount != 1 || childCount != 0 || rawCount != 4 {
+			t.Fatalf("root=%d child=%d raw events=%d", rootCount, childCount, rawCount)
+		}
+	})
+}
+
 func TestActivityRetentionPreservesOpenSessions(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		ctx := context.Background()

@@ -55,6 +55,9 @@ func TestParseGTFSStaticAndNormalizeDepartures(t *testing.T) {
 	if len(records) != 1 || records[0].Values["route"] != "10" || records[0].Values["platform"] != "2" || records[0].Values["headsign"] != "Library" {
 		t.Fatalf("departure=%+v", records)
 	}
+	if got := transitPreviewForDate(records, "2099-01-01", "UTC"); len(got) != 0 {
+		t.Fatalf("departures outside the selected preview date = %+v", got)
+	}
 }
 
 func TestNormalizeCAPDocumentsAppliesCancellationAndAreaFilters(t *testing.T) {
@@ -76,6 +79,42 @@ func TestNormalizeCAPDocumentsAppliesCancellationAndAreaFilters(t *testing.T) {
 	records, err := normalizeCAPDocuments(documents, CAPAlertsSourceConfig{PreferredLanguage: "en-US", MinimumSeverity: "moderate", IncludeAreaKeywords: []string{"Downtown"}, MaximumAlerts: 20}, time.Now())
 	if err != nil || len(records) != 1 || records[0].ID != "active" {
 		t.Fatalf("records=%+v err=%v", records, err)
+	}
+}
+
+func TestCAPPreviewUsesTheSelectedDateForAlertExpiry(t *testing.T) {
+	alert := capAlertXML{
+		Identifier: "selected-date", Sender: "agency@example.org", Status: "Actual", MsgType: "Alert", Scope: "Public",
+		Infos: []capInfoXML{{Language: "en-US", Event: "Flood", Severity: "Severe", Urgency: "Immediate", Certainty: "Likely", Headline: "Flood warning", Expires: "2026-09-25T00:00:00Z"}},
+	}
+	document, err := xml.Marshal(alert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := CAPAlertsSourceConfig{PreferredLanguage: "en-US", MinimumSeverity: "moderate", MaximumAlerts: 20}
+	previewAt := previewTimeOrNow("2026-09-24", "UTC", time.Now())
+	active, err := normalizeCAPDocuments([][]byte{document}, config, previewAt)
+	if err != nil || len(active) != 1 {
+		t.Fatalf("alert should be active on preview date: records=%+v err=%v", active, err)
+	}
+	expiredAt := previewTimeOrNow("2026-09-25", "UTC", time.Now())
+	expired, err := normalizeCAPDocuments([][]byte{document}, config, expiredAt)
+	if err != nil || len(expired) != 0 {
+		t.Fatalf("alert should be expired on preview date: records=%+v err=%v", expired, err)
+	}
+}
+
+func TestAirQualityPreviewSelectsPointsForPreviewDate(t *testing.T) {
+	payload := TypedDatasetPayload{Datasets: []TypedDataset{
+		{ID: "current", Kind: "object", Values: map[string]string{"aqi": "42"}},
+		{ID: "hourly", Kind: "time_series", Points: []TypedPoint{
+			{At: time.Date(2000, 9, 24, 2, 0, 0, 0, time.UTC), Values: map[string]string{"aqi": "30"}},
+			{At: time.Date(2000, 9, 24, 15, 0, 0, 0, time.UTC), Values: map[string]string{"aqi": "40"}},
+		}},
+	}}
+	preview := airQualityPreviewForDate(payload, "2000-09-24", "America/New_York")
+	if len(preview.Datasets) != 1 || preview.Datasets[0].ID != "hourly" || len(preview.Datasets[0].Points) != 1 || preview.Datasets[0].Points[0].Values["aqi"] != "40" {
+		t.Fatalf("air-quality preview payload = %+v", preview)
 	}
 }
 
