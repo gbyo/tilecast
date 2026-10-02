@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { copyText } from "../lib/clipboard";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Clipboard, ExternalLink } from "lucide-react";
 import { GitHubIcon } from "./GitHubIcon";
@@ -26,7 +27,6 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Field, FieldLabel } from "./ui/field";
-import { toast } from "./ui/toast";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
 
@@ -198,19 +198,16 @@ export function GitHubOAuthSetupPortal() {
   }, [csrfToken, flow, queryClient, t]);
 
   const copy = async (label: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (
+      await copyText(value, {
+        success: t("common:clipboard.copied", { label }),
+        failure: t("common:clipboard.copyFailed", { label }),
+      })
+    ) {
       setCopied(label);
-      toast.add({
-        title: t("common:clipboard.copied", { label }),
-        type: "success",
-      });
       window.setTimeout(() => setCopied(""), 1500);
-    } catch {
-      toast.add({
-        title: t("common:clipboard.copyFailed", { label }),
-        type: "error",
-      });
+    } else {
+      setCopied("");
     }
   };
 

@@ -47,6 +47,13 @@ Every identifier field in a heartbeat (`currentItemId`, `currentAssetId`, `curre
 
 Server-side handling is deliberately asymmetric. A malformed **optional playback identifier** — the eight fields listed first above — is dropped, named in the warning log, and returned in `data.ignoredFields`; the rest of the heartbeat is then processed normally. This exists because the same message carries the lifecycle facts that settle a self-update (`playerVersion`, `playerVersionCode`, `lastHealthyPlaybackAt`, `playbackState`, `safeMode`), and one unusable telemetry field must not strand a deployment on a healthy screen. A malformed **required, deployment, command, or credential-bearing** field still rejects the whole heartbeat: `currentUpdateDeploymentId` or `lastCommandId` with an unreadable value would misattribute an update or a command result. Dropped values are recorded as absent, never coerced or substituted.
 
+Render-progress measurements belong to the bounded telemetry snapshot, not the
+strict heartbeat document. Players report item start time as `itemStartedAt`
+and progress, stall, expected-motion, and renderer-response measurements through
+`POST /api/v1/player/telemetry`. The heartbeat carries liveness and supported
+device status; adding telemetry-only keys to it makes the strict HTTP fallback
+reject the full heartbeat.
+
 ### Release family
 
 A heartbeat may carry `playerFamily` (`android`, `electron-linux` or `edge`) and, for Tilecast Edge, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux` and every other platform is `android`.

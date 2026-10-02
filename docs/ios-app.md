@@ -386,6 +386,8 @@ A confirmation must match the platform, so Studio can ask the app to show a nati
 
 `useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. A confirmation written as its own `AlertDialog` is a web dialog on iOS until it moves to `useConfirm`. The media library and the media asset sheet have moved. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
 
+Each `useConfirm` instance queues requests in arrival order across native alerts and web dialogs. A second request cannot replace the first request. Confirm resolves `true`. Cancel or dismissal resolves `false`. Component unmount resolves all active and queued requests as `false` and withdraws its native alert. Late responses cannot confirm another request.
+
 ### Which surfaces move to a sheet
 
 A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.

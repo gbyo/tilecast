@@ -44,4 +44,20 @@ describe("Forms approvals", () => {
     await screen.findAllByText("Website feedback");
     expect(document.body.textContent).toContain(expected);
   });
+
+  it("renders only the error when the approvals query fails", async () => {
+    vi.spyOn(formsApi, "listApprovals").mockRejectedValue(new Error("offline"));
+
+    renderPluginRoute(<ApprovalsPage />, {
+      path: "/plugins/forms/approvals",
+      patterns: ["/plugins/forms/approvals"],
+      role: "owner",
+    });
+
+    expect(
+      await screen.findByText("Could not load approvals"),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nothing to review")).not.toBeInTheDocument();
+  });
 });

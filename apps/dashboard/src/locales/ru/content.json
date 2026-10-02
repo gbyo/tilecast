@@ -184,7 +184,6 @@
       "collectionOption": "{{name}} ({{count}})",
       "filterByStatus": "Фильтр по статусу",
       "folderOption": "{{name}} ({{count}})",
-      "resetFilters": "Сбросить фильтры",
       "search": "Поиск медиа",
       "sortMedia": "Сортировка медиа",
       "tagOption": "{{name}} ({{count}})",

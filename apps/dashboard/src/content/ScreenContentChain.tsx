@@ -1,6 +1,7 @@
 // ScreenContentChain walks the dependency graph downward from a screen so the operator can see
 // which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
+import { playlistQueries } from "../data/playlists";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -63,11 +64,7 @@ export function ScreenContentChain({
     queryFn: () => api.layout(layoutId!),
     enabled: Boolean(layoutId),
   });
-  const playlist = useQuery({
-    queryKey: ["playlists", playlistId],
-    queryFn: () => api.playlist(playlistId!),
-    enabled: Boolean(playlistId),
-  });
+  const playlist = useQuery(playlistQueries.detail(playlistId ?? ""));
   // Dependency IDs are known up front, so resolve them directly instead of
   // intersecting against a catalog page. A 404 means the source is gone;
   // anything else fails the whole lookup like before.
