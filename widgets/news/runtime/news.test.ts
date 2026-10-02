@@ -46,7 +46,15 @@ function documentWith(
   return {
     [SOURCE]: {
       schemaVersion: 1,
-      datasets: [{ id: "records", kind: "records", fields, records }],
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields,
+          records,
+        },
+      ],
     },
   };
 }
@@ -263,6 +271,7 @@ describe("News data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 2 },
           },
         ],

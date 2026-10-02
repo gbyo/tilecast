@@ -2206,6 +2206,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.DataSources[index].DataDocument = document
 			manifest.DataSources[index].Configuration = nil
 		}
+		for index := range compiled {
+			if compiled[index] == nil || compiled[index].Kind != "component" || compiled[index].Component == nil {
+				continue
+			}
+			if err = s.projectComponentDataSourceMedia(ctx, &manifest, manifest.Widgets[index], compiled[index], seen); err != nil {
+				return Manifest{}, "", err
+			}
+		}
 		for index := range manifest.Widgets {
 			manifest.Widgets[index].Presentation = compiled[index]
 			manifest.Widgets[index].Configuration = nil
@@ -2515,6 +2523,118 @@ func (s *Service) projectWidgetAssets(ctx context.Context, manifest *Manifest, w
 		}
 	}
 	widget.Configuration, _ = json.Marshal(configuration)
+	return nil
+}
+
+// projectComponentDataSourceMedia grants only managed image assets selected by
+// a component's declared asset-valued Data Source field. The grant is bounded
+// by the component media contract and by its configured record limit.
+func (s *Service) projectComponentDataSourceMedia(ctx context.Context, manifest *Manifest, widget ManifestWidget, presentation *WidgetPresentation, seen map[uuid.UUID]bool) error {
+	if presentation == nil || presentation.Component == nil {
+		return nil
+	}
+	var configuration map[string]any
+	if err := json.Unmarshal(widget.Configuration, &configuration); err != nil {
+		return fmt.Errorf("widget configuration is invalid")
+	}
+	definition, ok := s.definitions.Widget(widget.Provider)
+	if !ok {
+		return nil
+	}
+	dataSourceKeys := make([]string, 0, 1)
+	for _, field := range definition.ConfigurationSchema.Fields {
+		if field.Control == "data_source" {
+			dataSourceKeys = append(dataSourceKeys, field.Key)
+		}
+	}
+	limit := 6
+	if configured, ok := configuration["maximumItems"].(float64); ok && configured >= 1 {
+		limit = min(int(configured), 100)
+	}
+
+	for _, field := range definition.ConfigurationSchema.Fields {
+		if field.Control != "data_source_field" || !containsString(field.DataSourceFieldTypes, "asset") {
+			continue
+		}
+		selectedField, _ := configuration[field.Key].(string)
+		if selectedField == "" {
+			continue
+		}
+		sourceKey := field.DataSourceKey
+		if sourceKey == "" && len(dataSourceKeys) == 1 {
+			sourceKey = dataSourceKeys[0]
+		}
+		if sourceKey == "" {
+			continue
+		}
+		rawSourceID, _ := configuration[sourceKey].(string)
+		sourceID, parseErr := uuid.Parse(rawSourceID)
+		if parseErr != nil || sourceID == uuid.Nil || !containsString(presentation.Component.DataSources, sourceID.String()) {
+			continue
+		}
+		var source *ManifestDataSource
+		for index := range manifest.DataSources {
+			if manifest.DataSources[index].ID == sourceID {
+				source = &manifest.DataSources[index]
+				break
+			}
+		}
+		if source == nil || source.DataDocument == nil {
+			continue
+		}
+		var records []DocumentRecord
+		for _, dataset := range source.DataDocument.Datasets {
+			if dataset.Kind != "records" {
+				continue
+			}
+			assetField := false
+			for _, candidate := range dataset.Fields {
+				if candidate.Key == selectedField && candidate.Type == "asset" {
+					assetField = true
+					break
+				}
+			}
+			if assetField {
+				records = dataset.Records
+				break
+			}
+		}
+		if len(records) > limit {
+			records = records[:limit]
+		}
+		for _, record := range records {
+			value, exists := record.Values[selectedField]
+			if !exists || value.Kind != "asset" || value.AssetID == nil {
+				continue
+			}
+			assetID, assetErr := uuid.Parse(*value.AssetID)
+			if assetErr != nil || assetID == uuid.Nil {
+				continue
+			}
+			assetString := assetID.String()
+			assetRefs := 0
+			for _, ref := range presentation.Component.Media {
+				if ref.AssetID == assetString {
+					assetRefs++
+				}
+			}
+			// An existing exact grant already covers this asset. Multiple
+			// variants are ambiguous for an asset-valued Data Document and
+			// remain inaccessible through mediaForAsset.
+			if assetRefs > 0 || len(presentation.Component.Media) >= 16 {
+				continue
+			}
+			asset, resolveErr := s.resolveImageVariant(ctx, assetID)
+			if resolveErr != nil {
+				continue
+			}
+			presentation.Component.Media = append(presentation.Component.Media, ComponentMediaRef{AssetID: asset.AssetID.String(), VariantID: asset.VariantID.String()})
+			if !seen[asset.VariantID] {
+				manifest.Assets = append(manifest.Assets, asset)
+				seen[asset.VariantID] = true
+			}
+		}
+	}
 	return nil
 }
 

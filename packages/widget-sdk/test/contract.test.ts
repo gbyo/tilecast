@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import Ajv, { type AnySchema } from "ajv";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   componentCapability,
   createWidgetResources,
@@ -9,6 +12,7 @@ import {
   TILECAST_DISPLAY_THEME,
   validTimeZone,
   WidgetRegistry,
+  type WidgetDataDocument,
 } from "../src/index.ts";
 import {
   discoverSourcedWidgets,
@@ -546,19 +550,33 @@ describe("manifest", () => {
 });
 
 describe("resources", () => {
-  const documents = new Map([
+  const documents = new Map<string, WidgetDataDocument>([
     [
       "granted",
       {
         schemaVersion: 1,
         datasets: [
-          { id: "current", kind: "object", attribution: "Open-Meteo" },
+          {
+            id: "current",
+            kind: "object",
+            cache: { usingCachedData: false, unavailable: false },
+            attribution: "Open-Meteo",
+          },
         ],
       },
     ],
     [
       "secret",
-      { schemaVersion: 1, datasets: [{ id: "all", kind: "records" }] },
+      {
+        schemaVersion: 1,
+        datasets: [
+          {
+            id: "all",
+            kind: "records",
+            cache: { usingCachedData: false, unavailable: false },
+          },
+        ],
+      },
     ],
   ]);
   const media = new Map([
@@ -576,13 +594,35 @@ describe("resources", () => {
     expect(resources.dataDocument("secret")).toBeNull();
     expect(resources.dataset("secret", "all")).toBeNull();
     expect(resources.media("a1", "v1")).toBe("tcmedia://variant/a1/v1");
+    expect(resources.mediaForAsset("a1")).toBe("tcmedia://variant/a1/v1");
     expect(resources.media("a2", "v2")).toBeNull();
     expect(Object.keys(resources).sort()).toEqual([
       "attribution",
       "dataDocument",
       "dataset",
       "media",
+      "mediaForAsset",
     ]);
+  });
+
+  it("resolves an asset only when its grant names one exact variant", () => {
+    const oneVariant = createWidgetResources(
+      { media },
+      { media: [{ assetId: "a1", variantId: "v1" }] },
+    );
+    expect(oneVariant.mediaForAsset("a1")).toBe("tcmedia://variant/a1/v1");
+
+    const ambiguous = createWidgetResources(
+      { media },
+      {
+        media: [
+          { assetId: "a1", variantId: "v1" },
+          { assetId: "a1", variantId: "v2" },
+        ],
+      },
+    );
+    expect(ambiguous.mediaForAsset("a1")).toBeNull();
+    expect(ambiguous.media("a1", "v1")).toBe("tcmedia://variant/a1/v1");
   });
 
   it("grants nothing by default", () => {
@@ -592,12 +632,13 @@ describe("resources", () => {
   });
 
   it("prevents one Widget from mutating a Data Document shared by another", () => {
-    const sharedDocument = {
+    const sharedDocument: WidgetDataDocument = {
       schemaVersion: 1,
       datasets: [
         {
           id: "current",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           records: [
             {
               id: "record-1",
@@ -629,6 +670,93 @@ describe("resources", () => {
     const sharedTitle = sharedDocument.datasets[0]?.records?.[0]?.values.title;
     expect(observedTitle?.text).toBe("Original");
     expect(Object.isFrozen(sharedTitle)).toBe(true);
+  });
+
+  it("deserializes manifest v16 Data Documents and preserves dataset metadata", () => {
+    const manifestSchema = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), "../manifest-schema/schema-v16.json"),
+        "utf8",
+      ),
+    ) as { $defs: Record<string, unknown> };
+    const dataDocumentSchema = {
+      ...(manifestSchema.$defs["dataDocument"] as Record<string, unknown>),
+      $defs: manifestSchema.$defs,
+    } as AnySchema;
+    const validate = new Ajv({ strict: false, validateFormats: false }).compile(
+      dataDocumentSchema,
+    );
+    const serialized = JSON.stringify({
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "events",
+          kind: "records",
+          cache: {
+            cachedAt: "2026-09-28T15:00:00Z",
+            staleAt: "2026-09-28T16:00:00Z",
+            usingCachedData: true,
+            unavailable: false,
+            lastModified: "etag-42",
+            upstreamExpiry: "2026-09-28T17:00:00Z",
+          },
+          timezone: "America/New_York",
+          dateSelection: {
+            field: "startsAt",
+            timezone: "America/New_York",
+            mode: "current_week",
+            customStartDate: "2026-09-28",
+            customEndDate: "2026-10-04",
+            excludePast: true,
+            noMatchBehavior: "fallback_text",
+            fallbackText: "No events this week",
+          },
+          units: { temperature: "C" },
+          fields: [{ key: "startsAt", label: "Starts", type: "datetime" }],
+          records: [
+            {
+              id: "event-1",
+              values: {
+                startsAt: {
+                  kind: "datetime",
+                  datetime: "2026-09-29T15:00:00Z",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    const document: WidgetDataDocument = JSON.parse(serialized);
+
+    expect(validate(document), JSON.stringify(validate.errors)).toBe(true);
+    const resources = createWidgetResources(
+      { documents: new Map([["calendar", document]]) },
+      { dataSources: ["calendar"] },
+    );
+    expect(resources.dataDocument("calendar")).toEqual(document);
+    expect(resources.dataset("calendar", "events")).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: true,
+        unavailable: false,
+        lastModified: "etag-42",
+        upstreamExpiry: "2026-09-28T17:00:00Z",
+      },
+      timezone: "America/New_York",
+      dateSelection: {
+        field: "startsAt",
+        timezone: "America/New_York",
+        mode: "current_week",
+        customStartDate: "2026-09-28",
+        customEndDate: "2026-10-04",
+        excludePast: true,
+        noMatchBehavior: "fallback_text",
+        fallbackText: "No events this week",
+      },
+      units: { temperature: "C" },
+    });
   });
 });
 

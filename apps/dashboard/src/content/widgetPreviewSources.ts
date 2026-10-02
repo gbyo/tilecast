@@ -72,3 +72,43 @@ export function widgetPreviewMedia(
   }
   return { configuration: next, media };
 }
+
+export interface WidgetPreviewAssetField {
+  readonly dataSourceId: string;
+  readonly fieldKey: string;
+  readonly maximumItems: number;
+}
+
+/** Selected asset-valued fields that a component may consume from a source. */
+export function widgetPreviewAssetFields(
+  fields: readonly ContentDefinitionField[],
+  configuration: Record<string, unknown>,
+): WidgetPreviewAssetField[] {
+  const sourceKeys = fields
+    .filter((field) => field.control === "data_source")
+    .map((field) => field.key);
+  const maximumItems =
+    typeof configuration.maximumItems === "number" &&
+    Number.isInteger(configuration.maximumItems)
+      ? Math.max(1, Math.min(100, configuration.maximumItems))
+      : 6;
+  return fields.flatMap((field) => {
+    if (
+      field.control !== "data_source_field" ||
+      !field.dataSourceFieldTypes?.includes("asset")
+    ) {
+      return [];
+    }
+    const fieldKey = configuration[field.key];
+    const sourceKey =
+      field.dataSourceKey ??
+      (sourceKeys.length === 1 ? sourceKeys[0] : undefined);
+    const dataSourceId = sourceKey ? configuration[sourceKey] : undefined;
+    return typeof fieldKey === "string" &&
+      fieldKey !== "" &&
+      typeof dataSourceId === "string" &&
+      dataSourceId !== ""
+      ? [{ dataSourceId, fieldKey, maximumItems }]
+      : [];
+  });
+}

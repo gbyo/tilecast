@@ -41,7 +41,7 @@
                   "kind": "text",
                   "text": "Replace the entrance display and reprint the wayfinding cards."
                 },
-                "cover": { "kind": "assetId", "assetId": "cover-a" },
+                "cover": { "kind": "asset", "assetId": "cover-a" },
                 "status": { "kind": "text", "text": "In progress" },
                 "due": { "kind": "date", "date": "2026-10-01" }
               }

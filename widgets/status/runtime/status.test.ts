@@ -58,6 +58,7 @@ function documentWith(
         {
           id: "object",
           kind: "object",
+          cache: { usingCachedData: false, unavailable: false },
           fields,
           value: { kind: "object", object: values },
         },
@@ -129,7 +130,14 @@ describe("Status data and time model", () => {
     const records: Record<string, WidgetDataDocument> = {
       [SOURCE]: {
         schemaVersion: 1,
-        datasets: [{ id: "records", kind: "records", records: [] }],
+        datasets: [
+          {
+            id: "records",
+            kind: "records",
+            cache: { usingCachedData: false, unavailable: false },
+            records: [],
+          },
+        ],
       },
     };
     expect(

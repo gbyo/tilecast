@@ -36,6 +36,7 @@ function documentWith(
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "kind", label: "Kind", type: "text" },
             { key: "location", label: "Location", type: "text" },
@@ -205,6 +206,7 @@ describe("Weather data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 1 },
           },
         ],

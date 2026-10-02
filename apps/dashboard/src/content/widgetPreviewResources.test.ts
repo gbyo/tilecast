@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { WidgetDataDocument, WidgetRecord } from "@tilecast/widget-sdk";
 import { createWidgetResources } from "@tilecast/widget-sdk";
-import { previewToDataDocument } from "./widgetPreviewResources";
+import {
+  previewDataSourceMedia,
+  previewToDataDocument,
+} from "./widgetPreviewResources";
 import valueFixtures from "../../../../packages/manifest-schema/data-document-value-fixtures.json";
 import type {
   CalendarPreview,
@@ -64,6 +68,16 @@ function typedRecords(): TypedRecordData {
     usingCachedData: false,
     attribution: "League feed",
     unavailable: false,
+    dateField: "playedAt",
+    dateSelection: {
+      enabled: true,
+      dateFormat: "iso_date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    },
   };
 }
 
@@ -146,7 +160,20 @@ describe("previewToDataDocument", () => {
     expect(second?.["link"]).toEqual({ kind: "text", text: "/relative/path" });
     expect(second?.["elapsed"]).toEqual({ kind: "text", text: "1h30m" });
     expect(second?.["cover"]).toEqual({ kind: "text", text: "not-a-uuid" });
-    expect(document?.cache?.usingCachedData).toBe(false);
+    expect(dataset?.cache).toEqual({
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      unavailable: false,
+    });
+    expect(dataset?.timezone).toBe("America/New_York");
+    expect(dataset?.dateSelection).toEqual({
+      field: "playedAt",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    });
   });
 
   it("projects time-series points, metadata, and object datasets", () => {
@@ -168,6 +195,10 @@ describe("previewToDataDocument", () => {
           fields: [{ key: "home", label: "Home", type: "text" }],
           records: [{ id: "r1", values: { home: "Riverside" } }],
           attribution: "League feed",
+          cachedAt: "2026-09-28T15:00:00Z",
+          staleAt: "2026-09-28T16:00:00Z",
+          timezone: "Europe/London",
+          units: { temperature: "C" },
           usingCachedData: false,
           unavailable: false,
         },
@@ -200,6 +231,17 @@ describe("previewToDataDocument", () => {
       kind: "text",
       text: "Riverside",
     });
+    expect(document?.datasets[1]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      attribution: "League feed",
+      timezone: "Europe/London",
+      units: { temperature: "C" },
+    });
     expect(document?.datasets[2]).toMatchObject({
       id: "current",
       kind: "object",
@@ -229,7 +271,9 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: true,
         },
+        timezone: "America/New_York",
       },
     } as unknown as CalendarPreview;
     const document = previewToDataDocument(preview);
@@ -242,6 +286,15 @@ describe("previewToDataDocument", () => {
     expect(values?.["location"]).toEqual({
       kind: "text",
       text: "Stadium",
+    });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: true,
+      },
+      timezone: "America/New_York",
     });
   });
 
@@ -260,6 +313,15 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
+        },
+        dateSelection: {
+          enabled: true,
+          dateFormat: "iso_date",
+          timezone: "America/Los_Angeles",
+          mode: "current_week",
+          excludePast: true,
+          noMatchBehavior: "empty",
         },
       },
     } as unknown as StructuredPreview;
@@ -268,6 +330,22 @@ describe("previewToDataDocument", () => {
     expect(values?.["title"]).toEqual({ kind: "text", text: "Win" });
     expect(values?.["subtitle"]).toEqual({ kind: "text", text: "League" });
     expect(values?.["league"]).toEqual({ kind: "text", text: "Premier" });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      timezone: "America/Los_Angeles",
+      dateSelection: {
+        field: "date",
+        timezone: "America/Los_Angeles",
+        mode: "current_week",
+        excludePast: true,
+        noMatchBehavior: "empty",
+      },
+    });
   });
 
   it("returns null for unknown shapes instead of guessing", () => {
@@ -291,5 +369,122 @@ describe("previewToDataDocument", () => {
     // The document exists but the grant does not cover it.
     expect(narrowed.dataset("connected", "records")).toBeNull();
     expect(narrowed.dataDocument("connected")).toBeNull();
+  });
+});
+
+describe("previewDataSourceMedia", () => {
+  it("grants only typed assets in the selected field and record bound", () => {
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [
+            { key: "cover", label: "Cover", type: "asset" },
+            { key: "other", label: "Other", type: "asset" },
+          ],
+          records: [
+            {
+              id: "one",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "11111111-1111-1111-1111-111111111111",
+                },
+                other: {
+                  kind: "asset",
+                  assetId: "22222222-2222-4222-8222-222222222222",
+                },
+              },
+            },
+            {
+              id: "two",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "33333333-3333-4333-8333-333333333333",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "cover", maximumItems: 1 },
+      ]),
+    ).toEqual([
+      {
+        assetId: "11111111-1111-1111-1111-111111111111",
+        variantId: "preview",
+      },
+    ]);
+  });
+
+  it("does not grant assets from an untyped field", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "text" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("stops after the component media grant limit", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "asset" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toHaveLength(16);
   });
 });

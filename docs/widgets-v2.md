@@ -46,6 +46,8 @@ No nonce and no `unsafe-inline` is necessary. The Android WebView baseline is re
 
 A **Data Source** owns acquisition, parsing, sanitization, refresh, caching, typed Data Documents, attribution, date-selection policy and diagnostics. Nothing in this document changes that.
 
+Data Document v1 has a `schemaVersion` and a list of datasets. Each dataset has an ID, a kind and a required `cache` object. The cache object has `usingCachedData` and `unavailable` flags. It can also have `cachedAt`, `staleAt`, `lastModified` and `upstreamExpiry` values. A dataset can also carry attribution, a time zone, units and date-selection rules. The document has no cache object at its root. The SDK types follow the manifest v16 schema.
+
 A **Widget** owns visual meaning, field selection, semantic display choices, the visual variant, formatting, the empty presentation and time-aware presentation logic.
 
 The **Player Runtime** owns mounting, lifecycle, playback evidence, Layout-zone evidence, transitions and the host contract.
@@ -156,6 +158,7 @@ interface WidgetResources {
   dataDocument(dataSourceId: string): WidgetDataDocument | null;
   dataset(dataSourceId: string, datasetId: string): WidgetDataset | null;
   media(assetId: string, variantId: string): string | null; // host-authorized URI
+  mediaForAsset(assetId: string): string | null; // only when one variant is declared
   attribution(dataSourceId: string): string | null;
 }
 ```
@@ -196,6 +199,8 @@ Before the SDK returns a prepared Data Document to a Widget, it freezes the docu
 - `config` is a bounded JSON object: at most 8 KiB encoded, depth 6, 64 keys for each object, 200 items for each array and 2,000 characters for each string.
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
+- A `data_source_field` that declares the `asset` type may add exact media pairs from its selected, granted Data Source. The Server requires the selected Data Document field to have type `asset`, reads no more than the configured record limit, and resolves only active library images with a Player-compatible variant. The component grant contains at most 16 media pairs. Invalid, unavailable, private, and over-limit values receive no grant.
+- `media(assetId, variantId)` requires an exact pair. `mediaForAsset(assetId)` returns a URI only when the component declares exactly one variant for that asset. It returns `null` for an ungranted or ambiguous asset.
 
 The Server compiles `config` from the persisted Widget configuration with the component's `configTemplate` in `tilecast.widget.json`. A template value is plain JSON or `{"$config": key, "default": value, "when": flag}`. No other directive exists. A `when` flag names a persisted key. A falsy flag value resolves the default instead of the mapped value. A missing flag resolves the mapped value. The Go compiler (`contentdefs.CompileComponentConfig`) and the TypeScript compiler (`compileComponentConfig`) implement the same rules, and every Widget fixture compiles in both. A persisted Widget record never changes because a release adds a V2 renderer.
 
