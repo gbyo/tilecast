@@ -52,16 +52,26 @@ export interface WidgetPoint {
 
 export interface WidgetDataset {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: "scalar" | "records" | "time_series" | "list" | "object";
   readonly fields?: readonly WidgetField[];
   readonly scalar?: WidgetValue | null;
   readonly records?: readonly WidgetRecord[];
   readonly points?: readonly WidgetPoint[];
   readonly value?: WidgetValue | null;
+  readonly cache: WidgetCacheState;
   readonly attribution?: string;
   readonly timezone?: string;
   readonly dateSelection?: WidgetDateSelection;
   readonly units?: Readonly<Record<string, string>>;
+}
+
+export interface WidgetCacheState {
+  readonly cachedAt?: string;
+  readonly staleAt?: string;
+  readonly usingCachedData: boolean;
+  readonly unavailable: boolean;
+  readonly lastModified?: string;
+  readonly upstreamExpiry?: string;
 }
 
 /** Date policy attached to a manifest v16 dataset. Selection remains Player-owned. */
@@ -77,17 +87,9 @@ export interface WidgetDateSelection {
   readonly fallbackText?: string;
 }
 
-export interface WidgetCacheState {
-  readonly cachedAt?: string | null;
-  readonly staleAt?: string | null;
-  readonly usingCachedData?: boolean;
-  readonly unavailable?: boolean;
-}
-
 export interface WidgetDataDocument {
-  readonly schemaVersion: number;
+  readonly schemaVersion: 1;
   readonly datasets: readonly WidgetDataset[];
-  readonly cache?: WidgetCacheState | null;
 }
 
 export interface WidgetMediaRef {

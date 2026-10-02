@@ -21,6 +21,8 @@ npm run widgets:new -- scoreboard --plugin athletics
 
 The result is an ordinary Widgets V2 Widget: `tilecast.widget.json`, a runtime entry point, and fixtures. No second Widget type exists, and Plugin API v1 does not change.
 
+The Widget SDK exposes each Data Source dataset through `WidgetResources`. Dataset cache state, time zone, units and date-selection rules stay with that dataset in Data Document v1.
+
 The Player applies dataset date-selection rules before it gives resources to a Widget. It uses the corrected Player clock, the policy time zone and the organization's first day of the week. Compatibility Widgets use the same rules.
 
 ## Bundle a declarative Data Source
