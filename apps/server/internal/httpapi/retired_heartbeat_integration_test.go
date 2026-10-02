@@ -105,6 +105,20 @@ func TestPlayerHeartbeatAcceptsLinuxShapeAndRetiredNoiseMeterSection(t *testing.
 	if err = pool.QueryRow(ctx, `SELECT playback_state FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&playbackState); err != nil || playbackState != "playing" {
 		t.Fatalf("Electron playback heartbeat stored state %q (%v)", playbackState, err)
 	}
+	// The socket path must accept the same payload and refresh device contact.
+	beforeSocket := time.Now().UTC().Add(-time.Minute)
+	if _, err = pool.Exec(ctx, `UPDATE screens SET last_heartbeat_at=$2 WHERE id=$1`, screenID, beforeSocket); err != nil {
+		t.Fatal(err)
+	}
+	socketRequest := httptest.NewRequest(http.MethodGet, "/api/v1/player/ws", nil)
+	s.handleSocketStatus(socketRequest, ctx, devices.DevicePrincipal{ScreenID: screenID, Enabled: true}, json.RawMessage(linuxPlayback))
+	var lastContact time.Time
+	if err = pool.QueryRow(ctx, `SELECT last_heartbeat_at FROM screens WHERE id=$1`, screenID).Scan(&lastContact); err != nil || !lastContact.After(beforeSocket) {
+		t.Fatalf("socket contact = %v (%v)", lastContact, err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT playback_state FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&playbackState); err != nil || playbackState != "playing" {
+		t.Fatalf("socket playback state %q (%v)", playbackState, err)
+	}
 
 	legacy := `{"screenWidth":1920,"screenHeight":1080,"playerVersion":"0.16.0","playbackState":"playing",` +
 		`"noiseMeter":{"status":"loud","currentLevel":88.4,"pendingHistory":[{"startedAt":"` +
