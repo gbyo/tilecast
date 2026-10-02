@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DisplayControlGroupPreview } from "../api/types";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { toast } from "./ui/toast";
@@ -51,19 +52,18 @@ export function DisplayControlGroupActions({
         csrfToken,
       ),
     onSuccess: async (result) => {
+      const message = t("groupctl.queued", {
+        count: result.queuedCount,
+        failed:
+          result.failedCount > 0
+            ? t("groupctl.queuedFailed", { count: result.failedCount })
+            : "",
+      });
       toast.add({
-        title: `${result.queuedCount} player command${result.queuedCount === 1 ? "" : "s"} queued.`,
+        title: message,
         type: result.failedCount ? "warning" : "success",
       });
-      setLastResult(
-        t("groupctl.queued", {
-          count: result.queuedCount,
-          failed:
-            result.failedCount > 0
-              ? t("groupctl.queuedFailed", { count: result.failedCount })
-              : "",
-        }),
-      );
+      setLastResult(message);
       await queryClient.invalidateQueries({
         queryKey: ["display-control-group", groupId],
       });
@@ -113,7 +113,7 @@ export function DisplayControlGroupActions({
         </p>
       ) : preview.error ? (
         <Alert variant="destructive">
-          <AlertDescription>{preview.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(preview.error)}</AlertDescription>
         </Alert>
       ) : data ? (
         <>
@@ -165,7 +165,9 @@ export function DisplayControlGroupActions({
           )}
           {apply.error && (
             <Alert variant="destructive">
-              <AlertDescription>{apply.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(apply.error)}
+              </AlertDescription>
             </Alert>
           )}
         </>

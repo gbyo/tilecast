@@ -209,6 +209,18 @@ describe("Installed plugins list", () => {
     expect(screen.getByRole("button", { name: "Add plugin" })).toBeVisible();
   });
 
+  it("renders only the load error when the catalog query fails", async () => {
+    override = () => json(500, { error: "offline" });
+    renderPlugins();
+    expect(
+      await screen.findByText("Plugins could not be loaded."),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("list", { name: "Installed plugins" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("No plugins installed")).not.toBeInTheDocument();
+  });
+
   it("falls back to a generic icon for an icon Studio does not know", async () => {
     catalog = [
       catalogPlugin({

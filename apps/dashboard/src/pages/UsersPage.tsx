@@ -86,6 +86,12 @@ async function withUserError<T>(
 }
 
 import { ScreenScopeEditor } from "./ScreenScopeEditor";
+import {
+  Collapsible,
+  CollapsibleChevron,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../components/studio/StudioCollapsible";
 
 // Role structures hold translation keys, never rendered text. Labels are
 // resolved with t() at render so the page follows language changes.
@@ -457,6 +463,7 @@ function UserEditorDialog({
   const [role, setRole] = useState<UserRole>(user.role);
   const [active, setActive] = useState(user.active);
   const [password, setPassword] = useState("");
+  const [scopeOpen, setScopeOpen] = useState(false);
   useEffect(() => {
     setName(user.name);
     setUsername(user.username);
@@ -675,17 +682,24 @@ function UserEditorDialog({
               </AlertDescription>
             </Alert>
           )}
-          <section className="grid gap-2 border-t border-border py-3">
-            <h4 className="text-[13px] font-semibold">
-              {t("users.editDialog.scopeTitle")}
-            </h4>
-            <ScreenScopeEditor
-              userId={user.id}
-              userRole={role}
-              csrf={csrf}
-              disabled={role === "owner"}
-            />
-          </section>
+          <Collapsible open={scopeOpen} onOpenChange={setScopeOpen}>
+            <section className="grid gap-2 border-t border-border py-3">
+              <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <span className="text-[13px] font-semibold">
+                  {t("users.editDialog.scopeTitle")}
+                </span>
+                <CollapsibleChevron size={16} />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="grid gap-2">
+                <ScreenScopeEditor
+                  userId={user.id}
+                  userRole={role}
+                  csrf={csrf}
+                  disabled={role === "owner"}
+                />
+              </CollapsibleContent>
+            </section>
+          </Collapsible>
           <DialogFooter className="flex-wrap">
             {user.active ? (
               <Button

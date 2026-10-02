@@ -20,8 +20,8 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
-	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/presentationcaps"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 )
@@ -172,6 +172,12 @@ func (b *builder) screen(spec ScreenSpec) error {
 	}
 	if err = b.svc.Devices.Heartbeat(b.ctx, principal, heartbeatFor(spec.Device, nil), "192.0.2.10:0"); err != nil {
 		return fmt.Errorf("record heartbeat for %q: %w", spec.Name, err)
+	}
+	// The past is written directly: a fielded player would have built this
+	// timeline over weeks, and without it every uptime range is empty until
+	// the demo has run that long.
+	if err = backfillHistory(b.ctx, b.svc.DB, spec, time.Now()); err != nil {
+		return err
 	}
 	if spec.State.simulated() {
 		b.players = append(b.players, playerFor(spec, credential))

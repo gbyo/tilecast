@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
-import { Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -28,6 +28,11 @@ import {
   FieldSet,
 } from "../components/ui/field";
 import { Input } from "../components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "../components/ui/input-group";
 import {
   Item,
   ItemActions,
@@ -132,6 +137,13 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
     "data_source:write",
   ]);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [sourceSearch, setSourceSearch] = useState("");
+  const matchingSources = useMemo(() => {
+    const needle = sourceSearch.trim().toLowerCase();
+    const items = sources.data?.items ?? [];
+    if (!needle) return items;
+    return items.filter((source) => source.name.toLowerCase().includes(needle));
+  }, [sourceSearch, sources.data?.items]);
   const [expiresOn, setExpiresOn] = useState("");
   const [secret, setSecret] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -427,31 +439,72 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                       {t("integrations.noSources")}
                     </span>
                   ) : (
-                    sources.data.items.map((source) => (
-                      <Field
-                        key={source.id}
-                        orientation="horizontal"
-                        className="items-center"
-                      >
-                        <Checkbox
-                          id={"token-source-" + source.id}
-                          checked={sourceIds.includes(source.id)}
-                          onCheckedChange={(checked) =>
-                            setSourceIds(
-                              checked === true
-                                ? [...sourceIds, source.id]
-                                : sourceIds.filter((id) => id !== source.id),
-                            )
-                          }
-                        />
-                        <FieldLabel
-                          htmlFor={"token-source-" + source.id}
-                          className="font-normal"
-                        >
-                          {source.name}
+                    <>
+                      <Field className="gap-1">
+                        <FieldLabel htmlFor="token-source-search">
+                          {t("integrations.limitSearchLabel")}
                         </FieldLabel>
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <Search aria-hidden="true" />
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            id="token-source-search"
+                            type="search"
+                            value={sourceSearch}
+                            onChange={(event) =>
+                              setSourceSearch(event.target.value)
+                            }
+                            placeholder={t(
+                              "integrations.limitSearchPlaceholder",
+                            )}
+                          />
+                        </InputGroup>
                       </Field>
-                    ))
+                      <p className="text-xs text-muted-foreground">
+                        {t("integrations.limitSelected", {
+                          count: sourceIds.length,
+                        })}
+                      </p>
+                      <div
+                        className="grid max-h-64 content-start gap-2 overflow-y-auto"
+                        role="group"
+                        aria-label={t("integrations.limitLabel")}
+                      >
+                        {matchingSources.map((source) => (
+                          <Field
+                            key={source.id}
+                            orientation="horizontal"
+                            className="items-center"
+                          >
+                            <Checkbox
+                              id={"token-source-" + source.id}
+                              checked={sourceIds.includes(source.id)}
+                              onCheckedChange={(checked) =>
+                                setSourceIds(
+                                  checked === true
+                                    ? [...sourceIds, source.id]
+                                    : sourceIds.filter(
+                                        (id) => id !== source.id,
+                                      ),
+                                )
+                              }
+                            />
+                            <FieldLabel
+                              htmlFor={"token-source-" + source.id}
+                              className="font-normal"
+                            >
+                              {source.name}
+                            </FieldLabel>
+                          </Field>
+                        ))}
+                        {!matchingSources.length && (
+                          <p className="text-sm text-muted-foreground">
+                            {t("integrations.limitNoMatch")}
+                          </p>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </FieldSet>

@@ -9,16 +9,16 @@ description: Use the Overview to check your screens, see what needs attention, a
 
 | Part                | What it tells you                                                                                                  | Where it opens                    |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| **Fleet status**    | How many screens are online, how many the Player confirms are playing, and how many need attention.                | **Screens** or **Activity**       |
+| **Fleet status**    | Three figures: how many screens are online, how many the Player confirms are playing, and how many need attention. | **Screens** or **Activity**       |
 | **Needs attention** | The screens with a problem, most urgent first, and the reason for each. It appears only when something is wrong.   | The screen                        |
-| **On air now**      | The content assigned to each online screen.                                                                        | The screen                        |
-| **Coming up**       | The next schedules to start or end.                                                                                | The schedule                      |
+| **On air now**      | The content assigned to online screens, one row per playlist or presentation, with the screens set to show it.     | **Screens**                       |
+| **Coming up**       | The next schedules to start or end, with the time until each one.                                                  | The schedule                      |
 | **Last 24 hours**   | Playback compliance, playback failures, and interrupted plays for the last 24 hours.                               | The matching Activity report      |
 | **Player updates**  | The latest update deployment. It is highlighted only when a screen failed or is waiting for someone to act.        | **Settings** > **Player updates** |
 | **Content health**  | Data Sources that stopped refreshing, playlists with nothing to play, expiring media, and screens with no content. | **Activity** > **Content Health** |
 | **Fleet health**    | The share of time screens were connected and playing, over 24 hours, 7 days, or 30 days.                           | Per-screen rows on the page       |
 
-If every screen is online and nothing is wrong, **Needs attention** doesn't appear. The **Fleet status** headline says so once.
+If every screen is online and nothing is wrong, **Needs attention** doesn't appear, and its figure in **Fleet status** is 0.
 
 ## What needs attention
 
@@ -28,13 +28,13 @@ A screen is listed when Tilecast has a reason to think a person should look at i
 - Its last Player update failed.
 - It has an open incident, such as a playback problem, low storage, or safe mode.
 
-A **Disabled** screen isn't listed. An Owner or Administrator turned it off on purpose, so it appears only in the count under the headline. A screen that is **Recently online** isn't listed either. It lost its connection a moment ago and is inside the two-minute grace period.
+A **Disabled** screen isn't listed. An Owner or Administrator turned it off on purpose, so it counts only in the fleet total. A screen that is **Recently online** isn't listed either. It lost its connection a moment ago and is inside the two-minute grace period.
 
 ## On air now and Playing
 
 These two say different things, and Overview keeps them apart.
 
-**On air now** lists what each online screen is set to show: its assigned playlist or presentation. An assignment says what Tilecast expects. It doesn't prove the Player is showing it.
+**On air now** lists what online screens are set to show: their assigned playlists and presentations, each with the screens that show it. An assignment says what Tilecast expects. It doesn't prove the Player is showing it.
 
 **Playing** in **Fleet status** counts the screens the Player reports as showing their content with no current fault. It is measured across the screens that are in service, so a disabled screen is not in the total.
 
