@@ -10,6 +10,7 @@ import type {
   ContentDefinitionField,
   WidgetDefinition,
 } from "../api/types";
+import { WIDGET_PREVIEW_CAPTURE_VERSION } from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import listManifest from "../../../../widgets/list/tilecast.widget.json";
 import { WidgetSnapshotBackfill } from "./WidgetSnapshotBackfill";
@@ -103,17 +104,29 @@ function runNextAnimationFrame(now: number) {
   act(() => frame?.callback(now));
 }
 
-function renderBackfill(assets: Asset | Asset[]) {
+function renderBackfillPages(pages: Asset[][]) {
+  const total = pages.reduce((count, page) => count + page.length, 0);
+  vi.spyOn(api, "assets").mockImplementation((params) => {
+    const page = Number(params.get("page"));
+    return Promise.resolve({
+      items: pages[page - 1] ?? [],
+      total,
+      page,
+      pageSize: 100,
+    });
+  });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <WidgetSnapshotBackfill
-        assets={Array.isArray(assets) ? assets : [assets]}
-      />
+      <WidgetSnapshotBackfill />
     </QueryClientProvider>,
   );
+}
+
+function renderBackfill(assets: Asset | Asset[]) {
+  return renderBackfillPages([Array.isArray(assets) ? assets : [assets]]);
 }
 
 beforeEach(() => {
@@ -182,6 +195,83 @@ describe("WidgetSnapshotBackfill", () => {
       "invalid-clock",
       expect.any(Blob),
       "csrf-token",
+    );
+  });
+
+  it("finishes a capture when the library re-renders during its upload", async () => {
+    // The library re-renders while a capture uploads (for example on the next
+    // assets refetch). That render must not cancel the capture: the image is
+    // already stored, so the list has to refresh and the backfill has to move
+    // on to the next Widget.
+    let finishUpload: () => void = () => undefined;
+    vi.mocked(api.uploadWidgetPreview).mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          finishUpload = () => resolve(undefined);
+        }),
+    );
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      ...definitions,
+      widgets: [
+        widgetDefinition(clockManifest),
+        widgetDefinition(listManifest),
+      ],
+    });
+    const assets = [
+      assetFor(clockManifest, "first-clock"),
+      assetFor(listManifest, "second-list"),
+    ];
+    vi.spyOn(api, "assets").mockResolvedValue({
+      items: assets,
+      total: assets.length,
+      page: 1,
+      pageSize: 100,
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const tree = (
+      <QueryClientProvider client={client}>
+        <WidgetSnapshotBackfill />
+      </QueryClientProvider>
+    );
+    const view = render(tree);
+
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+    runNextAnimationFrame(1);
+    runNextAnimationFrame(2);
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "first-clock",
+        expect.any(Blob),
+        "csrf-token",
+      ),
+    );
+
+    // A parent re-render hands the backfill fresh props and callbacks.
+    view.rerender(
+      <QueryClientProvider client={client}>
+        <WidgetSnapshotBackfill enabled />
+      </QueryClientProvider>,
+    );
+    await act(async () => {
+      finishUpload();
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["assets"] }),
+    );
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+    runNextAnimationFrame(3);
+    runNextAnimationFrame(4);
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        "second-list",
+        expect.any(Blob),
+        "csrf-token",
+      ),
     );
   });
 
@@ -261,5 +351,57 @@ describe("WidgetSnapshotBackfill", () => {
     } finally {
       document.removeEventListener("tilecast-widget-empty", onEmpty);
     }
+  });
+
+  it("finds Widgets beyond page 100 independently of visible library filters", async () => {
+    const currentAssets = Array.from({ length: 100 }, (_, index) => ({
+      ...assetFor(clockManifest, `current-${index}`),
+      thumbnailUrl: `/thumbnail-${index}.jpg`,
+      metadata: {
+        widgetPreviewCaptureVersion: WIDGET_PREVIEW_CAPTURE_VERSION,
+      },
+    }));
+    const staleAsset = assetFor(clockManifest, "stale-after-page-100");
+    renderBackfillPages([currentAssets, [staleAsset]]);
+
+    await waitFor(() =>
+      expect(document.querySelector("tc-widget-clock")).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(api.assets).toHaveBeenCalledTimes(2));
+    const requests = vi.mocked(api.assets).mock.calls.map(([params]) => ({
+      page: params.get("page"),
+      pageSize: params.get("pageSize"),
+      type: params.get("type"),
+      search: params.get("search"),
+      provider: params.get("provider"),
+    }));
+    expect(requests).toEqual([
+      {
+        page: "1",
+        pageSize: "100",
+        type: "widget",
+        search: null,
+        provider: null,
+      },
+      {
+        page: "2",
+        pageSize: "100",
+        type: "widget",
+        search: null,
+        provider: null,
+      },
+    ]);
+    await waitFor(() => expect(animationFrames).toHaveLength(1));
+
+    runNextAnimationFrame(1);
+    runNextAnimationFrame(2);
+    await waitFor(() => expect(captureWidgetPreview).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(api.uploadWidgetPreview).toHaveBeenCalledWith(
+        staleAsset.id,
+        expect.any(Blob),
+        "csrf-token",
+      ),
+    );
   });
 });

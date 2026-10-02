@@ -240,6 +240,90 @@ const screenDetailTabs: readonly ScreenDetailTab[] = [
 // Legacy URLs remain valid while the resource view gets the new tab names.
 const legacyManageTabs = ["player-settings", "reliability", "commands"];
 
+type ScreenDetailTabLabelKey =
+  | "detail.tabOverview"
+  | "detail.tabContent"
+  | "detail.tabActivity"
+  | "detail.tabDevice"
+  | "detail.tabSettings";
+
+const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
+  {
+    overview: "detail.tabOverview",
+    content: "detail.tabContent",
+    activity: "detail.tabActivity",
+    device: "detail.tabDevice",
+    settings: "detail.tabSettings",
+  };
+
+/**
+ * The detail section navigation: a tab strip on desktop and a section
+ * picker on narrow screens, both driving the same query-backed tab state.
+ * Must render inside the detail Tabs so the strip keeps its tab context.
+ */
+export function ScreenDetailTabs({
+  tab,
+  policyDirty,
+  onSelect,
+}: {
+  tab: ScreenDetailTab;
+  policyDirty: boolean;
+  onSelect: (next: string) => void;
+}) {
+  const { t } = useTranslation(["screens", "common"]);
+  const options = screenDetailTabs.map((value) => ({
+    value,
+    label: t(screenDetailTabLabels[value]),
+  }));
+  return (
+    <>
+      <div className="hidden sm:contents">
+        <TabsList
+          aria-label={t("detail.tabsLabel")}
+          variant="line"
+          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
+        >
+          {options.map((option) => (
+            <TabsTrigger
+              key={option.value}
+              value={option.value}
+              className="flex-none px-2"
+            >
+              {option.label}{" "}
+              {option.value === "settings" && policyDirty && (
+                <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
+      <div className="flex items-center gap-2 sm:hidden">
+        <Select
+          items={options}
+          value={tab}
+          onValueChange={(next) => {
+            if (next) onSelect(next);
+          }}
+        >
+          <SelectTrigger aria-label={t("detail.tabsLabel")} className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {policyDirty && (
+          <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
+        )}
+      </div>
+    </>
+  );
+}
+
 export function normalizeScreenDetailTab(
   requestedTab: string | null,
   requestedSection: string | null = null,
@@ -567,9 +651,9 @@ export function ScreensWorkspacePage() {
         }
         className="min-w-0 gap-4"
       >
-        <TabsList variant="line" aria-label="Screen views">
-          <TabsTrigger value="fleet">Fleet</TabsTrigger>
-          <TabsTrigger value="archive">Archive</TabsTrigger>
+        <TabsList variant="line" aria-label={t("page.viewsAriaLabel")}>
+          <TabsTrigger value="fleet">{t("page.fleetTab")}</TabsTrigger>
+          <TabsTrigger value="archive">{t("page.archiveTab")}</TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab} className="min-w-0 outline-none">
           <Outlet />
@@ -2224,6 +2308,7 @@ function ScreenSummary({ screens }: { screens: Screen[] }) {
   ).size;
   return (
     <div
+      role="group"
       className="flex flex-wrap items-center gap-x-2 gap-y-1 border-y border-border py-2"
       aria-label={t("list.summaryGroup")}
     >
@@ -3753,30 +3838,11 @@ export function ScreenDetailPage() {
         onValueChange={selectTab}
         className="w-full min-w-0 gap-4"
       >
-        <TabsList
-          aria-label={t("detail.tabsLabel")}
-          variant="line"
-          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
-        >
-          <TabsTrigger value="overview" className="flex-none px-2">
-            {t("detail.tabOverview")}
-          </TabsTrigger>
-          <TabsTrigger value="content" className="flex-none px-2">
-            {t("detail.tabContent")}
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="flex-none px-2">
-            {t("detail.tabActivity")}
-          </TabsTrigger>
-          <TabsTrigger value="device" className="flex-none px-2">
-            {t("detail.tabDevice")}
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex-none px-2">
-            {t("detail.tabSettings")}{" "}
-            {policyDirty && (
-              <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <ScreenDetailTabs
+          tab={tab}
+          policyDirty={policyDirty}
+          onSelect={selectTab}
+        />
 
         {tab === "overview" && (
           <TabsContent

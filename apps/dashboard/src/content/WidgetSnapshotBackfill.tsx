@@ -1,4 +1,9 @@
-import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
@@ -34,6 +39,8 @@ import {
 // cannot be read back into a canvas, so a capture would store a blank rectangle. Those keep the
 // honest "Preview unavailable" state, which is the same thing their editors do on save.
 const uncapturableProviders = new Set<string>(["website", "youtube"]);
+const SNAPSHOT_DISCOVERY_PAGE_SIZE = 100;
+const SNAPSHOT_DISCOVERY_PAGE_DELAY_MS = 250;
 
 function needsSnapshot(asset: Asset) {
   return (
@@ -47,17 +54,44 @@ function needsSnapshot(asset: Asset) {
 }
 
 export function WidgetSnapshotBackfill({
-  assets,
   enabled = true,
 }: {
-  assets: Asset[];
   enabled?: boolean;
 }) {
+  const { data, fetchNextPage, hasNextPage, isError, isFetching } =
+    useInfiniteQuery({
+      queryKey: ["widget-snapshot-backfill"],
+      initialPageParam: 1,
+      queryFn: async ({ pageParam }) => {
+        // Keep the background scan sequential and separate from the visible
+        // library search/provider filters. The page size is capped by the API.
+        if (pageParam > 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, SNAPSHOT_DISCOVERY_PAGE_DELAY_MS),
+          );
+        }
+        const params = new URLSearchParams({
+          page: String(pageParam),
+          pageSize: String(SNAPSHOT_DISCOVERY_PAGE_SIZE),
+          sort: "oldest",
+          type: "widget",
+        });
+        return api.assets(params);
+      },
+      getNextPageParam: (lastPage) =>
+        lastPage.page * lastPage.pageSize < lastPage.total
+          ? lastPage.page + 1
+          : undefined,
+      enabled,
+      refetchOnWindowFocus: false,
+      retry: false,
+    });
   // Widgets already attempted this session, successful or not. A Widget whose capture fails must not
   // be retried in a loop: it would re-render and re-upload forever behind an unchanging list.
   const attempted = useRef(new Set<string>());
   const [target, setTarget] = useState<Asset>();
 
+  const assets = data?.pages.flatMap((page) => page.items) ?? [];
   const candidates = enabled ? assets.filter(needsSnapshot) : [];
   const next = candidates.find((asset) => !attempted.current.has(asset.id));
 
@@ -67,6 +101,30 @@ export function WidgetSnapshotBackfill({
       setTarget(next);
     }
   }, [next, target]);
+
+  useEffect(() => {
+    if (
+      !enabled ||
+      !data ||
+      target ||
+      next ||
+      !hasNextPage ||
+      isFetching ||
+      isError
+    ) {
+      return;
+    }
+    void fetchNextPage();
+  }, [
+    enabled,
+    data,
+    target,
+    next,
+    hasNextPage,
+    isFetching,
+    isError,
+    fetchNextPage,
+  ]);
 
   if (!target) return null;
   return (
@@ -96,14 +154,21 @@ function useSnapshotUpload(
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
   const uploaded = useRef(false);
-  // The capture effect must not restart when the language changes: cleanup
-  // would cancel an in-progress capture that is never retried. The ref always
-  // carries the latest translator for subsequent messages.
+  // The capture effect must not restart when anything but the Widget or its
+  // readiness changes: cleanup would cancel an in-progress capture that is
+  // never retried, after the image may already be stored. The library passes a
+  // new onSettled on every render (it re-renders on each assets refetch), and
+  // the language and session token can change too, so all three live in refs
+  // that always carry the latest value.
   const tRef = useRef(t);
   tRef.current = t;
+  const onSettledRef = useRef(onSettled);
+  onSettledRef.current = onSettled;
+  const csrfRef = useRef(csrf);
+  csrfRef.current = csrf;
   useEffect(() => {
     if (failed) {
-      onSettled();
+      onSettledRef.current();
       return;
     }
     if (!ready || uploaded.current) return;
@@ -118,14 +183,14 @@ function useSnapshotUpload(
             if (cancelled || !element) return;
             const image = await captureWidgetPreview(element, tRef.current);
             if (cancelled) return;
-            await api.uploadWidgetPreview(asset.id, image, csrf);
+            await api.uploadWidgetPreview(asset.id, image, csrfRef.current);
             if (!cancelled)
               await queryClient.invalidateQueries({ queryKey: ["assets"] });
           } catch {
             // A Widget that cannot be captured keeps its honest unavailable state. The list is not
             // blocked on it and it is not retried, so one bad Widget cannot stall the rest.
           } finally {
-            if (!cancelled) onSettled();
+            if (!cancelled) onSettledRef.current();
           }
         })();
       }),
@@ -134,7 +199,7 @@ function useSnapshotUpload(
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [ready, failed, asset.id, csrf, onSettled, queryClient, previewRef]);
+  }, [ready, failed, asset.id, queryClient, previewRef]);
 }
 
 function WidgetSnapshotCapture({
