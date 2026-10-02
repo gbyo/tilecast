@@ -63,6 +63,18 @@ npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main 
 
 The merge-base check stops if `origin/main` is missing or has no common history with your branch. Fetch a usable base or run the full suite in that case. `--passWithNoTests` lets documentation-only changes finish when Vitest finds no related tests. For Go, run the affected package from `apps/server`, such as `go test ./internal/devices`. Run each package when a change spans packages. These commands support local iteration; CI still runs the complete selected test suites.
 
+## Content query contracts
+
+Use `apps/dashboard/src/data/content.ts` for Content catalog queries. The library and picker share asset pagination and processing refresh. Asset-page keys include the actual request filters, including archive state, provider, and page size. Local selection and dialog state remain with their controls.
+
+HTTP-boundary tests check filters across multiple pages, equivalent filter reuse, independent archive/provider/page-size requests, caller-parameter snapshots, and normalized definition catalogs. Run Content picker and Widget capture tests when changing these integrations. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
+## Activity query contracts
+
+Overview, compliance, and incident views use `apps/dashboard/src/data/activity.ts`. Range keys use timestamps rather than translated labels. Incident list, detail, and analytics keys share an invalidation prefix so an operator action refreshes all three.
+
+The HTTP-boundary tests check range and dimension separation, API request bounds, related-event normalization, and incident invalidation. Keep unmeasured compliance as null. The [Activity reference](https://github.com/gbyo/tilecast/blob/main/docs/activity.md) and [event contract](https://github.com/gbyo/tilecast/blob/main/docs/activity-event-contract.md) define the metrics; queries fetch and cache their results.
+
 ## Playlist query contracts
 
 Use the factories in `apps/dashboard/src/data/playlists.ts` for Playlist queries. The editor, popup preview, and Screen dependency view share detail data, so a saved draft update reaches each consumer through the same cache. Complete lists and infinite pages use separate keys. API domain helpers still normalize responses; query factories do not duplicate that work.

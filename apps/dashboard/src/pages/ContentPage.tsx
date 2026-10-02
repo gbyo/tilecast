@@ -1,3 +1,6 @@
+import { contentKeys, contentQueries } from "../data/content";
+
+import { formatDurationClock } from "../lib/formatDuration";
 import { formatBytes } from "../lib/formatBytes";
 import {
   useInfiniteQuery,
@@ -162,6 +165,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
@@ -238,14 +242,6 @@ function queueStateLabel(
     processing: t("media.status.processing"),
     failed: t("media.status.failed"),
   }[state];
-}
-
-function formatDuration(seconds?: number) {
-  if (seconds == null) return "";
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0")}`;
 }
 
 export function isExpiredAsset(asset: Asset, now = Date.now()) {
@@ -437,55 +433,33 @@ export function ContentPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
-  const paramsKey = `${libraryView}|${search}|${contentFilter}|${status}|${sort}|${folderFilter}|${collectionFilter}|${tagFilter}`;
-  const assets = useInfiniteQuery({
-    queryKey: ["assets", "library", paramsKey],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({
-        page: String(pageParam),
-        pageSize: "48",
-        sort,
-      });
-      if (libraryView === "archive") params.set("archived", "true");
-      if (search) params.set("search", search);
-      if (["media", "image", "video"].includes(contentFilter))
-        params.set("type", contentFilter);
-      if (status) params.set("status", status);
-      if (folderFilter) params.set("folderId", folderFilter);
-      if (collectionFilter) params.set("collectionId", collectionFilter);
-      if (tagFilter) params.set("tagId", tagFilter);
-      return api.assets(params);
-    },
-    getNextPageParam: (last) =>
-      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
-    refetchInterval: (query) =>
-      query.state.data?.pages?.some((page) =>
-        page.items.some((item) =>
-          ["queued", "inspecting", "processing"].includes(
-            item.processingStatus,
-          ),
-        ),
-      )
-        ? 3000
-        : false,
+  const params = new URLSearchParams({
+    pageSize: "48",
+    sort,
   });
+  if (libraryView === "archive") params.set("archived", "true");
+  if (search) params.set("search", search);
+  if (["media", "image", "video"].includes(contentFilter))
+    params.set("type", contentFilter);
+  if (status) params.set("status", status);
+  if (folderFilter) params.set("folderId", folderFilter);
+  if (collectionFilter) params.set("collectionId", collectionFilter);
+  if (tagFilter) params.set("tagId", tagFilter);
+  const assets = useInfiniteQuery(contentQueries.assetPages(params));
+
   const libraryItems = useMemo(
     () => assets.data?.pages.flatMap((page) => page.items) ?? [],
     [assets.data],
   );
   const libraryTotal = assets.data?.pages[0]?.total;
   const folders = useQuery({
-    queryKey: ["content-folders"],
-    queryFn: api.contentFolders,
+    ...contentQueries.folders(),
   });
   const collections = useQuery({
-    queryKey: ["content-collections"],
-    queryFn: api.contentCollections,
+    ...contentQueries.collections(),
   });
   const tags = useQuery({
-    queryKey: ["content-tags"],
-    queryFn: api.contentTags,
+    ...contentQueries.tags(),
   });
   const filterValues: FilterValues = {
     search,
@@ -594,7 +568,8 @@ export function ContentPage() {
     const delay = nextExpirationDelay(libraryItems);
     if (delay == null) return;
     const timer = window.setTimeout(
-      () => void queryClient.invalidateQueries({ queryKey: ["assets"] }),
+      () =>
+        void queryClient.invalidateQueries({ queryKey: contentKeys.assets }),
       Math.min(delay, 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
@@ -613,10 +588,10 @@ export function ContentPage() {
     tagFilter,
   ]);
   const refreshOrganization = () => {
-    void queryClient.invalidateQueries({ queryKey: ["assets"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-collections"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-tags"] });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.folders });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.collections });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.tags });
   };
 
   useEffect(() => {
@@ -703,7 +678,7 @@ export function ContentPage() {
         type: "success",
       });
       updateQueue(localId, { state: "processing", uploadedBytes: file.size });
-      await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      await queryClient.invalidateQueries({ queryKey: contentKeys.assets });
       window.setTimeout(
         () =>
           setQueue((current) =>
@@ -1035,7 +1010,7 @@ export function ContentPage() {
                   type: "success",
                 });
                 return queryClient.invalidateQueries({
-                  queryKey: ["assets"],
+                  queryKey: contentKeys.assets,
                 });
               })
             }
@@ -1088,7 +1063,9 @@ export function ContentPage() {
           }}
           onChanged={(asset) => {
             setSelected(asset);
-            void queryClient.invalidateQueries({ queryKey: ["assets"] });
+            void queryClient.invalidateQueries({
+              queryKey: contentKeys.assets,
+            });
           }}
         />
       )}
@@ -1351,7 +1328,7 @@ function assetStatusBadge(
 function AssetSummary({ asset }: { asset: Asset }) {
   return (
     <>
-      {asset.type === "video" && formatDuration(asset.durationSeconds)}
+      {asset.type === "video" && formatDurationClock(asset.durationSeconds)}
       {asset.type === "widget" &&
         (asset.widget?.provider === "youtube"
           ? // i18n-ignore: brand name stays Latin in every language
@@ -2396,8 +2373,7 @@ function AssetDetails(props: {
   onChanged: (asset: Asset) => void;
 }) {
   const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: api.contentDefinitions,
+    ...contentQueries.definitions(),
     staleTime: 5 * 60_000,
   });
   const definition =
@@ -2457,16 +2433,13 @@ export function AssetOrganization({
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const folders = useQuery({
-    queryKey: ["content-folders"],
-    queryFn: api.contentFolders,
+    ...contentQueries.folders(),
   });
   const collections = useQuery({
-    queryKey: ["content-collections"],
-    queryFn: api.contentCollections,
+    ...contentQueries.collections(),
   });
   const tags = useQuery({
-    queryKey: ["content-tags"],
-    queryFn: api.contentTags,
+    ...contentQueries.tags(),
   });
   const organize = useMutation({
     mutationFn: async (input: Omit<BulkOrganizeInput, "assetIds">) => {
@@ -2476,11 +2449,11 @@ export function AssetOrganization({
     onSuccess: (latest) => {
       toast.add({ title: "Asset organization updated.", type: "success" });
       onChanged(latest);
-      void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
+      void queryClient.invalidateQueries({ queryKey: contentKeys.folders });
       void queryClient.invalidateQueries({
-        queryKey: ["content-collections"],
+        queryKey: contentKeys.collections,
       });
-      void queryClient.invalidateQueries({ queryKey: ["content-tags"] });
+      void queryClient.invalidateQueries({ queryKey: contentKeys.tags });
     },
   });
   const assetTagIds = new Set((asset.tags ?? []).map((tag) => tag.id));
@@ -2808,7 +2781,7 @@ export function useMediaAssetDetails({
     if (!confirmed) return;
     await api.archiveAssets([asset.id], csrf);
     toast.add({ title: "Asset archived.", type: "success" });
-    void queryClient.invalidateQueries({ queryKey: ["assets"] });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
     onRequestClose();
   };
   const actions = canManage && (
@@ -3008,18 +2981,6 @@ export function WebsiteEditor({
     addEventListener("beforeunload", handler);
     return () => removeEventListener("beforeunload", handler);
   }, [dirty]);
-  const images = useQuery({
-    queryKey: ["assets", "website-fallbacks"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          type: "image",
-          status: "ready",
-        }),
-      ),
-  });
   const diagnostics = useQuery({
     queryKey: ["assets", asset?.id, "website-diagnostics"],
     queryFn: () => api.websiteDiagnostics(asset!.id),
@@ -3164,19 +3125,20 @@ export function WebsiteEditor({
         <FieldLabel htmlFor="website-fallback">
           {t("media.website.fallbackImage")}
         </FieldLabel>
-        <FilterSelect
+        <FallbackImagePicker
           id="website-fallback"
           label={t("media.website.fallbackImage")}
+          value={input.fallbackImageAssetId}
+          onChange={(next) => set("fallbackImageAssetId", next)}
           disabled={readOnly}
-          value={input.fallbackImageAssetId ?? ""}
-          onChange={(value) => set("fallbackImageAssetId", value || undefined)}
-          options={[
-            { value: "", label: t("media.website.noneOption") },
-            ...(images.data?.items?.map((image) => ({
-              value: image.id,
-              label: image.name,
-            })) ?? []),
-          ]}
+          csrf={csrf}
+          noneLabel={t("media.website.noneOption")}
+          clearLabel={t("common:actions.remove")}
+          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+          pickerDescription={t(
+            "widgets.editors.shared.fallbackPickerDescription",
+          )}
+          pickerConfirm={t("common:actions.confirm")}
         />
       </Field>
       <Collapsible>
