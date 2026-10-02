@@ -48,7 +48,10 @@ it("wakes for far-future availability without overflowing the browser timeout", 
       },
     ],
   };
-  const client = new QueryClient();
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity } },
+  });
+  client.setQueryData(["settings"], { values: {} });
   const view = render(
     <QueryClientProvider client={client}>
       <PlaylistZonePreview
@@ -61,6 +64,7 @@ it("wakes for far-future availability without overflowing the browser timeout", 
     </QueryClientProvider>,
   );
   expect(view.container.querySelector("img")).toBeNull();
+  expect(view.container.textContent).not.toContain("Only images and videos");
   expect(vi.getTimerCount()).toBe(1);
   await act(() => vi.advanceTimersByTimeAsync(2_147_483_647));
   expect(view.container.querySelector("img")).toBeNull();
@@ -74,4 +78,54 @@ it("wakes for far-future availability without overflowing the browser timeout", 
   view.unmount();
   client.clear();
   expect(vi.getTimerCount()).toBe(0);
+});
+
+it("evaluates a selected preview date instead of the live clock", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2050-01-01T00:00:00Z"));
+  const playlist = {
+    id: "playlist",
+    name: "Rotation",
+    revision: 1,
+    items: [
+      {
+        id: "item",
+        assetId: "image",
+        assetType: "image",
+        assetStatus: "ready",
+        availableFrom: "2026-10-03T00:00:00Z",
+        expiresAt: "2026-10-04T00:00:00Z",
+        durationMs: 10000,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: false,
+        volume: 0,
+      },
+    ],
+  } as Playlist;
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity } },
+  });
+  client.setQueryData(["settings"], { values: {} });
+  const assets = new Map([["image", { id: "image", type: "image" } as Asset]]);
+  const preview = (date: string) => (
+    <QueryClientProvider client={client}>
+      <PlaylistZonePreview
+        playlist={playlist}
+        placement={{ width: 1920, height: 1080 } as LayoutPlacement}
+        assetsById={assets}
+        previewDate={date}
+      />
+    </QueryClientProvider>
+  );
+  const view = render(preview("2026-10-02"));
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+  view.rerender(preview("2026-10-03"));
+  expect(view.container.querySelector("img")).not.toBeNull();
+  view.rerender(preview("2026-10-04"));
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(vi.getTimerCount()).toBe(0);
+  view.unmount();
+  client.clear();
 });

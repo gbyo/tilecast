@@ -62,6 +62,7 @@ const rules = [
     ["linux"],
   ],
   [/^packages\/player-runtime\//, ["runtime"]],
+  [/^packages\/presentation-model\//, ["dashboard", "runtime"]],
   [/^(widgets|packages\/widget-sdk|packages\/widget-kit)\//, ["widgets"]],
   [/^(data-sources|packages\/data-source-sdk)\//, ["sources"]],
   [/^packages\/design-tokens\//, ["dashboard", "docs"]],

@@ -19,10 +19,12 @@ import {
 } from "./LayoutEditorPage";
 import {
   availablePlaylistZoneItems,
+  isPlaylistZoneMediaItem,
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
-import { nextAvailabilityTransition } from "@tilecast/player-runtime/content-availability";
+import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
+import { nextAvailabilityTransition } from "@tilecast/presentation-model";
 
 const canvas = {
   width: 1920,
@@ -88,6 +90,21 @@ describe("Layout editor primitives", () => {
     expect(line.height).toBe(8);
     expect(group.primitive?.kind).toBe("group");
     expect(group.y + group.height).toBeLessThanOrEqual(canvas.height);
+  });
+});
+
+describe("Layout playlist-zone media support", () => {
+  const item = (
+    assetType: PlaylistItem["assetType"],
+    widgetProvider?: string,
+  ) => ({ assetType, widgetProvider }) as PlaylistItem;
+
+  it("matches the Player zone contract", () => {
+    expect(isPlaylistZoneMediaItem(item("image"))).toBe(true);
+    expect(isPlaylistZoneMediaItem(item("video"))).toBe(true);
+    expect(isPlaylistZoneMediaItem(item("widget", "clock"))).toBe(false);
+    expect(isPlaylistZoneMediaItem(item("widget", "website"))).toBe(false);
+    expect(isPlaylistZoneMediaItem(item("layout"))).toBe(false);
   });
 });
 
@@ -217,6 +234,36 @@ describe("Layout playlist previews", () => {
     ).toBeUndefined();
   });
 
+  it("matches Player image defaults and lets videos end from media events", () => {
+    const playback = playbackDefaultsFromSettings({
+      "player.playback.default_image_duration_seconds": 23,
+      "player.playback.default_fit_mode": "cover",
+      "player.playback.default_audio_enabled": false,
+      "player.playback.default_volume": 0.25,
+    });
+    expect(
+      playlistPreviewDuration({ ...item, durationMs: undefined }, playback),
+    ).toBe(23_000);
+    expect(
+      playlistPreviewDuration(
+        { ...item, durationMs: 7_500, usePlayerDefaults: true },
+        playback,
+      ),
+    ).toBe(23_000);
+    expect(
+      playlistPreviewDuration(
+        {
+          ...item,
+          assetType: "video",
+          durationMs: 7_500,
+          videoStartOffsetMs: 1_000,
+          videoEndOffsetMs: 4_000,
+        },
+        playback,
+      ),
+    ).toBeUndefined();
+  });
+
   it("advances independent zones while honoring the loop setting", () => {
     expect(nextPlaylistPreviewIndex(0, 3, true)).toBe(1);
     expect(nextPlaylistPreviewIndex(2, 3, true)).toBe(0);
@@ -226,23 +273,27 @@ describe("Layout playlist previews", () => {
   it("filters item and asset availability at the preview instant", () => {
     const future = {
       id: "future",
+      assetType: "image",
       assetId: "future-asset",
       assetStatus: "ready",
       availableFrom: "2026-07-16T00:00:00Z",
     } as PlaylistItem;
     const expired = {
       id: "expired",
+      assetType: "image",
       assetId: "expired-asset",
       assetStatus: "ready",
       expiresAt: "2026-07-15T00:00:00Z",
     } as PlaylistItem;
     const unavailableAsset = {
       id: "unavailable-asset",
+      assetType: "image",
       assetId: "asset-starts-later",
       assetStatus: "ready",
     } as PlaylistItem;
     const available = {
       id: "available",
+      assetType: "image",
       assetId: "available-asset",
       assetStatus: "ready",
     } as PlaylistItem;
