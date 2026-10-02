@@ -388,26 +388,38 @@ func (s *Service) SetTagRule(ctx context.Context, id, userID uuid.UUID, input Ta
 
 // reachableDataSources reports the Data Sources a playlist reaches through its items.
 //
-// A Widget references a Source whenever one of its configuration values is that Source's ID, the
-// same rule the deletion check uses — matching any value rather than a fixed key covers Widgets
-// that expose several Data Source selectors under arbitrary keys, and Source IDs are unique so it
-// cannot collide with an unrelated value. A Layout placed in the playlist contributes its own
-// stored dependencies, which already include Sources reached only through a text binding.
+// Widget dependencies use the same injected catalog traversal as manifest projection,
+// including Data Source selectors in repeating groups and App-managed sources. A Layout
+// contributes its stored dependencies, including Sources reached through a text binding.
 //
 // Embedded Layouts contribute their draft dependencies, matching what Studio shows for a Layout
 // assigned to a screen directly; the two legs would otherwise disagree about the same Layout.
 func (s *Service) reachableDataSources(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	widgets, err := s.db.Query(ctx, `SELECT DISTINCT w.provider,w.configuration FROM playlist_items i JOIN widgets w ON w.asset_id=i.asset_id WHERE i.playlist_id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+	sourceIDs := []uuid.UUID{}
+	for widgets.Next() {
+		var provider string
+		var configuration json.RawMessage
+		if err = widgets.Scan(&provider, &configuration); err != nil {
+			widgets.Close()
+			return nil, err
+		}
+		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(provider, configuration)...)
+	}
+	widgets.Close()
+	if err = widgets.Err(); err != nil {
+		return nil, err
+	}
 	rows, err := s.db.Query(ctx, `
-		SELECT ds.id FROM playlist_items i
-		JOIN widgets w ON w.asset_id=i.asset_id
-		CROSS JOIN LATERAL jsonb_each_text(w.configuration) field
-		JOIN data_sources ds ON ds.id::text=field.value AND ds.deleted_at IS NULL
-		WHERE i.playlist_id=$1
+		SELECT ds.id FROM data_sources ds WHERE ds.id=ANY($2::uuid[]) AND ds.deleted_at IS NULL
 		UNION
 		SELECT ds.id FROM playlist_items i
 		JOIN layout_draft_dependencies d ON d.layout_id=i.layout_id AND d.dependency_type='data_source'
 		JOIN data_sources ds ON ds.id=d.dependency_id AND ds.deleted_at IS NULL
-		WHERE i.playlist_id=$1`, id)
+		WHERE i.playlist_id=$1 ORDER BY id`, id, uniqueUUIDs(sourceIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -2425,24 +2437,21 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 // injected definition catalog is the single source of truth for release-defined widgets.
 func (s *Service) widgetDataSourceIDs(provider string, configuration json.RawMessage) []uuid.UUID {
 	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
-		var values map[string]json.RawMessage
+		var values map[string]any
 		ids := []uuid.UUID{}
 		if json.Unmarshal(configuration, &values) == nil {
 			// An App recipe's author schema intentionally hides its managed source. The
 			// compiled configuration still carries the explicit relationship so normal
 			// manifest dependency resolution, invalidation, and usage tracking see it.
 			if definition.Recipe != nil {
-				var id uuid.UUID
-				if json.Unmarshal(values["managedDataSourceId"], &id) == nil && id != uuid.Nil {
-					ids = append(ids, id)
+				if value, ok := values["managedDataSourceId"].(string); ok {
+					if id, err := uuid.Parse(value); err == nil && id != uuid.Nil {
+						ids = append(ids, id)
+					}
 				}
 			}
-			for _, field := range definition.ConfigurationSchema.Fields {
-				if field.Control != "data_source" {
-					continue
-				}
-				var id uuid.UUID
-				if json.Unmarshal(values[field.Key], &id) == nil && id != uuid.Nil && !containsUUID(ids, id) {
+			for _, value := range contentdefs.DataSourceFieldValues(definition.ConfigurationSchema.Fields, values) {
+				if id, err := uuid.Parse(value); err == nil && id != uuid.Nil && !containsUUID(ids, id) {
 					ids = append(ids, id)
 				}
 			}

@@ -1,3 +1,18 @@
+/** Display an instant in the reader's locale and browser timezone. */
+export function formatDateTime(
+  value: string | null | undefined,
+  locale: string,
+  missing = "—",
+): string {
+  if (!value) return missing;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return missing;
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
 // Convert a stored RFC 3339 instant into the local wall-clock value accepted by
 // DateTimeInput (`YYYY-MM-DDTHH:mm`).
 export function rfc3339ToLocalDateTime(value?: string): string {

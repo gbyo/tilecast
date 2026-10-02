@@ -99,3 +99,36 @@ func TestCatalogRejectsDuplicateIDsAndUnsupportedControls(t *testing.T) {
 		t.Fatal("unsupported form control was accepted")
 	}
 }
+
+func TestDataSourceFieldValuesFollowRepeatingGroups(t *testing.T) {
+	fields := []FieldDefinition{
+		{Key: "source", Control: "data_source"},
+		{Key: "sections", Control: "repeating_group", ItemFields: []FieldDefinition{
+			{Key: "source", Control: "data_source"},
+			{Key: "items", Control: "repeating_group", ItemFields: []FieldDefinition{
+				{Key: "source", Control: "data_source"},
+			}},
+		}},
+	}
+	configuration := map[string]any{
+		"source": "root-source",
+		"sections": []any{
+			map[string]any{"source": "first-row-source"},
+			map[string]any{
+				"source": "second-row-source",
+				"items":  []any{map[string]any{"source": "nested-row-source"}},
+			},
+		},
+	}
+
+	got := DataSourceFieldValues(fields, configuration)
+	want := []string{"root-source", "first-row-source", "second-row-source", "nested-row-source"}
+	if len(got) != len(want) {
+		t.Fatalf("Data Source values = %v, want %v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("Data Source values = %v, want %v", got, want)
+		}
+	}
+}

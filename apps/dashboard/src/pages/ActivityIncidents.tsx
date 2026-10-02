@@ -22,7 +22,7 @@ import {
   useIncidentAction,
   type Incident,
 } from "./ActivityIncidentShared";
-import { getIncidentAnalytics, listIncidents } from "../api/domains/activity";
+import { activityQueries } from "../data/activity";
 import { buildActivityLink } from "./activityLinks";
 
 export type { Incident, IncidentStatus } from "./ActivityIncidentShared";
@@ -88,8 +88,7 @@ export function NeedsAttentionPanel() {
   const canAct = useCanActOnIncidents();
   const act = useIncidentAction();
   const query = useQuery({
-    queryKey: ["activity", "incidents", "active"],
-    queryFn: () => listIncidents({ status: "active" }),
+    ...activityQueries.incidents({ status: "active" }),
     refetchInterval: 30_000,
   });
 
@@ -196,10 +195,9 @@ export function IncidentAnalyticsPanel({
   range: ResolvedTimeRange;
 }) {
   const { t } = useTranslation("activity");
-  const query = useQuery({
-    queryKey: ["activity", "incident-analytics", range.from, range.to],
-    queryFn: () => getIncidentAnalytics({ from: range.from, to: range.to }),
-  });
+  const query = useQuery(
+    activityQueries.incidentAnalytics({ from: range.from, to: range.to }),
+  );
   const data = query.data;
   if (!data) return null;
   // Go marshals empty slices as null, and an older server may not send these
