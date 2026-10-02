@@ -1,5 +1,12 @@
 # Widgets V2
 
+Date selection conformance fixtures are in
+`packages/manifest-schema/date-selection-fixtures.json`. The Server preview
+and Runtime component projection test the same expected record IDs.
+`last_known_good` selects the latest cached date before the requested day.
+It does not require a previous mount. The default empty policy does not
+select past records.
+
 **Status:** binding. PR 1 (foundation and the Clock vertical slice) implements this document. Later PRs extend it; they do not change the contracts in §3–§7 without a new version.
 
 **Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.

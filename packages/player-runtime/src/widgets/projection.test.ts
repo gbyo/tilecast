@@ -4,6 +4,7 @@
  * before a component receives its document.
  */
 import { describe, expect, it } from "vitest";
+import dateFixtures from "../../../manifest-schema/date-selection-fixtures.json";
 import type { ProjectionContextV1 } from "../host/contract";
 import { createProjector } from "../compat/projector";
 import { resolveRegionalFormatting } from "../compat/projection/format";
@@ -157,6 +158,59 @@ function selectedRecordIds(
 }
 
 describe("projectWidgetComponent", () => {
+  it.each(dateFixtures)(
+    "matches native preview date fixture $id",
+    (fixture) => {
+      const source: ManifestDataSource = {
+        id: SOURCE,
+        name: "Events",
+        provider: "json",
+        configVersion: 1,
+        configuration: {},
+        dataDocument: {
+          schemaVersion: 1,
+          datasets: [
+            {
+              id: "records",
+              kind: "records",
+              dateSelection: fixture.selection,
+              records: fixture.records.map((record) => ({
+                id: record.id,
+                values: { date: { kind: "date", date: record.date } },
+              })),
+            },
+          ],
+        },
+      };
+      const payload = projectWidgetComponent(
+        componentWidget({
+          type: "tilecast.events",
+          version: 1,
+          config: {},
+          dataSources: [SOURCE],
+          media: [],
+        }),
+        {
+          dataSources: new Map([[SOURCE, source]]),
+          at: new Date(fixture.at),
+          regionalFormat: resolveRegionalFormatting({
+            locale: "en-US",
+            timezone: fixture.selection.timezone,
+            dateFormat: "locale",
+            timeFormat: "locale",
+            firstDayOfWeek: fixture.firstDayOfWeek as "monday" | "friday",
+          }),
+        },
+      );
+      expect(payload).not.toBeNull();
+      expect(payload?.hidden ?? false).toBe(fixture.hidden);
+      const document = payload?.documents[SOURCE] as DataDocument;
+      expect(document.datasets[0]?.records?.map((record) => record.id)).toEqual(
+        fixture.expectedIds,
+      );
+    },
+  );
+
   it("projects the declared resources and regional formatting", () => {
     const payload = projectWidgetComponent(
       componentWidget({
@@ -303,7 +357,7 @@ describe("projectWidgetComponent", () => {
   it.each([
     ["empty", []],
     ["fallback_text", []],
-    ["last_known_good", []],
+    ["last_known_good", ["2026-07-01"]],
     ["next_available", ["2026-07-20"]],
   ] as const)(
     "matches compatibility no-match policy %s",
