@@ -1,3 +1,5 @@
+import { screenQueries } from "../data/screens";
+
 import { formatBytes } from "../lib/formatBytes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -53,13 +55,11 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const [watchingLive, setWatchingLive] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const screen = useQuery({
-    queryKey: ["screens", screenId],
-    queryFn: () => api.screen(screenId),
+    ...screenQueries.detail(screenId),
     refetchInterval: 15_000,
   });
   const preview = useQuery({
-    queryKey: ["screen-preview", screenId],
-    queryFn: () => api.screenPreview(screenId),
+    ...screenQueries.preview(screenId),
     refetchInterval: METADATA_REFRESH_MILLIS,
     retry: false,
   });

@@ -1,9 +1,10 @@
+import { screenQueries } from "../data/screens";
 import { useQuery } from "@tanstack/react-query";
 import { formatDateTime } from "../lib/dateTime";
 import { Archive, MonitorOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { archivedScreens, type ArchivedScreen } from "../api/archivedScreens";
+import type { ArchivedScreen } from "../api/archivedScreens";
 import { ApiError } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
@@ -30,8 +31,7 @@ export function ArchivedScreensPage() {
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
   const archived = useQuery({
-    queryKey: ["screens", "archive"],
-    queryFn: archivedScreens,
+    ...screenQueries.archive(),
   });
 
   const screens = archived.data?.items ?? [];
