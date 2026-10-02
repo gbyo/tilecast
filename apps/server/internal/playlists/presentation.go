@@ -48,6 +48,7 @@ type DocumentField struct {
 	Type     string `json:"type"`
 	Unit     string `json:"unit,omitempty"`
 	Currency string `json:"currency,omitempty"`
+	Role     string `json:"role,omitempty"`
 }
 
 type DocumentRecord struct {
@@ -183,6 +184,7 @@ type typedRecordProjection struct {
 		Label    string `json:"label"`
 		Type     string `json:"type"`
 		Currency string `json:"currency,omitempty"`
+		Role     string `json:"role,omitempty"`
 	} `json:"fields"`
 	Records []struct {
 		ID     string            `json:"id"`
@@ -215,6 +217,7 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 				Label    string `json:"label"`
 				Type     string `json:"type"`
 				Currency string `json:"currency,omitempty"`
+				Role     string `json:"role,omitempty"`
 			} `json:"fields"`
 			Records []struct {
 				ID     string            `json:"id"`
@@ -246,11 +249,11 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 			dataset := DocumentDataset{ID: source.ID, Kind: source.Kind, Cache: DocumentCacheState{CachedAt: source.CachedAt, StaleAt: source.StaleAt, UsingCached: source.UsingCachedData, Unavailable: source.Unavailable}, Attribution: source.Attribution, Timezone: source.Timezone, Units: source.Units}
 			fieldTypes := map[string]string{}
 			for _, field := range source.Fields {
-				if !validScalarKind(field.Type) || field.Key == "" {
+				if !validScalarKind(field.Type) || field.Key == "" || !validSemanticRole(field.Role) {
 					return nil, errors.New("projected dataset field is invalid")
 				}
 				fieldTypes[field.Key] = field.Type
-				dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Unit: source.Units[field.Key], Currency: field.Currency})
+				dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Unit: source.Units[field.Key], Currency: field.Currency, Role: field.Role})
 			}
 			for _, record := range source.Records {
 				values := map[string]DocumentValue{}
@@ -292,11 +295,11 @@ func projectDataDocument(raw json.RawMessage) (*DataDocument, error) {
 	}
 	fieldTypes := map[string]string{}
 	for _, field := range projected.Fields {
-		if !validScalarKind(field.Type) || field.Key == "" || len(field.Key) > 80 {
+		if !validScalarKind(field.Type) || field.Key == "" || len(field.Key) > 80 || !validSemanticRole(field.Role) {
 			return nil, errors.New("projected field is invalid")
 		}
 		fieldTypes[field.Key] = field.Type
-		dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Currency: field.Currency})
+		dataset.Fields = append(dataset.Fields, DocumentField{Key: field.Key, Label: field.Label, Type: field.Type, Currency: field.Currency, Role: field.Role})
 	}
 	for _, record := range projected.Records {
 		if record.ID == "" || len(record.ID) > 80 || len(record.Values) > 16 {
@@ -330,6 +333,21 @@ func validScalarKind(kind string) bool {
 	default:
 		return false
 	}
+}
+
+func validSemanticRole(role string) bool {
+	if role == "" {
+		return true
+	}
+	if len(role) > 40 || role[0] < 'a' || role[0] > 'z' {
+		return false
+	}
+	for _, character := range role[1:] {
+		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '_' {
+			return false
+		}
+	}
+	return true
 }
 
 func coerceDocumentValue(kind, raw string) DocumentValue {
@@ -417,9 +435,7 @@ func compileDefinitionPresentation(definition contentdefs.WidgetDefinition, raw 
 	if err := json.Unmarshal(definition.PresentationTemplate, &template); err != nil {
 		return nil, err
 	}
-	resolved, included, err := resolveDefinitionTemplate(
-		template, configuration, definition.ConfigurationSchema.Fields,
-	)
+	resolved, included, err := resolveDefinitionTemplate(template, configuration, contentdefs.SchemaDerivedKeys(definition.ConfigurationSchema.Fields))
 	if err != nil {
 		return nil, err
 	}
@@ -499,16 +515,12 @@ func compileDefinitionWebPresentation(definition contentdefs.WidgetDefinition, c
 	}, nil
 }
 
-func resolveDefinitionTemplate(
-	value any,
-	configuration map[string]any,
-	fields []contentdefs.FieldDefinition,
-) (any, bool, error) {
+func resolveDefinitionTemplate(value any, configuration map[string]any, derived map[string]bool) (any, bool, error) {
 	switch typed := value.(type) {
 	case []any:
 		result := make([]any, 0, len(typed))
 		for _, item := range typed {
-			resolved, included, err := resolveDefinitionTemplate(item, configuration, fields)
+			resolved, included, err := resolveDefinitionTemplate(item, configuration, derived)
 			if err != nil {
 				return nil, false, err
 			}
@@ -524,7 +536,7 @@ func resolveDefinitionTemplate(
 				// Server-derived keys are produced during manifest projection. A Widget whose
 				// author left the optional selection empty simply has no derived value, so the
 				// reference resolves to an empty value rather than failing the compile.
-				if !contentdefs.IsLevelDerivedConfigurationKey(fields, key) {
+				if !contentdefs.DerivedConfigurationKeys[key] && !derived[key] {
 					return nil, false, fmt.Errorf("presentation template references missing configuration %q", key)
 				}
 				resolved = ""
@@ -557,7 +569,7 @@ func resolveDefinitionTemplate(
 			if key == "$ifConfig" || key == "$ifConfigEquals" {
 				continue
 			}
-			resolved, included, err := resolveDefinitionTemplate(item, configuration, fields)
+			resolved, included, err := resolveDefinitionTemplate(item, configuration, derived)
 			if err != nil {
 				return nil, false, err
 			}

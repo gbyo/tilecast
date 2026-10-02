@@ -34,10 +34,13 @@ var supportedNodes = map[string]bool{
 	"repeat": true, "conditional": true, "grouped_sections": true,
 }
 
-// DerivedConfigurationKeys are fixed configuration keys the Server injects after
-// authoring, such as App recipe relationships. Media variant keys are derived from each
-// media_asset field in its Widget schema by MediaVariantConfigurationKey.
+// DerivedConfigurationKeys are configuration keys a presentation template may reference
+// that the Server derives during manifest projection rather than the author entering
+// them. They are never part of a configuration schema, are never accepted from a client,
+// and resolve to an empty value when projection did not produce one.
 var DerivedConfigurationKeys = map[string]bool{
+	// Written by playlist manifest projection from the author's imageAssetId selection.
+	"imageVariantId": true,
 	// App recipes inject these release-owned values after provisioning their managed
 	// Data Source. Authors never submit either key directly.
 	"managedDataSourceId": true,
@@ -45,19 +48,22 @@ var DerivedConfigurationKeys = map[string]bool{
 	"appProviderName":     true,
 }
 
-// MediaVariantConfigurationKey returns the manifest-only configuration key that holds
-// the Player-compatible variant selected for a media_asset field. Preserve the original
-// convention for *AssetId keys while also supporting schema fields with any valid key.
-func MediaVariantConfigurationKey(fieldKey string) string {
-	if prefix, ok := strings.CutSuffix(fieldKey, "AssetId"); ok {
-		return prefix + "VariantId"
+// DerivedVariantKey maps a media_asset field key to the configuration key manifest
+// projection writes its resolved variant under ("logoAssetId" gives "logoVariantId").
+// Other declared media fields append VariantId. The same alias rule applies in Studio.
+func DerivedVariantKey(assetKey string) (string, bool) {
+	if assetKey == "" {
+		return "", false
 	}
-	return fieldKey + "VariantId"
+	return strings.TrimSuffix(assetKey, "AssetId") + "VariantId", true
 }
 
-// IsDerivedConfigurationKey reports whether a key is injected by the Server rather than
-// authored. Media variant aliases are scoped to fields declared by this Widget schema,
-// including fields nested inside repeating groups.
+// IsLevelDerivedConfigurationKey checks aliases in the current configuration object.
+func IsLevelDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
+	return DerivedConfigurationKeys[key] || SchemaDerivedKeys(fields)[key]
+}
+
+// IsDerivedConfigurationKey also rejects nested aliases submitted at the root.
 func IsDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
 	if IsLevelDerivedConfigurationKey(fields, key) {
 		return true
@@ -70,19 +76,20 @@ func IsDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
 	return false
 }
 
-// IsLevelDerivedConfigurationKey reports whether a derived key belongs in the map
-// described by fields. Template references use this check because a nested alias can only
-// be read through its repeating-group item, not as a root configuration key.
-func IsLevelDerivedConfigurationKey(fields []FieldDefinition, key string) bool {
-	if DerivedConfigurationKeys[key] {
-		return true
-	}
+// SchemaDerivedKeys returns every top-level variant key a definition's media_asset
+// fields project. Presentation templates may reference these and manifest projection
+// resolves them; clients may never submit them.
+func SchemaDerivedKeys(fields []FieldDefinition) map[string]bool {
+	derived := map[string]bool{}
 	for _, field := range fields {
-		if field.Control == "media_asset" && MediaVariantConfigurationKey(field.Key) == key {
-			return true
+		if field.Control != "media_asset" {
+			continue
+		}
+		if variantKey, ok := DerivedVariantKey(field.Key); ok {
+			derived[variantKey] = true
 		}
 	}
-	return false
+	return derived
 }
 
 // supportedOutputFieldTypes bounds the typed values a Data Source may declare. The set
@@ -253,9 +260,9 @@ type OutputField struct {
 }
 
 type WidgetDefinition struct {
-	ID      string `json:"id"`
+	ID string `json:"id"`
 	// Version tracks the release-owned Widget definition.
-	Version int    `json:"version"`
+	Version int `json:"version"`
 	// ConfigVersion is the version of the persisted Widget configuration.
 	// Omitted legacy definitions use version 1.
 	ConfigVersion *int `json:"configVersion,omitempty"`
@@ -1010,7 +1017,7 @@ func validateSchemaFields(fields []FieldDefinition) error {
 		if field.Control != "media_asset" {
 			continue
 		}
-		key := MediaVariantConfigurationKey(field.Key)
+		key, _ := DerivedVariantKey(field.Key)
 		if seen[key] || derived[key] {
 			return fmt.Errorf("media_asset field %q derives configuration key %q that conflicts with another field", field.Key, key)
 		}
@@ -1130,7 +1137,7 @@ func validateTemplate(raw json.RawMessage, schema ConfigurationSchema, capabilit
 	for _, field := range schema.Fields {
 		fields[field.Key] = field
 	}
-	if err := walkTemplate(root, fields, schema.Fields); err != nil {
+	if err := walkTemplate(root, fields, SchemaDerivedKeys(schema.Fields)); err != nil {
 		return err
 	}
 	used := map[string]bool{}
@@ -1229,17 +1236,17 @@ func validateTemplateCondition(value any) error {
 	return validateTemplateBinding(binding)
 }
 
-func walkTemplate(value any, fields map[string]FieldDefinition, schemaFields []FieldDefinition) error {
+func walkTemplate(value any, fields map[string]FieldDefinition, derived map[string]bool) error {
 	switch typed := value.(type) {
 	case []any:
 		for _, item := range typed {
-			if err := walkTemplate(item, fields, schemaFields); err != nil {
+			if err := walkTemplate(item, fields, derived); err != nil {
 				return err
 			}
 		}
 	case map[string]any:
 		if key, ok := typed["$config"].(string); ok {
-			if _, exists := fields[key]; !exists && !IsLevelDerivedConfigurationKey(schemaFields, key) {
+			if _, exists := fields[key]; !exists && !DerivedConfigurationKeys[key] && !derived[key] {
 				return fmt.Errorf("presentation template references unknown configuration %q", key)
 			}
 		}
@@ -1268,7 +1275,7 @@ func walkTemplate(value any, fields map[string]FieldDefinition, schemaFields []F
 			return fmt.Errorf("presentation template uses unsupported node %q", nodeType)
 		}
 		for _, item := range typed {
-			if err := walkTemplate(item, fields, schemaFields); err != nil {
+			if err := walkTemplate(item, fields, derived); err != nil {
 				return err
 			}
 		}

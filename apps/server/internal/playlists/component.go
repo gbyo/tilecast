@@ -90,41 +90,60 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 	}, nil
 }
 
-// componentMedia grants only media_asset values whose manifest projection resolved a
-// Player-compatible variant. Variant aliases sit beside their fields, including inside
-// repeating groups, so the component can use its normal configuration shape.
-func componentMedia(definition contentdefs.WidgetDefinition, configuration map[string]any) []ComponentMediaRef {
-	media := []ComponentMediaRef{}
-	seen := map[string]bool{}
-	var walk func([]contentdefs.FieldDefinition, map[string]any)
-	walk = func(fields []contentdefs.FieldDefinition, values map[string]any) {
-		for _, field := range fields {
-			switch field.Control {
-			case "media_asset":
-				assetID, _ := values[field.Key].(string)
-				variantID, _ := values[contentdefs.MediaVariantConfigurationKey(field.Key)].(string)
-				asset, assetErr := uuid.Parse(assetID)
-				variant, variantErr := uuid.Parse(variantID)
-				if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
+// mediaSelection pairs a media_asset field with the configuration object holding its
+// selection: the root configuration for top-level fields, a repeating-group item below.
+type mediaSelection struct {
+	field  contentdefs.FieldDefinition
+	holder map[string]any
+}
+
+// collectMediaSelections walks media_asset fields recursively through repeating
+// groups, so nested media projects and grants exactly like top-level media.
+func collectMediaSelections(fields []contentdefs.FieldDefinition, values map[string]any) []mediaSelection {
+	selections := []mediaSelection{}
+	for _, field := range fields {
+		switch field.Control {
+		case "media_asset":
+			selections = append(selections, mediaSelection{field: field, holder: values})
+		case "repeating_group":
+			if len(field.ItemFields) == 0 {
+				continue
+			}
+			items, _ := values[field.Key].([]any)
+			for _, item := range items {
+				nested, ok := item.(map[string]any)
+				if !ok {
 					continue
 				}
-				key := asset.String() + "/" + variant.String()
-				if !seen[key] {
-					media = append(media, ComponentMediaRef{AssetID: asset.String(), VariantID: variant.String()})
-					seen[key] = true
-				}
-			case "repeating_group":
-				items, _ := values[field.Key].([]any)
-				for _, item := range items {
-					row, _ := item.(map[string]any)
-					if row != nil {
-						walk(field.ItemFields, row)
-					}
-				}
+				selections = append(selections, collectMediaSelections(field.ItemFields, nested)...)
 			}
 		}
 	}
-	walk(definition.ConfigurationSchema.Fields, configuration)
+	return selections
+}
+
+// componentMedia grants the media variants a component may display: each
+// media_asset field whose asset manifest projection resolved to a variant.
+// Projection writes the variant beside the asset under the derived key
+// (imageAssetId gives imageVariantId), and adds that variant to the
+// manifest's assets, so the Player verifies and caches it before
+// activation. An asset without a projected variant grants nothing.
+func componentMedia(definition contentdefs.WidgetDefinition, configuration map[string]any) []ComponentMediaRef {
+	media := []ComponentMediaRef{}
+	for _, selection := range collectMediaSelections(definition.ConfigurationSchema.Fields, configuration) {
+		variantKey, ok := contentdefs.DerivedVariantKey(selection.field.Key)
+		if !ok {
+			continue
+		}
+		assetID, _ := selection.holder[selection.field.Key].(string)
+		variantID, _ := selection.holder[variantKey].(string)
+		asset, assetErr := uuid.Parse(assetID)
+		variant, variantErr := uuid.Parse(variantID)
+		if assetErr != nil || variantErr != nil || asset == uuid.Nil || variant == uuid.Nil {
+			continue
+		}
+		media = append(media, ComponentMediaRef{AssetID: asset.String(), VariantID: variant.String()})
+	}
 	return media
 }
 

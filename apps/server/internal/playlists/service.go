@@ -2471,131 +2471,116 @@ func containsUUID(ids []uuid.UUID, wanted uuid.UUID) bool {
 	return false
 }
 
+// legacyWidgetAssetReferences are the historical media pairs for providers without a
+// definition-driven schema. Definition widgets project from their schema instead.
+var legacyWidgetAssetReferences = []struct {
+	assetKey   string
+	variantKey string
+	label      string
+}{
+	{assetKey: "imageAssetId", variantKey: "imageVariantId", label: "widget image"},
+	{assetKey: "fallbackImageAssetId", variantKey: "fallbackVariantId", label: "widget fallback image"},
+}
+
 func (s *Service) projectWidgetAssets(ctx context.Context, manifest *Manifest, widget *ManifestWidget, seen map[uuid.UUID]bool) error {
 	var configuration map[string]any
 	if json.Unmarshal(widget.Configuration, &configuration) != nil {
 		return errors.New("widget configuration is invalid")
 	}
-	definition, hasDefinition := contentdefs.WidgetDefinition{}, false
-	if s.definitions != nil {
-		definition, hasDefinition = s.definitions.Widget(widget.Provider)
-	}
-	if hasDefinition {
-		projected, err := projectDefinitionMediaAssets(
-			definition.ConfigurationSchema.Fields,
-			configuration,
-			func(assetID uuid.UUID, field contentdefs.FieldDefinition) (ManifestAsset, error) {
-				asset, resolveErr := s.resolveAssetVariant(ctx, assetID, nil)
-				if resolveErr != nil {
-					return ManifestAsset{}, fmt.Errorf("%w: %s unavailable", ErrConflict, field.Label)
-				}
-				asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
-				return asset, nil
-			},
-		)
-		if err != nil {
-			return err
-		}
-		for _, asset := range projected {
-			if !seen[asset.VariantID] {
-				manifest.Assets = append(manifest.Assets, asset)
-				seen[asset.VariantID] = true
+	if definition, ok := s.definitions.Widget(widget.Provider); ok && !definition.LegacyEditor {
+		covered := map[string]bool{}
+		for _, selection := range collectMediaSelections(definition.ConfigurationSchema.Fields, configuration) {
+			covered[selection.field.Key] = true
+			if err := s.projectMediaSelection(ctx, manifest, selection, seen); err != nil {
+				return err
 			}
 		}
+		// Stored configurations may predate their schema: legacy media keys outside
+		// the schema keep their historical projection rather than silently losing
+		// variants.
+		for _, reference := range legacyWidgetAssetReferences {
+			if covered[reference.assetKey] {
+				continue
+			}
+			if err := s.projectImageReference(ctx, manifest, configuration, reference.assetKey, reference.variantKey, reference.label, seen); err != nil {
+				return err
+			}
+		}
+		widget.Configuration, _ = json.Marshal(configuration)
+		return nil
 	}
-	for _, reference := range []struct {
-		assetKey   string
-		variantKey string
-		label      string
-	}{
-		{assetKey: "imageAssetId", variantKey: "imageVariantId", label: "widget image"},
-		{assetKey: "fallbackImageAssetId", variantKey: "fallbackVariantId", label: "widget fallback image"},
-	} {
-		if hasDefinition && hasMediaAssetField(definition.ConfigurationSchema.Fields, reference.assetKey) {
-			continue
-		}
-		rawID, _ := configuration[reference.assetKey].(string)
-		if rawID == "" {
-			continue
-		}
-		assetID, err := uuid.Parse(rawID)
-		if err != nil {
-			return fmt.Errorf("%w: %s reference is invalid", ErrConflict, reference.label)
-		}
-		asset, resolveErr := s.resolveImageVariant(ctx, assetID)
-		if resolveErr != nil {
-			return fmt.Errorf("%w: %s unavailable", ErrConflict, reference.label)
-		}
-		configuration[reference.variantKey] = asset.VariantID.String()
-		if !seen[asset.VariantID] {
-			manifest.Assets = append(manifest.Assets, asset)
-			seen[asset.VariantID] = true
+	for _, reference := range legacyWidgetAssetReferences {
+		if err := s.projectImageReference(ctx, manifest, configuration, reference.assetKey, reference.variantKey, reference.label, seen); err != nil {
+			return err
 		}
 	}
 	widget.Configuration, _ = json.Marshal(configuration)
 	return nil
 }
 
-type widgetMediaVariantResolver func(uuid.UUID, contentdefs.FieldDefinition) (ManifestAsset, error)
-
-// projectDefinitionMediaAssets resolves every selected schema media_asset into a
-// Player-compatible variant. It stores the variant next to its field so component and
-// compatibility templates keep their existing configuration shape, including groups.
-func projectDefinitionMediaAssets(
-	fields []contentdefs.FieldDefinition,
-	configuration map[string]any,
-	resolve widgetMediaVariantResolver,
-) ([]ManifestAsset, error) {
-	assets := []ManifestAsset{}
-	var walk func([]contentdefs.FieldDefinition, map[string]any) error
-	walk = func(fields []contentdefs.FieldDefinition, values map[string]any) error {
-		for _, field := range fields {
-			switch field.Control {
-			case "media_asset":
-				rawID, _ := values[field.Key].(string)
-				if rawID == "" {
-					continue
-				}
-				assetID, err := uuid.Parse(rawID)
-				if err != nil || assetID == uuid.Nil {
-					return fmt.Errorf("%w: %s reference is invalid", ErrConflict, field.Label)
-				}
-				asset, err := resolve(assetID, field)
-				if err != nil {
-					return err
-				}
-				if asset.AssetID != assetID || asset.VariantID == uuid.Nil {
-					return fmt.Errorf("%w: %s unavailable", ErrConflict, field.Label)
-				}
-				values[contentdefs.MediaVariantConfigurationKey(field.Key)] = asset.VariantID.String()
-				assets = append(assets, asset)
-			case "repeating_group":
-				items, _ := values[field.Key].([]any)
-				for _, item := range items {
-					row, _ := item.(map[string]any)
-					if row != nil {
-						if err := walk(field.ItemFields, row); err != nil {
-							return err
-						}
-					}
-				}
-			}
-		}
+func (s *Service) projectImageReference(ctx context.Context, manifest *Manifest, holder map[string]any, assetKey, variantKey, label string, seen map[uuid.UUID]bool) error {
+	rawID, _ := holder[assetKey].(string)
+	if rawID == "" {
 		return nil
 	}
-	if err := walk(fields, configuration); err != nil {
-		return nil, err
+	assetID, err := uuid.Parse(rawID)
+	if err != nil {
+		return fmt.Errorf("%w: %s reference is invalid", ErrConflict, label)
 	}
-	return assets, nil
+	asset, resolveErr := s.resolveImageVariant(ctx, assetID)
+	if resolveErr != nil {
+		return fmt.Errorf("%w: %s unavailable", ErrConflict, label)
+	}
+	holder[variantKey] = asset.VariantID.String()
+	if !seen[asset.VariantID] {
+		manifest.Assets = append(manifest.Assets, asset)
+		seen[asset.VariantID] = true
+	}
+	return nil
 }
 
-func hasMediaAssetField(fields []contentdefs.FieldDefinition, key string) bool {
-	for _, field := range fields {
-		if field.Control == "media_asset" && field.Key == key {
-			return true
+func (s *Service) projectMediaSelection(ctx context.Context, manifest *Manifest, selection mediaSelection, seen map[uuid.UUID]bool) error {
+	variantKey, ok := contentdefs.DerivedVariantKey(selection.field.Key)
+	if !ok {
+		return nil
+	}
+	label := fmt.Sprintf("widget media %q", selection.field.Key)
+	rawID, _ := selection.holder[selection.field.Key].(string)
+	if rawID == "" {
+		return nil
+	}
+	assetID, err := uuid.Parse(rawID)
+	if err != nil {
+		return fmt.Errorf("%w: %s reference is invalid", ErrConflict, label)
+	}
+	var asset ManifestAsset
+	var resolveErr error
+	if mediaTypesImageOnly(selection.field.MediaTypes) {
+		asset, resolveErr = s.resolveImageVariant(ctx, assetID)
+	} else {
+		asset, resolveErr = s.resolveAssetVariant(ctx, assetID, nil)
+	}
+	if resolveErr != nil {
+		return fmt.Errorf("%w: %s unavailable", ErrConflict, label)
+	}
+	selection.holder[variantKey] = asset.VariantID.String()
+	if !seen[asset.VariantID] {
+		manifest.Assets = append(manifest.Assets, asset)
+		seen[asset.VariantID] = true
+	}
+	return nil
+}
+
+func mediaTypesImageOnly(types []string) bool {
+	if len(types) == 0 {
+		return false
+	}
+	for _, mediaType := range types {
+		if mediaType != "image" {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func (s *Service) resolveImageVariant(ctx context.Context, assetID uuid.UUID) (ManifestAsset, error) {

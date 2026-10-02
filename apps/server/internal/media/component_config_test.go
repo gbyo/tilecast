@@ -92,21 +92,33 @@ func TestComponentConfigNormalizerRejects(t *testing.T) {
 	}
 }
 
-func TestComponentConfigNormalizerRejectsGenericDerivedMediaVariant(t *testing.T) {
+func TestComponentConfigNormalizerRejectsCustomDerivedVariant(t *testing.T) {
+	// A definition-owned variant key the component template reads must be
+	// refused exactly like the built-in imageVariantId: projection writes it,
+	// clients never submit it.
 	definition := contentdefs.WidgetDefinition{
+		ID:      "media-sampler",
+		Runtime: "native",
 		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
-			{Key: "brandAssetId", Label: "Brand", Control: "media_asset"},
+			{Key: "logoAssetId", Label: "Logo", Control: "media_asset"},
+			{Key: "watermark", Label: "Watermark", Control: "media_asset"},
+			{Key: "slides", Label: "Slides", Control: "repeating_group", MaximumItems: 3, ItemFields: []contentdefs.FieldDefinition{
+				{Key: "poster", Label: "Poster", Control: "media_asset"},
+			}},
 		}},
 		Component: &contentdefs.ComponentSpec{
-			ConfigTemplate: json.RawMessage(`{"image":{"assetId":{"$config":"brandAssetId","default":""}}}`),
+			Type:           "example.media_sampler",
+			Version:        1,
+			TagName:        "example-media-sampler",
+			ConfigTemplate: json.RawMessage(`{"logo":{"assetId":{"$config":"logoAssetId"},"variantId":{"$config":"logoVariantId"}},"watermark":{"$config":"watermarkVariantId"},"poster":{"$config":"posterVariantId"}}`),
 		},
 	}
-	_, err := (componentConfigNormalizer{definition: definition}).Normalize(
-		context.Background(),
-		json.RawMessage(`{"brandVariantId":"33333333-3333-4333-8333-333333333333"}`),
-	)
-	if err == nil || !strings.Contains(err.Error(), `unknown field "brandVariantId"`) {
-		t.Fatalf("a generic derived media key was not rejected: %v", err)
+	for _, key := range []string{"logoVariantId", "watermarkVariantId", "posterVariantId"} {
+		raw, _ := json.Marshal(map[string]string{key: "33333333-3333-4333-8333-333333333333"})
+		_, err := (componentConfigNormalizer{definition: definition}).Normalize(context.Background(), raw)
+		if err == nil || !strings.Contains(err.Error(), `unknown field "`+key+`"`) {
+			t.Fatalf("custom derived variant %s was accepted, err=%v", key, err)
+		}
 	}
 }
 

@@ -63,7 +63,7 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	}
 }
 
-func TestGenericMediaFieldsProjectVariantsAndComponentGrants(t *testing.T) {
+func TestGenericMediaFieldsCompileComponentGrants(t *testing.T) {
 	definition := contentdefs.WidgetDefinition{
 		ID: "generic-media-probe", Version: 1, APIVersion: 1,
 		Name: "Generic Media Probe", Category: "Test", Runtime: "native",
@@ -108,38 +108,15 @@ func TestGenericMediaFieldsProjectVariantsAndComponentGrants(t *testing.T) {
 		uuid.MustParse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
 	}
 	configuration := map[string]any{
-		"logoAssetId":       assetIDs[0].String(),
-		"backgroundAssetId": assetIDs[1].String(),
-		"watermark":         assetIDs[2].String(),
+		"logoAssetId":         assetIDs[0].String(),
+		"logoVariantId":       variantIDs[0].String(),
+		"backgroundAssetId":   assetIDs[1].String(),
+		"backgroundVariantId": variantIDs[1].String(),
+		"watermark":           assetIDs[2].String(),
+		"watermarkVariantId":  variantIDs[2].String(),
 		"slides": []any{
-			map[string]any{"posterAssetId": assetIDs[3].String()},
+			map[string]any{"posterAssetId": assetIDs[3].String(), "posterVariantId": variantIDs[3].String()},
 		},
-	}
-	resolved := map[uuid.UUID]uuid.UUID{}
-	for index := range assetIDs {
-		resolved[assetIDs[index]] = variantIDs[index]
-	}
-	assets, err := projectDefinitionMediaAssets(
-		definition.ConfigurationSchema.Fields,
-		configuration,
-		func(assetID uuid.UUID, _ contentdefs.FieldDefinition) (ManifestAsset, error) {
-			return ManifestAsset{AssetID: assetID, VariantID: resolved[assetID]}, nil
-		},
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(assets) != len(assetIDs) {
-		t.Fatalf("projected assets = %d, want %d", len(assets), len(assetIDs))
-	}
-	if configuration["logoVariantId"] != variantIDs[0].String() ||
-		configuration["backgroundVariantId"] != variantIDs[1].String() ||
-		configuration["watermarkVariantId"] != variantIDs[2].String() {
-		t.Fatalf("root media variant keys were not derived: %+v", configuration)
-	}
-	slides := configuration["slides"].([]any)
-	if slides[0].(map[string]any)["posterVariantId"] != variantIDs[3].String() {
-		t.Fatalf("nested media variant key was not derived: %+v", slides)
 	}
 
 	raw, err := json.Marshal(configuration)
