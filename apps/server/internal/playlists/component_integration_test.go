@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
+	formsserver "github.com/tilecast/tilecast/plugins/forms/server"
 )
 
 // reportCapabilities records what the fixture screen's Player reported: the
@@ -230,6 +231,9 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 // component manifest projection. Invalid and private records stay ungranted.
 func TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant(t *testing.T) {
 	f := setupCapabilityFixture(t)
+	if err := f.media.SetDataSourceProviders(formsserver.NewService()); err != nil {
+		t.Fatal(err)
+	}
 	assetID, variantID := uuid.New(), uuid.New()
 	if _, err := f.pool.Exec(f.ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,width,height,processing_status,created_by)VALUES($1,$2,'Card cover','image','cover.png','image/png',$3,100,800,600,'ready',$4)`, assetID, f.org, make([]byte, 32), f.user); err != nil {
 		t.Fatalf("insert image: %v", err)
@@ -282,10 +286,10 @@ func TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant(t *testing.T) {
 		t.Fatal(err)
 	}
 	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.cards": 1})
 	if _, err = f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
 		t.Fatal(err)
 	}
-	f.reportCapabilities(t, "{1,2}", map[string]int{"widget.tilecast.cards": 1})
 	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
 	if err != nil {
 		t.Fatalf("build Cards manifest: %v", err)

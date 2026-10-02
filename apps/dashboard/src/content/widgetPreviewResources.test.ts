@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { WidgetDataDocument, WidgetRecord } from "@tilecast/widget-sdk";
 import { createWidgetResources } from "@tilecast/widget-sdk";
 import {
   previewDataSourceMedia,
@@ -373,12 +374,13 @@ describe("previewToDataDocument", () => {
 
 describe("previewDataSourceMedia", () => {
   it("grants only typed assets in the selected field and record bound", () => {
-    const document = {
+    const document: WidgetDataDocument = {
       schemaVersion: 1,
       datasets: [
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "cover", label: "Cover", type: "asset" },
             { key: "other", label: "Other", type: "asset" },
@@ -389,7 +391,7 @@ describe("previewDataSourceMedia", () => {
               values: {
                 cover: {
                   kind: "asset",
-                  assetId: "11111111-1111-4111-8111-111111111111",
+                  assetId: "11111111-1111-1111-1111-111111111111",
                 },
                 other: {
                   kind: "asset",
@@ -416,14 +418,14 @@ describe("previewDataSourceMedia", () => {
       ]),
     ).toEqual([
       {
-        assetId: "11111111-1111-4111-8111-111111111111",
+        assetId: "11111111-1111-1111-1111-111111111111",
         variantId: "preview",
       },
     ]);
   });
 
   it("does not grant assets from an untyped field", () => {
-    const records = Array.from({ length: 20 }, (_, index) => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
       const block = String(index + 1).padStart(8, "0");
       return {
         id: `row-${index}`,
@@ -435,12 +437,13 @@ describe("previewDataSourceMedia", () => {
         },
       };
     });
-    const document = {
+    const document: WidgetDataDocument = {
       schemaVersion: 1,
       datasets: [
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [{ key: "image", label: "Image", type: "text" }],
           records,
         },
@@ -454,7 +457,7 @@ describe("previewDataSourceMedia", () => {
   });
 
   it("stops after the component media grant limit", () => {
-    const records = Array.from({ length: 20 }, (_, index) => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
       const block = String(index + 1).padStart(8, "0");
       return {
         id: `row-${index}`,
@@ -466,12 +469,13 @@ describe("previewDataSourceMedia", () => {
         },
       };
     });
-    const document = {
+    const document: WidgetDataDocument = {
       schemaVersion: 1,
       datasets: [
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [{ key: "image", label: "Image", type: "asset" }],
           records,
         },
