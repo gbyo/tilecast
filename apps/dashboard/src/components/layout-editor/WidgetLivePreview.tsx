@@ -11,6 +11,7 @@ import { api } from "../../api/client";
 import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
+  isPlaylistZoneMediaItem,
   resolvePlaybackItemSettings,
 } from "@tilecast/presentation-model";
 import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
@@ -101,9 +102,7 @@ export function playlistPreviewDuration(
   return settings.durationMs ?? undefined;
 }
 
-export function isPlaylistZoneMediaItem(item: PlaylistItem) {
-  return item.assetType === "image" || item.assetType === "video";
-}
+export { isPlaylistZoneMediaItem } from "@tilecast/presentation-model";
 
 export function nextPlaylistPreviewIndex(
   index: number,

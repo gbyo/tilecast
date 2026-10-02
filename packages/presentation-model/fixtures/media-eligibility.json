@@ -1,0 +1,164 @@
+{
+  "at": "2026-10-02T12:00:00Z",
+  "item": {
+    "assetId": "media",
+    "variantId": "v1",
+    "assetType": "image"
+  },
+  "asset": {
+    "assetId": "media",
+    "variantId": "v1",
+    "mimeType": "image/png"
+  },
+  "cases": [
+    {
+      "name": "image is supported",
+      "item": {},
+      "asset": {},
+      "kind": "image",
+      "reason": null,
+      "supported": true
+    },
+    {
+      "name": "video is supported",
+      "item": {
+        "assetType": "video"
+      },
+      "asset": {
+        "mimeType": "video/mp4"
+      },
+      "kind": "video",
+      "reason": null,
+      "supported": true
+    },
+    {
+      "name": "Widget snapshot is not zone media",
+      "item": {
+        "assetType": "widget"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "unsupported_item_kind",
+      "supported": false
+    },
+    {
+      "name": "website is unsupported",
+      "item": {
+        "assetType": "website"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "unsupported_item_kind",
+      "supported": false
+    },
+    {
+      "name": "Layout is unsupported",
+      "item": {
+        "assetType": "layout"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "unsupported_item_kind",
+      "supported": false
+    },
+    {
+      "name": "nested Layout is unsupported",
+      "item": {
+        "layoutId": "nested"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "unsupported_item_kind",
+      "supported": false
+    },
+    {
+      "name": "missing asset",
+      "item": {},
+      "asset": null,
+      "kind": null,
+      "reason": "asset_missing",
+      "supported": true
+    },
+    {
+      "name": "wrong asset",
+      "item": {},
+      "asset": {
+        "assetId": "other"
+      },
+      "kind": null,
+      "reason": "asset_missing",
+      "supported": true
+    },
+    {
+      "name": "wrong variant",
+      "item": {},
+      "asset": {
+        "variantId": "v2"
+      },
+      "kind": null,
+      "reason": "asset_missing",
+      "supported": true
+    },
+    {
+      "name": "future asset",
+      "item": {},
+      "asset": {
+        "availableFrom": "2026-10-02T13:00:00Z"
+      },
+      "kind": null,
+      "reason": "asset_unavailable",
+      "supported": true
+    },
+    {
+      "name": "expired asset",
+      "item": {},
+      "asset": {
+        "expiresAt": "2026-10-02T11:00:00Z"
+      },
+      "kind": null,
+      "reason": "asset_unavailable",
+      "supported": true
+    },
+    {
+      "name": "future item",
+      "item": {
+        "availableFrom": "2026-10-02T13:00:00Z"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "item_unavailable",
+      "supported": true
+    },
+    {
+      "name": "expired item",
+      "item": {
+        "expiresAt": "2026-10-02T11:00:00Z"
+      },
+      "asset": {},
+      "kind": null,
+      "reason": "item_unavailable",
+      "supported": true
+    },
+    {
+      "name": "unsupported MIME",
+      "item": {},
+      "asset": {
+        "mimeType": "application/pdf"
+      },
+      "kind": null,
+      "reason": "unsupported_media_type",
+      "supported": true
+    },
+    {
+      "name": "item window wins rejection priority",
+      "item": {
+        "assetType": "widget",
+        "expiresAt": "2026-10-02T11:00:00Z"
+      },
+      "asset": null,
+      "kind": null,
+      "reason": "item_unavailable",
+      "supported": false
+    }
+  ]
+}

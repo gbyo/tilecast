@@ -94,6 +94,7 @@ try {
     "dist/index.js",
     "dist/availability.js",
     "dist/playback-defaults.js",
+    "dist/media-eligibility.js",
   ]) {
     if (extractFile(asarPath, `${modelRoot}/${file}`).byteLength === 0) {
       throw new Error(`Packaged Presentation Model is missing ${file}.`);

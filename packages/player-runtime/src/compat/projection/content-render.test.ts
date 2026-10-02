@@ -819,17 +819,6 @@ describe("renderLayout", () => {
   it("applies player defaults to playlist zones and skips unavailable items", () => {
     const playlistManifest = {
       ...manifest,
-      assets: [
-        ...manifest.assets,
-        {
-          assetId: "video",
-          variantId: "v1",
-          mimeType: "video/mp4",
-          sha256: "z",
-          fileSize: 14,
-          downloadPath: "/api/v1/player/assets/video/variants/v1",
-        },
-      ],
       playlists: [
         {
           id: "p1",
