@@ -2,15 +2,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError } from "@tilecast/studio";
 import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
 import { formsApi } from "./api";
 import { FormsPluginPage } from "./FormsPluginPage";
+import { ApiError } from "@tilecast/studio";
 
-afterEach(async () => {
+afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  await i18n.changeLanguage("en");
 });
 
 describe("Forms plugin", () => {
@@ -44,6 +43,20 @@ describe("Forms plugin", () => {
       "href",
       "/plugins/forms/new",
     );
+  });
+
+  it("renders only the load error when the initial forms query fails", async () => {
+    vi.spyOn(formsApi, "listForms").mockRejectedValue(new Error("offline"));
+
+    renderPluginRoute(<FormsPluginPage />, {
+      path: "/plugins/forms",
+      patterns: ["/plugins/forms"],
+      role: "owner",
+    });
+
+    expect(await screen.findByText("Could not load forms")).toBeInTheDocument();
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    expect(screen.queryByText("No forms yet")).not.toBeInTheDocument();
   });
 
   it("presents library load failures through the localized API error path", async () => {

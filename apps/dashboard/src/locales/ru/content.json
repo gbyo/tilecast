@@ -140,7 +140,7 @@
       "removeTag": "Убрать {{name}}",
       "restore": "Восстановить",
       "sectionLabel": "Организация контента",
-      "selectPage": "Выбрать страницу",
+      "selectLoaded": "Выбрать загруженные",
       "tagChange": "Изменение меток"
     },
     "organizer": {
@@ -397,6 +397,7 @@
     }
   },
   "widgets": {
+    "duplicateSuccess": "Виджет продублирован.",
     "list": {
       "title": "Виджеты",
       "create": "Создать виджет",
@@ -514,6 +515,13 @@
       "addItem": "Добавить элемент",
       "selectPlaceholder": "Выбрать…",
       "selectSourceFirst": "Сначала выберите источник данных.",
+      "mediaAsset": {
+        "none": "Медиафайл не выбран",
+        "clear": "Очистить выбор медиафайла",
+        "pickerTitle": "Выбрать медиафайл",
+        "pickerDescription": "Ищите или просматривайте всю медиатеку.",
+        "pickerConfirm": "Выбрать медиафайл"
+      },
       "removeItem": "Удалить элемент {{index}} из {{label}}",
       "guide": {
         "shapeRecords": "строки записей",
@@ -730,6 +738,7 @@
     }
   },
   "dataSources": {
+    "deleteSuccess": "Источник данных удалён.",
     "calendar": {
       "addCalendar": "Добавить календарь",
       "calendarsLegend": "Календари",

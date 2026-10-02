@@ -1025,6 +1025,7 @@
   },
   "page": {
     "loading": "Loading settings…",
+    "loadError": "Settings could not be loaded.",
     "leaveWarning": "Leave Settings with unsaved changes?",
     "leaveSectionTitle": "This section has unsaved changes. Keep them and open another Settings section?",
     "leaveSectionAction": "Discard changes",
@@ -1180,6 +1181,10 @@
     "expiresHint": "The token stops working at the end of this day. Leave it empty for a token that never expires, and revoke it when the system using it is retired.",
     "limitLabel": "Limit to Data Sources",
     "limitHint": "Select none to allow every Manual Table Data Source. Naming them is the safer default.",
+    "limitSearchLabel": "Search Data Sources",
+    "limitSearchPlaceholder": "Search by name",
+    "limitSelected": "{{count}} selected",
+    "limitNoMatch": "No Data Source matches this search.",
     "loadingSources": "Loading Data Sources…",
     "sourcesLoadError": "Data Source data failed to load.",
     "noSources": "No Manual Table Data Sources exist yet.",
