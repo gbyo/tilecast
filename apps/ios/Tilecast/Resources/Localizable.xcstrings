@@ -113,6 +113,22 @@
         }
       }
     },
+    "Camera Unavailable": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cámara no disponible"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Камера недоступна"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "es": {
@@ -657,6 +673,22 @@
         }
       }
     },
+    "Point the camera at the Tilecast QR code.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apunta la cámara al código QR de Tilecast."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Наведите камеру на QR-код Tilecast."
+          }
+        }
+      }
+    },
     "Preparing…": {
       "localizations": {
         "es": {
@@ -1165,6 +1197,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tilecast"
+          }
+        }
+      }
+    },
+    "Tilecast can’t scan QR codes without camera access. Enter the pairing code from the Player instead, or allow the camera in Settings.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast no puede escanear códigos QR sin acceso a la cámara. Introduce el código de emparejamiento del reproductor o permite el acceso a la cámara en Ajustes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tilecast не может сканировать QR-коды без доступа к камере. Введите код подключения с плеера или разрешите доступ к камере в «Настройках»."
           }
         }
       }
