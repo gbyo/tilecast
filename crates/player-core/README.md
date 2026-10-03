@@ -22,6 +22,9 @@ Edge still owns Activity outbox delivery until the reconciliation extraction.
 
 The shared recovery ladder chooses renderer actions from meaningful evidence.
 Edge executes those actions through its RendererPort adapter.
+Core tracks acceptance, errors, and evidence for the current connection and
+activation. Stale observations cannot accept an activation or prove content.
+Evidence logs and content-item tracking remain bounded.
 The foundation does not claim to implement the complete native lifecycle.
 
 ## Renderer contract groundwork
