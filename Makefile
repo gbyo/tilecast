@@ -16,6 +16,7 @@ build:
 
 check:
 	$(MAKE) docs-check
+	python3 scripts/ci/check-player-architecture.py
 	$(MAKE) plugins-check
 	$(MAKE) widgets-check
 	$(MAKE) data-sources-check

@@ -87,6 +87,23 @@ apps/docs/                   public documentation site (Astro Starlight)
 
 The server is a modular monolith. Preserve small domain packages and thin HTTP handlers. Do not scatter SQL through React code or unrelated handler files.
 
+## Native Player ownership
+
+Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
+The extraction contract is binding. Shared Rust crates are not yet implemented.
+
+- Presentation appearance and execution belong in Presentation Model and Player Runtime.
+- Behavior shared by full native Players belongs in Player Core after extraction.
+- OS integration, lifecycle, distribution, and renderer hosting belong to the platform.
+- Independent implementations share contracts or fixtures at the rule's natural owner.
+- A normal product-level Player change should usually need one Core or Runtime implementation.
+
+Shared Player crates must never depend on Edge crates or Edge wire framing.
+Run `python3 scripts/ci/check-player-architecture.py` to check dependency direction.
+Preserve shipped SQLite migration bytes and all Edge security, offline, crash,
+update, and renderer isolation guarantees. Do not implement macOS or move behavior
+before the dedicated root Rust workspace migration.
+
 ## Server conventions
 
 ### Process and dependencies

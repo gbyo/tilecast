@@ -80,6 +80,11 @@ From the repository root, `make check` runs the repository's documented format, 
 
 ## Work on Tilecast Edge
 
+Before changing Player behavior, [choose its implementation owner](player-ownership/).
+The native Player extraction contract keeps shared behavior separate from Linux
+integration and presentation execution. It does not change the current Edge
+process or security boundaries.
+
 Tilecast Edge lives in `apps/edge`. Its software milestones M1 to M10 and the M11 remote-web implementation are merged; physical WPE and hardware qualification is next, and no signed release is published yet. Read [`apps/edge/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/README.md) and [`apps/edge/AGENTS.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/AGENTS.md) first. From `apps/edge`:
 
 ```sh
