@@ -16,7 +16,7 @@ struct MediaIntakeProgressView: View {
                     MediaIntakeRow(item: item, index: index + 1)
                 }
             }
-            .navigationTitle("Uploading Media")
+            .navigationTitle(isTransferring ? String(localized: "Uploading Media") : String(localized: "Media Upload"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
