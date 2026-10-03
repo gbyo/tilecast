@@ -74,7 +74,9 @@ function toDescriptor(
 const rounded = (value: number) => Math.round(value * 10_000) / 10_000;
 
 /** Visible part of an element, normalized to the current visual viewport. */
-function normalizedTriggerRect(element: HTMLElement): ActionMenuTriggerRect | null {
+function normalizedTriggerRect(
+  element: HTMLElement,
+): ActionMenuTriggerRect | null {
   const bounds = element.getBoundingClientRect();
   const viewport = window.visualViewport;
   const viewportLeft = viewport?.offsetLeft ?? 0;
@@ -311,14 +313,19 @@ export function useNativeActionMenu() {
       };
 
       const resize =
-        typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(schedule);
       resize?.observe(element);
       const intersection =
         typeof IntersectionObserver === "undefined"
           ? null
           : new IntersectionObserver(schedule);
       intersection?.observe(element);
-      window.addEventListener("scroll", schedule, { capture: true, passive: true });
+      window.addEventListener("scroll", schedule, {
+        capture: true,
+        passive: true,
+      });
       window.addEventListener("resize", schedule, { passive: true });
       window.visualViewport?.addEventListener("scroll", schedule, {
         passive: true,
