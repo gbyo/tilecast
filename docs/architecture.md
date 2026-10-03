@@ -77,6 +77,15 @@ transition. The supplied schedules describe a configuration at an explicit
 instant; they do not establish a historical expectation. Historical reports
 must use recorded expected playback windows.
 
+`internal/playbackplan.Current` composes the assignment reader, schedule
+explanation, and active Takeover and Quick Present readers. It selects content
+in this order: Takeover, Quick Present, schedule, then assignment. Display-control
+schedules do not select content. Inspection does not create manifest state or
+expire temporary presentations. The next evaluation time is a boundary for
+another evaluation; it does not guarantee a change in selected content.
+This internal reader predicts selection from current configuration. It does
+not establish content readiness, Player capability, or actual playback.
+
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for
 Span screens; server-side panel preparation keeps legacy Linux hardware on
