@@ -21,6 +21,8 @@ struct TilecastApp: App {
                 .task {
                     host.system.haptic = { [feedback] in feedback.perform($0) }
                     host.system.share = { SystemSharePresenter.present($0) }
+                    host.system.isQRScannerAvailable = { SystemQRScanner.isAvailable }
+                    host.system.scanQR = { await SystemQRScanner.scan($0) }
                     host.system.chooseFiles = { await SystemFileInputPicker.choose(allowsMultiple: $0) }
                     await host.start()
                 }

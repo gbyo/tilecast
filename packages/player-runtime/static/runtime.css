@@ -184,6 +184,49 @@ body {
   font-variant-numeric: tabular-nums;
   color: #fff;
 }
+/* Pairing: code and instructions beside the QR on a wide display,
+   stacked on a narrow one. Television-scale type throughout. */
+#message .pairing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: 100%;
+}
+#message .pairing__org {
+  font-size: 32px;
+}
+#message .pairing__body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 72px;
+  margin-top: 8px;
+}
+#message .pairing__code-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+#message .pairing__code-block p {
+  max-width: 100%;
+}
+#message .pairing__qr {
+  width: clamp(180px, 34vmin, 380px);
+  height: auto;
+  image-rendering: crisp-edges;
+}
+#message .pairing__waiting {
+  margin-top: 8px;
+}
+@media (max-aspect-ratio: 1/1) {
+  #message .pairing__body {
+    flex-direction: column;
+    gap: 32px;
+  }
+}
 #setup-input {
   font-size: 28px;
   padding: 12px 20px;

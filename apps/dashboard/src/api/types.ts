@@ -985,6 +985,13 @@ export type SystemStatus = {
   serverTimezone: string;
   deployment: Record<string, unknown>;
 };
+export type SystemIdentity = {
+  product: string;
+  installationId: string;
+  organizationName: string;
+  apiVersion: string;
+  pairingEnabled: boolean;
+};
 export type BackupComponent = {
   name: string;
   fileCount: number;

@@ -344,10 +344,12 @@ public final class StudioHost {
         }
     }
 
-    /// What signing out ends: an upload that the credential authorized, and a
-    /// link that waited for the session it just lost. Temporary media is removed.
+    /// What signing out ends: an upload that the credential authorized, a
+    /// scan that the session owned, and a link that waited for the session
+    /// it just lost. Temporary media is removed.
     private func endSessionScopedWork() {
         mediaIntake.cancelActive()
+        page?.scanners.withdrawAll()
         pendingDeepLink = nil
     }
 

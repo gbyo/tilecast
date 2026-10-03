@@ -25,6 +25,29 @@
         }
       }
     },
+    "NSCameraUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast uses the camera to scan pairing QR codes shown by Tilecast Player."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast usa la cámara para escanear los códigos QR de emparejamiento que muestra Tilecast Player."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tilecast использует камеру для сканирования QR-кодов подключения, которые показывает Tilecast Player."
+          }
+        }
+      }
+    },
     "NSLocalNetworkUsageDescription" : {
       "extractionState" : "manual",
       "localizations" : {

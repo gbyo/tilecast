@@ -317,40 +317,6 @@ a {
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
 }
-.device-facts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 0 0 25px;
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-sm);
-}
-.device-facts div {
-  display: grid;
-  grid-template-columns: 115px 1fr;
-  gap: 9px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--tc-border);
-}
-.device-facts div:nth-child(odd) {
-  border-inline-end: 1px solid var(--tc-border);
-}
-.device-facts dt {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
-.device-facts dd {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 650;
-}
-@media (max-width: 620px) {
-  .device-facts {
-    grid-template-columns: 1fr;
-  }
-  .device-facts div:nth-child(odd) {
-    border-inline-end: 0;
-  }
-}
 .schedule-card {
   display: grid;
   grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(120px, 1fr)) auto;

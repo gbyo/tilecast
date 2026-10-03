@@ -37,6 +37,7 @@ export type FixtureStep =
    * violation occurred, and the engine still enforces the runtime CSP.
    */
   | { assertWidgets: WidgetAssertion[] }
+  | { assertPairing: PairingAssertion }
   /** Real-time fixtures only (performance runs): wait on the real clock. */
   | { hold: number };
 
@@ -45,6 +46,13 @@ export interface WidgetAssertion {
   textIncludes?: string[];
   /** Computed styles of elements inside the Widget's shadow root. */
   styles?: { selector: string; property: string; value: string }[];
+}
+
+export interface PairingAssertion {
+  /** The pairing code as shown, grouped for viewing distance. */
+  code: string;
+  /** The approval URL the QR encodes. It must not display as text. */
+  approvalUrl: string;
 }
 
 export interface Fixture {
@@ -138,6 +146,51 @@ const nextFrame = () =>
  * be refused and reported. If anyone adds 'unsafe-inline' to style-src
  * (or drops the policy), this fails on every engine.
  */
+/**
+ * The pairing surface shows the code and a scannable QR, and nothing
+ * else of pairing: the raw approval URL is not the displayed UI, the QR
+ * stays inside the viewport, and no playback layer mounts beneath it.
+ */
+async function assertPairing(expected: PairingAssertion): Promise<void> {
+  const fail = (message: string): never => {
+    throw new Error(`assertPairing: ${message}`);
+  };
+  const surface = document.querySelector("#message.visible .pairing");
+  if (!surface) fail("no visible pairing surface");
+  const code = surface.querySelector(".code");
+  if (
+    !code ||
+    (code.textContent ?? "").replace(/\s+/g, " ").trim() !== expected.code
+  ) {
+    fail(`code is "${code?.textContent?.trim()}", expected "${expected.code}"`);
+  }
+  const qr = surface.querySelector("img.pairing__qr");
+  if (!qr) fail("no pairing QR image");
+  const src = qr.getAttribute("src") ?? "";
+  if (!src.startsWith("data:image/svg+xml")) {
+    fail("the pairing QR is not a self-contained SVG");
+  }
+  if (!(qr.getAttribute("alt") ?? "").trim()) {
+    fail("the pairing QR has no accessible label");
+  }
+  if ((surface.textContent ?? "").includes(expected.approvalUrl)) {
+    fail("the raw approval URL displays as text");
+  }
+  const rect = qr.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) fail("the pairing QR has no size");
+  if (
+    rect.left < 0 ||
+    rect.top < 0 ||
+    rect.right > window.innerWidth ||
+    rect.bottom > window.innerHeight
+  ) {
+    fail("the pairing QR leaves the viewport");
+  }
+  if (document.querySelector("video, [data-tilecast-widget]")) {
+    fail("a playback layer mounted under the pairing surface");
+  }
+}
+
 async function assertInlineStylesRefused(): Promise<void> {
   const before = cspViolations.length;
   const style = document.createElement("style");
@@ -377,6 +430,9 @@ if (runner) {
       } else if ("assertWidgets" in step) {
         await probe().settled();
         await assertWidgets(step.assertWidgets);
+      } else if ("assertPairing" in step) {
+        await probe().settled();
+        await assertPairing(step.assertPairing);
       } else if ("checkpoint" in step) {
         await probe().settled();
         const checkpoint: CheckpointResult = {

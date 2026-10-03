@@ -209,6 +209,10 @@
               "description": "The host performs standard system feedback for system/haptic. Both contexts.",
               "type": "boolean"
             },
+            "systemQrScanner": {
+              "description": "The host can scan one QR code with the system camera for system/scan-qr, and reports the bounded text with system/qr-scan-result. Both contexts.",
+              "type": "boolean"
+            },
             "nativeMediaIntake": {
               "description": "The host can choose media with system pickers and upload it with its own credential. Main page only. system/media-intake-status reports whether it can start now.",
               "type": "boolean"
@@ -450,7 +454,8 @@
                 "system/haptic",
                 "system/share",
                 "system/media-intake-status",
-                "system/media-intake"
+                "system/media-intake",
+                "system/scan-qr"
               ]
             }
           }
@@ -601,6 +606,15 @@
               "payload": { "$ref": "#/$defs/systemMediaIntakePayload" }
             }
           }
+        },
+        {
+          "description": "Either context. Studio asks the host to scan one QR code. The host replies ok when it begins presenting the scanner, or unavailable when it cannot: unsupported hardware, another scan active, or no camera. The result arrives later as system/qr-scan-result.",
+          "if": { "properties": { "type": { "const": "system/scan-qr" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemQrScanPayload" }
+            }
+          }
         }
       ]
     },
@@ -621,7 +635,8 @@
                 "presentation/ended",
                 "alert/action",
                 "navigation/back",
-                "system/media-intake-completed"
+                "system/media-intake-completed",
+                "system/qr-scan-result"
               ]
             }
           }
@@ -720,6 +735,19 @@
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/mediaIntakeCompletedPayload" }
+            }
+          }
+        },
+        {
+          "description": "Either context. Sent to the page that asked for system/scan-qr, and only while that scan is active. A result for a stale request, or for a page whose presentation ended, is never delivered to another page.",
+          "if": {
+            "properties": {
+              "type": { "const": "system/qr-scan-result" }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/qrScanResultPayload" }
             }
           }
         }
@@ -842,6 +870,45 @@
         "outcome": { "enum": ["completed", "partial", "failed", "cancelled"] },
         "uploadedCount": { "type": "integer", "minimum": 0, "maximum": 1000 }
       }
+    },
+    "qrScanRequestId": {
+      "description": "An opaque identifier Studio creates for one QR scan. It separates one scan from the next, so a late result cannot resolve a newer scan.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "qrScanValue": {
+      "description": "The scanned QR code's text payload, bounded. No image data, camera frame, file URL, or credential crosses the bridge.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "systemQrScanPayload": {
+      "description": "Asks the host to scan one QR code with the system camera. The host replies ok when scanning begins; the result arrives later as system/qr-scan-result.",
+      "type": "object",
+      "required": ["requestId"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": { "$ref": "#/$defs/qrScanRequestId" }
+      }
+    },
+    "qrScanResultPayload": {
+      "description": "The outcome of one QR scan. scanned carries the payload text; cancelled means the user dismissed the scanner; unavailable means scanning failed after acceptance, for example a revoked permission.",
+      "type": "object",
+      "required": ["requestId", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": { "$ref": "#/$defs/qrScanRequestId" },
+        "outcome": { "enum": ["scanned", "cancelled", "unavailable"] },
+        "value": { "$ref": "#/$defs/qrScanValue" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "outcome": { "const": "scanned" } } },
+          "then": { "required": ["value"] }
+        }
+      ]
     }
   }
 }

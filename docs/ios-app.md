@@ -404,7 +404,7 @@ A surface is a good fit when Studio can open it by an identifier, and when the p
 | Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                         |
 | Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
 | Create and edit forms                               | Stay   | Low value, and most save into page state                                                           |
-| Pair Screen                                         | Stay   | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
+| Pair Screen                                         | Done   | `/__native/modal/pair-screen`. React owns the workflow. The app owns only scanning and sheet chrome |
 | Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
@@ -419,6 +419,7 @@ Each integration is a separate capability in the `config/get` reply, so an older
 | ------------------- | ------------------ | ---------------------------------- | ------------------------------------------------------------- |
 | `systemHaptics`     | main, presentation | not needed                         | Standard system feedback for a semantic type                  |
 | `systemShare`       | main, presentation | not needed                         | The system share sheet                                        |
+| `systemQrScanner`   | main, presentation | not needed                         | One QR scan with the system camera. Studio handles the result |
 | `nativeMediaIntake` | main               | `nativeMediaIntake`                | System pickers and a native upload. Studio handles the result |
 | `deepLinks`         | main               | `deepLinks`                        | The app delivers a validated path from a deep link            |
 
@@ -455,6 +456,32 @@ Studio applies the same rules before it sends a request, with the same shared fi
 SwiftUI has `ShareLink`, which is a view, and no imperative share API. A request that arrives from the bridge has no view to present from. `SystemSharePresenter` in `Tilecast/Features/System/` is the one isolated UIKit adapter. It presents `UIActivityViewController` from the top view controller, so a share from a presentation sheet appears above that sheet. It supplies the title as link metadata for the preview. It builds no share interface of its own. An iPad shows the sheet in a popover. One share sheet can be open at a time; a second request gets `unavailable`.
 
 Studio uses the reply to choose. When the reply is not `ok`, Studio keeps its web behavior, for example `navigator.share` or a copy button. Use `useNativeShare()` and `useNativeShareAvailable()` in `apps/dashboard/src/native-host/useNativeSystem.ts`. No Studio surface shares content yet. The hooks and the native side are ready for the first one.
+
+### QR scanner
+
+`systemQrScanner` offers one QR scan with the system camera. The main page and the presentation page use the same request. Pair Screen is a React-owned workflow hosted in a native SwiftUI presentation. The app owns only camera scanning and presentation chrome. No pairing logic lives in Swift. Swift knows scan, cancel, and return text. Studio resolves the text, verifies the installation, and approves the screen.
+
+Studio sends `system/scan-qr` with one opaque request id, at most 128 characters. The app replies `ok` when it begins the scan. The app replies `unavailable` when the hardware cannot scan, when another scan runs, or when the page has no scanner. Studio then keeps manual code entry.
+
+The app sends `system/qr-scan-result` when the scan ends:
+
+- `scanned` carries the QR text, at most 4096 characters.
+- `cancelled` means the person dismissed the scanner.
+- `unavailable` means the scan failed after acceptance, for example when permission changed.
+
+No image data crosses the bridge. No camera frame crosses the bridge. No file URL crosses the bridge. No credential crosses the bridge.
+
+One scan runs at a time. A scan belongs to the document that requested it. A new document withdraws the scan of the main page. A presentation that ends withdraws the scan of the presentation page. A server switch ends the scan. A sign-out ends the scan. A late result resolves nothing, and it never reaches another page.
+
+The scanner is VisionKit `DataScannerViewController`, configured for QR codes only. It recognizes one item. It completes automatically on the first non-empty QR payload. It shows Cancel and one instruction. It presents full-screen above the pair sheet. The sheet stays when the scanner leaves. VisionKit and camera authorization live only in `Tilecast/Features/System/QRScanner/`.
+
+The app requests camera permission only when the person taps Scan QR code. The app never prompts at launch, sign-in, server connection, or Fleet load. When permission is denied or restricted, the app shows Camera Unavailable with an Open Settings path, and Studio keeps manual code entry.
+
+The app advertises the scanner only when the hardware supports the Data Scanner and camera authorization still permits a scan. Data Scanner needs A12 Bionic or later. Manual code entry works on every device. Pairing never requires scanning.
+
+A scanned QR is input, not authority. Scanning never changes the configured server. Scanning never bypasses installation verification. The app never loads the scanned URL. Studio extracts the pairing code and resolves it against the active Tilecast Server. The approval URL carries the installation ID as non-secret context: `/screens/pair/<code>?installation=<uuid>`. A QR from the same installation resolves even when its origin differs from the configured address, for example a LAN address against a public hostname. A QR from another installation cannot trigger a pairing lookup.
+
+Use `useNativeQrScanner()` in `apps/dashboard/src/native-host/useNativeQrScanner.ts`. It generates the request id, ignores stale results, and resolves cleanly on unmount. QR parsing lives in the pairing feature, not in the hook.
 
 ### Deep links
 
@@ -677,7 +704,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
-| 5         | Native Pair Screen with scanning and manual code entry                                                                                                                  |
+| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                         |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
 | 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |

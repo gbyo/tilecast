@@ -21,6 +21,8 @@ export type NativeCapabilities = {
   systemShare: boolean;
   /** The host performs standard system feedback for system/haptic. */
   systemHaptics: boolean;
+  /** The host scans one QR code for system/scan-qr. */
+  systemQrScanner: boolean;
   /** The host can choose media with system pickers and upload it itself. */
   nativeMediaIntake: boolean;
   /** The host can deliver a deep link's path with navigation/open-path. */
@@ -35,6 +37,7 @@ export const noNativeCapabilities: NativeCapabilities = {
   nativePresentations: false,
   systemShare: false,
   systemHaptics: false,
+  systemQrScanner: false,
   nativeMediaIntake: false,
   deepLinks: false,
   nativeAlerts: false,
@@ -150,6 +153,18 @@ export type MediaIntakeCompletedPayload = {
   uploadedCount: number;
 };
 
+export type QrScanOutcome = "scanned" | "cancelled" | "unavailable";
+
+export type QrScanRequestPayload = {
+  requestId: string;
+};
+
+export type QrScanResultPayload = {
+  requestId: string;
+  outcome: QrScanOutcome;
+  value?: string;
+};
+
 export type AlertButton = {
   id: string;
   /** Already localized. */
@@ -218,6 +233,8 @@ export type FrontendToNativePayloads = {
   "system/media-intake-status": Record<string, never>;
   /** Main page: choose media with system pickers and upload it natively. */
   "system/media-intake": MediaIntakePayload;
+  /** Either page: scan one QR code. The host answers system/qr-scan-result. */
+  "system/scan-qr": QrScanRequestPayload;
   /** Either page: show a native alert. The host answers alert/action. */
   "alert/present": AlertPresentPayload;
   /** Either page: withdraw an alert this page presented. */
@@ -245,6 +262,8 @@ export type NativeToFrontendPayloads = {
   "presentation/ended": { presentationId: string };
   /** Main page: native media intake finished. Studio refetches its media. */
   "system/media-intake-completed": MediaIntakeCompletedPayload;
+  /** Either page: the outcome of a system/scan-qr this page requested. */
+  "system/qr-scan-result": QrScanResultPayload;
   /** The user chose a button of an alert this page presented. */
   "alert/action": { alertId: string; actionId: string };
   /** Main page: the user tapped the native back button. */
@@ -313,6 +332,11 @@ export function isDestinationId(value: unknown): value is string {
 /** Presentation and action ids share the destination id pattern. */
 export function isOpaqueId(value: unknown): value is string {
   return isBoundedString(value, 64) && destinationIdPattern.test(value);
+}
+
+/** QR scan request ids allow the longer bound the schema sets. */
+export function isQrScanRequestId(value: unknown): value is string {
+  return isBoundedString(value, 128) && destinationIdPattern.test(value);
 }
 
 // Whitespace, controls, and backslashes, which browsers read as slashes.
@@ -486,6 +510,12 @@ const mediaIntakeOutcomes = new Set<string>([
   "cancelled",
 ]);
 
+const qrScanOutcomes = new Set<string>([
+  "scanned",
+  "cancelled",
+  "unavailable",
+]);
+
 /**
  * The version is read first: a message from another protocol version may
  * have a different shape, so nothing else is inspected.
@@ -631,6 +661,40 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "system/qr-scan-result": {
+      if (
+        !isQrScanRequestId(payload.requestId) ||
+        typeof payload.outcome !== "string" ||
+        !qrScanOutcomes.has(payload.outcome)
+      ) {
+        return { outcome: "malformed" };
+      }
+      const scanned = payload.outcome === "scanned";
+      if (scanned && !isBoundedString(payload.value, 4096)) {
+        return { outcome: "malformed" };
+      }
+      if (
+        !scanned &&
+        payload.value !== undefined &&
+        !isBoundedString(payload.value, 4096)
+      ) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            requestId: payload.requestId,
+            outcome: payload.outcome as QrScanOutcome,
+            ...(typeof payload.value === "string"
+              ? { value: payload.value }
+              : {}),
+          },
+        },
+      };
+    }
     case "presentation/dismissed":
     case "presentation/ended":
       if (!isOpaqueId(payload.presentationId)) return { outcome: "malformed" };
@@ -724,6 +788,7 @@ export function decodeHostConfig(
       nativePresentations: capabilities.nativePresentations === true,
       systemShare: capabilities.systemShare === true,
       systemHaptics: capabilities.systemHaptics === true,
+      systemQrScanner: capabilities.systemQrScanner === true,
       nativeMediaIntake: capabilities.nativeMediaIntake === true,
       deepLinks: capabilities.deepLinks === true,
       nativeAlerts: capabilities.nativeAlerts === true,
