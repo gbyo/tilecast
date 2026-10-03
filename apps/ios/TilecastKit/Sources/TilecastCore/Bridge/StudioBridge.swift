@@ -301,11 +301,11 @@ public final class StudioBridge {
                 }
             case .alertCancel(let alertID):
                 alerts?.withdraw(alertID: alertID, from: self)
-            case .actionMenuPresent(let menu):
-                guard isFrontendReady, frontendCapabilities.nativeActionMenus,
-                      menus?.present(menu, from: self) == true else {
-                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
-                }
+            case .actionMenuPresent:
+                // Hosts with anchored action menus intentionally refuse the
+                // legacy immediate/action-sheet path. Older Studio then opens
+                // its permanent web dropdown instead of showing a modal sheet.
+                return NativeBridgeProtocol.reply(id: id, error: .unavailable)
             case .actionMenuArm(let menu):
                 guard isFrontendReady, frontendCapabilities.nativeActionMenus,
                       let menus else {
