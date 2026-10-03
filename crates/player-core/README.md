@@ -36,8 +36,14 @@ Separate packaged and connected profiles check host features, presentation
 schemas, declarative capabilities, and Widget component versions.
 Release support cannot replace a missing session advertisement.
 
-Edge does not consume these types yet. The semantic RendererPort,
-adapter, activation, recovery, and capture extraction remain incomplete.
+`RendererPort` defines semantic configure, activate, clear, command, capture,
+and restart operations. Prepared activations are immutable and check object
+membership in both documents and Runtime context.
+Edge uses the shared decoded-capture dimensions, size, and JPEG signature checks.
+Base64 decoding stays in Edge.
+
+Edge does not consume prepared activations or profiles yet. The host adapter,
+activation, recovery, and capture coordination extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
 
 Run `make player-check` and `make player-test` from the repository root.

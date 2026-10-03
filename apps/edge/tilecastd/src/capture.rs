@@ -21,6 +21,7 @@ use std::time::Duration;
 use base64::Engine as _;
 use edge_protocol::ipc::event::PreviewOutcome;
 use edge_protocol::ipc::presentation::PresentationDocument;
+use player_core::{CapturedFrame, RendererCaptureRequest, RendererPortError};
 use tokio::sync::oneshot;
 
 use crate::daemon::DaemonContext;
@@ -91,15 +92,18 @@ impl CaptureBroker {
                 return Err("renderer_unavailable");
             }
         };
-        if width == 0 || height == 0 || width > max_width || height > max_height {
-            return Err("capture_out_of_bounds");
-        }
+        let request = RendererCaptureRequest { request_id: id, max_width, max_height, max_bytes };
+        request.check_dimensions(width, height).map_err(capture_error)?;
         let jpeg = base64::engine::general_purpose::STANDARD.decode(jpeg_base64).map_err(|_| "capture_invalid")?;
-        if jpeg.len() <= max_bytes as usize && jpeg.starts_with(&[0xFF, 0xD8]) {
-            Ok((jpeg, width, height))
-        } else {
-            Err("capture_invalid")
-        }
+        let frame = CapturedFrame::new(request, jpeg, width, height).map_err(capture_error)?;
+        Ok((frame.into_jpeg(), width, height))
+    }
+}
+
+fn capture_error(error: RendererPortError) -> &'static str {
+    match error {
+        RendererPortError::CaptureOutOfBounds => "capture_out_of_bounds",
+        _ => "capture_invalid",
     }
 }
 
