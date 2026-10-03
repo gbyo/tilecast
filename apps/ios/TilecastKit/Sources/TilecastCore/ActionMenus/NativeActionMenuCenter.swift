@@ -38,8 +38,6 @@ public final class NativeActionMenuCenter {
     @ObservationIgnored private weak var showingOwner: StudioBridge?
     @ObservationIgnored private var triggerOwners: [String: WeakOwner] = [:]
 
-    static let maximumTriggers = 64
-
     public init() {}
 
     public func armedMenu(for context: NativeBridgeProtocol.Context) -> NativeActionMenu? {
@@ -62,7 +60,6 @@ public final class NativeActionMenuCenter {
         if let index = triggers.firstIndex(where: { $0.id == menu.id }) {
             triggers[index] = trigger
         } else {
-            guard triggers.count < Self.maximumTriggers else { return false }
             triggers.append(trigger)
         }
         triggerOwners[menu.id] = WeakOwner(bridge)
