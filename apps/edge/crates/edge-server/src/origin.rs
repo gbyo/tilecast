@@ -9,6 +9,8 @@ use async_trait::async_trait;
 use edge_cas::{BlobSource, SourceError, SourceKind, SourceStream};
 use edge_protocol::Sha256Digest;
 use futures_util::StreamExt as _;
+pub use player_client::download::InvalidDownloadPath;
+use player_client::download::PlayerDownloadPath;
 
 use crate::client::AuthenticatedServer;
 
@@ -17,28 +19,19 @@ use crate::client::AuthenticatedServer;
 #[derive(Debug, Clone)]
 pub struct OriginBlobSource {
     server: AuthenticatedServer,
-    path: String,
+    path: PlayerDownloadPath,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("download path must be a plain /api/v1/player/ path")]
-pub struct InvalidDownloadPath;
 
 impl OriginBlobSource {
     /// `path` comes from a server manifest; it must stay inside the player
     /// API and carry no query, fragment or dot segments.
     pub fn new(server: AuthenticatedServer, path: &str) -> Result<Self, InvalidDownloadPath> {
-        Self::validate_path(path)?;
-        Ok(Self { server, path: path.to_owned() })
+        Ok(Self { server, path: PlayerDownloadPath::parse(path)? })
     }
 
     /// Validates an origin path before a manifest is accepted or persisted.
     pub fn validate_path(path: &str) -> Result<(), InvalidDownloadPath> {
-        let plain = path.starts_with("/api/v1/player/")
-            && path.len() <= 512
-            && !path.split('/').any(|segment| segment == "." || segment == "..")
-            && path.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '-' | '_' | '.'));
-        if plain { Ok(()) } else { Err(InvalidDownloadPath) }
+        PlayerDownloadPath::parse(path).map(|_| ())
     }
 }
 

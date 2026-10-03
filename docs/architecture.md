@@ -49,7 +49,8 @@ Linux host integration. Presentation decisions and execution remain with
 Presentation Model and Player Runtime. Generic native values are implemented in
 `crates/player-types`, and durable metadata in `crates/player-state`. Historical
 Edge repository APIs remain outside the shared crate. Verified storage lives in
-`crates/player-cas`. Remaining shared behavior
+`crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
+its private file stores and Electron import. Remaining shared behavior
 is still in Edge. Edge retains
 its current process and security boundaries.
 

@@ -28,18 +28,18 @@ Use this distinction when reviewing a change:
 
 ## Ownership matrix
 
-| Behavior                                                 | Owner                                   | Examples                                                                                                                                                                                   |
-| -------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pure presentation decisions shared by Studio and Runtime | `@tilecast/presentation-model`          | Playback defaults, item availability, zone advancement and fallback                                                                                                                        |
-| Presentation execution                                   | `packages/player-runtime`               | Media surfaces, transitions, Widgets, Layouts, Websites, synchronized playback, browser evidence                                                                                           |
-| Native Player behavior                                   | `crates/player-core` after extraction   | Pairing, server reconciliation, manifest lifecycle, native schedule and temporary-presentation precedence, offline activation, command idempotency, Activity coordination, recovery policy |
-| Durable metadata                                         | `crates/player-state`                   | Embedded SQLite migrations, Core-owned repositories, bounded outbox                                                                                                                        |
-| Verified bytes                                           | `crates/player-cas`                     | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
-| Server transport                                         | `crates/player-client` after extraction | URL policy, identity gate, REST, WebSocket, typed Player endpoints                                                                                                                         |
-| Semantic values without I/O                              | `crates/player-types`                   | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
-| Linux composition and providers                          | `apps/edge`                             | File credential store, statvfs, dynamic host measurements, CEC/DDC, NetworkManager, Avahi, systemd, logind                                                                                 |
-| Edge renderer adapter                                    | `apps/edge`                             | Unix IPC, WPE lifecycle, media capabilities, peer identity, process lineage, JSON and Base64 encoding                                                                                      |
-| Edge installation and updates                            | `apps/edge`                             | Legacy import, signed release verification, privileged installer, probation and rollback guards                                                                                            |
+| Behavior                                                 | Owner                                 | Examples                                                                                                                                                                                   |
+| -------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pure presentation decisions shared by Studio and Runtime | `@tilecast/presentation-model`        | Playback defaults, item availability, zone advancement and fallback                                                                                                                        |
+| Presentation execution                                   | `packages/player-runtime`             | Media surfaces, transitions, Widgets, Layouts, Websites, synchronized playback, browser evidence                                                                                           |
+| Native Player behavior                                   | `crates/player-core` after extraction | Pairing, server reconciliation, manifest lifecycle, native schedule and temporary-presentation precedence, offline activation, command idempotency, Activity coordination, recovery policy |
+| Durable metadata                                         | `crates/player-state`                 | Embedded SQLite migrations, Core-owned repositories, bounded outbox                                                                                                                        |
+| Verified bytes                                           | `crates/player-cas`                   | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
+| Server transport                                         | `crates/player-client`                | URL policy, identity gate, REST, WebSocket, typed Player endpoints                                                                                                                         |
+| Semantic values without I/O                              | `crates/player-types`                 | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
+| Linux composition and providers                          | `apps/edge`                           | File credential store, statvfs, dynamic host measurements, CEC/DDC, NetworkManager, Avahi, systemd, logind                                                                                 |
+| Edge renderer adapter                                    | `apps/edge`                           | Unix IPC, WPE lifecycle, media capabilities, peer identity, process lineage, JSON and Base64 encoding                                                                                      |
+| Edge installation and updates                            | `apps/edge`                           | Legacy import, signed release verification, privileged installer, probation and rollback guards                                                                                            |
 
 Core must not decide behavior from a platform or renderer name.
 Optional unsupported capabilities must remain truthful.
@@ -118,6 +118,11 @@ authenticated client. Never send a stored credential before that check.
 `CredentialStore` owns load, save, and remove. The HTTP client must not know the
 storage location. Edge keeps its owner-only file store and legacy Electron
 import. A future host supplies its own credential store.
+The portable client is implemented in `crates/player-client`. Hosts supply its
+user agent and device metadata. `CredentialStore` and `PairingStore` are private
+storage ports; the HTTP client never calls them. Edge implements atomic,
+owner-only file writes. Authenticated downloads require a validated
+`PlayerDownloadPath`. CAS origin integration stays in Edge until Core is present.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry

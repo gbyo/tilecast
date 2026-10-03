@@ -95,6 +95,8 @@ The extraction contract is binding. Generic native values live in
 Historical platform repository APIs remain in `edge-state::platform`.
 Verified storage lives in `crates/player-cas`. Its space-probe interface is
 implemented by Edge adapters; privileged helpers must not depend on storage.
+Server transport lives in `crates/player-client`. Edge owns credential and
+pairing files. Hosts supply product identity and device metadata.
 The remaining shared behavior is still in Edge.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
