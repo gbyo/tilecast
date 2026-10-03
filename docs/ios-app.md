@@ -178,42 +178,42 @@ The bridge is privileged. The app applies these rules:
 
 ### Version 1 messages
 
-| Type                            | Direction        | Purpose                                                                          |
-| ------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
-| `config/get`                    | Studio to native | Studio asks for the protocol version and capabilities                            |
-| `frontend/ready`                | Studio to native | Studio finished its host integration. The app accepts it more than one time      |
-| `navigation/catalog`            | Studio to native | A complete snapshot of navigation destinations that replaces the previous one    |
-| `navigation/state`              | Studio to native | The destination that Studio resolved for its current location, and the path      |
-| `navigation/request`            | native to Studio | The app asks Studio to open a destination by its opaque identifier               |
-| `navigation/chrome`             | Studio to native | Main page only. The page title and, for a drill-in page, the name of its parent  |
-| `navigation/back`               | native to Studio | Main page only. The user tapped the native back button. The payload is empty     |
-| `auth/sign-out-request`         | native to Studio | The app asks Studio to sign out with its normal logout                           |
-| `auth/signed-out`               | Studio to native | Studio completed its logout. The payload is empty                                |
-| `presentation/open`             | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route       |
-| `presentation/ready`            | Studio to native | Presentation page only. Its Studio is signed in and receives presentations       |
-| `presentation/update`           | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility           |
-| `presentation/close`            | Studio to native | Presentation page only. Dismiss the presentation                                 |
-| `presentation/navigate`         | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path    |
-| `presentation/show`             | native to Studio | Presentation page only. Show this route for this presentation, without a load    |
-| `presentation/action`           | native to Studio | Presentation page only. The user chose a header action                           |
-| `presentation/dismissed`        | native to Studio | Presentation page only. The sheet went away                                      |
-| `presentation/ended`            | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries     |
-| `navigation/open-path`          | native to Studio | Main page only. A presentation or a deep link asked Studio to navigate to a path |
-| `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
-| `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
-| `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
-| `action-menu/present`           | Studio to native | Legacy immediate menu request. Current iOS hosts refuse it so Studio falls back  |
-| `action-menu/register-trigger`  | Studio to native | Either page. Register or update an anchored native Menu trigger                   |
-| `action-menu/unregister-trigger`| Studio to native | Either page. Remove an anchored native Menu trigger                              |
-| `action-menu/arm`               | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
-| `action-menu/disarm`            | Studio to native | Either page. Forget a stored long-press menu                                     |
-| `action-menu/action`            | native to Studio | Either page. The user chose an action of an anchored or long-press menu          |
-| `action-menu/dismissed`         | native to Studio | Either page. Legacy/long-press dismissal notification                            |
-| `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
-| `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
-| `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
-| `system/media-intake`           | Studio to native | Main page only. Choose media with system pickers and upload it                   |
-| `system/media-intake-completed` | native to Studio | Main page only. A small result: request identifier, outcome, and count           |
+| Type                             | Direction        | Purpose                                                                          |
+| -------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| `config/get`                     | Studio to native | Studio asks for the protocol version and capabilities                            |
+| `frontend/ready`                 | Studio to native | Studio finished its host integration. The app accepts it more than one time      |
+| `navigation/catalog`             | Studio to native | A complete snapshot of navigation destinations that replaces the previous one    |
+| `navigation/state`               | Studio to native | The destination that Studio resolved for its current location, and the path      |
+| `navigation/request`             | native to Studio | The app asks Studio to open a destination by its opaque identifier               |
+| `navigation/chrome`              | Studio to native | Main page only. The page title and, for a drill-in page, the name of its parent  |
+| `navigation/back`                | native to Studio | Main page only. The user tapped the native back button. The payload is empty     |
+| `auth/sign-out-request`          | native to Studio | The app asks Studio to sign out with its normal logout                           |
+| `auth/signed-out`                | Studio to native | Studio completed its logout. The payload is empty                                |
+| `presentation/open`              | Studio to native | Main page only. Ask for a native presentation of a `/__native/modal` route       |
+| `presentation/ready`             | Studio to native | Presentation page only. Its Studio is signed in and receives presentations       |
+| `presentation/update`            | Studio to native | Presentation page only. A new header snapshot, size, or dismissibility           |
+| `presentation/close`             | Studio to native | Presentation page only. Dismiss the presentation                                 |
+| `presentation/navigate`          | Studio to native | Presentation page only. Dismiss, then navigate the main page to a Studio path    |
+| `presentation/show`              | native to Studio | Presentation page only. Show this route for this presentation, without a load    |
+| `presentation/action`            | native to Studio | Presentation page only. The user chose a header action                           |
+| `presentation/dismissed`         | native to Studio | Presentation page only. The sheet went away                                      |
+| `presentation/ended`             | native to Studio | Main page only. A presentation ended, so Studio refetches its active queries     |
+| `navigation/open-path`           | native to Studio | Main page only. A presentation or a deep link asked Studio to navigate to a path |
+| `alert/present`                  | Studio to native | Either page. Show a native alert with one to three buttons                       |
+| `alert/cancel`                   | Studio to native | Either page. Withdraw an alert that the page presented                           |
+| `alert/action`                   | native to Studio | Either page. The user chose a button of an alert that the page presented         |
+| `action-menu/present`            | Studio to native | Legacy immediate menu request. Current iOS hosts refuse it so Studio falls back  |
+| `action-menu/register-trigger`   | Studio to native | Either page. Register or update an anchored native Menu trigger                  |
+| `action-menu/unregister-trigger` | Studio to native | Either page. Remove an anchored native Menu trigger                              |
+| `action-menu/arm`                | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
+| `action-menu/disarm`             | Studio to native | Either page. Forget a stored long-press menu                                     |
+| `action-menu/action`             | native to Studio | Either page. The user chose an action of an anchored or long-press menu          |
+| `action-menu/dismissed`          | native to Studio | Either page. Legacy/long-press dismissal notification                            |
+| `system/haptic`                  | Studio to native | Either page. Standard system feedback for a semantic type                        |
+| `system/share`                   | Studio to native | Either page. The system share sheet for user-visible content                     |
+| `system/media-intake-status`     | Studio to native | Main page only. Whether the app can start media intake now                       |
+| `system/media-intake`            | Studio to native | Main page only. Choose media with system pickers and upload it                   |
+| `system/media-intake-completed`  | native to Studio | Main page only. A small result: request identifier, outcome, and count           |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 

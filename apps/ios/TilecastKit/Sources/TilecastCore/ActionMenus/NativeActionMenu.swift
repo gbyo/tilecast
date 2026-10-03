@@ -66,7 +66,7 @@ public struct NativeActionMenuTriggerRect: Equatable, Sendable {
 }
 
 
-struct NativeActionMenuTriggerRegistration: Equatable, Sendable {
+public struct NativeActionMenuTriggerRegistration: Equatable, Sendable {
     let menu: NativeActionMenu
     let rect: NativeActionMenuTriggerRect
 }
