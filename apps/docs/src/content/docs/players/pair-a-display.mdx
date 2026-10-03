@@ -19,9 +19,9 @@ import { Steps } from "@astrojs/starlight/components";
 1. Open Tilecast Player on the display.
 2. Choose a nearby Tilecast Server, or enter its address. Use HTTPS for a public hostname. For a private LAN, HTTP is allowed for a private IPv4 address, `localhost`, or a `.local` name. Enter only the server address and optional port, without a path.
 3. Confirm the server identity if the Player asks. Android shows the organization name before connecting. Tilecast Player verifies the installation identity before it sends an existing device credential.
-4. Leave the six-character pairing code visible on the display.
+4. Leave the six-character pairing code visible on the display. The Player also shows a QR code with the same request.
 5. In Studio, open **Screens** > **Fleet** and select **Pair screen**.
-6. Enter the code and compare the request details with the physical display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
+6. Enter the code and compare the request details with the physical display. In the Tilecast iOS app you can select **Scan QR code** instead and point the camera at the QR code on the display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
 7. Select **Create new screen**, enter a screen name, and add location or room details if useful.
 8. Select **Approve and pair**.
 
@@ -31,9 +31,9 @@ The Player enrolls after approval. An Android Player then opens the required com
 
 ## Replace or repair a Player
 
-When replacing the physical device but keeping the existing screen, select **Replace hardware for an existing screen** and choose the existing screen. Review the confirmation, then select **Replace hardware** and **Confirm pairing**. The screen identity, Display Group membership, content assignments, schedules, policies, and history remain. The old credential is retired only after the replacement Player successfully enrolls.
+When replacing the physical device but keeping the existing screen, select **Replace hardware for an existing screen** and choose the existing screen. Review the confirmation, then select **Replace hardware**. The screen identity, Display Group membership, content assignments, schedules, policies, and history remain. The old credential is retired only after the replacement Player successfully enrolls.
 
-If the same physical Player is requesting a replacement credential, select **Repair existing credential** when Studio identifies it as previously paired. The existing screen remains in place, and its previous credential is revoked after enrollment completes.
+If the same physical Player is requesting a replacement credential, select **Repair existing credential** when Studio identifies it as previously paired. The existing screen keeps its name, description, location, room, content assignments, schedules, policies, and history. Only the device credential is replaced, after enrollment completes.
 
 :::note
 A pairing code expires after ten minutes and can be used once. If it expires, request another code from the Player. Do not approve a request unless its device details match the display you are pairing.
