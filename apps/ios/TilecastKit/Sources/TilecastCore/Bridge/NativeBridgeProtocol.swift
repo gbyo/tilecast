@@ -161,6 +161,10 @@ public enum NativeBridgeProtocol {
         case actionMenuArm(NativeActionMenu)
         /// Either page withdraws a menu it presented or armed.
         case actionMenuDisarm(menuID: String)
+        /// Either page registers or updates an anchored native Menu trigger.
+        case actionMenuRegisterTrigger(NativeActionMenuTriggerRegistration)
+        /// Either page removes an anchored native Menu trigger.
+        case actionMenuUnregisterTrigger(menuID: String)
         /// Either page asks to scan one QR code.
         case systemScanQR(QRScanRequest)
 
@@ -168,7 +172,8 @@ public enum NativeBridgeProtocol {
         var context: Context? {
             switch self {
             case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel, .systemScanQR,
-                 .actionMenuPresent, .actionMenuArm, .actionMenuDisarm: nil
+                 .actionMenuPresent, .actionMenuArm, .actionMenuDisarm,
+                 .actionMenuRegisterTrigger, .actionMenuUnregisterTrigger: nil
             case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
                  .mediaIntakeStatus, .mediaIntake: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
@@ -240,6 +245,10 @@ public enum NativeBridgeProtocol {
         case "action-menu/present": message = actionMenu(payload).map(FrontendMessage.actionMenuPresent)
         case "action-menu/arm": message = actionMenu(payload).map(FrontendMessage.actionMenuArm)
         case "action-menu/disarm": message = opaqueID(payload["menuId"]).map { .actionMenuDisarm(menuID: $0) }
+        case "action-menu/register-trigger":
+            message = actionMenuTrigger(payload).map(FrontendMessage.actionMenuRegisterTrigger)
+        case "action-menu/unregister-trigger":
+            message = opaqueID(payload["menuId"]).map { .actionMenuUnregisterTrigger(menuID: $0) }
         case "system/scan-qr": message = scanQR(payload).map(FrontendMessage.systemScanQR)
         default: return .unknownType(type, id: requestID)
         }
@@ -282,6 +291,7 @@ public enum NativeBridgeProtocol {
                 "deepLinks": .bool(context == .main),
                 "nativeAlerts": .bool(true),
                 "nativeActionMenus": .bool(true),
+                "nativeActionMenuAnchors": .bool(true),
             ]),
         ]
     }
@@ -546,6 +556,20 @@ public enum NativeBridgeProtocol {
         }
         guard total <= NativeActionMenu.maximumItems else { return nil }
         return NativeActionMenu(id: id, label: label, groups: groups)
+    }
+
+    private static func actionMenuTrigger(_ payload: [String: JSONValue]) -> NativeActionMenuTriggerRegistration? {
+        guard let menu = actionMenu(payload),
+              case .object(let rawRect)? = payload["rect"],
+              Set(rawRect.keys).isSubset(of: ["x", "y", "width", "height"]),
+              let x = rawRect["x"]?.number,
+              let y = rawRect["y"]?.number,
+              let width = rawRect["width"]?.number,
+              let height = rawRect["height"]?.number,
+              let rect = NativeActionMenuTriggerRect(x: x, y: y, width: width, height: height) else {
+            return nil
+        }
+        return NativeActionMenuTriggerRegistration(menu: menu, rect: rect)
     }
 
     private static func presentationUpdate(_ payload: [String: JSONValue]) -> PresentationUpdate? {
