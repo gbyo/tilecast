@@ -240,7 +240,11 @@ public final class StudioHost {
             nativeAuth = auth
             watch(auth, page: page)
             mediaIntake.attach(bridge: page.bridge, auth: auth)
-            page.bridge.onReadinessChange = { [weak self] in self?.deliverPendingDeepLink() }
+            let pageReadinessChange = page.bridge.onReadinessChange
+            page.bridge.onReadinessChange = { [weak self] in
+                pageReadinessChange?()
+                self?.deliverPendingDeepLink()
+            }
             connection = .connected(page)
             page.start()
         }
