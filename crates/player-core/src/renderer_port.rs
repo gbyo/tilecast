@@ -101,6 +101,8 @@ pub struct CapturedFrame {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum RendererPortError {
+    #[error("renderer resources could not be authorized")]
+    ResourceUnavailable,
     #[error("renderer activation is invalid or no longer authorized")]
     InvalidActivation,
     #[error("renderer is not ready")]
@@ -145,7 +147,9 @@ impl CapturedFrame {
 /// A host must reject stale endpoints and must never send Player credentials.
 pub trait RendererPort: Send + Sync {
     fn configure(&self, configuration: RendererConfiguration) -> Result<(), RendererPortError>;
-    fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError>;
+    /// Authorize the immutable objects for this generation. `now_ms` is the
+    /// host clock's Unix-millisecond sample for resource expiry.
+    fn activate(&self, activation: &RendererActivation, now_ms: i64) -> Result<(), RendererPortError>;
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError>;
     fn send_command(&self, command_id: uuid::Uuid, command: &SemanticRendererCommand) -> Result<(), RendererPortError>;
     fn request_capture(&self, request: RendererCaptureRequest) -> Result<(), RendererPortError>;
