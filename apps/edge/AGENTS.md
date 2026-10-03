@@ -6,6 +6,12 @@ Read [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) and
 change. The architecture document is binding. If a change must deviate from
 it, stop and write the complete tradeoff first.
 
+Read [`docs/player-core.md`](../../docs/player-core.md) for native Player
+ownership and extraction order. It supplements the Linux architecture without
+changing process, privilege, wire, persistence, or update guarantees. Shared
+Rust crates are not yet implemented. Do not move behavior before the dedicated
+root Cargo workspace migration.
+
 ## Fixed decisions
 
 - Edge 1 is a Linux signage player. The Tilecast Server is the only
@@ -29,9 +35,12 @@ it, stop and write the complete tradeoff first.
 - The transition is one way: legacy Electron installation, one-time verified
   import (`tilecastd import-legacy`), Edge plus WPE. Do not add shadow modes,
   dual runtimes or a second credential.
-- Everything that is not visual rendering belongs in `tilecastd`, except
-  what only the tilecast account's user session can reach (PipeWire and
-  WirePlumber). That belongs in `tilecast-session-bridge`, which sends
+- `tilecastd` remains the Linux composition root and process authority. Shared
+  native Player behavior moves to Player Core in the documented extraction
+  sequence. Presentation behavior stays in Presentation Model and Player Runtime.
+  Linux lifecycle, providers, IPC, media transport, legacy import, and updates
+  remain Edge-owned. What only the tilecast account's user session can reach
+  (PipeWire and WirePlumber) belongs in `tilecast-session-bridge`, which sends
   bounded Tilecast concepts over the `session_bridge` IPC role and never
   audio samples, device names or PipeWire object IDs.
 - Prefer the Linux facility to Tilecast code: kernel CEC and i2c-dev (no
@@ -103,6 +112,10 @@ The ones most often relevant here:
 - Format with `cargo fmt` (`max_width = 120`). Run
   `cargo clippy --workspace --all-targets -- -D warnings`.
 - Keep the dependency direction in [`README.md`](README.md).
+- Shared Player crates must not depend on Edge or its wire layer. Run
+  `python3 scripts/ci/check-player-architecture.py` from the repository root.
+- Preserve SQLite migration bytes. Shared physical schema compatibility does
+  not give Core ownership of historical Edge repositories.
 - Keep comments for behavior that the code does not show.
 - Prefer real components and small fakes over mocks: tests run real sockets
   and real SQLite on loopback and temporary directories.

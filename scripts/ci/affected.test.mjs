@@ -18,6 +18,20 @@ const selected = (paths) =>
     .filter(([, value]) => value)
     .map(([key]) => key)
     .sort();
+test("root Rust inputs and unknown shared crates cannot bypass validation", () => {
+  for (const path of [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    ".cargo/config.toml",
+    "crates/player-types/src/lib.rs",
+    "crates/future/Cargo.toml",
+    "scripts/ci/check-player-architecture.py",
+  ]) {
+    assert.deepEqual(selected([path]), [...areas].sort(), path);
+  }
+  assert.equal(affected(["docs/player-core.md"]).ci, true);
+});
 test("Studio selects the real stack without Edge or Android", () => {
   assert.deepEqual(selected(["apps/dashboard/src/components/Button.tsx"]), [
     "container",
