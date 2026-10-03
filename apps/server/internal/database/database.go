@@ -67,15 +67,14 @@ func Migrate(ctx context.Context, databaseURL string) error {
 }
 
 func ensurePlaybackParentIndex(ctx context.Context, db *sql.DB) error {
-	const statement = `
-DO $
-BEGIN
-	IF to_regclass('public.playback_sessions') IS NOT NULL THEN
-		EXECUTE 'CREATE INDEX IF NOT EXISTS playback_sessions_parent_session_idx ON playback_sessions(parent_session_id)';
-	END IF;
-END
-$;`
-	if _, err := db.ExecContext(ctx, statement); err != nil {
+	var tableExists bool
+	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.playback_sessions') IS NOT NULL`).Scan(&tableExists); err != nil {
+		return fmt.Errorf("check playback_sessions table: %w", err)
+	}
+	if !tableExists {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS playback_sessions_parent_session_idx ON playback_sessions(parent_session_id)`); err != nil {
 		return fmt.Errorf("ensure playback parent-session index: %w", err)
 	}
 	return nil
