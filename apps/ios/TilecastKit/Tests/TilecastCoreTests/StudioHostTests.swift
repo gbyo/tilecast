@@ -84,12 +84,12 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
         return profile
     }
 
-    @Test func beginsVerifyingThePersistedActiveServer() throws {
+    @Test func beginsInStartupStateWhenServersExist() throws {
         let profile = try addServer("a.example.org", name: "A")
         directory.activate(profile.id)
         let host = makeHost()
 
-        #expect(host.connection == .verifying(profile))
+        #expect(host.connection == .starting)
         #expect(host.page == nil)
     }
 
