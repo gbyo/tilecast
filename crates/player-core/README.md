@@ -42,8 +42,11 @@ membership in both documents and Runtime context.
 Edge uses the shared decoded-capture dimensions, size, and JPEG signature checks.
 Base64 decoding stays in Edge.
 
-Edge does not consume prepared activations or profiles yet. The host adapter,
-activation, recovery, and capture coordination extraction remain incomplete.
+Edge now routes prepared activations through its RendererPort adapter.
+A temporary Edge projection bridge removes resource URLs before the port call.
+Resource encoding, IPC, and media grants stay in Edge.
+Profile adoption, activation policy, recovery, and capture coordination
+extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
 
 Run `make player-check` and `make player-test` from the repository root.

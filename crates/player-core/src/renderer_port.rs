@@ -101,6 +101,8 @@ pub struct CapturedFrame {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum RendererPortError {
+    #[error("renderer activation is invalid or no longer authorized")]
+    InvalidActivation,
     #[error("renderer is not ready")]
     NotReady,
     #[error("renderer operation could not be queued")]
