@@ -559,6 +559,57 @@ describe("Studio hosted by the native app", () => {
     );
   });
 
+  it("waits for a paint before publishing a changed route", async () => {
+    let nextFrame = 1;
+    const frames = new Map<number, FrameRequestCallback>();
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        const id = nextFrame++;
+        frames.set(id, callback);
+        return id;
+      }),
+    );
+    vi.stubGlobal(
+      "cancelAnimationFrame",
+      vi.fn((id: number) => {
+        frames.delete(id);
+      }),
+    );
+    const paint = () =>
+      act(() => {
+        const callbacks = [...frames.values()];
+        frames.clear();
+        for (const callback of callbacks) callback(performance.now());
+      });
+
+    const host = installNativeHost();
+    renderStudio("/");
+    await waitFor(() =>
+      expect(host.lastState()).toEqual({
+        activeDestinationId: "overview",
+        path: "/",
+      }),
+    );
+
+    expect(host.request("screens")).toBe(true);
+    expect(await screen.findByText("Fleet page")).toBeInTheDocument();
+
+    // React has committed the new route, but the native shell must keep its
+    // previous selection until WebKit has crossed a paint boundary.
+    expect(host.lastState()?.activeDestinationId).toBe("overview");
+    paint();
+    expect(host.lastState()?.activeDestinationId).toBe("overview");
+    paint();
+
+    await waitFor(() =>
+      expect(host.lastState()).toEqual({
+        activeDestinationId: "screens",
+        path: "/screens",
+      }),
+    );
+  });
+
   it("refuses a stale destination and resends the model", async () => {
     const host = installNativeHost();
     const { router } = renderStudio("/screens/player-1");
