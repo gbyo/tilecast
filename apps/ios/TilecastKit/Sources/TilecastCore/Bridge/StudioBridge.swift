@@ -314,6 +314,13 @@ public final class StudioBridge {
                 menus.arm(menu, from: self)
             case .actionMenuDisarm(let menuID):
                 menus?.disarm(menuID: menuID, from: self)
+            case .actionMenuRegisterTrigger(let registration):
+                guard isFrontendReady, frontendCapabilities.nativeActionMenus,
+                      menus?.registerTrigger(registration.menu, rect: registration.rect, from: self) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .actionMenuUnregisterTrigger(let menuID):
+                menus?.unregisterTrigger(menuID: menuID, from: self)
             case .systemScanQR(let request):
                 // Studio always handles the result, so only readiness gates
                 // the request: a second scan, or no scanner, is unavailable,
