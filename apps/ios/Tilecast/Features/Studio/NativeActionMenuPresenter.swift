@@ -1,44 +1,6 @@
 import SwiftUI
 import TilecastCore
 
-/// Shows the menu Studio asked for, over the page that asked. The label
-/// and actions are Studio's own, already localized, so the app carries no
-/// copy for any menu. A three-dot button lives inside the page, so the
-/// menu shows as a system dialog: an action sheet on compact iPhone, a
-/// popover on regular-width iPad.
-private struct NativeActionMenuPresenter: ViewModifier {
-    let center: NativeActionMenuCenter?
-    let context: NativeBridgeProtocol.Context
-
-    func body(content: Content) -> some View {
-        let menu = center?.menu(for: context)
-        content.confirmationDialog(
-            menu?.label ?? "",
-            // Choosing an action or withdrawing the menu clears it, so the
-            // binding only answers for a user dismissal.
-            isPresented: Binding(get: { menu != nil }, set: { if !$0 { center?.dismissImmediate() } }),
-            titleVisibility: .visible,
-            presenting: menu
-        ) { menu in
-            ForEach(Array(menu.groups.enumerated()), id: \.offset) { _, group in
-                Section {
-                    ForEach(group.items) { item in
-                        Button(role: item.role.swiftUI) {
-                            center?.choose(actionID: item.id)
-                        } label: {
-                            Text(verbatim: item.label)
-                        }
-                        .disabled(item.isDisabled)
-                        .accessibilityIdentifier("actionMenu.action.\(item.id)")
-                    }
-                }
-            }
-        } message: { _ in
-            EmptyView()
-        }
-    }
-}
-
 private extension NativeActionMenu.Item.Role {
     var swiftUI: ButtonRole? {
         switch self {
@@ -48,9 +10,71 @@ private extension NativeActionMenu.Item.Role {
     }
 }
 
-/// The context menu a long press builds from the menu Studio armed. When
-/// nothing is armed for this page the default menu shows instead, so
-/// ordinary long presses keep working.
+/// Invisible native Menu controls positioned exactly over Studio's visible
+/// HTML action buttons. Studio owns the button's appearance; SwiftUI owns
+/// the hit target and menu presentation.
+///
+/// The trigger rectangles are normalized to the WebView viewport, so this
+/// layer never needs to know a Studio route, resource type, or scroll offset.
+struct NativeActionMenuAnchorLayer: View {
+    let center: NativeActionMenuCenter?
+    let context: NativeBridgeProtocol.Context
+
+    var body: some View {
+        GeometryReader { proxy in
+            ForEach(center?.triggers(for: context) ?? []) { trigger in
+                nativeMenu(trigger)
+                    .frame(
+                        width: max(1, proxy.size.width * trigger.rect.width),
+                        height: max(1, proxy.size.height * trigger.rect.height)
+                    )
+                    .position(
+                        x: proxy.size.width * (trigger.rect.x + trigger.rect.width / 2),
+                        y: proxy.size.height * (trigger.rect.y + trigger.rect.height / 2)
+                    )
+            }
+        }
+    }
+
+    private func nativeMenu(_ trigger: NativeActionMenuCenter.Trigger) -> some View {
+        Menu {
+            ForEach(Array(trigger.menu.groups.enumerated()), id: \.offset) { _, group in
+                Section {
+                    ForEach(group.items) { item in
+                        Button(role: item.role.swiftUI) {
+                            center?.chooseTrigger(actionID: item.id, menuID: trigger.menu.id)
+                        } label: {
+                            if let icon = item.icon,
+                               let image = NavigationIcon.imageNameIfKnown(for: icon) {
+                                Label {
+                                    Text(verbatim: item.label)
+                                } icon: {
+                                    Image(image)
+                                }
+                            } else {
+                                Text(verbatim: item.label)
+                            }
+                        }
+                        .disabled(item.isDisabled)
+                        .accessibilityIdentifier("actionMenu.action.\(item.id)")
+                    }
+                }
+            }
+        } label: {
+            // Studio still draws the visible ellipsis. This rectangle exists
+            // only to give the system a native anchor and hit target.
+            Color.clear
+                .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .accessibilityLabel(Text(verbatim: trigger.menu.label))
+        .accessibilityIdentifier("actionMenu.trigger.\(trigger.menu.id)")
+    }
+}
+
+/// The context menu a long press builds from the menu Studio armed. This is
+/// SwiftUI's supported iOS contextMenu(menuItems:) path; it does not use
+/// WebKit's macOS-only webViewContextMenu API.
 struct NativeActionMenuContextContent: View {
     let center: NativeActionMenuCenter?
     let context: NativeBridgeProtocol.Context
@@ -63,7 +87,8 @@ struct NativeActionMenuContextContent: View {
                         Button(role: item.role.swiftUI) {
                             center?.chooseShowing(actionID: item.id, menuID: menu.id)
                         } label: {
-                            if let icon = item.icon, let image = NavigationIcon.imageNameIfKnown(for: icon) {
+                            if let icon = item.icon,
+                               let image = NavigationIcon.imageNameIfKnown(for: icon) {
                                 Label {
                                     Text(verbatim: item.label)
                                 } icon: {
@@ -79,14 +104,5 @@ struct NativeActionMenuContextContent: View {
                 }
             }
         }
-    }
-}
-
-extension View {
-    /// Presents the immediate menu of `context` from `center`. The main
-    /// page and a presentation sheet each attach their own, so a menu
-    /// shows over the sheet when the sheet asked for it.
-    func nativeActionMenu(from center: NativeActionMenuCenter?, for context: NativeBridgeProtocol.Context) -> some View {
-        modifier(NativeActionMenuPresenter(center: center, context: context))
     }
 }
