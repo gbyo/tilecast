@@ -52,7 +52,7 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `edge-protocol`         | Edge IPC v1 messages and session identity; reexports generic player-types values. No I/O.                                                                               |
 | `edge-state`            | Edge-only update, network recovery, and legacy repositories over the shared player-state database.                                                                      |
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
-| `edge-cas`              | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
+| `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
 | `edge-server`           | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
@@ -64,7 +64,8 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 ### Dependency direction
 
 Shared types and durable state live in root `crates/player-types` and
-`crates/player-state`. They never depend on Edge. The latter owns the unchanged
+`crates/player-state`. Verified storage lives in `crates/player-cas`. Shared
+crates never depend on Edge. The latter owns the unchanged
 embedded migrations and Core-owned repositories. `edge-state::platform` owns
 historical Edge repositories; its temporary `repo` exports preserve Edge callers.
 `edge-protocol` depends on shared types. Only `tilecastd` combines the server
@@ -92,6 +93,7 @@ Rules that follow from the direction:
 - The root programs do not depend on `edge-server`, `edge-cas` or
   `edge-state`. The update helper reads a content-store object only through
   a path that it makes from the digest, and copies it before it verifies it.
+  They do not depend on shared state, CAS, the client, or Core either.
 - `edge-server`'s origin source and local files are `BlobSource`
   implementations. The content store verifies every byte from either. A new
   source is a new `BlobSource`, never a second write path.

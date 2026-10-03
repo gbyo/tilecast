@@ -93,6 +93,8 @@ Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
 The extraction contract is binding. Generic native values live in
 `crates/player-types`. Durable metadata lives in `crates/player-state`.
 Historical platform repository APIs remain in `edge-state::platform`.
+Verified storage lives in `crates/player-cas`. Its space-probe interface is
+implemented by Edge adapters; privileged helpers must not depend on storage.
 The remaining shared behavior is still in Edge.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.

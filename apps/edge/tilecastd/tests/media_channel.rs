@@ -5,9 +5,9 @@
 use std::os::unix::fs::PermissionsExt as _;
 use std::sync::Arc;
 
+use edge_cas::space::FixedSpace;
 use edge_cas::{ContentStore, IngestMeta, LruByDomain, StorePolicy};
 use edge_platform::clock::system_clock;
-use edge_platform::disk::FixedSpace;
 use edge_protocol::Sha256Digest;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ids::SessionId;

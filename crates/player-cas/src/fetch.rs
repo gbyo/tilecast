@@ -11,9 +11,9 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use edge_protocol::Sha256Digest;
-use edge_state::repo::cas::ObjectRecord;
 use futures_util::StreamExt as _;
+use player_state::repo::cas::ObjectRecord;
+use player_types::Sha256Digest;
 use tokio::sync::Semaphore;
 
 use crate::source::{BlobSource, SourceError, SourceKind};

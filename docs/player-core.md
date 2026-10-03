@@ -34,7 +34,7 @@ Use this distinction when reviewing a change:
 | Presentation execution                                   | `packages/player-runtime`               | Media surfaces, transitions, Widgets, Layouts, Websites, synchronized playback, browser evidence                                                                                           |
 | Native Player behavior                                   | `crates/player-core` after extraction   | Pairing, server reconciliation, manifest lifecycle, native schedule and temporary-presentation precedence, offline activation, command idempotency, Activity coordination, recovery policy |
 | Durable metadata                                         | `crates/player-state`                   | Embedded SQLite migrations, Core-owned repositories, bounded outbox                                                                                                                        |
-| Verified bytes                                           | `crates/player-cas` after extraction    | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
+| Verified bytes                                           | `crates/player-cas`                     | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
 | Server transport                                         | `crates/player-client` after extraction | URL policy, identity gate, REST, WebSocket, typed Player endpoints                                                                                                                         |
 | Semantic values without I/O                              | `crates/player-types`                   | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
 | Linux composition and providers                          | `apps/edge`                             | File credential store, statvfs, dynamic host measurements, CEC/DDC, NetworkManager, Avahi, systemd, logind                                                                                 |
@@ -102,6 +102,11 @@ objects, partial downloads, resume, pins, eviction, limits, corruption detection
 and crash reconciliation. Define `SpaceProbe::available_bytes(path)` in CAS.
 Edge supplies statvfs. Audit secure object opening on each host. A portable
 adapter must preserve link and regular-file checks.
+The shared CAS is implemented in `crates/player-cas`. Linux free-space providers
+live in `edge-cas::space` and call `edge-platform::disk::available_bytes`.
+The shared crate has no Edge dependency. Its secure Unix opening uses the same
+no-follow, nonblocking flags and opened-file checks on Linux and macOS. Privileged
+Edge helpers do not depend on CAS, state, the server client, or Core.
 
 ## Server identity and credentials
 

@@ -375,17 +375,8 @@ dependencies = [
 name = "edge-cas"
 version = "0.1.0"
 dependencies = [
- "async-trait",
- "bytes",
  "edge-platform",
- "edge-protocol",
- "edge-state",
- "futures-util",
- "rustix",
- "tempfile",
- "thiserror",
- "tokio",
- "tracing",
+ "player-cas",
 ]
 
 [[package]]
@@ -1258,6 +1249,22 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "player-cas"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures-util",
+ "player-state",
+ "player-types",
+ "rustix",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "player-state"
