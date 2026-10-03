@@ -139,6 +139,9 @@ Renderer supervision stays in Edge until the RendererPort extraction.
 
 The draft renderer contract adds semantic prepared-document types and verified
 object bindings for Runtime data. Edge does not consume these types yet.
+Separate packaged and connected profiles check host features, presentation
+schemas, declarative capabilities, and Widget component versions.
+Release support does not replace a missing session advertisement.
 The RendererPort and its Edge adapter remain required work.
 This groundwork does not complete the renderer extraction gate.
 
