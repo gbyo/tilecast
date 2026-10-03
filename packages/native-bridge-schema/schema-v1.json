@@ -139,7 +139,7 @@
               "type": "boolean"
             },
             "nativeActionMenus": {
-              "description": "Studio handles action-menu/action and action-menu/dismissed, so a host may show its menu for an action-menu/present or action-menu/arm.",
+              "description": "Studio handles action-menu/action and the action-menu lifecycle, so a host may arm long-press menus or accept anchored trigger registrations.",
               "type": "boolean"
             },
             "nativeMediaIntake": {
