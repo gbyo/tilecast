@@ -6,11 +6,7 @@
       "name": "config/get",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "message": {
-        "version": 1,
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "config/get", "payload": {} }
     },
     {
       "name": "config/get with a request id",
@@ -27,14 +23,8 @@
       "name": "frontend/ready",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "frontendCapabilities": {
-        "authLifecycle": false
-      },
-      "message": {
-        "version": 1,
-        "type": "frontend/ready",
-        "payload": {}
-      }
+      "frontendCapabilities": { "authLifecycle": false },
+      "message": { "version": 1, "type": "frontend/ready", "payload": {} }
     },
     {
       "name": "frontend/ready with the capabilities Studio supports",
@@ -59,7 +49,8 @@
             "nativeAlerts": true,
             "nativeMediaIntake": true,
             "deepLinks": true,
-            "nativeActionMenus": true
+            "nativeActionMenus": true,
+            "nativeActionMenuAnchors": true
           }
         }
       }
@@ -68,17 +59,12 @@
       "name": "frontend/ready with a capability the host does not know",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "frontendCapabilities": {
-        "authLifecycle": true
-      },
+      "frontendCapabilities": { "authLifecycle": true },
       "message": {
         "version": 1,
         "type": "frontend/ready",
         "payload": {
-          "capabilities": {
-            "authLifecycle": true,
-            "nativeSheets": true
-          }
+          "capabilities": { "authLifecycle": true, "nativeSheets": true }
         }
       }
     },
@@ -86,17 +72,11 @@
       "name": "frontend/ready with an unavailable capability",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "frontendCapabilities": {
-        "authLifecycle": false
-      },
+      "frontendCapabilities": { "authLifecycle": false },
       "message": {
         "version": 1,
         "type": "frontend/ready",
-        "payload": {
-          "capabilities": {
-            "authLifecycle": false
-          }
-        }
+        "payload": { "capabilities": { "authLifecycle": false } }
       }
     },
     {
@@ -104,11 +84,7 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "signedOut",
-      "message": {
-        "version": 1,
-        "type": "auth/signed-out",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "auth/signed-out", "payload": {} }
     },
     {
       "name": "catalog with headed and unheaded groups",
@@ -168,31 +144,19 @@
                   "icon": "media",
                   "mobilePlacement": "primary"
                 },
-                {
-                  "id": "widgets",
-                  "title": "Widgets",
-                  "icon": "widgets"
-                }
+                { "id": "widgets", "title": "Widgets", "icon": "widgets" }
               ]
             },
             {
               "id": "secondary",
               "items": [
-                {
-                  "id": "activity",
-                  "title": "Activity",
-                  "icon": "activity"
-                },
+                { "id": "activity", "title": "Activity", "icon": "activity" },
                 {
                   "id": "plugin:forms:approvals",
                   "title": "Approvals",
                   "icon": "plugin"
                 },
-                {
-                  "id": "settings",
-                  "title": "Settings",
-                  "icon": "settings"
-                }
+                { "id": "settings", "title": "Settings", "icon": "settings" }
               ]
             }
           ]
@@ -203,9 +167,7 @@
       "name": "catalog with an icon token no host knows",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "destinationIds": [
-        "room-bookings"
-      ],
+      "destinationIds": ["room-bookings"],
       "message": {
         "version": 1,
         "type": "navigation/catalog",
@@ -234,18 +196,14 @@
       "message": {
         "version": 1,
         "type": "navigation/catalog",
-        "payload": {
-          "groups": []
-        }
+        "payload": { "groups": [] }
       }
     },
     {
       "name": "catalog with properties a newer Studio adds",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "destinationIds": [
-        "alpha"
-      ],
+      "destinationIds": ["alpha"],
       "message": {
         "version": 1,
         "type": "navigation/catalog",
@@ -256,12 +214,7 @@
               "title": "Main",
               "collapsed": false,
               "items": [
-                {
-                  "id": "alpha",
-                  "title": "Alpha",
-                  "icon": "home",
-                  "badge": 3
-                }
+                { "id": "alpha", "title": "Alpha", "icon": "home", "badge": 3 }
               ]
             }
           ],
@@ -289,10 +242,7 @@
       "message": {
         "version": 1,
         "type": "navigation/state",
-        "payload": {
-          "activeDestinationId": null,
-          "path": "/account"
-        }
+        "payload": { "activeDestinationId": null, "path": "/account" }
       }
     },
     {
@@ -302,9 +252,7 @@
       "message": {
         "version": 1,
         "type": "navigation/state",
-        "payload": {
-          "activeDestinationId": "overview"
-        }
+        "payload": { "activeDestinationId": "overview" }
       }
     },
     {
@@ -329,88 +277,55 @@
       "name": "no version",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "type": "config/get", "payload": {} }
     },
     {
       "name": "version as a string",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": "1",
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": "1", "type": "config/get", "payload": {} }
     },
     {
       "name": "fractional version",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1.5,
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": 1.5, "type": "config/get", "payload": {} }
     },
     {
       "name": "version zero",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 0,
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": 0, "type": "config/get", "payload": {} }
     },
     {
       "name": "no type",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "payload": {}
-      }
+      "message": { "version": 1, "payload": {} }
     },
     {
       "name": "empty type",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "", "payload": {} }
     },
     {
       "name": "type outside the naming pattern",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "Config Get",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "Config Get", "payload": {} }
     },
     {
       "name": "no payload",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "config/get"
-      }
+      "message": { "version": 1, "type": "config/get" }
     },
     {
       "name": "payload as an array",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "config/get",
-        "payload": []
-      }
+      "message": { "version": 1, "type": "config/get", "payload": [] }
     },
     {
       "name": "unknown envelope property",
@@ -427,22 +342,13 @@
       "name": "numeric request id",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "id": 7,
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": 1, "id": 7, "type": "config/get", "payload": {} }
     },
     {
       "name": "catalog without groups",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "navigation/catalog",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "navigation/catalog", "payload": {} }
     },
     {
       "name": "catalog item without an id",
@@ -453,15 +359,7 @@
         "type": "navigation/catalog",
         "payload": {
           "groups": [
-            {
-              "id": "main",
-              "items": [
-                {
-                  "title": "Alpha",
-                  "icon": "home"
-                }
-              ]
-            }
+            { "id": "main", "items": [{ "title": "Alpha", "icon": "home" }] }
           ]
         }
       }
@@ -477,13 +375,7 @@
           "groups": [
             {
               "id": "main",
-              "items": [
-                {
-                  "id": "alpha",
-                  "title": "",
-                  "icon": "home"
-                }
-              ]
+              "items": [{ "id": "alpha", "title": "", "icon": "home" }]
             }
           ]
         }
@@ -525,11 +417,7 @@
             {
               "id": "main",
               "items": [
-                {
-                  "id": "/screens",
-                  "title": "Fleet",
-                  "icon": "screens"
-                }
+                { "id": "/screens", "title": "Fleet", "icon": "screens" }
               ]
             }
           ]
@@ -543,14 +431,7 @@
       "message": {
         "version": 1,
         "type": "navigation/catalog",
-        "payload": {
-          "groups": [
-            {
-              "id": "main",
-              "items": []
-            }
-          ]
-        }
+        "payload": { "groups": [{ "id": "main", "items": [] }] }
       }
     },
     {
@@ -565,23 +446,11 @@
           "groups": [
             {
               "id": "one",
-              "items": [
-                {
-                  "id": "alpha",
-                  "title": "Alpha",
-                  "icon": "home"
-                }
-              ]
+              "items": [{ "id": "alpha", "title": "Alpha", "icon": "home" }]
             },
             {
               "id": "two",
-              "items": [
-                {
-                  "id": "alpha",
-                  "title": "Again",
-                  "icon": "home"
-                }
-              ]
+              "items": [{ "id": "alpha", "title": "Again", "icon": "home" }]
             }
           ]
         }
@@ -594,9 +463,7 @@
       "message": {
         "version": 1,
         "type": "navigation/state",
-        "payload": {
-          "path": "/"
-        }
+        "payload": { "path": "/" }
       }
     },
     {
@@ -606,9 +473,7 @@
       "message": {
         "version": 1,
         "type": "navigation/state",
-        "payload": {
-          "activeDestinationId": 3
-        }
+        "payload": { "activeDestinationId": 3 }
       }
     },
     {
@@ -618,10 +483,7 @@
       "message": {
         "version": 1,
         "type": "navigation/state",
-        "payload": {
-          "activeDestinationId": null,
-          "path": "layouts"
-        }
+        "payload": { "activeDestinationId": null, "path": "layouts" }
       }
     },
     {
@@ -631,9 +493,7 @@
       "message": {
         "version": 1,
         "type": "frontend/ready",
-        "payload": {
-          "capabilities": true
-        }
+        "payload": { "capabilities": true }
       }
     },
     {
@@ -643,9 +503,7 @@
       "message": {
         "version": 1,
         "type": "clipboard/write",
-        "payload": {
-          "text": "hello"
-        }
+        "payload": { "text": "hello" }
       }
     },
     {
@@ -655,9 +513,7 @@
       "message": {
         "version": 1,
         "type": "navigation/request",
-        "payload": {
-          "destinationId": "alpha"
-        }
+        "payload": { "destinationId": "alpha" }
       }
     },
     {
@@ -674,20 +530,13 @@
       "name": "protocol version 2",
       "direction": "frontendToNative",
       "outcome": "unsupportedVersion",
-      "message": {
-        "version": 2,
-        "type": "config/get",
-        "payload": {}
-      }
+      "message": { "version": 2, "type": "config/get", "payload": {} }
     },
     {
       "name": "protocol version 2 with a different envelope",
       "direction": "frontendToNative",
       "outcome": "unsupportedVersion",
-      "message": {
-        "version": 2,
-        "kind": "hello"
-      }
+      "message": { "version": 2, "kind": "hello" }
     },
     {
       "name": "presentation/open",
@@ -786,24 +635,15 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "presentationReady",
-      "message": {
-        "version": 1,
-        "type": "presentation/ready",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "presentation/ready", "payload": {} }
     },
     {
       "name": "presentation/update with a complete header",
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "presentationUpdate",
-      "headerActionIds": [
-        "refresh"
-      ],
-      "headerMenuIds": [
-        "open-screen",
-        "history"
-      ],
+      "headerActionIds": ["refresh"],
+      "headerMenuIds": ["open-screen", "history"],
       "message": {
         "version": 1,
         "type": "presentation/update",
@@ -815,11 +655,7 @@
             "navigation": "close",
             "navigationLabel": "Close",
             "actions": [
-              {
-                "id": "refresh",
-                "label": "Refresh",
-                "icon": "activity"
-              }
+              { "id": "refresh", "label": "Refresh", "icon": "activity" }
             ],
             "menuLabel": "More",
             "menu": [
@@ -828,11 +664,7 @@
                 "label": "Open screen",
                 "icon": "screens"
               },
-              {
-                "id": "history",
-                "label": "History",
-                "disabled": true
-              }
+              { "id": "history", "label": "History", "disabled": true }
             ]
           },
           "size": "full",
@@ -864,11 +696,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "actions": [],
-            "menu": []
-          }
+          "header": { "title": "Lobby", "actions": [], "menu": [] }
         }
       }
     },
@@ -876,9 +704,7 @@
       "name": "presentation/update with an icon token no host knows",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "headerActionIds": [
-        "bookings"
-      ],
+      "headerActionIds": ["bookings"],
       "headerMenuIds": [],
       "message": {
         "version": 1,
@@ -889,11 +715,7 @@
             "title": "Lobby",
             "navigation": "back",
             "actions": [
-              {
-                "id": "bookings",
-                "label": "Bookings",
-                "icon": "door-calendar"
-              }
+              { "id": "bookings", "label": "Bookings", "icon": "door-calendar" }
             ]
           }
         }
@@ -903,9 +725,7 @@
       "name": "presentation/update ignores properties it does not know, such as a token",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "headerActionIds": [
-        "refresh"
-      ],
+      "headerActionIds": ["refresh"],
       "headerMenuIds": [],
       "message": {
         "version": 1,
@@ -1030,10 +850,7 @@
       "message": {
         "version": 1,
         "type": "presentation/open",
-        "payload": {
-          "presentationId": "p-1",
-          "title": "Lobby"
-        }
+        "payload": { "presentationId": "p-1", "title": "Lobby" }
       }
     },
     {
@@ -1300,11 +1117,7 @@
       "message": {
         "version": 1,
         "type": "presentation/update",
-        "payload": {
-          "header": {
-            "title": "Lobby"
-          }
-        }
+        "payload": { "header": { "title": "Lobby" } }
       }
     },
     {
@@ -1316,9 +1129,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "subtitle": "Screen"
-          }
+          "header": { "subtitle": "Screen" }
         }
       }
     },
@@ -1347,31 +1158,11 @@
           "header": {
             "title": "Lobby",
             "actions": [
-              {
-                "id": "a0",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a1",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a2",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a3",
-                "label": "A",
-                "icon": "home"
-              },
-              {
-                "id": "a4",
-                "label": "A",
-                "icon": "home"
-              }
+              { "id": "a0", "label": "A", "icon": "home" },
+              { "id": "a1", "label": "A", "icon": "home" },
+              { "id": "a2", "label": "A", "icon": "home" },
+              { "id": "a3", "label": "A", "icon": "home" },
+              { "id": "a4", "label": "A", "icon": "home" }
             ]
           }
         }
@@ -1389,74 +1180,23 @@
           "header": {
             "title": "Lobby",
             "menu": [
-              {
-                "id": "m0",
-                "label": "M"
-              },
-              {
-                "id": "m1",
-                "label": "M"
-              },
-              {
-                "id": "m2",
-                "label": "M"
-              },
-              {
-                "id": "m3",
-                "label": "M"
-              },
-              {
-                "id": "m4",
-                "label": "M"
-              },
-              {
-                "id": "m5",
-                "label": "M"
-              },
-              {
-                "id": "m6",
-                "label": "M"
-              },
-              {
-                "id": "m7",
-                "label": "M"
-              },
-              {
-                "id": "m8",
-                "label": "M"
-              },
-              {
-                "id": "m9",
-                "label": "M"
-              },
-              {
-                "id": "m10",
-                "label": "M"
-              },
-              {
-                "id": "m11",
-                "label": "M"
-              },
-              {
-                "id": "m12",
-                "label": "M"
-              },
-              {
-                "id": "m13",
-                "label": "M"
-              },
-              {
-                "id": "m14",
-                "label": "M"
-              },
-              {
-                "id": "m15",
-                "label": "M"
-              },
-              {
-                "id": "m16",
-                "label": "M"
-              }
+              { "id": "m0", "label": "M" },
+              { "id": "m1", "label": "M" },
+              { "id": "m2", "label": "M" },
+              { "id": "m3", "label": "M" },
+              { "id": "m4", "label": "M" },
+              { "id": "m5", "label": "M" },
+              { "id": "m6", "label": "M" },
+              { "id": "m7", "label": "M" },
+              { "id": "m8", "label": "M" },
+              { "id": "m9", "label": "M" },
+              { "id": "m10", "label": "M" },
+              { "id": "m11", "label": "M" },
+              { "id": "m12", "label": "M" },
+              { "id": "m13", "label": "M" },
+              { "id": "m14", "label": "M" },
+              { "id": "m15", "label": "M" },
+              { "id": "m16", "label": "M" }
             ]
           }
         }
@@ -1471,12 +1211,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "actions": {
-              "id": "a"
-            }
-          }
+          "header": { "title": "Lobby", "actions": { "id": "a" } }
         }
       }
     },
@@ -1491,12 +1226,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A" }]
           }
         }
       }
@@ -1512,13 +1242,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A",
-                "icon": "Bad Icon"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A", "icon": "Bad Icon" }]
           }
         }
       }
@@ -1534,13 +1258,7 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "/screens",
-                "label": "A",
-                "icon": "home"
-              }
-            ]
+            "actions": [{ "id": "/screens", "label": "A", "icon": "home" }]
           }
         }
       }
@@ -1557,19 +1275,8 @@
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "header": {
             "title": "Lobby",
-            "actions": [
-              {
-                "id": "a",
-                "label": "A",
-                "icon": "home"
-              }
-            ],
-            "menu": [
-              {
-                "id": "a",
-                "label": "Again"
-              }
-            ]
+            "actions": [{ "id": "a", "label": "A", "icon": "home" }],
+            "menu": [{ "id": "a", "label": "Again" }]
           }
         }
       }
@@ -1583,10 +1290,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "header": {
-            "title": "Lobby",
-            "navigation": 1
-          }
+          "header": { "title": "Lobby", "navigation": 1 }
         }
       }
     },
@@ -1614,9 +1318,7 @@
         "type": "presentation/update",
         "payload": {
           "presentationId": "p-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-          "size": [
-            "full"
-          ]
+          "size": ["full"]
         }
       }
     },
@@ -1624,11 +1326,7 @@
       "name": "presentation/close without a presentation id",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "presentation/close",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "presentation/close", "payload": {} }
     },
     {
       "name": "presentation/navigate without a path",
@@ -1769,9 +1467,7 @@
       "message": {
         "version": 1,
         "type": "navigation/open-path",
-        "payload": {
-          "path": "/screens"
-        }
+        "payload": { "path": "/screens" }
       }
     },
     {
@@ -1782,9 +1478,7 @@
       "message": {
         "version": 1,
         "type": "navigation/request",
-        "payload": {
-          "destinationId": "layouts"
-        }
+        "payload": { "destinationId": "layouts" }
       }
     },
     {
@@ -1794,9 +1488,7 @@
       "message": {
         "version": 1,
         "type": "navigation/request",
-        "payload": {
-          "destinationId": "plugin:forms:approvals"
-        }
+        "payload": { "destinationId": "plugin:forms:approvals" }
       }
     },
     {
@@ -1814,11 +1506,7 @@
       "name": "navigation/request without a destination",
       "direction": "nativeToFrontend",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "navigation/request",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "navigation/request", "payload": {} }
     },
     {
       "name": "navigation/request with an empty destination",
@@ -1827,9 +1515,7 @@
       "message": {
         "version": 1,
         "type": "navigation/request",
-        "payload": {
-          "destinationId": ""
-        }
+        "payload": { "destinationId": "" }
       }
     },
     {
@@ -1839,40 +1525,26 @@
       "message": {
         "version": 1,
         "type": "navigation/request",
-        "payload": {
-          "destinationId": "/settings/users"
-        }
+        "payload": { "destinationId": "/settings/users" }
       }
     },
     {
       "name": "a native message type this version does not define",
       "direction": "nativeToFrontend",
       "outcome": "unknownType",
-      "message": {
-        "version": 1,
-        "type": "share/open",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "share/open", "payload": {} }
     },
     {
       "name": "auth/signed-out sent to Studio",
       "direction": "nativeToFrontend",
       "outcome": "unknownType",
-      "message": {
-        "version": 1,
-        "type": "auth/signed-out",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "auth/signed-out", "payload": {} }
     },
     {
       "name": "a native message from protocol version 3",
       "direction": "nativeToFrontend",
       "outcome": "unsupportedVersion",
-      "message": {
-        "version": 3,
-        "type": "navigation/request",
-        "payload": {}
-      }
+      "message": { "version": 3, "type": "navigation/request", "payload": {} }
     },
     {
       "name": "presentation/show",
@@ -1895,10 +1567,7 @@
       "message": {
         "version": 1,
         "type": "presentation/show",
-        "payload": {
-          "presentationId": "p-1",
-          "path": "/__native/modal"
-        }
+        "payload": { "presentationId": "p-1", "path": "/__native/modal" }
       }
     },
     {
@@ -1949,9 +1618,7 @@
       "message": {
         "version": 1,
         "type": "navigation/open-path",
-        "payload": {
-          "path": "/screens/screen-1?tab=activity"
-        }
+        "payload": { "path": "/screens/screen-1?tab=activity" }
       }
     },
     {
@@ -1961,9 +1628,7 @@
       "message": {
         "version": 1,
         "type": "presentation/show",
-        "payload": {
-          "path": "/__native/modal/live-stream/screen-1"
-        }
+        "payload": { "path": "/__native/modal/live-stream/screen-1" }
       }
     },
     {
@@ -2062,9 +1727,7 @@
       "message": {
         "version": 1,
         "type": "navigation/open-path",
-        "payload": {
-          "path": "https://evil.example/"
-        }
+        "payload": { "path": "https://evil.example/" }
       }
     },
     {
@@ -2074,9 +1737,7 @@
       "message": {
         "version": 1,
         "type": "navigation/open-path",
-        "payload": {
-          "path": "//evil.example"
-        }
+        "payload": { "path": "//evil.example" }
       }
     },
     {
@@ -2087,9 +1748,7 @@
       "message": {
         "version": 1,
         "type": "navigation/open-path",
-        "payload": {
-          "path": "/__native/modal"
-        }
+        "payload": { "path": "/__native/modal" }
       }
     },
     {
@@ -2126,8 +1785,7 @@
             "systemQrScanner": true,
             "nativeMediaIntake": true,
             "deepLinks": true,
-            "nativeActionMenus": true,
-            "nativeActionMenuAnchors": true
+            "nativeActionMenus": true
           }
         }
       },
@@ -2150,10 +1808,7 @@
         "ok": true,
         "payload": {
           "protocolVersion": 1,
-          "capabilities": {
-            "nativeNavigation": true,
-            "nativeShare": true
-          }
+          "capabilities": { "nativeNavigation": true, "nativeShare": true }
         }
       }
     },
@@ -2162,12 +1817,7 @@
       "direction": "reply",
       "outcome": "accept",
       "encodes": "okReplyWithId",
-      "message": {
-        "version": 1,
-        "id": "c1",
-        "ok": true,
-        "payload": {}
-      }
+      "message": { "version": 1, "id": "c1", "ok": true, "payload": {} }
     },
     {
       "name": "unknown type reply",
@@ -2177,9 +1827,7 @@
       "message": {
         "version": 1,
         "ok": false,
-        "error": {
-          "code": "unknown_type"
-        }
+        "error": { "code": "unknown_type" }
       }
     },
     {
@@ -2190,51 +1838,32 @@
       "message": {
         "version": 1,
         "ok": false,
-        "error": {
-          "code": "unsupported_version",
-          "supportedVersions": [
-            1
-          ]
-        }
+        "error": { "code": "unsupported_version", "supportedVersions": [1] }
       }
     },
     {
       "name": "reply without ok",
       "direction": "reply",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "payload": {}
-      }
+      "message": { "version": 1, "payload": {} }
     },
     {
       "name": "success reply without a payload",
       "direction": "reply",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "ok": true
-      }
+      "message": { "version": 1, "ok": true }
     },
     {
       "name": "error reply without a code",
       "direction": "reply",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "ok": false,
-        "error": {}
-      }
+      "message": { "version": 1, "ok": false, "error": {} }
     },
     {
       "name": "reply from protocol version 2",
       "direction": "reply",
       "outcome": "unsupportedVersion",
-      "message": {
-        "version": 2,
-        "ok": true,
-        "payload": {}
-      }
+      "message": { "version": 2, "ok": true, "payload": {} }
     },
     {
       "name": "config/get reply for a presentation page",
@@ -2281,10 +1910,7 @@
         "ok": true,
         "payload": {
           "protocolVersion": 1,
-          "capabilities": {
-            "nativeNavigation": true,
-            "authLifecycle": true
-          }
+          "capabilities": { "nativeNavigation": true, "authLifecycle": true }
         }
       }
     },
@@ -2299,9 +1925,7 @@
         "payload": {
           "protocolVersion": 1,
           "context": "widget",
-          "capabilities": {
-            "nativePresentations": true
-          }
+          "capabilities": { "nativePresentations": true }
         }
       }
     },
@@ -2310,13 +1934,7 @@
       "direction": "reply",
       "outcome": "accept",
       "encodes": "forbiddenReply",
-      "message": {
-        "version": 1,
-        "ok": false,
-        "error": {
-          "code": "forbidden"
-        }
-      }
+      "message": { "version": 1, "ok": false, "error": { "code": "forbidden" } }
     },
     {
       "name": "unavailable reply",
@@ -2326,9 +1944,7 @@
       "message": {
         "version": 1,
         "ok": false,
-        "error": {
-          "code": "unavailable"
-        }
+        "error": { "code": "unavailable" }
       }
     },
     {
@@ -2341,16 +1957,8 @@
         "title": "Delete this schedule?",
         "message": "Screens stop following it at once.",
         "actions": [
-          {
-            "id": "cancel",
-            "label": "Cancel",
-            "role": "cancel"
-          },
-          {
-            "id": "confirm",
-            "label": "Delete",
-            "role": "destructive"
-          }
+          { "id": "cancel", "label": "Cancel", "role": "cancel" },
+          { "id": "confirm", "label": "Delete", "role": "destructive" }
         ]
       },
       "message": {
@@ -2361,16 +1969,8 @@
           "title": "Delete this schedule?",
           "message": "Screens stop following it at once.",
           "actions": [
-            {
-              "id": "cancel",
-              "label": "Cancel",
-              "role": "cancel"
-            },
-            {
-              "id": "confirm",
-              "label": "Delete",
-              "role": "destructive"
-            }
+            { "id": "cancel", "label": "Cancel", "role": "cancel" },
+            { "id": "confirm", "label": "Delete", "role": "destructive" }
           ]
         }
       }
@@ -2382,12 +1982,7 @@
       "alert": {
         "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
         "title": "Discard changes?",
-        "actions": [
-          {
-            "id": "ok",
-            "label": "OK"
-          }
-        ]
+        "actions": [{ "id": "ok", "label": "OK" }]
       },
       "message": {
         "version": 1,
@@ -2395,12 +1990,7 @@
         "payload": {
           "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "title": "Discard changes?",
-          "actions": [
-            {
-              "id": "ok",
-              "label": "OK"
-            }
-          ]
+          "actions": [{ "id": "ok", "label": "OK" }]
         }
       }
     },
@@ -2414,13 +2004,7 @@
         "payload": {
           "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "title": "T",
-          "actions": [
-            {
-              "id": "a",
-              "label": "A",
-              "role": "primary"
-            }
-          ]
+          "actions": [{ "id": "a", "label": "A", "role": "primary" }]
         }
       }
     },
@@ -2449,22 +2033,10 @@
           "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "title": "T",
           "actions": [
-            {
-              "id": "a",
-              "label": "A"
-            },
-            {
-              "id": "b",
-              "label": "B"
-            },
-            {
-              "id": "c",
-              "label": "C"
-            },
-            {
-              "id": "d",
-              "label": "D"
-            }
+            { "id": "a", "label": "A" },
+            { "id": "b", "label": "B" },
+            { "id": "c", "label": "C" },
+            { "id": "d", "label": "D" }
           ]
         }
       }
@@ -2481,14 +2053,8 @@
           "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "title": "T",
           "actions": [
-            {
-              "id": "a",
-              "label": "A"
-            },
-            {
-              "id": "a",
-              "label": "B"
-            }
+            { "id": "a", "label": "A" },
+            { "id": "a", "label": "B" }
           ]
         }
       }
@@ -2504,12 +2070,7 @@
           "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "title": "T",
           "message": "mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
-          "actions": [
-            {
-              "id": "a",
-              "label": "A"
-            }
-          ]
+          "actions": [{ "id": "a", "label": "A" }]
         }
       }
     },
@@ -2542,12 +2103,7 @@
         "payload": {
           "alertId": "A B",
           "title": "T",
-          "actions": [
-            {
-              "id": "a",
-              "label": "A"
-            }
-          ]
+          "actions": [{ "id": "a", "label": "A" }]
         }
       }
     },
@@ -2559,9 +2115,7 @@
       "message": {
         "version": 1,
         "type": "alert/cancel",
-        "payload": {
-          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -2597,9 +2151,7 @@
       "message": {
         "version": 1,
         "type": "alert/action",
-        "payload": {
-          "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "alertId": "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -2614,11 +2166,7 @@
       "message": {
         "version": 1,
         "type": "frontend/ready",
-        "payload": {
-          "capabilities": {
-            "nativeAlerts": true
-          }
-        }
+        "payload": { "capabilities": { "nativeAlerts": true } }
       }
     },
     {
@@ -2626,34 +2174,22 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "navigationChrome",
-      "chrome": {
-        "title": "Lobby north",
-        "backLabel": "Fleet"
-      },
+      "chrome": { "title": "Lobby north", "backLabel": "Fleet" },
       "message": {
         "version": 1,
         "type": "navigation/chrome",
-        "payload": {
-          "title": "Lobby north",
-          "back": {
-            "label": "Fleet"
-          }
-        }
+        "payload": { "title": "Lobby north", "back": { "label": "Fleet" } }
       }
     },
     {
       "name": "navigation/chrome without back",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "chrome": {
-        "title": "Fleet"
-      },
+      "chrome": { "title": "Fleet" },
       "message": {
         "version": 1,
         "type": "navigation/chrome",
-        "payload": {
-          "title": "Fleet"
-        }
+        "payload": { "title": "Fleet" }
       }
     },
     {
@@ -2661,11 +2197,7 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "chrome": {},
-      "message": {
-        "version": 1,
-        "type": "navigation/chrome",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "navigation/chrome", "payload": {} }
     },
     {
       "name": "navigation/chrome with an empty title",
@@ -2674,9 +2206,7 @@
       "message": {
         "version": 1,
         "type": "navigation/chrome",
-        "payload": {
-          "title": ""
-        }
+        "payload": { "title": "" }
       }
     },
     {
@@ -2686,10 +2216,7 @@
       "message": {
         "version": 1,
         "type": "navigation/chrome",
-        "payload": {
-          "title": "Lobby",
-          "back": {}
-        }
+        "payload": { "title": "Lobby", "back": {} }
       }
     },
     {
@@ -2701,10 +2228,7 @@
         "type": "navigation/chrome",
         "payload": {
           "title": "Lobby",
-          "back": {
-            "label": "Fleet",
-            "path": "/screens"
-          }
+          "back": { "label": "Fleet", "path": "/screens" }
         }
       }
     },
@@ -2713,11 +2237,7 @@
       "direction": "nativeToFrontend",
       "outcome": "accept",
       "encodes": "navigationBack",
-      "message": {
-        "version": 1,
-        "type": "navigation/back",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "navigation/back", "payload": {} }
     },
     {
       "name": "navigation/back with a payload",
@@ -2727,9 +2247,7 @@
       "message": {
         "version": 1,
         "type": "navigation/back",
-        "payload": {
-          "path": "/screens"
-        }
+        "payload": { "path": "/screens" }
       }
     },
     {
@@ -2740,9 +2258,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "selection"
-        }
+        "payload": { "feedback": "selection" }
       }
     },
     {
@@ -2754,9 +2270,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "success"
-        }
+        "payload": { "feedback": "success" }
       }
     },
     {
@@ -2767,9 +2281,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "warning"
-        }
+        "payload": { "feedback": "warning" }
       }
     },
     {
@@ -2780,9 +2292,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "error"
-        }
+        "payload": { "feedback": "error" }
       }
     },
     {
@@ -2793,9 +2303,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "start"
-        }
+        "payload": { "feedback": "start" }
       }
     },
     {
@@ -2806,9 +2314,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "stop"
-        }
+        "payload": { "feedback": "stop" }
       }
     },
     {
@@ -2819,20 +2325,14 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "rumble-long"
-        }
+        "payload": { "feedback": "rumble-long" }
       }
     },
     {
       "name": "system/haptic without feedback",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "system/haptic",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "system/haptic", "payload": {} }
     },
     {
       "name": "system/haptic with a numeric feedback",
@@ -2841,9 +2341,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": 3
-        }
+        "payload": { "feedback": 3 }
       }
     },
     {
@@ -2853,9 +2351,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "Success"
-        }
+        "payload": { "feedback": "Success" }
       }
     },
     {
@@ -2865,9 +2361,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-        }
+        "payload": { "feedback": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
       }
     },
     {
@@ -2893,17 +2387,11 @@
       "name": "system/share with text only",
       "direction": "frontendToNative",
       "outcome": "accept",
-      "share": {
-        "title": null,
-        "text": "Doors open at nine.",
-        "url": null
-      },
+      "share": { "title": null, "text": "Doors open at nine.", "url": null },
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "text": "Doors open at nine."
-        }
+        "payload": { "text": "Doors open at nine." }
       }
     },
     {
@@ -2933,20 +2421,14 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "title": "Only a title"
-        }
+        "payload": { "title": "Only a title" }
       }
     },
     {
       "name": "system/share with an empty payload",
       "direction": "frontendToNative",
       "outcome": "malformed",
-      "message": {
-        "version": 1,
-        "type": "system/share",
-        "payload": {}
-      }
+      "message": { "version": 1, "type": "system/share", "payload": {} }
     },
     {
       "name": "system/share with a javascript URL",
@@ -2955,9 +2437,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "javascript:alert(1)"
-        }
+        "payload": { "url": "javascript:alert(1)" }
       }
     },
     {
@@ -2967,9 +2447,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "file:///private/var/mobile/secret.txt"
-        }
+        "payload": { "url": "file:///private/var/mobile/secret.txt" }
       }
     },
     {
@@ -2979,9 +2457,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "data:text/html,<script>1</script>"
-        }
+        "payload": { "url": "data:text/html,<script>1</script>" }
       }
     },
     {
@@ -2991,9 +2467,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "/preview/lobby"
-        }
+        "payload": { "url": "/preview/lobby" }
       }
     },
     {
@@ -3003,9 +2477,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://user:pass@signage.example.org/"
-        }
+        "payload": { "url": "https://user:pass@signage.example.org/" }
       }
     },
     {
@@ -3015,9 +2487,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://signage.example.org\\evil.example/"
-        }
+        "payload": { "url": "https://signage.example.org\\evil.example/" }
       }
     },
     {
@@ -3027,9 +2497,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://signage.example.org/a b"
-        }
+        "payload": { "url": "https://signage.example.org/a b" }
       }
     },
     {
@@ -3076,11 +2544,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": [
-            "https://signage.example.org/"
-          ]
-        }
+        "payload": { "url": ["https://signage.example.org/"] }
       }
     },
     {
@@ -3104,9 +2568,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://signage.example.org/preview?x=1&csrf=abc"
-        }
+        "payload": { "url": "https://signage.example.org/preview?x=1&csrf=abc" }
       }
     },
     {
@@ -3117,9 +2579,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://signage.example.org/cb#access_token=abc"
-        }
+        "payload": { "url": "https://signage.example.org/cb#access_token=abc" }
       }
     },
     {
@@ -3143,9 +2603,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "text": "tca_0123456789abcdef"
-        }
+        "payload": { "text": "tca_0123456789abcdef" }
       }
     },
     {
@@ -3156,9 +2614,7 @@
       "message": {
         "version": 1,
         "type": "system/share",
-        "payload": {
-          "url": "https://signage.example.org/tc_device_abc.def"
-        }
+        "payload": { "url": "https://signage.example.org/tc_device_abc.def" }
       }
     },
     {
@@ -3179,10 +2635,7 @@
       "studioEncodes": "mediaIntake",
       "mediaIntake": {
         "requestId": "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
-        "kinds": [
-          "image",
-          "video"
-        ],
+        "kinds": ["image", "video"],
         "multiple": true
       },
       "message": {
@@ -3190,10 +2643,7 @@
         "type": "system/media-intake",
         "payload": {
           "requestId": "mi-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
-          "accept": [
-            "image",
-            "video"
-          ],
+          "accept": ["image", "video"],
           "multiple": true
         }
       }
@@ -3204,18 +2654,13 @@
       "outcome": "accept",
       "mediaIntake": {
         "requestId": "mi-1",
-        "kinds": [
-          "image",
-          "video"
-        ],
+        "kinds": ["image", "video"],
         "multiple": true
       },
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "mi-1"
-        }
+        "payload": { "requestId": "mi-1" }
       }
     },
     {
@@ -3224,21 +2669,13 @@
       "outcome": "accept",
       "mediaIntake": {
         "requestId": "mi-2",
-        "kinds": [
-          "video"
-        ],
+        "kinds": ["video"],
         "multiple": true
       },
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "mi-2",
-          "accept": [
-            "video",
-            "audio"
-          ]
-        }
+        "payload": { "requestId": "mi-2", "accept": ["video", "audio"] }
       }
     },
     {
@@ -3247,19 +2684,13 @@
       "outcome": "accept",
       "mediaIntake": {
         "requestId": "mi-3",
-        "kinds": [
-          "image",
-          "video"
-        ],
+        "kinds": ["image", "video"],
         "multiple": false
       },
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "mi-3",
-          "multiple": false
-        }
+        "payload": { "requestId": "mi-3", "multiple": false }
       }
     },
     {
@@ -3269,11 +2700,7 @@
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "accept": [
-            "image"
-          ]
-        }
+        "payload": { "accept": ["image"] }
       }
     },
     {
@@ -3283,9 +2710,7 @@
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "Not Valid"
-        }
+        "payload": { "requestId": "Not Valid" }
       }
     },
     {
@@ -3295,16 +2720,7 @@
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "mi-4",
-          "accept": [
-            "a",
-            "b",
-            "c",
-            "d",
-            "e"
-          ]
-        }
+        "payload": { "requestId": "mi-4", "accept": ["a", "b", "c", "d", "e"] }
       }
     },
     {
@@ -3313,19 +2729,13 @@
       "outcome": "accept",
       "mediaIntake": {
         "requestId": "mi-5",
-        "kinds": [
-          "image",
-          "video"
-        ],
+        "kinds": ["image", "video"],
         "multiple": true
       },
       "message": {
         "version": 1,
         "type": "system/media-intake",
-        "payload": {
-          "requestId": "mi-5",
-          "destination": "/tmp/x"
-        }
+        "payload": { "requestId": "mi-5", "destination": "/tmp/x" }
       }
     },
     {
@@ -3420,10 +2830,7 @@
       "message": {
         "version": 1,
         "type": "system/media-intake-completed",
-        "payload": {
-          "outcome": "failed",
-          "uploadedCount": 0
-        }
+        "payload": { "outcome": "failed", "uploadedCount": 0 }
       }
     },
     {
@@ -3433,9 +2840,7 @@
       "message": {
         "version": 1,
         "type": "system/haptic",
-        "payload": {
-          "feedback": "success"
-        }
+        "payload": { "feedback": "success" }
       }
     },
     {
@@ -3447,9 +2852,7 @@
         "version": 1,
         "id": "m1",
         "ok": true,
-        "payload": {
-          "available": true
-        }
+        "payload": { "available": true }
       }
     },
     {
@@ -3466,10 +2869,7 @@
         "version": 1,
         "type": "frontend/ready",
         "payload": {
-          "capabilities": {
-            "authLifecycle": true,
-            "nativePresentations": true
-          }
+          "capabilities": { "authLifecycle": true, "nativePresentations": true }
         }
       }
     },
@@ -3478,15 +2878,11 @@
       "direction": "frontendToNative",
       "outcome": "accept",
       "studioEncodes": "scanQr",
-      "qrScan": {
-        "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e"
-      },
+      "qrScan": { "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e" },
       "message": {
         "version": 1,
         "type": "system/scan-qr",
-        "payload": {
-          "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -3518,9 +2914,7 @@
       "message": {
         "version": 1,
         "type": "system/scan-qr",
-        "payload": {
-          "requestId": "QR 7"
-        }
+        "payload": { "requestId": "QR 7" }
       }
     },
     {
@@ -3530,10 +2924,7 @@
       "message": {
         "version": 1,
         "type": "system/scan-qr",
-        "payload": {
-          "requestId": "qr-1",
-          "prompt": "Point the camera"
-        }
+        "payload": { "requestId": "qr-1", "prompt": "Point the camera" }
       }
     },
     {
@@ -3543,9 +2934,7 @@
       "message": {
         "version": 1,
         "type": "system/scan-qr",
-        "payload": {
-          "requestId": "qr-1"
-        }
+        "payload": { "requestId": "qr-1" }
       }
     },
     {
@@ -3570,10 +2959,7 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": {
-          "requestId": "qr-1",
-          "outcome": "cancelled"
-        }
+        "payload": { "requestId": "qr-1", "outcome": "cancelled" }
       }
     },
     {
@@ -3583,10 +2969,7 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": {
-          "requestId": "qr-1",
-          "outcome": "unavailable"
-        }
+        "payload": { "requestId": "qr-1", "outcome": "unavailable" }
       }
     },
     {
@@ -3596,10 +2979,7 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": {
-          "requestId": "qr-1",
-          "outcome": "scanned"
-        }
+        "payload": { "requestId": "qr-1", "outcome": "scanned" }
       }
     },
     {
@@ -3609,11 +2989,7 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": {
-          "requestId": "qr-1",
-          "outcome": "scanned",
-          "value": ""
-        }
+        "payload": { "requestId": "qr-1", "outcome": "scanned", "value": "" }
       }
     },
     {
@@ -3651,9 +3027,7 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": {
-          "outcome": "cancelled"
-        }
+        "payload": { "outcome": "cancelled" }
       }
     },
     {
@@ -3718,11 +3092,7 @@
           "groups": [
             {
               "items": [
-                {
-                  "id": "open",
-                  "label": "Open",
-                  "icon": "open"
-                },
+                { "id": "open", "label": "Open", "icon": "open" },
                 {
                   "id": "restart",
                   "label": "Restart player",
@@ -3772,16 +3142,7 @@
         "payload": {
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
-          "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            }
-          ]
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
         }
       }
     },
@@ -3814,13 +3175,7 @@
           "label": "Actions",
           "groups": [
             {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open",
-                  "role": "primary"
-                }
-              ]
+              "items": [{ "id": "open", "label": "Open", "role": "primary" }]
             }
           ]
         }
@@ -3856,11 +3211,7 @@
           "groups": [
             {
               "items": [
-                {
-                  "id": "open",
-                  "label": "Open",
-                  "icon": "door-calendar"
-                }
+                { "id": "open", "label": "Open", "icon": "door-calendar" }
               ]
             }
           ]
@@ -3877,16 +3228,7 @@
         "payload": {
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
-          "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            }
-          ],
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }],
           "shortcutHint": "O"
         }
       }
@@ -3903,22 +3245,8 @@
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
           "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open again"
-                }
-              ]
-            }
+            { "items": [{ "id": "open", "label": "Open" }] },
+            { "items": [{ "id": "open", "label": "Open again" }] }
           ]
         }
       }
@@ -3947,11 +3275,7 @@
         "payload": {
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
-          "groups": [
-            {
-              "items": []
-            }
-          ]
+          "groups": [{ "items": [] }]
         }
       }
     },
@@ -3969,110 +3293,35 @@
           "groups": [
             {
               "items": [
-                {
-                  "id": "a-0",
-                  "label": "Action 0"
-                },
-                {
-                  "id": "a-1",
-                  "label": "Action 1"
-                },
-                {
-                  "id": "a-2",
-                  "label": "Action 2"
-                },
-                {
-                  "id": "a-3",
-                  "label": "Action 3"
-                },
-                {
-                  "id": "a-4",
-                  "label": "Action 4"
-                },
-                {
-                  "id": "a-5",
-                  "label": "Action 5"
-                },
-                {
-                  "id": "a-6",
-                  "label": "Action 6"
-                },
-                {
-                  "id": "a-7",
-                  "label": "Action 7"
-                },
-                {
-                  "id": "a-8",
-                  "label": "Action 8"
-                },
-                {
-                  "id": "a-9",
-                  "label": "Action 9"
-                },
-                {
-                  "id": "a-10",
-                  "label": "Action 10"
-                },
-                {
-                  "id": "a-11",
-                  "label": "Action 11"
-                },
-                {
-                  "id": "a-12",
-                  "label": "Action 12"
-                }
+                { "id": "a-0", "label": "Action 0" },
+                { "id": "a-1", "label": "Action 1" },
+                { "id": "a-2", "label": "Action 2" },
+                { "id": "a-3", "label": "Action 3" },
+                { "id": "a-4", "label": "Action 4" },
+                { "id": "a-5", "label": "Action 5" },
+                { "id": "a-6", "label": "Action 6" },
+                { "id": "a-7", "label": "Action 7" },
+                { "id": "a-8", "label": "Action 8" },
+                { "id": "a-9", "label": "Action 9" },
+                { "id": "a-10", "label": "Action 10" },
+                { "id": "a-11", "label": "Action 11" },
+                { "id": "a-12", "label": "Action 12" }
               ]
             },
             {
               "items": [
-                {
-                  "id": "a-13",
-                  "label": "Action 13"
-                },
-                {
-                  "id": "a-14",
-                  "label": "Action 14"
-                },
-                {
-                  "id": "a-15",
-                  "label": "Action 15"
-                },
-                {
-                  "id": "a-16",
-                  "label": "Action 16"
-                },
-                {
-                  "id": "a-17",
-                  "label": "Action 17"
-                },
-                {
-                  "id": "a-18",
-                  "label": "Action 18"
-                },
-                {
-                  "id": "a-19",
-                  "label": "Action 19"
-                },
-                {
-                  "id": "a-20",
-                  "label": "Action 20"
-                },
-                {
-                  "id": "a-21",
-                  "label": "Action 21"
-                },
-                {
-                  "id": "a-22",
-                  "label": "Action 22"
-                },
-                {
-                  "id": "a-23",
-                  "label": "Action 23"
-                },
-                {
-                  "id": "a-24",
-                  "label": "Action 24"
-                }
+                { "id": "a-13", "label": "Action 13" },
+                { "id": "a-14", "label": "Action 14" },
+                { "id": "a-15", "label": "Action 15" },
+                { "id": "a-16", "label": "Action 16" },
+                { "id": "a-17", "label": "Action 17" },
+                { "id": "a-18", "label": "Action 18" },
+                { "id": "a-19", "label": "Action 19" },
+                { "id": "a-20", "label": "Action 20" },
+                { "id": "a-21", "label": "Action 21" },
+                { "id": "a-22", "label": "Action 22" },
+                { "id": "a-23", "label": "Action 23" },
+                { "id": "a-24", "label": "Action 24" }
               ]
             }
           ]
@@ -4090,78 +3339,15 @@
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
           "groups": [
-            {
-              "items": [
-                {
-                  "id": "g-0",
-                  "label": "Group 0"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-1",
-                  "label": "Group 1"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-2",
-                  "label": "Group 2"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-3",
-                  "label": "Group 3"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-4",
-                  "label": "Group 4"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-5",
-                  "label": "Group 5"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-6",
-                  "label": "Group 6"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-7",
-                  "label": "Group 7"
-                }
-              ]
-            },
-            {
-              "items": [
-                {
-                  "id": "g-8",
-                  "label": "Group 8"
-                }
-              ]
-            }
+            { "items": [{ "id": "g-0", "label": "Group 0" }] },
+            { "items": [{ "id": "g-1", "label": "Group 1" }] },
+            { "items": [{ "id": "g-2", "label": "Group 2" }] },
+            { "items": [{ "id": "g-3", "label": "Group 3" }] },
+            { "items": [{ "id": "g-4", "label": "Group 4" }] },
+            { "items": [{ "id": "g-5", "label": "Group 5" }] },
+            { "items": [{ "id": "g-6", "label": "Group 6" }] },
+            { "items": [{ "id": "g-7", "label": "Group 7" }] },
+            { "items": [{ "id": "g-8", "label": "Group 8" }] }
           ]
         }
       }
@@ -4176,16 +3362,7 @@
         "payload": {
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
-          "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            }
-          ]
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
         }
       }
     },
@@ -4199,16 +3376,7 @@
         "payload": {
           "menuId": "Menu 1",
           "label": "Actions",
-          "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            }
-          ]
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
         }
       }
     },
@@ -4261,11 +3429,7 @@
           "groups": [
             {
               "items": [
-                {
-                  "id": "open",
-                  "label": "Open",
-                  "icon": "open"
-                },
+                { "id": "open", "label": "Open", "icon": "open" },
                 {
                   "id": "restart",
                   "label": "Restart player",
@@ -4296,9 +3460,7 @@
       "message": {
         "version": 1,
         "type": "action-menu/disarm",
-        "payload": {
-          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -4312,15 +3474,7 @@
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions for Lobby Screen",
           "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open",
-                  "icon": "open"
-                }
-              ]
-            },
+            { "items": [{ "id": "open", "label": "Open", "icon": "open" }] },
             {
               "items": [
                 {
@@ -4332,12 +3486,7 @@
               ]
             }
           ],
-          "rect": {
-            "x": 0.8,
-            "y": 0.25,
-            "width": 0.08,
-            "height": 0.05
-          }
+          "rect": { "x": 0.8, "y": 0.25, "width": 0.08, "height": 0.05 }
         }
       }
     },
@@ -4364,22 +3513,8 @@
         "payload": {
           "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
           "label": "Actions",
-          "groups": [
-            {
-              "items": [
-                {
-                  "id": "open",
-                  "label": "Open"
-                }
-              ]
-            }
-          ],
-          "rect": {
-            "x": 0.95,
-            "y": 0.2,
-            "width": 0.2,
-            "height": 0.1
-          }
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }],
+          "rect": { "x": 0.95, "y": 0.2, "width": 0.2, "height": 0.1 }
         }
       }
     },
@@ -4416,9 +3551,7 @@
       "message": {
         "version": 1,
         "type": "action-menu/action",
-        "payload": {
-          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -4429,9 +3562,7 @@
       "message": {
         "version": 1,
         "type": "action-menu/dismissed",
-        "payload": {
-          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
-        }
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
       }
     },
     {
@@ -4456,11 +3587,7 @@
       "message": {
         "version": 1,
         "type": "frontend/ready",
-        "payload": {
-          "capabilities": {
-            "nativeActionMenus": true
-          }
-        }
+        "payload": { "capabilities": { "nativeActionMenus": true } }
       }
     }
   ],
