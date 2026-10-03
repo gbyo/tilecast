@@ -27,9 +27,6 @@ public final class NativeActionMenuCenter {
         init(_ bridge: StudioBridge) { self.bridge = bridge }
     }
 
-    /// Legacy immediate state. New hosts refuse action-menu/present so Studio
-    /// falls back to its web menu instead of showing an action sheet.
-    public private(set) var immediate: Presented?
     /// The menu armed for a long press.
     public private(set) var armed: Presented?
     /// The armed menu a long press consumed and shows now.
@@ -37,7 +34,6 @@ public final class NativeActionMenuCenter {
     /// Visible HTML action triggers mirrored as invisible native Menu anchors.
     public private(set) var triggers: [Trigger] = []
 
-    @ObservationIgnored private weak var immediateOwner: StudioBridge?
     @ObservationIgnored private weak var armedOwner: StudioBridge?
     @ObservationIgnored private weak var showingOwner: StudioBridge?
     @ObservationIgnored private var triggerOwners: [String: WeakOwner] = [:]
@@ -46,25 +42,12 @@ public final class NativeActionMenuCenter {
 
     public init() {}
 
-    public func menu(for context: NativeBridgeProtocol.Context) -> NativeActionMenu? {
-        immediate?.context == context ? immediate?.menu : nil
-    }
-
     public func armedMenu(for context: NativeBridgeProtocol.Context) -> NativeActionMenu? {
         armed?.context == context ? armed?.menu : nil
     }
 
     public func triggers(for context: NativeBridgeProtocol.Context) -> [Trigger] {
         triggers.filter { $0.context == context }
-    }
-
-    /// Kept only for bridge compatibility. New Studio should use an anchored
-    /// trigger and new hosts intentionally refuse immediate presentation.
-    func present(_ menu: NativeActionMenu, from bridge: StudioBridge) -> Bool {
-        guard immediate == nil else { return false }
-        immediate = Presented(menu: menu, context: bridge.context)
-        immediateOwner = bridge
-        return true
     }
 
     func registerTrigger(
@@ -107,10 +90,6 @@ public final class NativeActionMenuCenter {
     }
 
     func disarm(menuID: String, from bridge: StudioBridge) {
-        if immediateOwner === bridge, immediate?.menu.id == menuID {
-            immediate = nil
-            immediateOwner = nil
-        }
         if armedOwner === bridge, armed?.menu.id == menuID {
             armed = nil
             armedOwner = nil
@@ -118,10 +97,6 @@ public final class NativeActionMenuCenter {
     }
 
     func withdraw(from bridge: StudioBridge) {
-        if immediateOwner === bridge {
-            immediate = nil
-            immediateOwner = nil
-        }
         if armedOwner === bridge {
             armed = nil
             armedOwner = nil
@@ -141,10 +116,6 @@ public final class NativeActionMenuCenter {
     }
 
     func withdraw(context: NativeBridgeProtocol.Context) {
-        if immediate?.context == context {
-            immediate = nil
-            immediateOwner = nil
-        }
         if armed?.context == context {
             armed = nil
             armedOwner = nil
@@ -159,16 +130,6 @@ public final class NativeActionMenuCenter {
             triggers.removeAll { set.contains($0.id) }
             for id in ids { triggerOwners.removeValue(forKey: id) }
         }
-    }
-
-    public func choose(actionID: String) {
-        guard let presented = immediate,
-              let action = presented.menu.items.first(where: { $0.id == actionID }),
-              !action.isDisabled else { return }
-        let owner = immediateOwner
-        immediate = nil
-        immediateOwner = nil
-        Task { await owner?.send(NativeBridgeProtocol.actionMenuAction(menuID: presented.menu.id, actionID: actionID)) }
     }
 
     /// A native Menu selection. Registration remains because the same
@@ -193,14 +154,6 @@ public final class NativeActionMenuCenter {
             armedOwner = nil
         }
         Task { await owner?.send(NativeBridgeProtocol.actionMenuAction(menuID: menuID, actionID: actionID)) }
-    }
-
-    public func dismissImmediate() {
-        guard let presented = immediate else { return }
-        let owner = immediateOwner
-        immediate = nil
-        immediateOwner = nil
-        Task { await owner?.send(NativeBridgeProtocol.actionMenuDismissed(menuID: presented.menu.id)) }
     }
 
     public func dismissShowing(menuID: String) {
