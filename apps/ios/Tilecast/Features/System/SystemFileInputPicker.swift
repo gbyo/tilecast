@@ -36,7 +36,7 @@ enum SystemFileInputPicker {
 
     private static func chooseSource(from presenter: UIViewController) async -> Source? {
         await withCheckedContinuation { continuation in
-            let sheet = UIAlertController(title: String(localized: "Add Media"), message: nil, preferredStyle: .actionSheet)
+            let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
             sheet.addAction(UIAlertAction(title: String(localized: "Photo Library"), style: .default) { _ in continuation.resume(returning: .photos) })
             sheet.addAction(UIAlertAction(title: String(localized: "Choose Files…"), style: .default) { _ in continuation.resume(returning: .files) })
             sheet.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel) { _ in continuation.resume(returning: nil) })
