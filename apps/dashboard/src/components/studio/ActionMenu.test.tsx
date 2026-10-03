@@ -24,7 +24,9 @@ type Sent = { type: string; payload: Record<string, unknown> };
 /** The iOS app's handler for the main page, answering like the app. */
 function installNativeHost({
   anchors = true,
-}: { anchors?: boolean } = {}) {
+}: {
+  anchors?: boolean;
+} = {}) {
   const sent: Sent[] = [];
   const postMessage = vi.fn((message: Sent) => {
     sent.push(structuredClone(message));
