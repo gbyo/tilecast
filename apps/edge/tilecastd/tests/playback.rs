@@ -956,11 +956,11 @@ impl Harness {
     async fn new() -> Self {
         capture_daemon_logs();
         let slot = Arc::clone(scenario_slots()).acquire_owned().await.unwrap();
-        let installation = InstallationId::new_random();
+        let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
         let fake = FakeServer::new(installation);
         let url = serve(Arc::clone(&fake)).await;
         let dir = tempfile::tempdir().unwrap();
-        let screen = ScreenId::new_random();
+        let screen = ScreenId::from_uuid(uuid::Uuid::new_v4());
         let state = dir.path().join("state");
         std::fs::create_dir_all(state.join("identity")).unwrap();
         let db = StateDb::open(state.join("state.db"), OpenOptions::default()).unwrap();
@@ -1415,7 +1415,7 @@ async fn invalid_manifests_never_replace_the_committed_presentation() {
     harness.fake.add_asset(&other, AssetMode::Serve);
 
     let cases: Vec<(&str, Value)> = vec![
-        ("another screen", manifest(ScreenId::new_random(), 4, &[&other])),
+        ("another screen", manifest(ScreenId::from_uuid(uuid::Uuid::new_v4()), 4, &[&other])),
         ("an older version", manifest(harness.screen, 2, &[&other])),
         ("an unknown schema", with(manifest(harness.screen, 4, &[&other]), |m| m["schemaVersion"] = json!(99))),
         (

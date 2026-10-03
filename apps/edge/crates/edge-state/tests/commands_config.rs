@@ -177,8 +177,8 @@ fn pruning_bounds_the_table() {
 
 fn binding() -> Binding {
     Binding {
-        installation_id: InstallationId::new_random(),
-        screen_id: ScreenId::new_random(),
+        installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+        screen_id: ScreenId::from_uuid(uuid::Uuid::new_v4()),
         server_url: "https://signs.example.org".to_owned(),
     }
 }
@@ -206,7 +206,7 @@ fn configuration_moves_only_forward_and_keeps_the_previous_document() {
 
     // Another screen never sees this screen's configuration, and its first
     // acceptance replaces both rows instead of inheriting them.
-    binding_value.screen_id = ScreenId::new_random();
+    binding_value.screen_id = ScreenId::from_uuid(uuid::Uuid::new_v4());
     let bind = binding_value.clone();
     assert!(db.run_blocking(move |c| config::get_for(c, ConfigStage::Current, &bind)).expect("read").is_none());
     assert_eq!(accept(1, "\"x1\"", "other", &binding_value), AcceptOutcome::Accepted);

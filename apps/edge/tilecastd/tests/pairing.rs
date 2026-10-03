@@ -235,8 +235,8 @@ struct Player {
 impl Harness {
     async fn new() -> Self {
         let fake = Arc::new(FakeServer {
-            installation: InstallationId::new_random(),
-            screen: ScreenId::new_random(),
+            installation: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+            screen: ScreenId::from_uuid(uuid::Uuid::new_v4()),
             pairing_enabled: AtomicBool::new(true),
             pairing: Mutex::new(Pairing::default()),
             authenticated: AtomicUsize::new(0),

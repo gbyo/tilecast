@@ -94,7 +94,7 @@ async fn ensure_player_id(context: &DaemonContext) -> Result<PlayerId, &'static 
         if let Some(identity) = daemon_repo::player_identity(c)? {
             return Ok(identity.player_id);
         }
-        let id = PlayerId::new_random();
+        let id = PlayerId::from_uuid(uuid::Uuid::new_v4());
         daemon_repo::set_player_identity(c, id, daemon_repo::PlayerIdentitySource::Generated, now)?;
         Ok(id)
     })

@@ -250,7 +250,7 @@ async fn wrong_direction_and_sequence_violations_close_the_session() {
     // A renderer may not send a daemon → client event.
     let client = IpcClient::connect(&harness.path, renderer()).await.unwrap();
     let activate = Event::PresentationActivate(Box::new(PresentationActivate {
-        activation_id: ActivationId::new_random(),
+        activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()),
         generation: 1,
         presentation: PresentationDocument::Idle(StatusSurface {
             title: SafeText::new("t").unwrap(),
@@ -288,7 +288,7 @@ async fn wrong_direction_and_sequence_violations_close_the_session() {
     let _welcome = edge_ipc::io::read_frame(&mut stream).await.unwrap();
     let payload = serde_json::to_vec(&json!({
         "type": "event", "seq": 1, "event": "renderer.progress",
-        "data": {"activation": {"activationId": ActivationId::new_random(), "generation": 1},
+        "data": {"activation": {"activationId": ActivationId::from_uuid(uuid::Uuid::new_v4()), "generation": 1},
                  "kind": "image_shown", "path": "/var/lib/tilecast-edge/identity"}
     }))
     .unwrap();
@@ -309,7 +309,7 @@ async fn second_renderer_supersedes_first_and_disconnect_is_reported() {
     // Reconnect semantics: a fresh session starts its sequence at 1 again.
     second
         .send_event(Event::RendererProgress(RendererProgress {
-            activation: ActivationRef { activation_id: ActivationId::new_random(), generation: 1 },
+            activation: ActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()), generation: 1 },
             item_id: None,
             kind: EvidenceKind::SurfaceShown,
             zone_id: None,
@@ -355,7 +355,7 @@ async fn the_session_bridge_sends_only_its_own_events_and_one_bridge_is_live() {
     // A bridge may not report renderer evidence.
     second
         .send_event(Event::RendererProgress(RendererProgress {
-            activation: ActivationRef { activation_id: ActivationId::new_random(), generation: 1 },
+            activation: ActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()), generation: 1 },
             item_id: None,
             kind: EvidenceKind::SurfaceShown,
             zone_id: None,

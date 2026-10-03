@@ -46,8 +46,9 @@ Studio text is localized in the browser with react-i18next. English is bundled a
 The accepted native Player extraction contract is
 [`player-core.md`](player-core.md). It separates shared native behavior from
 Linux host integration. Presentation decisions and execution remain with
-Presentation Model and Player Runtime. The five shared Rust crates are not yet
-implemented. Edge retains its current process and security boundaries.
+Presentation Model and Player Runtime. Generic native values are implemented in
+`crates/player-types`. Remaining shared behavior is still in Edge. Edge retains
+its current process and security boundaries.
 
 The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 

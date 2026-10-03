@@ -46,7 +46,7 @@ async fn an_oversized_success_body_without_a_length_is_refused() {
     let padding = "x".repeat(MAX_SMALL_JSON_BYTES);
     let body = format!(
         r#"{{"data":{{"product":"Tilecast","installationId":"{}","organizationName":"{padding}","apiVersion":"v1","pairingEnabled":true}}}}"#,
-        InstallationId::new_random()
+        InstallationId::from_uuid(uuid::Uuid::new_v4())
     );
     let url = chunked_server("200 OK", body).await;
     assert_eq!(ServerClient::new(&url).unwrap().identity().await, Err(ServerError::ResponseTooLarge));
