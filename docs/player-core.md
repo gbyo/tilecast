@@ -33,7 +33,7 @@ Use this distinction when reviewing a change:
 | Pure presentation decisions shared by Studio and Runtime | `@tilecast/presentation-model`          | Playback defaults, item availability, zone advancement and fallback                                                                                                                        |
 | Presentation execution                                   | `packages/player-runtime`               | Media surfaces, transitions, Widgets, Layouts, Websites, synchronized playback, browser evidence                                                                                           |
 | Native Player behavior                                   | `crates/player-core` after extraction   | Pairing, server reconciliation, manifest lifecycle, native schedule and temporary-presentation precedence, offline activation, command idempotency, Activity coordination, recovery policy |
-| Durable metadata                                         | `crates/player-state` after extraction  | Embedded SQLite migrations, typed repositories, bounded outbox                                                                                                                             |
+| Durable metadata                                         | `crates/player-state`                   | Embedded SQLite migrations, Core-owned repositories, bounded outbox                                                                                                                        |
 | Verified bytes                                           | `crates/player-cas` after extraction    | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
 | Server transport                                         | `crates/player-client` after extraction | URL policy, identity gate, REST, WebSocket, typed Player endpoints                                                                                                                         |
 | Semantic values without I/O                              | `crates/player-types`                   | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
@@ -92,7 +92,10 @@ Historical update, legacy import, and Presentation Network repositories remain
 platform-owned. Core must not use them. Clearly identify these repositories
 when state moves. New platform state may use the same database when atomicity,
 crash recovery, or rollback compatibility requires it. Keep those repositories
-namespaced and inaccessible to Core.
+namespaced and inaccessible to Core. The `player-state::repo` API contains
+Core-owned repositories. The `edge-state::platform` API contains update jobs,
+Linux network recovery, and legacy import records. It is not a dependency of any
+shared Player crate. Edge retains temporary repository reexports for its callers.
 
 CAS trusts bytes only after size and SHA-256 verification. Preserve immutable
 objects, partial downloads, resume, pins, eviction, limits, corruption detection,
@@ -260,7 +263,7 @@ The baseline remains in the existing Edge tests:
 | Guarantee                                                            | Evidence                                                                                   |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Edge IPC representation                                              | `edge-protocol/tests/fixtures.rs` and C IPC fixtures                                       |
-| Shipped migration bytes and durability                               | `edge-state/tests/state.rs`                                                                |
+| Shipped migration bytes and durability                               | `crates/player-state/tests/state.rs` and `migration_baseline.rs`                           |
 | CAS corruption, pins, resume, crash reconciliation                   | `edge-cas` tests                                                                           |
 | Pairing and identity before credentials                              | `tilecastd/tests/pairing.rs` and `edge-server` tests                                       |
 | Offline playback, superseded preparation, renderer recovery, capture | `tilecastd/tests/playback.rs`, `daemon.rs`, `media_channel.rs`                             |

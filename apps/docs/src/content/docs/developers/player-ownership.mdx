@@ -9,6 +9,9 @@ shared native behavior, or a host's operating system. The accepted
 defines that boundary and the review sequence. Generic IDs, digests, bounded
 values, timestamps, and capability vocabulary now live in `crates/player-types`.
 Edge still owns the wire protocols and supplies clocks and random ID generation.
+Durable metadata now lives in `crates/player-state`. Its migrations include
+historical Edge tables, while Linux update, network recovery, and legacy import
+repositories stay in `edge-state::platform`.
 
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |

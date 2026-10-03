@@ -1,6 +1,6 @@
 //! The server installation this player is bound to.
 
-use edge_protocol::{InstallationId, ScreenId, Timestamp};
+use player_types::{InstallationId, ScreenId, Timestamp};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms, from_ms_opt, ms, parse};

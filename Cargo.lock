@@ -483,6 +483,7 @@ name = "edge-state"
 version = "0.1.0"
 dependencies = [
  "edge-protocol",
+ "player-state",
  "rusqlite",
  "serde_json",
  "tempfile",
@@ -1257,6 +1258,21 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "player-state"
+version = "0.1.0"
+dependencies = [
+ "player-types",
+ "rusqlite",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "player-types"

@@ -7,7 +7,7 @@
 //! is bound to the installation, screen and normalized server URL; rows for
 //! another binding are invisible and are replaced on the first acceptance.
 
-use edge_protocol::Timestamp;
+use player_types::Timestamp;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::Value;
 
