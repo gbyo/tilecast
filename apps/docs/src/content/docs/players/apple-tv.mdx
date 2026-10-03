@@ -1,66 +1,113 @@
 ---
 title: Apple TV support
 description: Tilecast Player doesn't run on Apple TV. This page explains the tvOS limit behind that and what a future Apple TV Player would involve.
+Apple TV is not currently a supported Tilecast Player platform. There is no Tilecast Player app for tvOS, so an Apple TV can't be added as a Tilecast screen today.
+
+The main difference is how Tilecast renders content. Tilecast's existing Players share a web-based renderer, while tvOS does not support web views in third-party apps. Supporting Apple TV would therefore require a native renderer, or a new rendering format that both web-based and native Players can understand.
 ---
 
-Tilecast Player doesn't run on Apple TV. There is no tvOS app, and an Apple TV can't be used as a Tilecast screen today.
+## Current Player support
 
-The reason is technical. Tilecast Player shows content in a web view, which is a browser built into an app, and tvOS doesn't provide one for apps to use.
+Tilecast Player currently supports:
 
-## Players that are available
+- Android TV, Google TV, and Fire TV devices through the Android Player.
+- 64-bit x86_64 Linux systems through the Linux Player.
+- Linux systems using [Tilecast Edge](../../edge/), which is currently a preview and isn't yet recommended for production screens.
 
-Tilecast Player runs on Android TV, Google TV, and Fire TV devices as an APK, and on 64-bit x86_64 Linux computers as an AppImage. [Tilecast Edge](../../edge/) is a preview of the next Linux Player and isn't qualified for production screens yet.
+See the [Player capability matrix](../capabilities/) for a comparison of supported features.
 
-The [Player capability matrix](../capabilities/) compares them. Apple devices still work with Tilecast in other ways: an iPhone, iPad, or Mac can send its screen to a supported Linux Player with [AirPlay Present](../../operations/airplay-present/).
+Apple devices can also interact with Tilecast without acting as Players. For example, an iPhone, iPad, or Mac can present to a supported Linux Player using [AirPlay Present](../../operations/airplay-present/).
 
-## Why Tilecast Player needs a web view
+## Why tvOS needs a different Player
 
-Every Tilecast Player is an app wrapped around the same web code. That code draws the images, video, Layouts, transitions, and Widgets on the screen. The app around it handles pairing, the connection to your server, and downloading content.
+Tilecast uses a shared renderer across its Player platforms. Images, video, Layouts, transitions, Widgets, and plugin Widgets are rendered using the same web code wherever possible.
 
-Each Player runs that web code in a web view. The Linux Player uses Electron, and Tilecast Edge uses WPE WebKit. The Android Player is moving to the same code in an Android WebView.
+The platform-specific Player handles the parts around that renderer, including pairing, communication with the Tilecast server, local content management, and integration with the operating system.
 
-Because every screen draws content with the same code, a fix to the Weather Widget reaches every Player. Plugin authors write one Widget, not one for each platform.
+Today, that renderer runs in:
 
-Apple's design guidelines list web views as [not supported on tvOS](https://developer.apple.com/design/human-interface-guidelines/web-views), so an Apple TV app has no browser to run that code in. Apple has focused tvOS on native apps built with SwiftUI.
+- Electron on the Linux Player.
+- WPE WebKit on Tilecast Edge.
+- Android WebView as the Android Player moves to the shared runtime.
 
-## Other options on tvOS
+Keeping rendering shared is important to Tilecast's platform model. A Widget can be implemented once and behave the same way across Players, and rendering fixes don't need separate implementations for each operating system.
 
-Apple provides other ways to build an Apple TV app. None of them can stand in for a web view.
+tvOS is different because Apple lists web views as [unsupported on tvOS](https://developer.apple.com/design/human-interface-guidelines/web-views). Apple's current tvOS development model uses native interfaces built with SwiftUI or UIKit.
 
-- **TVML.** A markup language for simple Apple TV apps. It isn't HTML, so it can't run Tilecast's web code, and Apple [deprecated it in tvOS 18](https://developer.apple.com/videos/play/wwdc2024/10207/) in favor of SwiftUI.
-- **JavaScriptCore.** Apple's JavaScript engine. It runs JavaScript, but it doesn't draw web pages. It has no page layout and no video element, so Tilecast would have to build those itself.
-- **Rewriting each Widget in Swift.** Swift is Apple's programming language for apps. This is possible, but every Widget, including plugin Widgets, would exist twice: once as web code and once in Swift. The two copies would need to stay identical.
+As a result, the existing Tilecast renderer can't simply be packaged as a tvOS app.
 
-## What tvOS supports
+### What about TVML or JavaScriptCore?
 
-The parts of a Player that don't need a web view all have tvOS support:
+tvOS includes other technologies that can sometimes look similar to parts of a browser, but they don't provide the environment Tilecast's renderer expects.
 
-- Video, through Apple's AVFoundation framework, and images.
-- Local storage for downloaded content, so a screen could keep playing offline. The app would need its own content store, kept outside the folders tvOS can purge.
-- Server discovery with Bonjour, Apple's local network discovery. Pairing and credentials would use the same Player protocol as the other Players.
-- Managed kiosks. Apple documents [Single App Mode](https://support.apple.com/guide/deployment/deploy-apple-tv-dep027e1d5a0/web) for supervised Apple TVs, set up through mobile device management (MDM) and Automated Device Enrollment. It keeps one app in the foreground, which suits a signage screen.
+**TVML** was designed for template-based Apple TV applications rather than general HTML rendering. Apple deprecated TVML and TVMLKit starting with tvOS 18 and recommends SwiftUI or UIKit for new tvOS applications.
 
-## What a native Player couldn't do
+**JavaScriptCore** can execute JavaScript, but it doesn't provide a browser DOM, CSS layout engine, HTML media elements, or the other browser APIs used by Tilecast Widgets.
 
-A native tvOS Player could show images, video, and Layouts. These features need a web view or an API that tvOS doesn't offer:
+These technologies could be useful inside a native Player, but they don't provide a direct way to run the current web renderer.
 
-| Feature                    | Reason                                                                                                                                                     |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Website content            | A Website App loads a live web page, which needs a web view.                                                                                               |
-| YouTube                    | Tilecast plays YouTube in YouTube's embedded web player, which needs a web view. Tilecast hasn't found a Google-supported native YouTube player for tvOS.  |
-| Widgets and plugin Widgets | Widgets are made of web code, so they need a web view.                                                                                                     |
-| Display Control            | An Apple TV uses HDMI-CEC itself, but Tilecast hasn't found a public tvOS API that lets an app send CEC commands, so Display Control would be unavailable. |
-| Tilecast Player Updates    | tvOS apps update through the App Store, Apple Business Manager Custom Apps, or MDM. Tilecast Player wouldn't download and install its own updates.         |
+## What tvOS can support
 
-## Approaches for Apple TV support
+Much of the Player outside the renderer maps well to tvOS.
 
-Tilecast has no Apple TV Player today. Three approaches fit how Tilecast is built. None is settled, and each involves a trade-off:
+A native Player could use Apple's media frameworks for image and video playback, connect to a Tilecast server using the existing Player protocol, and use Bonjour for local-network discovery.
 
-1. **Native Swift for each Widget.** The quickest route. Every Widget would exist twice, which is what the shared web code avoids.
-2. **A partial Player.** Tilecast already has a simpler way to describe some Widgets as arrangements of text, images, and charts, with no web code. A tvOS Player could support only those Widgets, plus images, video, and Layouts. Tilecast checks what a Player reports it can show before it sends content, so content the Player can't show is refused and the screen isn't left blank. This simpler format isn't the long-term Widget design, so the approach is a stopgap.
-3. **A shared description of content.** Widgets would describe what to show in a form that both a web view and a native tvOS app can draw. This changes how every Widget is built, so it is a larger project than a new Player.
+tvOS also supports managed deployments. Supervised Apple TVs can be configured through MDM and Automated Device Enrollment, including Apple's [Single App Mode](https://support.apple.com/guide/deployment/deploy-apple-tv-dep027e1d5a0/web). That makes Apple TV suitable for dedicated signage deployments from a device-management perspective.
 
-Website content and YouTube need a web view, so none of these approaches would bring them to tvOS. The one way around that is to render pages on a server and stream them to the screen, which would make those items depend on the network.
+Content storage works differently from the existing Players. tvOS is designed around recoverable downloaded content and can purge an app's cached files when storage is needed. A Tilecast Player could cache media for playback, but it would need to handle those files disappearing and download them again when necessary. Offline playback therefore couldn't assume that a large downloaded content library will remain on the device indefinitely.
+
+## Features that would need different implementations
+
+The main work is not pairing an Apple TV with Tilecast. It is deciding how Tilecast content should be rendered once it gets there.
+
+| Feature          | tvOS considerations                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Images and video | Can be rendered with native Apple frameworks.                                                                                                                                   |
+| Layouts          | Tilecast would need a native implementation of the Layout renderer or a shared platform-independent layout format.                                                              |
+| Widgets          | Current Widgets use web technologies. They would need a native representation or another renderer that works on tvOS.                                                           |
+| Plugin Widgets   | Plugin Widgets use the same web Widget model, so the same limitation applies.                                                                                                   |
+| Website content  | Website Apps depend on an embedded browser. tvOS does not provide the web view used by the other Players.                                                                       |
+| YouTube          | Tilecast currently uses YouTube's embedded web player. The existing integration therefore doesn't map directly to tvOS.                                                         |
+| Display Control  | Tilecast has not identified a public tvOS API that allows an app to issue HDMI-CEC commands, so the existing Display Control implementation could not be carried over directly. |
+| Player updates   | A tvOS app would normally be updated through the App Store or managed deployment rather than Tilecast's self-update system.                                                     |
+
+A tvOS Player would not necessarily need to support every one of these features before it could be useful. Tilecast already has capability reporting so the server can determine which types of content a Player supports.
+
+## Possible approaches
+
+There are several ways Apple TV support could fit into Tilecast's architecture.
+
+### Native Player with a smaller feature set
+
+A first tvOS Player could support the content that maps cleanly to native APIs, such as images, video, and a subset of Layouts or Widgets.
+
+The Player would report those capabilities to the server so unsupported content could be rejected instead of being sent to a screen that can't display it.
+
+This would make Apple TV useful sooner, but it would also mean that some Tilecast content behaves differently depending on the Player platform.
+
+### Native implementations of Widgets
+
+Built-in Widgets could be implemented separately for tvOS using SwiftUI or another native framework.
+
+This could provide a close match to the existing Player, but the web and tvOS implementations would need to remain in sync. It also becomes more difficult for plugin Widgets, because plugin authors currently only need to provide the web implementation.
+
+### A shared rendering description
+
+Another approach would be to separate what a Widget displays from how it is drawn.
+
+Instead of a Widget directly producing web content, it could describe a scene made from common primitives such as text, images, shapes, video, and charts. The existing web renderer and a native tvOS renderer could then draw the same scene independently.
+
+This would preserve more of Tilecast's "build once, run on every Player" model, and could be useful for other native Player platforms in the future. It would also be a larger change to the Widget and rendering architecture rather than an Apple TV-specific project.
+
+## Web content
+
+Website Apps are a separate limitation because their content is the web page itself rather than something Tilecast controls.
+
+The same applies to services such as YouTube when playback depends on an embedded web player.
+
+One possible architecture would be to render that content elsewhere and stream the result to the Apple TV. That would make it possible to display more types of content, but it would introduce a server-side rendering service and make those items dependent on a reliable connection to that service.
+
+For that reason, web content support would likely remain separate from the work needed to build a native tvOS Player.
 
 ## Contributing
 
