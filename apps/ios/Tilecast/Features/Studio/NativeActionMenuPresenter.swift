@@ -73,7 +73,7 @@ struct NativeActionMenuAnchorLayer: View {
 
 /// The context menu a long press builds from the menu Studio armed. This is
 /// SwiftUI's supported iOS contextMenu(menuItems:) path; it does not use
-/// WebKit's macOS-only webViewContextMenu API.
+/// WebKit's webViewContextMenu API, which is unavailable on iOS.
 struct NativeActionMenuContextContent: View {
     let center: NativeActionMenuCenter?
     let context: NativeBridgeProtocol.Context
