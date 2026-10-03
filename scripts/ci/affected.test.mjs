@@ -23,6 +23,7 @@ test("root Rust inputs and unknown shared crates cannot bypass validation", () =
     "Cargo.toml",
     "Cargo.lock",
     "rust-toolchain.toml",
+    "rustfmt.toml",
     ".cargo/config.toml",
     "crates/player-types/src/lib.rs",
     "crates/future/Cargo.toml",

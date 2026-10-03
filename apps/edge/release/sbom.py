@@ -3,7 +3,8 @@
 
 It lists what the release is made of, from the inputs that pinned it:
 
-* the Rust crates in apps/edge/Cargo.lock, with their registry checksums;
+* the Rust packages emitted by the shipped-binary release build, with their
+  registry checksums from the root Cargo.lock;
 * the npm packages that the Player Runtime bundle was built from;
 * WPE WebKit, by its upstream source tarball digest;
 * the Debian packages whose shared libraries the release's executables load
@@ -24,17 +25,40 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.a
 EDGE = os.path.join(ROOT, "apps", "edge")
 
 
-def cargo_components():
-    with open(os.path.join(EDGE, "Cargo.lock"), "rb") as handle:
-        lock = tomllib.load(handle)
+def built_cargo_components(artifacts, metadata, lock):
+    package_ids = {a["package_id"] for a in artifacts if a.get("reason") == "compiler-artifact"}
+    packages = {p["id"]: p for p in metadata["packages"]}
+    if not package_ids or package_ids - packages.keys():
+        raise ValueError("Cargo build artifacts are empty or do not match the locked metadata")
+    shipped = {"tilecastd", "tilecastctl", "tilecast-edge-migrate", "tilecast-edge-update"}
+    binaries = {packages[a["package_id"]]["name"] for a in artifacts
+                if a.get("reason") == "compiler-artifact" and a.get("executable")
+                and "bin" in a.get("target", {}).get("kind", [])}
+    if binaries != shipped:
+        raise ValueError("Cargo build artifacts must describe exactly the four shipped Edge Rust binaries")
+    if not any(a.get("reason") == "build-finished" and a.get("success") for a in artifacts):
+        raise ValueError("Cargo release build did not finish successfully")
+    locked = {(p["name"], p["version"], p.get("source")): p for p in lock["package"]}
     out = []
-    for package in lock.get("package", []):
+    for package in sorted((packages[p] for p in package_ids), key=lambda p: (p["name"], p["version"], p["id"])):
+        entry = locked[(package["name"], package["version"], package.get("source"))]
         component = {"type": "library", "name": package["name"], "version": package["version"],
                      "purl": f"pkg:cargo/{package['name']}@{package['version']}"}
-        if package.get("checksum"):
-            component["hashes"] = [{"alg": "SHA-256", "content": package["checksum"]}]
+        if entry.get("checksum"):
+            component["hashes"] = [{"alg": "SHA-256", "content": entry["checksum"]}]
         out.append(component)
     return out
+
+
+def cargo_components(artifact_path):
+    with open(os.path.join(ROOT, "Cargo.lock"), "rb") as handle:
+        lock = tomllib.load(handle)
+    metadata = json.loads(subprocess.check_output(
+        ["cargo", "metadata", "--locked", "--format-version", "1"], cwd=ROOT
+    ))
+    with open(artifact_path) as handle:
+        artifacts = [json.loads(line) for line in handle if line.strip()]
+    return built_cargo_components(artifacts, metadata, lock)
 
 
 def npm_components():
@@ -91,6 +115,7 @@ def main():
     parser = argparse.ArgumentParser()
     for name in ("--release-tree", "--version", "--snapshot", "--out", "--wpe-version", "--wpe-sha256"):
         parser.add_argument(name, required=True)
+    parser.add_argument("--cargo-artifacts", required=True)
     args = parser.parse_args()
     components = [{
         "type": "framework", "name": "wpewebkit", "version": args.wpe_version,
@@ -98,7 +123,7 @@ def main():
                 f"wpewebkit-{args.wpe_version}.tar.xz",
         "hashes": [{"alg": "SHA-256", "content": args.wpe_sha256}],
     }]
-    components += cargo_components() + npm_components() + debian_components(args.release_tree, args.snapshot)
+    components += cargo_components(args.cargo_artifacts) + npm_components() + debian_components(args.release_tree, args.snapshot)
     epoch = int(os.environ.get("SOURCE_DATE_EPOCH", "0"))
     bom = {
         "bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1,
