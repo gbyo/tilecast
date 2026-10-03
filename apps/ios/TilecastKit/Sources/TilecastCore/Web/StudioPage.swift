@@ -88,8 +88,6 @@ public final class StudioPage {
     public let alerts = NativeAlertCenter()
     /// The QR scan Studio asked for, in either of its pages.
     public let scanners = QRScanCenter()
-    /// The menus Studio asked for, in either of its pages.
-    public let menus = NativeActionMenuCenter()
     public private(set) var phase: Phase = .loading
     public private(set) var signInRequired = false
     public private(set) var isClosed = false
@@ -122,7 +120,6 @@ public final class StudioPage {
         let bridge = StudioBridge(origin: profile.address.origin)
         bridge.alerts = alerts
         bridge.scanners = scanners
-        bridge.menus = menus
         scanners.system = system
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
         bridge.install(into: &configuration)
@@ -140,7 +137,7 @@ public final class StudioPage {
             dialogPresenter: StudioDialogPresenter(origin: profile.address.origin, system: system)
         )
         let address = profile.address
-        presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts, scanners: scanners, menus: menus) {
+        presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts, scanners: scanners) {
             PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy, system: system)
         }
         bridge.attach(to: webPage)

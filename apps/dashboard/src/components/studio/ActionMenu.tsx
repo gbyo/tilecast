@@ -1,20 +1,10 @@
 import {
   Fragment,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
   type ComponentType,
   type ReactElement,
   type ReactNode,
 } from "react";
 import { MoreHorizontal } from "lucide-react";
-import { useNativeHost } from "../../native-host/NativeHostProvider";
-import {
-  useNativeActionMenu,
-  type NativeMenuAction,
-  type NativeMenuGroup,
-} from "../../native-host/useNativeActionMenu";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -34,11 +24,23 @@ import { ActionIcon } from "./actionIcons";
 
 /**
  * One action of a Studio action menu. Define it once: the same list
- * powers the browser dropdown, the browser context menu, and the native
- * iOS menu when the host offers one.
+ * powers the dropdown and the context menu.
  */
-export type StudioAction = NativeMenuAction;
-export type StudioActionGroup = NativeMenuGroup;
+export type StudioAction = {
+  /** Stable within one menu. Never derived from the label. */
+  id: string;
+  /** Already localized. */
+  label: string;
+  /** Semantic icon token. Unknown tokens show no icon. */
+  icon?: string;
+  disabled?: boolean;
+  role?: "default" | "destructive";
+  onSelect: () => void;
+};
+
+export type StudioActionGroup = {
+  actions: StudioAction[];
+};
 
 type ItemProps = {
   variant: "default" | "destructive";
@@ -85,12 +87,8 @@ function ActionGroups({
 }
 
 /**
- * A three-dot button with a Studio action menu. In an ordinary browser
- * the menu is the normal web dropdown. In a native host that offers
- * anchored action menus, the visible HTML button registers its viewport
- * rectangle and an invisible SwiftUI Menu receives the tap at that exact
- * location. The HTML dropdown remains the permanent fallback. Renders
- * nothing without actions.
+ * A three-dot button with a Studio action menu. Renders nothing without
+ * actions.
  */
 export function ActionMenuButton({
   label,
@@ -112,33 +110,14 @@ export function ActionMenuButton({
   /** The trigger glyph. A horizontal ellipsis by default. */
   triggerIcon?: ReactNode;
 }) {
-  const { registerTrigger } = useNativeActionMenu();
-  const host = useNativeHost();
-  const nativeAnchorAvailable =
-    host.status === "ready" && host.capabilities.nativeActionMenuAnchors;
-  const [webOpen, setWebOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!nativeAnchorAvailable || !triggerRef.current) return;
-    return registerTrigger(label, actions, triggerRef.current) ?? undefined;
-  }, [actions, label, nativeAnchorAvailable, registerTrigger]);
-
   const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
 
   if (count === 0) return null;
   return (
-    <DropdownMenu open={webOpen} onOpenChange={setWebOpen}>
+    <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            ref={triggerRef}
-            variant={variant}
-            size={size}
-            className={triggerClassName}
-            tabIndex={nativeAnchorAvailable ? -1 : undefined}
-            aria-hidden={nativeAnchorAvailable ? true : undefined}
-          />
+          <Button variant={variant} size={size} className={triggerClassName} />
         }
         aria-label={label}
       >
@@ -156,12 +135,8 @@ export function ActionMenuButton({
 }
 
 /**
- * A right-click and long-press menu for a whole row or card. The browser
- * path is the normal web context menu. In a native host that offers
- * action menus, pressing the target also arms the native context menu
- * for a long press; releasing, cancelling, or scrolling disarms it. The
- * armed entry is inert until the host shows it, so the web menu keeps
- * working wherever the host does not take over.
+ * A right-click and long-press menu for a whole row or card. Renders its
+ * children unchanged without actions.
  */
 export function ActionContextMenu({
   label,
@@ -178,43 +153,11 @@ export function ActionContextMenu({
   /** Replaces the trigger element, as the underlying primitive allows. */
   render?: ReactElement;
 }) {
-  const { arm } = useNativeActionMenu();
-  const disarm = useRef<(() => void) | null>(null);
-
-  const disarmCurrent = useCallback(() => {
-    disarm.current?.();
-    disarm.current = null;
-  }, []);
-
-  useEffect(() => () => disarmCurrent(), [disarmCurrent]);
-
-  const handlePointerDown = useCallback(() => {
-    disarmCurrent();
-    const stop = arm(label, actions);
-    if (!stop) return;
-    const onScroll = () => disarmCurrent();
-    window.addEventListener("scroll", onScroll, {
-      capture: true,
-      passive: true,
-    });
-    disarm.current = () => {
-      disarm.current = null;
-      window.removeEventListener("scroll", onScroll, { capture: true });
-      stop();
-    };
-  }, [actions, arm, disarmCurrent, label]);
-
   const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
   if (count === 0) return <>{children}</>;
   return (
     <ContextMenu>
-      <ContextMenuTrigger
-        onPointerDown={handlePointerDown}
-        onPointerUp={disarmCurrent}
-        onPointerCancel={disarmCurrent}
-        className={className}
-        render={render}
-      >
+      <ContextMenuTrigger className={className} render={render}>
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent aria-label={label}>

@@ -100,9 +100,6 @@ public enum NativeBridgeProtocol {
         public var nativePresentations: Bool
         /// Studio handles `alert/action`, so the app may show its alert.
         public var nativeAlerts: Bool
-        /// Studio handles `action-menu/action` and `action-menu/dismissed`,
-        /// so the app may show its menu.
-        public var nativeActionMenus: Bool
         /// Studio handles `system/media-intake-completed`.
         public var nativeMediaIntake: Bool
         /// Studio navigates for a deep link's `navigation/open-path`, and
@@ -114,15 +111,13 @@ public enum NativeBridgeProtocol {
             nativePresentations: Bool = false,
             nativeAlerts: Bool = false,
             nativeMediaIntake: Bool = false,
-            deepLinks: Bool = false,
-            nativeActionMenus: Bool = false
+            deepLinks: Bool = false
         ) {
             self.authLifecycle = authLifecycle
             self.nativePresentations = nativePresentations
             self.nativeAlerts = nativeAlerts
             self.nativeMediaIntake = nativeMediaIntake
             self.deepLinks = deepLinks
-            self.nativeActionMenus = nativeActionMenus
         }
     }
 
@@ -155,25 +150,13 @@ public enum NativeBridgeProtocol {
         case alertPresent(NativeAlert)
         /// Either page withdraws an alert it presented.
         case alertCancel(alertID: String)
-        /// Either page asks for a native menu at once.
-        case actionMenuPresent(NativeActionMenu)
-        /// Either page arms a native context menu for a long press.
-        case actionMenuArm(NativeActionMenu)
-        /// Either page withdraws a menu it presented or armed.
-        case actionMenuDisarm(menuID: String)
-        /// Either page registers or updates an anchored native Menu trigger.
-        case actionMenuRegisterTrigger(NativeActionMenuTriggerRegistration)
-        /// Either page removes an anchored native Menu trigger.
-        case actionMenuUnregisterTrigger(menuID: String)
         /// Either page asks to scan one QR code.
         case systemScanQR(QRScanRequest)
 
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
-            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel, .systemScanQR,
-                 .actionMenuPresent, .actionMenuArm, .actionMenuDisarm,
-                 .actionMenuRegisterTrigger, .actionMenuUnregisterTrigger: nil
+            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel, .systemScanQR: nil
             case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
                  .mediaIntakeStatus, .mediaIntake: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
@@ -242,13 +225,6 @@ public enum NativeBridgeProtocol {
         case "navigation/chrome": message = navigationChrome(payload).map(FrontendMessage.navigationChrome)
         case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
         case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
-        case "action-menu/present": message = actionMenu(payload).map(FrontendMessage.actionMenuPresent)
-        case "action-menu/arm": message = actionMenu(payload).map(FrontendMessage.actionMenuArm)
-        case "action-menu/disarm": message = opaqueID(payload["menuId"]).map { .actionMenuDisarm(menuID: $0) }
-        case "action-menu/register-trigger":
-            message = actionMenuTrigger(payload).map(FrontendMessage.actionMenuRegisterTrigger)
-        case "action-menu/unregister-trigger":
-            message = opaqueID(payload["menuId"]).map { .actionMenuUnregisterTrigger(menuID: $0) }
         case "system/scan-qr": message = scanQR(payload).map(FrontendMessage.systemScanQR)
         default: return .unknownType(type, id: requestID)
         }
@@ -290,8 +266,6 @@ public enum NativeBridgeProtocol {
                 "nativeMediaIntake": .bool(context == .main),
                 "deepLinks": .bool(context == .main),
                 "nativeAlerts": .bool(true),
-                "nativeActionMenus": .bool(true),
-                "nativeActionMenuAnchors": .bool(true),
             ]),
         ]
     }
@@ -339,17 +313,6 @@ public enum NativeBridgeProtocol {
     /// Studio sent.
     static func alertAction(alertID: String, actionID: String) -> JSONValue {
         message("alert/action", ["alertId": .string(alertID), "actionId": .string(actionID)])
-    }
-
-    /// The user chose an action of a menu. `actionID` is one of the ids
-    /// Studio sent for that menu.
-    static func actionMenuAction(menuID: String, actionID: String) -> JSONValue {
-        message("action-menu/action", ["menuId": .string(menuID), "actionId": .string(actionID)])
-    }
-
-    /// The user dismissed a menu the app was showing without choosing.
-    static func actionMenuDismissed(menuID: String) -> JSONValue {
-        message("action-menu/dismissed", ["menuId": .string(menuID)])
     }
 
     /// Tells the page that asked how its QR scan ended. Only a scan
@@ -403,8 +366,7 @@ public enum NativeBridgeProtocol {
                 nativePresentations: capabilities["nativePresentations"] == .bool(true),
                 nativeAlerts: capabilities["nativeAlerts"] == .bool(true),
                 nativeMediaIntake: capabilities["nativeMediaIntake"] == .bool(true),
-                deepLinks: capabilities["deepLinks"] == .bool(true),
-                nativeActionMenus: capabilities["nativeActionMenus"] == .bool(true)
+                deepLinks: capabilities["deepLinks"] == .bool(true)
             )
         default: return nil
         }
@@ -513,63 +475,6 @@ public enum NativeBridgeProtocol {
             buttons.append(NativeAlert.Button(id: buttonID, label: label, role: .init(token: role)))
         }
         return NativeAlert(id: id, title: title, message: message, buttons: buttons)
-    }
-
-    /// A generic menu for `action-menu/present` and `action-menu/arm`.
-    /// Action ids are unique across the menu. Unknown properties are
-    /// ignored, so a newer Studio never breaks this decoder; an unknown
-    /// role degrades to default, and an unknown icon token stays advisory.
-    private static func actionMenu(_ payload: [String: JSONValue]) -> NativeActionMenu? {
-        guard let id = opaqueID(payload["menuId"]),
-              let label = payload["label"]?.string, isBounded(label, 200),
-              case .array(let rawGroups)? = payload["groups"],
-              (1...NativeActionMenu.maximumGroups).contains(rawGroups.count) else { return nil }
-        var seen = Set<String>()
-        var total = 0
-        var groups: [NativeActionMenu.Group] = []
-        for rawGroup in rawGroups {
-            guard let group = rawGroup.object,
-                  case .array(let rawItems)? = group["items"],
-                  (1...NativeActionMenu.maximumItemsPerGroup).contains(rawItems.count) else { return nil }
-            var items: [NativeActionMenu.Item] = []
-            for raw in rawItems {
-                guard let item = raw.object,
-                      let itemID = opaqueID(item["id"]), seen.insert(itemID).inserted,
-                      let itemLabel = item["label"]?.string, isBounded(itemLabel, 200),
-                      let disabled = optionalBool(item["disabled"]) else { return nil }
-                let icon: String?
-                switch item["icon"] {
-                case nil: icon = nil
-                case .string(let value)? where isIconToken(value): icon = value
-                default: return nil
-                }
-                let role: String?
-                switch item["role"] {
-                case nil: role = nil
-                case .string(let token)? where isToken(token, 32): role = token
-                default: return nil
-                }
-                total += 1
-                items.append(.init(id: itemID, label: itemLabel, icon: icon, isDisabled: disabled ?? false, role: .init(token: role)))
-            }
-            groups.append(.init(items: items))
-        }
-        guard total <= NativeActionMenu.maximumItems else { return nil }
-        return NativeActionMenu(id: id, label: label, groups: groups)
-    }
-
-    private static func actionMenuTrigger(_ payload: [String: JSONValue]) -> NativeActionMenuTriggerRegistration? {
-        guard let menu = actionMenu(payload),
-              case .object(let rawRect)? = payload["rect"],
-              Set(rawRect.keys).isSubset(of: ["x", "y", "width", "height"]),
-              let x = rawRect["x"]?.number,
-              let y = rawRect["y"]?.number,
-              let width = rawRect["width"]?.number,
-              let height = rawRect["height"]?.number,
-              let rect = NativeActionMenuTriggerRect(x: x, y: y, width: width, height: height) else {
-            return nil
-        }
-        return NativeActionMenuTriggerRegistration(menu: menu, rect: rect)
     }
 
     private static func presentationUpdate(_ payload: [String: JSONValue]) -> PresentationUpdate? {

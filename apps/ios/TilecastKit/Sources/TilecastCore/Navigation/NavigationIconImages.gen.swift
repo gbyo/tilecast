@@ -3,8 +3,7 @@
 
 extension NavigationIcon {
     /// The Lucide icon Studio shows for each token, as an asset name in the
-    /// app's catalog. From apps/dashboard/src/navigation/NavigationIcon.tsx
-    /// and apps/dashboard/src/components/studio/actionIcons.tsx.
+    /// app's catalog. From apps/dashboard/src/navigation/NavigationIcon.tsx.
     static let images: [String: String] = [
         "home": "Lucide/house",
         "screens": "Lucide/monitor",
@@ -20,23 +19,6 @@ extension NavigationIcon {
         "activity": "Lucide/activity",
         "settings": "Lucide/settings",
         "plugin": "Lucide/puzzle",
-        "open": "Lucide/arrow-up-right",
-        "edit": "Lucide/square-pen",
-        "rename": "Lucide/pencil",
-        "copy": "Lucide/copy",
-        "duplicate": "Lucide/copy",
-        "trash": "Lucide/trash",
-        "delete": "Lucide/trash",
-        "archive": "Lucide/archive",
-        "restore": "Lucide/archive-restore",
-        "refresh": "Lucide/refresh-cw",
-        "restart": "Lucide/refresh-cw",
-        "play": "Lucide/play",
-        "select": "Lucide/list-checks",
-        "group": "Lucide/users",
-        "remove": "Lucide/package-minus",
-        "details": "Lucide/pencil",
-        "airplay": "Lucide/airplay",
     ]
 
     /// Studio's generic navigation icon.
