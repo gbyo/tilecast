@@ -310,10 +310,14 @@ export function useNativeActionMenu() {
         frame = window.requestAnimationFrame(publish);
       };
 
-      const resize = new ResizeObserver(schedule);
-      resize.observe(element);
-      const intersection = new IntersectionObserver(schedule);
-      intersection.observe(element);
+      const resize =
+        typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+      resize?.observe(element);
+      const intersection =
+        typeof IntersectionObserver === "undefined"
+          ? null
+          : new IntersectionObserver(schedule);
+      intersection?.observe(element);
       window.addEventListener("scroll", schedule, { capture: true, passive: true });
       window.addEventListener("resize", schedule, { passive: true });
       window.visualViewport?.addEventListener("scroll", schedule, {
@@ -326,8 +330,8 @@ export function useNativeActionMenu() {
 
       return () => {
         if (frame !== null) window.cancelAnimationFrame(frame);
-        resize.disconnect();
-        intersection.disconnect();
+        resize?.disconnect();
+        intersection?.disconnect();
         window.removeEventListener("scroll", schedule, { capture: true });
         window.removeEventListener("resize", schedule);
         window.visualViewport?.removeEventListener("scroll", schedule);
