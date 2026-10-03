@@ -54,7 +54,7 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
 | `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, temporary origin glue, and shared player-client exports.                                                  |
+| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client and origin adapter exports.                                                             |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
 | `tilecastd`             | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
@@ -65,11 +65,14 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 Shared types and durable state live in root `crates/player-types` and
 `crates/player-state`. Verified storage lives in `crates/player-cas`. Shared
-crates never depend on Edge. The latter owns the unchanged
+crates never depend on Edge. `player-state` owns the unchanged
 embedded migrations and Core-owned repositories. `edge-state::platform` owns
 historical Edge repositories; its temporary `repo` exports preserve Edge callers.
 `edge-protocol` depends on shared types. Only `tilecastd` combines the server
-client, content store, and state.
+client, content store, and state. `player-core` owns native selection, command
+idempotency, Activity session semantics, and the CAS origin adapter.
+Edge supplies fixed command handlers and its migration hold.
+Renderer signal adapters and outbox delivery remain in `tilecastd` in this stage.
 
 ```text
 edge-protocol

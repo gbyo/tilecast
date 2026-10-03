@@ -50,8 +50,10 @@ Presentation Model and Player Runtime. Generic native values are implemented in
 `crates/player-types`, and durable metadata in `crates/player-state`. Historical
 Edge repository APIs remain outside the shared crate. Verified storage lives in
 `crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
-its private file stores and Electron import. Remaining shared behavior
-is still in Edge. Edge retains
+its private file stores and Electron import. The Core foundation owns native
+selection, command idempotency, Activity sessions, and the CAS origin adapter.
+Renderer recovery and server reconciliation remain in Edge until their
+extraction stages. Edge retains
 its current process and security boundaries.
 
 The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
