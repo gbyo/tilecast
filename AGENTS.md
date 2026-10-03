@@ -102,7 +102,10 @@ Shared Player crates must never depend on Edge crates or Edge wire framing.
 Run `python3 scripts/ci/check-player-architecture.py` to check dependency direction.
 Preserve shipped SQLite migration bytes and all Edge security, offline, crash,
 update, and renderer isolation guarantees. Do not implement macOS or move behavior
-before the dedicated root Rust workspace migration.
+before the dedicated root Rust workspace migration is qualified. The workspace,
+lockfile, Rust toolchain, and formatter now live at the repository root. Use
+`make edge-check` and `make edge-test` for Edge-scoped Rust validation.
+Edge product version is `apps/edge/release/VERSION`.
 
 ## Server conventions
 

@@ -9,8 +9,8 @@ it, stop and write the complete tradeoff first.
 Read [`docs/player-core.md`](../../docs/player-core.md) for native Player
 ownership and extraction order. It supplements the Linux architecture without
 changing process, privilege, wire, persistence, or update guarantees. Shared
-Rust crates are not yet implemented. Do not move behavior before the dedicated
-root Cargo workspace migration.
+Rust crates are not yet implemented. The root Cargo workspace migration is
+implemented. Shared behavior extraction starts after its qualification.
 
 ## Fixed decisions
 
@@ -108,9 +108,12 @@ The ones most often relevant here:
 
 ## Engineering conventions
 
-- Rust 1.98, edition 2024, workspace lints. `unsafe_code` is denied.
-- Format with `cargo fmt` (`max_width = 120`). Run
-  `cargo clippy --workspace --all-targets -- -D warnings`.
+- Rust 1.98, edition 2024, root workspace lints. `unsafe_code` is denied.
+- Format with `cargo fmt` (`max_width = 120`). Run `make edge-check` and
+  `make edge-test` from the repository root. These select Edge packages.
+  `--workspace` also includes future native products.
+- Edge release version is `apps/edge/release/VERSION`. Do not read it from
+  root package metadata. Keep one root lockfile and toolchain.
 - Keep the dependency direction in [`README.md`](README.md).
 - Shared Player crates must not depend on Edge or its wire layer. Run
   `python3 scripts/ci/check-player-architecture.py` from the repository root.
