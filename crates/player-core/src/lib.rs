@@ -3,6 +3,7 @@ mod activity;
 mod commands;
 mod origin;
 mod renderer_document;
+mod renderer_port;
 mod renderer_profile;
 mod renderer_resources;
 mod schedule;
@@ -22,6 +23,10 @@ pub use renderer_document::{
     ContentRef as VerifiedContentRef, ItemKind as RendererItemKind, PreparedDocumentError,
     PresentationDocument as PreparedDocument, PresentationFeature as RequiredRendererFeature,
     PresentationItem as PreparedItem, StatusSurface as PreparedSurface,
+};
+pub use renderer_port::{
+    CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererConfiguration,
+    RendererPort, RendererPortError, SemanticRendererCommand,
 };
 pub use renderer_profile::{
     ConnectedRendererProfile, PackagedRendererProfile, RendererProfileError, RendererProfileMismatch,

@@ -142,7 +142,10 @@ object bindings for Runtime data. Edge does not consume these types yet.
 Separate packaged and connected profiles check host features, presentation
 schemas, declarative capabilities, and Widget component versions.
 Release support does not replace a missing session advertisement.
-The RendererPort and its Edge adapter remain required work.
+The RendererPort interface defines semantic operations and immutable prepared
+activations. Edge uses Core checks for decoded capture dimensions, size, and
+JPEG signature. Transport decoding stays in Edge.
+The port's Edge adapter and shared coordination remain required work.
 This groundwork does not complete the renderer extraction gate.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
