@@ -3,6 +3,7 @@ import { useNativeHost } from "./NativeHostProvider";
 import type {
   ActionMenuDescriptor,
   ActionMenuGroup as WireGroup,
+  ActionMenuTriggerRect,
 } from "./protocol";
 
 /** One action Studio offers. The callback never crosses the bridge. */
@@ -23,11 +24,8 @@ export type NativeMenuGroup = {
 };
 
 export type NativeActionMenuResult =
-  /** The host cannot show a menu: Studio shows its own web menu. */
   | { outcome: "unavailable" }
-  /** The user dismissed the native menu without choosing. */
   | { outcome: "dismissed" }
-  /** The user chose an action. */
   | { outcome: "action"; actionId: string };
 
 type PendingAction = { disabled: boolean; onSelect: () => void };
@@ -73,32 +71,42 @@ function toDescriptor(
   return { descriptor: { menuId, label, groups: wire }, actions };
 }
 
+const rounded = (value: number) => Math.round(value * 10_000) / 10_000;
+
+/** Visible part of an element, normalized to the current visual viewport. */
+function normalizedTriggerRect(element: HTMLElement): ActionMenuTriggerRect | null {
+  const bounds = element.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  const viewportLeft = viewport?.offsetLeft ?? 0;
+  const viewportTop = viewport?.offsetTop ?? 0;
+  const viewportWidth = viewport?.width ?? window.innerWidth;
+  const viewportHeight = viewport?.height ?? window.innerHeight;
+  if (viewportWidth <= 0 || viewportHeight <= 0) return null;
+
+  const left = Math.max(bounds.left, viewportLeft);
+  const top = Math.max(bounds.top, viewportTop);
+  const right = Math.min(bounds.right, viewportLeft + viewportWidth);
+  const bottom = Math.min(bounds.bottom, viewportTop + viewportHeight);
+  if (right <= left || bottom <= top) return null;
+
+  return {
+    x: rounded((left - viewportLeft) / viewportWidth),
+    y: rounded((top - viewportTop) / viewportHeight),
+    width: rounded((right - left) / viewportWidth),
+    height: rounded((bottom - top) / viewportHeight),
+  };
+}
+
 /**
- * Shows a native action menu when the host offers one. Studio keeps the
- * callbacks; the host renders a generic descriptor and reports the chosen
- * opaque action id.
- *
- * present shows a menu at once and resolves with what happened: the
- * chosen action (whose callback has already run), a dismissal, or
- * unavailable, in which case the caller shows its own web menu, which
- * stays the permanent browser path.
- *
- * arm stores a menu for a long press and returns a disarm function, or
- * null when there is no native menu to arm. The returned disarm tells the
- * host to forget the menu; a choice from a menu a long press already
- * built still reaches its callback, because the host answers from what
- * it shows. Each arm supersedes the previous one from this hook.
- *
- * If the component unmounts first, owned menus are withdrawn and a
- * pending present resolves as dismissed. A late response for a menu this
- * hook no longer owns does nothing, so a response for menu A can never
- * execute an action from menu B.
+ * Owns native action menus for one Studio component. Callbacks always stay
+ * in React; the host sees only generic menu descriptors and opaque ids.
  */
 export function useNativeActionMenu() {
   const host = useNativeHost();
   const hostRef = useRef(host);
   hostRef.current = host;
   const pending = useRef(new Map<string, PendingMenu>());
+  const triggerActions = useRef(new Map<string, Map<string, PendingAction>>());
   const armed = useRef<string | null>(null);
   const available =
     host.status === "ready" && host.capabilities.nativeActionMenus;
@@ -109,11 +117,18 @@ export function useNativeActionMenu() {
       "action-menu/action",
       ({ menuId, actionId }) => {
         const entry = pending.current.get(menuId);
-        const action = entry?.actions.get(actionId);
-        if (!entry || !action || action.disabled) return false;
-        pending.current.delete(menuId);
-        if (armed.current === menuId) armed.current = null;
-        entry.settle(actionId);
+        const pendingAction = entry?.actions.get(actionId);
+        if (entry && pendingAction && !pendingAction.disabled) {
+          pending.current.delete(menuId);
+          if (armed.current === menuId) armed.current = null;
+          entry.settle(actionId);
+          return true;
+        }
+
+        const registered = triggerActions.current.get(menuId);
+        const triggerAction = registered?.get(actionId);
+        if (!triggerAction || triggerAction.disabled) return false;
+        triggerAction.onSelect();
         return true;
       },
     );
@@ -136,16 +151,26 @@ export function useNativeActionMenu() {
 
   useEffect(() => {
     const owned = pending.current;
+    const triggers = triggerActions.current;
     return () => {
       for (const [menuId, entry] of owned) {
         void hostRef.current.send("action-menu/disarm", { menuId });
         entry.settle(null);
       }
+      for (const menuId of triggers.keys()) {
+        void hostRef.current.send("action-menu/unregister-trigger", { menuId });
+      }
       owned.clear();
+      triggers.clear();
       armed.current = null;
     };
   }, []);
 
+  /**
+   * Legacy immediate presentation. New Tilecast iOS hosts intentionally
+   * refuse this so Studio falls back to its web dropdown; anchored triggers
+   * use registerTrigger instead.
+   */
   const present = useCallback(
     async (
       label: string,
@@ -225,14 +250,98 @@ export function useNativeActionMenu() {
       return () => {
         if (armed.current !== menuId) return;
         armed.current = null;
-        // The entry stays: a choice from a menu a long press already
-        // built still counts. A newer arm, an answer, or unmount clears
-        // it, and the host never reports a menu it does not show.
         void hostRef.current.send("action-menu/disarm", { menuId });
       };
     },
     [],
   );
 
-  return { present, arm };
+  /**
+   * Registers an HTML action trigger as an invisible native Menu anchor.
+   * Only the trigger's visible viewport rectangle crosses the bridge. The
+   * HTML button remains the visual source, while SwiftUI owns hit testing
+   * and native menu presentation inside that rectangle.
+   */
+  const registerTrigger = useCallback(
+    (
+      label: string,
+      groups: NativeMenuGroup[],
+      element: HTMLElement,
+    ): (() => void) | null => {
+      const current = hostRef.current;
+      if (
+        current.status !== "ready" ||
+        !current.capabilities.nativeActionMenuAnchors
+      ) {
+        return null;
+      }
+      const menuId = newMenuId();
+      const { descriptor, actions } = toDescriptor(menuId, label, groups);
+      if (descriptor.groups.length === 0) return null;
+      triggerActions.current.set(menuId, actions);
+
+      let registered = false;
+      let lastPayload = "";
+      let frame: number | null = null;
+
+      const publish = () => {
+        frame = null;
+        const rect = normalizedTriggerRect(element);
+        if (!rect) {
+          if (registered) {
+            registered = false;
+            lastPayload = "";
+            void hostRef.current.send("action-menu/unregister-trigger", {
+              menuId,
+            });
+          }
+          return;
+        }
+        const payload = { ...descriptor, rect };
+        const serialized = JSON.stringify(payload);
+        if (serialized === lastPayload) return;
+        lastPayload = serialized;
+        registered = true;
+        void hostRef.current.send("action-menu/register-trigger", payload);
+      };
+
+      const schedule = () => {
+        if (frame !== null) return;
+        frame = window.requestAnimationFrame(publish);
+      };
+
+      const resize = new ResizeObserver(schedule);
+      resize.observe(element);
+      const intersection = new IntersectionObserver(schedule);
+      intersection.observe(element);
+      window.addEventListener("scroll", schedule, { capture: true, passive: true });
+      window.addEventListener("resize", schedule, { passive: true });
+      window.visualViewport?.addEventListener("scroll", schedule, {
+        passive: true,
+      });
+      window.visualViewport?.addEventListener("resize", schedule, {
+        passive: true,
+      });
+      publish();
+
+      return () => {
+        if (frame !== null) window.cancelAnimationFrame(frame);
+        resize.disconnect();
+        intersection.disconnect();
+        window.removeEventListener("scroll", schedule, { capture: true });
+        window.removeEventListener("resize", schedule);
+        window.visualViewport?.removeEventListener("scroll", schedule);
+        window.visualViewport?.removeEventListener("resize", schedule);
+        triggerActions.current.delete(menuId);
+        if (registered) {
+          void hostRef.current.send("action-menu/unregister-trigger", {
+            menuId,
+          });
+        }
+      };
+    },
+    [],
+  );
+
+  return { present, arm, registerTrigger };
 }
