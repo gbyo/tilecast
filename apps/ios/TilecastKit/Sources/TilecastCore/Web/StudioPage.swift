@@ -268,8 +268,10 @@ public final class StudioPage {
                         bridge.mainFrameNavigationStarted()
                     case .committed:
                         bridge.mainFrameCommitted()
-                        phase = .ready
                     case .finished:
+                        // Keep the native loading cover in place until WebKit
+                        // has actually finished the document. A committed
+                        // response can still be blank or partially painted.
                         phase = .ready
                     default:
                         break
