@@ -222,6 +222,7 @@ export default defineConfig({
             },
             { slug: "players/update-a-player" },
             { slug: "players/capabilities" },
+            { slug: "players/apple-tv" },
           ],
         },
         {

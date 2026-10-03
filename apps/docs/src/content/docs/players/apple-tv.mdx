@@ -1,0 +1,69 @@
+---
+title: Apple TV support
+description: Tilecast Player doesn't run on Apple TV. This page explains the tvOS limit behind that and what a future Apple TV Player would involve.
+---
+
+Tilecast Player doesn't run on Apple TV. There is no tvOS app, and an Apple TV can't be used as a Tilecast screen today.
+
+The reason is technical. Tilecast Player shows content in a web view, which is a browser built into an app, and tvOS doesn't provide one for apps to use.
+
+## Players that are available
+
+Tilecast Player runs on Android TV, Google TV, and Fire TV devices as an APK, and on 64-bit x86_64 Linux computers as an AppImage. [Tilecast Edge](../../edge/) is a preview of the next Linux Player and isn't qualified for production screens yet.
+
+The [Player capability matrix](../capabilities/) compares them. Apple devices still work with Tilecast in other ways: an iPhone, iPad, or Mac can send its screen to a supported Linux Player with [AirPlay Present](../../operations/airplay-present/).
+
+## Why Tilecast Player needs a web view
+
+Every Tilecast Player is an app wrapped around the same web code. That code draws the images, video, Layouts, transitions, and Widgets on the screen. The app around it handles pairing, the connection to your server, and downloading content.
+
+Each Player runs that web code in a web view. The Linux Player uses Electron, and Tilecast Edge uses WPE WebKit. The Android Player is moving to the same code in an Android WebView.
+
+Because every screen draws content with the same code, a fix to the Weather Widget reaches every Player. Plugin authors write one Widget, not one for each platform.
+
+Apple's design guidelines list web views as [not supported on tvOS](https://developer.apple.com/design/human-interface-guidelines/web-views), so an Apple TV app has no browser to run that code in. Apple has focused tvOS on native apps built with SwiftUI.
+
+## Other options on tvOS
+
+Apple provides other ways to build an Apple TV app. None of them can stand in for a web view.
+
+- **TVML.** A markup language for simple Apple TV apps. It isn't HTML, so it can't run Tilecast's web code, and Apple [deprecated it in tvOS 18](https://developer.apple.com/videos/play/wwdc2024/10207/) in favor of SwiftUI.
+- **JavaScriptCore.** Apple's JavaScript engine. It runs JavaScript, but it doesn't draw web pages. It has no page layout and no video element, so Tilecast would have to build those itself.
+- **Rewriting each Widget in Swift.** Swift is Apple's programming language for apps. This is possible, but every Widget, including plugin Widgets, would exist twice: once as web code and once in Swift. The two copies would need to stay identical.
+
+## What tvOS supports
+
+The parts of a Player that don't need a web view all have tvOS support:
+
+- Video, through Apple's AVFoundation framework, and images.
+- Local storage for downloaded content, so a screen could keep playing offline. The app would need its own content store, kept outside the folders tvOS can purge.
+- Server discovery with Bonjour, Apple's local network discovery. Pairing and credentials would use the same Player protocol as the other Players.
+- Managed kiosks. Apple documents [Single App Mode](https://support.apple.com/guide/deployment/deploy-apple-tv-dep027e1d5a0/web) for supervised Apple TVs, set up through mobile device management (MDM) and Automated Device Enrollment. It keeps one app in the foreground, which suits a signage screen.
+
+## What a native Player couldn't do
+
+A native tvOS Player could show images, video, and Layouts. These features need a web view or an API that tvOS doesn't offer:
+
+| Feature                    | Reason                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Website content            | A Website App loads a live web page, which needs a web view.                                                                                               |
+| YouTube                    | Tilecast plays YouTube in YouTube's embedded web player, which needs a web view. Tilecast hasn't found a Google-supported native YouTube player for tvOS.  |
+| Widgets and plugin Widgets | Widgets are made of web code, so they need a web view.                                                                                                     |
+| Display Control            | An Apple TV uses HDMI-CEC itself, but Tilecast hasn't found a public tvOS API that lets an app send CEC commands, so Display Control would be unavailable. |
+| Tilecast Player Updates    | tvOS apps update through the App Store, Apple Business Manager Custom Apps, or MDM. Tilecast Player wouldn't download and install its own updates.         |
+
+## Approaches for Apple TV support
+
+Tilecast has no Apple TV Player today. Three approaches fit how Tilecast is built. None is settled, and each involves a trade-off:
+
+1. **Native Swift for each Widget.** The quickest route. Every Widget would exist twice, which is what the shared web code avoids.
+2. **A partial Player.** Tilecast already has a simpler way to describe some Widgets as arrangements of text, images, and charts, with no web code. A tvOS Player could support only those Widgets, plus images, video, and Layouts. Tilecast checks what a Player reports it can show before it sends content, so content the Player can't show is refused and the screen isn't left blank. This simpler format isn't the long-term Widget design, so the approach is a stopgap.
+3. **A shared description of content.** Widgets would describe what to show in a form that both a web view and a native tvOS app can draw. This changes how every Widget is built, so it is a larger project than a new Player.
+
+Website content and YouTube need a web view, so none of these approaches would bring them to tvOS. The one way around that is to render pages on a server and stream them to the screen, which would make those items depend on the network.
+
+## Contributing
+
+Tilecast is open source, and Apple TV support is the kind of work that benefits from outside input. A tvOS Player would change how Widgets are built, so a conversation before any code is useful. If you have tvOS experience, a managed Apple TV fleet to test on, or a view on which approach fits best, [open an issue on GitHub](https://github.com/gbyo/tilecast/issues) to start the discussion.
+
+To work on Tilecast itself, see the [developer guide](../../developers/) and the [contributing guide](https://github.com/gbyo/tilecast/blob/main/CONTRIBUTING.md).
