@@ -24,16 +24,12 @@ pub fn evidence(kind: EvidenceKind) -> player_core::ProgressEvidence {
 }
 
 pub fn expectation_for(kind: ItemKind) -> Expectation {
-    use player_core::RendererItemKind as Semantic;
-    let kind = match kind {
-        ItemKind::Image => Semantic::Image,
-        ItemKind::Video => Semantic::Video,
-        ItemKind::Website => Semantic::Website,
-        ItemKind::Widget => Semantic::Widget,
-        ItemKind::Layout => Semantic::Layout,
-        ItemKind::Youtube => Semantic::Youtube,
-    };
-    Expectation::for_item(kind)
+    match kind {
+        ItemKind::Image => Expectation::Still,
+        ItemKind::Video => Expectation::Video,
+        ItemKind::Website | ItemKind::Widget | ItemKind::Youtube => Expectation::Website,
+        ItemKind::Layout => Expectation::Layout,
+    }
 }
 
 pub fn is_meaningful(kind: EvidenceKind, expectation: Expectation) -> bool {

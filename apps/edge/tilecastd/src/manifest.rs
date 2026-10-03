@@ -95,15 +95,6 @@ pub mod profile {
     /// Presentation schemas the runtime renders: 1 (declarative and web)
     /// and 2 (first-class Widget components, docs/widgets-v2.md).
     pub const PRESENTATION_SCHEMAS: &[u32] = &[1, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
-
-    /// Declarative capabilities and `widget.<type>` components, as reported.
-    pub fn native_capability(name: &str) -> u32 {
-        NATIVE_CAPABILITIES
-            .iter()
-            .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
-            .find(|(id, _)| *id == name)
-            .map_or(0, |(_, version)| *version)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -449,6 +440,7 @@ pub fn span_viewport(document: &Value) -> Result<Option<Value>, Incompatibility>
 }
 
 pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibility> {
+    let packaged = crate::renderer_adapter::packaged_profile();
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
         if !out.contains(&reason) {
@@ -472,13 +464,19 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             }
             if let Some(required) = presentation.get("requiredCapabilities").and_then(Value::as_object) {
                 for (name, version) in required {
-                    let version = version.as_u64().unwrap_or(u64::MAX);
-                    let supported = if name == "web.remote" {
-                        profile::WEB_RUNTIME_VERSION
-                    } else {
-                        profile::native_capability(name)
-                    };
-                    if version > u64::from(supported) {
+                    let requirement = version
+                        .as_u64()
+                        .and_then(|v| u32::try_from(v).ok())
+                        .filter(|v| *v > 0)
+                        .zip(ShortToken::new(name).ok())
+                        .map(|(version, name)| {
+                            if name.as_str().starts_with("widget.") {
+                                player_core::RendererRequirement::WidgetComponent { name, version }
+                            } else {
+                                player_core::RendererRequirement::Declarative { name, version }
+                            }
+                        });
+                    if requirement.as_ref().is_none_or(|required| packaged.check(required).is_err()) {
                         push(Incompatibility::WidgetCapability(name.chars().take(64).collect()));
                     }
                 }
@@ -1733,7 +1731,14 @@ mod tests {
             assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         }
         // The daemon advertises exactly what the bundled runtime renders.
-        assert_eq!(profile::native_capability("widget.tilecast.clock"), 2);
+        assert!(
+            crate::renderer_adapter::packaged_profile()
+                .check(&player_core::RendererRequirement::WidgetComponent {
+                    name: ShortToken::new("widget.tilecast.clock").unwrap(),
+                    version: 2,
+                })
+                .is_ok()
+        );
         assert!(profile::PRESENTATION_SCHEMAS.contains(&2));
         for (kind, version) in [("tilecast.clock", 3), ("tilecast.hologram", 1)] {
             value["widgets"] = component(kind, version);
@@ -1869,7 +1874,14 @@ mod tests {
                     "format": "time:24:false:UTC"}}}}}]);
         let candidate = parse(value).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
-        assert_eq!(profile::native_capability("environment.time"), 1);
+        assert!(
+            crate::renderer_adapter::packaged_profile()
+                .check(&player_core::RendererRequirement::Declarative {
+                    name: ShortToken::new("environment.time").unwrap(),
+                    version: 1,
+                })
+                .is_ok()
+        );
     }
 
     #[test]

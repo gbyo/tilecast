@@ -203,8 +203,8 @@
       if (lastPlugins) listener(lastPlugins);
       return () => listeners.delete(listener);
     },
-    ready() {
-      post({ type: "runtime.ready" });
+    ready(ready) {
+      post({ type: "runtime.ready", support: ready?.support });
     },
     presentationResult(result) {
       if (!result.activation || !sameActivation(result.activation, current))

@@ -1,6 +1,5 @@
 //! Shared renderer recovery policy. Hosts execute the selected semantic action.
 //! Connection and process liveness never substitute for meaningful evidence.
-use crate::renderer_document::ItemKind;
 
 /// Semantic Runtime evidence, independent of host message encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -139,17 +138,6 @@ pub enum Expectation {
     Layout,
     /// Status surfaces and anything with no richer signal.
     Indefinite,
-}
-
-impl Expectation {
-    pub fn for_item(kind: ItemKind) -> Self {
-        match kind {
-            ItemKind::Video => Self::Video,
-            ItemKind::Image => Self::Still,
-            ItemKind::Website | ItemKind::Youtube | ItemKind::Widget => Self::Website,
-            ItemKind::Layout => Self::Layout,
-        }
-    }
 }
 
 /// Whether `kind` is meaningful progress for content with `expectation`.

@@ -1,11 +1,9 @@
 //! Edge request and decode adapter for the shared semantic capture broker.
 use base64::Engine as _;
 use edge_protocol::ipc::event::PreviewOutcome;
-use edge_protocol::ipc::presentation::PresentationDocument;
-use player_core::{CaptureError, CaptureState, CapturedFrame, RendererCaptureRequest, RendererPortError};
+use player_core::{CaptureError, CapturedFrame, RendererCaptureRequest, RendererPortError};
 
 use crate::daemon::DaemonContext;
-use crate::presentation::ActivationSource;
 
 #[derive(Debug, Default)]
 pub struct CaptureBroker(player_core::CaptureBroker);
@@ -14,19 +12,6 @@ impl CaptureBroker {
     /// Wire decoding stays in Edge and runs only for a pending capture.
     pub fn complete(&self, id: uuid::Uuid, outcome: PreviewOutcome) {
         self.0.complete_with(id, move |request| decode(request, outcome));
-    }
-
-    pub async fn capture(
-        &self,
-        context: &DaemonContext,
-        max_width: u32,
-        max_height: u32,
-        max_bytes: u32,
-    ) -> Result<(Vec<u8>, u32, u32), &'static str> {
-        let frame =
-            self.capture_frame(context, max_width, max_height, max_bytes).await.map_err(CaptureError::reason_code)?;
-        let (width, height) = frame.dimensions();
-        Ok((frame.into_jpeg(), width, height))
     }
 
     pub(crate) async fn capture_frame(
@@ -40,7 +25,7 @@ impl CaptureBroker {
             .capture(max_width, max_height, max_bytes, |request| async move {
                 let engine = context.presentation.lock().await;
                 let current = engine.current().ok_or(CaptureError::NothingShown)?;
-                capture_state(&current.document).check(current.source == ActivationSource::SafeMode)?;
+                current.renderer_metadata.capture_state.check(false)?;
                 if !engine.request_preview(request.request_id, request.max_width, request.max_height, request.max_bytes)
                 {
                     return Err(CaptureError::RendererNotReady);
@@ -69,19 +54,6 @@ fn capture_error(error: RendererPortError) -> CaptureError {
         RendererPortError::CaptureOutOfBounds => CaptureError::OutOfBounds,
         _ => CaptureError::Invalid,
     }
-}
-
-fn capture_state(document: &PresentationDocument) -> CaptureState {
-    match document {
-        PresentationDocument::Setup {} => CaptureState::Setup,
-        PresentationDocument::Pairing { .. } => CaptureState::Pairing,
-        PresentationDocument::SafeMode { .. } => CaptureState::SafeMode,
-        _ => CaptureState::Presentation,
-    }
-}
-
-pub fn protected(source: ActivationSource, document: &PresentationDocument) -> bool {
-    capture_state(document).check(source == ActivationSource::SafeMode).is_err()
 }
 
 #[cfg(test)]

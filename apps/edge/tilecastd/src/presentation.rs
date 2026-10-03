@@ -108,6 +108,7 @@ pub struct Activation {
     /// activations.
     pub identity: Option<PlaybackIdentity>,
     pub document: PresentationDocument,
+    pub renderer_metadata: player_core::RendererMetadata,
     pub content: Vec<ContentRef>,
     pub timing: Option<SyncTiming>,
     pub source: ActivationSource,
@@ -141,12 +142,7 @@ impl Activation {
     }
 
     fn expectation_for(&self, item_id: Option<&str>) -> Expectation {
-        match &self.document {
-            PresentationDocument::Playing { items, .. } => item_id
-                .and_then(|id| items.iter().find(|item| item.id.as_str() == id))
-                .map_or(Expectation::Indefinite, |item| crate::supervisor::expectation_for(item.kind)),
-            _ => Expectation::Indefinite,
-        }
+        self.renderer_metadata.expectation_for(item_id)
     }
 }
 
@@ -185,6 +181,7 @@ impl RendererLink {
 pub struct PresentationEngine {
     configure: RendererConfigure,
     media_registry: Arc<Mutex<MediaRegistry>>,
+    clock: edge_protocol::time::SharedClock,
     next_generation: u64,
     current: Option<Activation>,
     renderer: Option<RendererLink>,
@@ -206,6 +203,7 @@ impl PresentationEngine {
         media_registry: Arc<Mutex<MediaRegistry>>,
         kiosk: KioskPolicy,
         supervisor_config: SupervisorConfig,
+        clock: edge_protocol::time::SharedClock,
         now_ms: i64,
     ) -> Self {
         let configure = RendererConfigure {
@@ -218,6 +216,7 @@ impl PresentationEngine {
         Self {
             configure,
             media_registry,
+            clock,
             next_generation: 1,
             current: None,
             renderer: None,
@@ -289,11 +288,13 @@ impl PresentationEngine {
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
         validate_content_references(&document, &content)?;
+        let renderer_metadata = crate::renderer_adapter::metadata(&document, source, extras.projection.as_ref())?;
         let activation = Activation {
             id: ActivationId::from_uuid(uuid::Uuid::new_v4()),
             generation: self.next_generation,
             identity,
             document,
+            renderer_metadata,
             content,
             timing,
             source,
@@ -316,7 +317,7 @@ impl PresentationEngine {
         }
         self.current = Some(activation);
         self.supervisor.reset_clock(now_ms);
-        self.push_current(now_ms);
+        self.push_current();
         Ok(reference)
     }
 
@@ -344,9 +345,10 @@ impl PresentationEngine {
 
     pub fn current_has_activation_evidence(&self) -> bool {
         let Some(current) = self.current.as_ref() else { return false };
-        match &current.document {
-            PresentationDocument::Playing { items, .. } if !items.is_empty() => self.tracking.content_progress(),
-            _ => self.tracking.meaningful(),
+        if current.renderer_metadata.requires_content_evidence {
+            self.tracking.content_progress()
+        } else {
+            self.tracking.meaningful()
         }
     }
 
@@ -375,11 +377,9 @@ impl PresentationEngine {
             session.clone(),
             self.configure.media_channel.clone(),
             self.media_registry.clone(),
+            self.clock.clone(),
         );
-        let _ = port.configure(player_core::RendererConfiguration {
-            prevent_display_sleep: self.configure.kiosk.prevent_display_sleep,
-            hide_cursor: self.configure.kiosk.hide_cursor,
-        });
+        let _ = port.configure(&self.configure.kiosk);
         self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
         self.tracking.connected(connection);
         self.supervisor.reset_clock(now_ms);
@@ -396,7 +396,7 @@ impl PresentationEngine {
         self.renderer.as_mut().filter(|link| link.session.id() == session.id())
     }
 
-    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady, now_ms: i64) {
+    pub fn renderer_ready(&mut self, session: &SessionHandle, ready: RendererReady, _now_ms: i64) {
         let Some(link) = self.link_for(session) else {
             return;
         };
@@ -407,7 +407,7 @@ impl PresentationEngine {
             features = ready.features.len()
         );
         link.ready = Some(ready);
-        self.push_current(now_ms);
+        self.push_current();
     }
 
     pub fn accepted(&mut self, session: &SessionHandle, activation: ActivationRef) {
@@ -544,7 +544,7 @@ impl PresentationEngine {
         }
     }
 
-    fn push_current(&mut self, now_ms: i64) {
+    fn push_current(&mut self) {
         let Some((session, ready)) = self
             .renderer
             .as_ref()
@@ -553,11 +553,36 @@ impl PresentationEngine {
             return;
         };
         let Some(current) = self.current.clone() else { return };
-        let offered: BTreeSet<&str> = ready.features.iter().map(ShortToken::as_str).collect();
-        let missing: Vec<&str> =
-            current.document.required_features().into_iter().filter(|f| !offered.contains(f)).collect();
+        let semantic = match crate::renderer_adapter::prepare(&current, self.clock_offset_ms) {
+            Ok(semantic) => semantic,
+            Err(error) => {
+                tracing::error!(component = "media", event = "invalid_prepared_activation", error = %error);
+                return;
+            }
+        };
+        let packaged = crate::renderer_adapter::packaged_profile();
+        let connected = crate::renderer_adapter::connected_profile(&ready);
+        let incompatible = semantic.incompatibilities(&packaged, &connected);
+        let missing: Vec<String> = incompatible
+            .iter()
+            .map(|(requirement, _)| match requirement {
+                player_core::RendererRequirement::Feature(name) => name.as_str().to_owned(),
+                player_core::RendererRequirement::PresentationSchema(version) => {
+                    format!("presentation schema {version}")
+                }
+                player_core::RendererRequirement::Declarative { name, version }
+                | player_core::RendererRequirement::WidgetComponent { name, version } => {
+                    format!("{name} version {version}")
+                }
+            })
+            .collect();
         if !missing.is_empty() {
-            let reason = format!("This display engine does not support: {}.", missing.join(", "));
+            let reason =
+                if incompatible.iter().any(|(_, source)| *source == player_core::RendererProfileMismatch::Packaged) {
+                    format!("This Player release does not support: {}.", missing.join(", "))
+                } else {
+                    format!("This display engine does not support: {}.", missing.join(", "))
+                };
             tracing::warn!(component = "presentation", event = "presentation_incompatible", missing = %missing.join(","));
             self.incompatible_reason = Some(reason);
             let fallback = PresentationDocument::Unavailable(StatusSurface {
@@ -575,15 +600,8 @@ impl PresentationEngine {
         }
         self.incompatible_reason = None;
 
-        let semantic = match crate::renderer_adapter::prepare(&current, self.clock_offset_ms) {
-            Ok(semantic) => semantic,
-            Err(error) => {
-                tracing::error!(component = "media", event = "invalid_prepared_activation", error = %error);
-                return;
-            }
-        };
         if let Some(link) = self.renderer.as_ref().filter(|link| link.session.id() == session.id())
-            && let Err(error) = link.port().activate(&semantic, now_ms)
+            && let Err(error) = link.port().activate(&semantic)
         {
             tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
         }

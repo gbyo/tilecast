@@ -29,9 +29,11 @@ The foundation does not claim to implement the complete native lifecycle.
 
 ## Renderer contract groundwork
 
-The draft renderer extraction adds semantic prepared-document types.
-`Resource::Object` identifies a verified object by digest.
-`RuntimePayload` holds Runtime data with separate object bindings.
+Prepared activations carry opaque, bounded Runtime presentation data.
+`RuntimePayload` holds that data with separate verified-object bindings.
+Core does not model transitions, fit, Website options, Widget visuals, Layout
+properties, or status styling. Projection supplies explicit renderer requirements,
+evidence expectations, and capture protection metadata.
 Binding locations contain empty strings until the host resolves them.
 The host chooses its resource transport for the valid generation.
 The types reject invalid bindings, oversized data, and unlisted objects.
@@ -40,7 +42,7 @@ Separate packaged and connected profiles check host features, presentation
 schemas, declarative capabilities, and Widget component versions.
 Release support cannot replace a missing session advertisement.
 
-`RendererPort` defines semantic configure, activate, clear, command, capture,
+`RendererPort` defines semantic activate, clear, command, capture,
 and restart operations. Prepared activations are immutable and check object
 membership in both documents and Runtime context.
 Edge uses the shared decoded-capture dimensions, size, and JPEG signature checks.
@@ -51,16 +53,21 @@ It owns protected-state checks, the ten-second timeout, and request cleanup.
 Edge decodes only requested replies on the capture caller's task.
 Core owns periodic preview leases, capture cadence, uploads, fault suspension,
 and capability policy. Hosts supply captures, time, and their provider identity.
-Watch Live lease and frame coordination still remain in Edge.
+Core also owns Watch Live leases, capture cadence, frame replacement, and
+post-capture lease and protected-state checks. Edge owns socket delivery and
+checks protection again before sending a frame.
 
 Edge now routes prepared activations through its RendererPort adapter.
 A temporary Edge projection bridge removes resource URLs before the port call.
 Resource encoding, IPC, and media grants stay in Edge.
 The port owns its renderer endpoint and the session's cached generation grants.
 The activation coordinator does not assemble media capabilities.
-Profile adoption, activation policy, recovery coordination, and Watch Live
-extraction remain incomplete.
-The existing Edge implementation remains active until those consumers move.
+Edge owns its media-expiry clock, display-sleep policy, and cursor configuration.
+Runtime readiness supplies live schema and declarative support plus discovered
+Widget versions. WPE forwards those namespaces alongside its host features.
+Edge checks both packaged and connected profiles before activation.
+Activation coordination and recovery timers still remain in Edge.
+Stage 8 remains incomplete until that work and selected qualification pass.
 
 Run `make player-check` and `make player-test` from the repository root.
 The shared suite runs on Ubuntu and macOS.

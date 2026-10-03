@@ -101,7 +101,9 @@ The Core foundation owns native selection, command delivery, and Activity
 sessions in `crates/player-core`. Core also owns the renderer recovery ladder
 and meaningful-evidence rules, with connection-bound acceptance and evidence
 tracking. Edge executes renderer actions through its port
-adapter. Core also owns capture serialization and periodic preview policy.
+adapter. Core also owns capture serialization, periodic preview policy, and
+Watch Live lease and frame coordination. Runtime presentation data stays opaque
+to Core, with explicit resource, compatibility, and evidence metadata.
 Activation coordination and server reconciliation remain in Edge
 until their extraction stages.
 

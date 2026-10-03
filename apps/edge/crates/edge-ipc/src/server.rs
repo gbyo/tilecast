@@ -31,7 +31,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::SessionId;
-use edge_protocol::ipc::event::Event;
+use edge_protocol::ipc::event::{ActivationRef, Event, ProjectionContext, RendererMediaRef, SyncTiming};
 use edge_protocol::ipc::message::{
     ErrorBody, EventFrame, Frame, Goodbye, Hello, MessageError, RejectCode, Rejected, Response, Welcome,
 };
@@ -45,7 +45,7 @@ use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::io::{IoError, read_frame, read_payload, write_frame};
+use crate::io::{IoError, read_frame, read_payload, write_frame, write_payload};
 
 pub const OUTBOUND_QUEUE_FRAMES: usize = 256;
 pub const MAX_TILECASTCTL_SESSIONS: usize = 8;
@@ -99,10 +99,17 @@ pub enum SendError {
     Closed,
     #[error("event is not sent in this direction or to this role")]
     NotPermitted,
+    #[error("renderer presentation exceeds the frame bound")]
+    TooLarge,
+}
+
+enum OutboundFrame {
+    Message(Frame),
+    Presentation(Vec<u8>),
 }
 
 struct Outbound {
-    sender: mpsc::Sender<Frame>,
+    sender: mpsc::Sender<OutboundFrame>,
     next_seq: u64,
 }
 
@@ -171,7 +178,40 @@ impl SessionHandle {
         }
         let mut outbound = self.inner.outbound.lock().unwrap_or_else(|p| p.into_inner());
         let seq = outbound.next_seq;
-        match outbound.sender.try_send(Frame::Event(EventFrame { seq, event })) {
+        match outbound.sender.try_send(OutboundFrame::Message(Frame::Event(EventFrame { seq, event }))) {
+            Ok(()) => {
+                outbound.next_seq += 1;
+                Ok(())
+            }
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                drop(outbound);
+                self.close("backpressure");
+                Err(SendError::Closed)
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => Err(SendError::Closed),
+        }
+    }
+
+    /// Forward a prepared Runtime document in the existing activation event.
+    /// Visual fields remain opaque; role, sequence, frame bounds and queue
+    /// backpressure stay under this transport.
+    pub fn send_presentation(
+        &self,
+        reference: ActivationRef,
+        presentation: Value,
+        content: Vec<RendererMediaRef>,
+        timing: Option<SyncTiming>,
+        projection: Option<ProjectionContext>,
+    ) -> Result<(), SendError> {
+        if self.inner.role != Role::Renderer {
+            return Err(SendError::NotPermitted);
+        }
+        let mut outbound = self.inner.outbound.lock().unwrap_or_else(|p| p.into_inner());
+        let payload = presentation_payload(outbound.next_seq, reference, presentation, content, timing, projection);
+        if payload.len() > MAX_FRAME_BYTES {
+            return Err(SendError::TooLarge);
+        }
+        match outbound.sender.try_send(OutboundFrame::Presentation(payload)) {
             Ok(()) => {
                 outbound.next_seq += 1;
                 Ok(())
@@ -187,7 +227,7 @@ impl SessionHandle {
 
     fn send_frame(&self, frame: Frame) -> Result<(), SendError> {
         let outbound = self.inner.outbound.lock().unwrap_or_else(|p| p.into_inner());
-        outbound.sender.try_send(frame).map_err(|_| SendError::Closed)
+        outbound.sender.try_send(OutboundFrame::Message(frame)).map_err(|_| SendError::Closed)
     }
 
     /// Sends `goodbye{reason}` (best effort) and ends the session.
@@ -208,6 +248,27 @@ impl SessionHandle {
     fn close_reason(&self) -> &'static str {
         self.inner.close_reason.lock().unwrap_or_else(|p| p.into_inner()).unwrap_or("closed")
     }
+}
+
+fn presentation_payload(
+    seq: u64,
+    reference: ActivationRef,
+    presentation: Value,
+    content: Vec<RendererMediaRef>,
+    timing: Option<SyncTiming>,
+    projection: Option<ProjectionContext>,
+) -> Vec<u8> {
+    let mut data = serde_json::json!({
+        "activationId": reference.activation_id, "generation": reference.generation,
+        "presentation": presentation, "content": content, "timing": timing,
+    });
+    if let Some(projection) = projection {
+        data["projection"] = serde_json::to_value(projection).expect("typed projection");
+    }
+    serde_json::to_vec(
+        &serde_json::json!({"type": "event", "seq": seq, "event": "presentation.activate", "data": data}),
+    )
+    .expect("JSON presentation data")
 }
 
 /// Daemon behavior behind the transport.
@@ -410,7 +471,7 @@ async fn serve_connection(stream: UnixStream, context: ConnectionContext) {
             return;
         }
     };
-    let (sender, mut receiver) = mpsc::channel::<Frame>(OUTBOUND_QUEUE_FRAMES);
+    let (sender, mut receiver) = mpsc::channel::<OutboundFrame>(OUTBOUND_QUEUE_FRAMES);
     {
         let mut outbound = session.inner.outbound.lock().unwrap_or_else(|p| p.into_inner());
         outbound.sender = sender;
@@ -437,10 +498,15 @@ async fn serve_connection(stream: UnixStream, context: ConnectionContext) {
     let cancel = session.inner.cancel.clone();
     let writer_task = tokio::spawn(async move {
         while let Some(frame) = receiver.recv().await {
-            if write_frame(&mut writer, &frame).await.is_err() {
+            let goodbye = matches!(&frame, OutboundFrame::Message(Frame::Goodbye(_)));
+            let written = match frame {
+                OutboundFrame::Message(frame) => write_frame(&mut writer, &frame).await,
+                OutboundFrame::Presentation(payload) => write_payload(&mut writer, &payload).await,
+            };
+            if written.is_err() {
                 break;
             }
-            if matches!(frame, Frame::Goodbye(_)) {
+            if goodbye {
                 break;
             }
         }
@@ -584,6 +650,102 @@ async fn read_loop(
 #[cfg(test)]
 mod policy_tests {
     use super::*;
+
+    fn reference() -> ActivationRef {
+        ActivationRef { activation_id: edge_protocol::ids::ActivationId::from_uuid(uuid::Uuid::nil()), generation: 1 }
+    }
+
+    fn endpoint(role: Role) -> (SessionHandle, mpsc::Receiver<OutboundFrame>) {
+        let (sender, receiver) = mpsc::channel(OUTBOUND_QUEUE_FRAMES);
+        (
+            SessionHandle {
+                inner: Arc::new(SessionInner {
+                    id: SessionId::from_uuid(uuid::Uuid::new_v4()),
+                    role,
+                    peer: PeerCredentials { uid: 990, gid: 990, pid: None },
+                    admin: false,
+                    protocol_version: 1,
+                    features: vec![],
+                    outbound: Mutex::new(Outbound { sender, next_seq: 1 }),
+                    cancel: CancellationToken::new(),
+                    close_reason: Mutex::new(None),
+                }),
+            },
+            receiver,
+        )
+    }
+
+    #[test]
+    fn opaque_presentation_encoding_matches_existing_activation_fixtures() {
+        for fixture in [
+            include_str!("../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-playing.json"),
+            include_str!("../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-idle.json"),
+            include_str!(
+                "../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-requires-remote-web.json"
+            ),
+            include_str!(
+                "../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-projection-playback.json"
+            ),
+        ] {
+            let raw: Value = serde_json::from_str(fixture).unwrap();
+            let expected = Frame::decode(&serde_json::to_vec(&raw["frame"]).unwrap()).unwrap();
+            let Frame::Event(EventFrame { seq, event: Event::PresentationActivate(activation) }) = &expected else {
+                panic!("activation fixture")
+            };
+            let payload = presentation_payload(
+                *seq,
+                ActivationRef { activation_id: activation.activation_id, generation: activation.generation },
+                serde_json::to_value(&activation.presentation).unwrap(),
+                activation.content.clone(),
+                activation.timing.clone(),
+                activation.projection.clone(),
+            );
+            assert_eq!(Frame::decode(&payload).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn opaque_presentation_keeps_runtime_fields_and_transport_sequence() {
+        let (session, mut receiver) = endpoint(Role::Renderer);
+        let presentation = serde_json::json!({"state": "playing", "futureTransition": {"visualOption": 17}});
+        session.send_presentation(reference(), presentation.clone(), vec![], None, None).unwrap();
+        let OutboundFrame::Presentation(payload) = receiver.try_recv().unwrap() else { panic!("presentation") };
+        let frame: Value = serde_json::from_slice(&payload).unwrap();
+        assert_eq!(frame["seq"], 1);
+        assert_eq!(frame["event"], "presentation.activate");
+        assert_eq!(frame["data"]["presentation"], presentation);
+        assert_eq!(session.inner.outbound.lock().unwrap().next_seq, 2);
+    }
+
+    #[test]
+    fn opaque_presentation_preserves_role_frame_bounds_and_backpressure() {
+        let (observer, _receiver) = endpoint(Role::Tilecastctl);
+        assert_eq!(
+            observer.send_presentation(reference(), serde_json::json!({}), vec![], None, None),
+            Err(SendError::NotPermitted)
+        );
+        let (renderer, _receiver) = endpoint(Role::Renderer);
+        assert_eq!(
+            renderer.send_presentation(
+                reference(),
+                serde_json::json!({"huge": "x".repeat(MAX_FRAME_BYTES)}),
+                vec![],
+                None,
+                None
+            ),
+            Err(SendError::TooLarge)
+        );
+        assert_eq!(renderer.inner.outbound.lock().unwrap().next_seq, 1);
+        for _ in 0..OUTBOUND_QUEUE_FRAMES {
+            renderer.send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], None, None).unwrap();
+        }
+        assert_eq!(
+            renderer.send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], None, None),
+            Err(SendError::Closed)
+        );
+        assert!(renderer.is_closed());
+        assert_eq!(renderer.close_reason(), "backpressure");
+    }
 
     #[test]
     fn root_administers_but_is_not_a_renderer_and_others_are_refused() {
