@@ -106,7 +106,15 @@ struct MoreView: View {
                         Button {
                             navigation.open(destination.id)
                         } label: {
-                            IconLabel(verbatim: destination.title, image: destination.imageName)
+                            HStack {
+                                IconLabel(verbatim: destination.title, image: destination.imageName)
+                                Spacer()
+                                if destination.id == navigation.activeDestinationID {
+                                    Image(AppIcon.current)
+                                        .foregroundStyle(.tint)
+                                        .accessibilityHidden(true)
+                                }
+                            }
                         }
                         .tint(.primary)
                         .accessibilityAddTraits(destination.id == navigation.activeDestinationID ? .isSelected : [])
@@ -120,9 +128,18 @@ struct MoreView: View {
                     Button {
                         Task { await host.activate(server.id) }
                     } label: {
-                        HStack {
-                            IconLabel(verbatim: server.displayName, image: AppIcon.server)
+                        HStack(spacing: 12) {
+                            Image(AppIcon.server)
                                 .foregroundStyle(.primary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(verbatim: server.displayName)
+                                    .foregroundStyle(.primary)
+                                Text(verbatim: server.address.displayString)
+                                    .font(.geist(.footnote))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
                             Spacer()
                             if server.id == host.directory.activeServerID {
                                 Image(AppIcon.current)
@@ -135,10 +152,12 @@ struct MoreView: View {
                 }
                 Button(action: actions.add) { IconLabel("Add Server…", image: AppIcon.add) }
                 Button(action: actions.manage) { IconLabel("Manage Servers…", image: AppIcon.manage) }
-                Button { page.reload() } label: { IconLabel("Reload", image: AppIcon.reload) }
-                SignOutButton(page: page)
             } header: {
                 Text("Servers").font(.geist(.footnote))
+            }
+            Section {
+                Button { page.reload() } label: { IconLabel("Reload", image: AppIcon.reload) }
+                SignOutButton(page: page)
             }
         }
         .navigationTitle(host.directory.activeServer?.displayName ?? String(localized: "Tilecast"))
