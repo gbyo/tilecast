@@ -46,12 +46,19 @@ membership in both documents and Runtime context.
 Edge uses the shared decoded-capture dimensions, size, and JPEG signature checks.
 Base64 decoding stays in Edge.
 
+Core serializes capture requests across periodic preview and Watch Live.
+It owns protected-state checks, the ten-second timeout, and request cleanup.
+Edge decodes only requested replies on the capture caller's task.
+Core owns periodic preview leases, capture cadence, uploads, fault suspension,
+and capability policy. Hosts supply captures, time, and their provider identity.
+Watch Live lease and frame coordination still remain in Edge.
+
 Edge now routes prepared activations through its RendererPort adapter.
 A temporary Edge projection bridge removes resource URLs before the port call.
 Resource encoding, IPC, and media grants stay in Edge.
 The port owns its renderer endpoint and the session's cached generation grants.
 The activation coordinator does not assemble media capabilities.
-Profile adoption, activation policy, recovery coordination, and capture coordination
+Profile adoption, activation policy, recovery coordination, and Watch Live
 extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
 
