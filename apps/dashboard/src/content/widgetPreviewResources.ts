@@ -32,11 +32,46 @@ import type {
 export type SavedSourcePreview =
   StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload;
 
+const DECIMAL_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const INTEGER = /^[+-]?\d+$/;
+const ASSET_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATETIME =
+  /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+function isValidDate(raw: string): boolean {
+  if (!DATE.test(raw)) return false;
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === raw
+  );
+}
+
+function isValidDateTime(raw: string): boolean {
+  const match = DATETIME.exec(raw);
+  return Boolean(
+    match && isValidDate(match[1]!) && Number.isFinite(Date.parse(raw)),
+  );
+}
+
+function isValidUrl(raw: string): boolean {
+  if (/\s/.test(raw)) return false;
+  try {
+    const parsed = new URL(raw);
+    return Boolean(parsed.protocol && parsed.host);
+  } catch {
+    return false;
+  }
+}
+
 function typedValue(fieldType: string, raw: string): WidgetValue {
+  if (raw === "") return { kind: "null" };
   switch (fieldType) {
     case "integer": {
-      const integer = Number.parseInt(raw, 10);
-      return Number.isFinite(integer)
+      const integer = Number(raw);
+      return INTEGER.test(raw) && Number.isSafeInteger(integer)
         ? { kind: "integer", integer }
         : { kind: "text", text: raw };
     }
@@ -44,7 +79,8 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
     case "percent":
     case "currency": {
       const number = Number(raw);
-      if (!Number.isFinite(number)) return { kind: "text", text: raw };
+      if (!DECIMAL_NUMBER.test(raw) || !Number.isFinite(number))
+        return { kind: "text", text: raw };
       // The currency code travels in the field metadata, never in the
       // value: formatWidgetValue renders value.text before any numeric
       // branch, so stamping it here would hide the amount.
@@ -53,21 +89,36 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
       return { kind: "number", number };
     }
     case "boolean":
-      return raw === "true"
+      return ["1", "t", "T", "TRUE", "True", "true"].includes(raw)
         ? { kind: "boolean", boolean: true }
-        : raw === "false"
+        : ["0", "f", "F", "FALSE", "False", "false"].includes(raw)
           ? { kind: "boolean", boolean: false }
           : { kind: "text", text: raw };
     case "date":
-      return { kind: "date", date: raw };
+      return isValidDate(raw)
+        ? { kind: "date", date: raw }
+        : { kind: "text", text: raw };
     case "datetime":
-      return { kind: "datetime", datetime: raw };
-    case "duration":
-      return { kind: "duration", text: raw };
+      return isValidDateTime(raw)
+        ? { kind: "datetime", datetime: raw }
+        : { kind: "text", text: raw };
+    case "duration": {
+      const durationSeconds = Number(raw);
+      return /^[+-]?\d+$/.test(raw) &&
+        Number.isSafeInteger(durationSeconds) &&
+        durationSeconds >= 0
+        ? { kind: "duration", durationSeconds }
+        : { kind: "text", text: raw };
+    }
     case "url":
-      return { kind: "url", url: raw };
+      return isValidUrl(raw)
+        ? { kind: "url", url: raw }
+        : { kind: "text", text: raw };
     case "asset":
-      return { kind: "asset", assetId: raw };
+      return ASSET_ID.test(raw) &&
+        raw.toLowerCase() !== "00000000-0000-0000-0000-000000000000"
+        ? { kind: "asset", assetId: raw.toLowerCase() }
+        : { kind: "text", text: raw };
     default:
       return { kind: "text", text: raw };
   }

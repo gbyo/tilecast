@@ -90,6 +90,21 @@ understands exactly these types:
 
 A module that declares another type fails validation.
 
+The `number`, `percent`, and `currency` types accept finite base-10 numbers.
+The `integer` type accepts base-10 integers from
+`-9007199254740991` through `9007199254740991`. The `duration` type accepts a
+nonnegative base-10 integer in seconds up to `9007199254740991`; it projects as
+`durationSeconds`. The `asset` type accepts a UUID for a Tilecast Media asset
+and projects as `kind: "asset"` with a canonical lowercase `assetId`. An empty
+value projects as `null`. A malformed or out-of-range value remains text and
+does not become a media grant.
+
+Date-time values use RFC 3339 with a valid calendar date, hours from 00 to
+23, and a numeric offset or `Z`. Fractional seconds use a decimal point.
+URL values must be absolute and contain no whitespace. Server and Studio
+tests use `packages/manifest-schema/data-document-value-fixtures.json` to
+check the same coercion results.
+
 Output fields may declare an optional semantic `role`. Use a lowercase
 identifier of up to 40 characters, beginning with a letter and containing
 only letters, digits, and underscores. Prefer the shared roles listed in
