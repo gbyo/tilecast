@@ -29,6 +29,7 @@ public enum SignInStep: Equatable, Sendable {
 public final class StudioHost {
     public enum Connection: Equatable {
         case noServer
+        case starting
         case verifying(ServerProfile)
         case unavailable(ServerProfile, InstallationIdentityError)
         case identityChanged(ServerProfile, found: InstallationIdentity)
@@ -36,7 +37,7 @@ public final class StudioHost {
 
         public static func == (lhs: Connection, rhs: Connection) -> Bool {
             switch (lhs, rhs) {
-            case (.noServer, .noServer): true
+            case (.noServer, .noServer), (.starting, .starting): true
             case let (.verifying(a), .verifying(b)): a.id == b.id
             case let (.unavailable(a, x), .unavailable(b, y)): a.id == b.id && x == y
             case let (.identityChanged(a, x), .identityChanged(b, y)): a.id == b.id && x == y
@@ -94,11 +95,7 @@ public final class StudioHost {
         self.mediaIntake = mediaIntake
         self.now = now
         self.directory = directory
-        if let activeServer = directory.activeServer {
-            connection = .verifying(activeServer)
-        } else {
-            connection = .noServer
-        }
+        connection = directory.servers.isEmpty ? .noServer : .starting
         self.dataStores = dataStores
         self.identityClient = identityClient
         self.credentials = credentials
