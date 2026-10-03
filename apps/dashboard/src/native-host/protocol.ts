@@ -29,8 +29,10 @@ export type NativeCapabilities = {
   deepLinks: boolean;
   /** The host shows a native alert for alert/present, on either page. */
   nativeAlerts: boolean;
-  /** The host shows a native menu for action-menu/present, on either page. */
+  /** The host supports generic native action menus, including long press. */
   nativeActionMenus: boolean;
+  /** The host can overlay an anchored native Menu on a Studio action trigger. */
+  nativeActionMenuAnchors: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
@@ -44,6 +46,7 @@ export const noNativeCapabilities: NativeCapabilities = {
   deepLinks: false,
   nativeAlerts: false,
   nativeActionMenus: false,
+  nativeActionMenuAnchors: false,
 };
 
 /**
@@ -215,6 +218,18 @@ export type ActionMenuDescriptor = {
   groups: ActionMenuGroup[];
 };
 
+/** A trigger rectangle normalized to the visible Studio viewport. */
+export type ActionMenuTriggerRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+export type ActionMenuTriggerPayload = ActionMenuDescriptor & {
+  rect: ActionMenuTriggerRect;
+};
+
 /**
  * The chrome of the current page. With back, the host shows a native
  * navigation bar: a back button labelled with the previous page, and the
@@ -279,6 +294,10 @@ export type FrontendToNativePayloads = {
   "action-menu/arm": ActionMenuDescriptor;
   /** Either page: withdraw a menu this page presented or armed. */
   "action-menu/disarm": { menuId: string };
+  /** Either page: register or update an anchored native Menu trigger. */
+  "action-menu/register-trigger": ActionMenuTriggerPayload;
+  /** Either page: remove an anchored native Menu trigger. */
+  "action-menu/unregister-trigger": { menuId: string };
   /** Main page: describe the native navigation bar for this page. */
   "navigation/chrome": NavigationChromePayload;
 };
@@ -854,6 +873,7 @@ export function decodeHostConfig(
       deepLinks: capabilities.deepLinks === true,
       nativeAlerts: capabilities.nativeAlerts === true,
       nativeActionMenus: capabilities.nativeActionMenus === true,
+      nativeActionMenuAnchors: capabilities.nativeActionMenuAnchors === true,
     },
   };
 }
