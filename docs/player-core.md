@@ -149,6 +149,9 @@ The RendererPort interface defines semantic operations and immutable prepared
 activations. Edge uses Core checks for decoded capture dimensions, size, and
 JPEG signature. Transport decoding stays in Edge.
 Edge owns resource encoding, media grants, and IPC queue operations.
+The Edge port owns its renderer endpoint and caches grants for that session.
+It prepares and activates grants and drains prior generations.
+The activation coordinator does not assemble media capabilities.
 Activation policy, profile adoption, and shared coordination remain required work.
 This groundwork does not complete the renderer extraction gate.
 

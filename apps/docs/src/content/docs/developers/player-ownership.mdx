@@ -31,6 +31,7 @@ remain in Edge until their extraction stages.
 The draft renderer contract introduces prepared documents with verified-object
 bindings instead of host resource URLs. Edge now uses these through its
 RendererPort adapter, with a temporary projection bridge in Edge.
+The Edge port owns media grants and their generation lifecycle.
 Separate packaged and connected profiles keep release support distinct from
 what a renderer session advertises. Edge does not consume these profiles yet.
 The RendererPort interface now defines semantic operations. Edge uses shared

@@ -1,5 +1,6 @@
 //! Edge transport and generation-bound resource encoding for the semantic port.
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use edge_ipc::SessionHandle;
 use edge_protocol::ipc::event::{
@@ -17,7 +18,10 @@ use player_core::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{media::MediaCapability, presentation::Activation};
+use crate::{
+    media::{MediaCapability, MediaRegistry},
+    presentation::Activation,
+};
 
 /// The existing Runtime inputs, with their object bindings separated before
 /// crossing Core. This representation is private to the Edge projection adapter.
@@ -131,14 +135,24 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
     .map_err(invalid)
 }
 
-/// Only a host-selected active generation can supply this adapter's grants.
-pub(crate) struct EdgeRendererPort<'a> {
-    pub session: &'a SessionHandle,
-    pub channel: &'a MediaChannelDescriptor,
-    pub authorized: Option<(ActivationRef, &'a HashMap<Sha256Digest, MediaCapability>)>,
+/// One host endpoint owns resource grants for its live renderer session.
+#[derive(Debug)]
+pub(crate) struct EdgeRendererPort {
+    session: SessionHandle,
+    channel: MediaChannelDescriptor,
+    registry: Arc<Mutex<MediaRegistry>>,
+    media: Mutex<Option<(ActivationRef, HashMap<Sha256Digest, MediaCapability>)>>,
 }
 
-impl EdgeRendererPort<'_> {
+impl EdgeRendererPort {
+    pub(crate) fn new(
+        session: SessionHandle,
+        channel: MediaChannelDescriptor,
+        registry: Arc<Mutex<MediaRegistry>>,
+    ) -> Self {
+        Self { session, channel, registry, media: Mutex::new(None) }
+    }
+
     fn send(&self, event: Event) -> Result<(), RendererPortError> {
         self.session.send_event(event).map_err(|_| RendererPortError::QueueUnavailable)
     }
@@ -178,7 +192,7 @@ fn wire_document(
     serde_json::from_value(value).map_err(invalid)
 }
 
-impl RendererPort for EdgeRendererPort<'_> {
+impl RendererPort for EdgeRendererPort {
     fn configure(&self, configuration: RendererConfiguration) -> Result<(), RendererPortError> {
         self.send(Event::RendererConfigure(RendererConfigure {
             media_channel: self.channel.clone(),
@@ -189,12 +203,40 @@ impl RendererPort for EdgeRendererPort<'_> {
         }))
     }
 
-    fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError> {
+    fn activate(&self, activation: &RendererActivation, now_ms: i64) -> Result<(), RendererPortError> {
         let reference = activation.reference();
-        let (authorized, grants) = self.authorized.ok_or(RendererPortError::NotReady)?;
-        if authorized.activation_id != reference.activation_id || authorized.generation != reference.generation {
-            return Err(RendererPortError::InvalidActivation);
+        let reference = ActivationRef { activation_id: reference.activation_id, generation: reference.generation };
+        let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        if media.as_ref().is_none_or(|(cached, _)| *cached != reference) {
+            let mut registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+            let grants = if activation.content().is_empty() {
+                registry.drain_active(now_ms);
+                HashMap::new()
+            } else {
+                let content: Vec<_> = activation
+                    .content()
+                    .iter()
+                    .map(|object| edge_protocol::ipc::presentation::ContentRef {
+                        sha256: object.sha256,
+                        size_bytes: object.size_bytes,
+                        mime_type: object.mime_type.clone(),
+                    })
+                    .collect();
+                let prepared =
+                    registry.prepare(self.session.id(), reference.generation, now_ms, &content).map_err(|error| {
+                        tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
+                        RendererPortError::ResourceUnavailable
+                    })?;
+                if let Err(error) = registry.activate(self.session.id(), reference.generation, now_ms) {
+                    registry.retire(reference.generation);
+                    tracing::error!(component = "media", event = "capability_activate_failed", error = %error);
+                    return Err(RendererPortError::ResourceUnavailable);
+                }
+                prepared
+            };
+            *media = Some((reference, grants));
         }
+        let grants = &media.as_ref().expect("current generation has grants").1;
         let resolve = |object| grants.get(&object).map(MediaCapability::uri);
         let presentation = wire_document(activation.document(), &resolve)?;
         let content: Vec<RendererMediaRef> = activation

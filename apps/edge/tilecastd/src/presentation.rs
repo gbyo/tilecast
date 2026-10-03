@@ -24,7 +24,7 @@
 //! `player.ts#buildPresentation`) calls [`PresentationEngine::activate`] the
 //! same way, after its content is verified and pinned in the CAS.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -43,7 +43,7 @@ use edge_protocol::ipc::presentation::{
 use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
 
-use crate::media::{MediaCapability, MediaRegistry};
+use crate::media::MediaRegistry;
 use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState, is_meaningful};
 
 /// Where an activation came from, for status and logs.
@@ -167,7 +167,7 @@ struct RendererLink {
     accepted: Option<ActivationRef>,
     last_progress_at: Option<Timestamp>,
     last_error_code: Option<String>,
-    media: Option<(ActivationRef, HashMap<edge_protocol::Sha256Digest, MediaCapability>)>,
+    port: crate::renderer_adapter::EdgeRendererPort,
     /// The item the renderer last reported starting, for the heartbeat.
     current_item: Option<(String, Timestamp)>,
     /// The renderer's remote web helper is restarting (its health reason).
@@ -175,12 +175,8 @@ struct RendererLink {
 }
 
 impl RendererLink {
-    fn port<'a>(&'a self, channel: &'a MediaChannelDescriptor) -> crate::renderer_adapter::EdgeRendererPort<'a> {
-        crate::renderer_adapter::EdgeRendererPort {
-            session: &self.session,
-            channel,
-            authorized: self.media.as_ref().map(|(reference, grants)| (*reference, grants)),
-        }
+    fn port(&self) -> &crate::renderer_adapter::EdgeRendererPort {
+        &self.port
     }
 }
 
@@ -388,11 +384,11 @@ impl PresentationEngine {
     }
 
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
-        let port = crate::renderer_adapter::EdgeRendererPort {
-            session: &session,
-            channel: &self.configure.media_channel,
-            authorized: None,
-        };
+        let port = crate::renderer_adapter::EdgeRendererPort::new(
+            session.clone(),
+            self.configure.media_channel.clone(),
+            self.media_registry.clone(),
+        );
         let _ = port.configure(player_core::RendererConfiguration {
             prevent_display_sleep: self.configure.kiosk.prevent_display_sleep,
             hide_cursor: self.configure.kiosk.hide_cursor,
@@ -403,7 +399,7 @@ impl PresentationEngine {
             accepted: None,
             last_progress_at: None,
             last_error_code: None,
-            media: None,
+            port,
             current_item: None,
             remote_web_restarting: false,
         });
@@ -574,9 +570,7 @@ impl PresentationEngine {
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
                 if let Some(link) = &self.renderer {
-                    let _ = link
-                        .port(&self.configure.media_channel)
-                        .request_restart(&ShortToken::new("recovery").expect("literal token"), 5_000);
+                    let _ = link.port().request_restart(&ShortToken::new("recovery").expect("literal token"), 5_000);
                 }
             }
             HealAction::EnterSafeMode => {
@@ -611,9 +605,7 @@ impl PresentationEngine {
 
     fn command(&self, command: RendererCommandKind) {
         if let Some(link) = &self.renderer {
-            let _ = link
-                .port(&self.configure.media_channel)
-                .send_command(uuid::Uuid::new_v4(), &crate::renderer_adapter::command(command));
+            let _ = link.port().send_command(uuid::Uuid::new_v4(), &crate::renderer_adapter::command(command));
         }
     }
 
@@ -622,14 +614,16 @@ impl PresentationEngine {
         self.meaningful_current = false;
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
-            let _ = link.port(&self.configure.media_channel).clear(&reason);
+            let _ = link.port().clear(&reason);
         }
     }
 
     fn push_current(&mut self, now_ms: i64) {
-        let Some((session, ready, cached_media)) = self.renderer.as_ref().and_then(|link| {
-            link.ready.as_ref().map(|ready| (link.session.clone(), ready.clone(), link.media.clone()))
-        }) else {
+        let Some((session, ready)) = self
+            .renderer
+            .as_ref()
+            .and_then(|link| link.ready.as_ref().map(|ready| (link.session.clone(), ready.clone())))
+        else {
             return;
         };
         let Some(current) = self.current.clone() else { return };
@@ -662,44 +656,10 @@ impl PresentationEngine {
                 return;
             }
         };
-        let reference = current.reference();
-        let capabilities = if let Some((_, capabilities)) = cached_media.filter(|(cached, _)| *cached == reference) {
-            capabilities
-        } else if current.content.is_empty() {
-            // Nothing to grant; older generations still stop being active.
-            if let Ok(mut registry) = self.media_registry.lock() {
-                registry.drain_active(now_ms);
-            }
-            HashMap::new()
-        } else {
-            let Ok(mut registry) = self.media_registry.lock() else {
-                tracing::error!(component = "media", event = "registry_poisoned");
-                return;
-            };
-            let prepared = match registry.prepare(session.id(), current.generation, now_ms, &current.content) {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
-                    return;
-                }
-            };
-            if let Err(error) = registry.activate(session.id(), current.generation, now_ms) {
-                registry.retire(current.generation);
-                tracing::error!(component = "media", event = "capability_activate_failed", error = %error);
-                return;
-            }
-            prepared
-        };
-        if let Some(link) = self.renderer.as_mut().filter(|link| link.session.id() == session.id()) {
-            link.media = Some((reference, capabilities));
-            let port = crate::renderer_adapter::EdgeRendererPort {
-                session: &link.session,
-                channel: &self.configure.media_channel,
-                authorized: link.media.as_ref().map(|(reference, grants)| (*reference, grants)),
-            };
-            if let Err(error) = port.activate(&semantic) {
-                tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
-            }
+        if let Some(link) = self.renderer.as_ref().filter(|link| link.session.id() == session.id())
+            && let Err(error) = link.port().activate(&semantic, now_ms)
+        {
+            tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
         }
     }
 
@@ -765,7 +725,7 @@ impl PresentationEngine {
     /// Asks the connected renderer for a preview. False without a renderer.
     pub fn request_preview(&self, request_id: uuid::Uuid, max_width: u32, max_height: u32, max_bytes: u32) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.port(&self.configure.media_channel)
+        link.port()
             .request_capture(player_core::RendererCaptureRequest { request_id, max_width, max_height, max_bytes })
             .is_ok()
     }
@@ -888,7 +848,7 @@ impl PresentationEngine {
     /// renderer received the request.
     pub fn identify(&self, name: &str, duration_seconds: u32) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.port(&self.configure.media_channel)
+        link.port()
             .send_command(
                 uuid::Uuid::new_v4(),
                 &player_core::SemanticRendererCommand::Identify { name: SafeText::lossy(name), duration_seconds },
@@ -906,9 +866,7 @@ impl PresentationEngine {
     /// `renderer.command_result` will carry.
     pub fn renderer_command_with_id(&self, command_id: uuid::Uuid, command: RendererCommandKind) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.port(&self.configure.media_channel)
-            .send_command(command_id, &crate::renderer_adapter::command(command))
-            .is_ok()
+        link.port().send_command(command_id, &crate::renderer_adapter::command(command)).is_ok()
     }
 
     /// Asks the connected renderer to exit so systemd starts a fresh one; the
@@ -916,7 +874,7 @@ impl PresentationEngine {
     pub fn restart_renderer(&mut self, reason: &str) -> bool {
         let Some(link) = self.renderer.as_ref() else { return false };
         let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token"));
-        let sent = link.port(&self.configure.media_channel).request_restart(&reason, 5_000).is_ok();
+        let sent = link.port().request_restart(&reason, 5_000).is_ok();
         if sent {
             self.restart_count += 1;
         }

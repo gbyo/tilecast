@@ -46,6 +46,8 @@ Base64 decoding stays in Edge.
 Edge now routes prepared activations through its RendererPort adapter.
 A temporary Edge projection bridge removes resource URLs before the port call.
 Resource encoding, IPC, and media grants stay in Edge.
+The port owns its renderer endpoint and the session's cached generation grants.
+The activation coordinator does not assemble media capabilities.
 Profile adoption, activation policy, recovery coordination, and capture coordination
 extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
