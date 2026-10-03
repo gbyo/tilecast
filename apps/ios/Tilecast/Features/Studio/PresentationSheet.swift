@@ -69,7 +69,6 @@ struct PresentationSheet: View {
         }
         .onChange(of: coordinator.pendingEvents, initial: true) { perform(coordinator.takeEvents()) }
         .nativeAlert(from: coordinator.alerts, for: .presentation)
-        .nativeActionMenu(from: coordinator.menus, for: .presentation)
         .alert("Downloads Aren’t Available Yet", isPresented: $showingDownloadNotice) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -85,6 +84,9 @@ struct PresentationSheet: View {
                     .webViewLinkPreviews(.disabled)
                     .contextMenu {
                         NativeActionMenuContextContent(center: coordinator.menus, context: .presentation)
+                    }
+                    .overlay {
+                        NativeActionMenuAnchorLayer(center: coordinator.menus, context: .presentation)
                     }
                     .id(ObjectIdentifier(page))
                     .ignoresSafeArea(edges: .bottom)
