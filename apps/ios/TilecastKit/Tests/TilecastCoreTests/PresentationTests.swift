@@ -38,7 +38,7 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
             "capabilities": .object([
                 "nativeNavigation": .bool(false), "authLifecycle": .bool(false), "nativePresentations": .bool(true), "nativeAlerts": .bool(true),
                 "systemShare": .bool(true), "systemHaptics": .bool(true), "systemQrScanner": .bool(false),
-                "nativeMediaIntake": .bool(false), "deepLinks": .bool(false), "nativeActionMenus": .bool(true),
+                "nativeMediaIntake": .bool(false), "deepLinks": .bool(false),
             ]),
         ]))
     }

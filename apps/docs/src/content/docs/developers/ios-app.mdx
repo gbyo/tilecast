@@ -49,12 +49,6 @@ The sheet is a second, prewarmed copy of Studio that uses the same sign-in as th
 
 To put another screen in a sheet, add a route to `presentationRoutes` in `apps/dashboard/src/App.tsx`, and open it with `useOpenNativePresentation()`. Show your normal dialog when that returns `false`. Describe the title and buttons with `usePresentationChrome()`. Don't touch `apps/ios`. The [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#native-presentations) lists which screens fit a sheet and which should stay in Studio.
 
-## Menus use the native interface
-
-A three-dot button in Studio opens a real SwiftUI `Menu` anchored to the dots. Studio keeps drawing the button, and the app places an invisible native menu trigger over that exact button, so the interaction looks and behaves like a normal iOS menu instead of an action sheet. A long press on a row or card uses SwiftUI's context-menu modifier. The labels, icons, and disabled and destructive states are Studio's own, already translated; the app just draws them. In a browser, or in an app without anchored-menu support, the same actions use Studio's own dropdown and context menu.
-
-To add a menu, or to change an action's label, icon, or destination, build it once with `ActionMenuButton` or `ActionContextMenu` in Studio. That's all. Don't touch `apps/ios`. The [action menu contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#action-menus) has the exact lifecycle.
-
 ## System features
 
 The app connects Studio to a few things only the phone can do. Studio decides when to use each one, and none of them moves a Tilecast screen into Swift. Each is its own bridge capability, so an older app or an older Studio keeps working, and a browser ignores them.

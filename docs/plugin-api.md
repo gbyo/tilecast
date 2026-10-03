@@ -375,8 +375,8 @@ no central icon map.
 
 `@tilecast/studio` (`src/plugin-host/kit.ts`) is the Studio surface for
 plugins. It gives `PluginPage` (the shared page chrome), the install gate, the
-Remove menu, adaptive action menus, and the catalog hooks. Plugins can also
-give fully custom pages.
+Remove menu, action menus, and the catalog hooks. Plugins can also give
+fully custom pages.
 
 A plugin that owns a wider Studio surface (a submitter portal, a reviewer
 inbox) contributes `standaloneRoutes` alongside `routes`. Each entry names its

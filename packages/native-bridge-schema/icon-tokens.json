@@ -1,5 +1,5 @@
 {
-  "$comment": "Semantic icon tokens that native hosts recognize, for navigation destinations and action menus. Navigation shows its generic icon for any other token; an action menu shows no icon. Studio can use a token that is not listed here.",
+  "$comment": "Semantic navigation icon tokens that native hosts recognize. A host shows its generic icon for any other token, so Studio can use a token that is not listed here.",
   "version": 1,
   "fallback": "generic",
   "tokens": [
@@ -16,23 +16,6 @@
     "plugins",
     "activity",
     "settings",
-    "plugin",
-    "open",
-    "edit",
-    "rename",
-    "copy",
-    "duplicate",
-    "trash",
-    "delete",
-    "archive",
-    "restore",
-    "refresh",
-    "restart",
-    "play",
-    "select",
-    "group",
-    "remove",
-    "details",
-    "airplay"
+    "plugin"
   ]
 }

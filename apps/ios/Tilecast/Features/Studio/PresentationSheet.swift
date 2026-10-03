@@ -82,12 +82,6 @@ struct PresentationSheet: View {
                 WebView(page.webPage)
                     .webViewBackForwardNavigationGestures(.disabled)
                     .webViewLinkPreviews(.disabled)
-                    .contextMenu {
-                        NativeActionMenuContextContent(center: coordinator.menus, context: .presentation)
-                    }
-                    .overlay {
-                        NativeActionMenuAnchorLayer(center: coordinator.menus, context: .presentation)
-                    }
                     .id(ObjectIdentifier(page))
                     .ignoresSafeArea(edges: .bottom)
                     .accessibilityHidden(coordinator.contentState != .ready)

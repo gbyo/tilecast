@@ -31,7 +31,8 @@ struct StudioShell: View {
         }
         .environment(slot)
         .mediaIntake(host.mediaIntake)
-        .nativeAlert(from: host.page?.alerts, for: .main)
+        .
+      nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
         .sheet(item: presentation) { presentation in

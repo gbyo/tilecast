@@ -22,14 +22,6 @@ struct StudioPageView: View {
             .webViewBackForwardNavigationGestures(.disabled)
             // Link previews load pages outside the navigation policy.
             .webViewLinkPreviews(.disabled)
-            // SwiftUI owns the context menu; WebKit's context-menu
-            // modifier is unavailable on iOS.
-            .contextMenu {
-                NativeActionMenuContextContent(center: page.menus, context: .main)
-            }
-            .overlay {
-                NativeActionMenuAnchorLayer(center: page.menus, context: .main)
-            }
             .overlay { phaseOverlay }
             .overlay {
                 if page.signInRequired {

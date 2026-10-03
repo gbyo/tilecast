@@ -48,14 +48,11 @@ public final class PresentationCoordinator {
     @ObservationIgnored public let alerts: NativeAlertCenter
     /// Where a presentation page's QR scan runs.
     @ObservationIgnored public let scanners: QRScanCenter
-    /// Where a presentation page's action menus show.
-    @ObservationIgnored public let menus: NativeActionMenuCenter
 
-    init(mainBridge: StudioBridge, alerts: NativeAlertCenter, scanners: QRScanCenter, menus: NativeActionMenuCenter, makePage: @escaping @MainActor () -> PresentationPage) {
+    init(mainBridge: StudioBridge, alerts: NativeAlertCenter, scanners: QRScanCenter, makePage: @escaping @MainActor () -> PresentationPage) {
         self.mainBridge = mainBridge
         self.alerts = alerts
         self.scanners = scanners
-        self.menus = menus
         self.makePage = makePage
         mainBridge.onPresentationOpen = { [weak self] request in self?.open(request) ?? false }
         mainBridge.onStateChange = { [weak self] in self?.mainStudioChanged() }
@@ -93,7 +90,6 @@ public final class PresentationCoordinator {
         let page = makePage()
         page.bridge.alerts = alerts
         page.bridge.scanners = scanners
-        page.bridge.menus = menus
         pagesBuilt += 1
         page.onEvent = { [weak self, weak page] event in
             guard let self, let page else { return }
@@ -208,8 +204,6 @@ public final class PresentationCoordinator {
         alerts.withdraw(context: .presentation)
         // So does its scan: a result must never reach a newer presentation.
         scanners.withdraw(context: .presentation)
-        // And so do its menus: a choice must never reach a newer presentation.
-        menus.withdraw(context: .presentation)
         guard let page else { return }
         if page.phase == .ready {
             // Transient work in the page, such as a stream lease, ends now.

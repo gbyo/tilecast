@@ -80,8 +80,6 @@ public final class StudioBridge {
     public var onMediaIntake: (@MainActor (MediaIntakeRequest) -> Bool)?
     /// Where this page's alerts show. Both kinds of page may ask for one.
     weak var alerts: NativeAlertCenter?
-    /// Where this page's action menus show. Both kinds of page may ask.
-    weak var menus: NativeActionMenuCenter?
     /// Whether the system camera can scan a QR code now. Both contexts.
     public var isQRScannerAvailable: (@MainActor () -> Bool)?
     /// The one scan for this server. Both kinds of page may ask for one.
@@ -160,8 +158,6 @@ public final class StudioBridge {
         alerts?.withdraw(from: self)
         // So does a scan: a result must never reach a new document.
         scanners?.withdraw(from: self)
-        // And so does a menu: a choice must never reach a new document.
-        menus?.withdraw(from: self)
     }
 
     /// A new document replaced the old one.
@@ -172,7 +168,6 @@ public final class StudioBridge {
     private func reset() {
         alerts?.withdraw(from: self)
         scanners?.withdraw(from: self)
-        menus?.withdraw(from: self)
         isFrontendReady = false
         frontendCapabilities = .init()
         navigation.reset()
@@ -301,26 +296,6 @@ public final class StudioBridge {
                 }
             case .alertCancel(let alertID):
                 alerts?.withdraw(alertID: alertID, from: self)
-            case .actionMenuPresent:
-                // Hosts with anchored action menus intentionally refuse the
-                // legacy immediate/action-sheet path. Older Studio then opens
-                // its permanent web dropdown instead of showing a modal sheet.
-                return NativeBridgeProtocol.reply(id: id, error: .unavailable)
-            case .actionMenuArm(let menu):
-                guard isFrontendReady, frontendCapabilities.nativeActionMenus,
-                      let menus else {
-                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
-                }
-                menus.arm(menu, from: self)
-            case .actionMenuDisarm(let menuID):
-                menus?.disarm(menuID: menuID, from: self)
-            case .actionMenuRegisterTrigger(let registration):
-                guard isFrontendReady, frontendCapabilities.nativeActionMenus,
-                      menus?.registerTrigger(registration.menu, rect: registration.rect, from: self) == true else {
-                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
-                }
-            case .actionMenuUnregisterTrigger(let menuID):
-                menus?.unregisterTrigger(menuID: menuID, from: self)
             case .systemScanQR(let request):
                 // Studio always handles the result, so only readiness gates
                 // the request: a second scan, or no scanner, is unavailable,

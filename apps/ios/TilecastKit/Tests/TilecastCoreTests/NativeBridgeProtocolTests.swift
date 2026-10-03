@@ -30,7 +30,6 @@ func foundationJSON(_ data: Data) throws -> Any {
         let frontendCapabilities: [String: Bool]?
         let presentation: [String: Any]?
         let alert: [String: Any]?
-        let actionMenu: [String: Any]?
         let chrome: [String: Any]?
         let headerActionIDs: [String]?
         let headerMenuIDs: [String]?
@@ -60,7 +59,6 @@ func foundationJSON(_ data: Data) throws -> Any {
                 frontendCapabilities: entry["frontendCapabilities"] as? [String: Bool],
                 presentation: entry["presentation"] as? [String: Any],
                 alert: entry["alert"] as? [String: Any],
-                actionMenu: entry["actionMenu"] as? [String: Any],
                 chrome: entry["chrome"] as? [String: Any],
                 headerActionIDs: entry["headerActionIds"] as? [String],
                 headerMenuIDs: entry["headerMenuIds"] as? [String],
@@ -111,7 +109,6 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(capabilities.nativeAlerts == (expected["nativeAlerts"] ?? false))
             #expect(capabilities.nativeMediaIntake == (expected["nativeMediaIntake"] ?? false))
             #expect(capabilities.deepLinks == (expected["deepLinks"] ?? false))
-            #expect(capabilities.nativeActionMenus == (expected["nativeActionMenus"] ?? false))
         }
         if let expected = entry.hapticFeedback {
             guard case .accept(.systemHaptic(let feedback), _) = decoded else {
@@ -172,29 +169,6 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(alert.buttons.map(\.label) == buttons.compactMap { $0["label"] as? String })
             #expect(alert.buttons.map(\.role) == buttons.map { .init(token: $0["role"] as? String) })
         }
-        if let expected = entry.actionMenu {
-            let decodedMenu: NativeActionMenu?
-            switch decoded {
-            case .accept(.actionMenuPresent(let menu), _), .accept(.actionMenuArm(let menu), _): decodedMenu = menu
-            default: decodedMenu = nil
-            }
-            guard let menu = decodedMenu else {
-                Issue.record("\(entry.name) should decode as an action menu")
-                return
-            }
-            #expect(menu.id == expected["menuId"] as? String)
-            #expect(menu.label == expected["label"] as? String)
-            let groups = expected["groups"] as? [[String: Any]] ?? []
-            #expect(menu.groups.count == groups.count)
-            for (group, expectedGroup) in zip(menu.groups, groups) {
-                let items = expectedGroup["items"] as? [[String: Any]] ?? []
-                #expect(group.items.map(\.id) == items.compactMap { $0["id"] as? String })
-                #expect(group.items.map(\.label) == items.compactMap { $0["label"] as? String })
-                #expect(group.items.map(\.icon) == items.map { $0["icon"] as? String })
-                #expect(group.items.map(\.isDisabled) == items.map { $0["disabled"] as? Bool ?? false })
-                #expect(group.items.map(\.role) == items.map { .init(token: $0["role"] as? String) })
-            }
-        }
         if let expected = entry.qrScan {
             guard case .accept(.systemScanQR(let request), _) = decoded else {
                 Issue.record("\(entry.name) should decode as system/scan-qr")
@@ -241,13 +215,6 @@ func foundationJSON(_ data: Data) throws -> Any {
         case "alertAction": NativeBridgeProtocol.alertAction(
             alertID: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
             actionID: "confirm"
-        )
-        case "actionMenuAction": NativeBridgeProtocol.actionMenuAction(
-            menuID: "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
-            actionID: "delete"
-        )
-        case "actionMenuDismissed": NativeBridgeProtocol.actionMenuDismissed(
-            menuID: "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
         )
         case "openPath": NativeBridgeProtocol.openPath("/screens/screen-1?tab=activity")
         case "mediaIntakeCompleted": NativeBridgeProtocol.mediaIntakeCompleted(

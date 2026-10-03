@@ -4,7 +4,7 @@ This package is the language-neutral contract between Tilecast Studio and a nati
 
 - `schema-v1.json` is the JSON Schema (draft 2020-12) for protocol version 1.
 - `fixtures/messages-v1.json` is the shared corpus. Every implementation decodes each case and must reach the listed outcome.
-- `icon-tokens.json` lists the semantic icon tokens that hosts recognize, for navigation destinations and action menus.
+- `icon-tokens.json` lists the semantic navigation icon tokens that hosts recognize.
 
 Read `docs/ios-app.md` for the architecture this protocol serves.
 
@@ -52,8 +52,6 @@ After Studio handles a `navigation/request`, it sends `navigation/state` even wh
 
 The alert messages (`alert/present`, `alert/cancel`, and `alert/action`) need the `nativeAlerts` capability on both sides. Either page can present an alert, and the host reports the choice to the page that asked.
 
-The action-menu messages use generic descriptors: opaque menu and action ids, localized labels, advisory icon tokens, disabled state, and a default/destructive role. Only Studio knows what an action does. `nativeActionMenus` covers action selection and long-press arming. A host that also reports `nativeActionMenuAnchors` accepts `action-menu/register-trigger` and `action-menu/unregister-trigger`; the registration adds only a normalized WebView-viewport rectangle so the host can place a real native `Menu` over Studio's visible trigger. `action-menu/present` remains in version 1 for compatibility, and a host may answer `unavailable` so Studio uses its web dropdown.
-
 `navigation/chrome` tells the host when the page is a drill-in, with a title and the name of the page back leads to. The host then shows a native navigation bar, and its back button sends `navigation/back`. Neither message carries a path. A host that answers `unknown_type` to `navigation/chrome` leaves Studio with its own breadcrumbs.
 
 The presentation messages (`presentation/*` and `navigation/open-path`) need the `nativePresentations` capability on both sides. Presentation paths are in the reserved `/__native/modal` tree. A host knows only that root. See `docs/ios-app.md`.
@@ -80,7 +78,7 @@ The `deepLinkPaths` list in the fixtures holds the paths that a deep link may an
 
 ## Icons
 
-`icon` is advisory. A host maps the tokens in `icon-tokens.json` to its own symbols. Navigation shows its generic icon for any other token; an action menu shows no icon, so a menu never shows a misleading symbol. Studio can use a new token without a host release.
+`icon` is advisory. A host maps the tokens in `icon-tokens.json` to its own symbols and shows a generic icon for any other token. Studio can use a new token without a host release.
 
 ## Compatibility
 

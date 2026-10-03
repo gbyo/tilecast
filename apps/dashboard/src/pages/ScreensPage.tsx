@@ -55,7 +55,6 @@ import type {
   ReliabilityStatus,
   Screen,
   ScreenStatus,
-  User,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import type { ApprovalForm } from "../pairing/pairingFlow";
@@ -124,7 +123,6 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
