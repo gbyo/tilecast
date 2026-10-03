@@ -142,6 +142,15 @@ A `WebPage` with no dialog presenter cancels every file chooser, so a Studio upl
 
 Native media intake is a separate path. When the app has a native credential, Studio asks the app to upload, and no file goes through the page.
 
+### Loading mark
+
+During server verification and Studio page loading, the app shows the animated
+Tilecast cast mark without the wordmark. Native presentation loading uses the
+same mark. SwiftUI draws the paths from
+`.github/logos/animated/tilecast-mark-cast-black.svg` with the same animation
+timing. The mark uses the current foreground color. Reduce Motion shows the
+static mark. The animation pauses while the scene is inactive.
+
 ### Recovery
 
 If the web content process ends, for example while the app is in the background, the page reloads. If the process ends more than twice in 30 seconds, the app shows an error with a retry control.
