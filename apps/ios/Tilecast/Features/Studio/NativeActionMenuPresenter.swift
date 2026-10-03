@@ -66,7 +66,6 @@ struct NativeActionMenuAnchorLayer: View {
             Color.clear
                 .contentShape(Rectangle())
         }
-        .menuStyle(.button)
         .accessibilityLabel(Text(verbatim: trigger.menu.label))
         .accessibilityIdentifier("actionMenu.trigger.\(trigger.menu.id)")
     }
