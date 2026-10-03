@@ -31,8 +31,7 @@ struct StudioShell: View {
         }
         .environment(slot)
         .mediaIntake(host.mediaIntake)
-        .
-      nativeAlert(from: host.page?.alerts, for: .main)
+        .nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
         .sheet(item: presentation) { presentation in
@@ -117,10 +116,10 @@ struct StudioShell: View {
     private var moreMenu: some View {
         Menu {
             if let page = host.page {
-                Button("Reload", systemImage: "arrow.clockwise") { page.reload() }
+                Button { page.reload() } label: { Label("Reload", image: AppIcon.reload) }
                 SignOutButton(page: page)
             }
-            Button("Manage Servers…", systemImage: "server.rack") { managingServers = true }
+            Button { managingServers = true } label: { Label("Manage Servers…", image: AppIcon.manage) }
         } label: {
             Label("More", systemImage: "ellipsis")
         }
