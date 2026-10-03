@@ -6,6 +6,7 @@ import {
 } from "../data/screens";
 
 import { formatBytes } from "../lib/formatBytes";
+import { settingsQueries } from "../data/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -865,8 +866,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
     enabled: open,
   });
   const runtimeSettings = useQuery({
-    queryKey: ["settings", "takeover-defaults"],
-    queryFn: api.settings,
+    ...settingsQueries.organization(),
     enabled: open,
   });
   const activate = useMutation({

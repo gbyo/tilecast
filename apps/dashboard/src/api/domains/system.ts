@@ -234,8 +234,10 @@ export function cancelTakeover(
   });
 }
 
-export function getSettings(): Promise<SettingsDocument> {
-  return apiGet("/api/v1/settings");
+export function getSettings(options?: {
+  signal?: AbortSignal;
+}): Promise<SettingsDocument> {
+  return apiGet("/api/v1/settings", options);
 }
 
 export function updateSettings(
@@ -324,8 +326,10 @@ export function permanentlyDeleteUser(
   });
 }
 
-export function getPreferences(): Promise<SettingsDocument> {
-  return apiGet("/api/v1/me/preferences");
+export function getPreferences(options?: {
+  signal?: AbortSignal;
+}): Promise<SettingsDocument> {
+  return apiGet("/api/v1/me/preferences", options);
 }
 
 export function updatePreferences(
