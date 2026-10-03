@@ -18,9 +18,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
+use edge_cas::space::FixedSpace;
 use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, SourceKind, SourceStream, StorePolicy};
 use edge_platform::clock::system_clock;
-use edge_platform::disk::FixedSpace;
 use edge_protocol::Sha256Digest;
 use edge_protocol::bounded::{ShortText, ShortToken};
 use edge_protocol::ipc::status::{DaemonMode, DaemonStatus, PresentationStatus, RendererStatus, ServerLinkStatus};

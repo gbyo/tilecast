@@ -5,14 +5,14 @@ use std::io::{Read as _, Seek as _, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 
-use edge_platform::disk::SpaceProbe;
-use edge_protocol::digest::Sha256Hasher;
-use edge_protocol::time::SharedClock;
-use edge_protocol::{Sha256Digest, Timestamp};
-use edge_state::StateDb;
-use edge_state::repo::cas::{
+use crate::space::SpaceProbe;
+use player_state::StateDb;
+use player_state::repo::cas::{
     self as repo, Domain, ObjectRecord, PartialRecord, PinReason, SourceKind as RecordSource, VerifyState,
 };
+use player_types::digest::Sha256Hasher;
+use player_types::time::SharedClock;
+use player_types::{Sha256Digest, Timestamp};
 use tokio::sync::OwnedMutexGuard;
 
 use crate::policy::EvictionPolicy;
@@ -22,7 +22,7 @@ pub enum CasError {
     #[error("filesystem error: {0}")]
     Io(#[from] std::io::Error),
     #[error("state error: {0}")]
-    State(#[from] edge_state::StateError),
+    State(#[from] player_state::StateError),
     #[error("not enough free space for {needed} bytes")]
     InsufficientSpace { needed: u64 },
     #[error("object would exceed the cache limit even after eviction")]
@@ -526,7 +526,7 @@ impl ContentStore {
     ) -> Result<ObjectRecord, CasError> {
         // Never follow a symbolic link or block on a FIFO; an oversized or
         // special file fails like a file of the wrong size.
-        let Some((file, actual)) = edge_platform::fs::open_regular(source, expected_size)? else {
+        let Some((file, actual)) = crate::fs::open_regular(source, expected_size)? else {
             return Err(CasError::SizeMismatch { expected: expected_size, actual: 0 });
         };
         if actual != expected_size {

@@ -12,6 +12,9 @@ Edge still owns the wire protocols and supplies clocks and random ID generation.
 Durable metadata now lives in `crates/player-state`. Its migrations include
 historical Edge tables, while Linux update, network recovery, and legacy import
 repositories stay in `edge-state::platform`.
+The content store lives in `crates/player-cas`. It owns verification, resume,
+pins, eviction, and crash reconciliation. Edge supplies Linux free-space
+measurements through the store's narrow `SpaceProbe` interface.
 
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |

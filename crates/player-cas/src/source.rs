@@ -12,8 +12,8 @@
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use edge_protocol::Sha256Digest;
 use futures_util::stream::BoxStream;
+use player_types::Sha256Digest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SourceKind {

@@ -10,9 +10,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
+use edge_cas::space::FixedSpace;
 use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, StorePolicy};
 use edge_platform::clock::system_clock;
-use edge_platform::disk::FixedSpace;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
 use edge_server::legacy::{ImportError, ImportMode, ImportOutcome, import_legacy};
