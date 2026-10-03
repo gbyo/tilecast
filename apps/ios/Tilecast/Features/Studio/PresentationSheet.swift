@@ -83,7 +83,7 @@ struct PresentationSheet: View {
                 WebView(page.webPage)
                     .webViewBackForwardNavigationGestures(.disabled)
                     .webViewLinkPreviews(.disabled)
-                    .webViewContextMenu { _ in
+                    .contextMenu {
                         NativeActionMenuContextContent(center: coordinator.menus, context: .presentation)
                     }
                     .id(ObjectIdentifier(page))

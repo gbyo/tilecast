@@ -414,6 +414,8 @@ An action menu is the list of actions of a three-dot button, or of a long press 
 
 A three-dot menu shows as a system dialog: an action sheet on compact iPhone, a popover on regular-width iPad. It shows the labels. A long-press menu shows the icons that the app knows, and no icon for any other token. Disabled actions stay disabled. Destructive actions use the destructive style. The bridge carries no route, no callback, and no secret: only the menu id, the label, the groups, and the chosen action id.
 
+The main page and presentation page attach a SwiftUI `contextMenu` to their `WebView`. WebKit's `webViewContextMenu(menu:)` modifier is unavailable on iOS.
+
 `ActionMenuButton` and `ActionContextMenu` in Studio use this path, so all their call sites get a native menu with no change. The content, layouts, data sources, screens, fleet table, and plugin menus have moved. The app shows the labels and icons that Studio sends. It has no copy of its own for any action. To add, remove, rename, enable, disable, or retarget an action, change Studio only. Do not change `apps/ios`.
 
 #### Adding an action menu
