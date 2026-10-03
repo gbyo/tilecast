@@ -64,3 +64,9 @@ public struct NativeActionMenuTriggerRect: Equatable, Sendable {
         self.height = height
     }
 }
+
+
+struct NativeActionMenuTriggerRegistration: Equatable, Sendable {
+    let menu: NativeActionMenu
+    let rect: NativeActionMenuTriggerRect
+}
