@@ -32,10 +32,11 @@ use edge_ipc::SessionHandle;
 use edge_protocol::Timestamp;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::{ActivationId, SessionId};
+#[cfg(test)]
+use edge_protocol::ipc::event::EvidenceKind;
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, EvidenceKind, KioskPolicy, MediaAlias, MediaChannelDescriptor, PresentationActivate,
-    ProjectionContext, RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady,
-    SyncTiming,
+    ActivationRef, Event, KioskPolicy, MediaAlias, MediaChannelDescriptor, PresentationActivate, ProjectionContext,
+    RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
     ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
@@ -44,7 +45,11 @@ use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
 
 use crate::media::MediaRegistry;
-use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState, is_meaningful};
+use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState};
+
+fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef {
+    player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
+}
 
 /// Where an activation came from, for status and logs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -145,6 +150,7 @@ impl Activation {
     }
 }
 
+#[cfg(test)]
 fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
     player_core::is_content_evidence(crate::supervisor::evidence(kind), expectation)
 }
@@ -164,12 +170,7 @@ fn validate_media_aliases(aliases: &[MediaAlias], content: &[ContentRef]) -> Res
 struct RendererLink {
     session: SessionHandle,
     ready: Option<RendererReady>,
-    accepted: Option<ActivationRef>,
-    last_progress_at: Option<Timestamp>,
-    last_error_code: Option<String>,
     port: crate::renderer_adapter::EdgeRendererPort,
-    /// The item the renderer last reported starting, for the heartbeat.
-    current_item: Option<(String, Timestamp)>,
     /// The renderer's remote web helper is restarting (its health reason).
     remote_web_restarting: bool,
 }
@@ -191,11 +192,7 @@ pub struct PresentationEngine {
     supervisor: SupervisorState,
     supervisor_config: SupervisorConfig,
     restart_count: u64,
-    meaningful_current: bool,
-    content_progress_current: bool,
-    logged_evidence: std::collections::HashSet<(String, String, edge_protocol::ipc::event::EvidenceKind)>,
-    /// Items of the current activation with content evidence (bounded).
-    content_items: BTreeSet<String>,
+    tracking: player_core::RendererTracker,
     /// Proof-of-play signals for the activity task.
     activity: Option<crate::activity::Handle>,
     /// Corrected-minus-local wall offset handed to the runtime for
@@ -228,10 +225,7 @@ impl PresentationEngine {
             supervisor: SupervisorState::new(now_ms),
             supervisor_config,
             restart_count: 0,
-            meaningful_current: false,
-            content_progress_current: false,
-            logged_evidence: std::collections::HashSet::new(),
-            content_items: BTreeSet::new(),
+            tracking: player_core::RendererTracker::default(),
             activity: None,
             clock_offset_ms: 0,
         }
@@ -306,14 +300,7 @@ impl PresentationEngine {
             extras,
         };
         self.next_generation += 1;
-        self.meaningful_current = false;
-        self.content_progress_current = false;
-        self.logged_evidence.clear();
-        self.content_items.clear();
-        if let Some(link) = self.renderer.as_mut() {
-            link.accepted = None;
-            link.last_error_code = None;
-        }
+        self.tracking.activate(semantic_ref(activation.reference()));
         let reference = activation.reference();
         tracing::info!(
             component = "presentation",
@@ -344,7 +331,7 @@ impl PresentationEngine {
     /// The item the renderer last reported starting for the current
     /// activation, with when it started.
     pub fn current_item(&self) -> Option<(String, Timestamp)> {
-        self.renderer.as_ref().and_then(|link| link.current_item.clone())
+        self.tracking.current_item()
     }
 
     pub fn current_is_server_manifest(&self) -> bool {
@@ -352,30 +339,29 @@ impl PresentationEngine {
     }
 
     pub fn current_has_meaningful_progress(&self) -> bool {
-        self.meaningful_current
+        self.tracking.meaningful()
     }
 
     pub fn current_has_activation_evidence(&self) -> bool {
         let Some(current) = self.current.as_ref() else { return false };
         match &current.document {
-            PresentationDocument::Playing { items, .. } if !items.is_empty() => self.content_progress_current,
-            _ => self.meaningful_current,
+            PresentationDocument::Playing { items, .. } if !items.is_empty() => self.tracking.content_progress(),
+            _ => self.tracking.meaningful(),
         }
     }
 
     /// Items of the current activation that the renderer proved with
     /// content evidence (an image shown, video progress, a layout rendered).
     pub fn content_evidence_items(&self) -> &BTreeSet<String> {
-        &self.content_items
+        self.tracking.content_items()
     }
 
     pub fn current_is_accepted(&self) -> bool {
-        let Some(current) = self.current.as_ref().map(Activation::reference) else { return false };
-        self.renderer.as_ref().is_some_and(|link| link.accepted == Some(current))
+        self.tracking.accepted_current()
     }
 
     pub fn current_has_renderer_error(&self) -> bool {
-        self.renderer.as_ref().is_some_and(|link| link.last_error_code.is_some())
+        self.tracking.has_error()
     }
 
     /// Digests the current activation needs pinned.
@@ -384,6 +370,7 @@ impl PresentationEngine {
     }
 
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
+        let connection = *session.id().as_uuid();
         let port = crate::renderer_adapter::EdgeRendererPort::new(
             session.clone(),
             self.configure.media_channel.clone(),
@@ -393,24 +380,13 @@ impl PresentationEngine {
             prevent_display_sleep: self.configure.kiosk.prevent_display_sleep,
             hide_cursor: self.configure.kiosk.hide_cursor,
         });
-        self.renderer = Some(RendererLink {
-            session,
-            ready: None,
-            accepted: None,
-            last_progress_at: None,
-            last_error_code: None,
-            port,
-            current_item: None,
-            remote_web_restarting: false,
-        });
-        // Evidence belongs to the renderer that produced it. A reconnecting
-        // renderer must show the activation again before it can count.
-        self.meaningful_current = false;
-        self.content_progress_current = false;
+        self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
+        self.tracking.connected(connection);
         self.supervisor.reset_clock(now_ms);
     }
 
     pub fn renderer_disconnected(&mut self, session: SessionId) {
+        self.tracking.disconnected(*session.as_uuid());
         if self.renderer.as_ref().is_some_and(|link| link.session.id() == session) {
             self.renderer = None;
         }
@@ -435,65 +411,35 @@ impl PresentationEngine {
     }
 
     pub fn accepted(&mut self, session: &SessionHandle, activation: ActivationRef) {
-        let current = self.current.as_ref().map(Activation::reference);
-        if let Some(link) = self.link_for(session)
-            && current == Some(activation)
-        {
-            link.accepted = Some(activation);
-        }
+        self.tracking.accept(*session.id().as_uuid(), semantic_ref(activation));
     }
 
     pub fn rejected(&mut self, session: &SessionHandle, activation: ActivationRef, code: &str) {
-        let current = self.current.as_ref().map(Activation::reference);
-        if let Some(link) = self.link_for(session)
-            && current == Some(activation)
-        {
+        if self.tracking.reject(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
             tracing::warn!(component = "presentation", event = "activation_rejected", code);
-            link.last_error_code = Some(code.to_owned());
         }
     }
 
     pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
-        let Some(current) = self.current.as_ref() else {
-            return false;
-        };
-        if self.renderer.as_ref().is_none_or(|link| link.session.id() != session.id()) {
-            return false;
-        }
-        // Evidence for a replaced activation must never count as progress.
-        if report.activation != current.reference() {
-            return false;
-        }
-        // Proof of play follows the renderer's item signals whether or not
-        // they count as progress for the supervisor, as in the Electron
-        // player.
-        let item_signal = match report.kind {
-            EvidenceKind::ItemStarted => Some(crate::activity::RendererSignal::ItemStarted),
-            EvidenceKind::ItemTransition => Some(crate::activity::RendererSignal::ItemTransition),
-            EvidenceKind::WidgetEmpty => Some(crate::activity::RendererSignal::WidgetEmpty),
-            _ => None,
-        };
-        if let Some(kind) = item_signal {
-            let item_id = report.item_id.as_ref().map(|id| id.as_str().to_owned());
-            self.signal(crate::activity::Signal::Renderer { kind, item_id });
-        }
+        let Some(current) = self.current.as_ref() else { return false };
         let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
-        if !is_meaningful(report.kind, expectation) {
+        let semantic = player_core::SemanticRendererProgress {
+            activation: semantic_ref(report.activation),
+            kind: crate::supervisor::evidence(report.kind),
+            item_id: report.item_id.clone(),
+            zone_id: report.zone_id.clone(),
+        };
+        let decision = self.tracking.progress(*session.id().as_uuid(), &semantic, expectation, now);
+        if let Some(kind) = decision.activity_signal {
+            self.signal(crate::activity::Signal::Renderer {
+                kind,
+                item_id: report.item_id.as_ref().map(|id| id.as_str().to_owned()),
+            });
+        }
+        if !decision.meaningful {
             return false;
         }
-        let content_evidence = is_content_evidence(report.kind, expectation) && report.item_id.is_some();
-        // Log the first acceptance of each (item, kind) per activation: enough
-        // for diagnostics and tests, bounded regardless of playback length.
-        let key = (
-            report.item_id.as_ref().map(|i| i.as_str().to_owned()).unwrap_or_default(),
-            report.zone_id.as_ref().map(|z| z.as_str().to_owned()).unwrap_or_default(),
-            report.kind,
-        );
-        // A Website load is logged every time (still bounded): a later one
-        // is a recovery after a failure.
-        let fresh = report.kind == EvidenceKind::WebsiteLoaded || !self.logged_evidence.contains(&key);
-        if self.logged_evidence.len() < 512 && fresh {
-            self.logged_evidence.insert(key);
+        if decision.log_evidence {
             tracing::info!(
                 component = "presentation",
                 event = "evidence_accepted",
@@ -502,22 +448,6 @@ impl PresentationEngine {
                 zone = report.zone_id.as_ref().map(SafeText::as_str).unwrap_or(""),
                 kind = report.kind.as_str()
             );
-        }
-        if let Some(link) = self.link_for(session) {
-            link.last_progress_at = Some(now);
-            if report.kind == EvidenceKind::ItemStarted
-                && let Some(item) = report.item_id.as_ref()
-            {
-                link.current_item = Some((item.as_str().to_owned(), now));
-            }
-        }
-        self.meaningful_current = true;
-        self.content_progress_current |= content_evidence;
-        if content_evidence
-            && self.content_items.len() < 256
-            && let Some(item) = report.item_id.as_ref()
-        {
-            self.content_items.insert(item.as_str().to_owned());
         }
         self.supervisor.on_progress(now.unix_millis(), &self.supervisor_config);
         true
@@ -531,11 +461,7 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        let current = self.current.as_ref().map(Activation::reference);
-        if let Some(link) = self.link_for(session)
-            && current == Some(activation)
-        {
-            link.last_error_code = Some(code.to_owned());
+        if self.tracking.reject(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
             self.signal(crate::activity::Signal::PlaybackError {
                 item_id: item_id.map(str::to_owned),
                 message: message.to_owned(),
@@ -611,7 +537,7 @@ impl PresentationEngine {
 
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
-        self.meaningful_current = false;
+        self.tracking.clear();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -666,12 +592,13 @@ impl PresentationEngine {
     pub fn status(&self) -> RendererStatus {
         let link = self.renderer.as_ref();
         let ready = link.and_then(|l| l.ready.as_ref());
+        let current_item = self.tracking.current_item();
         let state = match (link, ready, self.supervisor.safe_mode) {
             (_, _, true) => "safe_mode",
             (None, _, _) => "disconnected",
             (Some(_), None, _) => "starting",
             (Some(_), Some(_), _) if self.incompatible_reason.is_some() => "incompatible",
-            (Some(l), Some(_), _) if l.last_progress_at.is_some() => "healthy",
+            (Some(_), Some(_), _) if self.tracking.last_progress().is_some() => "healthy",
             _ => "waiting_for_progress",
         };
         RendererStatus {
@@ -688,11 +615,11 @@ impl PresentationEngine {
                 .ok()
             }),
             current_activation_generation: self.current.as_ref().map(|a| a.generation),
-            last_progress_at: link.and_then(|l| l.last_progress_at),
-            last_error_code: link.and_then(|l| l.last_error_code.as_deref()).and_then(|c| ShortToken::new(c).ok()),
+            last_progress_at: self.tracking.last_progress(),
+            last_error_code: self.tracking.last_error().cloned(),
             incompatible_reason: self.incompatible_reason.as_deref().map(SafeText::lossy),
-            current_item_id: link.and_then(|l| l.current_item.as_ref()).map(|(id, _)| ShortText::lossy(id)),
-            current_item_started_at: link.and_then(|l| l.current_item.as_ref()).map(|(_, at)| *at),
+            current_item_id: current_item.as_ref().map(|(id, _)| ShortText::lossy(id)),
+            current_item_started_at: current_item.as_ref().map(|(_, at)| *at),
             engine_version: ready.map(|r| r.renderer.engine_version.clone()),
             gstreamer_version: ready.and_then(|r| r.renderer.gstreamer_version.clone()),
         }

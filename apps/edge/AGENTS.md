@@ -16,7 +16,8 @@ values are implemented in `crates/player-types`, and durable state in
 `crates/player-client` owns portable server transport. `edge-server` owns
 file stores and Electron import. `crates/player-core` owns native selection,
 command delivery, Activity sessions, the CAS origin adapter, renderer recovery
-decisions, and meaningful-evidence rules. Edge keeps
+decisions, meaningful-evidence rules, and connection-bound acceptance and
+evidence tracking. Edge keeps
 fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior

@@ -136,6 +136,8 @@ Activity consumes semantic signals and injected clocks and IDs.
 The persisted session encoding and parity fixtures remain unchanged.
 Edge retains renderer signal adapters and outbox delivery in this stage.
 Core owns the renderer recovery ladder and meaningful-evidence rules.
+Core tracks acceptance, errors, and evidence by connection and activation.
+It refuses stale observations and bounds evidence logs and content-item sets.
 Edge maps wire values and executes actions through its RendererPort adapter.
 The activation coordinator and recovery timers still remain in Edge.
 

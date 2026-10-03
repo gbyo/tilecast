@@ -6,6 +6,7 @@ mod renderer_document;
 mod renderer_port;
 mod renderer_profile;
 mod renderer_resources;
+mod renderer_tracking;
 mod schedule;
 mod supervisor;
 
@@ -34,6 +35,7 @@ pub use renderer_profile::{
     RendererRequirement, RendererSupport,
 };
 pub use renderer_resources::{ObjectBinding, Resource, ResourceError, RuntimePayload};
+pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticRendererProgress};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
 pub use supervisor::{
     Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,

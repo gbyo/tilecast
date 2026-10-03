@@ -99,7 +99,8 @@ Server transport lives in `crates/player-client`. Edge owns credential and
 pairing files. Hosts supply product identity and device metadata.
 The Core foundation owns native selection, command delivery, and Activity
 sessions in `crates/player-core`. Core also owns the renderer recovery ladder
-and meaningful-evidence rules. Edge executes renderer actions through its port
+and meaningful-evidence rules, with connection-bound acceptance and evidence
+tracking. Edge executes renderer actions through its port
 adapter. Activation coordination and server reconciliation remain in Edge
 until their extraction stages.
 
