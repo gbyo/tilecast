@@ -704,14 +704,24 @@
         },
         {
           "description": "Either page. Registers or updates a visible Studio action trigger so the host can place a real native Menu over that exact rectangle.",
-          "if": { "properties": { "type": { "const": "action-menu/register-trigger" } } },
+          "if": {
+            "properties": {
+              "type": { "const": "action-menu/register-trigger" }
+            }
+          },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/actionMenuTriggerPayload" } }
+            "properties": {
+              "payload": { "$ref": "#/$defs/actionMenuTriggerPayload" }
+            }
           }
         },
         {
           "description": "Either page. Removes a previously registered native Menu trigger.",
-          "if": { "properties": { "type": { "const": "action-menu/unregister-trigger" } } },
+          "if": {
+            "properties": {
+              "type": { "const": "action-menu/unregister-trigger" }
+            }
+          },
           "then": {
             "properties": { "payload": { "$ref": "#/$defs/menuIdPayload" } }
           }
