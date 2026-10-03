@@ -19,6 +19,7 @@ The graph selects these contracts:
 | Change                  | Selected contracts                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------- |
 | Studio component        | Studio, production image, Demo Mode browser and visual tests                           |
+| Linux Player source     | Linux tests and TypeScript build; package contract only for release-sensitive inputs   |
 | CLI or MCP              | CLI and API client                                                                     |
 | Widget or Widget SDK    | Widget conformance and visuals, Studio, server catalog, runtime and renderer consumers |
 | Plugin Studio code      | Plugin conformance, Studio and Demo Mode                                               |
@@ -38,6 +39,12 @@ HTTP rules identify files with Player endpoints and shared routing or authentica
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
+
+## Linux Player validation
+
+Every Linux Player change runs its unit tests and TypeScript build. Pull requests run the packaged release contract when a change can affect Electron packaging, release signing or verification, Player updates or installation, packaged assets, package metadata or dependencies, the shared Player Runtime, or the CI contract. Linux Player source and test changes outside those paths use the fast validation job.
+
+Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
 
 ## Required checks
 
