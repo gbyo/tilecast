@@ -4,7 +4,9 @@ use player_types::{
     ids::ActivationId,
 };
 
-use crate::{PreparedDocument, PreparedDocumentError, RuntimePayload, VerifiedContentRef};
+use crate::renderer_document::MAX_CONTENT_REFS;
+use crate::renderer_resources::{MAX_RESOURCE_BINDINGS, MAX_RUNTIME_PAYLOAD_BYTES};
+use crate::{PreparedActivationError, RendererMetadata, RuntimePayload, VerifiedContentRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererActivationRef {
@@ -12,18 +14,13 @@ pub struct RendererActivationRef {
     pub generation: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RendererConfiguration {
-    pub prevent_display_sleep: bool,
-    pub hide_cursor: bool,
-}
-
 /// Immutable prepared data. The host must authorize these verified objects for
 /// this generation before exposing them to its renderer, and retire old grants.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RendererActivation {
     reference: RendererActivationRef,
-    document: PreparedDocument,
+    document: RuntimePayload,
+    metadata: RendererMetadata,
     content: Vec<VerifiedContentRef>,
     runtime_context: Option<RuntimePayload>,
 }
@@ -31,27 +28,54 @@ pub struct RendererActivation {
 impl RendererActivation {
     pub fn new(
         reference: RendererActivationRef,
-        document: PreparedDocument,
+        document: RuntimePayload,
+        metadata: RendererMetadata,
         content: Vec<VerifiedContentRef>,
         runtime_context: Option<RuntimePayload>,
-    ) -> Result<Self, PreparedDocumentError> {
-        document.validate(&content)?;
-        if let Some(context) = &runtime_context {
-            for binding in context.bindings() {
+    ) -> Result<Self, PreparedActivationError> {
+        metadata.validate()?;
+        let payloads = std::iter::once(&document).chain(runtime_context.iter());
+        if content.len() > MAX_CONTENT_REFS
+            || payloads.clone().map(RuntimePayload::encoded_len).fold(0usize, usize::saturating_add)
+                > MAX_RUNTIME_PAYLOAD_BYTES
+            || payloads.clone().map(|payload| payload.bindings().len()).sum::<usize>() > MAX_RESOURCE_BINDINGS
+        {
+            return Err(PreparedActivationError::TooLarge);
+        }
+        for payload in payloads {
+            for binding in payload.bindings() {
                 if !content.iter().any(|object| object.sha256 == binding.object) {
-                    return Err(PreparedDocumentError::UnlistedObject);
+                    return Err(PreparedActivationError::UnlistedObject);
                 }
             }
         }
-        Ok(Self { reference, document, content, runtime_context })
+        Ok(Self { reference, document, metadata, content, runtime_context })
     }
 
     pub fn reference(&self) -> RendererActivationRef {
         self.reference
     }
 
-    pub fn document(&self) -> &PreparedDocument {
+    pub fn document(&self) -> &RuntimePayload {
         &self.document
+    }
+
+    pub fn metadata(&self) -> &RendererMetadata {
+        &self.metadata
+    }
+
+    pub fn incompatibilities(
+        &self,
+        packaged: &crate::PackagedRendererProfile,
+        connected: &crate::ConnectedRendererProfile,
+    ) -> Vec<(crate::RendererRequirement, crate::RendererProfileMismatch)> {
+        self.metadata
+            .requirements
+            .iter()
+            .filter_map(|requirement| {
+                packaged.check_connected(connected, requirement).err().map(|source| (requirement.clone(), source))
+            })
+            .collect()
     }
 
     pub fn content(&self) -> &[VerifiedContentRef] {
@@ -146,10 +170,9 @@ impl CapturedFrame {
 /// blocking Core on renderer execution. Results arrive as semantic reports.
 /// A host must reject stale endpoints and must never send Player credentials.
 pub trait RendererPort: Send + Sync {
-    fn configure(&self, configuration: RendererConfiguration) -> Result<(), RendererPortError>;
-    /// Authorize the immutable objects for this generation. `now_ms` is the
-    /// host clock's Unix-millisecond sample for resource expiry.
-    fn activate(&self, activation: &RendererActivation, now_ms: i64) -> Result<(), RendererPortError>;
+    /// Authorize immutable objects for this generation. The host owns resource
+    /// transport, expiry clocks, and platform lifecycle configuration.
+    fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError>;
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError>;
     fn send_command(&self, command_id: uuid::Uuid, command: &SemanticRendererCommand) -> Result<(), RendererPortError>;
     fn request_capture(&self, request: RendererCaptureRequest) -> Result<(), RendererPortError>;
@@ -163,6 +186,72 @@ mod tests {
     use player_types::Sha256Digest;
     use serde_json::json;
 
+    fn metadata() -> RendererMetadata {
+        RendererMetadata {
+            requirements: vec![],
+            expectations: Default::default(),
+            requires_content_evidence: true,
+            capture_state: crate::CaptureState::Presentation,
+        }
+    }
+
+    fn reference() -> RendererActivationRef {
+        RendererActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::nil()), generation: 1 }
+    }
+
+    #[test]
+    fn runtime_fields_are_opaque_and_evidence_is_explicit() {
+        let object = Sha256Digest::of(b"verified");
+        let input = json!({"unknownTransition": {"newVisualOption": 17},
+            "website": {"futureOption": true}, "layout": {"futureProperty": "untouched", "media": ""}});
+        let payload = RuntimePayload::new(
+            input.clone(),
+            vec![ObjectBinding { pointer: SafeText::new("/layout/media").unwrap(), object }],
+        )
+        .unwrap();
+        let mut native = metadata();
+        native.expectations.insert(SafeText::new("item").unwrap(), crate::Expectation::Still);
+        let activation = RendererActivation::new(
+            reference(),
+            payload,
+            native,
+            vec![VerifiedContentRef { sha256: object, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            None,
+        )
+        .unwrap();
+        let mut expected = input;
+        expected["layout"]["media"] = json!("authorized host resource");
+        assert_eq!(activation.document().resolve(|_| Some("authorized host resource".into())).unwrap(), expected);
+        assert_eq!(activation.metadata().expectation_for(Some("item")), crate::Expectation::Still);
+        assert_eq!(activation.metadata().expectation_for(Some("unknown")), crate::Expectation::Indefinite);
+        assert!(activation.document().resolve(|_| None).is_err());
+    }
+
+    #[test]
+    fn document_and_context_share_total_payload_and_binding_bounds() {
+        let object = Sha256Digest::of(b"verified");
+        let content =
+            vec![VerifiedContentRef { sha256: object, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }];
+        let half = RuntimePayload::new(json!("x".repeat(MAX_RUNTIME_PAYLOAD_BYTES / 2)), vec![]).unwrap();
+        assert_eq!(
+            RendererActivation::new(reference(), half.clone(), metadata(), content.clone(), Some(half)),
+            Err(PreparedActivationError::TooLarge)
+        );
+        let payload = |count| {
+            RuntimePayload::new(
+                json!({"resources": vec![""; count]}),
+                (0..count)
+                    .map(|i| ObjectBinding { pointer: SafeText::new(format!("/resources/{i}")).unwrap(), object })
+                    .collect(),
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            RendererActivation::new(reference(), payload(600), metadata(), content, Some(payload(500))),
+            Err(PreparedActivationError::TooLarge)
+        );
+    }
+
     #[test]
     fn runtime_context_cannot_authorize_objects_outside_the_prepared_list() {
         let context = RuntimePayload::new(
@@ -173,8 +262,19 @@ mod tests {
         let reference =
             RendererActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::nil()), generation: 1 };
         assert_eq!(
-            RendererActivation::new(reference, PreparedDocument::Setup {}, vec![], Some(context)),
-            Err(PreparedDocumentError::UnlistedObject)
+            RendererActivation::new(
+                reference,
+                RuntimePayload::new(json!({"state": "setup"}), vec![]).unwrap(),
+                crate::RendererMetadata {
+                    requirements: vec![],
+                    expectations: Default::default(),
+                    requires_content_evidence: false,
+                    capture_state: crate::CaptureState::Setup
+                },
+                vec![],
+                Some(context)
+            ),
+            Err(PreparedActivationError::UnlistedObject)
         );
     }
 

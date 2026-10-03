@@ -8,14 +8,6 @@ use serde_json::Value;
 pub const MAX_RESOURCE_BINDINGS: usize = 1024;
 pub const MAX_RUNTIME_PAYLOAD_BYTES: usize = 4 * 1024 * 1024;
 
-/// A local verified object or an unchanged external Runtime value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Resource {
-    Object { object: Sha256Digest },
-    External(SafeText<2048>),
-}
-
 /// The location of one verified object in Runtime-owned JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -45,13 +37,14 @@ pub enum ResourceError {
 impl RuntimePayload {
     pub fn new(value: Value, bindings: Vec<ObjectBinding>) -> Result<Self, ResourceError> {
         if bindings.len() > MAX_RESOURCE_BINDINGS
-            || serde_json::to_vec(&value).map_or(true, |bytes| bytes.len() > MAX_RUNTIME_PAYLOAD_BYTES)
+            || serde_json::to_vec(&(&value, &bindings)).map_or(true, |bytes| bytes.len() > MAX_RUNTIME_PAYLOAD_BYTES)
         {
             return Err(ResourceError::TooLarge);
         }
         let mut pointers = BTreeSet::new();
         for binding in &bindings {
-            if value.pointer(binding.pointer.as_str()).and_then(Value::as_str) != Some("")
+            if !valid_pointer(binding.pointer.as_str())
+                || value.pointer(binding.pointer.as_str()).and_then(Value::as_str) != Some("")
                 || !pointers.insert(binding.pointer.as_str())
             {
                 return Err(ResourceError::InvalidBinding);
@@ -68,6 +61,10 @@ impl RuntimePayload {
         &self.bindings
     }
 
+    pub(crate) fn encoded_len(&self) -> usize {
+        serde_json::to_vec(self).map_or(usize::MAX, |bytes| bytes.len())
+    }
+
     /// The host chooses a safe resource mechanism for the valid generation.
     pub fn resolve(&self, mut resource: impl FnMut(Sha256Digest) -> Option<String>) -> Result<Value, ResourceError> {
         let mut value = self.value.clone();
@@ -78,6 +75,19 @@ impl RuntimePayload {
         }
         Ok(value)
     }
+}
+
+fn valid_pointer(pointer: &str) -> bool {
+    if !pointer.is_empty() && !pointer.starts_with('/') {
+        return false;
+    }
+    let mut bytes = pointer.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'~' && !matches!(bytes.next(), Some(b'0' | b'1')) {
+            return false;
+        }
+    }
+    true
 }
 
 impl<'de> Deserialize<'de> for RuntimePayload {
@@ -120,6 +130,10 @@ mod tests {
         }
         assert_eq!(
             RuntimePayload::new(json!({"image": "already bound"}), vec![binding("/image")]),
+            Err(ResourceError::InvalidBinding)
+        );
+        assert_eq!(
+            RuntimePayload::new(json!({"~invalid": ""}), vec![binding("/~invalid")]),
             Err(ResourceError::InvalidBinding)
         );
     }

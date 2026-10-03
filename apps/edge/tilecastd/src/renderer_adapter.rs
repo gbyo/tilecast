@@ -4,16 +4,15 @@ use std::sync::{Arc, Mutex};
 
 use edge_ipc::SessionHandle;
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, Identify, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState, PresentationActivate,
-    PresentationClear, PreviewRequest, ProjectionContext, RendererCommand, RendererCommandKind, RendererConfigure,
-    RendererMediaRef, RendererShutdown, SyncTiming,
+    ActivationRef, Event, Identify, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState, PresentationClear,
+    PreviewRequest, ProjectionContext, RendererCommand, RendererCommandKind, RendererConfigure, RendererMediaRef,
+    RendererShutdown, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{PresentationDocument, parse_content_uri};
 use edge_protocol::{Sha256Digest, bounded::SafeText};
 use player_core::{
-    ObjectBinding, PreparedDocument, RendererActivation, RendererActivationRef, RendererCaptureRequest,
-    RendererConfiguration, RendererPort, RendererPortError, Resource, RuntimePayload, SemanticRendererCommand,
-    VerifiedContentRef,
+    ObjectBinding, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererMetadata, RendererPort,
+    RendererPortError, RuntimePayload, SemanticRendererCommand, VerifiedContentRef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -49,15 +48,6 @@ pub(crate) fn command(command: RendererCommandKind) -> SemanticRendererCommand {
     }
 }
 
-fn resource(value: &str) -> Result<Resource, RendererPortError> {
-    if value.to_ascii_lowercase().starts_with("tcmedia:") {
-        let object = parse_content_uri(value).ok_or(RendererPortError::InvalidActivation)?;
-        Ok(Resource::Object { object })
-    } else {
-        Ok(Resource::External(SafeText::new(value).map_err(invalid)?))
-    }
-}
-
 fn bindings(value: &mut Value, path: &str, found: &mut Vec<ObjectBinding>) -> Result<(), RendererPortError> {
     match value {
         Value::String(text) if text.to_ascii_lowercase().starts_with("tcmedia:") => {
@@ -87,24 +77,134 @@ fn payload(mut value: Value) -> Result<RuntimePayload, RendererPortError> {
     RuntimePayload::new(value, found).map_err(invalid)
 }
 
-fn prepared_document(document: &PresentationDocument) -> Result<PreparedDocument, RendererPortError> {
-    let mut value = serde_json::to_value(document).map_err(invalid)?;
-    if let Some(items) = value.get_mut("items").and_then(Value::as_array_mut) {
-        for item in items {
-            let src = item["src"].as_str().ok_or(RendererPortError::InvalidActivation)?;
-            item["src"] = serde_json::to_value(resource(src)?).map_err(invalid)?;
-            for field in ["viewport", "website", "widget", "layout"] {
-                if let Some(nested) = item.get_mut(field) {
-                    *nested = serde_json::to_value(payload(nested.take())?).map_err(invalid)?;
+fn prepared_document(document: &PresentationDocument) -> Result<RuntimePayload, RendererPortError> {
+    payload(serde_json::to_value(document).map_err(invalid)?)
+}
+
+pub(crate) fn metadata(
+    document: &PresentationDocument,
+    source: crate::presentation::ActivationSource,
+    projection: Option<&edge_protocol::ipc::event::ProjectionContext>,
+) -> Result<RendererMetadata, edge_protocol::ipc::presentation::PresentationError> {
+    use edge_protocol::ipc::presentation::PresentationError;
+    use player_core::RendererRequirement;
+    let mut requirements: Vec<_> = document
+        .required_features()
+        .into_iter()
+        .map(|feature| {
+            RendererRequirement::Feature(edge_protocol::bounded::ShortToken::new(feature).expect("contract feature"))
+        })
+        .collect();
+    // This is host projection metadata, not interpretation inside Core.
+    // Preserve the contract's separate declarative and component namespaces.
+    if let Some(projection) = projection {
+        let widgets = projection
+            .manifest
+            .get("widgets")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|widget| widget.get("presentation").filter(|value| !value.is_null()));
+        let layouts = projection
+            .manifest
+            .get("layouts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|layout| layout.get("document"));
+        for presentation in widgets.chain(layouts) {
+            let version = presentation
+                .get("schemaVersion")
+                .and_then(Value::as_u64)
+                .and_then(|version| u32::try_from(version).ok())
+                .filter(|version| *version > 0)
+                .ok_or(PresentationError::InvalidRequirements)?;
+            let schema = RendererRequirement::PresentationSchema(version);
+            if !requirements.contains(&schema) {
+                requirements.push(schema);
+            }
+            if let Some(required) = presentation.get("requiredCapabilities") {
+                for (name, version) in required.as_object().ok_or(PresentationError::InvalidRequirements)? {
+                    let name = edge_protocol::bounded::ShortToken::new(name)
+                        .map_err(|_| PresentationError::InvalidRequirements)?;
+                    let version = version
+                        .as_u64()
+                        .and_then(|version| u32::try_from(version).ok())
+                        .filter(|version| *version > 0)
+                        .ok_or(PresentationError::InvalidRequirements)?;
+                    let requirement = if name.as_str().starts_with("widget.") {
+                        RendererRequirement::WidgetComponent { name, version }
+                    } else {
+                        RendererRequirement::Declarative { name, version }
+                    };
+                    if !requirements.contains(&requirement) {
+                        requirements.push(requirement);
+                    }
+                    if requirements.len() > player_core::MAX_RENDERER_REQUIREMENTS {
+                        return Err(PresentationError::InvalidRequirements);
+                    }
                 }
             }
         }
     }
-    if let Some(logo) = value.get_mut("logoSrc") {
-        let src = logo.as_str().ok_or(RendererPortError::InvalidActivation)?;
-        *logo = serde_json::to_value(resource(src)?).map_err(invalid)?;
-    }
-    serde_json::from_value(value).map_err(invalid)
+    let expectations = match document {
+        PresentationDocument::Playing { items, .. } => {
+            items.iter().rev().map(|item| (item.id.clone(), crate::supervisor::expectation_for(item.kind))).collect()
+        }
+        _ => Default::default(),
+    };
+    let capture_state = if source == crate::presentation::ActivationSource::SafeMode {
+        player_core::CaptureState::SafeMode
+    } else {
+        match document {
+            PresentationDocument::Setup {} => player_core::CaptureState::Setup,
+            PresentationDocument::Pairing { .. } => player_core::CaptureState::Pairing,
+            PresentationDocument::SafeMode { .. } => player_core::CaptureState::SafeMode,
+            _ => player_core::CaptureState::Presentation,
+        }
+    };
+    Ok(RendererMetadata {
+        requirements,
+        expectations,
+        requires_content_evidence: matches!(document, PresentationDocument::Playing { items, .. } if !items.is_empty()),
+        capture_state,
+    })
+}
+
+pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
+    use crate::manifest::profile;
+    let token = |name| edge_protocol::bounded::ShortToken::new(name).expect("generated capability name");
+    player_core::PackagedRendererProfile(
+        player_core::RendererSupport::new(
+            profile::FEATURES.iter().map(|name| token(*name)).collect(),
+            profile::PRESENTATION_SCHEMAS.iter().copied().collect(),
+            profile::NATIVE_CAPABILITIES
+                .iter()
+                .map(|(name, version)| (token(*name), *version))
+                .chain(std::iter::once((token("web.remote"), profile::WEB_RUNTIME_VERSION)))
+                .collect(),
+            crate::widget_capabilities::WIDGET_COMPONENTS
+                .iter()
+                .map(|(name, version)| (token(*name), *version))
+                .collect(),
+        )
+        .expect("bounded installed runtime profile"),
+    )
+}
+
+pub(crate) fn connected_profile(
+    ready: &edge_protocol::ipc::event::RendererReady,
+) -> player_core::ConnectedRendererProfile {
+    let support = ready.support.as_ref();
+    player_core::ConnectedRendererProfile(
+        player_core::RendererSupport::new(
+            ready.features.iter().cloned().collect(),
+            support.map(|s| s.presentation_schemas.iter().copied().collect()).unwrap_or_default(),
+            support.map(|s| s.declarative_capabilities.clone()).unwrap_or_default(),
+            support.map(|s| s.widget_components.clone()).unwrap_or_default(),
+        )
+        .expect("bounded renderer.ready support"),
+    )
 }
 
 /// Temporary projection bridge while activation policy still lives in Edge.
@@ -129,6 +229,7 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
     RendererActivation::new(
         RendererActivationRef { activation_id: activation.id, generation: activation.generation },
         prepared_document(&activation.document)?,
+        activation.renderer_metadata.clone(),
         content,
         Some(payload(serde_json::to_value(context).map_err(invalid)?)?),
     )
@@ -140,6 +241,7 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
 pub(crate) struct EdgeRendererPort {
     session: SessionHandle,
     channel: MediaChannelDescriptor,
+    clock: edge_protocol::time::SharedClock,
     registry: Arc<Mutex<MediaRegistry>>,
     media: Mutex<Option<(ActivationRef, HashMap<Sha256Digest, MediaCapability>)>>,
 }
@@ -149,8 +251,9 @@ impl EdgeRendererPort {
         session: SessionHandle,
         channel: MediaChannelDescriptor,
         registry: Arc<Mutex<MediaRegistry>>,
+        clock: edge_protocol::time::SharedClock,
     ) -> Self {
-        Self { session, channel, registry, media: Mutex::new(None) }
+        Self { session, channel, registry, clock, media: Mutex::new(None) }
     }
 
     fn send(&self, event: Event) -> Result<(), RendererPortError> {
@@ -158,52 +261,25 @@ impl EdgeRendererPort {
     }
 }
 
-fn resolved_resource(
-    value: &Value,
+fn wire_document(
+    document: &RuntimePayload,
     resolve: &impl Fn(Sha256Digest) -> Option<String>,
 ) -> Result<Value, RendererPortError> {
-    let reference: Resource = serde_json::from_value(value.clone()).map_err(invalid)?;
-    let text = match reference {
-        Resource::Object { object } => resolve(object).ok_or(RendererPortError::InvalidActivation)?,
-        Resource::External(text) => text.as_str().to_owned(),
-    };
-    Ok(Value::String(text))
+    document.resolve(resolve).map_err(invalid)
 }
 
-fn wire_document(
-    document: &PreparedDocument,
-    resolve: &impl Fn(Sha256Digest) -> Option<String>,
-) -> Result<PresentationDocument, RendererPortError> {
-    let mut value = serde_json::to_value(document).map_err(invalid)?;
-    if let Some(items) = value.get_mut("items").and_then(Value::as_array_mut) {
-        for item in items {
-            item["src"] = resolved_resource(&item["src"], resolve)?;
-            for field in ["viewport", "website", "widget", "layout"] {
-                if let Some(nested) = item.get_mut(field) {
-                    let payload: RuntimePayload = serde_json::from_value(nested.take()).map_err(invalid)?;
-                    *nested = payload.resolve(resolve).map_err(invalid)?;
-                }
-            }
-        }
+impl EdgeRendererPort {
+    pub(crate) fn configure(&self, kiosk: &KioskPolicy) -> Result<(), RendererPortError> {
+        self.send(Event::RendererConfigure(RendererConfigure {
+            media_channel: self.channel.clone(),
+            kiosk: kiosk.clone(),
+        }))
     }
-    if let Some(logo) = value.get_mut("logoSrc") {
-        *logo = resolved_resource(logo, resolve)?;
-    }
-    serde_json::from_value(value).map_err(invalid)
 }
 
 impl RendererPort for EdgeRendererPort {
-    fn configure(&self, configuration: RendererConfiguration) -> Result<(), RendererPortError> {
-        self.send(Event::RendererConfigure(RendererConfigure {
-            media_channel: self.channel.clone(),
-            kiosk: KioskPolicy {
-                prevent_display_sleep: configuration.prevent_display_sleep,
-                hide_cursor: configuration.hide_cursor,
-            },
-        }))
-    }
-
-    fn activate(&self, activation: &RendererActivation, now_ms: i64) -> Result<(), RendererPortError> {
+    fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError> {
+        let now_ms = self.clock.now().unix_millis();
         let reference = activation.reference();
         let reference = ActivationRef { activation_id: reference.activation_id, generation: reference.generation };
         let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
@@ -275,14 +351,10 @@ impl RendererPort for EdgeRendererPort {
         } else {
             PluginState { plugins: vec![], content: vec![], clock_offset_ms: context.clock_offset_ms, aliases: vec![] }
         };
-        let sent = self.send(Event::PresentationActivate(Box::new(PresentationActivate {
-            activation_id: reference.activation_id,
-            generation: reference.generation,
-            presentation,
-            content,
-            timing: context.timing,
-            projection: context.projection,
-        })));
+        let sent = self
+            .session
+            .send_presentation(reference, presentation, content, context.timing, context.projection)
+            .map_err(|_| RendererPortError::QueueUnavailable);
         let plugins_sent = self.send(Event::PluginState(plugins));
         sent.and(plugins_sent)
     }
@@ -329,6 +401,119 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn session_versions_are_independent_of_the_packaged_profile() {
+        use player_core::{RendererProfileMismatch, RendererRequirement};
+        let frame: Value = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/ipc/valid/event-renderer-ready.json"
+        ))
+        .unwrap();
+        let mut ready: edge_protocol::ipc::event::RendererReady =
+            serde_json::from_value(frame["frame"]["data"].clone()).unwrap();
+        let packaged = packaged_profile();
+        let schema = RendererRequirement::PresentationSchema(2);
+        let component = RendererRequirement::WidgetComponent {
+            name: edge_protocol::bounded::ShortToken::new("widget.tilecast.clock").unwrap(),
+            version: 2,
+        };
+        let declarative = RendererRequirement::Declarative {
+            name: edge_protocol::bounded::ShortToken::new("content.text").unwrap(),
+            version: 1,
+        };
+        for requirement in [&schema, &component, &declarative] {
+            assert_eq!(packaged.check(requirement), Ok(()));
+            assert_eq!(
+                packaged.check_connected(&connected_profile(&ready), requirement),
+                Err(RendererProfileMismatch::Connected)
+            );
+        }
+        ready.support = Some(
+            serde_json::from_value(json!({"presentationSchemas": [1,2],
+            "declarativeCapabilities": {"content.text": 1}, "widgetComponents": {"widget.tilecast.clock": 2}}))
+            .unwrap(),
+        );
+        for requirement in [&schema, &component, &declarative] {
+            assert_eq!(packaged.check_connected(&connected_profile(&ready), requirement), Ok(()));
+        }
+        ready.support.as_mut().unwrap().widget_components.values_mut().for_each(|v| *v = 99);
+        let future = RendererRequirement::WidgetComponent {
+            name: edge_protocol::bounded::ShortToken::new("widget.tilecast.clock").unwrap(),
+            version: 99,
+        };
+        assert_eq!(connected_profile(&ready).check(&future), Ok(()));
+        assert_eq!(
+            packaged.check_connected(&connected_profile(&ready), &future),
+            Err(RendererProfileMismatch::Packaged)
+        );
+    }
+
+    #[test]
+    fn projection_supplies_explicit_schema_and_capability_requirements() {
+        use player_core::RendererRequirement;
+        let mut projection = edge_protocol::ipc::event::ProjectionContext {
+            schema: 1,
+            clock_offset_ms: 0,
+            media: vec![],
+            playback: None,
+            manifest: json!({"widgets": [{"presentation": {"schemaVersion": 2, "kind": "component",
+                "requiredCapabilities": {"widget.tilecast.clock": 2, "content.text": 1}}}]}),
+        };
+        let metadata = metadata(
+            &PresentationDocument::Setup {},
+            crate::presentation::ActivationSource::ServerManifest,
+            Some(&projection),
+        )
+        .unwrap();
+        assert!(metadata.requirements.contains(&RendererRequirement::PresentationSchema(2)));
+        assert!(metadata.requirements.contains(&RendererRequirement::WidgetComponent {
+            name: edge_protocol::bounded::ShortToken::new("widget.tilecast.clock").unwrap(),
+            version: 2,
+        }));
+        assert!(metadata.requirements.contains(&RendererRequirement::Declarative {
+            name: edge_protocol::bounded::ShortToken::new("content.text").unwrap(),
+            version: 1,
+        }));
+        projection.manifest["widgets"][0]["presentation"]["requiredCapabilities"]["content.text"] = json!(0);
+        assert!(
+            super::metadata(
+                &PresentationDocument::Setup {},
+                crate::presentation::ActivationSource::ServerManifest,
+                Some(&projection)
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn unknown_runtime_fields_survive_preparation_and_resource_resolution() {
+        let digest = Sha256Digest::of(b"verified");
+        let source = edge_protocol::ipc::presentation::content_uri(&digest);
+        let input = json!({"state": "playing", "futureTransition": {"curve": [0.1, 0.9]},
+            "website": {"futureOption": true}, "layout": {"futureProperty": "same", "resource": source}});
+        let prepared = payload(input.clone()).unwrap();
+        let activation = RendererActivation::new(
+            RendererActivationRef {
+                activation_id: edge_protocol::ids::ActivationId::from_uuid(uuid::Uuid::nil()),
+                generation: 8,
+            },
+            prepared,
+            RendererMetadata {
+                requirements: vec![],
+                expectations: Default::default(),
+                requires_content_evidence: true,
+                capture_state: player_core::CaptureState::Presentation,
+            },
+            vec![VerifiedContentRef { sha256: digest, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            None,
+        )
+        .unwrap();
+        let resolved = wire_document(activation.document(), &|_| Some("authorized resource".into())).unwrap();
+        let mut expected = input;
+        expected["layout"]["resource"] = json!("authorized resource");
+        assert_eq!(resolved, expected);
+        assert!(wire_document(activation.document(), &|_| None).is_err());
+    }
+
+    #[test]
     fn golden_presentation_shapes_survive_the_semantic_boundary() {
         let digest = Sha256Digest::of(b"fixture");
         let source = edge_protocol::ipc::presentation::content_uri(&digest);
@@ -360,7 +545,9 @@ mod tests {
             replace(&mut input, &source, &mut replacements);
             let document: PresentationDocument = serde_json::from_value(input).unwrap();
             let prepared = prepared_document(&document).unwrap();
-            let restored = wire_document(&prepared, &|_| replacements.get(&source).cloned()).unwrap();
+            let restored: PresentationDocument =
+                serde_json::from_value(wire_document(&prepared, &|_| replacements.get(&source).cloned()).unwrap())
+                    .unwrap();
             // Compare typed values so serde defaults do not alter the fixture.
             let expected: PresentationDocument = serde_json::from_value(original).unwrap();
             assert_eq!(restored, expected);
@@ -398,6 +585,8 @@ mod tests {
                 next_transition_ms: None,
             }),
             document: PresentationDocument::Setup {},
+            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
+                .unwrap(),
             content: vec![edge_protocol::ipc::presentation::ContentRef {
                 sha256: digest,
                 size_bytes: 4,

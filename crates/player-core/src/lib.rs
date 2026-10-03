@@ -2,6 +2,7 @@
 mod activity;
 mod capture;
 mod commands;
+mod live_stream;
 mod origin;
 mod preview;
 mod renderer_document;
@@ -23,25 +24,24 @@ pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
     drive_commands,
 };
+pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
 };
 pub use renderer_document::{
-    ContentRef as VerifiedContentRef, ItemKind as RendererItemKind, PreparedDocumentError,
-    PresentationDocument as PreparedDocument, PresentationFeature as RequiredRendererFeature,
-    PresentationItem as PreparedItem, StatusSurface as PreparedSurface,
+    ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
 };
 pub use renderer_port::{
-    CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererConfiguration,
-    RendererPort, RendererPortError, SemanticRendererCommand,
+    CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,
+    SemanticRendererCommand,
 };
 pub use renderer_profile::{
     ConnectedRendererProfile, PackagedRendererProfile, RendererProfileError, RendererProfileMismatch,
     RendererRequirement, RendererSupport,
 };
-pub use renderer_resources::{ObjectBinding, Resource, ResourceError, RuntimePayload};
+pub use renderer_resources::{ObjectBinding, ResourceError, RuntimePayload};
 pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticRendererProgress};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
 pub use supervisor::{
