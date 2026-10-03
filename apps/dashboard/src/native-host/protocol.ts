@@ -29,6 +29,8 @@ export type NativeCapabilities = {
   deepLinks: boolean;
   /** The host shows a native alert for alert/present, on either page. */
   nativeAlerts: boolean;
+  /** The host shows a native menu for action-menu/present, on either page. */
+  nativeActionMenus: boolean;
 };
 
 export const noNativeCapabilities: NativeCapabilities = {
@@ -41,6 +43,7 @@ export const noNativeCapabilities: NativeCapabilities = {
   nativeMediaIntake: false,
   deepLinks: false,
   nativeAlerts: false,
+  nativeActionMenus: false,
 };
 
 /**
@@ -57,12 +60,14 @@ export type FrontendCapabilities = {
   nativeMediaIntake?: boolean;
   deepLinks?: boolean;
   nativeAlerts?: boolean;
+  nativeActionMenus?: boolean;
 };
 
 /**
  * What this Studio supports: it handles auth/sign-out-request, it has the
  * presentation routes and messages, it handles system/media-intake-completed,
- * it navigates for a deep link, and it handles alert/action.
+ * it navigates for a deep link, it handles alert/action, and it handles
+ * action-menu/action.
  */
 export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
@@ -70,6 +75,7 @@ export const studioCapabilities: FrontendCapabilities = {
   nativeMediaIntake: true,
   deepLinks: true,
   nativeAlerts: true,
+  nativeActionMenus: true,
 };
 
 /** The one presentation route root a host knows. Studio owns its children. */
@@ -181,6 +187,34 @@ export type AlertPresentPayload = {
   actions: AlertButton[];
 };
 
+export type ActionMenuRole = "default" | "destructive";
+
+export type ActionMenuItem = {
+  id: string;
+  /** Already localized. */
+  label: string;
+  /** Advisory. The host shows no icon for a token it does not know. */
+  icon?: string;
+  disabled?: boolean;
+  /** Advisory. The host styles destructive; anything else is default. */
+  role?: ActionMenuRole;
+};
+
+export type ActionMenuGroup = {
+  items: ActionMenuItem[];
+};
+
+/**
+ * A complete generic menu. The host renders groups as sections and reports
+ * the chosen opaque action id; only Studio knows what an action does.
+ */
+export type ActionMenuDescriptor = {
+  menuId: string;
+  /** Names the menu for accessibility. Already localized. */
+  label: string;
+  groups: ActionMenuGroup[];
+};
+
 /**
  * The chrome of the current page. With back, the host shows a native
  * navigation bar: a back button labelled with the previous page, and the
@@ -239,6 +273,12 @@ export type FrontendToNativePayloads = {
   "alert/present": AlertPresentPayload;
   /** Either page: withdraw an alert this page presented. */
   "alert/cancel": { alertId: string };
+  /** Either page: show a native menu. The host answers action-menu/action. */
+  "action-menu/present": ActionMenuDescriptor;
+  /** Either page: arm a native context menu for a long press. */
+  "action-menu/arm": ActionMenuDescriptor;
+  /** Either page: withdraw a menu this page presented or armed. */
+  "action-menu/disarm": { menuId: string };
   /** Main page: describe the native navigation bar for this page. */
   "navigation/chrome": NavigationChromePayload;
 };
@@ -266,6 +306,10 @@ export type NativeToFrontendPayloads = {
   "system/qr-scan-result": QrScanResultPayload;
   /** The user chose a button of an alert this page presented. */
   "alert/action": { alertId: string; actionId: string };
+  /** The user chose an action of a menu this page presented or armed. */
+  "action-menu/action": { menuId: string; actionId: string };
+  /** The user dismissed a presented menu without choosing an action. */
+  "action-menu/dismissed": { menuId: string };
   /** Main page: the user tapped the native back button. */
   "navigation/back": Record<string, never>;
 };
@@ -510,11 +554,7 @@ const mediaIntakeOutcomes = new Set<string>([
   "cancelled",
 ]);
 
-const qrScanOutcomes = new Set<string>([
-  "scanned",
-  "cancelled",
-  "unavailable",
-]);
+const qrScanOutcomes = new Set<string>(["scanned", "cancelled", "unavailable"]);
 
 /**
  * The version is read first: a message from another protocol version may
@@ -636,6 +676,27 @@ export function decodeNativeMessage(
             actionId: payload.actionId,
           },
         },
+      };
+    case "action-menu/action":
+      if (!isOpaqueId(payload.menuId) || !isOpaqueId(payload.actionId)) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: {
+            menuId: payload.menuId,
+            actionId: payload.actionId,
+          },
+        },
+      };
+    case "action-menu/dismissed":
+      if (!isOpaqueId(payload.menuId)) return { outcome: "malformed" };
+      return {
+        outcome: "accept",
+        message: { type, ...withId, payload: { menuId: payload.menuId } },
       };
     case "system/media-intake-completed":
       if (
@@ -792,6 +853,7 @@ export function decodeHostConfig(
       nativeMediaIntake: capabilities.nativeMediaIntake === true,
       deepLinks: capabilities.deepLinks === true,
       nativeAlerts: capabilities.nativeAlerts === true,
+      nativeActionMenus: capabilities.nativeActionMenus === true,
     },
   };
 }

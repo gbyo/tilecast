@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Generates the iOS app's Lucide icon assets from Studio, so native
-// navigation shows the same icons as Studio's sidebar.
+// navigation and native action menus show the same icons as Studio.
 //
 // Inputs:
 //   apps/dashboard/src/navigation/NavigationIcon.tsx  token -> Lucide icon
+//   apps/dashboard/src/components/studio/actionIcons.tsx  token -> Lucide icon
 //   lucide-react (the version in package-lock.json)  icon geometry
 // Outputs:
 //   apps/ios/Tilecast/Resources/Assets.xcassets/Lucide/
@@ -80,6 +81,26 @@ const tokens = [
   ...block[1].matchAll(/^\s*([a-z][a-z0-9-]*)\s*:\s*(\w+)\s*,?\s*$/gm),
 ].map(([, token, component]) => [token, iconFile(component)]);
 if (tokens.length === 0) throw new Error("NavigationIcon.tsx maps no tokens");
+
+// Action menu tokens share the catalog and the images map, so one
+// generator covers both vocabularies. An action reuses a navigation
+// token's icon by naming it; only new tokens are listed here.
+const actionSource = readFileSync(
+  join(root, "apps/dashboard/src/components/studio/actionIcons.tsx"),
+  "utf8",
+);
+const actionBlock = actionSource.match(/actionIcons[^=]*=\s*\{([^}]*)\}/);
+if (!actionBlock) throw new Error("actionIcons.tsx no longer has actionIcons");
+const actionTokens = [
+  ...actionBlock[1].matchAll(/^\s*([a-z][a-z0-9-]*)\s*:\s*(\w+)\s*,?\s*$/gm),
+].map(([, token, component]) => [token, iconFile(component)]);
+if (actionTokens.length === 0)
+  throw new Error("actionIcons.tsx maps no tokens");
+for (const [token] of actionTokens) {
+  if (tokens.some(([known]) => known === token))
+    throw new Error(`action token ${token} duplicates a navigation token`);
+}
+tokens.push(...actionTokens);
 const genericFile = iconFile(generic[1]);
 const app = Object.entries(appIcons).map(([name, component]) => [
   name,
@@ -156,7 +177,8 @@ writeFileSync(
   `${header}
 extension NavigationIcon {
     /// The Lucide icon Studio shows for each token, as an asset name in the
-    /// app's catalog. From apps/dashboard/src/navigation/NavigationIcon.tsx.
+    /// app's catalog. From apps/dashboard/src/navigation/NavigationIcon.tsx
+    /// and apps/dashboard/src/components/studio/actionIcons.tsx.
     static let images: [String: String] = [
 ${tokens.map(([token, file]) => `        "${token}": ${asset(file)},`).join("\n")}
     ]
@@ -176,5 +198,5 @@ ${app.map(([name, file]) => `    static let ${name} = ${asset(file)}`).join("\n"
 `,
 );
 console.log(
-  `Wrote ${all.length} Lucide ${lucideVersion} icons for ${tokens.length} navigation tokens.`,
+  `Wrote ${all.length} Lucide ${lucideVersion} icons for ${tokens.length - actionTokens.length} navigation and ${actionTokens.length} action tokens.`,
 );

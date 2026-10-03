@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation. hapticFeedback names the semantic feedback a native host reads from an accepted system/haptic, or null when it does not know the value. share lists what a native host decodes from an accepted system/share. mediaIntake lists what a native host decodes from an accepted system/media-intake, with defaults applied. qrScan lists what a native host decodes from an accepted system/scan-qr. hostCapabilities lists capabilities a Studio reads from a config/get reply. deepLinkPaths lists paths that both sides accept or refuse for a deep link.",
+  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation. hapticFeedback names the semantic feedback a native host reads from an accepted system/haptic, or null when it does not know the value. share lists what a native host decodes from an accepted system/share. mediaIntake lists what a native host decodes from an accepted system/media-intake, with defaults applied. qrScan lists what a native host decodes from an accepted system/scan-qr. hostCapabilities lists capabilities a Studio reads from a config/get reply. deepLinkPaths lists paths that both sides accept or refuse for a deep link. actionMenu lists what a native host decodes from an accepted action-menu/present or action-menu/arm, with defaults applied.",
   "schemaVersion": 1,
   "cases": [
     {
@@ -36,7 +36,8 @@
         "nativePresentations": true,
         "nativeAlerts": true,
         "nativeMediaIntake": true,
-        "deepLinks": true
+        "deepLinks": true,
+        "nativeActionMenus": true
       },
       "message": {
         "version": 1,
@@ -47,7 +48,8 @@
             "nativePresentations": true,
             "nativeAlerts": true,
             "nativeMediaIntake": true,
-            "deepLinks": true
+            "deepLinks": true,
+            "nativeActionMenus": true
           }
         }
       }
@@ -1781,7 +1783,8 @@
             "systemHaptics": true,
             "systemQrScanner": true,
             "nativeMediaIntake": true,
-            "deepLinks": true
+            "deepLinks": true,
+            "nativeActionMenus": true
           }
         }
       },
@@ -1790,7 +1793,8 @@
         "systemHaptics": true,
         "systemQrScanner": true,
         "nativeMediaIntake": true,
-        "deepLinks": true
+        "deepLinks": true,
+        "nativeActionMenus": true
       }
     },
     {
@@ -1880,7 +1884,8 @@
             "systemHaptics": true,
             "systemQrScanner": true,
             "nativeMediaIntake": false,
-            "deepLinks": false
+            "deepLinks": false,
+            "nativeActionMenus": true
           }
         }
       },
@@ -1889,7 +1894,8 @@
         "systemHaptics": true,
         "systemQrScanner": true,
         "nativeMediaIntake": false,
-        "deepLinks": false
+        "deepLinks": false,
+        "nativeActionMenus": true
       }
     },
     {
@@ -3005,7 +3011,11 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": { "requestId": "qr-1", "outcome": "expired", "value": "https://signage.example.org/" }
+        "payload": {
+          "requestId": "qr-1",
+          "outcome": "expired",
+          "value": "https://signage.example.org/"
+        }
       }
     },
     {
@@ -3029,6 +3039,498 @@
           "requestId": "qr-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "outcome": "cancelled"
         }
+      }
+    },
+    {
+      "name": "action-menu/present",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "actionMenuPresent",
+      "actionMenu": {
+        "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "label": "Actions for Lobby Screen",
+        "groups": [
+          {
+            "items": [
+              {
+                "id": "open",
+                "label": "Open",
+                "icon": "open",
+                "disabled": false,
+                "role": "default"
+              },
+              {
+                "id": "restart",
+                "label": "Restart player",
+                "icon": "refresh",
+                "disabled": true,
+                "role": "default"
+              }
+            ]
+          },
+          {
+            "items": [
+              {
+                "id": "delete",
+                "label": "Delete",
+                "icon": "trash",
+                "disabled": false,
+                "role": "destructive"
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions for Lobby Screen",
+          "groups": [
+            {
+              "items": [
+                { "id": "open", "label": "Open", "icon": "open" },
+                {
+                  "id": "restart",
+                  "label": "Restart player",
+                  "icon": "refresh",
+                  "disabled": true
+                }
+              ]
+            },
+            {
+              "items": [
+                {
+                  "id": "delete",
+                  "label": "Delete",
+                  "icon": "trash",
+                  "role": "destructive"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with one plain action",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "actionMenu": {
+        "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "label": "Actions",
+        "groups": [
+          {
+            "items": [
+              {
+                "id": "open",
+                "label": "Open",
+                "icon": null,
+                "disabled": false,
+                "role": "default"
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with an unknown role",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "actionMenu": {
+        "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "label": "Actions",
+        "groups": [
+          {
+            "items": [
+              {
+                "id": "open",
+                "label": "Open",
+                "icon": null,
+                "disabled": false,
+                "role": "default"
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [
+            {
+              "items": [{ "id": "open", "label": "Open", "role": "primary" }]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with an unknown icon token",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "actionMenu": {
+        "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "label": "Actions",
+        "groups": [
+          {
+            "items": [
+              {
+                "id": "open",
+                "label": "Open",
+                "icon": "door-calendar",
+                "disabled": false,
+                "role": "default"
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [
+            {
+              "items": [
+                { "id": "open", "label": "Open", "icon": "door-calendar" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with a future property",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }],
+          "shortcutHint": "O"
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with repeated action ids",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [
+            { "items": [{ "id": "open", "label": "Open" }] },
+            { "items": [{ "id": "open", "label": "Open again" }] }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with no groups",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": []
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with an empty group",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [{ "items": [] }]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with too many items",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [
+            {
+              "items": [
+                { "id": "a-0", "label": "Action 0" },
+                { "id": "a-1", "label": "Action 1" },
+                { "id": "a-2", "label": "Action 2" },
+                { "id": "a-3", "label": "Action 3" },
+                { "id": "a-4", "label": "Action 4" },
+                { "id": "a-5", "label": "Action 5" },
+                { "id": "a-6", "label": "Action 6" },
+                { "id": "a-7", "label": "Action 7" },
+                { "id": "a-8", "label": "Action 8" },
+                { "id": "a-9", "label": "Action 9" },
+                { "id": "a-10", "label": "Action 10" },
+                { "id": "a-11", "label": "Action 11" },
+                { "id": "a-12", "label": "Action 12" }
+              ]
+            },
+            {
+              "items": [
+                { "id": "a-13", "label": "Action 13" },
+                { "id": "a-14", "label": "Action 14" },
+                { "id": "a-15", "label": "Action 15" },
+                { "id": "a-16", "label": "Action 16" },
+                { "id": "a-17", "label": "Action 17" },
+                { "id": "a-18", "label": "Action 18" },
+                { "id": "a-19", "label": "Action 19" },
+                { "id": "a-20", "label": "Action 20" },
+                { "id": "a-21", "label": "Action 21" },
+                { "id": "a-22", "label": "Action 22" },
+                { "id": "a-23", "label": "Action 23" },
+                { "id": "a-24", "label": "Action 24" }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with too many groups",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [
+            { "items": [{ "id": "g-0", "label": "Group 0" }] },
+            { "items": [{ "id": "g-1", "label": "Group 1" }] },
+            { "items": [{ "id": "g-2", "label": "Group 2" }] },
+            { "items": [{ "id": "g-3", "label": "Group 3" }] },
+            { "items": [{ "id": "g-4", "label": "Group 4" }] },
+            { "items": [{ "id": "g-5", "label": "Group 5" }] },
+            { "items": [{ "id": "g-6", "label": "Group 6" }] },
+            { "items": [{ "id": "g-7", "label": "Group 7" }] },
+            { "items": [{ "id": "g-8", "label": "Group 8" }] }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with an oversized label",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
+        }
+      }
+    },
+    {
+      "name": "action-menu/present with a menu id outside its pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/present",
+        "payload": {
+          "menuId": "Menu 1",
+          "label": "Actions",
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }]
+        }
+      }
+    },
+    {
+      "name": "action-menu/arm",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "actionMenuArm",
+      "actionMenu": {
+        "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+        "label": "Actions for Lobby Screen",
+        "groups": [
+          {
+            "items": [
+              {
+                "id": "open",
+                "label": "Open",
+                "icon": "open",
+                "disabled": false,
+                "role": "default"
+              },
+              {
+                "id": "restart",
+                "label": "Restart player",
+                "icon": "refresh",
+                "disabled": true,
+                "role": "default"
+              }
+            ]
+          },
+          {
+            "items": [
+              {
+                "id": "delete",
+                "label": "Delete",
+                "icon": "trash",
+                "disabled": false,
+                "role": "destructive"
+              }
+            ]
+          }
+        ]
+      },
+      "message": {
+        "version": 1,
+        "type": "action-menu/arm",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions for Lobby Screen",
+          "groups": [
+            {
+              "items": [
+                { "id": "open", "label": "Open", "icon": "open" },
+                {
+                  "id": "restart",
+                  "label": "Restart player",
+                  "icon": "refresh",
+                  "disabled": true
+                }
+              ]
+            },
+            {
+              "items": [
+                {
+                  "id": "delete",
+                  "label": "Delete",
+                  "icon": "trash",
+                  "role": "destructive"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "action-menu/disarm",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "actionMenuDisarm",
+      "message": {
+        "version": 1,
+        "type": "action-menu/disarm",
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "action-menu/disarm with an oversized menu id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/disarm",
+        "payload": {
+          "menuId": "m-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "action-menu/action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "actionMenuAction",
+      "message": {
+        "version": 1,
+        "type": "action-menu/action",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "actionId": "delete"
+        }
+      }
+    },
+    {
+      "name": "action-menu/action without an action id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/action",
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "action-menu/dismissed",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "actionMenuDismissed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/dismissed",
+        "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "action-menu/dismissed without a menu id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "action-menu/dismissed",
+        "payload": {}
+      }
+    },
+    {
+      "name": "frontend/ready with the action-menu capability alone",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "frontendCapabilities": {
+        "authLifecycle": false,
+        "nativePresentations": false,
+        "nativeActionMenus": true
+      },
+      "message": {
+        "version": 1,
+        "type": "frontend/ready",
+        "payload": { "capabilities": { "nativeActionMenus": true } }
       }
     }
   ],

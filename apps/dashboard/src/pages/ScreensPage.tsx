@@ -14,9 +14,7 @@ import {
   Grid2X2,
   Link2,
   List,
-  MoreHorizontal,
   Monitor,
-  Pencil,
   Play,
   RefreshCw,
   ShieldAlert,
@@ -79,6 +77,8 @@ import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 
 import { previewAge } from "../components/livePreviewState";
+import { screenRowActionGroups } from "../components/screenActions";
+import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
@@ -111,13 +111,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -2421,6 +2414,7 @@ export function ScreenGridCard({
 }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
+  const navigate = useNavigate();
   const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -2557,70 +2551,18 @@ export function ScreenGridCard({
             </small>
           </span>
           <div className="shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-sm" />}
-                aria-label={t("grid.rowActions", { name: screen.name })}
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  render={<Link to={`/screens/${screen.id}`} />}
-                >
-                  <Monitor aria-hidden="true" /> {t("grid.openItem")}
-                </DropdownMenuItem>
-                {canManage && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void api.createScreenCommand(
-                          screen.id,
-                          "restart_player_process",
-                          {},
-                          csrfToken,
-                        )
-                      }
-                    >
-                      <RefreshCw aria-hidden="true" /> {t("grid.restartPlayer")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={
-                        <Link to={`/screens/${screen.id}?edit=details`} />
-                      }
-                    >
-                      <Pencil aria-hidden="true" /> {t("grid.editDetails")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link to={`/screens/${screen.id}?tab=content`} />}
-                    >
-                      {t("grid.assignContent")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link to={`/screens/${screen.id}?present=1`} />}
-                    >
-                      <Play aria-hidden="true" /> {t("grid.showNow")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      render={
-                        <Link
-                          to={
-                            screen.syncGroupId
-                              ? `/groups/${screen.syncGroupId}`
-                              : "/groups"
-                          }
-                        />
-                      }
-                    >
-                      {screen.syncGroupId
-                        ? t("grid.openGroup")
-                        : t("grid.addToGroup")}
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ActionMenuButton
+              label={t("grid.rowActions", { name: screen.name })}
+              actions={screenRowActionGroups({
+                screen,
+                t,
+                navigate,
+                csrfToken,
+                canManage,
+              })}
+              variant="ghost"
+              size="icon-sm"
+            />
           </div>
         </header>
         <div className="flex flex-wrap items-center gap-2">
@@ -2970,30 +2912,44 @@ export function ScreenDetailPage() {
               <RefreshCw aria-hidden="true" /> {t("list.restart")}
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="icon-sm" />}
-              aria-label={t("detail.moreActions")}
-            >
-              <MoreHorizontal aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canManageScreens(auth.status?.user) && (
-                <DropdownMenuItem onClick={() => setEditingDetails(true)}>
-                  <Pencil aria-hidden="true" /> {t("grid.editDetails")}
-                </DropdownMenuItem>
-              )}
-              {canManageScreens(auth.status?.user) &&
-                screen.platform.toLowerCase() === "linux" && (
-                  <DropdownMenuItem onClick={() => setAirplayOpen(true)}>
-                    <Airplay aria-hidden="true" /> {t("detail.airplay")}
-                  </DropdownMenuItem>
-                )}
-              <DropdownMenuItem onClick={() => selectTab("content")}>
-                <Monitor aria-hidden="true" /> {t("detail.viewContent")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ActionMenuButton
+            label={t("detail.moreActions")}
+            actions={[
+              {
+                actions: [
+                  ...(canManageScreens(auth.status?.user)
+                    ? [
+                        {
+                          id: "edit-details",
+                          label: t("grid.editDetails"),
+                          icon: "details",
+                          onSelect: () => setEditingDetails(true),
+                        },
+                      ]
+                    : []),
+                  ...(canManageScreens(auth.status?.user) &&
+                  screen.platform.toLowerCase() === "linux"
+                    ? [
+                        {
+                          id: "airplay",
+                          label: t("detail.airplay"),
+                          icon: "airplay",
+                          onSelect: () => setAirplayOpen(true),
+                        },
+                      ]
+                    : []),
+                  {
+                    id: "view-content",
+                    label: t("detail.viewContent"),
+                    icon: "screens",
+                    onSelect: () => selectTab("content"),
+                  },
+                ],
+              },
+            ]}
+            variant="outline"
+            size="icon-sm"
+          />
         </div>
       </header>
       <AirPlayPresentDialog

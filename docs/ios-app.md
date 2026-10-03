@@ -202,6 +202,11 @@ The bridge is privileged. The app applies these rules:
 | `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
 | `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
 | `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
+| `action-menu/present`           | Studio to native | Either page. Show a native action menu at once                                   |
+| `action-menu/arm`               | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
+| `action-menu/disarm`            | Studio to native | Either page. Forget a stored menu. A menu on screen keeps showing                |
+| `action-menu/action`            | native to Studio | Either page. The user chose an action of a menu that the page presented          |
+| `action-menu/dismissed`         | native to Studio | Either page. The user dismissed a menu that the page presented, without choosing |
 | `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
 | `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
 | `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
@@ -397,24 +402,44 @@ A confirmation must match the platform, so Studio can ask the app to show a nati
 
 Each `useConfirm` instance queues requests in arrival order across native alerts and web dialogs. A second request cannot replace the first request. Confirm resolves `true`. Cancel or dismissal resolves `false`. Component unmount resolves all active and queued requests as `false` and withdraws its native alert. Late responses cannot confirm another request.
 
+### Action menus
+
+An action menu is the list of actions of a three-dot button, or of a long press on a row or card. Studio can ask the app to show the menu with the native interface. The menu is not a presentation: it has no route, and it can show over the main page or over a presentation sheet.
+
+1. Studio sends `action-menu/present` with a new opaque menu id, a localized label, and one to eight groups of actions. Each action has an opaque id, a localized label, an optional icon token, and a role: `default` or `destructive`. An unknown role is a default action.
+2. The app accepts one menu at a time. It replies `unavailable` when another menu shows, when Studio did not report `nativeActionMenus`, or for a page that has no bridge. Studio then shows its own web menu, as in a browser.
+3. For a long press, Studio sends `action-menu/arm` when the press starts, and `action-menu/disarm` when the press ends or the page scrolls. A new arm replaces the old one. A long press builds its menu from the armed menu for its page. When nothing is armed, the default menu shows, so ordinary long presses keep working.
+4. When the user chooses an action, the app sends `action-menu/action` with the menu id and the action id to the page that asked. When the user dismisses a menu from a three-dot button, the app sends `action-menu/dismissed` with the menu id. Studio ignores a menu id that it does not know.
+5. A menu belongs to its page. A new document withdraws the menu of the main page. A presentation that ends withdraws the menu of the presentation page.
+
+A three-dot menu shows as a system dialog: an action sheet on compact iPhone, a popover on regular-width iPad. It shows the labels. A long-press menu shows the icons that the app knows, and no icon for any other token. Disabled actions stay disabled. Destructive actions use the destructive style. The bridge carries no route, no callback, and no secret: only the menu id, the label, the groups, and the chosen action id.
+
+`ActionMenuButton` and `ActionContextMenu` in Studio use this path, so all their call sites get a native menu with no change. The content, layouts, data sources, screens, fleet table, and plugin menus have moved. The app shows the labels and icons that Studio sends. It has no copy of its own for any action. To add, remove, rename, enable, disable, or retarget an action, change Studio only. Do not change `apps/ios`.
+
+#### Adding an action menu
+
+Define a `StudioAction` list and render it with `ActionMenuButton` or `ActionContextMenu`. Keep the callback in Studio. Use `useConfirm` when an action needs confirmation. Do not change `apps/ios`.
+
+Version 1 has no submenus, radio state, checkboxes, shortcuts, or custom layouts. The editor menus that need them keep their web menus.
+
 ### Which surfaces move to a sheet
 
 A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
 
-| Surface                                             | Status | Notes                                                                                              |
-| --------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                            |
-| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                 |
-| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                        |
-| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
-| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer         |
-| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first    |
-| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does            |
-| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                         |
-| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
-| Create and edit forms                               | Stay   | Low value, and most save into page state                                                           |
+| Surface                                             | Status | Notes                                                                                               |
+| --------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                             |
+| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                  |
+| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                         |
+| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                  |
+| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer          |
+| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first     |
+| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does             |
+| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                          |
+| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state     |
+| Create and edit forms                               | Stay   | Low value, and most save into page state                                                            |
 | Pair Screen                                         | Done   | `/__native/modal/pair-screen`. React owns the workflow. The app owns only scanning and sheet chrome |
-| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state  |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
@@ -713,7 +738,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
-| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                         |
+| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
 | 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |

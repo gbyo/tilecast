@@ -47,16 +47,13 @@ export function useNativeQrScanner() {
     if (reply?.ok !== true) return null;
     return new Promise<QrScanResultPayload | null>((resolve) => {
       pending.current = { requestId, resolve };
-      const unsubscribe = host.subscribe(
-        "system/qr-scan-result",
-        (payload) => {
-          if (payload.requestId !== requestId) return false;
-          pending.current = null;
-          unsubscribe();
-          resolve(payload);
-          return true;
-        },
-      );
+      const unsubscribe = host.subscribe("system/qr-scan-result", (payload) => {
+        if (payload.requestId !== requestId) return false;
+        pending.current = null;
+        unsubscribe();
+        resolve(payload);
+        return true;
+      });
     });
   }, [host]);
 }

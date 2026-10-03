@@ -69,6 +69,7 @@ struct PresentationSheet: View {
         }
         .onChange(of: coordinator.pendingEvents, initial: true) { perform(coordinator.takeEvents()) }
         .nativeAlert(from: coordinator.alerts, for: .presentation)
+        .nativeActionMenu(from: coordinator.menus, for: .presentation)
         .alert("Downloads Aren’t Available Yet", isPresented: $showingDownloadNotice) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -82,6 +83,9 @@ struct PresentationSheet: View {
                 WebView(page.webPage)
                     .webViewBackForwardNavigationGestures(.disabled)
                     .webViewLinkPreviews(.disabled)
+                    .webViewContextMenu { _ in
+                        NativeActionMenuContextContent(center: coordinator.menus, context: .presentation)
+                    }
                     .id(ObjectIdentifier(page))
                     .ignoresSafeArea(edges: .bottom)
                     .accessibilityHidden(coordinator.contentState != .ready)

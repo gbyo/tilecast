@@ -169,7 +169,6 @@
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					0B32AC1D043E738E78866DCE = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					A5C4F73F9D7792AE7A213CC9 = {
@@ -278,6 +277,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */;
 			buildSettings = {
+				DEVELOPMENT_TEAM = 57CW34C9J4;
 				INFOPLIST_FILE = Tilecast/Info.plist;
 			};
 			name = Debug;
@@ -286,6 +286,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */;
 			buildSettings = {
+				DEVELOPMENT_TEAM = 57CW34C9J4;
 				INFOPLIST_FILE = Tilecast/Info.plist;
 			};
 			name = Release;

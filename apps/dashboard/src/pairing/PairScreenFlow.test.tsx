@@ -28,7 +28,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function pairingRequest(overrides: Partial<PairingRequest> = {}): PairingRequest {
+function pairingRequest(
+  overrides: Partial<PairingRequest> = {},
+): PairingRequest {
   return {
     id: "pairing-1",
     status: "pending",
@@ -87,13 +89,15 @@ const recognizedRequest = () =>
     hasActiveCredential: true,
   });
 
-function renderFlow(props: {
-  initialCode?: string;
-  requestId?: string;
-  canManage?: boolean;
-  onClose?: () => void;
-  onOpenScreen?: (screenId: string) => void;
-} = {}) {
+function renderFlow(
+  props: {
+    initialCode?: string;
+    requestId?: string;
+    canManage?: boolean;
+    onClose?: () => void;
+    onOpenScreen?: (screenId: string) => void;
+  } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -142,7 +146,9 @@ describe("PairScreenFlow code lookup", () => {
 
     await user.click(screen.getByRole("button", { name: "Find player" }));
 
-    expect(screen.getByText("Enter the six-character code")).toBeInTheDocument();
+    expect(
+      screen.getByText("Enter the six-character code"),
+    ).toBeInTheDocument();
     expect(resolve).not.toHaveBeenCalled();
   });
 
@@ -257,9 +263,7 @@ describe("PairScreenFlow new screen approval", () => {
 
     await resolveCode();
     await screen.findByRole("heading", { name: "Review this player" });
-    await user.click(
-      screen.getByRole("button", { name: "Approve and pair" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Approve and pair" }));
 
     expect(
       await screen.findByRole("heading", { name: "“Lobby Display” paired" }),
@@ -348,9 +352,7 @@ describe("PairScreenFlow credential repair", () => {
       screen.getByRole("button", { name: "Repair and replace credential" }),
     );
     const dialog = await screen.findByRole("alertdialog");
-    await user.click(
-      within(dialog).getByRole("button", { name: "Cancel" }),
-    );
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     expect(approve).not.toHaveBeenCalled();
     expect(screen.getByText("Reconnect to Lobby Display")).toBeInTheDocument();

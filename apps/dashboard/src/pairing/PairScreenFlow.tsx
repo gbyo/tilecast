@@ -254,7 +254,9 @@ function PairingSuccessStage({
           className="mt-0.5 size-6 shrink-0 text-emerald-700 dark:text-emerald-400"
         />
         <div className="space-y-1.5">
-          <StageHeading>{t("success.title", { name: screen.name })}</StageHeading>
+          <StageHeading>
+            {t("success.title", { name: screen.name })}
+          </StageHeading>
           <p className="text-sm text-muted-foreground">{t("success.body")}</p>
         </div>
       </div>

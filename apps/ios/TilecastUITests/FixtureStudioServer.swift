@@ -164,6 +164,9 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p id="intake"></p>
         <p><button id="ask" type="button">Delete fixture</button></p>
         <p id="chosen"></p>
+        <p><button id="show-menu" type="button">Show menu</button></p>
+        <p id="menu-result"></p>
+        <div class="row" id="press-row">Press me</div>
         <section id="rows"></section>
         <p><button id="bottom-action" type="button">Bottom action</button></p>
         <p id="bottom-pressed"></p>
@@ -252,6 +255,14 @@ final class FixtureStudioServer: @unchecked Sendable {
             document.getElementById("chosen").textContent = `Chose ${message.payload.actionId}`;
             return true;
           }
+          if (message?.type === "action-menu/action") {
+            document.getElementById("menu-result").textContent = `Chose ${message.payload.actionId}`;
+            return true;
+          }
+          if (message?.type === "action-menu/dismissed") {
+            document.getElementById("menu-result").textContent = "Menu dismissed";
+            return true;
+          }
           if (message?.type === "navigation/back") {
             history.pushState(null, "", "/fleet");
             void publish();
@@ -303,6 +314,38 @@ final class FixtureStudioServer: @unchecked Sendable {
             ],
           });
         });
+        // Studio's three-dot buttons use a native menu when the app offers
+        // one. Without it, Studio shows its own web menu.
+        document.getElementById("show-menu").addEventListener("click", async () => {
+          const reply = handler && await send("action-menu/present", {
+            menuId: "m-main-1", label: "Actions for Fixture",
+            groups: [
+              { items: [
+                { id: "rename", label: "Rename", icon: "rename" },
+                { id: "duplicate", label: "Duplicate", icon: "duplicate", disabled: true },
+              ] },
+              { items: [{ id: "delete", label: "Delete", icon: "trash", role: "destructive" }] },
+            ],
+          });
+          if (!reply?.ok) document.getElementById("menu-result").textContent = "Web menu";
+        });
+        // Studio arms a native menu for a long press, as ActionContextMenu
+        // does: arm on press start, disarm on release, cancel, or scroll.
+        const pressRow = document.getElementById("press-row");
+        pressRow.addEventListener("pointerdown", () => {
+          void send("action-menu/arm", {
+            menuId: "m-arm-1", label: "Actions for Press row",
+            groups: [{ items: [
+              { id: "arm-open", label: "Arm open", icon: "open" },
+              { id: "arm-delete", label: "Arm delete", icon: "trash", role: "destructive" },
+            ] }],
+          });
+        });
+        for (const event of ["pointerup", "pointercancel"]) {
+          pressRow.addEventListener(event, () => {
+            void send("action-menu/disarm", { menuId: "m-arm-1" });
+          });
+        }
         let presentations = 0;
         document.getElementById("open-sheet").addEventListener("click", async () => {
           const reply = handler && await send("presentation/open", {
@@ -344,7 +387,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           }
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
           await send("frontend/ready", {
-            capabilities: { nativePresentations: true, nativeAlerts: true, nativeMediaIntake: true, deepLinks: true },
+            capabilities: { nativePresentations: true, nativeAlerts: true, nativeActionMenus: true, nativeMediaIntake: true, deepLinks: true },
           });
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
@@ -378,6 +421,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="ask" type="button">Ask from sheet</button></p>
         <p><button id="grow" type="button">Grow sheet</button></p>
         <p id="chosen"></p>
+        <p><button id="show-menu" type="button">Show menu from sheet</button></p>
+        <p id="menu-result"></p>
         <script>
         const documentId = Math.random().toString(36).slice(2, 10);
         const handler = window.webkit?.messageHandlers?.tilecastNative;
@@ -424,6 +469,12 @@ final class FixtureStudioServer: @unchecked Sendable {
             case "alert/action":
               text("chosen", `Sheet chose ${payload.actionId}`);
               return true;
+            case "action-menu/action":
+              text("menu-result", `Sheet chose ${payload.actionId}`);
+              return true;
+            case "action-menu/dismissed":
+              text("menu-result", "Sheet menu dismissed");
+              return true;
             case "presentation/dismissed":
               if (payload.presentationId === current) current = null;
               history.replaceState(null, "", "/__native/modal");
@@ -462,6 +513,13 @@ final class FixtureStudioServer: @unchecked Sendable {
             actions: [{ id: "keep", label: "Keep", role: "cancel" }, { id: "discard", label: "Discard", role: "destructive" }],
           });
         });
+        document.getElementById("show-menu").addEventListener("click", async () => {
+          const reply = await send("action-menu/present", {
+            menuId: "m-sheet-1", label: "Actions for Fixture Sheet",
+            groups: [{ items: [{ id: "sheet-ping", label: "Sheet ping", icon: "play" }] }],
+          });
+          if (!reply?.ok) text("menu-result", "Web menu");
+        });
         document.getElementById("leave").addEventListener("click", () => {
           if (current) void send("presentation/navigate", { presentationId: current, path: "/layouts" });
         });
@@ -473,7 +531,7 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (config?.payload?.capabilities?.systemQrScanner !== true) {
             document.getElementById("scan").hidden = true;
           }
-          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
+          await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true, nativeActionMenus: true } });
           await send("presentation/ready", {});
         })();
         </script>

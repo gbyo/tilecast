@@ -55,7 +55,9 @@ afterEach(() => {
   cleanup();
 });
 
-function pairingRequest(overrides: Partial<PairingRequest> = {}): PairingRequest {
+function pairingRequest(
+  overrides: Partial<PairingRequest> = {},
+): PairingRequest {
   return {
     id: "pairing-1",
     status: "pending",
@@ -97,9 +99,7 @@ function renderPending(requests: PairingRequest[]) {
           <Routes>
             <Route
               path="/screens"
-              element={
-                <PendingPairings requests={requests} canManage />
-              }
+              element={<PendingPairings requests={requests} canManage />}
             />
             <Route
               path="/screens/pair/request/:requestId"
@@ -153,14 +153,13 @@ describe("PendingPairings", () => {
     renderPending([pairingRequest()]);
 
     const review = screen.getByRole("link", { name: "Review" });
-    expect(review).toHaveAttribute(
-      "href",
-      "/screens/pair/request/pairing-1",
-    );
+    expect(review).toHaveAttribute("href", "/screens/pair/request/pairing-1");
     await user.click(review);
 
     expect(await screen.findByText("Browser review")).toBeInTheDocument();
-    expect(screen.getByText("/screens/pair/request/pairing-1")).toBeInTheDocument();
+    expect(
+      screen.getByText("/screens/pair/request/pairing-1"),
+    ).toBeInTheDocument();
   });
 
   it("opens review in a native presentation when accepted", async () => {
@@ -169,9 +168,7 @@ describe("PendingPairings", () => {
       capabilities: { nativePresentations: true },
     });
     renderPending([pairingRequest()]);
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     await user.click(screen.getByRole("link", { name: "Review" }));
 
@@ -201,9 +198,7 @@ describe("PendingPairings", () => {
       },
     });
     renderPending([pairingRequest()]);
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     await user.click(screen.getByRole("link", { name: "Review" }));
 
