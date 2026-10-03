@@ -92,14 +92,6 @@ Built-in Widgets could be implemented separately for tvOS using SwiftUI or anoth
 
 This could provide a close match to the existing Player, but the web and tvOS implementations would need to remain in sync. It also becomes more difficult for plugin Widgets, because plugin authors currently only need to provide the web implementation.
 
-### A shared rendering description
-
-Another approach would be to separate what a Widget displays from how it is drawn.
-
-Instead of a Widget directly producing web content, it could describe a scene made from common primitives such as text, images, shapes, video, and charts. The existing web renderer and a native tvOS renderer could then draw the same scene independently.
-
-This would preserve more of Tilecast's "build once, run on every Player" model, and could be useful for other native Player platforms in the future. It would also be a larger change to the Widget and rendering architecture rather than an Apple TV-specific project.
-
 ## Web content
 
 Website Apps are a separate limitation because their content is the web page itself rather than something Tilecast controls.
