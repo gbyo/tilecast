@@ -140,7 +140,7 @@ describe("native action menus", () => {
     await ready(host);
     const onOpen = vi.fn();
     const onDelete = vi.fn();
-    let result!: ReturnType<typeof view.menus.present>;
+    let result!: ReturnType<ReturnType<typeof view.menus>["present"]>;
     act(() => {
       result = view
         .menus()
@@ -182,7 +182,7 @@ describe("native action menus", () => {
     const view = renderMenu();
     await ready(host);
     const onOpen = vi.fn();
-    let result!: ReturnType<typeof view.menus.present>;
+    let result!: ReturnType<ReturnType<typeof view.menus>["present"]>;
     act(() => {
       result = view
         .menus()
@@ -245,7 +245,7 @@ describe("native action menus", () => {
     const view = renderMenu();
     await ready(host);
     const onOpen = vi.fn();
-    let result!: ReturnType<typeof view.menus.present>;
+    let result!: ReturnType<ReturnType<typeof view.menus>["present"]>;
     act(() => {
       result = view.menus().present("Actions", [
         {
@@ -355,7 +355,7 @@ describe("native action menus", () => {
     const view = renderMenu();
     await ready(host);
     const onOpen = vi.fn();
-    let result!: ReturnType<typeof view.menus.present>;
+    let result!: ReturnType<ReturnType<typeof view.menus>["present"]>;
     act(() => {
       result = view.menus().present("Actions", groups({ onOpen }));
     });
