@@ -30,11 +30,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use edge_cas::space::{SpaceProbe, StatvfsProbe};
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
 use edge_platform::capabilities::CapabilityRegistry;
 use edge_platform::clock::system_clock;
-use edge_platform::disk::{SpaceProbe, StatvfsProbe};
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
 use edge_platform::systemd::Notifier;

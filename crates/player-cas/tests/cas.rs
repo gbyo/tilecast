@@ -7,18 +7,18 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bytes::Bytes;
-use edge_cas::fetch::{AttemptOutcome, LocalFileSource};
-use edge_cas::store::VerifyOutcome;
-use edge_cas::{
+use futures_util::StreamExt as _;
+use player_cas::fetch::{AttemptOutcome, LocalFileSource};
+use player_cas::space::SpaceProbe;
+use player_cas::store::VerifyOutcome;
+use player_cas::{
     BlobSource, CasError, ContentStore, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta, LruByDomain,
     SourceError, SourceKind, SourceStream, StorePolicy,
 };
-use edge_platform::clock::system_clock;
-use edge_platform::disk::FixedSpace;
-use edge_protocol::Sha256Digest;
-use edge_state::repo::cas::{Domain, PinReason, SourceKind as RecordSource};
-use edge_state::{OpenOptions, StateDb};
-use futures_util::StreamExt as _;
+use player_state::repo::cas::{Domain, PinReason, SourceKind as RecordSource};
+use player_state::{OpenOptions, StateDb};
+use player_types::Sha256Digest;
+use player_types::time::{ManualClock, SharedClock};
 
 struct Env {
     dir: tempfile::TempDir,
@@ -40,7 +40,7 @@ async fn store_with(env: &Env, limit: u64, free: u64) -> ContentStore {
         env.dir.path().join("cas"),
         env.dir.path().join("partial"),
         env.db.clone(),
-        system_clock(),
+        test_clock(),
         Arc::new(FixedSpace(free)),
         policy(limit),
         Arc::new(LruByDomain),
@@ -141,7 +141,7 @@ async fn fetch_verifies_and_promotes() {
     assert!(path.ends_with(format!("sha256/{}/{}", record.sha256.fanout(), record.sha256.to_hex())));
     assert_eq!(
         store.stat(&record.sha256).await.unwrap().unwrap().source_kind,
-        edge_state::repo::cas::SourceKind::Origin
+        player_state::repo::cas::SourceKind::Origin
     );
     // A second fetch is a no-op.
     let again = fetcher.fetch(&request(DATA), &[], None).await.unwrap();
@@ -302,7 +302,7 @@ async fn reconciliation_handles_every_crash_boundary() {
     let adopted_record = store.stat(&adopted).await.unwrap().unwrap();
     assert_eq!(
         adopted_record.source_kind,
-        edge_state::repo::cas::SourceKind::Local,
+        player_state::repo::cas::SourceKind::Local,
         "adopted orphans are recorded as local"
     );
     assert!(store.stat(&liar).await.unwrap().is_none());
@@ -370,7 +370,7 @@ async fn free_space_reserve_is_enforced() {
         env.dir.path().join("cas"),
         env.dir.path().join("partial"),
         env.db.clone(),
-        system_clock(),
+        test_clock(),
         Arc::new(FixedSpace(1_000)),
         StorePolicy { limit_bytes: 1 << 30, reserved_free_bytes: 990 },
         Arc::new(LruByDomain),
@@ -388,7 +388,7 @@ async fn suspect_objects_are_rehashed_before_use() {
     let digest = Sha256Digest::of(DATA);
     let store = store(&env).await;
     store.import_file(&write_temp(&env, "d", DATA), digest, DATA.len() as u64, meta()).await.unwrap();
-    env.db.run_blocking(|c| edge_state::repo::cas::mark_all_suspect(c)).unwrap();
+    env.db.run_blocking(|c| player_state::repo::cas::mark_all_suspect(c)).unwrap();
     // Same-size corruption on disk after an unclean shutdown.
     let path = env.dir.path().join("cas/sha256").join(digest.fanout()).join(digest.to_hex());
     let mut bytes = DATA.to_vec();
@@ -409,4 +409,16 @@ async fn local_file_source_imports_and_resumes() {
     let source: Arc<dyn BlobSource> = Arc::new(LocalFileSource { path });
     let record = fetcher.fetch(&request(DATA), &[source], None).await.unwrap();
     assert_eq!(record.sha256, Sha256Digest::of(DATA));
+}
+
+fn test_clock() -> SharedClock {
+    ManualClock::new(player_types::Timestamp::from_unix_seconds(1_000).expect("timestamp"))
+}
+
+#[derive(Debug)]
+struct FixedSpace(u64);
+impl SpaceProbe for FixedSpace {
+    fn available_bytes(&self, _path: &std::path::Path) -> std::io::Result<u64> {
+        Ok(self.0)
+    }
 }

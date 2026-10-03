@@ -1,7 +1,7 @@
 //! Eviction policy.
 
-use edge_protocol::Sha256Digest;
-use edge_state::repo::cas::ObjectRecord;
+use player_state::repo::cas::ObjectRecord;
+use player_types::Sha256Digest;
 
 /// Chooses unpinned objects to evict. `candidates` are already unpinned and
 /// ordered by oldest access first; the policy returns digests to remove, in
