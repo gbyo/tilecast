@@ -23,8 +23,8 @@ type Sent = { type: string; payload: Record<string, unknown> };
 
 /** The iOS app's handler for the main page, answering like the app. */
 function installNativeHost({
-  presentReply = "ok",
-}: { presentReply?: "ok" | "unavailable" } = {}) {
+  anchors = true,
+}: { anchors?: boolean } = {}) {
   const sent: Sent[] = [];
   const postMessage = vi.fn((message: Sent) => {
     sent.push(structuredClone(message));
@@ -35,15 +35,12 @@ function installNativeHost({
         payload: {
           protocolVersion: 1,
           context: "main",
-          capabilities: { nativeNavigation: true, nativeActionMenus: true },
+          capabilities: {
+            nativeNavigation: true,
+            nativeActionMenus: true,
+            nativeActionMenuAnchors: anchors,
+          },
         },
-      });
-    }
-    if (message.type === "action-menu/present" && presentReply !== "ok") {
-      return Promise.resolve({
-        version: 1,
-        ok: false,
-        error: { code: presentReply },
       });
     }
     return Promise.resolve({ version: 1, ok: true, payload: {} });
@@ -218,60 +215,61 @@ describe("ActionMenuButton in a browser", () => {
 });
 
 describe("ActionMenuButton with a native host", () => {
-  it("uses the native menu and invokes the chosen callback", async () => {
-    const host = installNativeHost();
-    const onDelete = vi.fn();
-    renderButton(groups({ onDelete }));
-    await ready(host);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
-    await waitFor(() =>
-      expect(host.ofType("action-menu/present")).toHaveLength(1),
-    );
-    expect(
-      screen.queryByRole("menuitem", { name: "Delete" }),
-    ).not.toBeInTheDocument();
-    const menuId = (host.ofType("action-menu/present")[0] as { menuId: string })
-      .menuId;
-    host.deliver("action-menu/action", { menuId, actionId: "delete" });
-    await waitFor(() => expect(onDelete).toHaveBeenCalledExactlyOnceWith());
-    expect(
-      screen.queryByRole("menuitem", { name: "Delete" }),
-    ).not.toBeInTheDocument();
-  });
+  function visibleTriggerRect() {
+    return vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({
+        x: 100,
+        y: 200,
+        top: 200,
+        left: 100,
+        right: 132,
+        bottom: 232,
+        width: 32,
+        height: 32,
+        toJSON: () => ({}),
+      } as DOMRect);
+  }
 
-  it("does nothing when the native menu is dismissed", async () => {
+  it("registers an anchored native trigger and invokes the chosen callback", async () => {
+    visibleTriggerRect();
     const host = installNativeHost();
     const onDelete = vi.fn();
-    renderButton(groups({ onDelete }));
+    const view = renderButton(groups({ onDelete }));
     await ready(host);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
     await waitFor(() =>
-      expect(host.ofType("action-menu/present")).toHaveLength(1),
+      expect(host.ofType("action-menu/register-trigger").length).toBeGreaterThan(
+        0,
+      ),
     );
-    const menuId = (host.ofType("action-menu/present")[0] as { menuId: string })
-      .menuId;
-    host.deliver("action-menu/dismissed", { menuId });
+    expect(host.ofType("action-menu/present")).toHaveLength(0);
+
+    const registrations = host.ofType("action-menu/register-trigger");
+    const registration = registrations.at(-1) as {
+      menuId: string;
+      rect: { width: number; height: number };
+    };
+    expect(registration.rect.width).toBeGreaterThan(0);
+    expect(registration.rect.height).toBeGreaterThan(0);
+
+    host.deliver("action-menu/action", {
+      menuId: registration.menuId,
+      actionId: "delete",
+    });
+    await waitFor(() => expect(onDelete).toHaveBeenCalledExactlyOnceWith());
+
+    view.unmount();
     await waitFor(() =>
       expect(
-        screen.queryByRole("menuitem", { name: "Delete" }),
-      ).not.toBeInTheDocument(),
-    );
-    expect(onDelete).not.toHaveBeenCalled();
-    // The trigger still works afterwards.
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
-    await waitFor(() =>
-      expect(host.ofType("action-menu/present")).toHaveLength(2),
+        host.ofType("action-menu/unregister-trigger").some(
+          (payload) => payload.menuId === registration.menuId,
+        ),
+      ).toBe(true),
     );
   });
 
-  it("falls back to the web menu when the host refuses", async () => {
-    const host = installNativeHost({ presentReply: "unavailable" });
+  it("uses the web dropdown with an older native host that lacks anchors", async () => {
+    const host = installNativeHost({ anchors: false });
     const onOpen = vi.fn();
     renderButton(groups({ onOpen }));
     await ready(host);
@@ -279,6 +277,8 @@ describe("ActionMenuButton with a native host", () => {
       screen.getByRole("button", { name: "Actions for Lobby" }),
     );
     expect(await screen.findByRole("menuitem", { name: "Open" })).toBeVisible();
+    expect(host.ofType("action-menu/present")).toHaveLength(0);
+    expect(host.ofType("action-menu/register-trigger")).toHaveLength(0);
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });

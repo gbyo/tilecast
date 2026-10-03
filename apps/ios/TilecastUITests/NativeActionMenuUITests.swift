@@ -1,9 +1,9 @@
 import XCTest
 
-/// Native action menus against `FixtureStudioServer`: the three-dot menu
-/// round trip, dismissal, and the armed menu a long press shows. The
-/// fixture speaks Studio's side of the bridge, so the tests prove the app
-/// renders menus it has never heard of and reports the chosen opaque ids.
+/// Native action menus against `FixtureStudioServer`: anchored three-dot
+/// menus and the armed menu a long press shows. The fixture speaks Studio's
+/// side of the bridge, so the tests prove the app renders generic menus it
+/// has never heard of and reports the chosen opaque ids.
 final class NativeActionMenuUITests: XCTestCase {
     private var server: FixtureStudioServer!
     private var app: XCUIApplication!
@@ -51,11 +51,8 @@ final class NativeActionMenuUITests: XCTestCase {
         app.webViews.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Document '")).firstMatch.label
     }
 
-    /// Dismisses the menu dialog: the Cancel button on iPhone, a tap
-    /// outside the popover on iPad.
-    @MainActor private func dismissMenuDialog() {
-        let cancel = app.buttons["Cancel"]
-        if cancel.exists { cancel.tap() } else { app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.05)).tap() }
+    @MainActor private func dismissMenu() {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.05)).tap()
     }
 
     // MARK: Three-dot menus
@@ -79,8 +76,8 @@ final class NativeActionMenuUITests: XCTestCase {
         let duplicate = app.buttons["actionMenu.action.duplicate"]
         XCTAssertTrue(duplicate.waitForExistence(timeout: 10))
         XCTAssertFalse(duplicate.isEnabled, "a disabled action cannot be chosen")
-        dismissMenuDialog()
-        XCTAssertTrue(webText("Menu dismissed").waitForExistence(timeout: 5))
+        dismissMenu()
+        XCTAssertFalse(webText("Chose duplicate").exists)
     }
 
     @MainActor
@@ -91,17 +88,6 @@ final class NativeActionMenuUITests: XCTestCase {
         XCTAssertTrue(delete.waitForExistence(timeout: 10))
         delete.tap()
         XCTAssertTrue(webText("Chose delete").waitForExistence(timeout: 5))
-    }
-
-    @MainActor
-    func testDismissingAMenuReportsDismissal() {
-        launchWithFixtureServer()
-        let document = documentLabel
-        webButton("Show menu").tap()
-        XCTAssertTrue(app.buttons["actionMenu.action.rename"].waitForExistence(timeout: 10))
-        dismissMenuDialog()
-        XCTAssertTrue(webText("Menu dismissed").waitForExistence(timeout: 5), "Studio hears that nothing was chosen")
-        XCTAssertEqual(documentLabel, document, "dismissing does not reload Studio")
     }
 
     @MainActor

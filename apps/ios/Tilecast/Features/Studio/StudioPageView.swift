@@ -27,6 +27,9 @@ struct StudioPageView: View {
             .contextMenu {
                 NativeActionMenuContextContent(center: page.menus, context: .main)
             }
+            .overlay {
+                NativeActionMenuAnchorLayer(center: page.menus, context: .main)
+            }
             .overlay { phaseOverlay }
             .overlay {
                 if page.signInRequired {

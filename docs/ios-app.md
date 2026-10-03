@@ -202,11 +202,13 @@ The bridge is privileged. The app applies these rules:
 | `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
 | `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
 | `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
-| `action-menu/present`           | Studio to native | Either page. Show a native action menu at once                                   |
+| `action-menu/present`           | Studio to native | Legacy immediate menu request. Current iOS hosts refuse it so Studio falls back  |
+| `action-menu/register-trigger`  | Studio to native | Either page. Register or update an anchored native Menu trigger                   |
+| `action-menu/unregister-trigger`| Studio to native | Either page. Remove an anchored native Menu trigger                              |
 | `action-menu/arm`               | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
-| `action-menu/disarm`            | Studio to native | Either page. Forget a stored menu. A menu on screen keeps showing                |
-| `action-menu/action`            | native to Studio | Either page. The user chose an action of a menu that the page presented          |
-| `action-menu/dismissed`         | native to Studio | Either page. The user dismissed a menu that the page presented, without choosing |
+| `action-menu/disarm`            | Studio to native | Either page. Forget a stored long-press menu                                     |
+| `action-menu/action`            | native to Studio | Either page. The user chose an action of an anchored or long-press menu          |
+| `action-menu/dismissed`         | native to Studio | Either page. Legacy/long-press dismissal notification                            |
 | `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
 | `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
 | `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
@@ -404,19 +406,19 @@ Each `useConfirm` instance queues requests in arrival order across native alerts
 
 ### Action menus
 
-An action menu is the list of actions of a three-dot button, or of a long press on a row or card. Studio can ask the app to show the menu with the native interface. The menu is not a presentation: it has no route, and it can show over the main page or over a presentation sheet.
+An action menu is the list of actions of a three-dot button, or of a long press on a row or card. Studio owns the actions and callbacks. The app owns only the native presentation. The menu has no route and can appear over the main page or over a presentation sheet.
 
-1. Studio sends `action-menu/present` with a new opaque menu id, a localized label, and one to eight groups of actions. Each action has an opaque id, a localized label, an optional icon token, and a role: `default` or `destructive`. An unknown role is a default action.
-2. The app accepts one menu at a time. It replies `unavailable` when another menu shows, when Studio did not report `nativeActionMenus`, or for a page that has no bridge. Studio then shows its own web menu, as in a browser.
-3. For a long press, Studio sends `action-menu/arm` when the press starts, and `action-menu/disarm` when the press ends or the page scrolls. A new arm replaces the old one. A long press builds its menu from the armed menu for its page. When nothing is armed, the default menu shows, so ordinary long presses keep working.
-4. When the user chooses an action, the app sends `action-menu/action` with the menu id and the action id to the page that asked. When the user dismisses a menu from a three-dot button, the app sends `action-menu/dismissed` with the menu id. Studio ignores a menu id that it does not know.
-5. A menu belongs to its page. A new document withdraws the menu of the main page. A presentation that ends withdraws the menu of the presentation page.
+For an ordinary three-dot button, the host reports `nativeActionMenuAnchors: true` in `config/get`. `ActionMenuButton` then keeps its visible HTML button and registers that button with `action-menu/register-trigger`: a fresh opaque menu id, the localized action descriptor, and the visible button rectangle normalized to the current WebView viewport. Studio updates the registration when the trigger moves, resizes, scrolls on or off screen, or the visual viewport changes. It sends `action-menu/unregister-trigger` when the trigger disappears or the component unmounts.
 
-A three-dot menu shows as a system dialog: an action sheet on compact iPhone, a popover on regular-width iPad. It shows the labels. A long-press menu shows the icons that the app knows, and no icon for any other token. Disabled actions stay disabled. Destructive actions use the destructive style. The bridge carries no route, no callback, and no secret: only the menu id, the label, the groups, and the chosen action id.
+The app overlays an invisible SwiftUI `Menu` at that rectangle. Studio still draws the ellipsis, but the SwiftUI control receives the tap and presents the normal compact Apple menu anchored to the dots. Menu groups become sections. Known action icon tokens render as generated Lucide assets; an unknown icon is omitted. Disabled actions stay disabled and destructive actions use the destructive role. Choosing an action sends `action-menu/action` with only the opaque menu id and action id. The registration stays active so the same trigger can open again.
 
-The main page and presentation page attach a SwiftUI `contextMenu` to their `WebView`. WebKit's `webViewContextMenu(menu:)` modifier is unavailable on iOS.
+`action-menu/present` remains in protocol version 1 for compatibility with Studio builds that shipped before anchored triggers. Current iOS hosts intentionally answer it with `unavailable`; that older Studio then opens its permanent web dropdown instead of showing the former action-sheet presentation. A host that does not report `nativeActionMenuAnchors` also gets the normal web dropdown. This makes the anchored behavior progressive enhancement without requiring a protocol-version bump.
 
-`ActionMenuButton` and `ActionContextMenu` in Studio use this path, so all their call sites get a native menu with no change. The content, layouts, data sources, screens, fleet table, and plugin menus have moved. The app shows the labels and icons that Studio sends. It has no copy of its own for any action. To add, remove, rename, enable, disable, or retarget an action, change Studio only. Do not change `apps/ios`.
+For a long press, Studio sends `action-menu/arm` when the press starts and `action-menu/disarm` when the press ends, is cancelled, or the page scrolls. A new arm replaces the old one. The main page and presentation page attach SwiftUI's supported `.contextMenu { ... }` modifier to their `WebView` and build its items from the armed descriptor. This is the closure-based SwiftUI context-menu API, not the deprecated standalone `ContextMenu` container. WebKit's `webViewContextMenu(menu:)` modifier is unavailable on iOS; customizing a WKWebView element's own contextual menu would instead require the WKUIDelegate context-menu callbacks, which Tilecast does not add for this feature.
+
+A menu belongs to its bridge page. A new main document removes its registrations and armed menu. A presentation ending removes the presentation page's registrations and armed menu. The bridge carries no route, callback, business object, or secret: only generic menu metadata, normalized trigger geometry, and opaque ids.
+
+`ActionMenuButton` and `ActionContextMenu` in Studio use these paths, so all their call sites get the platform behavior with no feature-specific Swift. The content, layouts, data sources, screens, fleet table, and plugin menus have moved. To add, remove, rename, enable, disable, or retarget an ordinary action, change Studio only. Do not change `apps/ios`.
 
 #### Adding an action menu
 

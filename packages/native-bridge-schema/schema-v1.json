@@ -139,7 +139,7 @@
               "type": "boolean"
             },
             "nativeActionMenus": {
-              "description": "Studio handles action-menu/action and action-menu/dismissed, so a host may show its menu for an action-menu/present or action-menu/arm.",
+              "description": "Studio handles action-menu/action and the action-menu lifecycle, so a host may arm long-press menus or accept anchored trigger registrations.",
               "type": "boolean"
             },
             "nativeMediaIntake": {
@@ -206,7 +206,11 @@
               "type": "boolean"
             },
             "nativeActionMenus": {
-              "description": "The host can show a native menu for action-menu/present and action-menu/arm, on the main page and on the presentation page.",
+              "description": "The host can show generic native action menus and long-press menus on the main page and presentation page.",
+              "type": "boolean"
+            },
+            "nativeActionMenuAnchors": {
+              "description": "The host can register normalized Studio trigger rectangles and overlay real anchored native Menu controls for action-menu/register-trigger.",
               "type": "boolean"
             },
             "systemShare": {
@@ -447,6 +451,31 @@
         }
       }
     },
+    "actionMenuTriggerRect": {
+      "description": "The visible part of a Studio menu trigger normalized to the current WebView viewport.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "actionMenuTriggerPayload": {
+      "description": "A complete generic menu plus the normalized visible rectangle of its Studio trigger.",
+      "allOf": [
+        { "$ref": "#/$defs/actionMenuDescriptor" },
+        {
+          "type": "object",
+          "required": ["rect"],
+          "properties": {
+            "rect": { "$ref": "#/$defs/actionMenuTriggerRect" }
+          }
+        }
+      ]
+    },
     "menuIdPayload": {
       "description": "Withdraws the menu Studio named, for example when its component went away. A host ignores a menu that is not armed or showing.",
       "type": "object",
@@ -536,6 +565,8 @@
                 "action-menu/present",
                 "action-menu/arm",
                 "action-menu/disarm",
+                "action-menu/register-trigger",
+                "action-menu/unregister-trigger",
                 "navigation/chrome",
                 "system/haptic",
                 "system/share",
@@ -667,6 +698,20 @@
         {
           "description": "Either page. Withdraws a menu the page presented or armed, for example when the menu's owner went away. A host ignores a menu that is not armed or showing.",
           "if": { "properties": { "type": { "const": "action-menu/disarm" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/menuIdPayload" } }
+          }
+        },
+        {
+          "description": "Either page. Registers or updates a visible Studio action trigger so the host can place a real native Menu over that exact rectangle.",
+          "if": { "properties": { "type": { "const": "action-menu/register-trigger" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/actionMenuTriggerPayload" } }
+          }
+        },
+        {
+          "description": "Either page. Removes a previously registered native Menu trigger.",
+          "if": { "properties": { "type": { "const": "action-menu/unregister-trigger" } } },
           "then": {
             "properties": { "payload": { "$ref": "#/$defs/menuIdPayload" } }
           }

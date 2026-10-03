@@ -384,6 +384,7 @@ describe("messages Studio sends", () => {
         deepLinks: false,
         nativeAlerts: false,
         nativeActionMenus: false,
+        nativeActionMenuAnchors: false,
       },
     });
     expect(
@@ -412,6 +413,7 @@ describe("messages Studio sends", () => {
         deepLinks: false,
         nativeAlerts: false,
         nativeActionMenus: false,
+        nativeActionMenuAnchors: false,
       },
     });
     expect(decodeHostConfig({ capabilities: {} })).toBeNull();

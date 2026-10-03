@@ -51,7 +51,7 @@ To put another screen in a sheet, add a route to `presentationRoutes` in `apps/d
 
 ## Menus use the native interface
 
-A three-dot button in Studio opens a native iOS menu in the app: an action sheet on iPhone, a popover on iPad. A long press on a row or card opens the same actions as a native context menu. The labels, icons, and disabled and destructive states are Studio's own, already translated; the app just draws them. In a browser, or in an older app, the same menus open as Studio's own dropdown and context menus.
+A three-dot button in Studio opens a real SwiftUI `Menu` anchored to the dots. Studio keeps drawing the button, and the app places an invisible native menu trigger over that exact button, so the interaction looks and behaves like a normal iOS menu instead of an action sheet. A long press on a row or card uses SwiftUI's context-menu modifier. The labels, icons, and disabled and destructive states are Studio's own, already translated; the app just draws them. In a browser, or in an app without anchored-menu support, the same actions use Studio's own dropdown and context menu.
 
 To add a menu, or to change an action's label, icon, or destination, build it once with `ActionMenuButton` or `ActionContextMenu` in Studio. That's all. Don't touch `apps/ios`. The [action menu contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#action-menus) has the exact lifecycle.
 

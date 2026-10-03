@@ -314,20 +314,33 @@ final class FixtureStudioServer: @unchecked Sendable {
             ],
           });
         });
-        // Studio's three-dot buttons use a native menu when the app offers
-        // one. Without it, Studio shows its own web menu.
-        document.getElementById("show-menu").addEventListener("click", async () => {
-          const reply = handler && await send("action-menu/present", {
-            menuId: "m-main-1", label: "Actions for Fixture",
-            groups: [
-              { items: [
-                { id: "rename", label: "Rename", icon: "rename" },
-                { id: "duplicate", label: "Duplicate", icon: "duplicate", disabled: true },
-              ] },
-              { items: [{ id: "delete", label: "Delete", icon: "trash", role: "destructive" }] },
-            ],
-          });
-          if (!reply?.ok) document.getElementById("menu-result").textContent = "Web menu";
+        const normalizedTriggerRect = (element) => {
+          const rect = element.getBoundingClientRect();
+          const viewport = window.visualViewport;
+          const left = viewport?.offsetLeft ?? 0;
+          const top = viewport?.offsetTop ?? 0;
+          const width = viewport?.width ?? innerWidth;
+          const height = viewport?.height ?? innerHeight;
+          return {
+            x: (rect.left - left) / width,
+            y: (rect.top - top) / height,
+            width: rect.width / width,
+            height: rect.height / height,
+          };
+        };
+        const mainMenu = {
+          menuId: "m-main-1", label: "Actions for Fixture",
+          groups: [
+            { items: [
+              { id: "rename", label: "Rename", icon: "rename" },
+              { id: "duplicate", label: "Duplicate", icon: "duplicate", disabled: true },
+            ] },
+            { items: [{ id: "delete", label: "Delete", icon: "trash", role: "destructive" }] },
+          ],
+        };
+        const registerMainMenu = () => void send("action-menu/register-trigger", {
+          ...mainMenu,
+          rect: normalizedTriggerRect(document.getElementById("show-menu")),
         });
         // Studio arms a native menu for a long press, as ActionContextMenu
         // does: arm on press start, disarm on release, cancel, or scroll.
@@ -389,6 +402,14 @@ final class FixtureStudioServer: @unchecked Sendable {
           await send("frontend/ready", {
             capabilities: { nativePresentations: true, nativeAlerts: true, nativeActionMenus: true, nativeMediaIntake: true, deepLinks: true },
           });
+          if (config?.payload?.capabilities?.nativeActionMenuAnchors === true) {
+            registerMainMenu();
+          } else {
+            document.getElementById("show-menu").addEventListener("click", async () => {
+              const reply = await send("action-menu/present", mainMenu);
+              if (!reply?.ok) document.getElementById("menu-result").textContent = "Web menu";
+            });
+          }
           const reply = await send("navigation/catalog", catalog);
           if (reply.ok) document.getElementById("sidebar").hidden = true;
           await publish();
@@ -513,12 +534,27 @@ final class FixtureStudioServer: @unchecked Sendable {
             actions: [{ id: "keep", label: "Keep", role: "cancel" }, { id: "discard", label: "Discard", role: "destructive" }],
           });
         });
-        document.getElementById("show-menu").addEventListener("click", async () => {
-          const reply = await send("action-menu/present", {
-            menuId: "m-sheet-1", label: "Actions for Fixture Sheet",
-            groups: [{ items: [{ id: "sheet-ping", label: "Sheet ping", icon: "play" }] }],
-          });
-          if (!reply?.ok) text("menu-result", "Web menu");
+        const sheetMenu = {
+          menuId: "m-sheet-1", label: "Actions for Fixture Sheet",
+          groups: [{ items: [{ id: "sheet-ping", label: "Sheet ping", icon: "play" }] }],
+        };
+        const normalizedTriggerRect = (element) => {
+          const rect = element.getBoundingClientRect();
+          const viewport = window.visualViewport;
+          const left = viewport?.offsetLeft ?? 0;
+          const top = viewport?.offsetTop ?? 0;
+          const width = viewport?.width ?? innerWidth;
+          const height = viewport?.height ?? innerHeight;
+          return {
+            x: (rect.left - left) / width,
+            y: (rect.top - top) / height,
+            width: rect.width / width,
+            height: rect.height / height,
+          };
+        };
+        const registerSheetMenu = () => void send("action-menu/register-trigger", {
+          ...sheetMenu,
+          rect: normalizedTriggerRect(document.getElementById("show-menu")),
         });
         document.getElementById("leave").addEventListener("click", () => {
           if (current) void send("presentation/navigate", { presentationId: current, path: "/layouts" });
@@ -532,6 +568,14 @@ final class FixtureStudioServer: @unchecked Sendable {
             document.getElementById("scan").hidden = true;
           }
           await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true, nativeActionMenus: true } });
+          if (config?.payload?.capabilities?.nativeActionMenuAnchors === true) {
+            registerSheetMenu();
+          } else {
+            document.getElementById("show-menu").addEventListener("click", async () => {
+              const reply = await send("action-menu/present", sheetMenu);
+              if (!reply?.ok) text("menu-result", "Web menu");
+            });
+          }
           await send("presentation/ready", {});
         })();
         </script>

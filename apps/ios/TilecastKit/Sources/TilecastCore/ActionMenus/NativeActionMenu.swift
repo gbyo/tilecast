@@ -42,3 +42,31 @@ public struct NativeActionMenu: Equatable, Sendable, Identifiable {
     static let maximumItemsPerGroup = 16
     static let maximumItems = 24
 }
+
+
+/// The visible part of a Studio action trigger, normalized to its WebView
+/// viewport. Values are in 0...1, and x + width / y + height never exceed 1.
+public struct NativeActionMenuTriggerRect: Equatable, Sendable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+
+    init?(x: Double, y: Double, width: Double, height: Double) {
+        guard x.isFinite, y.isFinite, width.isFinite, height.isFinite,
+              x >= 0, y >= 0, width > 0, height > 0,
+              x <= 1, y <= 1, x + width <= 1.0001, y + height <= 1.0001 else {
+            return nil
+        }
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+
+struct NativeActionMenuTriggerRegistration: Equatable, Sendable {
+    let menu: NativeActionMenu
+    let rect: NativeActionMenuTriggerRect
+}

@@ -19,8 +19,14 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
     ]
 }
 
+func triggerPayload(_ id: String) -> [String: Any] {
+    var payload = menuPayload(id)
+    payload["rect"] = ["x": 0.8, "y": 0.25, "width": 0.08, "height": 0.05]
+    return payload
+}
+
 /// Menus through a bridge, with no page: which messages the app accepts,
-/// and which page a menu belongs to.
+/// and which page owns each registration.
 @MainActor
 @Suite struct NativeActionMenuBridgeTests {
     let center = NativeActionMenuCenter()
@@ -33,21 +39,24 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
     }
 
     private func negotiate(_ bridge: StudioBridge, menus: Bool = true) {
-        _ = bridge.replyValue(to: envelope("frontend/ready", ["capabilities": ["nativeActionMenus": menus]]), from: .studio)
-    }
-
-    private func present(_ bridge: StudioBridge, _ id: String = "m-1") -> JSONValue {
-        bridge.replyValue(to: envelope("action-menu/present", menuPayload(id)), from: .studio)
+        _ = bridge.replyValue(
+            to: envelope("frontend/ready", ["capabilities": ["nativeActionMenus": menus]]),
+            from: .studio
+        )
     }
 
     private func arm(_ bridge: StudioBridge, _ id: String = "m-1") -> JSONValue {
         bridge.replyValue(to: envelope("action-menu/arm", menuPayload(id)), from: .studio)
     }
 
+    private func register(_ bridge: StudioBridge, _ id: String = "m-1") -> JSONValue {
+        bridge.replyValue(to: envelope("action-menu/register-trigger", triggerPayload(id)), from: .studio)
+    }
+
     private let accepted = NativeBridgeProtocol.reply(id: nil, payload: [:])
     private let refused = NativeBridgeProtocol.reply(id: nil, error: .unavailable)
 
-    @Test func theAppOffersMenusToBothPages() {
+    @Test func theAppOffersGenericAndAnchoredMenusToBothPages() {
         for bridge in [main, presentation] {
             let payload = NativeBridgeProtocol.configPayload(context: bridge.context)
             guard case .object(let capabilities)? = payload["capabilities"] else {
@@ -55,67 +64,100 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
                 return
             }
             #expect(capabilities["nativeActionMenus"] == .bool(true))
+            #expect(capabilities["nativeActionMenuAnchors"] == .bool(true))
         }
     }
 
-    @Test func showsTheMenuFromEitherPage() throws {
+    @Test func legacyImmediatePresentationIsRefusedSoStudioFallsBackToWeb() {
         negotiate(main)
-        #expect(present(main) == accepted)
-        let shown = try #require(center.immediate)
-        #expect(shown.context == .main)
-        #expect(shown.menu.label == "Actions for Fixture")
-        #expect(shown.menu.items.map(\.id) == ["open", "restart", "delete"])
-        #expect(shown.menu.items.map(\.role) == [.default, .default, .destructive])
-        #expect(shown.menu.items.map(\.isDisabled) == [false, true, false])
-        #expect(center.menu(for: .main)?.id == "m-1")
-        #expect(center.menu(for: .presentation) == nil)
-
-        center.choose(actionID: "open")
-        negotiate(presentation)
-        #expect(present(presentation, "m-2") == accepted)
-        #expect(center.menu(for: .presentation)?.id == "m-2")
-        #expect(center.menu(for: .main) == nil)
+        let reply = main.replyValue(
+            to: envelope("action-menu/present", menuPayload("m-legacy")),
+            from: .studio
+        )
+        #expect(reply == refused)
     }
 
-    @Test func refusesAMenuUntilStudioNegotiatedMenus() {
-        #expect(present(main) == refused, "no frontend/ready yet")
+    @Test func refusesMenusUntilStudioNegotiatedThem() {
+        #expect(arm(main) == refused)
+        #expect(register(main) == refused)
         negotiate(main, menus: false)
-        #expect(present(main) == refused, "an older Studio")
-        #expect(arm(main) == refused, "arming needs the capability too")
-        #expect(center.immediate == nil)
+        #expect(arm(main) == refused)
+        #expect(register(main) == refused)
         #expect(center.armed == nil)
+        #expect(center.triggers.isEmpty)
     }
 
-    @Test func showsOneImmediateMenuAtATime() {
+    @Test func registersAnAnchoredTriggerForEitherPage() throws {
         negotiate(main)
+        #expect(register(main) == accepted)
+        let mainTrigger = try #require(center.triggers(for: .main).first)
+        #expect(mainTrigger.menu.label == "Actions for Fixture")
+        #expect(mainTrigger.menu.items.map(\.id) == ["open", "restart", "delete"])
+        #expect(mainTrigger.rect.x == 0.8)
+        #expect(mainTrigger.rect.width == 0.08)
+        #expect(center.triggers(for: .presentation).isEmpty)
+
         negotiate(presentation)
-        #expect(present(main, "m-1") == accepted)
-        #expect(present(presentation, "m-2") == refused, "Studio then shows its own menu")
-        #expect(present(main, "m-3") == refused)
-        #expect(center.immediate?.menu.id == "m-1")
+        #expect(register(presentation, "m-2") == accepted)
+        #expect(center.triggers(for: .presentation).map(\.id) == ["m-2"])
     }
 
-    @Test func armingReplacesTheArmedMenu() {
+    @Test func updatingARegistrationReplacesItsDescriptorAndRect() throws {
+        negotiate(main)
+        #expect(register(main) == accepted)
+        var updated = triggerPayload("m-1")
+        updated["label"] = "Updated actions"
+        updated["rect"] = ["x": 0.7, "y": 0.4, "width": 0.1, "height": 0.06]
+        #expect(
+            main.replyValue(
+                to: envelope("action-menu/register-trigger", updated),
+                from: .studio
+            ) == accepted
+        )
+        let trigger = try #require(center.triggers(for: .main).first)
+        #expect(center.triggers.count == 1)
+        #expect(trigger.menu.label == "Updated actions")
+        #expect(trigger.rect.x == 0.7)
+    }
+
+    @Test func anotherPageCannotReplaceOrUnregisterATrigger() {
         negotiate(main)
         negotiate(presentation)
-        #expect(arm(main, "m-1") == accepted)
-        #expect(arm(main, "m-2") == accepted, "a fresh press re-arms")
-        #expect(center.armed?.menu.id == "m-2")
-        #expect(center.armed?.context == .main)
-        #expect(arm(presentation, "m-3") == accepted)
-        #expect(center.armed?.menu.id == "m-3")
-        #expect(center.armedMenu(for: .presentation)?.id == "m-3")
-        #expect(center.armedMenu(for: .main) == nil, "the main page shows no other page's menu")
+        _ = register(main)
+        #expect(register(presentation) == refused)
+        _ = presentation.replyValue(
+            to: envelope("action-menu/unregister-trigger", ["menuId": "m-1"]),
+            from: .studio
+        )
+        #expect(center.triggers(for: .main).map(\.id) == ["m-1"])
+        _ = main.replyValue(
+            to: envelope("action-menu/unregister-trigger", ["menuId": "m-1"]),
+            from: .studio
+        )
+        #expect(center.triggers.isEmpty)
+    }
+
+    @Test func malformedNormalizedBoundsAreRejected() {
+        negotiate(main)
+        var payload = triggerPayload("m-1")
+        payload["rect"] = ["x": 0.95, "y": 0.2, "width": 0.2, "height": 0.1]
+        let malformed = NativeBridgeProtocol.reply(id: nil, error: .malformed)
+        #expect(
+            main.replyValue(
+                to: envelope("action-menu/register-trigger", payload),
+                from: .studio
+            ) == malformed
+        )
+        #expect(center.triggers.isEmpty)
     }
 
     @Test func refusesAMalformedMenu() {
         negotiate(main)
         let malformed = NativeBridgeProtocol.reply(id: nil, error: .malformed)
-        #expect(main.replyValue(to: envelope("action-menu/present", ["menuId": "m-1", "label": "L", "groups": []]), from: .studio) == malformed)
-        #expect(main.replyValue(to: envelope("action-menu/present", ["menuId": "m-1", "label": "L", "groups": [["items": []]]]), from: .studio) == malformed)
-        #expect(main.replyValue(to: envelope("action-menu/arm", ["menuId": "m-1", "label": "L", "groups": [["items": [["id": "a", "label": "A"], ["id": "a", "label": "B"]]]]]), from: .studio) == malformed)
+        #expect(main.replyValue(to: envelope("action-menu/arm", ["menuId": "m-1", "label": "L", "groups": []]), from: .studio) == malformed)
+        #expect(main.replyValue(to: envelope("action-menu/arm", ["menuId": "m-1", "label": "L", "groups": [["items": []]]]), from: .studio) == malformed)
+        #expect(main.replyValue(to: envelope("action-menu/arm", ["menuId": "m-1", "label": "L", "groups": [["items": [["id": "a", "label": "A"], ["id": "a", "label": "B"]]]]), from: .studio) == malformed)
         #expect(main.replyValue(to: envelope("action-menu/disarm", ["menuId": "M 1"]), from: .studio) == malformed)
-        #expect(center.immediate == nil)
         #expect(center.armed == nil)
     }
 
@@ -125,50 +167,48 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
         #expect(NativeActionMenu.Item.Role(token: "destructive") == .destructive)
     }
 
+    @Test func armingReplacesTheArmedMenu() {
+        negotiate(main)
+        negotiate(presentation)
+        #expect(arm(main, "m-1") == accepted)
+        #expect(arm(main, "m-2") == accepted)
+        #expect(center.armed?.menu.id == "m-2")
+        #expect(center.armed?.context == .main)
+        #expect(arm(presentation, "m-3") == accepted)
+        #expect(center.armed?.menu.id == "m-3")
+        #expect(center.armedMenu(for: .presentation)?.id == "m-3")
+        #expect(center.armedMenu(for: .main) == nil)
+    }
+
     @Test func onlyTheMenusOwnerCanDisarmIt() {
         negotiate(main)
         negotiate(presentation)
         _ = arm(main, "m-1")
         _ = presentation.replyValue(to: envelope("action-menu/disarm", ["menuId": "m-1"]), from: .studio)
-        #expect(center.armed != nil, "another page cannot disarm it")
+        #expect(center.armed != nil)
         _ = main.replyValue(to: envelope("action-menu/disarm", ["menuId": "m-other"]), from: .studio)
-        #expect(center.armed != nil, "another menu id")
+        #expect(center.armed != nil)
         _ = main.replyValue(to: envelope("action-menu/disarm", ["menuId": "m-1"]), from: .studio)
         #expect(center.armed == nil)
     }
 
-    @Test func disarmingDismissesThePresentedMenu() {
+    @Test func aNewDocumentWithdrawsItsMenusAndTriggers() {
         negotiate(main)
-        _ = present(main)
-        _ = main.replyValue(to: envelope("action-menu/disarm", ["menuId": "m-1"]), from: .studio)
-        #expect(center.immediate == nil)
-    }
-
-    @Test func aNewDocumentWithdrawsItsMenus() {
-        negotiate(main)
-        _ = present(main)
-        _ = arm(main, "m-armed")
+        _ = arm(main)
+        _ = register(main, "m-trigger")
         main.mainFrameNavigationStarted()
-        #expect(center.immediate == nil)
         #expect(center.armed == nil)
-    }
-
-    @Test func anUnknownOrDisabledActionChangesNothing() {
-        negotiate(main)
-        _ = present(main)
-        center.choose(actionID: "nope")
-        #expect(center.immediate != nil)
-        center.choose(actionID: "restart")
-        #expect(center.immediate != nil, "a disabled action cannot be chosen")
+        #expect(center.showing == nil)
+        #expect(center.triggers.isEmpty)
     }
 
     @Test func aLongPressConsumesTheArmedMenu() {
         negotiate(main)
         _ = arm(main, "m-1")
         #expect(center.consumeArmed(for: .main)?.id == "m-1")
-        #expect(center.consumeArmed(for: .main)?.id == "m-1", "building twice is harmless")
+        #expect(center.consumeArmed(for: .main)?.id == "m-1")
         #expect(center.showing?.menu.id == "m-1")
-        #expect(center.consumeArmed(for: .presentation) == nil, "the other page keeps its default menu")
+        #expect(center.consumeArmed(for: .presentation) == nil)
     }
 
     @Test func aDisarmAfterConsumeKeepsTheShowingMenu() {
@@ -188,7 +228,7 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
         center.chooseShowing(actionID: "open", menuID: "m-1")
         #expect(center.showing == nil)
         #expect(center.armed == nil)
-        #expect(center.consumeArmed(for: .main) == nil, "no stale menu for the next press")
+        #expect(center.consumeArmed(for: .main) == nil)
     }
 
     @Test func aStaleShowingChoiceIsIgnored() {
@@ -198,11 +238,11 @@ func menuPayload(_ id: String, groups: [[String: Any]]? = nil) -> [String: Any] 
         center.chooseShowing(actionID: "open", menuID: "m-old")
         #expect(center.showing?.menu.id == "m-1")
         center.chooseShowing(actionID: "restart", menuID: "m-1")
-        #expect(center.showing?.menu.id == "m-1", "a disabled action cannot be chosen")
+        #expect(center.showing?.menu.id == "m-1")
         _ = arm(main, "m-2")
-        #expect(center.showing == nil, "a new arm supersedes the consumed menu")
+        #expect(center.showing == nil)
         center.chooseShowing(actionID: "open", menuID: "m-1")
-        #expect(center.armed?.menu.id == "m-2", "a replaced menu never answers")
+        #expect(center.armed?.menu.id == "m-2")
     }
 
     @Test func withdrawingClearsTheShowingMenu() {

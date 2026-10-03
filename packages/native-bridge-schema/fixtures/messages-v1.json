@@ -49,7 +49,8 @@
             "nativeAlerts": true,
             "nativeMediaIntake": true,
             "deepLinks": true,
-            "nativeActionMenus": true
+            "nativeActionMenus": true,
+            "nativeActionMenuAnchors": true
           }
         }
       }
@@ -1794,7 +1795,8 @@
         "systemQrScanner": true,
         "nativeMediaIntake": true,
         "deepLinks": true,
-        "nativeActionMenus": true
+        "nativeActionMenus": true,
+        "nativeActionMenuAnchors": true
       }
     },
     {
@@ -3459,6 +3461,61 @@
         "version": 1,
         "type": "action-menu/disarm",
         "payload": { "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "action-menu/register-trigger",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "action-menu/register-trigger",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions for Lobby Screen",
+          "groups": [
+            { "items": [{ "id": "open", "label": "Open", "icon": "open" }] },
+            {
+              "items": [
+                {
+                  "id": "delete",
+                  "label": "Delete",
+                  "icon": "trash",
+                  "role": "destructive"
+                }
+              ]
+            }
+          ],
+          "rect": { "x": 0.8, "y": 0.25, "width": 0.08, "height": 0.05 }
+        }
+      }
+    },
+    {
+      "name": "action-menu/unregister-trigger",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "action-menu/unregister-trigger",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "action-menu/register-trigger with an invalid normalized rect",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "action-menu/register-trigger",
+        "payload": {
+          "menuId": "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+          "label": "Actions",
+          "groups": [{ "items": [{ "id": "open", "label": "Open" }] }],
+          "rect": { "x": 0.95, "y": 0.2, "width": 0.2, "height": 0.1 }
+        }
       }
     },
     {
