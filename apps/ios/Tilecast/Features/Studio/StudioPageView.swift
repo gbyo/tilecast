@@ -33,7 +33,8 @@ struct StudioPageView: View {
                             .font(.geist(.body))
                     } actions: {
                         if signingIn {
-                            ProgressView()
+                            ProgressView("Signing In…")
+                                .accessibilityIdentifier("studio.signingIn")
                         } else {
                             Button("Sign In") { beginSignIn() }
                                 .buttonStyle(.borderedProminent)
@@ -54,7 +55,7 @@ struct StudioPageView: View {
             .onDisappear { systemSignIn.cancel() }
             .sheet(isPresented: auxiliaryPresented) {
                 if let auxiliary = page.auxiliaryPage {
-                    AuxiliaryPageView(page: auxiliary) { page.closeAuxiliaryPage() }
+                    AuxiliaryPageView(owner: page, page: auxiliary)
                 }
             }
             .alert("Downloads Aren’t Available Yet", isPresented: $showingDownloadNotice) {
@@ -145,21 +146,48 @@ struct StudioPageView: View {
 /// A same-origin page Studio opened in a new window, shown in a sheet so the
 /// main Studio page keeps its state.
 struct AuxiliaryPageView: View {
+    let owner: StudioPage
     let page: WebPage
-    let close: () -> Void
 
     var body: some View {
         NavigationStack {
-            WebView(page)
-                .webViewLinkPreviews(.disabled)
-                .ignoresSafeArea(edges: .bottom)
-                .navigationTitle(page.title)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done", action: close)
+            ZStack {
+                WebView(page)
+                    .webViewLinkPreviews(.disabled)
+                    .ignoresSafeArea(edges: .bottom)
+                    .accessibilityHidden(owner.auxiliaryPhase != .ready)
+
+                switch owner.auxiliaryPhase {
+                case .ready:
+                    EmptyView()
+                case .loading:
+                    TilecastLoadingMark()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(.background)
+                        .accessibilityIdentifier("auxiliary.loading")
+                case .failed(let failure):
+                    ContentUnavailableView {
+                        Label(failure.title, systemImage: failure.systemImage)
+                            .font(.geist(.title2).weight(.bold))
+                    } description: {
+                        Text(failure.message)
+                            .font(.geist(.body))
+                    } actions: {
+                        Button("Try Again") { owner.retryAuxiliaryPage() }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("auxiliary.retry")
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.background)
                 }
+            }
+            .navigationTitle(page.title.isEmpty ? String(localized: "Tilecast") : page.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { owner.closeAuxiliaryPage() }
+                }
+            }
         }
     }
 }
