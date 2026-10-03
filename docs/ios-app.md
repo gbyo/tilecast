@@ -202,11 +202,13 @@ The bridge is privileged. The app applies these rules:
 | `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
 | `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
 | `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
-| `action-menu/present`           | Studio to native | Either page. Show a native action menu at once                                   |
+| `action-menu/present`           | Studio to native | Legacy immediate menu request. Current iOS hosts refuse it so Studio falls back  |
+| `action-menu/register-trigger`  | Studio to native | Either page. Register or update an anchored native Menu trigger                   |
+| `action-menu/unregister-trigger`| Studio to native | Either page. Remove an anchored native Menu trigger                              |
 | `action-menu/arm`               | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
-| `action-menu/disarm`            | Studio to native | Either page. Forget a stored menu. A menu on screen keeps showing                |
-| `action-menu/action`            | native to Studio | Either page. The user chose an action of a menu that the page presented          |
-| `action-menu/dismissed`         | native to Studio | Either page. The user dismissed a menu that the page presented, without choosing |
+| `action-menu/disarm`            | Studio to native | Either page. Forget a stored long-press menu                                     |
+| `action-menu/action`            | native to Studio | Either page. The user chose an action of an anchored or long-press menu          |
+| `action-menu/dismissed`         | native to Studio | Either page. Legacy/long-press dismissal notification                            |
 | `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
 | `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
 | `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
