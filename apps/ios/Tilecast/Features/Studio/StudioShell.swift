@@ -33,7 +33,7 @@ struct StudioShell: View {
         .mediaIntake(host.mediaIntake)
         .nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
-        .sheet(isPresented: $addingServer) { AddServerView() }
+        .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
         .sheet(item: presentation) { presentation in
             if let coordinator = host.page?.presentations {
                 PresentationSheet(coordinator: coordinator, presentation: presentation)
