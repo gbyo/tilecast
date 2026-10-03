@@ -15,19 +15,27 @@ struct ServerMenuItems: View {
 
     var body: some View {
         ForEach(host.directory.servers) { server in
+            let title = menuTitle(for: server)
             Button {
                 Task { await host.activate(server.id) }
             } label: {
                 if server.id == host.directory.activeServerID {
-                    Label(server.displayName, image: AppIcon.current)
+                    Label(title, image: AppIcon.current)
                 } else {
-                    Text(server.displayName)
+                    Text(verbatim: title)
                 }
             }
         }
         Divider()
         Button(action: actions.add) { Label("Add Server…", image: AppIcon.add) }
-        Button(action: actions.manage) { Label("Manage Servers…", image: AppIcon.server) }
+        Button(action: actions.manage) { Label("Manage Servers…", image: AppIcon.manage) }
+    }
+
+    private func menuTitle(for server: ServerProfile) -> String {
+        let duplicates = host.directory.servers.filter { $0.displayName == server.displayName }.count
+        return duplicates > 1
+            ? "\(server.displayName) — \(server.address.displayString)"
+            : server.displayName
     }
 }
 
@@ -39,8 +47,10 @@ struct SignOutButton: View {
 
     var body: some View {
         if !page.signInRequired {
-            Button("Sign Out", systemImage: "rectangle.portrait.and.arrow.right") {
+            Button {
                 Task { await host.signOut() }
+            } label: {
+                Label("Sign Out", image: AppIcon.signOut)
             }
             .accessibilityIdentifier("server.signOut")
         }
