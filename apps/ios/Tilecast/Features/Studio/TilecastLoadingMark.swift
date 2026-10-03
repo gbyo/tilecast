@@ -5,7 +5,11 @@ import SwiftUI
 struct TilecastLoadingMark: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @State private var startedAt = Date()
+
+    // All loading surfaces share one epoch so SwiftUI can replace one mark
+    // with another (for example verification -> Studio loading) without
+    // visibly restarting the cast animation.
+    private static let startedAt = Date()
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30, paused: reduceMotion || scenePhase != .active)) { timeline in
@@ -14,7 +18,7 @@ struct TilecastLoadingMark: View {
                 context.translateBy(x: (size.width - 307.49 * scale) / 2, y: (size.height - 295.25 * scale) / 2)
                 context.scaleBy(x: scale, y: scale)
                 context.translateBy(x: 25, y: 25)
-                let elapsed = max(0, timeline.date.timeIntervalSince(startedAt))
+                let elapsed = max(0, timeline.date.timeIntervalSince(Self.startedAt))
                 for (index, path) in Self.tiles.enumerated() {
                     var tile = context
                     if !reduceMotion {
