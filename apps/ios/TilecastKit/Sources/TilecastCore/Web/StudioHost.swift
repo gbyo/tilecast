@@ -47,7 +47,7 @@ public final class StudioHost {
     }
 
     public let directory: ServerDirectory
-    public private(set) var connection: Connection = .noServer
+    public private(set) var connection: Connection
     /// The native API credential lifecycle for the connected server.
     public private(set) var nativeAuth: NativeAuthSession?
     /// What the app does for Studio's haptic and share requests. The app
@@ -94,6 +94,11 @@ public final class StudioHost {
         self.mediaIntake = mediaIntake
         self.now = now
         self.directory = directory
+        if let activeServer = directory.activeServer {
+            connection = .verifying(activeServer)
+        } else {
+            connection = .noServer
+        }
         self.dataStores = dataStores
         self.identityClient = identityClient
         self.credentials = credentials
