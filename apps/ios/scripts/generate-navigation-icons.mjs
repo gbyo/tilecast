@@ -36,6 +36,7 @@ const appIcons = {
   add: "Plus",
   manage: "Settings",
   reload: "RotateCw",
+  signOut: "LogOut",
   current: "Check",
 };
 
