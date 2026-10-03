@@ -94,10 +94,15 @@ public final class StudioPage {
     /// A same-origin page Studio asked to open in a new window. At most one
     /// exists; it shares this server's data store and navigation policy.
     public private(set) var auxiliaryPage: WebPage?
+    /// Native cover state for the auxiliary page. It has no privileged
+    /// bridge, but it still gets the same loading and failure treatment as
+    /// the main page instead of exposing a blank WebView.
+    public private(set) var auxiliaryPhase: Phase = .loading
     /// Events for the host UI, delivered in order.
     public private(set) var pendingEvents: [StudioPageEvent] = []
 
     @ObservationIgnored private var monitor: Task<Void, Never>?
+    @ObservationIgnored private var auxiliaryMonitor: Task<Void, Never>?
     @ObservationIgnored private var revealTask: Task<Void, Never>?
     @ObservationIgnored private var navigationFinished = false
     @ObservationIgnored private var recentTerminations: [Date] = []
@@ -211,8 +216,18 @@ public final class StudioPage {
     }
 
     public func closeAuxiliaryPage() {
+        auxiliaryMonitor?.cancel()
+        auxiliaryMonitor = nil
         auxiliaryPage?.stopLoading()
         auxiliaryPage = nil
+        auxiliaryPhase = .loading
+    }
+
+    /// Retries the same auxiliary page after a visible load failure.
+    public func retryAuxiliaryPage() {
+        guard let auxiliaryPage else { return }
+        auxiliaryPhase = .loading
+        auxiliaryPage.reload()
     }
 
     /// The current same-origin path with query, for state restoration.
@@ -245,6 +260,7 @@ public final class StudioPage {
     /// so there is never more than one auxiliary page.
     private func openAuxiliaryPage(_ url: URL) {
         if let auxiliaryPage {
+            auxiliaryPhase = .loading
             auxiliaryPage.load(url)
             return
         }
@@ -257,8 +273,55 @@ public final class StudioPage {
             dialogPresenter: StudioDialogPresenter(origin: address.origin, system: system)
         )
         sink.handler = { [weak self] in self?.handle($0) }
+        auxiliaryPhase = .loading
         auxiliaryPage = page
+        auxiliaryMonitor = Task { [weak self] in
+            await self?.watchAuxiliaryNavigations(page)
+        }
         page.load(url)
+    }
+
+    private func watchAuxiliaryNavigations(_ page: WebPage) async {
+        while !Task.isCancelled {
+            do {
+                for try await event in page.navigations {
+                    guard auxiliaryPage === page else { return }
+                    switch event {
+                    case .startedProvisionalNavigation:
+                        auxiliaryPhase = .loading
+                    case .finished:
+                        auxiliaryPhase = .ready
+                    default:
+                        break
+                    }
+                }
+                return
+            } catch {
+                if Task.isCancelled || auxiliaryPage !== page { return }
+                if let failure = Self.auxiliaryFailure(for: error) {
+                    auxiliaryPhase = .failed(failure)
+                }
+            }
+        }
+    }
+
+    private static func auxiliaryFailure(for error: any Error) -> StudioLoadFailure? {
+        guard let navigationError = error as? WebPage.NavigationError else {
+            let error = error as NSError
+            return .other(domain: error.domain, code: error.code)
+        }
+        switch navigationError {
+        case .webContentProcessTerminated:
+            return .contentProcessEnded
+        case .failedProvisionalNavigation(let underlying):
+            return failure(for: underlying)
+        case .pageClosed:
+            return nil
+        case .invalidURL:
+            return .other(domain: "WebPage", code: 0)
+        @unknown default:
+            return .other(domain: "WebPage", code: -1)
+        }
     }
 
     private func watchNavigations() async {
