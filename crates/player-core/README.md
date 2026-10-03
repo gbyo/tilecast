@@ -32,7 +32,11 @@ Binding locations contain empty strings until the host resolves them.
 The host chooses its resource transport for the valid generation.
 The types reject invalid bindings, oversized data, and unlisted objects.
 
-Edge does not consume these types yet. The semantic RendererPort, profiles,
+Separate packaged and connected profiles check host features, presentation
+schemas, declarative capabilities, and Widget component versions.
+Release support cannot replace a missing session advertisement.
+
+Edge does not consume these types yet. The semantic RendererPort,
 adapter, activation, recovery, and capture extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
 
