@@ -135,13 +135,13 @@ describe("screen management", () => {
     );
 
     const table = screen.getByRole("table");
-    expect(table).toHaveClass("table-fixed", "min-w-[56rem]");
+    expect(table).toHaveClass("table-fixed", "min-w-[59rem]");
     expect(
       screen.queryByRole("columnheader", { name: "Location" }),
     ).not.toBeInTheDocument();
 
     const status = screen.getByText("Recently online");
-    expect(status.closest("td")).toHaveClass("w-[7.5rem]");
+    expect(status.closest("td")).toHaveClass("w-[10rem]");
   });
 
   it("uses the dashboard record when detail data is incomplete", () => {
