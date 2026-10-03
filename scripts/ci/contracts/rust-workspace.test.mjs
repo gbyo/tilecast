@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
 
@@ -92,4 +92,77 @@ test("Edge CI caches the root lockfile, toolchain, and output directory", () => 
     release,
     /--cargo-artifacts \/cache\/edge-rust-artifacts\.jsonl/,
   );
+});
+
+test("shared Player validation runs portable packages on Ubuntu and macOS", () => {
+  const ci = parse(
+    readFileSync(".github/workflows/validate-player-core.yml", "utf8"),
+  );
+  assert.deepEqual(ci.jobs.validate.strategy.matrix.os, [
+    "ubuntu-latest",
+    "macos-latest",
+  ]);
+  const commands = ci.jobs.validate.steps.flatMap((step) => step.run ?? []);
+  for (const command of [
+    "fmt --check",
+    "clippy --all-targets --all-features -- -D warnings",
+    "test --all-features",
+    "doc --no-deps --all-features",
+  ]) {
+    assert.ok(commands.includes(`bash scripts/ci/cargo-player.sh ${command}`));
+  }
+  const pr = parse(readFileSync(".github/workflows/pr-validation.yml", "utf8"));
+  assert.equal(
+    pr.jobs.player_core_ci.uses,
+    "./.github/workflows/validate-player-core.yml",
+  );
+  assert.match(pr.jobs.player_core_ci.if, /needs.changes.outputs.player_core/);
+});
+
+test("shared validation selects registered root crates and never Edge packages", () => {
+  const root = manifest("Cargo.toml");
+  const expected = root.workspace.members
+    .filter((path) => path.startsWith("crates/"))
+    .map((path) => manifest(`${path}/Cargo.toml`).package.name)
+    .sort();
+  const metadata = {
+    packages: root.workspace.members.map((path) => ({
+      name: manifest(`${path}/Cargo.toml`).package.name,
+      manifest_path: resolve(path, "Cargo.toml"),
+    })),
+  };
+  const directory = mkdtempSync(join(tmpdir(), "tilecast-player-scope-"));
+  try {
+    writeFileSync(join(directory, "metadata.json"), JSON.stringify(metadata));
+    writeFileSync(
+      join(directory, "cargo"),
+      '#!/bin/sh\nif [ "$1" = metadata ]; then cat "$PLAYER_SCOPE_METADATA"; else printf "%s\\n" "$@"; fi\n',
+      { mode: 0o755 },
+    );
+    for (const command of ["fmt", "clippy", "test", "doc"]) {
+      const args = execFileSync(
+        "bash",
+        ["scripts/ci/cargo-player.sh", command],
+        {
+          env: {
+            ...process.env,
+            PATH: `${directory}:${process.env.PATH}`,
+            PLAYER_SCOPE_METADATA: join(directory, "metadata.json"),
+          },
+          encoding: "utf8",
+        },
+      )
+        .trim()
+        .split("\n");
+      assert.equal(args[0], command);
+      assert.equal(args.includes("--workspace"), false);
+      assert.deepEqual(
+        args.filter((_, i) => args[i - 1] === "-p").sort(),
+        expected,
+      );
+      assert.equal(args.includes("--locked"), command !== "fmt");
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

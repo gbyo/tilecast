@@ -13,9 +13,9 @@ use edge_cas::{
     BlobSource, CasError, ContentStore, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta, LruByDomain,
     SourceError, SourceKind, SourceStream, StorePolicy,
 };
+use edge_platform::clock::system_clock;
 use edge_platform::disk::FixedSpace;
 use edge_protocol::Sha256Digest;
-use edge_protocol::time::system_clock;
 use edge_state::repo::cas::{Domain, PinReason, SourceKind as RecordSource};
 use edge_state::{OpenOptions, StateDb};
 use futures_util::StreamExt as _;

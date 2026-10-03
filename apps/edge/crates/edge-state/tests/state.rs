@@ -239,8 +239,8 @@ async fn async_access_runs_on_blocking_pool() {
 
 fn binding() -> Binding {
     Binding {
-        installation_id: InstallationId::new_random(),
-        screen_id: ScreenId::new_random(),
+        installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+        screen_id: ScreenId::from_uuid(uuid::Uuid::new_v4()),
         server_url: "https://signage.example".to_owned(),
     }
 }
@@ -342,11 +342,11 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
         fetched_at: now(),
     };
     assert!(db.run_blocking(move |c| manifests::put_target(c, &stale)).is_err(), "versions never regress");
-    let foreign = Binding { screen_id: ScreenId::new_random(), ..binding.clone() };
+    let foreign = Binding { screen_id: ScreenId::from_uuid(uuid::Uuid::new_v4()), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     let foreign = Binding { server_url: "https://other.example".to_owned(), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
-    let foreign = Binding { installation_id: InstallationId::new_random(), ..binding.clone() };
+    let foreign = Binding { installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     assert_eq!(db.run_blocking(move |c| manifests::target(c, &foreign)).unwrap(), None);
 }
