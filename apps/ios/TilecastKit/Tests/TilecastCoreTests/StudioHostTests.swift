@@ -84,6 +84,15 @@ final class FakeIdentityClient: InstallationIdentityFetching, @unchecked Sendabl
         return profile
     }
 
+    @Test func beginsVerifyingThePersistedActiveServer() throws {
+        let profile = try addServer("a.example.org", name: "A")
+        directory.activate(profile.id)
+        let host = makeHost()
+
+        #expect(host.connection == .verifying(profile))
+        #expect(host.page == nil)
+    }
+
     @Test func connectsTheActiveServerWithItsOwnDataStore() async throws {
         let profile = try addServer("a.example.org", name: "A")
         directory.activate(profile.id)
