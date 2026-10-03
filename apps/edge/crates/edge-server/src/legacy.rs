@@ -27,6 +27,7 @@
 //!   stage, AirPlay session files, Presentation Network radio state, and
 //!   website storage.
 
+use crate::FileCredentialStore;
 use std::io::{Read as _, Seek as _};
 use std::path::{Path, PathBuf};
 
@@ -253,12 +254,12 @@ async fn run(
 
     // Identity gate: nothing is stored, and the credential is not sent,
     // until the server proves it is the saved installation.
-    let client = ServerClient::new(&server_url)?;
+    let client = ServerClient::new(&server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))?;
     let verified = client.verify_installation(installation_id, credential.clone()).await?;
 
     db.run(move |c| daemon::set_player_identity(c, player_id, PlayerIdentitySource::LegacyImport, now).map(|_| ()))
         .await?;
-    credential.save(identity_dir).map_err(|e| ImportError::Identity(e.to_string()))?;
+    FileCredentialStore::write_at(&credential, identity_dir).map_err(|e| ImportError::Identity(e.to_string()))?;
     let binding_record = ServerBinding {
         server_url: server_url.clone(),
         installation_id,

@@ -54,7 +54,7 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
 | `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`           | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
+| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, temporary origin glue, and shared player-client exports.                                                  |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
 | `tilecastd`             | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
@@ -87,7 +87,8 @@ edge-protocol
 
 Rules that follow from the direction:
 
-- Only `edge-server` holds the device credential, and only an
+- Only the native host holds the device credential. Edge owns its file store,
+  `player-client` owns the validated value, and only an
   `AuthenticatedServer` (obtained after the installation identity check) can
   send it.
 - The root programs do not depend on `edge-server`, `edge-cas` or

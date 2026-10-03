@@ -2,6 +2,7 @@
 //! against an in-process fake Tilecast Server.
 #![allow(clippy::unwrap_used)]
 
+use edge_server::FileCredentialStore;
 use std::collections::BTreeMap;
 use std::convert::Infallible;
 use std::os::unix::fs::PermissionsExt as _;
@@ -333,7 +334,7 @@ async fn legacy_import_then_player_contact() {
     assert_eq!(bound.credential_state, binding::CredentialState::Stored);
     let credential_mode = std::fs::metadata(env.identity().join("device-credential")).unwrap().permissions().mode();
     assert_eq!(credential_mode & 0o777, 0o600);
-    assert!(DeviceCredential::load(&env.identity()).unwrap().is_some());
+    assert!(FileCredentialStore::read_at(&env.identity()).unwrap().is_some());
     let record = env.db.run(|c| commands::get(c, "cmd-2")).await.unwrap().expect("imported key");
     assert_eq!(record.state, commands::CommandState::Completed);
     assert_eq!(record.report_state, commands::ReportState::NotRequired);
@@ -364,9 +365,12 @@ async fn legacy_import_then_player_contact() {
     }
 
     // Ordinary player contact with the imported credential.
-    let credential = DeviceCredential::load(&env.identity()).unwrap().unwrap();
-    let server =
-        ServerClient::new(&bound.server_url).unwrap().verify_installation(installation, credential).await.unwrap();
+    let credential = FileCredentialStore::read_at(&env.identity()).unwrap().unwrap();
+    let server = ServerClient::new(&bound.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
+        .unwrap()
+        .verify_installation(installation, credential)
+        .await
+        .unwrap();
     server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await.unwrap();
     assert_eq!(fake.authenticated_paths(), vec!["/api/v1/player/heartbeat".to_owned()]);
     assert_eq!(fake.heartbeats.lock().unwrap()[0]["playerVersion"], "0.1.0");
@@ -401,7 +405,7 @@ async fn import_refuses_a_different_installation_without_sending_the_credential(
         import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
     assert!(matches!(error, ImportError::Server(ServerError::IdentityMismatch { .. })), "{error:?}");
     assert!(fake.authenticated_paths().is_empty());
-    assert!(DeviceCredential::load(&env.identity()).unwrap().is_none());
+    assert!(FileCredentialStore::read_at(&env.identity()).unwrap().is_none());
     assert!(env.db.run(|c| binding::get(c)).await.unwrap().is_none());
     let record = env.db.run(|c| legacy::get(c)).await.unwrap().unwrap();
     assert_eq!(record.state, legacy::ImportState::Failed);
@@ -429,7 +433,11 @@ async fn a_revoked_credential_is_reported_as_rejected() {
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
     let credential = DeviceCredential::parse(CREDENTIAL).unwrap();
-    let server = ServerClient::new(&url).unwrap().verify_installation(installation, credential).await.unwrap();
+    let server = ServerClient::new(&url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
+        .unwrap()
+        .verify_installation(installation, credential)
+        .await
+        .unwrap();
     fake.revoked.store(true, Ordering::SeqCst);
     let error = server.player_heartbeat(&json!({"screenWidth": 0, "screenHeight": 0, "playerVersion": "0.1.0"})).await;
     assert_eq!(error, Err(ServerError::CredentialRejected));
@@ -484,7 +492,7 @@ async fn player_manifest_uses_the_ordinary_endpoint_and_conditional_etag() {
     let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
-    let server = ServerClient::new(&url)
+    let server = ServerClient::new(&url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
         .unwrap()
         .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
         .await
@@ -501,7 +509,7 @@ async fn player_manifest_uses_the_ordinary_endpoint_and_conditional_etag() {
 
 async fn authenticated(fake: &Arc<Fake>, installation: InstallationId) -> edge_server::AuthenticatedServer {
     let url = serve(Arc::clone(fake)).await;
-    ServerClient::new(&url)
+    ServerClient::new(&url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
         .unwrap()
         .verify_installation(installation, DeviceCredential::parse(CREDENTIAL).unwrap())
         .await

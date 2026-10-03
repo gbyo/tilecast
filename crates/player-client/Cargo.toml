@@ -1,6 +1,6 @@
 [package]
-name = "edge-server"
-description = "Tilecast Edge's Tilecast Server client: URL policy, identity gate, device credential, legacy import and the origin blob source."
+name = "player-client"
+description = "Portable native Player HTTP/WebSocket client with installation identity verification."
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
@@ -8,13 +8,9 @@ publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-player-client.workspace = true
 async-trait.workspace = true
 base64.workspace = true
-edge-cas.workspace = true
-edge-platform.workspace = true
-edge-protocol.workspace = true
-edge-state.workspace = true
+player-types.workspace = true
 futures-util.workspace = true
 reqwest.workspace = true
 rustls.workspace = true
@@ -28,7 +24,7 @@ tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
-edge-protocol = { workspace = true, features = ["test-util"] }
+player-types = { workspace = true, features = ["test-util"] }
 hyper.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true

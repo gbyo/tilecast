@@ -29,12 +29,13 @@
 //! revoked (the legacy player's rule); network errors, 5xx and disabled
 //! screens retry with backoff.
 
+use edge_server::FileCredentialStore;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use edge_protocol::Timestamp;
+use edge_server::AuthenticatedServer;
 use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
-use edge_server::{AuthenticatedServer, DeviceCredential};
 use edge_state::repo::binding::{self, CredentialState};
 use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, Target};
 use edge_state::repo::playback;
@@ -395,7 +396,7 @@ pub async fn reject_credential(context: &DaemonContext) {
         let now = context.now();
         let _ = db.run(move |c| binding::set_credential_state(c, CredentialState::Rejected, now)).await;
     }
-    let _ = DeviceCredential::remove(&context.paths.identity_dir());
+    let _ = FileCredentialStore::remove_at(&context.paths.identity_dir());
     context.command_server.send_replace(None);
 }
 
@@ -535,7 +536,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
     if bound.credential_state == CredentialState::Rejected {
         return LinkState::CredentialRejected;
     }
-    let credential = match DeviceCredential::load(&context.paths.identity_dir()) {
+    let credential = match FileCredentialStore::read_at(&context.paths.identity_dir()) {
         Ok(Some(credential)) => credential,
         Ok(None) => return LinkState::CredentialMissing,
         Err(error) => {
@@ -543,7 +544,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
             return LinkState::CredentialMissing;
         }
     };
-    let server = match ServerClient::new(&bound.server_url) {
+    let server = match ServerClient::new(&bound.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION)) {
         Ok(client) => match client.verify_installation(bound.installation_id, credential).await {
             Ok(server) => server,
             Err(error) => {
