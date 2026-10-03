@@ -233,7 +233,9 @@ describe("ActionMenuButton with a native host", () => {
       } as DOMRect);
   }
 
-  it("registers an anchored native trigger and invokes the chosen callback", async () => {
+  it(
+    "registers an anchored native trigger and invokes the chosen callback",
+    async () => {
     visibleTriggerRect();
     const host = installNativeHost();
     const onDelete = vi.fn();
@@ -268,9 +270,12 @@ describe("ActionMenuButton with a native host", () => {
         ),
       ).toBe(true),
     );
-  });
+    },
+  );
 
-  it("uses the web dropdown with an older native host that lacks anchors", async () => {
+  it(
+    "uses the web dropdown with an older native host that lacks anchors",
+    async () => {
     const host = installNativeHost({ anchors: false });
     const onOpen = vi.fn();
     renderButton(groups({ onOpen }));
@@ -283,7 +288,8 @@ describe("ActionMenuButton with a native host", () => {
     expect(host.ofType("action-menu/register-trigger")).toHaveLength(0);
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
-  });
+    },
+  );
 });
 
 describe("ActionContextMenu", () => {
