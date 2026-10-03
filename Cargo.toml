@@ -1,21 +1,33 @@
 [workspace]
 resolver = "3"
 members = [
-    "crates/edge-protocol",
-    "crates/edge-state",
-    "crates/edge-ipc",
-    "crates/edge-platform",
-    "crates/edge-cas",
-    "crates/edge-server",
-    "crates/edge-release",
-    "tilecastd",
-    "tilecastctl",
-    "tilecast-edge-migrate",
-    "tilecast-edge-update",
+    "apps/edge/crates/edge-protocol",
+    "apps/edge/crates/edge-state",
+    "apps/edge/crates/edge-ipc",
+    "apps/edge/crates/edge-platform",
+    "apps/edge/crates/edge-cas",
+    "apps/edge/crates/edge-server",
+    "apps/edge/crates/edge-release",
+    "apps/edge/tilecastd",
+    "apps/edge/tilecastctl",
+    "apps/edge/tilecast-edge-migrate",
+    "apps/edge/tilecast-edge-update",
+]
+default-members = [
+    "apps/edge/crates/edge-protocol",
+    "apps/edge/crates/edge-state",
+    "apps/edge/crates/edge-ipc",
+    "apps/edge/crates/edge-platform",
+    "apps/edge/crates/edge-cas",
+    "apps/edge/crates/edge-server",
+    "apps/edge/crates/edge-release",
+    "apps/edge/tilecastd",
+    "apps/edge/tilecastctl",
+    "apps/edge/tilecast-edge-migrate",
+    "apps/edge/tilecast-edge-update",
 ]
 
 [workspace.package]
-version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-only"
 repository = "https://github.com/gbyo/tilecast"
@@ -25,13 +37,13 @@ rust-version = "1.98"
 [workspace.dependencies]
 # Internal crates. Dependency direction is documented in apps/edge/README.md;
 # a lower crate never depends on a higher one.
-edge-protocol = { path = "crates/edge-protocol" }
-edge-state = { path = "crates/edge-state" }
-edge-cas = { path = "crates/edge-cas" }
-edge-server = { path = "crates/edge-server" }
-edge-platform = { path = "crates/edge-platform" }
-edge-ipc = { path = "crates/edge-ipc" }
-edge-release = { path = "crates/edge-release" }
+edge-protocol = { path = "apps/edge/crates/edge-protocol" }
+edge-state = { path = "apps/edge/crates/edge-state" }
+edge-cas = { path = "apps/edge/crates/edge-cas" }
+edge-server = { path = "apps/edge/crates/edge-server" }
+edge-platform = { path = "apps/edge/crates/edge-platform" }
+edge-ipc = { path = "apps/edge/crates/edge-ipc" }
+edge-release = { path = "apps/edge/crates/edge-release" }
 
 anyhow = "1"
 jiff = "0.2"

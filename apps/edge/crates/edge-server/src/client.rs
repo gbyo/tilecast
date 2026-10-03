@@ -165,7 +165,7 @@ impl ServerClient {
             .connect_timeout(Duration::from_secs(10))
             // Never follow a redirect with the credential attached.
             .redirect(reqwest::redirect::Policy::none())
-            .user_agent(concat!("tilecastd/", env!("CARGO_PKG_VERSION")))
+            .user_agent(format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
             .build()
             .map_err(|_| ServerError::Network)?;
         Ok(Self { base_url, http, tls_roots: additional_roots.to_vec() })

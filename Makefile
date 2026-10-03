@@ -84,10 +84,11 @@ helper-check:
 # Tilecast Edge (apps/edge). edge-linux and the renderer end-to-end run need
 # the tilecast-edge-dev image (apps/edge/README.md).
 edge-check:
-	cd apps/edge && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
+	bash apps/edge/ci/cargo-edge.sh fmt --check
+	bash apps/edge/ci/cargo-edge.sh clippy --all-targets -- -D warnings
 
 edge-test:
-	cd apps/edge && cargo test --workspace
+	bash apps/edge/ci/cargo-edge.sh test
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh
