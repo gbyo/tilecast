@@ -4,7 +4,7 @@
 #![allow(clippy::unwrap_used)]
 
 use edge_protocol::Sha256Digest;
-use edge_state::repo::updates::{self, Accepted, JobState, Mode, NewJob};
+use edge_state::platform::updates::{self, Accepted, JobState, Mode, NewJob};
 use edge_state::{OpenOptions, open_connection};
 
 fn new_job(n: u8) -> NewJob {

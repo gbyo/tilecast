@@ -29,7 +29,7 @@ use edge_release::protocol::{HelperRequest, HelperResponse, Phase};
 use edge_release::testing::{Signer, layout, write_archive};
 use edge_server::client::ServerError;
 use edge_server::updates::{UpdateMetadata, UpdateReport, UpdateReportOutcome};
-use edge_state::repo::updates::{self as jobs, JobState};
+use edge_state::platform::updates::{self as jobs, JobState};
 use edge_state::{OpenOptions, StateDb};
 use futures_util::StreamExt as _;
 use tilecast_edge_update::host::{EDGE_DAEMON, EDGE_RENDERER, HostError, UnitActivity, UpdateHost};

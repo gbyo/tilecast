@@ -13,7 +13,7 @@
 //! A manifest is identified by the SHA-256 of its stable encoding. Every read
 //! is bound to the installation, screen and normalized server URL.
 
-use edge_protocol::{InstallationId, ScreenId, Sha256Digest, Timestamp};
+use player_types::{InstallationId, ScreenId, Sha256Digest, Timestamp};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::Value;
 

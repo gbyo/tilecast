@@ -19,9 +19,13 @@ def state_schema():
     metadata = json.loads(subprocess.check_output(
         ["cargo", "metadata", "--locked", "--no-deps", "--format-version", "1"], cwd=ROOT
     ))
-    state = [p for p in metadata["packages"] if p["name"] in ("edge-state", "player-state")]
+    state = [
+        p for p in metadata["packages"]
+        if p["name"] in ("edge-state", "player-state")
+        and any((Path(p["manifest_path"]).parent / "migrations").glob("[0-9][0-9][0-9][0-9]_*.sql"))
+    ]
     if len(state) != 1:
-        raise ValueError("exactly one Player state crate is required")
+        raise ValueError("exactly one Player state migration owner is required")
     directory = Path(state[0]["manifest_path"]).parent / "migrations"
     return max(int(p.name.split("_", 1)[0]) for p in directory.glob("[0-9][0-9][0-9][0-9]_*.sql"))
 

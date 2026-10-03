@@ -1,6 +1,6 @@
 //! Daemon lifecycle bookkeeping and the player identity.
 
-use edge_protocol::{PlayerId, Timestamp};
+use player_types::{PlayerId, Timestamp};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms, ms, parse};

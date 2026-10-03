@@ -11,7 +11,7 @@
 //! legacy player's `executed-commands.json` are completed records, so they
 //! suppress exactly the commands it had already run.
 
-use edge_protocol::Timestamp;
+use player_types::Timestamp;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms, ms};

@@ -2,7 +2,7 @@
 //! restart, safe-mode transitions); progress time is flushed on a cadence by
 //! the supervisor, never per progress event.
 
-use edge_protocol::Timestamp;
+use player_types::Timestamp;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms_opt, ms};
