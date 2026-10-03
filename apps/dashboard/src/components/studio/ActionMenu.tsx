@@ -87,9 +87,10 @@ function ActionGroups({
 /**
  * A three-dot button with a Studio action menu. In an ordinary browser
  * the menu is the normal web dropdown. In a native host that offers
- * action menus the button shows the native menu instead, and falls back
- * to the web menu when the host cannot show it. Renders nothing without
- * actions.
+ * anchored action menus, the visible HTML button registers its viewport
+ * rectangle and an invisible SwiftUI Menu receives the tap at that exact
+ * location. The HTML dropdown remains the permanent fallback. Renders
+ * nothing without actions.
  */
 export function ActionMenuButton({
   label,
@@ -111,45 +112,33 @@ export function ActionMenuButton({
   /** The trigger glyph. A horizontal ellipsis by default. */
   triggerIcon?: ReactNode;
 }) {
-  const { present } = useNativeActionMenu();
+  const { registerTrigger } = useNativeActionMenu();
   const host = useNativeHost();
-  const hostAvailable =
-    host.status === "ready" && host.capabilities.nativeActionMenus;
+  const nativeAnchorAvailable =
+    host.status === "ready" && host.capabilities.nativeActionMenuAnchors;
   const [webOpen, setWebOpen] = useState(false);
-  const presenting = useRef(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!nativeAnchorAvailable || !triggerRef.current) return;
+    return registerTrigger(label, actions, triggerRef.current) ?? undefined;
+  }, [actions, label, nativeAnchorAvailable, registerTrigger]);
 
   const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      if (!next) {
-        setWebOpen(false);
-        return;
-      }
-      // Without a host that offers menus the web menu opens at once,
-      // exactly as before native menus existed.
-      if (!hostAvailable) {
-        setWebOpen(true);
-        return;
-      }
-      if (presenting.current) return;
-      presenting.current = true;
-      void present(label, actions)
-        .then((result) => {
-          if (result.outcome === "unavailable") setWebOpen(true);
-        })
-        .finally(() => {
-          presenting.current = false;
-        });
-    },
-    [actions, hostAvailable, label, present],
-  );
 
   if (count === 0) return null;
   return (
-    <DropdownMenu open={webOpen} onOpenChange={handleOpenChange}>
+    <DropdownMenu open={webOpen} onOpenChange={setWebOpen}>
       <DropdownMenuTrigger
         render={
-          <Button variant={variant} size={size} className={triggerClassName} />
+          <Button
+            ref={triggerRef}
+            variant={variant}
+            size={size}
+            className={triggerClassName}
+            tabIndex={nativeAnchorAvailable ? -1 : undefined}
+            aria-hidden={nativeAnchorAvailable ? true : undefined}
+          />
         }
         aria-label={label}
       >
