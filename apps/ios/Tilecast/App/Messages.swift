@@ -80,8 +80,8 @@ extension StudioLoadFailure {
             String(localized: "The server’s certificate isn’t valid or isn’t trusted by this device.")
         case .contentProcessEnded:
             String(localized: "Tilecast Studio stopped unexpectedly several times.")
-        case .other(let domain, let code):
-            String(localized: "Tilecast Studio couldn’t be loaded (\(domain) \(code)).")
+        case .other:
+            String(localized: "Tilecast Studio couldn’t be loaded. Try again.")
         }
     }
 }
