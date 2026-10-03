@@ -216,7 +216,7 @@ The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neu
 - **Handshake:** the client sends `hello` with a role and a version range. The daemon picks the highest common version or rejects. Roles are `renderer`, `tilecastctl` and `session_bridge` (§4.4); administrative methods also need the daemon's own UID or root, and only the daemon's UID may take `session_bridge`.
 - **Messages:** requests and responses (client to daemon only), events in either direction with a per-direction sequence, and `goodbye`.
 - **Strictness:** every frame rejects unknown members; every string and list has an explicit bound.
-- **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when the renderer supports every feature it needs.
+- **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when both packaged and connected profiles cover its requirements. The optional `support` report carries live Runtime presentation schemas, declarative capabilities, and discovered Widget versions. WPE forwards these separately from its host features. Missing live support is empty.
 
 What never crosses the socket: the device credential, Presentation Network secrets, raw server responses, arbitrary filesystem paths from a client, executables, shell fragments and media bytes.
 

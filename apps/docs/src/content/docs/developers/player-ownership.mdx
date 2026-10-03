@@ -23,8 +23,30 @@ the client verifies the installation identity.
 The Core foundation now lives in `crates/player-core`: native schedule selection,
 command delivery and idempotency, Activity session tracking, and the CAS origin
 adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
-handlers and lifecycle signals. Renderer recovery and server reconciliation
+handlers and lifecycle signals. Core also owns renderer recovery decisions
+and meaningful-evidence rules. Core tracks activation acceptance and evidence
+for the current renderer connection. Edge executes actions through its port.
+Activation coordination and server reconciliation
 remain in Edge until their extraction stages.
+
+Prepared activations carry bounded, opaque Runtime presentation data with
+verified-object bindings. Core owns explicit requirements and evidence metadata;
+transitions, Website options, Layout properties, and status styling stay with
+Runtime and the host projection. Edge uses these through its
+RendererPort adapter, with a temporary projection bridge in Edge.
+The Edge port owns media grants and their generation lifecycle.
+Separate packaged and connected profiles keep release support distinct from
+what a renderer session advertises. Edge checks both before activation.
+Runtime reports live support in readiness, including discovered Widget versions.
+WPE forwards this report; generated release metadata remains the packaged source.
+The RendererPort interface now defines semantic operations. Edge uses shared
+decoded-image checks and keeps transport decoding in Edge. Core serializes
+captures and checks protected states. Periodic preview leases, uploads,
+capability policy, and fault suspension also run in Core.
+Watch Live lease, cadence, and frame coordination also run in Core. Edge owns
+media transport, its expiry clock, display-sleep policy, cursor configuration,
+and socket delivery. Activation coordination and recovery timers still need
+extraction. Stage 8 remains open until that work and selected qualification pass.
 
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |

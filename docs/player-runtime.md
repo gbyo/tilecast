@@ -53,6 +53,17 @@ Behavior depends on `capabilities`, never on `info.host`:
 
 `info` (host name and version, engine name and version) is for diagnostics only.
 
+`RuntimeReadyV1` has optional `support` metadata with separate
+`presentationSchemas`, `declarativeCapabilities`, and `widgetComponents` fields.
+Each namespace has at most 256 entries. Versions are positive uint32 values;
+capability names are contract tokens of at most 64 ASCII characters.
+The Runtime uses its generated schema and declarative constants and its live
+Widget discovery registry. Remote web support requires the running host port.
+WPE validates and forwards this report in `renderer.ready.support` with its live
+host features. Edge checks this connected profile independently of the generated
+installed-release profile. Missing support is empty. Contract version 1 and the
+existing readiness messages without this optional member remain valid.
+
 The runtime validates the host object at start (`hostContractProblem`). A missing bridge or a different contract version shows the "Display bridge unavailable" surface instead of a black screen.
 
 Everything that crosses the contract is data. The runtime receives no credential, no path, no server response and no executable. Media is addressed only by URIs the host already authorized (`tcmedia:`).

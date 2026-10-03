@@ -15,7 +15,13 @@ values are implemented in `crates/player-types`, and durable state in
 `edge-cas::space` supplies Linux free-space providers.
 `crates/player-client` owns portable server transport. `edge-server` owns
 file stores and Electron import. `crates/player-core` owns native selection,
-command delivery, Activity sessions, and the CAS origin adapter. Edge keeps
+command delivery, Activity sessions, the CAS origin adapter, renderer recovery
+decisions, meaningful-evidence rules, and connection-bound acceptance and
+evidence tracking. Edge keeps
+renderer transport and decoding. Core owns capture serialization and periodic
+preview policy and Watch Live lease and frame coordination. Edge owns media
+transport, its expiry clock, display-sleep policy, and cursor configuration.
+Runtime presentation data stays opaque to Core. Edge keeps
 fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior

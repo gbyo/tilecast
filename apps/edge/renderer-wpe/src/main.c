@@ -203,6 +203,7 @@ main (int argc, char **argv)
 
   g_main_loop_run (host.loop);
   tc_remote_web_stop (&host);
+  g_clear_pointer (&host.runtime_support, json_node_unref);
 
   g_clear_object (&host.view);
   g_clear_object (&host.network_session);

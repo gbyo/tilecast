@@ -285,6 +285,7 @@ impl Daemon {
             media_registry.clone(),
             kiosk,
             supervisor,
+            clock.clone(),
             now.unix_millis(),
         );
         presentation.set_activity(activity.clone());

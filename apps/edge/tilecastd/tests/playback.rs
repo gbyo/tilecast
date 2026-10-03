@@ -845,6 +845,17 @@ fn ready() -> Event {
         features: FEATURES.iter().map(|f| ShortToken::new(*f).unwrap()).collect(),
         display: None,
         remote_web: None,
+        support: Some(Box::new(edge_protocol::ipc::event::RuntimeSupport {
+            presentation_schemas: vec![1, 2],
+            declarative_capabilities: [("content.text", 1), ("web.remote", 1)]
+                .into_iter()
+                .map(|(name, version)| (ShortToken::new(name).unwrap(), version))
+                .collect(),
+            widget_components: [("widget.tilecast.clock", 2)]
+                .into_iter()
+                .map(|(name, version)| (ShortToken::new(name).unwrap(), version))
+                .collect(),
+        })),
     })
 }
 

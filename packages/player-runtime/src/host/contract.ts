@@ -547,6 +547,17 @@ export interface PresentationResultV1 {
 export interface RuntimeReadyV1 {
   contractVersion: typeof RUNTIME_HOST_CONTRACT_VERSION;
   runtimeVersion: string;
+  /** Live Runtime support, separate from the installed release profile.
+   * Each namespace has at most 256 entries; versions are positive uint32.
+   * Capability names use the existing bounded contract token syntax.
+   */
+  support?: RuntimeSupportV1;
+}
+
+export interface RuntimeSupportV1 {
+  presentationSchemas: number[];
+  declarativeCapabilities: Record<string, number>;
+  widgetComponents: Record<string, number>;
 }
 
 export interface SetupResultV1 {
