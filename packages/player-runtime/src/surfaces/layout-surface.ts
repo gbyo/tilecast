@@ -221,6 +221,9 @@ export class LayoutSurface implements MediaSurface {
       websiteRecovered: () => sink.websiteRecovered(),
       fallbackShown: rendered,
       zoneFailed: (id, message) => sink.zoneFailed(id, message),
+      // Empty Widget state inside a zone must not advance the containing
+      // Layout's fullscreen playlist occurrence.
+      widgetEmpty: () => undefined,
     };
     const surface = this.env.remoteWeb?.(
       {

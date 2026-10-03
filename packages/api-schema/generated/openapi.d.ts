@@ -9137,8 +9137,11 @@ export interface components {
       results: components["schemas"]["DisplayControlGroupResult"][];
     };
     PlayerManifest: {
-      /** @enum {integer} */
-      schemaVersion: 11 | 12 | 13 | 14 | 15;
+      /**
+       * @description The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+       * @enum {integer}
+       */
+      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17;
       /** Format: int64 */
       manifestVersion: number;
       /** Format: uuid */

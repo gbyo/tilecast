@@ -72,8 +72,9 @@ export interface StageEntry {
   /**
    * `preparing`: staged on the hidden layer, not yet shown.
    * `shown`: swapped in (or swapping in).
+   * `skipping`: expected-empty fullscreen Widget; the stage releases it.
    */
-  phase: "preparing" | "shown";
+  phase: "preparing" | "shown" | "skipping";
   /** Bumped each time a single looping video restarts in place. */
   restarts: number;
 }

@@ -112,7 +112,7 @@ In a Layout, the **Widgets** section opens the Apps picker. Add the Widget to th
 
 ## When a Widget has no current data
 
-Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**, which the screen shows when the source returns nothing to display. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. Preview the result before publishing.
+Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**. A fullscreen Widget that declares an empty state as eligible may be skipped in a local Playlist when it has nothing to show. If every Widget in the Playlist is empty, the Player waits 30 seconds before trying again. Layout zones and synchronized playback keep their timeline. See the [Widgets V2 contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the Player rules.
 
 ## Next steps
 

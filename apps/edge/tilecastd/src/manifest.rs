@@ -44,8 +44,9 @@ use crate::schedule::{self, Selection, Source};
 
 /// Player manifest schema versions the server compiler emits and this
 /// renderer understands (11 base, 12 data sources, 13 declarative widgets,
-/// 14 crossfade, 15 Span/website reload, 16 first-class Widget components).
-pub const MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=16;
+/// 14 crossfade, 15 Span/website reload, 16 first-class Widget components,
+/// 17 component empty policy).
+pub const MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=17;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -92,9 +93,9 @@ pub mod profile {
     /// helper, shown through the renderer's remote web surface.
     pub const WEB_RUNTIME_VERSION: u32 = 1;
 
-    /// Presentation schemas the runtime renders: 1 (declarative and web)
-    /// and 2 (first-class Widget components, docs/widgets-v2.md).
-    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
+    /// Presentation schemas the runtime renders: 1 (declarative and web),
+    /// 2 (first-class Widget components), and 3 (component empty policy).
+    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, 2, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
 
     /// Declarative capabilities and `widget.<type>` components, as reported.
     pub fn native_capability(name: &str) -> u32 {
@@ -1472,12 +1473,12 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15, 16] {
+        for schema in [11, 12, 13, 14, 15, 16, 17] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 17] {
+        for schema in [10, 18] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
@@ -1732,16 +1733,30 @@ mod tests {
             let candidate = parse(value.clone()).unwrap();
             assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         }
+        value["schemaVersion"] = serde_json::json!(17);
+        value["widgets"] = component("tilecast.clock", 2);
+        value["widgets"][0]["presentation"]["schemaVersion"] = serde_json::json!(3);
+        value["widgets"][0]["presentation"]["component"]["empty"] = serde_json::json!("render");
+        value["playlist"]["items"] = serde_json::json!([{
+            "id": ITEM, "assetId": WIDGET, "assetType": "widget",
+            "deliveryPolicy": "stream", "durationMs": 30000
+        }]);
+        let candidate = parse(value.clone()).unwrap();
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_000).unwrap();
+        let projection = resolved.projection.unwrap();
+        assert_eq!(projection.manifest["widgets"][0]["presentation"]["component"]["empty"], "render");
         // The daemon advertises exactly what the bundled runtime renders.
         assert_eq!(profile::native_capability("widget.tilecast.clock"), 2);
         assert!(profile::PRESENTATION_SCHEMAS.contains(&2));
+        assert!(profile::PRESENTATION_SCHEMAS.contains(&3));
         for (kind, version) in [("tilecast.clock", 3), ("tilecast.hologram", 1)] {
             value["widgets"] = component(kind, version);
             let candidate = parse(value.clone()).unwrap();
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
         }
-        value["schemaVersion"] = serde_json::json!(17);
+        value["schemaVersion"] = serde_json::json!(18);
         assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 

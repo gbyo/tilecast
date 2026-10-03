@@ -54,7 +54,7 @@ A migrated Widget has one renderer: a first-class component in `widgets/<name>/`
 
 - It has three styles (Standard, Minimal and Analog) and an optional date line. The optional `style` and `showDate` configuration keys add to the existing Clock configuration. A Player that predates Clock V2 ignores them and shows the time alone.
 - Its layout follows its own box. It becomes one row in a wide strip, stacks hours over minutes in a tall sidebar, and shows only the time in a small Layout zone.
-- The Server sends the component only to a Player that reports `widget.tilecast.clock@1` and presentation schema 2 (manifest v16). Every other Player receives the Clock's compatibility presentation, exactly as before. The persisted Widget does not change.
+- The Server sends the component to a Player that reports `widget.tilecast.clock@1` and presentation schema 2 or 3. Schema 3 also carries the declared empty policy; every other Player receives the Clock's compatibility presentation. The persisted Widget does not change.
 
 The Data Source and Widget boundary does not change: a Widgets V2 component reads only the prepared Data Documents and verified media variants its presentation declares.
 
