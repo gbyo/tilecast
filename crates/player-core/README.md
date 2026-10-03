@@ -20,7 +20,8 @@ It preserves the existing event vocabulary and persisted session encoding.
 Edge translates its renderer wire values into these signals.
 Edge still owns Activity outbox delivery until the reconciliation extraction.
 
-Renderer supervision and recovery remain in Edge until the RendererPort stage.
+The shared recovery ladder chooses renderer actions from meaningful evidence.
+Edge executes those actions through its RendererPort adapter.
 The foundation does not claim to implement the complete native lifecycle.
 
 ## Renderer contract groundwork
@@ -45,7 +46,7 @@ Base64 decoding stays in Edge.
 Edge now routes prepared activations through its RendererPort adapter.
 A temporary Edge projection bridge removes resource URLs before the port call.
 Resource encoding, IPC, and media grants stay in Edge.
-Profile adoption, activation policy, recovery, and capture coordination
+Profile adoption, activation policy, recovery coordination, and capture coordination
 extraction remain incomplete.
 The existing Edge implementation remains active until those consumers move.
 

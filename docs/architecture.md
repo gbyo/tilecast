@@ -52,7 +52,9 @@ Edge repository APIs remain outside the shared crate. Verified storage lives in
 `crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
 its private file stores and Electron import. The Core foundation owns native
 selection, command idempotency, Activity sessions, and the CAS origin adapter.
-Renderer recovery and server reconciliation remain in Edge until their
+Core also owns renderer recovery decisions and meaningful-evidence rules.
+Edge executes renderer actions through its RendererPort adapter.
+Activation coordination and server reconciliation remain in Edge until their
 extraction stages. Edge retains
 its current process and security boundaries.
 

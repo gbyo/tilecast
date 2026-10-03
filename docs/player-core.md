@@ -135,7 +135,9 @@ Edge supplies its migration hold outside Core.
 Activity consumes semantic signals and injected clocks and IDs.
 The persisted session encoding and parity fixtures remain unchanged.
 Edge retains renderer signal adapters and outbox delivery in this stage.
-Renderer supervision stays in Edge until the RendererPort extraction.
+Core owns the renderer recovery ladder and meaningful-evidence rules.
+Edge maps wire values and executes actions through its RendererPort adapter.
+The activation coordinator and recovery timers still remain in Edge.
 
 The draft renderer contract adds semantic prepared-document types and verified
 object bindings for Runtime data. Edge now uses prepared activations through
