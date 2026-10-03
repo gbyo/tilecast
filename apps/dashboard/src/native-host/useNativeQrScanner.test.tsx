@@ -63,9 +63,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  // @ts-expect-error the harness replaces the native handler per test.
   delete window.webkit;
-  // @ts-expect-error the harness replaces the native receiver per test.
   delete window.tilecastNativeReceiver;
 });
 
