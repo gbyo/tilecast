@@ -578,5 +578,4 @@ describe("screen management", () => {
       autostartWarning({ commissioningState: "complete", powerAssist }, t),
     ).toBe(undefined);
   });
-
 });

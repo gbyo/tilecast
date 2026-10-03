@@ -15,13 +15,10 @@ const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PairingQrFailure =
-  | "not_pairing_url"
-  | "wrong_installation"
-  | "wrong_server";
+  "not_pairing_url" | "wrong_installation" | "wrong_server";
 
 export type PairingQrResult =
-  | { ok: true; code: string }
-  | { ok: false; reason: PairingQrFailure };
+  { ok: true; code: string } | { ok: false; reason: PairingQrFailure };
 
 export type ActiveServer = {
   /** Exactly window.location.origin of the connected Studio. */
@@ -94,7 +91,11 @@ export function parsePairingQr(
   }
 
   const segments = url.pathname.split("/");
-  if (segments.length !== 4 || segments[1] !== "screens" || segments[2] !== "pair") {
+  if (
+    segments.length !== 4 ||
+    segments[1] !== "screens" ||
+    segments[2] !== "pair"
+  ) {
     return failed("not_pairing_url");
   }
   const code = normalizePairingCode(segments[3] ?? "");

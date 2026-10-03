@@ -426,20 +426,20 @@ Version 1 has no submenus, radio state, checkboxes, shortcuts, or custom layouts
 
 A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
 
-| Surface                                             | Status | Notes                                                                                              |
-| --------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                            |
-| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                 |
-| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                        |
-| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
-| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer         |
-| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first    |
-| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does            |
-| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                         |
-| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
-| Create and edit forms                               | Stay   | Low value, and most save into page state                                                           |
+| Surface                                             | Status | Notes                                                                                               |
+| --------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                             |
+| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                  |
+| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                         |
+| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                  |
+| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer          |
+| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first     |
+| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does             |
+| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                          |
+| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state     |
+| Create and edit forms                               | Stay   | Low value, and most save into page state                                                            |
 | Pair Screen                                         | Done   | `/__native/modal/pair-screen`. React owns the workflow. The app owns only scanning and sheet chrome |
-| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state  |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
@@ -738,7 +738,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
-| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                         |
+| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
 | 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |

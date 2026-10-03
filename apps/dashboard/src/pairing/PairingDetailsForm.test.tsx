@@ -23,7 +23,9 @@ const t = i18n.getFixedT("en", "screens");
 function Harness() {
   const { t: translate } = useTranslation("screens");
   const form = useForm<ApprovalForm>({
-    resolver: zodResolver(useMemo(() => makeApprovalSchema(translate), [translate])),
+    resolver: zodResolver(
+      useMemo(() => makeApprovalSchema(translate), [translate]),
+    ),
     defaultValues: {
       name: "",
       locationId: undefined,
@@ -94,9 +96,7 @@ describe("PairingDetailsForm", () => {
     const navigate = vi.fn();
     render(
       <MemoryRouter>
-        <NativePresentationContext.Provider
-          value={{ navigate } as never}
-        >
+        <NativePresentationContext.Provider value={{ navigate } as never}>
           <Harness />
         </NativePresentationContext.Provider>
       </MemoryRouter>,

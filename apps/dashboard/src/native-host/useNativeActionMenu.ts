@@ -44,7 +44,11 @@ function newMenuId() {
 }
 
 /** Empty groups disappear; callbacks stay in Studio. */
-function toDescriptor(menuId: string, label: string, groups: NativeMenuGroup[]) {
+function toDescriptor(
+  menuId: string,
+  label: string,
+  groups: NativeMenuGroup[],
+) {
   const wire: WireGroup[] = [];
   const actions = new Map<string, PendingAction>();
   for (const group of groups) {
@@ -54,9 +58,7 @@ function toDescriptor(menuId: string, label: string, groups: NativeMenuGroup[]) 
         id: action.id,
         label: action.label,
         ...(action.icon === undefined ? {} : { icon: action.icon }),
-        ...(action.disabled === undefined
-          ? {}
-          : { disabled: action.disabled }),
+        ...(action.disabled === undefined ? {} : { disabled: action.disabled }),
         ...(action.role === undefined || action.role === "default"
           ? {}
           : { role: action.role }),
@@ -98,7 +100,8 @@ export function useNativeActionMenu() {
   hostRef.current = host;
   const pending = useRef(new Map<string, PendingMenu>());
   const armed = useRef<string | null>(null);
-  const available = host.status === "ready" && host.capabilities.nativeActionMenus;
+  const available =
+    host.status === "ready" && host.capabilities.nativeActionMenus;
 
   useEffect(() => {
     if (!available) return;
@@ -152,7 +155,10 @@ export function useNativeActionMenu() {
       const menuId = newMenuId();
       const { descriptor, actions } = toDescriptor(menuId, label, groups);
       if (descriptor.groups.length === 0) return { outcome: "unavailable" };
-      if (current.status !== "ready" || !current.capabilities.nativeActionMenus) {
+      if (
+        current.status !== "ready" ||
+        !current.capabilities.nativeActionMenus
+      ) {
         return { outcome: "unavailable" };
       }
       const decided = new Promise<string | null>((resolve) => {
@@ -180,7 +186,10 @@ export function useNativeActionMenu() {
   const arm = useCallback(
     (label: string, groups: NativeMenuGroup[]): (() => void) | null => {
       const current = hostRef.current;
-      if (current.status !== "ready" || !current.capabilities.nativeActionMenus) {
+      if (
+        current.status !== "ready" ||
+        !current.capabilities.nativeActionMenus
+      ) {
         return null;
       }
       if (armed.current !== null) {

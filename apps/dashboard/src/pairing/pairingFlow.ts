@@ -5,10 +5,7 @@ import type { PairingRequest } from "../api/types";
 export type PairingT = TFunction<"screens", undefined>;
 
 export type PairingDestination =
-  | "automatic"
-  | "new_screen"
-  | "credential_repair"
-  | "replace_hardware";
+  "automatic" | "new_screen" | "credential_repair" | "replace_hardware";
 
 export type ApprovalForm = {
   name: string;
@@ -101,7 +98,10 @@ export function hardwareApprovalInput(): ApprovalForm {
  * own message; anything else, including network failure, shares the generic
  * resolve error. Server exception text is never shown.
  */
-export function resolvePairingErrorMessage(error: unknown, t: PairingT): string {
+export function resolvePairingErrorMessage(
+  error: unknown,
+  t: PairingT,
+): string {
   if (error instanceof ApiError) {
     if (error.status === 404 || error.code === "not_found")
       return t("pair.notFound");

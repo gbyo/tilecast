@@ -39,9 +39,7 @@ export function PairingPlayerReview({ request }: { request: PairingRequest }) {
           </ItemDescription>
           <div className="flex flex-wrap gap-1.5 pt-1">
             {request.previouslyPaired && (
-              <Badge variant="secondary">
-                {t("review.previouslyPaired")}
-              </Badge>
+              <Badge variant="secondary">{t("review.previouslyPaired")}</Badge>
             )}
             <Badge variant="outline">
               {t("approval.expires", {
@@ -51,9 +49,7 @@ export function PairingPlayerReview({ request }: { request: PairingRequest }) {
           </div>
         </ItemContent>
       </Item>
-      <p className="text-sm text-muted-foreground">
-        {t("review.compareHint")}
-      </p>
+      <p className="text-sm text-muted-foreground">{t("review.compareHint")}</p>
       <Collapsible>
         <CollapsibleTrigger className="flex w-fit cursor-pointer items-center gap-1.5 rounded-md text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("review.technicalDetails")}

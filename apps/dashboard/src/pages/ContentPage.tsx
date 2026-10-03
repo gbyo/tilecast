@@ -1375,103 +1375,103 @@ function MediaAssetCard({
         />
       }
     >
-        {onToggle && (
-          <Checkbox
-            aria-label={t("media.card.selectAsset", { name: asset.name })}
-            checked={selected}
-            onCheckedChange={() => onToggle()}
-            className="absolute top-2 left-2 z-10 bg-background/90"
-          />
-        )}
-        {showMenu && (
-          <ActionMenuButton
-            label={t("media.card.actionsFor", { name: asset.name })}
-            actions={actions}
-            variant="ghost"
-            size="icon-sm"
-            triggerClassName="absolute top-2 right-2 z-10 bg-background/90"
-            triggerIcon={<EllipsisVertical aria-hidden="true" />}
-          />
-        )}
-        <Button
-          type="button"
+      {onToggle && (
+        <Checkbox
+          aria-label={t("media.card.selectAsset", { name: asset.name })}
+          checked={selected}
+          onCheckedChange={() => onToggle()}
+          className="absolute top-2 left-2 z-10 bg-background/90"
+        />
+      )}
+      {showMenu && (
+        <ActionMenuButton
+          label={t("media.card.actionsFor", { name: asset.name })}
+          actions={actions}
           variant="ghost"
-          onClick={onSelect}
-          aria-label={openLabel}
-          className="grid h-auto w-full grid-cols-1 justify-items-stretch gap-2 p-3 pt-10 text-left whitespace-normal focus-visible:ring-inset"
+          size="icon-sm"
+          triggerClassName="absolute top-2 right-2 z-10 bg-background/90"
+          triggerIcon={<EllipsisVertical aria-hidden="true" />}
+        />
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={onSelect}
+        aria-label={openLabel}
+        className="grid h-auto w-full grid-cols-1 justify-items-stretch gap-2 p-3 pt-10 text-left whitespace-normal focus-visible:ring-inset"
+      >
+        <AspectRatio
+          ratio={16 / 9}
+          className="grid w-full place-items-center overflow-hidden rounded-xl bg-muted [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
         >
-          <AspectRatio
-            ratio={16 / 9}
-            className="grid w-full place-items-center overflow-hidden rounded-xl bg-muted [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
-          >
-            <AssetPreview asset={asset} />
-          </AspectRatio>
-          <span className="grid min-w-0 gap-0.5">
-            <span className="truncate text-sm font-medium">{asset.name}</span>
-            <span className="text-xs text-muted-foreground">
-              <AssetSummary asset={asset} />
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {formatBytes(asset.originalSize, locale)}
-            </span>
-            <AssetOrganizationChips asset={asset} folderNames={folderNames} />
+          <AssetPreview asset={asset} />
+        </AspectRatio>
+        <span className="grid min-w-0 gap-0.5">
+          <span className="truncate text-sm font-medium">{asset.name}</span>
+          <span className="text-xs text-muted-foreground">
+            <AssetSummary asset={asset} />
           </span>
-          <Badge variant={status.variant} className="w-fit">
-            {status.label}
-          </Badge>
-        </Button>
-        {asset.type === "widget" && !archived && (
-          <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
-            <span className="text-xs text-muted-foreground">
-              {t("media.card.playlistUsage", {
-                count: asset.playlistUsage ?? 0,
-              })}
-              {t("media.card.layoutUsage", {
-                count: asset.layoutUsage?.length ?? 0,
-              })}
-            </span>
-            {canManage && (
-              <>
+          <span className="text-xs text-muted-foreground">
+            {formatBytes(asset.originalSize, locale)}
+          </span>
+          <AssetOrganizationChips asset={asset} folderNames={folderNames} />
+        </span>
+        <Badge variant={status.variant} className="w-fit">
+          {status.label}
+        </Badge>
+      </Button>
+      {asset.type === "widget" && !archived && (
+        <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            {t("media.card.playlistUsage", {
+              count: asset.playlistUsage ?? 0,
+            })}
+            {t("media.card.layoutUsage", {
+              count: asset.layoutUsage?.length ?? 0,
+            })}
+          </span>
+          {canManage && (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onSelect}
+              >
+                {t("common:actions.edit")}
+              </Button>
+              {onDuplicate && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={onSelect}
+                  onClick={onDuplicate}
+                  aria-label={t("media.card.duplicateAsset", {
+                    name: asset.name,
+                  })}
                 >
-                  {t("common:actions.edit")}
+                  <Copy size={14} aria-hidden="true" />{" "}
+                  {t("media.card.duplicate")}
                 </Button>
-                {onDuplicate && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onDuplicate}
-                    aria-label={t("media.card.duplicateAsset", {
-                      name: asset.name,
-                    })}
-                  >
-                    <Copy size={14} aria-hidden="true" />{" "}
-                    {t("media.card.duplicate")}
-                  </Button>
-                )}
-                {onArchive && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onArchive}
-                    aria-label={t("media.card.archiveAsset", {
-                      name: asset.name,
-                    })}
-                  >
-                    <Archive size={14} aria-hidden="true" />{" "}
-                    {t("media.card.archive")}
-                  </Button>
-                )}
-              </>
-            )}
-          </footer>
-        )}
+              )}
+              {onArchive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onArchive}
+                  aria-label={t("media.card.archiveAsset", {
+                    name: asset.name,
+                  })}
+                >
+                  <Archive size={14} aria-hidden="true" />{" "}
+                  {t("media.card.archive")}
+                </Button>
+              )}
+            </>
+          )}
+        </footer>
+      )}
     </ActionContextMenu>
   );
 }

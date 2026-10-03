@@ -3011,7 +3011,11 @@
       "message": {
         "version": 1,
         "type": "system/qr-scan-result",
-        "payload": { "requestId": "qr-1", "outcome": "expired", "value": "https://signage.example.org/" }
+        "payload": {
+          "requestId": "qr-1",
+          "outcome": "expired",
+          "value": "https://signage.example.org/"
+        }
       }
     },
     {

@@ -66,7 +66,9 @@ function ActionGroups({
           {group.actions.map((action) => (
             <Item
               key={action.id}
-              variant={action.role === "destructive" ? "destructive" : "default"}
+              variant={
+                action.role === "destructive" ? "destructive" : "default"
+              }
               disabled={action.disabled}
               onClick={action.onSelect}
             >

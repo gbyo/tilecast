@@ -145,9 +145,7 @@ describe("ActionMenuButton in a browser", () => {
 
   it("opens the web menu synchronously without a native host", () => {
     renderButton(groups({}));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
     expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
   });
@@ -156,9 +154,7 @@ describe("ActionMenuButton in a browser", () => {
     renderButton(groups({}));
     screen.getByRole("button", { name: "Actions for Lobby" }).focus();
     await userEvent.keyboard("{Enter}");
-    expect(
-      await screen.findByRole("menuitem", { name: "Open" }),
-    ).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: "Open" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
     expect(
       screen.queryByRole("menuitem", { name: "Open" }),
@@ -282,9 +278,7 @@ describe("ActionMenuButton with a native host", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Actions for Lobby" }),
     );
-    expect(
-      await screen.findByRole("menuitem", { name: "Open" }),
-    ).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: "Open" })).toBeVisible();
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
@@ -307,9 +301,7 @@ describe("ActionContextMenu", () => {
     const onOpen = vi.fn();
     renderCard(groups({ onOpen }));
     fireEvent.contextMenu(screen.getByTestId("card"));
-    expect(
-      await screen.findByRole("menuitem", { name: "Open" }),
-    ).toBeVisible();
+    expect(await screen.findByRole("menuitem", { name: "Open" })).toBeVisible();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
@@ -324,9 +316,9 @@ describe("ActionContextMenu", () => {
     await waitFor(() => expect(host.ofType("action-menu/arm")).toHaveLength(1));
     const menuId = (host.ofType("action-menu/arm")[0] as { menuId: string })
       .menuId;
-    expect(
-      (host.ofType("action-menu/arm")[0] as { label: string }).label,
-    ).toBe("Actions for Lobby");
+    expect((host.ofType("action-menu/arm")[0] as { label: string }).label).toBe(
+      "Actions for Lobby",
+    );
     fireEvent.pointerUp(card);
     await waitFor(() =>
       expect(host.ofType("action-menu/disarm")).toEqual([{ menuId }]),

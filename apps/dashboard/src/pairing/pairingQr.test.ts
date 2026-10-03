@@ -67,45 +67,90 @@ describe("parsePairingQr", () => {
 
   it("accepts an old-server URL from the exact connected origin", () => {
     expect(
-      parsePairingQr(
-        "http://192.168.1.50:8080/screens/pair/K7Q2XD",
-        ACTIVE,
-      ),
+      parsePairingQr("http://192.168.1.50:8080/screens/pair/K7Q2XD", ACTIVE),
     ).toEqual({ ok: true, code: "K7Q2XD" });
   });
 
   it("refuses an old-server URL from another origin", () => {
     expect(
-      parsePairingQr(
-        "https://signage.example.org/screens/pair/K7Q2XD",
-        ACTIVE,
-      ),
+      parsePairingQr("https://signage.example.org/screens/pair/K7Q2XD", ACTIVE),
     ).toEqual({ ok: false, reason: "wrong_server" });
   });
 
   it.each([
-    ["duplicate installation", `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}&installation=${ACTIVE.installationId}`],
-    ["disguised installation key", `https://signage.example.org/screens/pair/K7Q2XD?Installation=${ACTIVE.installationId}`],
-    ["invalid UUID", "https://signage.example.org/screens/pair/K7Q2XD?installation=not-a-uuid"],
-    ["invalid code", `https://signage.example.org/screens/pair/111111?installation=${ACTIVE.installationId}`],
-    ["short code", `https://signage.example.org/screens/pair/K7Q2X?installation=${ACTIVE.installationId}`],
-    ["fragment", `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}#evil`],
-    ["userinfo", `https://user:pass@signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`],
-    ["non-HTTP scheme", `tilecast://pair/K7Q2XD?installation=${ACTIVE.installationId}`],
+    [
+      "duplicate installation",
+      `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}&installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "disguised installation key",
+      `https://signage.example.org/screens/pair/K7Q2XD?Installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "invalid UUID",
+      "https://signage.example.org/screens/pair/K7Q2XD?installation=not-a-uuid",
+    ],
+    [
+      "invalid code",
+      `https://signage.example.org/screens/pair/111111?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "short code",
+      `https://signage.example.org/screens/pair/K7Q2X?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "fragment",
+      `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}#evil`,
+    ],
+    [
+      "userinfo",
+      `https://user:pass@signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "non-HTTP scheme",
+      `tilecast://pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
     ["javascript scheme", "javascript:alert(1)"],
-    ["relative URL", `/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`],
-    ["protocol-relative URL", `//signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`],
-    ["dot segment", `https://signage.example.org/screens/pair/../pair/K7Q2XD?installation=${ACTIVE.installationId}`],
+    [
+      "relative URL",
+      `/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "protocol-relative URL",
+      `//signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "dot segment",
+      `https://signage.example.org/screens/pair/../pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
     ["trailing dot", "https://signage.example.org/screens/pair/K7Q2XD/."],
-    ["malformed encoding", "https://signage.example.org/screens/pair/K7Q2XD%zz"],
+    [
+      "malformed encoding",
+      "https://signage.example.org/screens/pair/K7Q2XD%zz",
+    ],
     ["encoded path", "https://signage.example.org/screens%2fpair/K7Q2XD"],
-    ["extra path", `https://signage.example.org/screens/pair/K7Q2XD/extra?installation=${ACTIVE.installationId}`],
-    ["wrong path", `https://signage.example.org/screens/K7Q2XD?installation=${ACTIVE.installationId}`],
-    ["backslash", `https://signage.example.org\\screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`],
-    ["whitespace", `https://signage.example.org/screens/pair/K7Q2XD ?installation=${ACTIVE.installationId}`],
+    [
+      "extra path",
+      `https://signage.example.org/screens/pair/K7Q2XD/extra?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "wrong path",
+      `https://signage.example.org/screens/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "backslash",
+      `https://signage.example.org\\screens/pair/K7Q2XD?installation=${ACTIVE.installationId}`,
+    ],
+    [
+      "whitespace",
+      `https://signage.example.org/screens/pair/K7Q2XD ?installation=${ACTIVE.installationId}`,
+    ],
     ["bare code", "K7Q2XD"],
     ["empty", ""],
-    ["overly long", `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}&pad=${"x".repeat(MAX_QR_PAYLOAD_LENGTH)}`],
+    [
+      "overly long",
+      `https://signage.example.org/screens/pair/K7Q2XD?installation=${ACTIVE.installationId}&pad=${"x".repeat(MAX_QR_PAYLOAD_LENGTH)}`,
+    ],
   ])("refuses %s as not a pairing URL", (_label, payload) => {
     expect(parsePairingQr(payload, ACTIVE)).toEqual({
       ok: false,

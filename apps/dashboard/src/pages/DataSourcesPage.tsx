@@ -5,12 +5,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  ArrowDown,
-  ArrowUp,
-  EllipsisVertical,
-  Plus,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, EllipsisVertical, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {

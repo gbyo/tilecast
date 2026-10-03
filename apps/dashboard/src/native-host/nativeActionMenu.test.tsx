@@ -142,15 +142,17 @@ describe("native action menus", () => {
     const onDelete = vi.fn();
     let result!: ReturnType<typeof view.menus.present>;
     act(() => {
-      result = view.menus().present(
-        "Actions for Lobby",
-        groups({ onOpen, onDelete }),
-      );
+      result = view
+        .menus()
+        .present("Actions for Lobby", groups({ onOpen, onDelete }));
     });
     await waitFor(() =>
       expect(host.ofType("action-menu/present")).toHaveLength(1),
     );
-    const sent = host.ofType("action-menu/present")[0] as Record<string, unknown>;
+    const sent = host.ofType("action-menu/present")[0] as Record<
+      string,
+      unknown
+    >;
     expect(sent["label"]).toBe("Actions for Lobby");
     expect(sent["groups"]).toEqual([
       { items: [{ id: "open", label: "Open", icon: "open" }] },
@@ -182,10 +184,12 @@ describe("native action menus", () => {
     const onOpen = vi.fn();
     let result!: ReturnType<typeof view.menus.present>;
     act(() => {
-      result = view.menus().present("Actions", [
-        { actions: [] },
-        { actions: [{ id: "open", label: "Open", onSelect: onOpen }] },
-      ]);
+      result = view
+        .menus()
+        .present("Actions", [
+          { actions: [] },
+          { actions: [{ id: "open", label: "Open", onSelect: onOpen }] },
+        ]);
     });
     await waitFor(() =>
       expect(host.ofType("action-menu/present")).toHaveLength(1),
@@ -247,7 +251,12 @@ describe("native action menus", () => {
         {
           actions: [
             { id: "open", label: "Open", onSelect: onOpen },
-            { id: "archived", label: "Archived", disabled: true, onSelect: () => {} },
+            {
+              id: "archived",
+              label: "Archived",
+              disabled: true,
+              onSelect: () => {},
+            },
           ],
         },
       ]);
@@ -255,9 +264,8 @@ describe("native action menus", () => {
     await waitFor(() =>
       expect(host.ofType("action-menu/present")).toHaveLength(1),
     );
-    const menuId = (
-      host.ofType("action-menu/present")[0] as { menuId: string }
-    ).menuId;
+    const menuId = (host.ofType("action-menu/present")[0] as { menuId: string })
+      .menuId;
     expect(
       host.deliver("action-menu/action", {
         menuId: "m-someone-elses-menu",

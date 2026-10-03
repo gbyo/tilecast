@@ -15,7 +15,9 @@ import {
 
 const t = i18n.getFixedT("en", "screens");
 
-function pairingRequest(overrides: Partial<PairingRequest> = {}): PairingRequest {
+function pairingRequest(
+  overrides: Partial<PairingRequest> = {},
+): PairingRequest {
   return {
     id: "pairing",
     status: "pending",
@@ -192,9 +194,9 @@ describe("resolve pairing errors", () => {
   });
 
   it("shares one generic message for network and server failures", () => {
-    expect(
-      resolvePairingErrorMessage(new TypeError("fetch failed"), t),
-    ).toBe("Pairing code could not be resolved.");
+    expect(resolvePairingErrorMessage(new TypeError("fetch failed"), t)).toBe(
+      "Pairing code could not be resolved.",
+    );
     expect(
       resolvePairingErrorMessage(
         new ApiError("boom", 500, "internal_error"),

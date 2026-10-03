@@ -554,11 +554,7 @@ const mediaIntakeOutcomes = new Set<string>([
   "cancelled",
 ]);
 
-const qrScanOutcomes = new Set<string>([
-  "scanned",
-  "cancelled",
-  "unavailable",
-]);
+const qrScanOutcomes = new Set<string>(["scanned", "cancelled", "unavailable"]);
 
 /**
  * The version is read first: a message from another protocol version may

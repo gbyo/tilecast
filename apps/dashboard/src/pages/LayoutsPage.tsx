@@ -793,76 +793,69 @@ export function LayoutsPage() {
                   />
                 }
               >
-                  <Link
-                    to={`/layouts/${layout.id}`}
-                    className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
-                    aria-label={
-                      canManage
-                        ? t("library.cardEdit", { name: layout.name })
-                        : t("library.cardOpen", { name: layout.name })
-                    }
-                    onClick={() => void navigate(`/layouts/${layout.id}`)}
-                  >
-                    <span className="relative block">
-                      <LayoutPreview layout={layout} />
-                      <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
-                        {layoutPublicationLabel(layout, t)}
-                      </span>
-                      <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
-                        {layout.canvasWidth} × {layout.canvasHeight}
-                      </span>
+                <Link
+                  to={`/layouts/${layout.id}`}
+                  className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
+                  aria-label={
+                    canManage
+                      ? t("library.cardEdit", { name: layout.name })
+                      : t("library.cardOpen", { name: layout.name })
+                  }
+                  onClick={() => void navigate(`/layouts/${layout.id}`)}
+                >
+                  <span className="relative block">
+                    <LayoutPreview layout={layout} />
+                    <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
+                      {layoutPublicationLabel(layout, t)}
                     </span>
-                    <span className="grid gap-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <strong
-                          title={layout.name}
-                          className="truncate text-sm"
-                        >
-                          {layout.name}
-                        </strong>
-                        <ChevronRight
-                          size={17}
-                          aria-hidden="true"
-                          className="shrink-0 text-muted-foreground"
-                        />
+                    <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
+                      {layout.canvasWidth} × {layout.canvasHeight}
+                    </span>
+                  </span>
+                  <span className="grid gap-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <strong title={layout.name} className="truncate text-sm">
+                        {layout.name}
+                      </strong>
+                      <ChevronRight
+                        size={17}
+                        aria-hidden="true"
+                        className="shrink-0 text-muted-foreground"
+                      />
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {layout.description || t("library.cardNoDescription")}
+                    </span>
+                    <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{orientationLabel(layout.orientation, t)}</span>
+                      <span>
+                        {t("library.cardDraftRevision", {
+                          revision: layout.draftRevision,
+                        })}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {layout.description || t("library.cardNoDescription")}
-                      </span>
-                      <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{orientationLabel(layout.orientation, t)}</span>
+                      {layout.publishedRevision && (
                         <span>
-                          {t("library.cardDraftRevision", {
-                            revision: layout.draftRevision,
+                          {t("library.publicationPublished", {
+                            revision: layout.publishedRevision,
                           })}
                         </span>
-                        {layout.publishedRevision && (
-                          <span>
-                            {t("library.publicationPublished", {
-                              revision: layout.publishedRevision,
-                            })}
-                          </span>
-                        )}
-                      </span>
-                      <small className="text-xs text-muted-foreground">
-                        {formatLayoutUpdatedAt(
-                          layout.updatedAt,
-                          t,
-                          formatLocale,
-                        )}
-                      </small>
+                      )}
                     </span>
-                  </Link>
-                  <ActionMenuButton
-                    label={menuLabel}
-                    actions={actionsFor(layout)}
-                    variant="ghost"
-                    size="icon"
-                    triggerClassName="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-                    triggerIcon={
-                      <EllipsisVertical size={16} aria-hidden="true" />
-                    }
-                  />
+                    <small className="text-xs text-muted-foreground">
+                      {formatLayoutUpdatedAt(layout.updatedAt, t, formatLocale)}
+                    </small>
+                  </span>
+                </Link>
+                <ActionMenuButton
+                  label={menuLabel}
+                  actions={actionsFor(layout)}
+                  variant="ghost"
+                  size="icon"
+                  triggerClassName="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+                  triggerIcon={
+                    <EllipsisVertical size={16} aria-hidden="true" />
+                  }
+                />
               </ActionContextMenu>
             );
           })}
