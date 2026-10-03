@@ -1,7 +1,7 @@
 //! The current capability snapshot. Never history (docs/tilecast-edge.md §12).
 
-use edge_protocol::Timestamp;
-use edge_protocol::capability::{Capability, CapabilitySnapshot};
+use player_types::Timestamp;
+use player_types::capability::{Capability, CapabilitySnapshot};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms, ms};

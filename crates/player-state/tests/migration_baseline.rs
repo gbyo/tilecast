@@ -1,7 +1,7 @@
 //! Extraction must preserve the shipped migration text, order, and names.
 
-use edge_protocol::Sha256Digest;
-use edge_state::MIGRATIONS;
+use player_state::MIGRATIONS;
+use player_types::Sha256Digest;
 
 #[test]
 fn shipped_migrations_remain_byte_for_byte_unchanged() {

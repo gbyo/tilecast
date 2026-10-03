@@ -97,6 +97,21 @@ class InputTests(unittest.TestCase):
                 with patch.object(inputs.subprocess, "check_output", return_value=json.dumps(metadata)):
                     self.assertEqual(inputs.state_schema(), 7)
 
+    def test_schema_lookup_ignores_edge_repository_adapter(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "player-state"
+            (state / "migrations").mkdir(parents=True)
+            (state / "migrations/0007_last.sql").write_text("")
+            # An empty old directory can remain after moving tracked files.
+            (root / "edge-state/migrations").mkdir(parents=True)
+            metadata = {"packages": [
+                {"name": "edge-state", "manifest_path": str(root / "edge-state/Cargo.toml")},
+                {"name": "player-state", "manifest_path": str(state / "Cargo.toml")},
+            ]}
+            with patch.object(inputs.subprocess, "check_output", return_value=json.dumps(metadata)):
+                self.assertEqual(inputs.state_schema(), 7)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,6 @@
 //! Playback facts that survive restarts.
 
-use edge_protocol::Timestamp;
+use player_types::Timestamp;
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms_opt, ms};

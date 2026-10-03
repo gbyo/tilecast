@@ -91,7 +91,9 @@ The server is a modular monolith. Preserve small domain packages and thin HTTP h
 
 Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
 The extraction contract is binding. Generic native values live in
-`crates/player-types`. The remaining shared behavior is still in Edge.
+`crates/player-types`. Durable metadata lives in `crates/player-state`.
+Historical platform repository APIs remain in `edge-state::platform`.
+The remaining shared behavior is still in Edge.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.

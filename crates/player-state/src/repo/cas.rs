@@ -1,7 +1,7 @@
 //! CAS object, partial and pin metadata. File operations belong to
 //! `edge-cas`; this module only records what the store has verified.
 
-use edge_protocol::{Sha256Digest, Timestamp};
+use player_types::{Sha256Digest, Timestamp};
 use rusqlite::{Connection, OptionalExtension, params};
 
 use super::{from_ms, ms, parse};

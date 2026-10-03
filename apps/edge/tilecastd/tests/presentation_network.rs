@@ -210,7 +210,7 @@ async fn profiles_follow_the_assignment_through_the_real_helper_and_the_secret_i
         .map(|call| call.as_array().unwrap().iter().map(|a| a.as_str().unwrap()).collect::<Vec<_>>().join(" "))
         .collect();
     assert!(calls.iter().all(|call| !call.contains(PSK)), "the credential is never an nmcli argument");
-    let persisted = db.run(|c| edge_state::repo::presentation_network::get(c)).await.unwrap();
+    let persisted = db.run(|c| edge_state::platform::presentation_network::get(c)).await.unwrap();
     assert_eq!(persisted, Default::default(), "nothing is active and the safe default holds");
 
     // Unassigned is an instruction: the profile goes.
@@ -247,11 +247,11 @@ async fn a_connection_left_by_a_crash_is_taken_down_at_start() {
     state["active"] = json!([format!("tilecast-presentation-{NETWORK}")]);
     state["radio"] = json!("enabled");
     std::fs::write(&helper.nmcli_state, state.to_string()).unwrap();
-    let record = edge_state::repo::presentation_network::NetworkState {
+    let record = edge_state::platform::presentation_network::NetworkState {
         active_network_id: Some(NETWORK.into()),
         radio_was_enabled: false,
     };
-    db.run(move |c| edge_state::repo::presentation_network::put(c, &record, now())).await.unwrap();
+    db.run(move |c| edge_state::platform::presentation_network::put(c, &record, now())).await.unwrap();
 
     let restarted = PresentationNetwork::new(HelperClient::new(&helper.socket), Some(db));
     restarted.cleanup_orphaned(now()).await;

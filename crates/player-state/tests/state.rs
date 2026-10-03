@@ -1,10 +1,10 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
-use edge_protocol::capability::{Capability, CapabilityId, CapabilityState};
-use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
-use edge_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use edge_state::repo::{self, cas, daemon};
-use edge_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
+use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
+use player_state::repo::{self, cas, daemon};
+use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
+use player_types::capability::{Capability, CapabilityId, CapabilityState};
+use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 
 fn now() -> Timestamp {
     Timestamp::parse("2026-09-22T19:00:00Z").expect("time")
@@ -20,7 +20,7 @@ fn temp_db() -> (tempfile::TempDir, std::path::PathBuf) {
 fn fresh_database_migrates_and_reopens_idempotently() {
     let (_dir, path) = temp_db();
     let db = StateDb::open(&path, OpenOptions::default()).expect("open");
-    let version = db.run_blocking(|c| edge_state::schema_version(c)).expect("version");
+    let version = db.run_blocking(|c| player_state::schema_version(c)).expect("version");
     assert_eq!(version, latest_schema_version());
     let mode: String = db.run_blocking(|c| Ok(c.query_row("PRAGMA journal_mode", [], |r| r.get(0))?)).expect("pragma");
     assert_eq!(mode, "wal");
@@ -28,7 +28,7 @@ fn fresh_database_migrates_and_reopens_idempotently() {
     assert_eq!(sync, 2, "synchronous = FULL");
     drop(db);
     let reopened = StateDb::open(&path, OpenOptions { integrity_check: true }).expect("reopen");
-    assert_eq!(reopened.run_blocking(|c| edge_state::schema_version(c)).expect("version"), latest_schema_version());
+    assert_eq!(reopened.run_blocking(|c| player_state::schema_version(c)).expect("version"), latest_schema_version());
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn failed_migration_rolls_back_completely() {
     let connection = open_connection(&path, OpenOptions::default()).expect("open");
     let latest = latest_schema_version();
     let mut broken: Vec<Migration> =
-        edge_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     broken.push(Migration {
         version: latest + 1,
         name: "broken",
@@ -66,7 +66,7 @@ fn failed_migration_rolls_back_completely() {
     });
     let error = migrate_with(&connection, &broken).expect_err("migration fails");
     assert!(matches!(error, StateError::Migration { version, .. } if version == latest + 1));
-    assert_eq!(edge_state::schema_version(&connection).expect("version"), latest);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest);
     let half: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'half_done'", [], |r| r.get(0))
         .expect("query");
@@ -352,35 +352,11 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
 }
 
 #[test]
-fn the_presentation_network_state_has_no_place_for_a_credential() {
-    use edge_state::repo::presentation_network::{self, NetworkState};
-    let dir = tempfile::tempdir().expect("tempdir");
-    let connection = open_connection(&dir.path().join("state.db"), OpenOptions::default()).expect("open");
-    let now = edge_protocol::Timestamp::parse("2026-09-25T12:00:00Z").expect("time");
-    assert_eq!(presentation_network::get(&connection).expect("get"), NetworkState::default());
-    assert!(NetworkState::default().radio_was_enabled, "the safe default never turns a radio off");
-    let state = NetworkState {
-        active_network_id: Some("6f0c2b1e-9d2a-4b7e-8f3a-2c1d0e9f8a7b".into()),
-        radio_was_enabled: false,
-    };
-    presentation_network::put(&connection, &state, now).expect("put");
-    assert_eq!(presentation_network::get(&connection).expect("get"), state);
-    let columns: Vec<String> = connection
-        .prepare("SELECT name FROM pragma_table_info('presentation_network_state')")
-        .expect("prepare")
-        .query_map([], |row| row.get(0))
-        .expect("query")
-        .collect::<Result<_, _>>()
-        .expect("columns");
-    assert_eq!(columns, ["singleton", "active_network_id", "radio_was_enabled", "updated_at_ms"]);
-}
-
-#[test]
 fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
     let (_dir, path) = temp_db();
     let connection = rusqlite::Connection::open(&path).expect("raw open");
     // Simulate a device last migrated at version 6, with leftover meter rows.
-    let v6: Vec<Migration> = edge_state::MIGRATIONS
+    let v6: Vec<Migration> = player_state::MIGRATIONS
         .iter()
         .take_while(|m| m.version <= 6)
         .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
@@ -393,9 +369,9 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
         )
         .expect("seed leftover row");
     let owned: Vec<Migration> =
-        edge_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(edge_state::schema_version(&connection).expect("version"), 7);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 7);
     let noise: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'noise_history'", [], |r| r.get(0))
         .expect("query");
