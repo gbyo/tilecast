@@ -457,6 +457,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "player-client",
+ "player-core",
  "reqwest",
  "rustls",
  "rustls-native-certs",
@@ -1293,6 +1294,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "player-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures-util",
+ "jiff",
+ "player-cas",
+ "player-client",
+ "player-state",
+ "player-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "player-state"
 version = "0.1.0"
 dependencies = [
@@ -1949,6 +1972,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "jiff",
+ "player-core",
  "ring",
  "rusqlite",
  "rustix",

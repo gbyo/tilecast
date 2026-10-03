@@ -14,7 +14,10 @@ values are implemented in `crates/player-types`, and durable state in
 `edge-state::platform`. Verified storage lives in `crates/player-cas`;
 `edge-cas::space` supplies Linux free-space providers.
 `crates/player-client` owns portable server transport. `edge-server` owns
-file stores, Electron import, and temporary CAS origin glue.
+file stores and Electron import. `crates/player-core` owns native selection,
+command delivery, Activity sessions, and the CAS origin adapter. Edge keeps
+fixed command handlers, the migration hold, renderer signal adapters, and
+Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior
 extraction follows the contract.
 

@@ -1,7 +1,8 @@
 # Native Player Core
 
-**Status:** Accepted extraction contract. Shared Rust crates are not yet
-implemented. Edge keeps its current behavior throughout the extraction.
+**Status:** Accepted extraction contract. The five shared crates and Core
+foundation are implemented. Renderer and reconciliation extraction remains.
+Edge keeps its current behavior throughout the extraction.
 
 This document defines ownership for native Player work. It supplements
 [`tilecast-edge.md`](tilecast-edge.md), which defines Linux process, privilege,
@@ -122,7 +123,19 @@ The portable client is implemented in `crates/player-client`. Hosts supply its
 user agent and device metadata. `CredentialStore` and `PairingStore` are private
 storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
-`PlayerDownloadPath`. CAS origin integration stays in Edge until Core is present.
+`PlayerDownloadPath`. Core supplies the CAS origin adapter.
+
+## Core foundation
+
+`crates/player-core` implements native schedule selection, command idempotency,
+and Activity session semantics. Its implementation modules are private.
+`PlayerCore::new(Dependencies)` receives durable state and a host clock.
+Hosts supply fixed command handlers. `PlayerCore::run` drives command delivery.
+Edge supplies its migration hold outside Core.
+Activity consumes semantic signals and injected clocks and IDs.
+The persisted session encoding and parity fixtures remain unchanged.
+Edge retains renderer signal adapters and outbox delivery in this stage.
+Renderer supervision stays in Edge until the RendererPort extraction.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
@@ -274,11 +287,12 @@ The baseline remains in the existing Edge tests:
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Edge IPC representation                                              | `edge-protocol/tests/fixtures.rs` and C IPC fixtures                                       |
 | Shipped migration bytes and durability                               | `crates/player-state/tests/state.rs` and `migration_baseline.rs`                           |
-| CAS corruption, pins, resume, crash reconciliation                   | `edge-cas` tests                                                                           |
+| CAS corruption, pins, resume, crash reconciliation                   | `crates/player-cas` tests                                                                  |
 | Pairing and identity before credentials                              | `tilecastd/tests/pairing.rs` and `edge-server` tests                                       |
 | Offline playback, superseded preparation, renderer recovery, capture | `tilecastd/tests/playback.rs`, `daemon.rs`, `media_channel.rs`                             |
-| Command redelivery and restart                                       | `tilecastd/tests/commands.rs` and `playback.rs`                                            |
-| Activity outage and restart parity                                   | `tilecastd/tests/activity_parity.rs` and Activity parity fixtures                          |
+| Command redelivery and restart                                       | `player-core/tests/commands.rs`, `tilecastd/tests/commands.rs`, and `playback.rs`          |
+| Native schedule selection                                            | `player-core/tests/schedule_contract.rs` and shared schedule fixtures                      |
+| Activity outage and restart parity                                   | Core and Edge `tests/activity_parity.rs` and Activity parity fixtures                      |
 | Update and migration power-loss behavior                             | `tilecast-edge-update`, `tilecast-edge-migrate`, `tilecastd/tests/updates.rs`, systemd E2E |
 
 The existing implementation ledger is [`tilecast-edge-next.md`](tilecast-edge-next.md).

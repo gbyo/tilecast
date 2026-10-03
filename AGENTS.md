@@ -97,7 +97,9 @@ Verified storage lives in `crates/player-cas`. Its space-probe interface is
 implemented by Edge adapters; privileged helpers must not depend on storage.
 Server transport lives in `crates/player-client`. Edge owns credential and
 pairing files. Hosts supply product identity and device metadata.
-The remaining shared behavior is still in Edge.
+The Core foundation owns native selection, command delivery, and Activity
+sessions in `crates/player-core`. Renderer recovery and server reconciliation
+remain in Edge until their extraction stages.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.
