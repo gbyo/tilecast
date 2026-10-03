@@ -137,6 +137,11 @@ The persisted session encoding and parity fixtures remain unchanged.
 Edge retains renderer signal adapters and outbox delivery in this stage.
 Renderer supervision stays in Edge until the RendererPort extraction.
 
+The draft renderer contract adds semantic prepared-document types and verified
+object bindings for Runtime data. Edge does not consume these types yet.
+The RendererPort and its Edge adapter remain required work.
+This groundwork does not complete the renderer extraction gate.
+
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
 reporting. Redelivery or restart must never execute a command twice.

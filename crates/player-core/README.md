@@ -23,6 +23,19 @@ Edge still owns Activity outbox delivery until the reconciliation extraction.
 Renderer supervision and recovery remain in Edge until the RendererPort stage.
 The foundation does not claim to implement the complete native lifecycle.
 
+## Renderer contract groundwork
+
+The draft renderer extraction adds semantic prepared-document types.
+`Resource::Object` identifies a verified object by digest.
+`RuntimePayload` holds Runtime data with separate object bindings.
+Binding locations contain empty strings until the host resolves them.
+The host chooses its resource transport for the valid generation.
+The types reject invalid bindings, oversized data, and unlisted objects.
+
+Edge does not consume these types yet. The semantic RendererPort, profiles,
+adapter, activation, recovery, and capture extraction remain incomplete.
+The existing Edge implementation remains active until those consumers move.
+
 Run `make player-check` and `make player-test` from the repository root.
 The shared suite runs on Ubuntu and macOS.
 Command crash-point tests use real SQLite with a controllable clock.
