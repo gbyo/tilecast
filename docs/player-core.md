@@ -150,6 +150,13 @@ Release support does not replace a missing session advertisement.
 The RendererPort interface defines semantic operations and immutable prepared
 activations. Edge uses Core checks for decoded capture dimensions, size, and
 JPEG signature. Transport decoding stays in Edge.
+Core serializes captures across preview and Watch Live.
+It checks protected states and applies the ten-second timeout.
+Canceled and expired requests release their capture slot.
+Edge decodes requested replies on the capture caller's task.
+Core owns periodic preview leases, cadence, uploads, fault suspension, and
+capability policy. Edge supplies captures, time, and provider identity.
+Watch Live lease and frame coordination still remain in Edge.
 Edge owns resource encoding, media grants, and IPC queue operations.
 The Edge port owns its renderer endpoint and caches grants for that session.
 It prepares and activates grants and drains prior generations.

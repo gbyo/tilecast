@@ -36,8 +36,10 @@ The Edge port owns media grants and their generation lifecycle.
 Separate packaged and connected profiles keep release support distinct from
 what a renderer session advertises. Edge does not consume these profiles yet.
 The RendererPort interface now defines semantic operations. Edge uses shared
-decoded-image checks but still handles transport decoding and capture requests.
-Activation policy, recovery, and capture coordination extraction are still
+decoded-image checks and keeps transport decoding in Edge. Core serializes
+captures and checks protected states. Periodic preview leases, uploads,
+capability policy, and fault suspension also run in Core.
+Activation policy, recovery coordination, and Watch Live extraction are still
 required before native renderer behavior is shared.
 
 | Your change                                                                                                 | Implementation owner                                                    |

@@ -1,7 +1,9 @@
 //! Shared native Player behavior. Hosts supply services and platform handlers.
 mod activity;
+mod capture;
 mod commands;
 mod origin;
+mod preview;
 mod renderer_document;
 mod renderer_port;
 mod renderer_profile;
@@ -16,11 +18,16 @@ pub use activity::{
     RendererSignal as ActivityRendererSignal, Signal as ActivitySignal, Tracker as ActivityTracker,
     reason as activity_reason,
 };
+pub use capture::{CaptureBroker, CaptureError, CaptureState, RENDERER_CAPTURE_TIMEOUT};
 pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
     drive_commands,
 };
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use preview::{
+    PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
+    PreviewHost, drive_preview,
+};
 pub use renderer_document::{
     ContentRef as VerifiedContentRef, ItemKind as RendererItemKind, PreparedDocumentError,
     PresentationDocument as PreparedDocument, PresentationFeature as RequiredRendererFeature,

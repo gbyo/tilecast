@@ -18,6 +18,8 @@ file stores and Electron import. `crates/player-core` owns native selection,
 command delivery, Activity sessions, the CAS origin adapter, renderer recovery
 decisions, meaningful-evidence rules, and connection-bound acceptance and
 evidence tracking. Edge keeps
+renderer transport and decoding. Core owns capture serialization and periodic
+preview policy. Edge keeps
 fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior
