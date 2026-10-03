@@ -3,9 +3,9 @@
 //! server: it streams chunked bodies without `Content-Length`.
 #![allow(clippy::unwrap_used)]
 
-use edge_protocol::InstallationId;
-use edge_server::ServerError;
-use edge_server::client::{MAX_ERROR_BYTES, MAX_SMALL_JSON_BYTES, ServerClient};
+use player_client::ServerError;
+use player_client::client::{MAX_ERROR_BYTES, MAX_SMALL_JSON_BYTES, ServerClient};
+use player_types::InstallationId;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
 /// Answers every request with `status` and `body`, streamed as 4 KiB chunks.
@@ -49,7 +49,7 @@ async fn an_oversized_success_body_without_a_length_is_refused() {
         InstallationId::from_uuid(uuid::Uuid::new_v4())
     );
     let url = chunked_server("200 OK", body).await;
-    assert_eq!(ServerClient::new(&url).unwrap().identity().await, Err(ServerError::ResponseTooLarge));
+    assert_eq!(ServerClient::new(&url, "test-player/1").unwrap().identity().await, Err(ServerError::ResponseTooLarge));
 }
 
 #[tokio::test]
@@ -59,7 +59,7 @@ async fn an_oversized_error_body_keeps_only_its_status_and_never_rejects_the_cre
     let padding = "x".repeat(MAX_ERROR_BYTES);
     let body = format!(r#"{{"error":{{"code":"device_credential_revoked","message":"{padding}"}}}}"#);
     let url = chunked_server("401 Unauthorized", body).await;
-    let error = ServerClient::new(&url).unwrap().identity().await.unwrap_err();
+    let error = ServerClient::new(&url, "test-player/1").unwrap().identity().await.unwrap_err();
     assert_eq!(error, ServerError::Api { status: 401, code: "http_401".to_owned(), message: String::new() });
 }
 
@@ -67,7 +67,7 @@ async fn an_oversized_error_body_keeps_only_its_status_and_never_rejects_the_cre
 async fn a_readable_small_error_still_reports_its_code() {
     let body = r#"{"error":{"code":"screen_disabled","message":"The screen is disabled."}}"#.to_owned();
     let url = chunked_server("403 Forbidden", body).await;
-    let error = ServerClient::new(&url).unwrap().identity().await.unwrap_err();
+    let error = ServerClient::new(&url, "test-player/1").unwrap().identity().await.unwrap_err();
     assert_eq!(
         error,
         ServerError::Api {

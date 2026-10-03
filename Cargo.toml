@@ -4,6 +4,7 @@ members = [
     "crates/player-types",
     "crates/player-state",
     "crates/player-cas",
+    "crates/player-client",
     "apps/edge/crates/edge-protocol",
     "apps/edge/crates/edge-state",
     "apps/edge/crates/edge-ipc",
@@ -41,6 +42,7 @@ rust-version = "1.98"
 player-types = { path = "crates/player-types" }
 player-state = { path = "crates/player-state" }
 player-cas = { path = "crates/player-cas" }
+player-client = { path = "crates/player-client" }
 # Internal crates. Dependency direction is documented in apps/edge/README.md;
 # a lower crate never depends on a higher one.
 edge-protocol = { path = "apps/edge/crates/edge-protocol" }
