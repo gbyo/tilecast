@@ -212,13 +212,19 @@ export function ScreenFleetTable({
               <div className="min-w-0">
                 <div className="truncate">
                   {platformLabel(row.original.platform, t)}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {deviceDetails}
                   {row.original.playerVersion && (
                     <span className="2xl:hidden">
                       {" · "}
                       {row.original.playerVersion}
+                    </span>
+                  )}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {deviceDetails}
+                  {row.original.updateState && (
+                    <span className="2xl:hidden">
+                      {" · "}
+                      {humanize(row.original.updateState)}
                     </span>
                   )}
                 </div>
@@ -364,7 +370,7 @@ export function ScreenFleetTable({
 
   return (
     <div className="min-w-0 rounded-xl border border-border">
-      <Table className="min-w-[56rem] table-fixed">
+      <Table className="min-w-[59rem] table-fixed">
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id} className="hover:bg-transparent">
@@ -407,7 +413,7 @@ export function ScreenFleetTable({
 const columnLayout: Record<string, string> = {
   select: "w-10",
   screen: "w-[14rem]",
-  status: "w-[7.5rem]",
+  status: "w-[10rem]",
   playing: "w-[11rem]",
   location: "hidden w-[10rem] xl:table-cell",
   platform: "w-[12rem]",
