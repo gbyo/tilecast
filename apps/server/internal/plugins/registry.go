@@ -10,8 +10,6 @@ import (
 	bundled "github.com/tilecast/tilecast/plugins"
 )
 
-
-
 // retiredPlugins are plugins that earlier releases shipped and this release
 // removed. COMPATIBILITY: an installation row or data an installation still
 // holds for one of them is kept and inert, like any unknown plugin, but the
