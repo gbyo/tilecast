@@ -139,26 +139,14 @@ impl Activation {
         match &self.document {
             PresentationDocument::Playing { items, .. } => item_id
                 .and_then(|id| items.iter().find(|item| item.id.as_str() == id))
-                .map_or(Expectation::Indefinite, |item| Expectation::for_item(item.kind)),
+                .map_or(Expectation::Indefinite, |item| crate::supervisor::expectation_for(item.kind)),
             _ => Expectation::Indefinite,
         }
     }
 }
 
-/// Evidence that the activation's own content appeared, as opposed to
-/// liveness. Promotion of a pending presentation requires it.
 fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
-    match expectation {
-        Expectation::Still => matches!(kind, EvidenceKind::ImageShown),
-        Expectation::Video => matches!(kind, EvidenceKind::VideoProgress | EvidenceKind::FrameChanged),
-        // Widgets and Websites share an expectation (the reference player's
-        // `contentExpectationFor`). A Website's content evidence is its first
-        // rendered page, reported by the runtime only after the page loaded
-        // and a frame arrived; the helper being alive is never evidence.
-        Expectation::Website => matches!(kind, EvidenceKind::WidgetShown | EvidenceKind::WebsiteLoaded),
-        Expectation::Layout => matches!(kind, EvidenceKind::LayoutShown | EvidenceKind::LayoutZoneRendered),
-        Expectation::Indefinite => false,
-    }
+    player_core::is_content_evidence(crate::supervisor::evidence(kind), expectation)
 }
 
 fn validate_media_aliases(aliases: &[MediaAlias], content: &[ContentRef]) -> Result<(), PresentationError> {

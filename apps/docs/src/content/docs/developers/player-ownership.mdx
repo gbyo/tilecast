@@ -23,7 +23,9 @@ the client verifies the installation identity.
 The Core foundation now lives in `crates/player-core`: native schedule selection,
 command delivery and idempotency, Activity session tracking, and the CAS origin
 adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
-handlers and lifecycle signals. Renderer recovery and server reconciliation
+handlers and lifecycle signals. Core also owns renderer recovery decisions
+and meaningful-evidence rules. Edge executes renderer actions through its port.
+Activation coordination and server reconciliation
 remain in Edge until their extraction stages.
 
 The draft renderer contract introduces prepared documents with verified-object

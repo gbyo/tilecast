@@ -7,6 +7,7 @@ mod renderer_port;
 mod renderer_profile;
 mod renderer_resources;
 mod schedule;
+mod supervisor;
 
 pub use activity::{
     Clocks as ActivityClocks, Event as ActivityEvent, ItemInfo as ActivityItem, Persisted as PersistedActivity,
@@ -34,6 +35,9 @@ pub use renderer_profile::{
 };
 pub use renderer_resources::{ObjectBinding, Resource, ResourceError, RuntimePayload};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
+pub use supervisor::{
+    Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,
+};
 
 use player_state::StateDb;
 use player_types::time::SharedClock;
