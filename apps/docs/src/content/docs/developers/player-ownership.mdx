@@ -20,6 +20,12 @@ identity, device metadata, and private storage. Edge keeps its credential and
 pairing files and its Electron import. Stored credentials are sent only after
 the client verifies the installation identity.
 
+The Core foundation now lives in `crates/player-core`: native schedule selection,
+command delivery and idempotency, Activity session tracking, and the CAS origin
+adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
+handlers and lifecycle signals. Renderer recovery and server reconciliation
+remain in Edge until their extraction stages.
+
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget                                  |

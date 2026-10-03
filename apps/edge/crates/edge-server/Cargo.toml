@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 player-client.workspace = true
+player-core.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 edge-cas.workspace = true
