@@ -24,7 +24,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 edge-protocol = { workspace = true, features = ["test-util"] }
@@ -33,7 +33,7 @@ hyper-util.workspace = true
 http-body-util.workspace = true
 bytes.workspace = true
 tempfile.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [lints]
 workspace = true

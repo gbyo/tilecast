@@ -385,7 +385,7 @@ impl PresentationEngine {
     ) -> Result<ActivationRef, PresentationError> {
         validate_content_references(&document, &content)?;
         let activation = Activation {
-            id: ActivationId::new_random(),
+            id: ActivationId::from_uuid(uuid::Uuid::new_v4()),
             generation: self.next_generation,
             identity,
             document,

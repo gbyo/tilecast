@@ -27,6 +27,7 @@
 
 pub mod activation;
 pub mod capabilities;
+pub mod clock;
 pub mod disk;
 pub mod display;
 pub mod fs;

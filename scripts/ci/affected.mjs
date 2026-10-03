@@ -35,6 +35,15 @@ export const graph = {
   edge_server: [],
   edge_migration: [],
   edge_activity: [],
+  player_core: [
+    "ci",
+    "edge_rust",
+    "edge_wpe",
+    "edge_conformance",
+    "edge_server",
+    "edge_migration",
+    "edge_activity",
+  ],
 };
 export const areas = Object.keys(graph);
 const edgeAreas = areas.filter((area) => area.startsWith("edge_"));
@@ -42,6 +51,7 @@ const edgeAreas = areas.filter((area) => area.startsWith("edge_"));
 // Rules compose: a protocol file inside the server selects both rules.
 const rules = [
   [/^apps\/dashboard\//, ["dashboard"]],
+  [/^crates\/player-[^/]+\//, ["player_core"]],
   [/^apps\/server\//, ["server"]],
   [/^(apps\/cli|packages\/api-client)\//, ["cli"]],
   [/^apps\/player-android\//, ["android"]],
@@ -155,11 +165,11 @@ const rules = [
   [/^apps\/edge\/tilecastd\/.*(legacy|update)/, ["edge_migration"]],
   [/^apps\/edge\/ci\//, edgeAreas],
   [/^apps\/edge\/[^/]+$/, edgeAreas],
-  // Until the first shared crate adds a dedicated portability area, fail
-  // conservatively for root Rust inputs. Unknown root crates never bypass CI.
+  // Root Rust inputs select every native Rust consumer. Unknown root crates
+  // still fail conservatively below until an owner is registered.
   [
     /^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|rustfmt\.toml|\.cargo\/.*)$/,
-    areas,
+    ["player_core", ...edgeAreas],
   ],
   [/^docs\/player-core\.md$/, ["ci"]],
   [/^deploy\/docker\//, ["container", "e2e"]],

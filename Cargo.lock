@@ -410,9 +410,11 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "edge-protocol",
+ "player-types",
  "rustix",
  "tempfile",
  "thiserror",
+ "time",
  "tokio",
  "tracing",
 ]
@@ -422,11 +424,10 @@ name = "edge-protocol"
 version = "0.1.0"
 dependencies = [
  "edge-protocol",
+ "player-types",
  "serde",
  "serde_json",
- "sha2",
  "thiserror",
- "time",
  "uuid",
 ]
 
@@ -1256,6 +1257,18 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "player-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "time",
+ "uuid",
+]
 
 [[package]]
 name = "portable-atomic"

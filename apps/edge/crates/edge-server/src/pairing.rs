@@ -339,7 +339,7 @@ mod tests {
     fn session() -> PairingSession {
         PairingSession {
             server_url: "https://signs.example.org".into(),
-            installation_id: InstallationId::new_random(),
+            installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()),
             session_id: uuid::Uuid::new_v4(),
             poll_secret: "p".repeat(43),
             code: "ABC123".into(),

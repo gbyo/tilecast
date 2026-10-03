@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
 use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, StorePolicy};
+use edge_platform::clock::system_clock;
 use edge_platform::disk::FixedSpace;
-use edge_protocol::time::system_clock;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
 use edge_server::legacy::{ImportError, ImportMode, ImportOutcome, import_legacy};
@@ -119,7 +119,7 @@ async fn handle(fake: Arc<Fake>, request: Request<Incoming>) -> Result<Response<
                 return Ok(response);
             }
             let mut response = data(json!({"schemaVersion": 11, "manifestVersion": 1,
-                "screenId": ScreenId::new_random().to_string(), "assets": []}));
+                "screenId": ScreenId::from_uuid(uuid::Uuid::new_v4()).to_string(), "assets": []}));
             response.headers_mut().insert("etag", "\"manifest-1\"".parse().unwrap());
             Ok(response)
         }
@@ -305,9 +305,9 @@ fn tree_snapshot(root: &Path) -> BTreeMap<String, Vec<u8>> {
 
 #[tokio::test]
 async fn legacy_import_then_player_contact() {
-    let installation = InstallationId::new_random();
-    let screen = ScreenId::new_random();
-    let player = PlayerId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
+    let screen = ScreenId::from_uuid(uuid::Uuid::new_v4());
+    let player = PlayerId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
     let env = Env::new().await;
@@ -384,12 +384,17 @@ async fn legacy_import_then_player_contact() {
 
 #[tokio::test]
 async fn import_refuses_a_different_installation_without_sending_the_credential() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let mut fake = Fake::new(installation);
-    Arc::get_mut(&mut fake).unwrap().reported_installation = InstallationId::new_random();
+    Arc::get_mut(&mut fake).unwrap().reported_installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let url = serve(Arc::clone(&fake)).await;
     let env = Env::new().await;
-    env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
+    env.write_legacy(
+        &url,
+        installation,
+        ScreenId::from_uuid(uuid::Uuid::new_v4()),
+        PlayerId::from_uuid(uuid::Uuid::new_v4()),
+    );
 
     let error =
         import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
@@ -405,8 +410,13 @@ async fn import_refuses_a_different_installation_without_sending_the_credential(
 #[tokio::test]
 async fn import_refuses_a_public_http_server_address() {
     let env = Env::new().await;
-    let installation = InstallationId::new_random();
-    env.write_legacy("http://signage.example.org", installation, ScreenId::new_random(), PlayerId::new_random());
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
+    env.write_legacy(
+        "http://signage.example.org",
+        installation,
+        ScreenId::from_uuid(uuid::Uuid::new_v4()),
+        PlayerId::from_uuid(uuid::Uuid::new_v4()),
+    );
     let error =
         import_legacy(&env.legacy(), &env.identity(), &env.db, &env.cas, now(), ImportMode::Once).await.unwrap_err();
     assert!(matches!(error, ImportError::ServerUrl(_)), "{error:?}");
@@ -414,7 +424,7 @@ async fn import_refuses_a_public_http_server_address() {
 
 #[tokio::test]
 async fn a_revoked_credential_is_reported_as_rejected() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
     let credential = DeviceCredential::parse(CREDENTIAL).unwrap();
@@ -426,7 +436,7 @@ async fn a_revoked_credential_is_reported_as_rejected() {
 
 #[tokio::test]
 async fn heartbeat_answer_is_accepted_without_history() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let server = authenticated(&fake, installation).await;
     server.player_heartbeat(&json!({"playerVersion": "0.1.0"})).await.unwrap();
@@ -435,7 +445,7 @@ async fn heartbeat_answer_is_accepted_without_history() {
 
 #[tokio::test]
 async fn presentation_network_provisioning_is_strict_bounded_and_redacted() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let server = authenticated(&fake, installation).await;
     assert!(matches!(server.presentation_network_provisioning().await, Err(ServerError::Api { status: 404, .. })));
@@ -470,7 +480,7 @@ async fn presentation_network_provisioning_is_strict_bounded_and_redacted() {
 
 #[tokio::test]
 async fn player_manifest_uses_the_ordinary_endpoint_and_conditional_etag() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
     let server = ServerClient::new(&url)
@@ -500,7 +510,7 @@ async fn authenticated(fake: &Arc<Fake>, installation: InstallationId) -> edge_s
 #[tokio::test]
 async fn player_config_is_conditional_and_bounded() {
     use edge_server::player_api::ConfigFetch;
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let server = authenticated(&fake, installation).await;
     let ConfigFetch::Modified { document, etag } = server.player_config(None).await.unwrap() else {
@@ -516,7 +526,7 @@ async fn player_config_is_conditional_and_bounded() {
 #[tokio::test]
 async fn commands_are_acknowledged_and_reported_by_delivery_id() {
     use edge_server::player_api::{AcknowledgeOutcome, ReportOutcome};
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let server = authenticated(&fake, installation).await;
     let id = uuid::Uuid::new_v4();
@@ -538,11 +548,16 @@ async fn commands_are_acknowledged_and_reported_by_delivery_id() {
 
 #[tokio::test]
 async fn import_never_follows_a_link_in_the_legacy_directory() {
-    let installation = InstallationId::new_random();
+    let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
     let fake = Fake::new(installation);
     let url = serve(Arc::clone(&fake)).await;
     let env = Env::new().await;
-    env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
+    env.write_legacy(
+        &url,
+        installation,
+        ScreenId::from_uuid(uuid::Uuid::new_v4()),
+        PlayerId::from_uuid(uuid::Uuid::new_v4()),
+    );
     // A cached media file replaced by a link to its correct bytes elsewhere.
     let outside = env.dir.path().join("outside");
     std::fs::write(&outside, MEDIA).unwrap();
@@ -555,7 +570,12 @@ async fn import_never_follows_a_link_in_the_legacy_directory() {
 
     // A linked credential file is missing, not read.
     let env = Env::new().await;
-    env.write_legacy(&url, installation, ScreenId::new_random(), PlayerId::new_random());
+    env.write_legacy(
+        &url,
+        installation,
+        ScreenId::from_uuid(uuid::Uuid::new_v4()),
+        PlayerId::from_uuid(uuid::Uuid::new_v4()),
+    );
     let credential = env.dir.path().join("credential.json");
     std::fs::rename(env.legacy().join("credential.json"), &credential).unwrap();
     std::os::unix::fs::symlink(&credential, env.legacy().join("credential.json")).unwrap();

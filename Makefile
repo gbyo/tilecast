@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test format helper-check test
 
 bootstrap:
 	npm install
@@ -89,6 +89,15 @@ edge-check:
 
 edge-test:
 	bash apps/edge/ci/cargo-edge.sh test
+
+# Portable shared Player layer, on Linux and macOS.
+player-check:
+	python3 scripts/ci/check-player-architecture.py
+	bash scripts/ci/cargo-player.sh fmt --check
+	bash scripts/ci/cargo-player.sh clippy --all-targets --all-features -- -D warnings
+
+player-test:
+	bash scripts/ci/cargo-player.sh test --all-features
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh

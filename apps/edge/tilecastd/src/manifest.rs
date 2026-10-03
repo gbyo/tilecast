@@ -1487,7 +1487,7 @@ mod tests {
     #[test]
     fn rejects_wrong_target_missing_variant_and_invalid_references() {
         assert_eq!(
-            Candidate::parse(manifest(), ScreenId::new_random(), manifest_id()).unwrap_err(),
+            Candidate::parse(manifest(), ScreenId::from_uuid(uuid::Uuid::new_v4()), manifest_id()).unwrap_err(),
             ManifestError::Screen
         );
         let mut value = manifest();

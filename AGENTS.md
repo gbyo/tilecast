@@ -90,7 +90,8 @@ The server is a modular monolith. Preserve small domain packages and thin HTTP h
 ## Native Player ownership
 
 Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
-The extraction contract is binding. Shared Rust crates are not yet implemented.
+The extraction contract is binding. Generic native values live in
+`crates/player-types`. The remaining shared behavior is still in Edge.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.
@@ -106,6 +107,8 @@ before the dedicated root Rust workspace migration is qualified. The workspace,
 lockfile, Rust toolchain, and formatter now live at the repository root. Use
 `make edge-check` and `make edge-test` for Edge-scoped Rust validation.
 Edge product version is `apps/edge/release/VERSION`.
+Use `make player-check` and `make player-test` for shared Rust validation.
+Shared values perform no I/O. Hosts supply clocks and generate random IDs.
 
 ## Server conventions
 

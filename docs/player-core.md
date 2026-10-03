@@ -36,7 +36,7 @@ Use this distinction when reviewing a change:
 | Durable metadata                                         | `crates/player-state` after extraction  | Embedded SQLite migrations, typed repositories, bounded outbox                                                                                                                             |
 | Verified bytes                                           | `crates/player-cas` after extraction    | Digest and size verification, resume, pinning, eviction, crash reconciliation                                                                                                              |
 | Server transport                                         | `crates/player-client` after extraction | URL policy, identity gate, REST, WebSocket, typed Player endpoints                                                                                                                         |
-| Semantic values without I/O                              | `crates/player-types` after extraction  | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
+| Semantic values without I/O                              | `crates/player-types`                   | IDs, digests, bounded primitives, timestamps, shared capability vocabulary                                                                                                                 |
 | Linux composition and providers                          | `apps/edge`                             | File credential store, statvfs, dynamic host measurements, CEC/DDC, NetworkManager, Avahi, systemd, logind                                                                                 |
 | Edge renderer adapter                                    | `apps/edge`                             | Unix IPC, WPE lifecycle, media capabilities, peer identity, process lineage, JSON and Base64 encoding                                                                                      |
 | Edge installation and updates                            | `apps/edge`                             | Legacy import, signed release verification, privileged installer, probation and rollback guards                                                                                            |
@@ -217,9 +217,9 @@ the locked dependency closure of shipped Edge binaries.
 Run the dependency gate with `python3 scripts/ci/check-player-architecture.py`.
 It checks local paths, dependency aliases, workspace inheritance, normal,
 development, build, and target dependencies. CI and `make check` run it.
-All root Cargo, toolchain, and unknown root-crate changes conservatively select
-validation until the dedicated shared-Rust area lands with the first crate.
-That area must select shared Ubuntu/macOS validation and relevant Edge tests.
+Root Cargo and toolchain changes select shared Ubuntu/macOS validation and all
+Edge integration tests. Shared Player crate changes select these same consumer
+tests through the `player_core` area. Unknown root crates select all areas.
 
 Keep Rust, real Linux builds, fake-server playback, real Server E2E, WPE E2E,
 Runtime conformance, Activity parity, migration crash and power-loss tests,

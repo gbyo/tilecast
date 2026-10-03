@@ -468,7 +468,7 @@ fn register_session(
     let (placeholder, _) = mpsc::channel(1);
     let session = SessionHandle {
         inner: Arc::new(SessionInner {
-            id: SessionId::new_random(),
+            id: SessionId::from_uuid(uuid::Uuid::new_v4()),
             role: hello.role,
             peer,
             admin: context.policy.is_admin(peer.uid),
