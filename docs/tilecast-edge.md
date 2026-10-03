@@ -12,6 +12,13 @@
 
 > This document is the Edge 1 design. It is prescriptive. The implementation state and the verification ledger are in [`tilecast-edge-next.md`](tilecast-edge-next.md). Work that is not part of Edge 1 is recorded in [`tilecast-edge-future.md`](tilecast-edge-future.md) and is not a requirement here.
 
+> [`player-core.md`](player-core.md) defines the accepted extraction of shared
+> native Player behavior. `tilecastd` remains the Linux process authority and
+> becomes the composition root for that behavior. The extraction preserves
+> the process, privilege, persistence, IPC, media, and update guarantees here.
+> Shared crates are not yet implemented. Presentation execution remains in
+> Player Runtime; pure presentation decisions belong in Presentation Model.
+
 ---
 
 ## 1. Decision

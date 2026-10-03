@@ -406,6 +406,7 @@ export default defineConfig({
             { slug: "developers" },
             { slug: "developers/demo-mode" },
             { slug: "developers/testing" },
+            { slug: "developers/player-ownership" },
             { slug: "developers/ios-app" },
             {
               label: "Plugin development",

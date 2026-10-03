@@ -155,6 +155,10 @@ const rules = [
   [/^apps\/edge\/tilecastd\/.*(legacy|update)/, ["edge_migration"]],
   [/^apps\/edge\/ci\//, edgeAreas],
   [/^apps\/edge\/[^/]+$/, edgeAreas],
+  // Until the first shared crate adds a dedicated portability area, fail
+  // conservatively for root Rust inputs. Unknown root crates never bypass CI.
+  [/^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|\.cargo\/.*)$/, areas],
+  [/^docs\/player-core\.md$/, ["ci"]],
   [/^deploy\/docker\//, ["container", "e2e"]],
   [/^\.dockerignore$/, ["container", "e2e"]],
   [/^\.(prettierignore|prettierrc(?:\.[^/]+)?)$/, ["dashboard", "docs"]],
@@ -187,7 +191,7 @@ export function affected(paths, { full = false, fullEdge = false } = {}) {
     }
     // New shared packages/plugins must get validation until their consumers
     // have been added deliberately. Unknown documentation is inexpensive.
-    if (!matched && /^(packages|plugins|apps\/edge)\//.test(path)) {
+    if (!matched && /^(crates|packages|plugins|apps\/edge)\//.test(path)) {
       for (const area of areas) selected.add(area);
     }
   }

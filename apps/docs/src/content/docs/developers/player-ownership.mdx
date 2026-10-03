@@ -1,0 +1,49 @@
+---
+title: Choose where Player code belongs
+description: Find the implementation and contract owner before changing a Player.
+---
+
+Before changing Player behavior, decide whether the change concerns presentation,
+shared native behavior, or a host's operating system. The accepted
+[Player Core contract](https://github.com/gbyo/tilecast/blob/main/docs/player-core.md)
+defines that boundary and the review sequence. Shared Rust crates haven't moved
+out of Edge yet; this contract guides the extraction without changing playback.
+
+| Your change                                                                                                 | Implementation owner                                                    |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget                                  |
+| Pure playback defaults, item availability, or zone decisions shared by Studio and Runtime                   | Presentation Model as that work lands                                   |
+| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core during extraction; currently the Edge native implementation |
+| CEC/DDC, NetworkManager, systemd, Linux credential files, WPE hosting, or Edge rollback                     | Linux Edge                                                              |
+| A rule that independently implemented Players must agree on                                                 | A fixture at the rule's existing contract owner                         |
+
+For example, a command redelivery fix belongs in shared native behavior. A
+CEC adapter fix stays in Edge. A transition changes Player Runtime. A manifest
+field starts with the manifest schema and its consumers.
+
+## Check the boundary
+
+From the repository root, run:
+
+```sh
+python3 scripts/ci/check-player-architecture.py
+```
+
+The check rejects dependencies from shared Player crates back into a native host,
+including aliases, workspace dependencies, and target-specific dependencies.
+`make check` and CI also run it. Read the
+[contract ownership guide](https://github.com/gbyo/tilecast/blob/main/docs/player-contracts.md)
+before adding a fixture. Keep HTTP contracts in OpenAPI, manifest documents in
+the manifest schema, and presentation conformance with Player Runtime.
+
+## Preserve Edge's guarantees
+
+Move implementation under the existing tests. Keep shipped SQLite migrations
+unchanged, verify content before use, preserve the installation identity check,
+and keep renderer media authorization and signed-update rollback intact. The
+[Edge implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md)
+links to the integration and system tests.
+
+Android continues to use Kotlin and shared contracts. This extraction doesn't
+build another Player or require Rust on browser and smart-TV hosts. It also
+doesn't establish physical Edge hardware qualification.

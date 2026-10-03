@@ -43,6 +43,12 @@ Studio text is localized in the browser with react-i18next. English is bundled a
 
 ## Player enrollment and playback
 
+The accepted native Player extraction contract is
+[`player-core.md`](player-core.md). It separates shared native behavior from
+Linux host integration. Presentation decisions and execution remain with
+Presentation Model and Player Runtime. The five shared Rust crates are not yet
+implemented. Edge retains its current process and security boundaries.
+
 The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
