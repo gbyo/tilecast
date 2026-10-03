@@ -8,12 +8,9 @@ permissions:
   checks: write
 
 jobs:
-  validate:
-    name: Dashboard CI
+  lint:
+    name: Dashboard format and lint
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -30,25 +27,69 @@ jobs:
             eslint-${{ runner.os }}-
       - run: npm run format:check
       - run: npm run lint
-      - name: Test
+
+  tests:
+    name: Dashboard tests (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run coverage-enabled Vitest shard
         working-directory: apps/dashboard
         run: |
-          mkdir -p test-results
-          npm run coverage -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
+          mkdir -p test-results vitest-reports
+          npm run coverage -- \
+            --shard=${{ matrix.shard }}/2 \
+            --reporter=default \
+            --reporter=junit \
+            --reporter=blob \
+            --outputFile.junit=test-results/vitest-${{ matrix.shard }}.xml \
+            --outputFile.blob=vitest-reports/blob-${{ matrix.shard }}.json
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0
         with:
-          name: Dashboard tests
-          path: apps/dashboard/test-results/vitest.xml
+          name: Dashboard tests (shard ${{ matrix.shard }}/2)
+          path: apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
           reporter: java-junit
           fail-on-empty: false
-      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: dashboard-vitest-shard-${{ matrix.shard }}
+          path: |
+            apps/dashboard/vitest-reports/blob-${{ matrix.shard }}.json
+            apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
+          if-no-files-found: ignore
 
-      # The Official Tilecast Plugin Conformance checks that need no build:
-      # manifests, generated files, boundaries, migrations, OpenAPI fragments,
-      # and the SDK's own tests. The Go, Studio, and runtime suites run in their
-      # own jobs above.
+  coverage:
+    name: Merge Dashboard coverage
+    needs: tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: dashboard-vitest-shard-*
+          path: apps/dashboard
+          merge-multiple: true
+      - name: Merge shard coverage
+        working-directory: apps/dashboard
+        run: npx vitest --merge-reports=vitest-reports --coverage --reporter=default
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: node scripts/ci/coverage-summary.mjs apps/dashboard/coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
@@ -57,3 +98,15 @@ jobs:
         with:
           name: dashboard-coverage
           path: apps/dashboard/coverage
+
+  build:
+    name: Dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
