@@ -2,6 +2,7 @@
 """Check native Player dependency direction without fetching Cargo dependencies."""
 
 from pathlib import Path
+import json
 import sys
 import tomllib
 
@@ -37,8 +38,42 @@ def workspace_for(path):
     return None, {}
 
 
+def registered_crates(root):
+    """Return documented crates registered in the root workspace, without Cargo."""
+    root = root.resolve()
+    root_manifest = root / "Cargo.toml"
+    if not root_manifest.is_file():
+        return set()
+    workspace = read_manifest(root_manifest).get("workspace", {})
+    members = {
+        path.resolve()
+        for pattern in workspace.get("members", [])
+        for path in root.glob(pattern)
+    }
+    excluded = {
+        path.resolve()
+        for pattern in workspace.get("exclude", [])
+        for path in root.glob(pattern)
+    }
+    registered = set()
+    for path in (root / "crates").glob("player-*/Cargo.toml"):
+        manifest = read_manifest(path)
+        name = manifest.get("package", {}).get("name")
+        owner, _ = workspace_for(path)
+        if (
+            name in SHARED
+            and path.parent.name == name
+            and path.parent.resolve() in members - excluded
+            and owner == root_manifest
+            and "workspace" not in manifest
+        ):
+            registered.add(path.parent.relative_to(root).as_posix())
+    return registered
+
+
 def violations(root):
     errors = []
+    registered = registered_crates(root)
     # Inspect every shared manifest, including a crate not yet registered as
     # a workspace member. Generated build directories are never inputs.
     manifests = sorted((root / "crates").glob("player-*/Cargo.toml"))
@@ -48,6 +83,8 @@ def violations(root):
         if name not in SHARED or path.parent.name != name:
             errors.append(f"{path.relative_to(root)}: use one of the five documented Player crates")
             continue
+        if path.parent.relative_to(root).as_posix() not in registered:
+            errors.append(f"{path.relative_to(root)}: not registered in the root Cargo workspace")
         workspace_path, workspace = workspace_for(path)
         for alias, original in dependency_tables(manifest):
             dependency = original if isinstance(original, dict) else {}
@@ -82,6 +119,9 @@ def violations(root):
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "--registered-crates":
+        print(json.dumps(sorted(registered_crates(Path(sys.argv[2])))))
+        return 0
     root = Path(__file__).resolve().parents[2]
     errors = violations(root)
     if errors:
