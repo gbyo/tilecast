@@ -639,6 +639,8 @@ three stacked, slanted tiles. The logo has one color.
 
 - `.github/logos/tilecast-logo-black.svg` is the logo for light surfaces.
 - `.github/logos/tilecast-logo-white.svg` is the logo for dark surfaces.
+- `.github/logos/animated/` has looping logo and mark animations for loading
+  and startup screens. See its [README](../.github/logos/animated/README.md) for file selection.
 - In Studio, the logo components use the current text color.
 - Application icons show the mark only, in light color on the signal
   background. The Studio and documentation favicons show the mark in white on

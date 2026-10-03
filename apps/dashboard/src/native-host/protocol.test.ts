@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import corpus from "@tilecast/native-bridge-schema/fixtures/messages-v1.json";
 import iconTokens from "@tilecast/native-bridge-schema/icon-tokens.json";
 import schema from "@tilecast/native-bridge-schema/schema-v1.json";
+import { actionIcons } from "@/components/studio/actionIcons";
 import { navigationIcons } from "@/navigation/NavigationIcon";
 import {
   decodeHostConfig,
@@ -224,6 +225,63 @@ describe("messages Studio sends", () => {
     alertCancel: frontendMessage("alert/cancel", {
       alertId: "a-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
     }),
+    actionMenuPresent: frontendMessage("action-menu/present", {
+      menuId: "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+      label: "Actions for Lobby Screen",
+      groups: [
+        {
+          items: [
+            { id: "open", label: "Open", icon: "open" },
+            {
+              id: "restart",
+              label: "Restart player",
+              icon: "refresh",
+              disabled: true,
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              id: "delete",
+              label: "Delete",
+              icon: "trash",
+              role: "destructive",
+            },
+          ],
+        },
+      ],
+    }),
+    actionMenuArm: frontendMessage("action-menu/arm", {
+      menuId: "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+      label: "Actions for Lobby Screen",
+      groups: [
+        {
+          items: [
+            { id: "open", label: "Open", icon: "open" },
+            {
+              id: "restart",
+              label: "Restart player",
+              icon: "refresh",
+              disabled: true,
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              id: "delete",
+              label: "Delete",
+              icon: "trash",
+              role: "destructive",
+            },
+          ],
+        },
+      ],
+    }),
+    actionMenuDisarm: frontendMessage("action-menu/disarm", {
+      menuId: "m-4f1c2a9e-6b1d-4c1e-8f7a-2d3e4b5c6d7e",
+    }),
     presentationUpdate: frontendMessage("presentation/update", {
       presentationId,
       header: {
@@ -325,6 +383,7 @@ describe("messages Studio sends", () => {
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,
+        nativeActionMenus: false,
       },
     });
     expect(
@@ -352,6 +411,7 @@ describe("messages Studio sends", () => {
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,
+        nativeActionMenus: false,
       },
     });
     expect(decodeHostConfig({ capabilities: {} })).toBeNull();
@@ -362,10 +422,19 @@ describe("messages Studio sends", () => {
   });
 });
 
-describe("navigation icon tokens", () => {
+describe("studio icon tokens", () => {
   it("maps every token hosts recognize to a Lucide icon", () => {
     for (const token of iconTokens.tokens) {
-      expect(Object.hasOwn(navigationIcons, token), token).toBe(true);
+      const known =
+        Object.hasOwn(navigationIcons, token) ||
+        Object.hasOwn(actionIcons, token);
+      expect(known, token).toBe(true);
+    }
+  });
+
+  it("keeps the navigation and action vocabularies disjoint", () => {
+    for (const token of Object.keys(actionIcons)) {
+      expect(Object.hasOwn(navigationIcons, token), token).toBe(false);
     }
   });
 });

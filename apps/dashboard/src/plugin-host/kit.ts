@@ -180,3 +180,13 @@ export { useConfirm } from "../components/ConfirmDialog";
 export { toast } from "../components/ui/toast";
 export { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 export { useOrganizationRegionalProfile } from "../settings/regionalProfile";
+
+// Adaptive action menus: the web dropdown in browsers, the native menu
+// in hosts that offer one. The bridge stays internal; plugins only name
+// actions, labels, and icon tokens.
+export {
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";

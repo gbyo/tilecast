@@ -22,6 +22,11 @@ struct StudioPageView: View {
             .webViewBackForwardNavigationGestures(.disabled)
             // Link previews load pages outside the navigation policy.
             .webViewLinkPreviews(.disabled)
+            // A long press shows the menu Studio armed, or the default
+            // menu when Studio armed nothing for this page.
+            .webViewContextMenu { _ in
+                NativeActionMenuContextContent(center: page.menus, context: .main)
+            }
             .overlay { phaseOverlay }
             .overlay {
                 if page.signInRequired {
@@ -74,8 +79,8 @@ struct StudioPageView: View {
         case .ready:
             EmptyView()
         case .loading:
-            ProgressView()
-                .controlSize(.large)
+            TilecastLoadingMark()
+                .accessibilityIdentifier("studio.loading")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
         case .failed(let failure):

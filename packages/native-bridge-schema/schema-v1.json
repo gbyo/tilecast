@@ -138,6 +138,10 @@
               "description": "Studio handles alert/action, so a host may show its alert for an alert/present.",
               "type": "boolean"
             },
+            "nativeActionMenus": {
+              "description": "Studio handles action-menu/action and action-menu/dismissed, so a host may show its menu for an action-menu/present or action-menu/arm.",
+              "type": "boolean"
+            },
             "nativeMediaIntake": {
               "description": "Studio handles system/media-intake-completed. A host sends it only to a Studio that reported this.",
               "type": "boolean"
@@ -199,6 +203,10 @@
             },
             "nativeAlerts": {
               "description": "The host can show a native alert for alert/present, on the main page and on the presentation page.",
+              "type": "boolean"
+            },
+            "nativeActionMenus": {
+              "description": "The host can show a native menu for action-menu/present and action-menu/arm, on the main page and on the presentation page.",
               "type": "boolean"
             },
             "systemShare": {
@@ -385,6 +393,81 @@
       "required": ["alertId"],
       "properties": { "alertId": { "$ref": "#/$defs/alertId" } }
     },
+    "menuId": {
+      "description": "An opaque identifier Studio creates for one action menu. A host reports the choice for that menu only, and Studio ignores a choice for a menu it does not know.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "actionMenuRole": {
+      "description": "Advisory styling. destructive gets the platform's destructive styling, and any other value is default, so Studio can name a new role without a host release.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "actionMenuItem": {
+      "description": "One action of a native menu. label is already localized. icon is advisory: a host shows no icon for a token it does not recognize. disabled defaults to false.",
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/actionId" },
+        "label": { "$ref": "#/$defs/title" },
+        "icon": { "$ref": "#/$defs/iconToken" },
+        "disabled": { "type": "boolean" },
+        "role": { "$ref": "#/$defs/actionMenuRole" }
+      }
+    },
+    "actionMenuGroup": {
+      "description": "One section of a menu. A host separates groups visually. Studio sends no empty group.",
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/actionMenuItem" }
+        }
+      }
+    },
+    "actionMenuDescriptor": {
+      "description": "A complete generic menu. label names the menu for accessibility, already localized. Action ids are unique across the menu, and the menu holds at most 24 items. Only Studio knows what an action does.",
+      "type": "object",
+      "required": ["menuId", "label", "groups"],
+      "properties": {
+        "menuId": { "$ref": "#/$defs/menuId" },
+        "label": { "$ref": "#/$defs/title" },
+        "groups": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/actionMenuGroup" }
+        }
+      }
+    },
+    "menuIdPayload": {
+      "description": "Withdraws the menu Studio named, for example when its component went away. A host ignores a menu that is not armed or showing.",
+      "type": "object",
+      "required": ["menuId"],
+      "properties": { "menuId": { "$ref": "#/$defs/menuId" } }
+    },
+    "actionMenuActionPayload": {
+      "description": "The user chose an action. actionId is one of the ids Studio sent for this menu.",
+      "type": "object",
+      "required": ["menuId", "actionId"],
+      "properties": {
+        "menuId": { "$ref": "#/$defs/menuId" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
+    },
+    "actionMenuDismissedPayload": {
+      "description": "The user dismissed a menu the host was showing without choosing an action.",
+      "type": "object",
+      "required": ["menuId"],
+      "properties": { "menuId": { "$ref": "#/$defs/menuId" } }
+    },
     "alertActionPayload": {
       "description": "The user chose a button. actionId is one of the ids Studio sent.",
       "type": "object",
@@ -450,6 +533,9 @@
                 "presentation/navigate",
                 "alert/present",
                 "alert/cancel",
+                "action-menu/present",
+                "action-menu/arm",
+                "action-menu/disarm",
                 "navigation/chrome",
                 "system/haptic",
                 "system/share",
@@ -559,6 +645,33 @@
           }
         },
         {
+          "description": "Either page. Shows a native menu at once, for example for a three-dot button. The host answers ok when it shows the menu, and unavailable when it cannot, for example because another menu is showing. Studio then shows its own web menu. The page that sent it receives action-menu/action or action-menu/dismissed.",
+          "if": {
+            "properties": { "type": { "const": "action-menu/present" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/actionMenuDescriptor" }
+            }
+          }
+        },
+        {
+          "description": "Either page. Arms a native context menu for a long press, replacing any menu this page armed. The host answers ok when it armed the menu. The page that sent it receives action-menu/action when the user chooses.",
+          "if": { "properties": { "type": { "const": "action-menu/arm" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/actionMenuDescriptor" }
+            }
+          }
+        },
+        {
+          "description": "Either page. Withdraws a menu the page presented or armed, for example when the menu's owner went away. A host ignores a menu that is not armed or showing.",
+          "if": { "properties": { "type": { "const": "action-menu/disarm" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/menuIdPayload" } }
+          }
+        },
+        {
           "description": "Presentation page only. The host dismisses the presentation, then relays the path to the main page with navigation/open-path.",
           "if": {
             "properties": { "type": { "const": "presentation/navigate" } }
@@ -634,6 +747,8 @@
                 "presentation/dismissed",
                 "presentation/ended",
                 "alert/action",
+                "action-menu/action",
+                "action-menu/dismissed",
                 "navigation/back",
                 "system/media-intake-completed",
                 "system/qr-scan-result"
@@ -705,6 +820,26 @@
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/alertActionPayload" }
+            }
+          }
+        },
+        {
+          "description": "The user chose an action of a menu this page presented or armed.",
+          "if": { "properties": { "type": { "const": "action-menu/action" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/actionMenuActionPayload" }
+            }
+          }
+        },
+        {
+          "description": "The user dismissed a menu this page presented without choosing an action.",
+          "if": {
+            "properties": { "type": { "const": "action-menu/dismissed" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/actionMenuDismissedPayload" }
             }
           }
         },
@@ -906,7 +1041,7 @@
       "allOf": [
         {
           "if": { "properties": { "outcome": { "const": "scanned" } } },
-          "then": { "required": ["value"] }
+          "then": { "required": ["value"], "properties": { "value": true } }
         }
       ]
     }

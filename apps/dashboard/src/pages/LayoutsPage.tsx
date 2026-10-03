@@ -4,19 +4,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
-  ChevronRight,
-  Copy,
   EllipsisVertical,
   LayoutGrid,
   LayoutTemplate,
   List,
-  Pencil,
   Plus,
   SquarePen,
-  Trash2,
 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -44,12 +39,11 @@ import {
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import {
   Dialog,
   DialogContent,
@@ -58,13 +52,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -599,47 +586,43 @@ export function LayoutsPage() {
     setOrientation("all");
     setPublication("all");
   };
-  type LayoutMenuAction = {
-    label: string;
-    icon: ReactNode;
-    danger?: boolean;
-    separated?: boolean;
-    disabled?: boolean;
-    onSelect: () => void;
-  };
-  const actionsFor = (layout: LayoutSummary): LayoutMenuAction[] => {
-    const actions: LayoutMenuAction[] = [
+  const actionsFor = (layout: LayoutSummary): StudioActionGroup[] => {
+    const primary: StudioAction[] = [
       {
+        id: "open",
         label: canManage ? t("common:actions.edit") : t("library.menuOpen"),
-        icon: <SquarePen size={14} />,
+        icon: "edit",
         onSelect: () => void navigate(`/layouts/${layout.id}`),
       },
     ];
+    const danger: StudioAction[] = [];
     if (canManage) {
-      actions.push(
+      primary.push(
         {
+          id: "rename",
           label: t("library.menuRename"),
-          icon: <Pencil size={14} />,
+          icon: "rename",
           disabled: rename.isPending,
           onSelect: () => openRename(layout),
         },
         {
+          id: "duplicate",
           label: t("library.menuDuplicate"),
-          icon: <Copy size={14} />,
+          icon: "duplicate",
           disabled: duplicate.isPending,
           onSelect: () => duplicate.mutate(layout.id),
         },
-        {
-          label: t("common:actions.delete"),
-          icon: <Trash2 size={14} />,
-          danger: true,
-          separated: true,
-          disabled: remove.isPending,
-          onSelect: () => setPendingDelete(layout),
-        },
       );
+      danger.push({
+        id: "delete",
+        label: t("common:actions.delete"),
+        icon: "trash",
+        role: "destructive",
+        disabled: remove.isPending,
+        onSelect: () => setPendingDelete(layout),
+      });
     }
-    return actions;
+    return [{ actions: primary }, { actions: danger }];
   };
 
   return (
@@ -798,16 +781,18 @@ export function LayoutsPage() {
             const publicationState = layoutPublicationState(layout);
             const menuLabel = t("library.cardActions", { name: layout.name });
             return (
-              <ContextMenu key={layout.id}>
-                <ContextMenuTrigger
-                  render={
-                    <article
-                      className="relative min-w-0"
-                      data-orientation={layout.orientation}
-                      data-publication={publicationState}
-                    />
-                  }
-                >
+              <ActionContextMenu
+                key={layout.id}
+                label={menuLabel}
+                actions={actionsFor(layout)}
+                render={
+                  <article
+                    className="relative min-w-0"
+                    data-orientation={layout.orientation}
+                    data-publication={publicationState}
+                  />
+                }
+              >
                   <Link
                     to={`/layouts/${layout.id}`}
                     className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
@@ -868,46 +853,17 @@ export function LayoutsPage() {
                       </small>
                     </span>
                   </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-                      aria-label={menuLabel}
-                    >
+                  <ActionMenuButton
+                    label={menuLabel}
+                    actions={actionsFor(layout)}
+                    variant="ghost"
+                    size="icon"
+                    triggerClassName="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+                    triggerIcon={
                       <EllipsisVertical size={16} aria-hidden="true" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" aria-label={menuLabel}>
-                      {actionsFor(layout).map((action, index) => (
-                        <Fragment key={`${action.label}-${index}`}>
-                          {action.separated && <DropdownMenuSeparator />}
-                          <DropdownMenuItem
-                            variant={action.danger ? "destructive" : "default"}
-                            disabled={action.disabled}
-                            onClick={action.onSelect}
-                          >
-                            {action.icon}
-                            {action.label}
-                          </DropdownMenuItem>
-                        </Fragment>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </ContextMenuTrigger>
-                <ContextMenuContent aria-label={menuLabel}>
-                  {actionsFor(layout).map((action, index) => (
-                    <Fragment key={`${action.label}-${index}`}>
-                      {action.separated && <ContextMenuSeparator />}
-                      <ContextMenuItem
-                        variant={action.danger ? "destructive" : "default"}
-                        disabled={action.disabled}
-                        onClick={action.onSelect}
-                      >
-                        {action.icon}
-                        {action.label}
-                      </ContextMenuItem>
-                    </Fragment>
-                  ))}
-                </ContextMenuContent>
-              </ContextMenu>
+                    }
+                  />
+              </ActionContextMenu>
             );
           })}
         </div>

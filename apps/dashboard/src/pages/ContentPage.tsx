@@ -22,7 +22,6 @@ import {
   List,
   Pencil,
   RotateCcw,
-  SquarePen,
   Tags,
   Trash2,
   Upload,
@@ -30,7 +29,6 @@ import {
 } from "lucide-react";
 import { signalColors } from "@tilecast/design-tokens/values";
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -86,12 +84,11 @@ import {
   CollapsibleTrigger,
 } from "../components/studio/StudioCollapsible";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import {
   Dialog,
   DialogContent,
@@ -1152,20 +1149,22 @@ export function AssetCollection({
   const { t } = useTranslation(["content", "common"]);
   // Every action is also reachable from a visible control, so the menus stay a
   // shortcut rather than the only route to duplication or deletion.
-  const actionsFor = (asset: Asset): AssetMenuAction[] => {
-    const actions: AssetMenuAction[] = archived
+  const actionsFor = (asset: Asset): StudioActionGroup[] => {
+    const primary: StudioAction[] = archived
       ? []
       : [
           {
+            id: "open",
             label: canManage
               ? t("common:actions.edit")
               : t("media.card.openMenu"),
-            icon: <SquarePen size={14} aria-hidden="true" />,
+            icon: "edit",
             onSelect: () => onSelect(asset),
           },
         ];
     if (canManage && onToggle)
-      actions.push({
+      primary.push({
+        id: "select",
         label: selectedIds.has(asset.id)
           ? t("picker.tray.clearSelection")
           : t("media.card.selectItem"),
@@ -1173,33 +1172,44 @@ export function AssetCollection({
       });
     // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
     if (canManage && onDuplicate && asset.type === "widget")
-      actions.push({
+      primary.push({
+        id: "duplicate",
         label: t("media.card.duplicate"),
-        icon: <Copy size={14} aria-hidden="true" />,
+        icon: "duplicate",
         onSelect: () => onDuplicate(asset),
       });
-    if (canManage && !archived && onArchive)
-      actions.push({
-        label: t("media.card.archive"),
-        icon: <Archive size={14} aria-hidden="true" />,
-        separated: actions.length > 0,
-        onSelect: () => onArchive(asset),
-      });
     if (canManage && archived && onRestore)
-      actions.push({
+      primary.push({
+        id: "restore",
         label: t("media.card.restoreToLibrary"),
-        icon: <ArchiveRestore size={14} aria-hidden="true" />,
+        icon: "restore",
         onSelect: () => onRestore(asset),
       });
-    if (canManage && archived && onDelete)
-      actions.push({
-        label: t("media.action.deletePermanently"),
-        icon: <Trash2 size={14} aria-hidden="true" />,
-        danger: true,
-        separated: actions.length > 0,
-        onSelect: () => onDelete(asset),
+    const groups: StudioActionGroup[] = [{ actions: primary }];
+    if (canManage && !archived && onArchive)
+      groups.push({
+        actions: [
+          {
+            id: "archive",
+            label: t("media.card.archive"),
+            icon: "archive",
+            onSelect: () => onArchive(asset),
+          },
+        ],
       });
-    return actions;
+    if (canManage && archived && onDelete)
+      groups.push({
+        actions: [
+          {
+            id: "delete",
+            label: t("media.action.deletePermanently"),
+            icon: "trash",
+            role: "destructive",
+            onSelect: () => onDelete(asset),
+          },
+        ],
+      });
+    return groups;
   };
   const toggleFor =
     canManage && onToggle ? (id: string) => onToggle(id) : undefined;
@@ -1207,19 +1217,21 @@ export function AssetCollection({
     return (
       <ItemGroup>
         {items.map((asset) => (
-          <ContextMenu key={asset.id}>
-            <ContextMenuTrigger className="contents">
-              <MediaAssetListRow
-                asset={asset}
-                archived={archived}
-                selected={selectedIds.has(asset.id)}
-                onSelect={() => onSelect(asset)}
-                onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
-                actions={actionsFor(asset)}
-              />
-            </ContextMenuTrigger>
-            <AssetContextMenu asset={asset} actions={actionsFor(asset)} />
-          </ContextMenu>
+          <ActionContextMenu
+            key={asset.id}
+            label={t("media.card.actionsFor", { name: asset.name })}
+            actions={actionsFor(asset)}
+            className="contents"
+          >
+            <MediaAssetListRow
+              asset={asset}
+              archived={archived}
+              selected={selectedIds.has(asset.id)}
+              onSelect={() => onSelect(asset)}
+              onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
+              actions={actionsFor(asset)}
+            />
+          </ActionContextMenu>
         ))}
       </ItemGroup>
     );
@@ -1247,62 +1259,6 @@ export function AssetCollection({
         />
       ))}
     </div>
-  );
-}
-
-type AssetMenuAction = {
-  label: string;
-  icon?: ReactNode;
-  onSelect: () => void;
-  danger?: boolean;
-  separated?: boolean;
-};
-
-function AssetMenuContents({ actions }: { actions: AssetMenuAction[] }) {
-  return (
-    <>
-      {actions.map((action, index) => (
-        <Fragment key={`${action.label}-${index}`}>
-          {action.separated && <DropdownMenuSeparator />}
-          <DropdownMenuItem
-            variant={action.danger ? "destructive" : "default"}
-            onClick={action.onSelect}
-          >
-            {action.icon}
-            {action.label}
-          </DropdownMenuItem>
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-function AssetContextMenu({
-  asset,
-  actions,
-}: {
-  asset: Asset;
-  actions: AssetMenuAction[];
-}) {
-  const { t } = useTranslation(["content", "common"]);
-  if (actions.length === 0) return null;
-  return (
-    <ContextMenuContent
-      aria-label={t("media.card.actionsFor", { name: asset.name })}
-    >
-      {actions.map((action, index) => (
-        <Fragment key={`${action.label}-${index}`}>
-          {action.separated && <ContextMenuSeparator />}
-          <ContextMenuItem
-            variant={action.danger ? "destructive" : "default"}
-            onClick={action.onSelect}
-          >
-            {action.icon}
-            {action.label}
-          </ContextMenuItem>
-        </Fragment>
-      ))}
-    </ContextMenuContent>
   );
 }
 
@@ -1399,7 +1355,7 @@ function MediaAssetCard({
   onToggle?: () => void;
   onDuplicate?: () => void;
   onArchive?: () => void;
-  actions: AssetMenuAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
@@ -1410,14 +1366,15 @@ function MediaAssetCard({
   // The card root is the right-click target itself, so assisted-technology and
   // test hooks keep working: `asset-card` stays a stable structural hook.
   return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        render={
-          <article
-            className={`asset-card group relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${selected ? "border-primary ring-2 ring-ring/30" : "border-border"}`}
-          />
-        }
-      >
+    <ActionContextMenu
+      label={t("media.card.actionsFor", { name: asset.name })}
+      actions={actions}
+      render={
+        <article
+          className={`asset-card group relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${selected ? "border-primary ring-2 ring-ring/30" : "border-border"}`}
+        />
+      }
+    >
         {onToggle && (
           <Checkbox
             aria-label={t("media.card.selectAsset", { name: asset.name })}
@@ -1426,19 +1383,15 @@ function MediaAssetCard({
             className="absolute top-2 left-2 z-10 bg-background/90"
           />
         )}
-        {showMenu && actions.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={t("media.card.actionsFor", { name: asset.name })}
-              className="absolute top-2 right-2 z-10 bg-background/90"
-            >
-              <EllipsisVertical aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <AssetMenuContents actions={actions} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {showMenu && (
+          <ActionMenuButton
+            label={t("media.card.actionsFor", { name: asset.name })}
+            actions={actions}
+            variant="ghost"
+            size="icon-sm"
+            triggerClassName="absolute top-2 right-2 z-10 bg-background/90"
+            triggerIcon={<EllipsisVertical aria-hidden="true" />}
+          />
         )}
         <Button
           type="button"
@@ -1519,9 +1472,7 @@ function MediaAssetCard({
             )}
           </footer>
         )}
-      </ContextMenuTrigger>
-      <AssetContextMenu asset={asset} actions={actions} />
-    </ContextMenu>
+    </ActionContextMenu>
   );
 }
 
@@ -1538,7 +1489,7 @@ function MediaAssetListRow({
   selected: boolean;
   onSelect: () => void;
   onToggle?: () => void;
-  actions: AssetMenuAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
@@ -1575,19 +1526,15 @@ function MediaAssetListRow({
         </ItemDescription>
       </ItemContent>
       <Badge variant={status.variant}>{status.label}</Badge>
-      {actions.length > 0 && (
+      {actions.some((group) => group.actions.length > 0) && (
         <ItemActions>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={t("media.card.actionsFor", { name: asset.name })}
-            >
-              <EllipsisVertical aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <AssetMenuContents actions={actions} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ActionMenuButton
+            label={t("media.card.actionsFor", { name: asset.name })}
+            actions={actions}
+            variant="ghost"
+            size="icon-sm"
+            triggerIcon={<EllipsisVertical aria-hidden="true" />}
+          />
         </ItemActions>
       )}
     </Item>

@@ -31,8 +31,8 @@ struct StudioShell: View {
         }
         .environment(slot)
         .mediaIntake(host.mediaIntake)
-        .
-      nativeAlert(from: host.page?.alerts, for: .main)
+        .nativeAlert(from: host.page?.alerts, for: .main)
+        .nativeActionMenu(from: host.page?.menus, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView() }
         .sheet(item: presentation) { presentation in
@@ -93,8 +93,14 @@ struct StudioShell: View {
                     .font(.geist(.title2).weight(.bold))
             }
         case .verifying(let server):
-            ProgressView("Connecting to \(server.displayName)…")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 16) {
+                TilecastLoadingMark().accessibilityHidden(true)
+                Text("Connecting to \(server.displayName)…")
+                    .font(.geist(.body))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("studio.connecting")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .unavailable(let server, let error):
             ServerUnavailableView(server: server, error: error)
         case .identityChanged(let server, let found):

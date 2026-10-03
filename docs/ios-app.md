@@ -142,6 +142,15 @@ A `WebPage` with no dialog presenter cancels every file chooser, so a Studio upl
 
 Native media intake is a separate path. When the app has a native credential, Studio asks the app to upload, and no file goes through the page.
 
+### Loading mark
+
+During server verification and Studio page loading, the app shows the animated
+Tilecast cast mark without the wordmark. Native presentation loading uses the
+same mark. SwiftUI draws the paths from
+`.github/logos/animated/tilecast-mark-cast-black.svg` with the same animation
+timing. The mark uses the current foreground color. Reduce Motion shows the
+static mark. The animation pauses while the scene is inactive.
+
 ### Recovery
 
 If the web content process ends, for example while the app is in the background, the page reloads. If the process ends more than twice in 30 seconds, the app shows an error with a retry control.
@@ -193,6 +202,11 @@ The bridge is privileged. The app applies these rules:
 | `alert/present`                 | Studio to native | Either page. Show a native alert with one to three buttons                       |
 | `alert/cancel`                  | Studio to native | Either page. Withdraw an alert that the page presented                           |
 | `alert/action`                  | native to Studio | Either page. The user chose a button of an alert that the page presented         |
+| `action-menu/present`           | Studio to native | Either page. Show a native action menu at once                                   |
+| `action-menu/arm`               | Studio to native | Either page. Store a menu for a long press. A new arm replaces the old one       |
+| `action-menu/disarm`            | Studio to native | Either page. Forget a stored menu. A menu on screen keeps showing                |
+| `action-menu/action`            | native to Studio | Either page. The user chose an action of a menu that the page presented          |
+| `action-menu/dismissed`         | native to Studio | Either page. The user dismissed a menu that the page presented, without choosing |
 | `system/haptic`                 | Studio to native | Either page. Standard system feedback for a semantic type                        |
 | `system/share`                  | Studio to native | Either page. The system share sheet for user-visible content                     |
 | `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
@@ -387,6 +401,26 @@ A confirmation must match the platform, so Studio can ask the app to show a nati
 `useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. A confirmation written as its own `AlertDialog` is a web dialog on iOS until it moves to `useConfirm`. The media library and the media asset sheet have moved. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
 
 Each `useConfirm` instance queues requests in arrival order across native alerts and web dialogs. A second request cannot replace the first request. Confirm resolves `true`. Cancel or dismissal resolves `false`. Component unmount resolves all active and queued requests as `false` and withdraws its native alert. Late responses cannot confirm another request.
+
+### Action menus
+
+An action menu is the list of actions of a three-dot button, or of a long press on a row or card. Studio can ask the app to show the menu with the native interface. The menu is not a presentation: it has no route, and it can show over the main page or over a presentation sheet.
+
+1. Studio sends `action-menu/present` with a new opaque menu id, a localized label, and one to eight groups of actions. Each action has an opaque id, a localized label, an optional icon token, and a role: `default` or `destructive`. An unknown role is a default action.
+2. The app accepts one menu at a time. It replies `unavailable` when another menu shows, when Studio did not report `nativeActionMenus`, or for a page that has no bridge. Studio then shows its own web menu, as in a browser.
+3. For a long press, Studio sends `action-menu/arm` when the press starts, and `action-menu/disarm` when the press ends or the page scrolls. A new arm replaces the old one. A long press builds its menu from the armed menu for its page. When nothing is armed, the default menu shows, so ordinary long presses keep working.
+4. When the user chooses an action, the app sends `action-menu/action` with the menu id and the action id to the page that asked. When the user dismisses a menu from a three-dot button, the app sends `action-menu/dismissed` with the menu id. Studio ignores a menu id that it does not know.
+5. A menu belongs to its page. A new document withdraws the menu of the main page. A presentation that ends withdraws the menu of the presentation page.
+
+A three-dot menu shows as a system dialog: an action sheet on compact iPhone, a popover on regular-width iPad. It shows the labels. A long-press menu shows the icons that the app knows, and no icon for any other token. Disabled actions stay disabled. Destructive actions use the destructive style. The bridge carries no route, no callback, and no secret: only the menu id, the label, the groups, and the chosen action id.
+
+`ActionMenuButton` and `ActionContextMenu` in Studio use this path, so all their call sites get a native menu with no change. The content, layouts, data sources, screens, fleet table, and plugin menus have moved. The app shows the labels and icons that Studio sends. It has no copy of its own for any action. To add, remove, rename, enable, disable, or retarget an action, change Studio only. Do not change `apps/ios`.
+
+#### Adding an action menu
+
+Define a `StudioAction` list and render it with `ActionMenuButton` or `ActionContextMenu`. Keep the callback in Studio. Use `useConfirm` when an action needs confirmation. Do not change `apps/ios`.
+
+Version 1 has no submenus, radio state, checkboxes, shortcuts, or custom layouts. The editor menus that need them keep their web menus.
 
 ### Which surfaces move to a sheet
 

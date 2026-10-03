@@ -42,6 +42,12 @@ test("Studio and server changes do not build the iOS host", () => {
     "apps/dashboard/src/native-host/useNativeNavigation.ts",
     "apps/dashboard/src/native-presentation/NativePresentationHost.tsx",
     "apps/dashboard/src/pages/RoomBookingsPage.tsx",
+    "apps/dashboard/src/pages/ScreensPage.tsx",
+    "apps/dashboard/src/components/ScreenFleetTable.tsx",
+    "apps/dashboard/src/components/screenActions.ts",
+    "apps/dashboard/src/components/studio/ActionMenu.tsx",
+    "apps/dashboard/src/native-host/useNativeActionMenu.ts",
+    "apps/dashboard/src/plugins/PluginActionsMenu.tsx",
     "apps/dashboard/src/styles.css",
     "apps/dashboard/src/App.tsx",
     "apps/server/internal/httpapi/devices.go",
@@ -49,6 +55,16 @@ test("Studio and server changes do not build the iOS host", () => {
     "plugins/forms/studio/index.tsx",
   ])
     assert.equal(affected([path]).ios, false, path);
+});
+test("Studio icon mappings select the iOS host that generates from them", () => {
+  for (const path of [
+    "apps/dashboard/src/navigation/NavigationIcon.tsx",
+    "apps/dashboard/src/components/studio/actionIcons.tsx",
+  ]) {
+    const result = affected([path]);
+    assert.equal(result.ios, true, `${path}: ios`);
+    assert.equal(result.dashboard, true, `${path}: dashboard`);
+  }
 });
 test("the native bridge contract selects Studio and the iOS host", () => {
   for (const path of [
