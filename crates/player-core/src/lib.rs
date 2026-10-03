@@ -2,6 +2,8 @@
 mod activity;
 mod commands;
 mod origin;
+mod renderer_document;
+mod renderer_resources;
 mod schedule;
 
 pub use activity::{
@@ -15,6 +17,12 @@ pub use commands::{
     drive_commands,
 };
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use renderer_document::{
+    ContentRef as VerifiedContentRef, ItemKind as RendererItemKind, PreparedDocumentError,
+    PresentationDocument as PreparedDocument, PresentationFeature as RequiredRendererFeature,
+    PresentationItem as PreparedItem, StatusSurface as PreparedSurface,
+};
+pub use renderer_resources::{ObjectBinding, Resource, ResourceError, RuntimePayload};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
 
 use player_state::StateDb;
