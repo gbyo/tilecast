@@ -91,6 +91,9 @@ struct StudioShell: View {
                 Label("Choose a Server", systemImage: "server.rack")
                     .font(.geist(.title2).weight(.bold))
             }
+        case .starting:
+            TilecastLoadingMark()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .verifying(let server):
             VStack(spacing: 16) {
                 TilecastLoadingMark().accessibilityHidden(true)
