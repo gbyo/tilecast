@@ -211,4 +211,4 @@ describe("PendingPairings", () => {
 
     expect(await screen.findByText("Browser review")).toBeInTheDocument();
   });
-}
+});
