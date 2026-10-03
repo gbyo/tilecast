@@ -138,14 +138,16 @@ Edge retains renderer signal adapters and outbox delivery in this stage.
 Renderer supervision stays in Edge until the RendererPort extraction.
 
 The draft renderer contract adds semantic prepared-document types and verified
-object bindings for Runtime data. Edge does not consume these types yet.
+object bindings for Runtime data. Edge now uses prepared activations through
+its RendererPort adapter. A temporary projection bridge remains in Edge.
 Separate packaged and connected profiles check host features, presentation
 schemas, declarative capabilities, and Widget component versions.
 Release support does not replace a missing session advertisement.
 The RendererPort interface defines semantic operations and immutable prepared
 activations. Edge uses Core checks for decoded capture dimensions, size, and
 JPEG signature. Transport decoding stays in Edge.
-The port's Edge adapter and shared coordination remain required work.
+Edge owns resource encoding, media grants, and IPC queue operations.
+Activation policy, profile adoption, and shared coordination remain required work.
 This groundwork does not complete the renderer extraction gate.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,

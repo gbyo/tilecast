@@ -33,14 +33,15 @@ use edge_protocol::Timestamp;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::{ActivationId, SessionId};
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, EvidenceKind, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState,
-    PresentationActivate, PresentationClear, ProjectionContext, RendererCommand, RendererCommandKind,
-    RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, RendererShutdown, SyncTiming,
+    ActivationRef, Event, EvidenceKind, KioskPolicy, MediaAlias, MediaChannelDescriptor, PresentationActivate,
+    ProjectionContext, RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady,
+    SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
     ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
+use player_core::RendererPort;
 
 use crate::media::{MediaCapability, MediaRegistry};
 use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState, is_meaningful};
@@ -144,90 +145,6 @@ impl Activation {
     }
 }
 
-fn rewrite_media_value(
-    value: &mut serde_json::Value,
-    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
-) -> bool {
-    match value {
-        serde_json::Value::String(text) if text.to_ascii_lowercase().starts_with("tcmedia:") => {
-            let Some(digest) = edge_protocol::ipc::presentation::parse_content_uri(text) else { return false };
-            let Some(capability) = capabilities.get(&digest) else { return false };
-            *text = capability.uri();
-            true
-        }
-        serde_json::Value::Array(items) => items.iter_mut().all(|item| rewrite_media_value(item, capabilities)),
-        serde_json::Value::Object(members) => members.values_mut().all(|item| rewrite_media_value(item, capabilities)),
-        _ => true,
-    }
-}
-
-/// What the renderer receives for one activation: every internal content URI
-/// replaced by its renderer-generation capability.
-struct RendererPayload {
-    document: PresentationDocument,
-    content: Vec<RendererMediaRef>,
-    timing: Option<SyncTiming>,
-    projection: Option<ProjectionContext>,
-    plugins: Option<PluginState>,
-}
-
-fn rewrite<T: serde::Serialize + serde::de::DeserializeOwned>(
-    value: &T,
-    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
-) -> Option<T> {
-    let mut encoded = serde_json::to_value(value).ok()?;
-    if !rewrite_media_value(&mut encoded, capabilities) {
-        return None;
-    }
-    serde_json::from_value(encoded).ok()
-}
-
-fn renderer_payload(
-    activation: &Activation,
-    capabilities: &HashMap<edge_protocol::Sha256Digest, MediaCapability>,
-    clock_offset_ms: i64,
-) -> Option<RendererPayload> {
-    let document = rewrite(&activation.document, capabilities)?;
-    let content = activation
-        .content
-        .iter()
-        .map(|reference| {
-            let capability = capabilities.get(&reference.sha256)?;
-            Some(RendererMediaRef {
-                uri: SafeText::lossy(&capability.uri()),
-                size_bytes: reference.size_bytes,
-                mime_type: reference.mime_type.clone(),
-            })
-        })
-        .collect::<Option<Vec<_>>>()?;
-    // The group anchor and durations are fixed at activation; the offset is
-    // the current one, so a renderer that (re)joins after a clock sample
-    // places itself with the best estimate. Active playback never re-anchors.
-    let timing = activation.timing.clone().map(|timing| SyncTiming { clock_offset_ms, ..timing });
-    let projection = match &activation.extras.projection {
-        Some(projection) => {
-            let mut projection = rewrite(projection, capabilities)?;
-            projection.clock_offset_ms = clock_offset_ms;
-            Some(projection)
-        }
-        None => None,
-    };
-    let plugins = if activation.identity.is_some() {
-        let aliases = rewrite(&activation.extras.plugin_aliases, capabilities)?;
-        let plugins = rewrite(&activation.extras.plugins, capabilities)?;
-        let plugin_content = content
-            .iter()
-            .filter(|reference| aliases.iter().any(|alias: &MediaAlias| alias.uri == reference.uri))
-            .cloned()
-            .collect();
-        Some(PluginState { plugins, content: plugin_content, clock_offset_ms, aliases })
-    } else {
-        // Plugins belong to server presentations; anything else clears them.
-        Some(PluginState { plugins: Vec::new(), content: Vec::new(), clock_offset_ms, aliases: Vec::new() })
-    };
-    Some(RendererPayload { document, content, timing, projection, plugins })
-}
-
 /// Evidence that the activation's own content appeared, as opposed to
 /// liveness. Promotion of a pending presentation requires it.
 fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
@@ -267,6 +184,16 @@ struct RendererLink {
     current_item: Option<(String, Timestamp)>,
     /// The renderer's remote web helper is restarting (its health reason).
     remote_web_restarting: bool,
+}
+
+impl RendererLink {
+    fn port<'a>(&'a self, channel: &'a MediaChannelDescriptor) -> crate::renderer_adapter::EdgeRendererPort<'a> {
+        crate::renderer_adapter::EdgeRendererPort {
+            session: &self.session,
+            channel,
+            authorized: self.media.as_ref().map(|(reference, grants)| (*reference, grants)),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -473,7 +400,15 @@ impl PresentationEngine {
     }
 
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
-        let _ = session.send_event(Event::RendererConfigure(self.configure.clone()));
+        let port = crate::renderer_adapter::EdgeRendererPort {
+            session: &session,
+            channel: &self.configure.media_channel,
+            authorized: None,
+        };
+        let _ = port.configure(player_core::RendererConfiguration {
+            prevent_display_sleep: self.configure.kiosk.prevent_display_sleep,
+            hide_cursor: self.configure.kiosk.hide_cursor,
+        });
         self.renderer = Some(RendererLink {
             session,
             ready: None,
@@ -651,10 +586,9 @@ impl PresentationEngine {
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
                 if let Some(link) = &self.renderer {
-                    let _ = link.session.send_event(Event::RendererShutdown(RendererShutdown {
-                        reason: ShortToken::new("recovery").expect("literal token"),
-                        deadline_ms: 5_000,
-                    }));
+                    let _ = link
+                        .port(&self.configure.media_channel)
+                        .request_restart(&ShortToken::new("recovery").expect("literal token"), 5_000);
                 }
             }
             HealAction::EnterSafeMode => {
@@ -690,8 +624,8 @@ impl PresentationEngine {
     fn command(&self, command: RendererCommandKind) {
         if let Some(link) = &self.renderer {
             let _ = link
-                .session
-                .send_event(Event::RendererCommand(RendererCommand { command_id: uuid::Uuid::new_v4(), command }));
+                .port(&self.configure.media_channel)
+                .send_command(uuid::Uuid::new_v4(), &crate::renderer_adapter::command(command));
         }
     }
 
@@ -699,9 +633,8 @@ impl PresentationEngine {
         self.current = None;
         self.meaningful_current = false;
         if let Some(link) = &self.renderer {
-            let _ = link.session.send_event(Event::PresentationClear(PresentationClear {
-                reason: ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal")),
-            }));
+            let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
+            let _ = link.port(&self.configure.media_channel).clear(&reason);
         }
     }
 
@@ -734,6 +667,13 @@ impl PresentationEngine {
         }
         self.incompatible_reason = None;
 
+        let semantic = match crate::renderer_adapter::prepare(&current, self.clock_offset_ms) {
+            Ok(semantic) => semantic,
+            Err(error) => {
+                tracing::error!(component = "media", event = "invalid_prepared_activation", error = %error);
+                return;
+            }
+        };
         let reference = current.reference();
         let capabilities = if let Some((_, capabilities)) = cached_media.filter(|(cached, _)| *cached == reference) {
             capabilities
@@ -762,20 +702,15 @@ impl PresentationEngine {
             }
             prepared
         };
-        let Some(payload) = renderer_payload(&current, &capabilities, self.clock_offset_ms) else {
-            tracing::error!(component = "media", event = "capability_reference_missing");
-            return;
-        };
         if let Some(link) = self.renderer.as_mut().filter(|link| link.session.id() == session.id()) {
             link.media = Some((reference, capabilities));
-            let _ = link.session.send_event(current.event(
-                payload.document,
-                payload.content,
-                payload.timing,
-                payload.projection,
-            ));
-            if let Some(plugins) = payload.plugins {
-                let _ = link.session.send_event(Event::PluginState(plugins));
+            let port = crate::renderer_adapter::EdgeRendererPort {
+                session: &link.session,
+                channel: &self.configure.media_channel,
+                authorized: link.media.as_ref().map(|(reference, grants)| (*reference, grants)),
+            };
+            if let Err(error) = port.activate(&semantic) {
+                tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
             }
         }
     }
@@ -842,13 +777,8 @@ impl PresentationEngine {
     /// Asks the connected renderer for a preview. False without a renderer.
     pub fn request_preview(&self, request_id: uuid::Uuid, max_width: u32, max_height: u32, max_bytes: u32) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.session
-            .send_event(Event::PreviewRequest(edge_protocol::ipc::event::PreviewRequest {
-                request_id,
-                max_width,
-                max_height,
-                max_bytes,
-            }))
+        link.port(&self.configure.media_channel)
+            .request_capture(player_core::RendererCaptureRequest { request_id, max_width, max_height, max_bytes })
             .is_ok()
     }
 
@@ -970,11 +900,11 @@ impl PresentationEngine {
     /// renderer received the request.
     pub fn identify(&self, name: &str, duration_seconds: u32) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.session
-            .send_event(Event::Identify(edge_protocol::ipc::event::Identify {
-                name: SafeText::lossy(name),
-                duration_seconds,
-            }))
+        link.port(&self.configure.media_channel)
+            .send_command(
+                uuid::Uuid::new_v4(),
+                &player_core::SemanticRendererCommand::Identify { name: SafeText::lossy(name), duration_seconds },
+            )
             .is_ok()
     }
 
@@ -988,20 +918,17 @@ impl PresentationEngine {
     /// `renderer.command_result` will carry.
     pub fn renderer_command_with_id(&self, command_id: uuid::Uuid, command: RendererCommandKind) -> bool {
         let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else { return false };
-        link.session.send_event(Event::RendererCommand(RendererCommand { command_id, command })).is_ok()
+        link.port(&self.configure.media_channel)
+            .send_command(command_id, &crate::renderer_adapter::command(command))
+            .is_ok()
     }
 
     /// Asks the connected renderer to exit so systemd starts a fresh one; the
     /// current activation is restored when it reconnects.
     pub fn restart_renderer(&mut self, reason: &str) -> bool {
         let Some(link) = self.renderer.as_ref() else { return false };
-        let sent = link
-            .session
-            .send_event(Event::RendererShutdown(RendererShutdown {
-                reason: ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token")),
-                deadline_ms: 5_000,
-            }))
-            .is_ok();
+        let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token"));
+        let sent = link.port(&self.configure.media_channel).request_restart(&reason, 5_000).is_ok();
         if sent {
             self.restart_count += 1;
         }
