@@ -2066,6 +2066,7 @@ export function ScreenListContent({
                         canManage={canManage}
                         selectedIds={selected}
                         csrfToken={csrfToken}
+                        showLocation={groupBy !== "location"}
                         onSelectionChange={(id, checked) => {
                           const next = new Set(selected);
                           if (checked) next.add(id);
