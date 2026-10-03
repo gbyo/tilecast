@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { i18n } from "../i18n";
 import type { PowerAssistResults, Screen, User } from "../api/types";
 import { canManageScreens } from "../data/screens";
@@ -101,6 +102,46 @@ describe("screen management", () => {
   it("renders an unknown status instead of crashing on incomplete data", () => {
     render(<StatusLabel status={null as unknown as Screen["status"]} />);
     expect(screen.getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("keeps long fleet statuses inside a sized table column", () => {
+    const item = {
+      id: "screen-recent",
+      name: "Library TV with a long screen name",
+      description: "",
+      location: "Edgewood Middle School",
+      platform: "linux",
+      playerVersion: "0.17.0",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      enabled: true,
+      pairedAt: new Date().toISOString(),
+      lastContactAt: new Date().toISOString(),
+      status: "recent",
+      hasActiveCredential: true,
+    } as Screen;
+
+    render(
+      <MemoryRouter>
+        <ScreenFleetTable
+          screens={[item]}
+          canManage={false}
+          selectedIds={new Set()}
+          csrfToken=""
+          showLocation={false}
+          onSelectionChange={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("table-fixed", "min-w-[56rem]");
+    expect(
+      screen.queryByRole("columnheader", { name: "Location" }),
+    ).not.toBeInTheDocument();
+
+    const status = screen.getByText("Recently online");
+    expect(status.closest("td")).toHaveClass("w-[7.5rem]");
   });
 
   it("uses the dashboard record when detail data is incomplete", () => {
