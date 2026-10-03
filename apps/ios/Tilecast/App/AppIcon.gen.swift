@@ -8,5 +8,6 @@ enum AppIcon {
     static let add = "Lucide/plus"
     static let manage = "Lucide/settings"
     static let reload = "Lucide/rotate-cw"
+    static let signOut = "Lucide/log-out"
     static let current = "Lucide/check"
 }
