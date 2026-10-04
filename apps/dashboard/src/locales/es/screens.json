@@ -269,7 +269,10 @@
     "mapUnmapped": "Pantallas sin posición en el mapa: {{count}}",
     "mapAriaLabel": "Mapa de la flota",
     "mapInherited": "Desde la ubicación",
-    "mapOpenScreen": "Abrir pantalla"
+    "mapOpenScreen": "Abrir pantalla",
+    "mapNativeTitle": "Mapa nativo",
+    "mapNativeBody": "Tilecast muestra estas pantallas en el mapa del sistema.",
+    "mapOpenNative": "Abrir mapa"
   },
   "grid": {
     "openScreen": "Abrir {{name}}",
