@@ -135,18 +135,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function primaryTabs() {
-  return await screen.findByRole("tablist", { name: "Screen details" });
+// A legacy deep link opens a modal panel that hides the page behind it from
+// the accessibility tree, so those tests must read the tab strip as hidden.
+async function primaryTabs({ hidden = false } = {}) {
+  return await screen.findByRole("tablist", { name: "Screen details", hidden });
 }
 
 describe("screen detail navigation", () => {
   it("maps legacy reliability links into Health diagnostics", async () => {
     renderDetail("/screens/screen-1?tab=reliability");
 
-    const tabs = await primaryTabs();
+    const tabs = await primaryTabs({ hidden: true });
     expect(
       within(tabs)
-        .getByRole("tab", { name: "Overview" })
+        .getByRole("tab", { name: "Overview", hidden: true })
         .getAttribute("aria-selected"),
     ).toBe("true");
     expect(within(tabs).queryByRole("tab", { name: "Device" })).toBeNull();
@@ -188,10 +190,10 @@ describe("screen detail navigation", () => {
 
     expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(await screen.findByText("Snapshot history")).toBeTruthy();
-    const tabs = await primaryTabs();
+    const tabs = await primaryTabs({ hidden: true });
     expect(
       within(tabs)
-        .getByRole("tab", { name: "Overview" })
+        .getByRole("tab", { name: "Overview", hidden: true })
         .getAttribute("aria-selected"),
     ).toBe("true");
   });
