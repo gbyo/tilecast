@@ -47,7 +47,8 @@
       "grantingTo": "Granting access to",
       "searching": "Searching…",
       "noMatch": "No matching users",
-      "noMatchHint": "Try a different search."
+      "noMatchHint": "Try a different search.",
+      "searchError": "User search failed"
     },
     "includedByBroader": "Included by a broader capability.",
     "saveAccess": "Save access"
@@ -82,9 +83,7 @@
     "publish": "Publish",
     "leave": {
       "title": "Leave without saving?",
-      "body": "You have unsaved changes to this form. Leaving now will discard them.",
-      "stay": "Stay on page",
-      "leave": "Leave without saving"
+      "body": "You have unsaved changes to this form. Leaving now will discard them."
     },
     "draftError": "Draft not saved",
     "draftFallback": "Could not save the draft.",
@@ -278,13 +277,13 @@
       "attachmentRemovedBy": "Removed an attachment by {{name}}",
       "unknown": "{{type}}{{actor}}",
       "byActor": " by {{name}}"
-    }
+    },
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "This review has unsaved changes."
   },
   "editor": {
     "leaveTitle": "Leave without saving?",
     "leaveBody": "You have unsaved changes to this submission. Leaving now will discard them.",
-    "stay": "Stay on page",
-    "leave": "Leave without saving",
     "changesRequested": "Changes requested",
     "anonymousReviewer": "Reviewer",
     "saveFailed": "Could not save",
@@ -310,8 +309,6 @@
     "duplicate": "Duplicate",
     "leaveTitle": "Leave without saving?",
     "leaveBody": "This view has unsaved changes.",
-    "stay": "Stay",
-    "leave": "Leave",
     "notSaved": "View not saved",
     "saveFallback": "Could not save the view.",
     "previewFallback": "Could not preview the view.",
@@ -367,8 +364,6 @@
     },
     "leaveTitle": "Leave without saving?",
     "leaveBody": "The workflow has unsaved changes.",
-    "stay": "Stay",
-    "leave": "Leave",
     "notSaved": "Workflow not saved",
     "saveFallback": "Could not save the workflow.",
     "fixBefore": "Fix these before saving",

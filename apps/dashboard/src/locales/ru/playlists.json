@@ -197,7 +197,8 @@
       "itemsAdded_other": "{{count}} элемента добавлено в плейлист."
     },
     "loadingLabel": "Загрузка плейлиста",
-    "noPublishedLayoutsTitle": "Нет опубликованных макетов"
+    "noPublishedLayoutsTitle": "Нет опубликованных макетов",
+    "leaveTitle": "Отменить несохранённые изменения плейлиста?"
   },
   "header": {
     "back": "Плейлисты",

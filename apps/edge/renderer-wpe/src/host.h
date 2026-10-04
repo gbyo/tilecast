@@ -66,6 +66,7 @@ struct _TcHost {
   WebKitNetworkSession *network_session;
   WebKitWebView *view;
   gboolean runtime_ready;
+  JsonNode *runtime_support;
   guint web_process_terminations;
 
   /* IPC. */

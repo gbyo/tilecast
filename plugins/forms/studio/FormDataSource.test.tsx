@@ -209,7 +209,7 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
 
     // Cancel keeps us on the builder.
-    await user.click(screen.getByRole("button", { name: "Stay on page" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Screens page")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Save draft" }),
@@ -220,7 +220,7 @@ describe("Form Data Source Studio", () => {
       await router.navigate("/screens");
     });
     await user.click(
-      await screen.findByRole("button", { name: "Leave without saving" }),
+      await screen.findByRole("button", { name: "Discard changes" }),
     );
     expect(await screen.findByText("Screens page")).toBeInTheDocument();
   });
@@ -311,8 +311,44 @@ describe("Form Data Source Studio", () => {
     expect(
       await screen.findByText("Leave without saving?"),
     ).toBeInTheDocument();
+
+    // Cancel keeps us on the builder tab.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(
       screen.getByRole("button", { name: "Save draft" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a search error instead of no-match when the directory fails", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([]);
+    vi.spyOn(formsApi, "searchFormUsers").mockRejectedValue(new Error("boom"));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/f1?tab=access", "owner");
+
+    await user.type(await screen.findByLabelText("Find a user"), "zoe");
+    expect(await screen.findByText("User search failed")).toBeInTheDocument();
+    expect(screen.queryByText("No matching users")).not.toBeInTheDocument();
+  });
+
+  it("confirms before Cancel discards metadata edits", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/f1?tab=form", "owner");
+
+    await user.click(
+      await screen.findByRole("button", { name: "Edit details" }),
+    );
+    await user.type(await screen.findByLabelText("Form name"), "!");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Edit details" }),
     ).toBeInTheDocument();
   });
 });

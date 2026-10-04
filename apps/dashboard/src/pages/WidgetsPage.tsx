@@ -7,10 +7,10 @@ import {
 import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -27,6 +27,7 @@ import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import {
   WidgetProviderGallery,
   YouTubeSourceEditor,
@@ -104,19 +105,20 @@ export function WidgetsPage() {
   });
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t("widgets.list.title")}</h1>
-          {canManage && (
-            <Button type="button" onClick={() => void navigate("/widgets/new")}>
+      <PageHeader
+        title={t("widgets.list.title")}
+        description={t("widgets.list.subtitle")}
+        actions={
+          canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/widgets/new"
+            >
               <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("widgets.list.subtitle")}
-        </p>
-      </header>
+            </Link>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}
@@ -156,10 +158,21 @@ export function WidgetsPage() {
         </div>
       ) : widgets.isError ? (
         <Alert variant="destructive">
-          <AlertDescription>
-            {widgets.error instanceof ApiError
-              ? apiErrorMessage(widgets.error)
-              : t("widgets.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {widgets.error instanceof ApiError
+                ? apiErrorMessage(widgets.error)
+                : t("widgets.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={widgets.isFetching}
+              onClick={() => void widgets.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       ) : items.length === 0 ? (
@@ -173,12 +186,12 @@ export function WidgetsPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/widgets/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/widgets/new"
               >
                 {t("widgets.list.create")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>

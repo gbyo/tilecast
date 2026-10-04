@@ -603,7 +603,7 @@ export function PlayerUpdatesPanel({
         ...flow,
         retryAfterSeconds: flow.pollIntervalSeconds,
       }),
-    onError: (error) => setGitHubAuthMessage(error.message),
+    onError: (error) => setGitHubAuthMessage(apiErrorMessage(error)),
   });
   const disconnectGitHub = useMutation({
     mutationFn: () => api.disconnectGitHub(auth.status?.csrfToken ?? ""),
@@ -617,7 +617,7 @@ export function PlayerUpdatesPanel({
       });
       await client.invalidateQueries({ queryKey: ["player-releases"] });
     },
-    onError: (error) => setGitHubAuthMessage(error.message),
+    onError: (error) => setGitHubAuthMessage(apiErrorMessage(error)),
   });
   useEffect(() => {
     if (!githubFlow) return;
@@ -666,7 +666,7 @@ export function PlayerUpdatesPanel({
           setGitHubFlow(null);
           setGitHubAuthMessage(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("updates.panel.githubIncomplete"),
           );
         });

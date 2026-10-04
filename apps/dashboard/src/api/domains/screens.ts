@@ -13,6 +13,7 @@ import type {
   PlayerCommandType,
   PlayerHistory,
   PowerAssistResults,
+  MapCoordinates,
   ReliabilityStatus,
   Screen,
   ScreenSnapshotList,
@@ -257,6 +258,7 @@ export async function updateScreen(
     locationId?: string;
     roomName: string;
     roomNumber: string;
+    mapPositionOverride?: MapCoordinates | null;
     description: string;
   },
   csrfToken: string,

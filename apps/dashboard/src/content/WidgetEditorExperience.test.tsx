@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState, type ReactNode } from "react";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { toast } from "../components/ui/toast";
@@ -176,8 +177,11 @@ function renderEditor(editor: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([{ path: "*", element: editor }]);
   return render(
-    <QueryClientProvider client={client}>{editor}</QueryClientProvider>,
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
   );
 }
 

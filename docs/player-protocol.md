@@ -15,6 +15,14 @@ The bootstrap identity endpoint is public and returns only the product identifie
 
 Pairing sessions expire after ten minutes. Codes use an unambiguous alphabet and are compared through indexed SHA-256 hashes. Expired records are marked during pairing activity and may be removed by later maintenance.
 
+### Approval URL
+
+The approval URL has this form: `/screens/pair/<code>?installation=<uuid>`. The installation ID is non-secret context. It lets Studio match a scanned QR code to the active installation. The URL carries no poll secret, no enrollment token, and no device credential.
+
+The Player shows the visible code and the approval URL as a QR code. The visible code stays the manual fallback. The QR code never replaces it.
+
+Studio extracts the code from a scanned QR code and resolves it against the active Tilecast Server. Studio never loads the scanned URL. A QR code from the same installation resolves even when its origin differs from the configured address, for example a LAN address against a public hostname. A QR code from another installation cannot trigger a pairing lookup.
+
 ### Pairing recovery
 
 The player installation UUID remains stable across upgrades and is used to recognize a previously paired screen. Studio shows the existing screen name and requires the deliberate **Repair and replace credential** action when that screen still has an active credential. Approval records the authorization but does not revoke the old credential. Only a successful one-time enrollment creates the replacement credential and revokes the previous active credentials in the same database transaction. The existing screen ID, assignments, groups, schedules, policies, and history remain unchanged.

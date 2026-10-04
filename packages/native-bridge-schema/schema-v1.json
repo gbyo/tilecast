@@ -142,6 +142,10 @@
               "description": "Studio handles system/media-intake-completed. A host sends it only to a Studio that reported this.",
               "type": "boolean"
             },
+            "systemMap": {
+              "description": "Studio handles system/map-action and system/map-dismissed for a generic native map presentation.",
+              "type": "boolean"
+            },
             "deepLinks": {
               "description": "Studio handles navigation/open-path that a host sends for a deep link, and refuses the reserved authentication paths.",
               "type": "boolean"
@@ -209,6 +213,14 @@
               "description": "The host performs standard system feedback for system/haptic. Both contexts.",
               "type": "boolean"
             },
+            "systemQrScanner": {
+              "description": "The host can scan one QR code with the system camera for system/scan-qr, and reports the bounded text with system/qr-scan-result. Both contexts.",
+              "type": "boolean"
+            },
+            "systemMap": {
+              "description": "The host can present bounded geographic points with its native map UI. Main page only.",
+              "type": "boolean"
+            },
             "nativeMediaIntake": {
               "description": "The host can choose media with system pickers and upload it with its own credential. Main page only. system/media-intake-status reports whether it can start now.",
               "type": "boolean"
@@ -259,6 +271,55 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "systemMapTone": {
+      "description": "Semantic marker styling. The host chooses the platform color.",
+      "enum": ["default", "positive", "warning", "critical", "muted"]
+    },
+    "systemMapPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "latitude", "longitude"],
+      "properties": {
+        "id": { "$ref": "#/$defs/actionId" },
+        "title": { "$ref": "#/$defs/title" },
+        "subtitle": { "$ref": "#/$defs/title" },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "tone": { "$ref": "#/$defs/systemMapTone" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
+    },
+    "systemMapPayload": {
+      "description": "A complete generic native-map snapshot. The host learns only bounded labels, coordinates, semantic tones, and opaque actions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId", "title", "points"],
+      "properties": {
+        "mapId": { "$ref": "#/$defs/actionId" },
+        "title": { "$ref": "#/$defs/title" },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/systemMapPoint" }
+        }
+      }
+    },
+    "systemMapIdPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId"],
+      "properties": { "mapId": { "$ref": "#/$defs/actionId" } }
+    },
+    "systemMapActionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId", "actionId"],
+      "properties": {
+        "mapId": { "$ref": "#/$defs/actionId" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
     },
     "presentationAction": {
       "type": "object",
@@ -450,7 +511,10 @@
                 "system/haptic",
                 "system/share",
                 "system/media-intake-status",
-                "system/media-intake"
+                "system/media-intake",
+                "system/scan-qr",
+                "system/map-present",
+                "system/map-dismiss"
               ]
             }
           }
@@ -601,6 +665,31 @@
               "payload": { "$ref": "#/$defs/systemMediaIntakePayload" }
             }
           }
+        },
+        {
+          "description": "Either context. Studio asks the host to scan one QR code. The host replies ok when it begins presenting the scanner, or unavailable when it cannot: unsupported hardware, another scan active, or no camera. The result arrives later as system/qr-scan-result.",
+          "if": { "properties": { "type": { "const": "system/scan-qr" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemQrScanPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. Present or update a bounded set of geographic points in the host's native map.",
+          "if": { "properties": { "type": { "const": "system/map-present" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/systemMapPayload" } }
+          }
+        },
+        {
+          "description": "Main page only. Withdraw the matching native map if it is still active.",
+          "if": { "properties": { "type": { "const": "system/map-dismiss" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
+            }
+          }
         }
       ]
     },
@@ -621,7 +710,10 @@
                 "presentation/ended",
                 "alert/action",
                 "navigation/back",
-                "system/media-intake-completed"
+                "system/media-intake-completed",
+                "system/qr-scan-result",
+                "system/map-action",
+                "system/map-dismissed"
               ]
             }
           }
@@ -720,6 +812,39 @@
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/mediaIntakeCompletedPayload" }
+            }
+          }
+        },
+        {
+          "description": "Either context. Sent to the page that asked for system/scan-qr, and only while that scan is active. A result for a stale request, or for a page whose presentation ended, is never delivered to another page.",
+          "if": {
+            "properties": {
+              "type": { "const": "system/qr-scan-result" }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/qrScanResultPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The user chose an opaque action exposed by a native map point.",
+          "if": { "properties": { "type": { "const": "system/map-action" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapActionPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The native map was dismissed by the user.",
+          "if": {
+            "properties": { "type": { "const": "system/map-dismissed" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
             }
           }
         }
@@ -842,6 +967,48 @@
         "outcome": { "enum": ["completed", "partial", "failed", "cancelled"] },
         "uploadedCount": { "type": "integer", "minimum": 0, "maximum": 1000 }
       }
+    },
+    "qrScanRequestId": {
+      "description": "An opaque identifier Studio creates for one QR scan. It separates one scan from the next, so a late result cannot resolve a newer scan.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "qrScanValue": {
+      "description": "The scanned QR code's text payload, bounded. No image data, camera frame, file URL, or credential crosses the bridge.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "systemQrScanPayload": {
+      "description": "Asks the host to scan one QR code with the system camera. The host replies ok when scanning begins; the result arrives later as system/qr-scan-result.",
+      "type": "object",
+      "required": ["requestId"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": { "$ref": "#/$defs/qrScanRequestId" }
+      }
+    },
+    "qrScanResultPayload": {
+      "description": "The outcome of one QR scan. scanned carries the payload text; cancelled means the user dismissed the scanner; unavailable means scanning failed after acceptance, for example a revoked permission.",
+      "type": "object",
+      "required": ["requestId", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": { "$ref": "#/$defs/qrScanRequestId" },
+        "outcome": { "enum": ["scanned", "cancelled", "unavailable"] },
+        "value": { "$ref": "#/$defs/qrScanValue" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "outcome": { "const": "scanned" } } },
+          "then": {
+            "properties": { "value": { "$ref": "#/$defs/qrScanValue" } },
+            "required": ["value"]
+          }
+        }
+      ]
     }
   }
 }

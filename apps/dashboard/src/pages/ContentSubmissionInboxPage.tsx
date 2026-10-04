@@ -484,7 +484,7 @@ export function ContentSubmissionInboxPage() {
       )}
       {error && (
         <Alert variant="destructive">
-          <AlertDescription>{error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
         </Alert>
       )}
       <Sheet
