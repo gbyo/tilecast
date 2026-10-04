@@ -6,7 +6,7 @@ import {
   type MapMouseEvent,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { MapPin, RotateCcw } from "lucide-react";
+import { Crosshair, MapPin, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MapCoordinates } from "../api/types";
 import { Button } from "./ui/button";
@@ -33,6 +33,16 @@ export function ScreenPositionPicker({
   locationRef.current = locationPosition;
 
   const effectivePosition = value ?? locationPosition;
+  // Depend on the coordinates, not the object: the parent may build a new
+  // locationPosition object on every render, and each one would recenter the
+  // map under a user who is panning to choose a position.
+  const latitude = effectivePosition?.latitude;
+  const longitude = effectivePosition?.longitude;
+
+  const placeAtMapCenter = () => {
+    const center = mapRef.current?.getCenter().wrap();
+    if (center) onChange({ longitude: center.lng, latitude: center.lat });
+  };
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -68,21 +78,21 @@ export function ScreenPositionPicker({
     const map = mapRef.current;
     if (!map) return;
 
-    if (!effectivePosition) {
+    if (latitude === undefined || longitude === undefined) {
       markerRef.current?.remove();
       markerRef.current = null;
       return;
     }
 
     map.easeTo({
-      center: [effectivePosition.longitude, effectivePosition.latitude],
+      center: [longitude, latitude],
       zoom: Math.max(map.getZoom(), 15),
       duration: 250,
     });
 
     if (!markerRef.current) {
       const marker = new Marker({ draggable: true })
-        .setLngLat([effectivePosition.longitude, effectivePosition.latitude])
+        .setLngLat([longitude, latitude])
         .addTo(map);
       marker.on("dragend", () => {
         const position = marker.getLngLat();
@@ -90,12 +100,9 @@ export function ScreenPositionPicker({
       });
       markerRef.current = marker;
     } else {
-      markerRef.current.setLngLat([
-        effectivePosition.longitude,
-        effectivePosition.latitude,
-      ]);
+      markerRef.current.setLngLat([longitude, latitude]);
     }
-  }, [effectivePosition, onChange]);
+  }, [latitude, longitude, onChange]);
 
   return (
     <div className="space-y-2">
@@ -113,19 +120,30 @@ export function ScreenPositionPicker({
                 : t("detail.mapPositionNone")}
           </p>
         </div>
-        {value && (
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => onChange(undefined)}
+            onClick={placeAtMapCenter}
           >
-            <RotateCcw aria-hidden="true" />
-            {locationPosition
-              ? t("detail.mapPositionUseLocation")
-              : t("detail.mapPositionClear")}
+            <Crosshair aria-hidden="true" />
+            {t("detail.mapPositionPlaceCenter")}
           </Button>
-        )}
+          {value && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onChange(undefined)}
+            >
+              <RotateCcw aria-hidden="true" />
+              {locationPosition
+                ? t("detail.mapPositionUseLocation")
+                : t("detail.mapPositionClear")}
+            </Button>
+          )}
+        </div>
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-muted">
         <div

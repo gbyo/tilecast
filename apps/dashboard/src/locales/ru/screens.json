@@ -900,6 +900,7 @@
     "mapPositionNone": "Позиция пока не задана.",
     "mapPositionUseLocation": "Использовать местоположение",
     "mapPositionClear": "Очистить позицию",
+    "mapPositionPlaceCenter": "Поставить в центр карты",
     "mapPositionAriaLabel": "Выбор позиции экрана на карте",
     "mapPositionHint": "Нажмите на карту или перетащите маркер, чтобы задать точную позицию экрана."
   },
