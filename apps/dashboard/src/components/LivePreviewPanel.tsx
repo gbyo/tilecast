@@ -26,6 +26,15 @@ import {
 } from "./LiveStreamDialog";
 import { Button } from "./ui/button";
 import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
+import {
   livePreviewState,
   previewAge,
   previewUnavailableMessage,
@@ -164,20 +173,11 @@ export function LivePreviewPanel({
   }, [preview.data?.capturedAt]);
 
   return (
-    <aside
-      className="live-preview-panel grid gap-4 rounded-xl border border-border bg-card p-4"
-      aria-label={t("livePreview.title")}
-    >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t("livePreview.onDemand")}
-          </span>
-          <h2 className="mt-0.5 text-base font-semibold">
-            {t("livePreview.title")}
-          </h2>
-        </div>
-        <div className="flex flex-wrap justify-end gap-2">
+    <Card aria-label={t("livePreview.title")} className="min-w-0">
+      <CardHeader>
+        <CardTitle>{t("livePreview.title")}</CardTitle>
+        <CardDescription>{t("livePreview.onDemand")}</CardDescription>
+        <CardAction className="col-span-full row-start-auto mt-2 flex flex-wrap justify-start gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:justify-self-end">
           {onOpenHistory && (
             <Button size="sm" variant="ghost" onClick={onOpenHistory}>
               <Clock3 aria-hidden="true" />
@@ -203,89 +203,92 @@ export function LivePreviewPanel({
             <Video aria-hidden="true" />
             {t("livePreview.watchLive")}
           </Button>
-        </div>
-      </header>
+        </CardAction>
+      </CardHeader>
 
-      <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
-        {!imageLoadFailed &&
-        (state === "live" || state === "stale") &&
-        imageUrl ? (
-          <img
-            className="size-full bg-black object-contain"
-            src={imageUrl}
-            alt={t("livePreview.imageAlt", {
-              name: screen.data?.name ?? t("livePreview.unknownScreen"),
-            })}
-            onError={() => setImageLoadFailed(true)}
-          />
-        ) : (
-          <PreviewState
-            state={displayState}
-            failureStatus={preview.data?.captureFailureStatus}
-          />
-        )}
-        {imageUrl && !imageLoadFailed && captureAge && (
-          <span
-            className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
-            title={
-              capturedAt
-                ? t("livePreview.capturedTitle", {
-                    date: capturedAt.toLocaleString(formatLocale),
-                  })
-                : undefined
-            }
-          >
-            {captureAge.label}
-          </span>
-        )}
-      </div>
-
-      <div className="grid gap-1" aria-live="polite">
-        <strong className="text-sm font-medium">
-          {t(stateLabelKeys[displayState])}
-        </strong>
-        <span className="text-sm text-muted-foreground">
-          {stateDescription(
-            displayState,
-            manualRefreshError ?? renewalError,
-            t,
+      <CardContent className="min-w-0">
+        <div className="relative grid aspect-video overflow-hidden rounded-xl border border-border bg-[#080b0f]">
+          {!imageLoadFailed &&
+          (state === "live" || state === "stale") &&
+          imageUrl ? (
+            <img
+              className="size-full bg-black object-contain"
+              src={imageUrl}
+              alt={t("livePreview.imageAlt", {
+                name: screen.data?.name ?? t("livePreview.unknownScreen"),
+              })}
+              onError={() => setImageLoadFailed(true)}
+            />
+          ) : (
+            <PreviewState
+              state={displayState}
+              failureStatus={preview.data?.captureFailureStatus}
+            />
           )}
-        </span>
-      </div>
+          {imageUrl && !imageLoadFailed && captureAge && (
+            <span
+              className={`absolute right-2 bottom-2 rounded-md px-2 py-1 text-xs font-semibold ${captureAgeToneClasses[captureAge.tone]}`}
+              title={
+                capturedAt
+                  ? t("livePreview.capturedTitle", {
+                      date: capturedAt.toLocaleString(formatLocale),
+                    })
+                  : undefined
+              }
+            >
+              {captureAge.label}
+            </span>
+          )}
+        </div>
 
-      <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">
-        <div className="grid gap-1">
-          <dt>{t("livePreview.lastCapture")}</dt>
-          <dd className="m-0 break-words text-muted-foreground">
-            {capturedAt
-              ? capturedAt.toLocaleString(formatLocale)
-              : t("livePreview.notCaptured")}
-          </dd>
+        <div className="grid gap-1" aria-live="polite">
+          <strong className="text-sm font-medium">
+            {t(stateLabelKeys[displayState])}
+          </strong>
+          <span className="text-sm text-muted-foreground">
+            {stateDescription(
+              displayState,
+              manualRefreshError ?? renewalError,
+              t,
+            )}
+          </span>
         </div>
-        <div className="grid gap-1">
-          <dt>{t("livePreview.player")}</dt>
-          <dd className="m-0 break-words text-muted-foreground">
-            {preview.data?.playerVersion ||
-              screen.data?.playerVersion ||
-              t("shared.unknown")}
-          </dd>
-        </div>
-        <div className="grid gap-1">
-          <dt>{t("livePreview.image")}</dt>
-          <dd className="m-0 break-words text-muted-foreground">
-            {preview.data?.width && preview.data?.height
-              ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize, formatLocale)}`
-              : t("livePreview.noImage")}
-          </dd>
-        </div>
-      </dl>
-      <div className="flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+
+        <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">
+          <div className="grid gap-1">
+            <dt>{t("livePreview.lastCapture")}</dt>
+            <dd className="m-0 break-words text-muted-foreground">
+              {capturedAt
+                ? capturedAt.toLocaleString(formatLocale)
+                : t("livePreview.notCaptured")}
+            </dd>
+          </div>
+          <div className="grid gap-1">
+            <dt>{t("livePreview.player")}</dt>
+            <dd className="m-0 break-words text-muted-foreground">
+              {preview.data?.playerVersion ||
+                screen.data?.playerVersion ||
+                t("shared.unknown")}
+            </dd>
+          </div>
+          <div className="grid gap-1">
+            <dt>{t("livePreview.image")}</dt>
+            <dd className="m-0 break-words text-muted-foreground">
+              {preview.data?.width && preview.data?.height
+                ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize, formatLocale)}`
+                : t("livePreview.noImage")}
+            </dd>
+          </div>
+        </dl>
+      </CardContent>
+
+      <CardFooter className="border-t text-xs text-muted-foreground">
         <ShieldCheck
           className="size-4 text-emerald-700 dark:text-emerald-400"
           aria-hidden="true"
         />
-        <span>{t("livePreview.protectedNote")}</span>
-      </div>
+        <span className="ml-2">{t("livePreview.protectedNote")}</span>
+      </CardFooter>
       {csrfToken && (
         <LiveStreamDialog
           open={watchingLive}
@@ -295,7 +298,7 @@ export function LivePreviewPanel({
           onClose={() => setWatchingLive(false)}
         />
       )}
-    </aside>
+    </Card>
   );
 }
 
