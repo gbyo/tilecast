@@ -103,7 +103,9 @@ function renderPresentation(
   );
 }
 
-function testPresentation(overrides: Partial<NativePresentation> = {}) {
+function testPresentation(
+  overrides: Partial<NativePresentation> = {},
+): NativePresentation {
   return {
     presentationId: "p-1",
     update: vi.fn(),
@@ -123,13 +125,13 @@ describe("PairScreenPresentation", () => {
     expect(
       screen.getByRole("textbox", { name: "Pairing code" }),
     ).toBeInTheDocument();
-    expect(presentation.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        size: "full",
-        dismissible: true,
-        header: expect.objectContaining({ title: "Pair a screen" }),
-      }),
-    );
+    expect(presentation.update).toHaveBeenCalled();
+    const chrome = vi.mocked(presentation.update).mock.calls[0]?.[0];
+    expect(chrome).toMatchObject({
+      size: "full",
+      dismissible: true,
+      header: { title: "Pair a screen" },
+    });
   });
 
   it("opens a paired screen through the presentation and closes on done", async () => {
