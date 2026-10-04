@@ -23,6 +23,15 @@ func TestSecurityHeadersContentSecurityPolicy(t *testing.T) {
 	if strings.Contains(policy, "script-src 'self' 'unsafe-inline'") {
 		t.Fatal("script-src must not allow unsafe inline scripts")
 	}
+	if !strings.Contains(policy, "connect-src 'self' https://tiles.openfreemap.org") {
+		t.Fatal("connect-src must allow the OpenFreeMap style and tile origin")
+	}
+	if !strings.Contains(policy, "img-src 'self' data: https://images.unsplash.com https://tiles.openfreemap.org") {
+		t.Fatal("img-src must allow OpenFreeMap raster and sprite resources")
+	}
+	if strings.Contains(policy, "connect-src *") || strings.Contains(policy, "connect-src 'self' https:") {
+		t.Fatal("connect-src must remain scoped to explicit trusted origins")
+	}
 }
 
 func TestRateLimiter(t *testing.T) {
