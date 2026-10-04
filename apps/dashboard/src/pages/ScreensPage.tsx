@@ -47,7 +47,7 @@ import {
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
@@ -2675,15 +2675,15 @@ export function ScreenDetailPage() {
     queryFn: () => api.layouts(""),
     enabled: canManageScreens(auth.status?.user),
   });
+  const persistedPresentation = assignment.data?.layoutId
+    ? `layout:${assignment.data.layoutId}`
+    : assignment.data?.playlistId
+      ? `playlist:${assignment.data.playlistId}`
+      : "";
+  const assignmentDirty = selectedPresentation !== persistedPresentation;
   useEffect(() => {
-    setSelectedPresentation(
-      assignment.data?.layoutId
-        ? `layout:${assignment.data.layoutId}`
-        : assignment.data?.playlistId
-          ? `playlist:${assignment.data.playlistId}`
-          : "",
-    );
-  }, [assignment.data?.layoutId, assignment.data?.playlistId]);
+    setSelectedPresentation(persistedPresentation);
+  }, [persistedPresentation]);
   const assign = useMutation({
     mutationFn: () => {
       const [type, presentationId] = selectedPresentation.split(":");
@@ -2701,11 +2701,15 @@ export function ScreenDetailPage() {
         );
       return api.unassignPlaylist(id, auth.status?.csrfToken ?? "");
     },
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
       toast.add({ title: "Presentation assignment updated.", type: "success" });
-      await queryClient.invalidateQueries({
-        queryKey: screenKeys.assignment(id),
-      });
+      queryClient.setQueryData(screenKeys.assignment(id), updated);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: screenKeys.assignment(id),
+        }),
+        queryClient.invalidateQueries({ queryKey: screenKeys.list() }),
+      ]);
     },
   });
   const stateMutation = useMutation({
@@ -3327,11 +3331,12 @@ export function ScreenDetailPage() {
                         })),
                       ]}
                       value={selectedPresentation || "__none__"}
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
+                        assign.reset();
                         setSelectedPresentation(
                           value === "__none__" ? "" : (value ?? ""),
-                        )
-                      }
+                        );
+                      }}
                     >
                       <SelectTrigger
                         aria-label={t("detail.assignedLabel")}
@@ -3373,15 +3378,7 @@ export function ScreenDetailPage() {
                     </Select>
                   </div>
                   <Button
-                    disabled={
-                      assign.isPending ||
-                      selectedPresentation ===
-                        (assignment.data?.layoutId
-                          ? `layout:${assignment.data.layoutId}`
-                          : assignment.data?.playlistId
-                            ? `playlist:${assignment.data.playlistId}`
-                            : "")
-                    }
+                    disabled={assign.isPending || !assignmentDirty}
                     onClick={() => assign.mutate()}
                   >
                     {assign.isPending
@@ -3391,6 +3388,20 @@ export function ScreenDetailPage() {
                         : t("detail.applyAssignment")}
                   </Button>
                 </div>
+                {assignmentDirty && !assign.isPending && !assign.isError && (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    {t("detail.assignmentPendingHint")}
+                  </p>
+                )}
+                {assign.isError && (
+                  <Alert variant="destructive">
+                    <CircleAlert aria-hidden="true" />
+                    <AlertTitle>{t("detail.assignmentSaveError")}</AlertTitle>
+                    <AlertDescription>
+                      {apiErrorMessage(assign.error)}
+                    </AlertDescription>
+                  </Alert>
+                )}
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {assignment.data?.layoutName ??
