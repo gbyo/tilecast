@@ -179,7 +179,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     if (
       !containerRef.current ||
       mapRef.current ||
-      mapped.length === 0 ||
+      !hasMappedScreens ||
       nativeMapUsable
     )
       return;
@@ -253,19 +253,20 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
         },
       });
 
-      map.on("click", CLUSTER_LAYER_ID, async (event) => {
+      map.on("click", CLUSTER_LAYER_ID, (event) => {
         const feature = event.features?.[0];
         if (!feature || feature.geometry.type !== "Point") return;
         const clusterId = Number(feature.properties?.cluster_id);
         const source = map.getSource(MAP_SOURCE_ID);
         if (!(source instanceof GeoJSONSource) || !Number.isFinite(clusterId))
           return;
-        const zoom = await source.getClusterExpansionZoom(clusterId);
         const coordinates = feature.geometry.coordinates as [number, number];
-        map.easeTo({ center: coordinates, zoom });
+        void source
+          .getClusterExpansionZoom(clusterId)
+          .then((zoom) => map.easeTo({ center: coordinates, zoom }));
       });
       map.on("click", SCREEN_LAYER_ID, (event) => {
-        const screenId = event.features?.[0]?.properties?.screenId;
+        const screenId: unknown = event.features?.[0]?.properties?.screenId;
         if (typeof screenId === "string") setSelectedId(screenId);
       });
       for (const layer of [CLUSTER_LAYER_ID, SCREEN_LAYER_ID]) {
