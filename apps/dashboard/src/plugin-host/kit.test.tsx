@@ -33,7 +33,9 @@ describe("@tilecast/studio action menus", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Actions for Fixture" }),
     );
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Open" }));
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Open" }),
+    );
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
 
