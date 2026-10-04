@@ -3528,10 +3528,6 @@ export function ScreenDetailPage() {
                       }
                     />
                     <OverviewFact
-                      label={t("detail.currentSelection")}
-                      value={selectionSummary(assignment.data, t)}
-                    />
-                    <OverviewFact
                       label={t("detail.nextScheduledChange")}
                       value={
                         assignment.data?.nextTransitionAt
