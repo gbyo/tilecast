@@ -112,6 +112,9 @@ struct Metadata<'a>(&'a DaemonContext);
 
 #[async_trait::async_trait]
 impl player_core::PairingMetadataProvider for Metadata<'_> {
+    fn new_player_id(&self) -> edge_protocol::PlayerId {
+        edge_protocol::PlayerId::from_uuid(uuid::Uuid::new_v4())
+    }
     async fn metadata(&self, player: PlayerId) -> DeviceMetadata {
         let display = self
             .0

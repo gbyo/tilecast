@@ -197,7 +197,7 @@ async fn flush(db: &StateDb, server: &AuthenticatedServer, now: Timestamp) -> Re
 
 /// The activity task: turns daemon signals into outbox rows and flushes the
 /// outbox to the server.
-pub async fn drive_activity(dependencies: Dependencies, services: ActivityServices<'_>) {
+pub(crate) async fn drive_activity(dependencies: Dependencies, services: ActivityServices<'_>) {
     let db = dependencies.state;
     let clocks = services.clocks;
     let timezone = services.timezone;

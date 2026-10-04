@@ -19,11 +19,15 @@ Work that is not part of Edge 1 is in [`tilecast-edge-future.md`](tilecast-edge-
 
 The [Core ownership contract](player-core.md) defines the extraction sequence.
 The root workspace now has five shared Player crates.
-`player-core` implements native selection, command delivery, Activity sessions,
-and the CAS origin adapter. Edge calls these implementations.
+`player-core` implements native selection, pairing, Server reconciliation,
+manifest preparation, configuration acceptance, offline activation, command
+delivery, Activity reporting, telemetry policy, and renderer recovery.
+Edge calls these implementations.
 The Core modules remain private. Hosts use the composition API and semantic types.
-Edge retains Linux handlers, the migration hold, renderer adapters, and outbox
-delivery in this stage. Renderer recovery and reconciliation remain in Edge.
+Edge retains Linux handlers, the migration hold, Runtime projection,
+renderer adapters, private stores, and lifecycle. The
+[readiness review](player-core-readiness.md) records qualification and remaining
+platform work.
 The historical milestone records below use their original implementation names.
 This extraction does not establish physical hardware qualification.
 

@@ -81,6 +81,9 @@ struct Measurements<'a>(&'a DaemonContext);
 
 #[async_trait::async_trait]
 impl player_core::TelemetryHost for Measurements<'_> {
+    fn new_sample_id(&self) -> uuid::Uuid {
+        uuid::Uuid::new_v4()
+    }
     async fn observe(&self) -> player_core::TelemetryTick {
         observe(self.0).await
     }

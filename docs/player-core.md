@@ -1,8 +1,8 @@
 # Native Player Core
 
-**Status:** Accepted extraction contract. The five shared crates and Core
-foundation and renderer stage are implemented and qualified.
-Reconciliation extraction remains.
+**Status:** Accepted extraction contract. Stages 1 through 9 are implemented
+and qualified. Stages 10 and 11 are implemented in open draft PRs.
+Stage 12 hardening and the readiness review are in progress.
 Edge keeps its current behavior throughout the extraction.
 
 This document defines ownership for native Player work. It supplements
@@ -157,8 +157,8 @@ from Linux kiosk and Presentation Network policy. Runtime fields keep their
 existing values and defaults, including unknown bounded playback context fields.
 Core now owns conditional manifest fetches, stable manifest identity,
 binding-scoped target persistence, and native resource-claim validation.
-Runtime-owned fields in the manifest stay opaque. Edge still owns renderer
-projection and compatibility checks and drives activation. Core owns
+Runtime-owned fields in the manifest stay opaque. Edge owns Runtime projection
+and supplies explicit compatibility requirements. Core drives activation and owns
 preparation-worker supervision, verified content preparation, repair, pin identities,
 and target-bound pending storage. Core tests use SQLite and CAS to check repair
 and replacement during a fetch.
@@ -172,7 +172,7 @@ The first stage-9 CI run passed 39 of 40 Linux playback tests. The clock
 sampling test failed on a timestamp rewrite with a final offset change of 9 ms.
 The sampling rule is unchanged. The same test passed in isolation in Linux
 Docker, and all 40 playback tests then passed locally in that image.
-The CI qualification gate remains unqualified until the current head passes.
+Later qualification passed at `f19a6b88`, including that playback test.
 
 ## Core foundation
 
@@ -188,6 +188,10 @@ and bounded shutdown flushing. Edge retains renderer signal projection and
 supplies clocks, IDs, and timezone observations. Edge constructs one PlayerCore
 with shared durable dependencies. It connects the narrow host services to
 domain drivers and keeps Linux lifecycle and hardware tasks separate.
+`PlayerCore::run_server_link`, `run_activity`, and `run_telemetry` use those
+dependencies. Hosts do not construct a second set for these drivers.
+Hosts generate Player, activation, command, capture, and telemetry IDs.
+Core persists stable Player identity and correlates the supplied request IDs.
 Core owns the renderer recovery ladder and meaningful-evidence rules.
 Core tracks acceptance, errors, and evidence by connection and activation.
 It refuses stale observations and bounds evidence logs and content-item sets.
@@ -324,6 +328,8 @@ profiles, and checks installed revisions and credential availability.
 NetworkManager, Wi-Fi mechanics, helper sockets, and recovery stay in Edge.
 Discovery supplies a candidate URL to the shared URL policy and pairing path.
 Core needs no discovery abstraction until a real consumer requires it.
+Generic capability values and IDs live in `player-types`.
+WPE, systemd, PipeWire, CEC, and DDC provider IDs live in `edge-protocol`.
 
 Edge updates remain intact: release family, signed archive, installer,
 privileged helper, systemd guards, provisional activation, and rollback.
@@ -394,6 +400,7 @@ capability providers, lifecycle, distribution, and secure media delivery.
 It must not need another implementation of pairing, reconciliation, manifests,
 offline selection, idempotency, Activity, recovery, or content verification.
 Record remaining macOS work in a readiness review. Do not create the app.
+The current review is [`player-core-readiness.md`](player-core-readiness.md).
 
 ## Current characterization
 

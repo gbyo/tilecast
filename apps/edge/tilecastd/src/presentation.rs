@@ -269,7 +269,11 @@ impl PresentationEngine {
         let renderer_metadata = crate::renderer_adapter::metadata(&document, source, extras.projection.as_ref())?;
         let reference = self
             .native
-            .begin_activation(renderer_metadata.clone(), policy_time(now_ms))
+            .begin_activation(
+                ActivationId::from_uuid(uuid::Uuid::new_v4()),
+                renderer_metadata.clone(),
+                policy_time(now_ms),
+            )
             .map_err(|_| PresentationError::InvalidRequirements)?;
         let activation = Activation {
             id: reference.activation_id,
@@ -465,13 +469,13 @@ impl PresentationEngine {
             }
             HealAction::ReloadRenderer => {
                 if let Some(link) = &self.renderer {
-                    let _ = self.native.dispatch_recovery(link.port(), action);
+                    let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
             }
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
                 if let Some(link) = &self.renderer {
-                    let _ = self.native.dispatch_recovery(link.port(), action);
+                    let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
             }
             HealAction::EnterSafeMode => {

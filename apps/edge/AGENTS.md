@@ -26,8 +26,7 @@ transport, its expiry clock, display-sleep policy, and cursor configuration.
 Runtime presentation data stays opaque to Core. Edge keeps
 wire command-result conversion; Core owns result correlation and startup
 Website data-clear retry policy. Edge also keeps
-fixed command handlers, the migration hold, renderer signal adapters, and
-Activity outbox delivery until their extraction stages.
+fixed command handlers, the migration hold, and renderer signal adapters.
 The root Cargo workspace migration is qualified. Remaining shared behavior
 extraction follows the contract.
 Core owns pairing orchestration and server relationship, credential-rejection,

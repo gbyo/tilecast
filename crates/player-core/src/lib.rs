@@ -36,9 +36,7 @@ pub use activity::{
     RendererSignal as ActivityRendererSignal, Signal as ActivitySignal, Tracker as ActivityTracker,
     reason as activity_reason,
 };
-pub use activity_driver::{
-    ActivityServices, FLUSH_INTERVAL as ACTIVITY_FLUSH_INTERVAL, Handle as ActivityHandle, drive_activity,
-};
+pub use activity_driver::{ActivityServices, FLUSH_INTERVAL as ACTIVITY_FLUSH_INTERVAL, Handle as ActivityHandle};
 pub use capture::{CaptureBroker, CaptureError, CaptureState, RENDERER_CAPTURE_TIMEOUT};
 pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
@@ -107,7 +105,7 @@ pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticR
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
 pub use server_driver::{
     SERVER_CONTACT_INTERVAL, SERVER_IDLE_INTERVAL, SERVER_MANIFEST_INTERVAL, SERVER_SOCKET_LIVENESS_TIMEOUT,
-    ServerLinkHost, ServerLinkServices, ServerLinkSignals, drive_server_link,
+    ServerLinkHost, ServerLinkServices, ServerLinkSignals,
 };
 pub use server_link::{
     SERVER_HEALTHY_RESET, SERVER_MAX_RETRY, SERVER_RETRY_BASE, ServerBackoff, ServerLinkState, ServerRelationship,
@@ -116,7 +114,7 @@ pub use server_link::{
 pub use supervisor::{
     Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,
 };
-pub use telemetry::{TELEMETRY_INTERVAL, TelemetryGauges, TelemetryHost, TelemetryTick, drive_telemetry};
+pub use telemetry::{TELEMETRY_INTERVAL, TelemetryGauges, TelemetryHost, TelemetryTick};
 
 use player_state::StateDb;
 use player_types::time::SharedClock;
@@ -155,12 +153,16 @@ impl PlayerCore {
         DisplayPolicyCoordinator::new(self.dependencies.clone())
     }
 
+    pub async fn run_server_link<H: ServerLinkHost>(&self, services: ServerLinkServices<'_, H>) {
+        server_driver::drive_server_link(self.dependencies.clone(), services).await;
+    }
+
     pub async fn run_activity(&self, services: ActivityServices<'_>) {
-        drive_activity(self.dependencies.clone(), services).await;
+        activity_driver::drive_activity(self.dependencies.clone(), services).await;
     }
 
     pub async fn run_telemetry(&self, host: &impl TelemetryHost, shutdown: &tokio_util::sync::CancellationToken) {
-        drive_telemetry(self.dependencies.clone(), host, shutdown).await;
+        telemetry::drive_telemetry(self.dependencies.clone(), host, shutdown).await;
     }
 
     /// Construct the durable coordinator with the host's fixed command handlers.
