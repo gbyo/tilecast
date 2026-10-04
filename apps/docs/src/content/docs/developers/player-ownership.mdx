@@ -15,6 +15,10 @@ repositories stay in `edge-state::platform`.
 The content store lives in `crates/player-cas`. It owns verification, resume,
 pins, eviction, and crash reconciliation. Edge supplies Linux free-space
 measurements through the store's narrow `SpaceProbe` interface.
+Server transport now lives in `crates/player-client`. Hosts supply product
+identity, device metadata, and private storage. Edge keeps its credential and
+pairing files and its Electron import. Stored credentials are sent only after
+the client verifies the installation identity.
 
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |

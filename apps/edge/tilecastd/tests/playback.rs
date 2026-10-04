@@ -8,6 +8,7 @@
 #![cfg(target_os = "linux")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use edge_server::FileCredentialStore;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
@@ -977,7 +978,7 @@ impl Harness {
         };
         db.run_blocking(move |c| binding::put(c, &bound, now)).unwrap();
         drop(db);
-        DeviceCredential::parse(CREDENTIAL).unwrap().save(&state.join("identity")).unwrap();
+        FileCredentialStore::write_at(&DeviceCredential::parse(CREDENTIAL).unwrap(), &state.join("identity")).unwrap();
         Self { _slot: slot, dir, fake, url, screen, installation }
     }
 
