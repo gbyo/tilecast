@@ -252,10 +252,11 @@ A native tap never loads a URL. The sequence is:
 2. Studio finds the identifier in its current model. If the identifier is not there, Studio refuses the request and sends its catalog and state again.
 3. Studio calls React Router's `navigate`.
 4. An unsaved-changes blocker can stop the navigation. The user decides in Studio's own dialog.
-5. Studio sends `navigation/state`. It sends the state also when the location did not change.
-6. The app moves its selection only when that state names a different destination.
+5. On iPhone, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
+6. When the route changes, Studio waits across a browser paint boundary before sending `navigation/state`. It also sends the state when the location did not change.
+7. The app settles the WebView onto the destination named by that state and removes the mask. If navigation was blocked, the unchanged state rolls the optimistic tab highlight back instead.
 
-The app does not change the selection when the user taps. If the user cancels an unsaved-changes dialog, the selection stays with the current page, and the editor keeps its state. Before a request, the app makes sure that the Studio page is visible, so the user can see a dialog.
+The optimistic selection is native feedback only; it never chooses a route. React Router remains authoritative, so cancelling an unsaved-changes dialog keeps the editor and its state on the current page.
 
 Forms plugin editors use `useBlocker`. The Settings and Preferences leave warnings use `useNavigationWarning`, which also uses `useBlocker` for navigation that does not start from a link. The Layout and Playlist editors save automatically and do not block navigation.
 
