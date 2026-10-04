@@ -47,7 +47,7 @@ import {
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
@@ -555,7 +555,7 @@ export function ScreensPage() {
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{screens.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(screens.error)}</AlertDescription>
         </Alert>
       )}
       <PendingPairings
@@ -1097,7 +1097,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             <Alert variant="destructive">
               <CircleAlert aria-hidden="true" />
               <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-              <AlertDescription>{activate.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(activate.error)}
+              </AlertDescription>
             </Alert>
           )}
           <DialogFooter className="border-t border-border pt-4 sm:justify-between">
@@ -1209,7 +1211,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-                <AlertDescription>{activate.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(activate.error)}
+                </AlertDescription>
               </Alert>
             )}
             <DialogFooter>
@@ -2989,7 +2993,7 @@ export function ScreenDetailPage() {
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("detail.saveError")}</AlertTitle>
                 <AlertDescription>
-                  {updateDetails.error.message}
+                  {apiErrorMessage(updateDetails.error)}
                 </AlertDescription>
               </Alert>
             )}

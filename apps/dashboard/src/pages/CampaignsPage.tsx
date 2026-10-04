@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { api } from "../api/client";
 import { hasNextPage } from "../api/pagination";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Campaign,
   CampaignBlock,
@@ -298,7 +298,9 @@ function CampaignLibrary() {
             </Field>
             {create.error && (
               <Alert variant="destructive">
-                <AlertDescription>{create.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(create.error)}
+                </AlertDescription>
               </Alert>
             )}
           </div>
@@ -555,7 +557,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   if (campaignQuery.error)
     return (
       <Alert variant="destructive">
-        <AlertDescription>{campaignQuery.error.message}</AlertDescription>
+        <AlertDescription>
+          {apiErrorMessage(campaignQuery.error)}
+        </AlertDescription>
       </Alert>
     );
   if (campaignQuery.isLoading || !draft)
@@ -711,7 +715,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       )}
       {archive.error && (
         <Alert variant="destructive">
-          <AlertDescription>{archive.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(archive.error)}</AlertDescription>
         </Alert>
       )}
       {publish.isSuccess && (
