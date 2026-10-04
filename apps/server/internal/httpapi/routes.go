@@ -39,6 +39,10 @@ func (s *server) routes() chi.Router {
 	r.With(s.installRateLimit).Get("/install-presentation-network.sh", s.presentationNetworkInstallScript)
 	r.With(s.installRateLimit).Get("/install/tilecast-networkd.service", s.presentationNetworkServiceUnit)
 	r.Get("/readyz", s.ready)
+	// Browser map assets stay same-origin so Studio is not exposed to
+	// OpenFreeMap CORS/origin policy changes. The upstream host is fixed by the
+	// handler; this route cannot be used as a general-purpose proxy.
+	r.With(s.requireUser, s.requireEnrollment, s.requireScope("read")).Get("/maps/openfreemap/*", s.openFreeMapProxy)
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/system/health", s.health)
 		api.Get("/system/identity", s.systemIdentity)
