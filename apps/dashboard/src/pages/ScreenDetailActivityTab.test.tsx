@@ -200,9 +200,9 @@ describe("screen detail navigation", () => {
     renderDetail("/screens/screen-1?tab=activity");
 
     const tabs = await primaryTabs();
-    expect(
-      within(tabs).getAllByRole("tab", { name: "Activity" }),
-    ).toHaveLength(1);
+    expect(within(tabs).getAllByRole("tab", { name: "Activity" })).toHaveLength(
+      1,
+    );
     expect(screen.getAllByRole("tab", { name: "Activity" })).toHaveLength(1);
   });
 
