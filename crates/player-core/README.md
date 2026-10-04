@@ -74,7 +74,7 @@ Core checks both packaged and connected profiles before activation.
 Core coordinates activation generations, evidence, and recovery timers.
 Core creates recovery Activity events with the existing escalation metadata.
 Hosts retain Runtime projection inputs and construct status payloads.
-Stage 8 remains incomplete until selected qualification passes.
+Stage 8 completion requires green selected qualification jobs.
 
 Run `make player-check` and `make player-test` from the repository root.
 The shared suite runs on Ubuntu and macOS.

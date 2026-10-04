@@ -170,7 +170,7 @@ It prepares and activates grants and drains prior generations with its own clock
 The activation coordinator does not assemble media capabilities.
 Core checks packaged and connected profiles before activation.
 Stage 8 requires green selected qualification jobs for the current commit.
-Qualification remains pending for the final coordinator extraction.
+PR #1224 records qualification for the renderer extraction.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
