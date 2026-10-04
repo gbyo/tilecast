@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
+import { Link, RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { WebsiteEditor } from "../pages/ContentPage";
@@ -20,13 +27,14 @@ function renderEditor(editor: ReactNode) {
     page: 1,
     pageSize: 100,
   });
+  const router = createMemoryRouter([{ path: "*", element: editor }]);
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {editor}
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
@@ -84,5 +92,76 @@ describe("page-mode editor header actions", () => {
       saves[0]!.compareDocumentPosition(nameField!) &
         Node.DOCUMENT_POSITION_PRECEDING,
     ).toBeTruthy();
+  });
+});
+
+function renderEditorWithAwayLink(editor: ReactNode) {
+  vi.spyOn(api, "assets").mockResolvedValue({
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 100,
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: (
+          <>
+            {editor}
+            <Link to="/elsewhere">away</Link>
+          </>
+        ),
+      },
+      { path: "/elsewhere", element: <p>Elsewhere</p> },
+    ],
+    { initialEntries: ["/"] },
+  );
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("source editor unsaved changes", () => {
+  it("warns before leaving a dirty YouTube editor", async () => {
+    renderEditorWithAwayLink(
+      <YouTubeSourceEditor csrf="csrf" page onClose={noop} onSaved={noop} />,
+    );
+    fireEvent.change(await screen.findByLabelText("Name"), {
+      target: { value: "Lobby reel" },
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved YouTube changes?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
+  });
+
+  it("warns before leaving a dirty website editor", async () => {
+    renderEditorWithAwayLink(
+      <WebsiteEditor csrf="csrf" page onClose={noop} onSaved={noop} />,
+    );
+    fireEvent.change(await screen.findByLabelText("Name"), {
+      target: { value: "Status page" },
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved website changes?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
   });
 });

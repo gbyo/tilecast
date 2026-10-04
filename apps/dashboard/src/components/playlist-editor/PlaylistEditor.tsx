@@ -22,6 +22,7 @@ import {
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
+import { useNavigationWarning } from "../../settings/useNavigationWarning";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -158,16 +159,21 @@ export function PlaylistEditorPage() {
   }, [metadataDirty, query.data, tagRuleDirty]);
 
   const dirty = metadataDirty || tagRuleDirty;
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirty) {
-        event.preventDefault();
-        event.returnValue = "";
+  // Selection and return-flow state live outside the path, so only a path
+  // change can strand unsaved metadata. A deleted playlist arms a pass the
+  // post-delete navigation consumes.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("editor.leaveTitle"),
+    shouldBlock: (current, next) => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
       }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+      return current.pathname !== next.pathname;
+    },
+  });
 
   const update = (playlist: Playlist) =>
     client.setQueryData(playlistQueries.detail(id).queryKey, playlist);
@@ -238,6 +244,9 @@ export function PlaylistEditorPage() {
     mutationFn: () => api.deletePlaylist(id, csrf),
     onSuccess: () => {
       toast.add({ title: t("editor.toasts.deleted"), type: "success" });
+      setMetadataDirty(false);
+      setTagRuleDirty(false);
+      departing.current = true;
       void navigate("/playlists");
     },
   });
@@ -577,6 +586,7 @@ export function PlaylistEditorPage() {
 
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-5">
+      {navigationDialog}
       <div ref={setChrome} className="grid grid-cols-[minmax(0,1fr)] gap-5">
         <PlaylistEditorHeader
           playlist={playlist}

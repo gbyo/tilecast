@@ -10,6 +10,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
+import { useNavigationWarning } from "./useNavigationWarning";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
@@ -68,6 +69,19 @@ const emptyDraft: NetworkDraft = {
   caCertificatePem: "",
   domainSuffixMatch: "",
 };
+
+function networkToDraft(network: PresentationNetwork): NetworkDraft {
+  return {
+    name: network.name,
+    ssid: network.ssid,
+    hidden: network.hidden,
+    security: network.security,
+    identity: network.auth.identity ?? "",
+    anonymousIdentity: network.auth.anonymousIdentity ?? "",
+    caCertificatePem: network.auth.caCertificatePem ?? "",
+    domainSuffixMatch: network.auth.domainSuffixMatch ?? "",
+  };
+}
 
 function isLinux(screen: Screen) {
   return screen.platform.trim().toLowerCase() === "linux";
@@ -128,22 +142,38 @@ export function PresentationNetworksPanel({
     if (editing === "new") return;
     if (!editing || detail.data?.network.id !== editing) return;
     const network = detail.data.network;
-    setDraft({
-      name: network.name,
-      ssid: network.ssid,
-      hidden: network.hidden,
-      security: network.security,
-      identity: network.auth.identity ?? "",
-      anonymousIdentity: network.auth.anonymousIdentity ?? "",
-      caCertificatePem: network.auth.caCertificatePem ?? "",
-      domainSuffixMatch: network.auth.domainSuffixMatch ?? "",
-    });
+    setDraft(networkToDraft(network));
     // Secret intentionally remains blank, even when credentialSet is true.
     setSecret("");
     setAssignmentIds(
       detail.data.assignments.map((assignment) => assignment.screenId),
     );
   }, [detail.data, editing]);
+
+  // The form only renders once the detail matches the edited network (or for
+  // a new one), so there is no baseline — and no dirty state — before that.
+  // The secret is write-only, so any entered value counts as a change.
+  const detailData =
+    detail.data && detail.data.network.id === editing ? detail.data : null;
+  const baseline =
+    editing === "new"
+      ? { draft: emptyDraft, assignments: [] as string[] }
+      : detailData
+        ? {
+            draft: networkToDraft(detailData.network),
+            assignments: detailData.assignments.map(
+              (assignment) => assignment.screenId,
+            ),
+          }
+        : null;
+  const dirty =
+    Boolean(editing && baseline) &&
+    (secret !== "" ||
+      JSON.stringify({ draft, assignmentIds }) !== JSON.stringify(baseline));
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("networks.leaveTitle"),
+  });
 
   const save = useMutation({
     mutationFn: async () => {
@@ -202,6 +232,20 @@ export function PresentationNetworksPanel({
     setEditing(network === "new" ? "new" : network.id);
   };
 
+  const requestClose = () => {
+    if (save.isPending) return;
+    if (!dirty) {
+      setEditing(undefined);
+      return;
+    }
+    void confirm({
+      title: t("networks.leaveTitle"),
+      action: t("common:actions.discardChanges"),
+    }).then((ok) => {
+      if (ok) setEditing(undefined);
+    });
+  };
+
   // A local error keeps a failed save visible after the dialog is reopened,
   // without copying any input value into an alert or toast.
   const [saveError, setSaveError] = useState<string>();
@@ -222,6 +266,7 @@ export function PresentationNetworksPanel({
   return (
     <>
       {confirmDialog}
+      {navigationDialog}
       <section className="grid gap-4">
         <div className="grid gap-3 rounded-xl border border-border p-4">
           <header className="grid gap-1">
@@ -372,7 +417,7 @@ export function PresentationNetworksPanel({
         <Dialog
           open={Boolean(editing)}
           onOpenChange={(open) => {
-            if (!open && !save.isPending) setEditing(undefined);
+            if (!open) requestClose();
           }}
         >
           <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-2xl overflow-y-auto">
@@ -705,7 +750,7 @@ export function PresentationNetworksPanel({
                   <Button
                     variant="ghost"
                     type="button"
-                    onClick={() => setEditing(undefined)}
+                    onClick={requestClose}
                     disabled={save.isPending}
                   >
                     {t("common:actions.cancel")}
