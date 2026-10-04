@@ -76,11 +76,11 @@ export function PreferencesPage() {
           draft[definition.key] ?? definition.default,
         ),
     );
-  const navigationWarning = useNavigationWarning(
+  const navigationWarning = useNavigationWarning({
     dirty,
-    "/account",
-    t("preferences.leaveWarning"),
-  );
+    allowPrefix: "/account",
+    title: t("preferences.leaveWarning"),
+  });
   const save = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updatePreferences(revision, values, auth.status?.csrfToken ?? ""),

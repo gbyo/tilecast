@@ -34,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   ActionContextMenu,
   ActionMenuButton,
@@ -191,13 +191,13 @@ export function DataSourcesPage() {
         description={t("dataSources.list.subtitle")}
         actions={
           canManage ? (
-            <Button
-              type="button"
-              onClick={() => void navigate("/data-sources/new")}
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/data-sources/new"
             >
               <Plus size={16} aria-hidden="true" />{" "}
               {t("dataSources.list.createButton")}
-            </Button>
+            </Link>
           ) : undefined
         }
       />
@@ -265,12 +265,12 @@ export function DataSourcesPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/data-sources/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/data-sources/new"
               >
                 {t("dataSources.list.createButton")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>
@@ -551,7 +551,6 @@ export function DataSourceEditorPage() {
       <section className="app-editor-route">
         <DataSourceProviderGallery
           exclude={galleryHiddenProviders(catalog.data)}
-          page
           onClose={close}
           onChoose={(choice) => void navigate(`/data-sources/new/${choice}`)}
         />
