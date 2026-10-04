@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -61,17 +67,19 @@ describe("ActionMenuButton in a browser", () => {
     expect(
       screen.queryByRole("menuitem", { name: "Open" }),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
+    // Base UI positions the popup asynchronously; the DOM opens on the
+    // click and visibility settles a tick later.
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible(),
     );
-    expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
     expect(screen.getByRole("separator")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
       "data-variant",
       "destructive",
     );
-    await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
     expect(onDelete).not.toHaveBeenCalled();
     expect(
@@ -82,8 +90,10 @@ describe("ActionMenuButton in a browser", () => {
   it("opens the web menu synchronously", () => {
     renderButton(groups({}));
     fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
-    expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible();
-    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "Open" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Delete" }),
+    ).toBeInTheDocument();
   });
 
   it("opens with the keyboard and closes with Escape", async () => {
@@ -97,7 +107,7 @@ describe("ActionMenuButton in a browser", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("disables actions and skips empty groups without a separator", async () => {
+  it("disables actions and skips empty groups without a separator", () => {
     renderButton([
       { actions: [] },
       {
@@ -114,9 +124,7 @@ describe("ActionMenuButton in a browser", () => {
         actions: [{ id: "open", label: "Open", onSelect: () => {} }],
       },
     ]);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
     expect(screen.getByRole("menuitem", { name: "Rename" })).toHaveAttribute(
       "aria-disabled",
       "true",
@@ -124,7 +132,7 @@ describe("ActionMenuButton in a browser", () => {
     expect(screen.getAllByRole("separator")).toHaveLength(1);
   });
 
-  it("renders an unknown icon token as text only", async () => {
+  it("renders an unknown icon token as text only", () => {
     renderButton([
       {
         actions: [
@@ -137,9 +145,7 @@ describe("ActionMenuButton in a browser", () => {
         ],
       },
     ]);
-    await userEvent.click(
-      screen.getByRole("button", { name: "Actions for Lobby" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Lobby" }));
     expect(
       screen.getByRole("menuitem", { name: "Open" }).querySelector("svg"),
     ).toBeNull();
