@@ -29,7 +29,13 @@ vi.mock("maplibre-gl", () => {
   class LngLatBounds {
     extend = vi.fn();
   }
-  return { Map, NavigationControl, GeoJSONSource, LngLatBounds };
+  return {
+    Map,
+    NavigationControl,
+    GeoJSONSource,
+    LngLatBounds,
+    setWorkerUrl: vi.fn(),
+  };
 });
 
 const hostState = vi.hoisted(() => ({ current: null as NativeHost | null }));
