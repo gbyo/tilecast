@@ -152,7 +152,7 @@ describe("screen detail navigation", () => {
     expect(within(tabs).queryByRole("tab", { name: "Device" })).toBeNull();
 
     const diagnostics = await screen.findByRole("tablist", {
-      name: "Device sections",
+      name: "Diagnostics sections",
     });
     expect(
       within(diagnostics)
