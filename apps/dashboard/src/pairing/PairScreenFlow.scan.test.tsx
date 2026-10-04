@@ -286,7 +286,9 @@ describe("PairScreenFlow scanner", () => {
       screen.getByRole("textbox", { name: "Pairing code" }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Scan QR code" })).toBeEnabled(),
+      expect(
+        screen.getByRole("button", { name: "Scan QR code" }),
+      ).toBeEnabled(),
     );
   });
 
