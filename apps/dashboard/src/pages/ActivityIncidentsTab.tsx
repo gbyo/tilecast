@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { activityQueries } from "../data/activity";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -54,9 +55,6 @@ import {
   type Incident,
 } from "./ActivityIncidentShared";
 import {
-  getIncident,
-  listIncidents,
-  normalizeScreenEvent,
   type IncidentAction,
   type IncidentFilters,
 } from "../api/domains/activity";
@@ -105,11 +103,10 @@ export function IncidentsTab({
     : new URLSearchParams(
         Object.entries(filters).filter(([, value]) => Boolean(value)),
       );
-  const paramsKey = params.toString();
   const query = useQuery({
-    queryKey: ["activity", "incidents", "tab", paramsKey],
-    queryFn: () =>
-      listIncidents(Object.fromEntries(params.entries()) as IncidentFilters),
+    ...activityQueries.incidents(
+      Object.fromEntries(params.entries()) as IncidentFilters,
+    ),
     refetchInterval: 30_000,
   });
 
@@ -189,16 +186,7 @@ export function IncidentsTab({
 }
 
 /** The incident's detail, with its related events normalized. */
-export function incidentDetailQuery(id: string) {
-  return {
-    queryKey: ["activity", "incident", id],
-    queryFn: () =>
-      getIncident(id).then((detail) => ({
-        ...detail,
-        relatedEvents: detail.relatedEvents.map(normalizeScreenEvent),
-      })),
-  };
-}
+export const incidentDetailQuery = activityQueries.incident;
 
 /**
  * The incident's evidence and actions: the body of the web Sheet and Drawer,

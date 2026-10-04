@@ -1,3 +1,6 @@
+import { screenQueries } from "../data/screens";
+
+import { formatBytes } from "../lib/formatBytes";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -15,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useOpenNativePresentation } from "../native-presentation/openNativePresentation";
 import {
   LiveStreamDialog,
@@ -52,13 +55,11 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
   const [watchingLive, setWatchingLive] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const screen = useQuery({
-    queryKey: ["screens", screenId],
-    queryFn: () => api.screen(screenId),
+    ...screenQueries.detail(screenId),
     refetchInterval: 15_000,
   });
   const preview = useQuery({
-    queryKey: ["screen-preview", screenId],
-    queryFn: () => api.screenPreview(screenId),
+    ...screenQueries.preview(screenId),
     refetchInterval: METADATA_REFRESH_MILLIS,
     retry: false,
   });
@@ -87,7 +88,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         if (active)
           setRenewalError(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("livePreview.sessionFailed"),
           );
       }
@@ -114,7 +115,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     },
     onError: (error) => {
       setManualRefreshError(
-        error instanceof Error ? error.message : t("livePreview.sessionFailed"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("livePreview.sessionFailed"),
       );
     },
   });
@@ -259,7 +262,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           <dt>{t("livePreview.image")}</dt>
           <dd className="m-0 break-words text-muted-foreground">
             {preview.data?.width && preview.data?.height
-              ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize ?? 0)}`
+              ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize, formatLocale)}`
               : t("livePreview.noImage")}
           </dd>
         </div>
@@ -352,9 +355,4 @@ function stateDescription(
 ) {
   if (renewalError) return renewalError;
   return t(stateDescriptionKeys[state]);
-}
-
-function formatBytes(bytes: number) {
-  if (!bytes) return "0 KB";
-  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }

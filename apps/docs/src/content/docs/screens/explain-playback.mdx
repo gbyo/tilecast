@@ -1,0 +1,60 @@
+---
+title: Explain a Screen's playback selection
+description: Inspect current selection, schedule precedence, Widget support, and recorded historical expectations.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+The **Expected presentation** panel explains which content Tilecast Server
+selects for a Screen. It helps you find the schedule or temporary presentation
+that overrides the normal assignment. This is expected selection; it does not
+prove what appeared on the physical display.
+
+## Inspect the current selection
+
+<Steps>
+
+1. Open **Screens** and select the Screen.
+2. Open **Overview** and find **Expected presentation**. The summary shows
+   selected content, its source, and the next reevaluation boundary.
+3. Expand **Why this selection?** to see alternatives, server precedence
+   reasons, schedule intervals, reported synchronization, and Widget support.
+
+</Steps>
+
+The current view refreshes every ten seconds. A reevaluation boundary does not
+promise that the selected content changes. For example, a schedule can end
+while another schedule selects the same Playlist.
+
+An unreported Player profile is **Unknown**. It is not a report that the Player
+lacks support. A component-only Widget can remain blocked until a profile is
+reported. The explanation shows required schemas and capability versions
+alongside the reported profile. These reports do not establish media readiness,
+decoder behavior, network access, or actual rendering.
+
+## Inspect another instant
+
+<Steps>
+
+1. Expand **Why this selection?**.
+2. Choose a date and time under **Inspect an instant**. The panel states the
+   browser time zone used by the picker and displayed dates.
+3. Select **Inspect**. A future request uses current configuration and the
+   latest reported Player state. A past request reads recorded expectations.
+4. Select **Use server time** to return to the automatically refreshed view.
+
+</Steps>
+
+Use **Refresh** to repeat a specified-instant inspection. The calendar offers
+dates through the next ten years. A historical gap remains visible; today's
+assignment cannot fill missing historical evidence.
+Historical expectations preserve recorded IDs and revisions even when the
+content no longer exists. They do not borrow current content names or Player
+capability profiles.
+
+To check observed playback, select **View Player-confirmed Activity**. Recorded
+expectation, observed playback, and a snapshot of the display answer different
+questions. An open recorded expectation is not proof of actual playback.
+
+See the [Playback Plan engineering contract](https://github.com/gbyo/tilecast/blob/main/docs/playback-plan.md)
+for the exact evidence rules and API error codes.

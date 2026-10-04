@@ -40,7 +40,6 @@
     "descriptionLabel": "Описание",
     "descriptionHint": "Необязательная внутренняя заметка, видимая в Studio.",
     "save": "Сохранить расписание",
-    "discardAction": "Отменить",
     "deleteTitle": "Удалить «{{name}}»?",
     "discardTitle": "Отменить несохранённые изменения расписания?",
     "presentationLabel": "Презентация",

@@ -12,6 +12,19 @@ Milestone 10 adds `GET /screens/{id}/reliability` for capability-versus-requeste
 
 Installable built-in plugins are listed at `GET /plugins`, with installation and status plus `unsupportedInstallations` for old rows. This release offers Countdown Bar, Emergency Alerts, and Forms. Owner or Administrator with CSRF can install a supported plugin with `POST /plugins/{pluginId}/install` and remove an installation with `DELETE /plugins/{pluginId}/installation`. Removing a row never deletes plugin data. The retired `brand_bug` and `noise_meter` rows are marked `retired: true`, remain inert, and can be removed; unknown rows from newer releases remain distinguishable. Countdown Bar instances are managed below `/plugins/countdown-bar/instances`; Forms retain their form and record endpoints below `/forms` and `/data-sources/{id}`. The Dependency Explorer is a Studio system tool at `GET /plugins/dependency-graph`. Old Players may send a `noiseMeter` object on `POST /player/heartbeat`; the server accepts and ignores it without storing history or updating status. See [Installable built-in plugins](plugins.md) for the current contract.
 
+## Playback Plan
+
+`GET /api/v1/screens/{id}/playback-plan` returns structured expected-selection
+evidence. The route requires management authentication, the `read` scope,
+and access to the Screen. Omit `at` for captured server time. Use one RFC 3339
+`at` instant with a time zone to inspect another time.
+
+Current and future requests use current configuration. Past requests use
+recorded expected playback windows. Historical gaps remain explicit. Current
+selection includes schedule reasoning, manifest synchronization, and Widget
+capability assessment. These reports do not prove actual playback. See
+[Playback Plan evidence](playback-plan.md) for the contract and limits.
+
 ## System
 
 - `GET /healthz` — process liveness; does not depend on PostgreSQL.

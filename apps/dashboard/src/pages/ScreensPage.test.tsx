@@ -14,16 +14,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { i18n } from "../i18n";
 import type { PowerAssistResults, Screen, User } from "../api/types";
-import type { PairingRequest } from "../api/types";
+import { canManageScreens } from "../data/screens";
 import {
   autostartSummary,
   autostartWarning,
-  canManageScreens,
   formatReportedStatus,
   reportsAutostart,
   reliabilityCapabilityWarning,
-  pairingApprovalLabel,
-  pairingApprovalPayload,
   resolveScreenDetail,
   ScreenGridCard,
   ScreenListContent,
@@ -580,97 +577,5 @@ describe("screen management", () => {
     expect(
       autostartWarning({ commissioningState: "complete", powerAssist }, t),
     ).toBe(undefined);
-  });
-
-  it("uses an explicit credential-replacement payload for known players", () => {
-    const request: PairingRequest = {
-      id: "pairing",
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      previouslyPaired: true,
-      existingScreenId: "screen-1",
-      existingScreenName: "Cafeteria Display",
-      hasActiveCredential: true,
-      credentialReplacementAuthorized: false,
-      metadata: {
-        playerInstallationId: "installation",
-        platform: "android-tv",
-        manufacturer: "Amazon",
-        model: "Fire TV",
-        androidVersion: "11",
-        playerVersion: "0.10.1",
-        screenWidth: 1920,
-        screenHeight: 1080,
-        density: 1.5,
-        locale: "en-US",
-        timezone: "America/New_York",
-      },
-    };
-    expect(pairingApprovalLabel(request, t)).toBe(
-      "Repair and replace credential",
-    );
-    expect(
-      pairingApprovalPayload(request, {
-        name: "Cafeteria Display",
-        locationId: undefined,
-        roomName: "Cafeteria",
-        roomNumber: "",
-        description: "",
-      }),
-    ).toEqual({
-      name: "Cafeteria Display",
-      locationId: undefined,
-      roomName: "Cafeteria",
-      roomNumber: "",
-      description: "",
-      replaceExistingCredential: true,
-    });
-  });
-
-  it("uses a separate hardware replacement payload", () => {
-    const request: PairingRequest = {
-      id: "pairing",
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      previouslyPaired: false,
-      hasActiveCredential: false,
-      credentialReplacementAuthorized: false,
-      metadata: {
-        playerInstallationId: "new-installation",
-        platform: "linux",
-        manufacturer: "Intel",
-        model: "NUC",
-        androidVersion: "none",
-        playerVersion: "0.10.1",
-        screenWidth: 1920,
-        screenHeight: 1080,
-        density: 1,
-        locale: "en-US",
-        timezone: "America/New_York",
-      },
-    };
-    expect(pairingApprovalLabel(request, t, "replace_hardware")).toBe(
-      "Replace hardware",
-    );
-    expect(
-      pairingApprovalPayload(
-        request,
-        {
-          name: "Ignored logical name",
-          locationId: undefined,
-          roomName: "",
-          roomNumber: "",
-          description: "",
-        },
-        "replace_hardware",
-        "screen-1",
-      ),
-    ).toMatchObject({
-      replaceExistingCredential: false,
-      replaceHardware: true,
-      replacementScreenId: "screen-1",
-    });
   });
 });

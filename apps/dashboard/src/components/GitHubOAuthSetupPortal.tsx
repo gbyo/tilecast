@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { copyText } from "../lib/clipboard";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Clipboard, ExternalLink } from "lucide-react";
 import { GitHubIcon } from "./GitHubIcon";
@@ -12,6 +13,7 @@ import {
   startGitHubDeviceAuthorization,
 } from "../api/domains/system";
 import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../api/errors";
+import { apiErrorMessage } from "../i18n";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
@@ -26,7 +28,6 @@ import {
 } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Field, FieldLabel } from "./ui/field";
-import { toast } from "./ui/toast";
 
 type ActiveFlow = GitHubDeviceStart & { retryAfterSeconds: number };
 
@@ -42,7 +43,7 @@ async function configureGitHubClientID(
       error instanceof ApiError &&
         error.status > 0 &&
         error.message !== FALLBACK_REQUEST_MESSAGE
-        ? error.message
+        ? apiErrorMessage(error)
         : (t?.("updates.setup.saveError") ??
             "Tilecast could not save the GitHub Client ID."),
       { cause: error },
@@ -140,7 +141,7 @@ export function GitHubOAuthSetupPortal() {
       });
       await queryClient.invalidateQueries({ queryKey: ["player-releases"] });
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => setMessage(apiErrorMessage(error)),
   });
 
   useEffect(() => {
@@ -186,7 +187,7 @@ export function GitHubOAuthSetupPortal() {
           setFlow(null);
           setMessage(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("updates.setup.incomplete"),
           );
         });
@@ -198,19 +199,16 @@ export function GitHubOAuthSetupPortal() {
   }, [csrfToken, flow, queryClient, t]);
 
   const copy = async (label: string, value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
+    if (
+      await copyText(value, {
+        success: t("common:clipboard.copied", { label }),
+        failure: t("common:clipboard.copyFailed", { label }),
+      })
+    ) {
       setCopied(label);
-      toast.add({
-        title: t("common:clipboard.copied", { label }),
-        type: "success",
-      });
       window.setTimeout(() => setCopied(""), 1500);
-    } catch {
-      toast.add({
-        title: t("common:clipboard.copyFailed", { label }),
-        type: "error",
-      });
+    } else {
+      setCopied("");
     }
   };
 

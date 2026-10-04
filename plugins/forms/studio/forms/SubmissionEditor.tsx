@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker } from "react-router";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -16,6 +15,7 @@ import { formsApi } from "../api";
 import {
   ApiError,
   apiErrorMessage,
+  useNavigationWarning,
   usePluginTranslation,
 } from "@tilecast/studio";
 import en from "../locales/en.json";
@@ -105,8 +105,6 @@ export function SubmissionEditor({
   const [busy, setBusy] = useState<"" | "draft" | "submit">("");
 
   const dirty = JSON.stringify(values) !== baseline || pendingKeys.length > 0;
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
 
   // A completed submit navigates away on purpose. The dirty flag is derived during render, so a
   // navigation issued in the same tick as the final resync still sees the pre-save value and the
@@ -114,24 +112,15 @@ export function SubmissionEditor({
   // set immediately before the intentional departure and is visible to the predicate at once.
   const completing = useRef(false);
 
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
+  const navigationWarning = useNavigationWarning({
+    dirty,
+    title: t("editor.leaveTitle"),
+    body: t("editor.leaveBody"),
+    shouldBlock: (currentLocation, nextLocation) =>
       !completing.current &&
-      dirty &&
       (currentLocation.pathname !== nextLocation.pathname ||
         currentLocation.search !== nextLocation.search),
-  );
-
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  });
 
   const canSubmitCapability = hasCapability(form.grantedCapabilities, "submit");
   const submitTransition = availableTransitions.find(
@@ -439,20 +428,7 @@ export function SubmissionEditor({
 
   return (
     <div className="grid gap-4">
-      {blocker.state === "blocked" && (
-        <Alert>
-          <AlertTitle>{t("editor.leaveTitle")}</AlertTitle>
-          <AlertDescription>{t("editor.leaveBody")}</AlertDescription>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => blocker.reset?.()}>
-              {t("editor.stay")}
-            </Button>
-            <Button variant="default" onClick={() => blocker.proceed?.()}>
-              {t("editor.leave")}
-            </Button>
-          </div>
-        </Alert>
-      )}
+      {navigationWarning}
 
       {feedback && editable && (
         <Alert>

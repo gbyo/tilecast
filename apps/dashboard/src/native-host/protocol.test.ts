@@ -254,6 +254,9 @@ describe("messages Studio sends", () => {
       accept: ["image", "video"],
       multiple: true,
     }),
+    scanQr: frontendMessage("system/scan-qr", {
+      requestId: "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+    }),
     presentationNavigate: frontendMessage("presentation/navigate", {
       presentationId,
       path: "/screens/screen-1?tab=activity",
@@ -318,6 +321,7 @@ describe("messages Studio sends", () => {
         nativePresentations: false,
         systemShare: false,
         systemHaptics: false,
+        systemQrScanner: false,
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,
@@ -344,6 +348,7 @@ describe("messages Studio sends", () => {
         nativePresentations: false,
         systemShare: false,
         systemHaptics: true,
+        systemQrScanner: false,
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,

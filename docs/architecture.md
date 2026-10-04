@@ -1,6 +1,6 @@
-# Tilecast architecture through Milestone 4
+# Tilecast architecture
 
-Tilecast begins as a modular monolith. The server compiles into one Go binary, serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled dashboard. PostgreSQL is the source of truth. This keeps a small self-hosted installation understandable while preserving clean package boundaries for later player and media work.
+Tilecast is a self-hosted modular monolith with one organization per installation. The Server compiles into one Go binary. It serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled Studio application. PostgreSQL is the source of truth. This document describes the current architecture. The linked domain documents define the exact contracts.
 
 ## Boundaries
 
@@ -14,11 +14,18 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/playlists` owns ordered playlists, direct assignments, per-screen manifest versions, manifest contracts, and summarized synchronization status.
 - `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
-- `apps/dashboard/src/api` owns browser API types and transport behavior.
+- `packages/api-schema` owns the generated OpenAPI TypeScript contract. `apps/dashboard/src/api/transport.ts` owns the typed first-party JSON transport. Domain modules in `apps/dashboard/src/api/domains/` expose operations to Studio. Dynamic plugin operations use the plugin API boundary.
+- `apps/dashboard/src/data` owns domain query keys and `queryOptions()` factories. Screen queries preserve the existing cache keys during adoption.
+
+- `apps/dashboard/src/data/content.ts` owns Content catalog query keys and options. Asset pages use the actual request filters as their cache key. The library and picker share pagination and processing refresh. The API domain module retains response normalization.
+- `apps/dashboard/src/data/layouts.ts` owns Layout query keys and options. The editor, popup preview, and Screen content dependencies share normalized detail data. Revision history uses a detail child key. Local draft history and autosave remain editor state.
+- `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
 - `apps/dashboard/src/data/schedules.ts` owns Schedule query keys and options. Infinite pages and complete lists use different keys. Schedule previews include the Screen, timestamp, and proposed input in their keys. The Server remains the schedule selection authority.
 - Schedule mutation options own typed requests and cache invalidation. The editor owns confirmation, feedback, and navigation. Domain success handlers remain active after a UI observer disconnects.
+- `apps/dashboard/src/data/settings.ts` owns the organization settings document query. Settings, regional formatting, policy definitions, and Takeover defaults share this cache. A successful settings save updates the shared document. `apps/dashboard/src/data/account.ts` owns the separate account preferences query. Both queries cancel through the typed transport. Local drafts remain in the editor.
+
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
-- `packages/*-schema` are reserved for stable, versioned cross-application contracts as those protocols are introduced.
+- `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
 ## Authentication model
 
@@ -30,7 +37,7 @@ An account may carry a second factor: an authenticator app, one or more WebAuthn
 
 ## Database evolution
 
-Goose migrations are embedded in the binary and run before the connection pool is opened to serve traffic. Applied versions are recorded by Goose. Migrations must be forward-safe; deployed player manifest schemas will follow separate compatibility rules once introduced.
+Goose migrations are embedded in the binary and run before the Server accepts traffic. Goose records applied versions. Migrations must be forward-safe. Player manifest schemas have separate versioned compatibility rules. See [player-protocol.md](player-protocol.md).
 
 ## Dashboard delivery
 
@@ -38,9 +45,24 @@ During development Vite runs separately and proxies `/api` to the server. The co
 
 Studio text is localized in the browser with react-i18next. English is bundled and each other language is a separate lazily loaded chunk, so the server embeds every locale but a browser only downloads the one it uses. The server API stays English; each person's language is the `preference.language` user preference. See [localization](localization.md).
 
-## Deferred decisions
+## Player enrollment and playback
 
-The player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager.
+The accepted native Player extraction contract is
+[`player-core.md`](player-core.md). It separates shared native behavior from
+Linux host integration. Presentation decisions and execution remain with
+Presentation Model and Player Runtime. Generic native values are implemented in
+`crates/player-types`, and durable metadata in `crates/player-state`. Historical
+Edge repository APIs remain outside the shared crate. Verified storage lives in
+`crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
+its private file stores and Electron import. The Core foundation owns native
+selection, command idempotency, Activity sessions, and the CAS origin adapter.
+Core also owns renderer recovery decisions and meaningful-evidence rules.
+Edge executes renderer actions through its RendererPort adapter.
+Activation coordination and server reconciliation remain in Edge until their
+extraction stages. Edge retains
+its current process and security boundaries.
+
+The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
@@ -63,9 +85,25 @@ invariant with a unique membership constraint. Assigning content through any
 member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
-for half-open interval evaluation and deterministic precedence: priority, later
-effective start, then stable ID. The Android `ScheduleEngine` implements the
+for half-open interval evaluation and deterministic precedence: priority,
+target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
 same transport semantics for offline evaluation.
+
+`scheduling.Explain` calls this same resolver. It returns a reason code for
+each selected, inactive, or superseded schedule. Selection and explanation
+use one precedence comparator. Disabled schedules do not contribute a next
+transition. The supplied schedules describe a configuration at an explicit
+instant; they do not establish a historical expectation. Historical reports
+must use recorded expected playback windows.
+
+`internal/playbackplan.Current` composes the assignment reader, schedule
+explanation, and active Takeover and Quick Present readers. It selects content
+in this order: Takeover, Quick Present, schedule, then assignment. Display-control
+schedules do not select content. Inspection does not create manifest state or
+expire temporary presentations. The next evaluation time is a boundary for
+another evaluation; it does not guarantee a change in selected content.
+This internal reader predicts selection from current configuration. It does
+not establish content readiness, Player capability, or actual playback.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for

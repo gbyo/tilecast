@@ -80,6 +80,10 @@ public final class StudioBridge {
     public var onMediaIntake: (@MainActor (MediaIntakeRequest) -> Bool)?
     /// Where this page's alerts show. Both kinds of page may ask for one.
     weak var alerts: NativeAlertCenter?
+    /// Whether the system camera can scan a QR code now. Both contexts.
+    public var isQRScannerAvailable: (@MainActor () -> Bool)?
+    /// The one scan for this server. Both kinds of page may ask for one.
+    weak var scanners: QRScanCenter?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -103,7 +107,12 @@ public final class StudioBridge {
         self.context = context
         navigation = NativeNavigationModel()
         navigation.requestNavigation = { [weak self] id in
-            Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
+            Task { [weak self] in
+                guard let self else { return }
+                if await !self.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) {
+                    self.navigation.navigationRequestFailed(id)
+                }
+            }
         }
         navigation.requestBack = { [weak self] in
             Task { await self?.send(NativeBridgeProtocol.navigationBack()) }
@@ -137,6 +146,7 @@ public final class StudioBridge {
         onShare = nil
         isMediaIntakeAvailable = nil
         onMediaIntake = nil
+        isQRScannerAvailable = nil
         reset()
         onStateChange = nil
         onReadinessChange = nil
@@ -151,6 +161,8 @@ public final class StudioBridge {
         negotiatedSinceNavigationStarted = false
         // An alert belongs to the document that asked for it.
         alerts?.withdraw(from: self)
+        // So does a scan: a result must never reach a new document.
+        scanners?.withdraw(from: self)
     }
 
     /// A new document replaced the old one.
@@ -160,6 +172,7 @@ public final class StudioBridge {
 
     private func reset() {
         alerts?.withdraw(from: self)
+        scanners?.withdraw(from: self)
         isFrontendReady = false
         frontendCapabilities = .init()
         navigation.reset()
@@ -239,7 +252,10 @@ public final class StudioBridge {
             switch message {
             case .configGet:
                 negotiatedSinceNavigationStarted = true
-                return NativeBridgeProtocol.reply(id: id, payload: NativeBridgeProtocol.configPayload(context: context))
+                return NativeBridgeProtocol.reply(id: id, payload: NativeBridgeProtocol.configPayload(
+                    context: context,
+                    scannerAvailable: isQRScannerAvailable?() == true
+                ))
             case .frontendReady(let capabilities):
                 isFrontendReady = true
                 frontendCapabilities = capabilities
@@ -285,6 +301,13 @@ public final class StudioBridge {
                 }
             case .alertCancel(let alertID):
                 alerts?.withdraw(alertID: alertID, from: self)
+            case .systemScanQR(let request):
+                // Studio always handles the result, so only readiness gates
+                // the request: a second scan, or no scanner, is unavailable,
+                // and Studio keeps manual entry.
+                guard isFrontendReady, scanners?.begin(request, from: self) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
             case .presentationReady:
                 onPresentationMessage?(.ready)
             case .presentationUpdate(let update):
@@ -306,6 +329,16 @@ public final class StudioBridge {
     public func sendMediaIntakeCompleted(requestID: String, outcome: MediaIntakeOutcome, uploadedCount: Int) async -> Bool {
         guard context == .main, isFrontendReady, frontendCapabilities.nativeMediaIntake else { return false }
         return await send(NativeBridgeProtocol.mediaIntakeCompleted(requestID: requestID, outcome: outcome, uploadedCount: uploadedCount))
+    }
+
+    /// Tells the page that asked how its QR scan ended. Either page may
+    /// have asked; Studio always handles the result, so only readiness
+    /// gates the send. Returns false when the page is gone: a withdrawn
+    /// scan's result is simply dropped.
+    @discardableResult
+    public func sendQRScanResult(requestID: String, outcome: QRScanOutcome) async -> Bool {
+        guard isFrontendReady else { return false }
+        return await send(NativeBridgeProtocol.qrScanResult(requestID: requestID, outcome: outcome))
     }
 
     /// Whether Studio in this page can receive a deep link's path now: it

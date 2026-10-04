@@ -37,6 +37,7 @@ func foundationJSON(_ data: Data) throws -> Any {
         let hapticFeedback: Any?
         let share: [String: Any]?
         let mediaIntake: [String: Any]?
+        let qrScan: [String: Any]?
         let message: Any
         var testDescription: String { name }
     }
@@ -64,6 +65,7 @@ func foundationJSON(_ data: Data) throws -> Any {
                 hapticFeedback: entry["hapticFeedback"],
                 share: entry["share"] as? [String: Any],
                 mediaIntake: entry["mediaIntake"] as? [String: Any],
+                qrScan: entry["qrScan"] as? [String: Any],
                 message: entry["message"] ?? NSNull()
             )
         }
@@ -167,6 +169,13 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(alert.buttons.map(\.label) == buttons.compactMap { $0["label"] as? String })
             #expect(alert.buttons.map(\.role) == buttons.map { .init(token: $0["role"] as? String) })
         }
+        if let expected = entry.qrScan {
+            guard case .accept(.systemScanQR(let request), _) = decoded else {
+                Issue.record("\(entry.name) should decode as system/scan-qr")
+                return
+            }
+            #expect(request.requestID == expected["requestId"] as? String)
+        }
         if let actions = entry.headerActionIDs {
             guard case .accept(.presentationUpdate(let update), _) = decoded, let header = update.header else {
                 Issue.record("\(entry.name) should decode as presentation/update with a header")
@@ -184,8 +193,8 @@ func foundationJSON(_ data: Data) throws -> Any {
         let encoded: JSONValue = switch entry.encodes {
         case "navigationRequest": NativeBridgeProtocol.navigationRequest(destinationID: "layouts")
         case "signOutRequest": NativeBridgeProtocol.signOutRequest()
-        case "configGetReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .main))
-        case "configGetPresentationReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .presentation))
+        case "configGetReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .main, scannerAvailable: true))
+        case "configGetPresentationReply": NativeBridgeProtocol.reply(id: nil, payload: NativeBridgeProtocol.configPayload(context: .presentation, scannerAvailable: true))
         case "forbiddenReply": NativeBridgeProtocol.reply(id: nil, error: .forbidden)
         case "unavailableReply": NativeBridgeProtocol.reply(id: nil, error: .unavailable)
         case "presentationShow": NativeBridgeProtocol.presentationShow(
@@ -214,6 +223,10 @@ func foundationJSON(_ data: Data) throws -> Any {
             uploadedCount: 3
         )
         case "mediaIntakeStatusReply": NativeBridgeProtocol.reply(id: "m1", payload: ["available": .bool(true)])
+        case "qrScanResult": NativeBridgeProtocol.qrScanResult(
+            requestID: "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+            outcome: .scanned("https://signage.example.org/screens/pair/K7Q2XD?installation=7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e")
+        )
         case "okReplyWithId": NativeBridgeProtocol.reply(id: "c1", payload: [:])
         case "unknownTypeReply": NativeBridgeProtocol.reply(id: nil, error: .unknownType)
         case "unsupportedVersionReply": NativeBridgeProtocol.reply(id: nil, error: .unsupportedVersion)
