@@ -35,8 +35,13 @@ export function createTilecastMap(
     attributionControl: {},
     transformRequest: (url) => {
       const proxied = proxyOpenFreeMapURL(url);
-      if (proxied === url) return { url };
-      return { url: proxied, credentials: "same-origin" };
+      if (
+        proxied !== url ||
+        proxied.startsWith(`${OPENFREEMAP_PROXY_PREFIX}/`)
+      ) {
+        return { url: proxied, credentials: "same-origin" };
+      }
+      return { url };
     },
   });
   map.addControl(new NavigationControl({ showCompass: false }), "top-right");
