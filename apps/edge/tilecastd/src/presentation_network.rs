@@ -29,8 +29,8 @@ use edge_protocol::bounded::{DetailText, ShortText, ShortToken, Token};
 use edge_protocol::capability::{AttributeValue, Capability, CapabilityId, CapabilityState, ids};
 use edge_server::player_api::{NetworkProvisioning, is_uuid, network_security};
 use edge_state::StateDb;
+use edge_state::platform::presentation_network::{self as store, NetworkState};
 use edge_state::repo::commands::CommandResult;
-use edge_state::repo::presentation_network::{self as store, NetworkState};
 use serde_json::{Map, Value, json};
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 

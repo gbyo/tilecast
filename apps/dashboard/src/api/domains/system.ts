@@ -31,6 +31,7 @@ import type {
   NotificationWebhookCreated,
   SettingsDocument,
   SettingsExportDocument,
+  SystemIdentity,
   SystemStatus,
   Takeover,
   UpdateDeployment,
@@ -40,6 +41,10 @@ import type {
   UptimeWindow,
   User,
 } from "../types";
+
+export function getSystemIdentity(): Promise<SystemIdentity> {
+  return apiGet("/api/v1/system/identity");
+}
 
 export function listPlayerReleases() {
   return apiGet("/api/v1/player-releases");
@@ -229,8 +234,10 @@ export function cancelTakeover(
   });
 }
 
-export function getSettings(): Promise<SettingsDocument> {
-  return apiGet("/api/v1/settings");
+export function getSettings(options?: {
+  signal?: AbortSignal;
+}): Promise<SettingsDocument> {
+  return apiGet("/api/v1/settings", options);
 }
 
 export function updateSettings(
@@ -319,8 +326,10 @@ export function permanentlyDeleteUser(
   });
 }
 
-export function getPreferences(): Promise<SettingsDocument> {
-  return apiGet("/api/v1/me/preferences");
+export function getPreferences(options?: {
+  signal?: AbortSignal;
+}): Promise<SettingsDocument> {
+  return apiGet("/api/v1/me/preferences", options);
 }
 
 export function updatePreferences(

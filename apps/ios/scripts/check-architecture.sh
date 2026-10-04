@@ -95,6 +95,14 @@ if grep -rnE "UIActivityViewController" "${sources[@]}" | grep -v "^Tilecast/Fea
   exit 1
 fi
 
+# The QR scanner is one isolated UIKit adapter. VisionKit and camera
+# authorization live only in Features/System/QRScanner, so no pairing,
+# Studio, or bridge code can reach the camera.
+if grep -rnE "DataScannerViewController|AVCaptureDevice|AVAuthorizationStatus|NSCameraUsageDescription" "${sources[@]}" Tilecast/Info.plist Tilecast/Resources/InfoPlist.xcstrings | grep -v "^Tilecast/Features/System/QRScanner/" | grep -v "^Tilecast/Info.plist:" | grep -v "^Tilecast/Resources/InfoPlist.xcstrings:"; then
+  echo "check-architecture: camera scanning belongs to Features/System/QRScanner." >&2
+  exit 1
+fi
+
 # Tilecast installations live on unrelated domains, so the app claims no
 # universal links. A deep link is the app's own URL scheme.
 if grep -rnE "associated-domains|applinks:|webcredentials:" Tilecast Config; then

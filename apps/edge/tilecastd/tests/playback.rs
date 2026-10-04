@@ -8,6 +8,7 @@
 #![cfg(target_os = "linux")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use edge_server::FileCredentialStore;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::path::{Path, PathBuf};
@@ -844,6 +845,17 @@ fn ready() -> Event {
         features: FEATURES.iter().map(|f| ShortToken::new(*f).unwrap()).collect(),
         display: None,
         remote_web: None,
+        support: Some(Box::new(edge_protocol::ipc::event::RuntimeSupport {
+            presentation_schemas: vec![1, 2],
+            declarative_capabilities: [("content.text", 1), ("web.remote", 1)]
+                .into_iter()
+                .map(|(name, version)| (ShortToken::new(name).unwrap(), version))
+                .collect(),
+            widget_components: [("widget.tilecast.clock", 2)]
+                .into_iter()
+                .map(|(name, version)| (ShortToken::new(name).unwrap(), version))
+                .collect(),
+        })),
     })
 }
 
@@ -946,7 +958,7 @@ impl edge_protocol::time::WallClock for SteppedClock {
 #[derive(Debug)]
 struct Space(AtomicU64);
 
-impl edge_platform::disk::SpaceProbe for Space {
+impl edge_cas::space::SpaceProbe for Space {
     fn available_bytes(&self, _: &Path) -> std::io::Result<u64> {
         Ok(self.0.load(Ordering::SeqCst))
     }
@@ -956,11 +968,11 @@ impl Harness {
     async fn new() -> Self {
         capture_daemon_logs();
         let slot = Arc::clone(scenario_slots()).acquire_owned().await.unwrap();
-        let installation = InstallationId::new_random();
+        let installation = InstallationId::from_uuid(uuid::Uuid::new_v4());
         let fake = FakeServer::new(installation);
         let url = serve(Arc::clone(&fake)).await;
         let dir = tempfile::tempdir().unwrap();
-        let screen = ScreenId::new_random();
+        let screen = ScreenId::from_uuid(uuid::Uuid::new_v4());
         let state = dir.path().join("state");
         std::fs::create_dir_all(state.join("identity")).unwrap();
         let db = StateDb::open(state.join("state.db"), OpenOptions::default()).unwrap();
@@ -977,7 +989,7 @@ impl Harness {
         };
         db.run_blocking(move |c| binding::put(c, &bound, now)).unwrap();
         drop(db);
-        DeviceCredential::parse(CREDENTIAL).unwrap().save(&state.join("identity")).unwrap();
+        FileCredentialStore::write_at(&DeviceCredential::parse(CREDENTIAL).unwrap(), &state.join("identity")).unwrap();
         Self { _slot: slot, dir, fake, url, screen, installation }
     }
 
@@ -1415,7 +1427,7 @@ async fn invalid_manifests_never_replace_the_committed_presentation() {
     harness.fake.add_asset(&other, AssetMode::Serve);
 
     let cases: Vec<(&str, Value)> = vec![
-        ("another screen", manifest(ScreenId::new_random(), 4, &[&other])),
+        ("another screen", manifest(ScreenId::from_uuid(uuid::Uuid::new_v4()), 4, &[&other])),
         ("an older version", manifest(harness.screen, 2, &[&other])),
         ("an unknown schema", with(manifest(harness.screen, 4, &[&other]), |m| m["schemaVersion"] = json!(99))),
         (
@@ -1759,7 +1771,7 @@ async fn configuration_and_disable_playback_change_the_screen_live_and_after_an_
     let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
     let surface = wait_for("the disabled surface offline", || renderer.last().as_ref().and_then(disabled_title)).await;
     assert_eq!(surface.0, "Closed today");
-    assert_eq!(player.context.player_config.read().unwrap().as_ref().map(|c| c.revision), Some(5));
+    assert_eq!(player.context.player_config.read().unwrap().as_ref().map(|c| c.native.revision), Some(5));
 
     harness.fake.offline.store(false, Ordering::SeqCst);
     let delivery = harness.fake.offer("enable_playback", uuid::Uuid::new_v4(), json!({}));
@@ -2684,9 +2696,11 @@ async fn a_long_outage_keeps_the_newest_500_events_and_reports_the_dropped_count
     fake.link.store(LINK_REFUSED, Ordering::SeqCst);
     let activation = renderer.last().unwrap();
     let (item, _) = first_item(&activation).unwrap();
-    // Each restart of the item ends one session and opens the next: two
-    // events apiece, 700 in all.
+    // Each lap of the looping item ends one session and opens the next: two
+    // events apiece, 700 in all. A lap reports its boundary first; a second
+    // start with no boundary is a remount, not another play.
     for _ in 0..350 {
+        renderer.evidence(&activation, EvidenceKind::ItemTransition, Some(&item)).await;
         renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&item)).await;
     }
     wait_long("the outbox to reach its bound", 30, async || {

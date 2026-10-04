@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { FleetBulkPage } from "./FleetBulkPage";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
+import { toast } from "../components/ui/toast";
 import type { BulkPreview } from "../api/types";
 
 const authMocks = vi.hoisted(() => ({ role: "owner" }));
@@ -267,9 +268,103 @@ describe("Fleet bulk changes", () => {
   it("warns that a command cannot be undone", async () => {
     renderPage();
     const user = userEvent.setup();
-    await choose(user, "Action", "Send a command");
+    await user.click(
+      await screen.findByRole("radio", { name: "Send a command" }),
+    );
     expect(
       screen.getByText(/cannot be undone once a Player collects it/),
     ).toBeTruthy();
+  });
+
+  it("reads a moved fleet as a mismatch with a review action, not a crash", async () => {
+    const build = vi
+      .spyOn(api, "previewBulkOperation")
+      .mockResolvedValue(preview);
+    vi.spyOn(api, "applyBulkOperation").mockRejectedValue(
+      new ApiError("Conflict.", 409, "bulk_operation_stale"),
+    );
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Cafeteria/ }),
+    );
+    await choose(user, "Playlist", "New menu");
+    await user.click(
+      screen.getByRole("button", { name: /Preview the change/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Change 2 screens" }),
+    );
+
+    expect(
+      await screen.findByText(/Screens changed since this preview/),
+    ).toBeTruthy();
+    const review = screen.getByRole("button", { name: "Review changes" });
+    await user.click(review);
+    await waitFor(() => expect(build).toHaveBeenCalledTimes(2));
+  });
+
+  it("announces applied and undone changes with localized toasts", async () => {
+    const added = vi.spyOn(toast, "add");
+    vi.spyOn(api, "previewBulkOperation").mockResolvedValue(preview);
+    vi.spyOn(api, "applyBulkOperation").mockResolvedValue({
+      id: "op1",
+      action: "assign_playlist",
+      screenCount: 3,
+      appliedCount: 2,
+      skippedCount: 1,
+      failedCount: 0,
+      results: [],
+      reversible: true,
+      createdAt: "2026-03-04T12:00:00Z",
+    });
+    vi.spyOn(api, "undoBulkOperation").mockResolvedValue({
+      id: "op1",
+      action: "assign_playlist",
+      screenCount: 3,
+      appliedCount: 2,
+      skippedCount: 1,
+      failedCount: 0,
+      results: [],
+      reversible: false,
+      createdAt: "2026-03-04T12:00:00Z",
+    });
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Cafeteria/ }),
+    );
+    await choose(user, "Playlist", "New menu");
+    await user.click(
+      screen.getByRole("button", { name: /Preview the change/ }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: "Change 2 screens" }),
+    );
+
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Bulk changes applied.",
+        type: "success",
+      }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /Undo this change/ }),
+    );
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Bulk changes undone.",
+        type: "success",
+      }),
+    );
+  });
+
+  it("reports a failed screen load as an error with retry, not as empty", async () => {
+    vi.spyOn(api, "screens").mockRejectedValue(new Error("boom"));
+    renderPage();
+
+    expect(await screen.findByText(/Screens could not be loaded/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.queryByText("No screens are paired yet")).toBeNull();
   });
 });

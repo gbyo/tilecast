@@ -478,21 +478,75 @@ func manualPlayerData(c ManualSourceConfig) TypedRecordData {
 	return TypedRecordData{Fields: fields, Records: records, CachedAt: &now, StaleAt: &now, DateSelection: selection, DateField: c.DateField}
 }
 
-func (s *Service) ManualPreview(ctx context.Context, raw json.RawMessage) (TypedRecordData, error) {
+func manualPreviewData(c ManualSourceConfig, previewDate string, firstDays ...time.Weekday) TypedRecordData {
+	data := manualPlayerData(c)
+	if !c.DateSelection.Enabled {
+		return data
+	}
+	rows := make([]StructuredRecord, 0, len(data.Records))
+	for _, record := range data.Records {
+		rows = append(rows, StructuredRecord{
+			ID: record.ID, Date: normalizeStructuredDate(record.Values[c.DateField], c.DateSelection),
+		})
+	}
+	selected := selectStructuredRecords(rows, c.DateSelection, previewDate, firstDays...)
+	selectedIDs := make(map[string]bool, len(selected))
+	for _, record := range selected {
+		selectedIDs[record.ID] = true
+	}
+	records := make([]TypedRecord, 0, len(selected))
+	for _, record := range data.Records {
+		if selectedIDs[record.ID] {
+			records = append(records, record)
+		}
+	}
+	data.Records = records
+	return data
+}
+
+func (s *Service) ManualPreview(ctx context.Context, raw json.RawMessage, previewDates ...string) (TypedRecordData, error) {
 	normalized, err := (manualSourceProvider{}).Normalize(ctx, raw)
 	if err != nil {
 		return TypedRecordData{}, err
 	}
-	return manualPlayerData(normalized.(ManualSourceConfig)), nil
+	previewDate := ""
+	if len(previewDates) > 0 {
+		previewDate = previewDates[0]
+	}
+	return manualPreviewData(normalized.(ManualSourceConfig), previewDate, s.organizationFirstDayOfWeek(ctx)), nil
 }
 
-func (s *Service) WeatherPreview(ctx context.Context, raw json.RawMessage) (TypedRecordData, error) {
+func (s *Service) WeatherPreview(ctx context.Context, raw json.RawMessage, previewDates ...string) (TypedRecordData, error) {
 	normalized, err := (weatherSourceProvider{}).Normalize(ctx, raw)
 	if err != nil {
 		return TypedRecordData{}, err
 	}
-	data, _, _, _, _, err := s.refreshWeather(ctx, uuid.Nil, normalized.(WeatherSourceConfig), "")
-	return data, err
+	config := normalized.(WeatherSourceConfig)
+	data, _, _, _, _, err := s.refreshWeather(ctx, uuid.Nil, config, "")
+	if err != nil || len(previewDates) == 0 || previewDates[0] == "" {
+		return data, err
+	}
+	return weatherPreviewForDate(data, previewDates[0], config.Timezone), nil
+}
+
+func weatherPreviewForDate(data TypedRecordData, previewDate, timezone string) TypedRecordData {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		location = time.UTC
+	}
+	date, ok := previewDateAt(previewDate, timezone)
+	if !ok {
+		return data
+	}
+	selectedDate := date.In(location).Format("2006-01-02")
+	filtered := make([]TypedRecord, 0, len(data.Records))
+	for _, record := range data.Records {
+		if record.Values["date"] == selectedDate {
+			filtered = append(filtered, record)
+		}
+	}
+	data.Records = filtered
+	return data
 }
 
 func (s *Service) PlayerTypedDataSourceConfiguration(ctx context.Context, id uuid.UUID, provider string, raw json.RawMessage) (json.RawMessage, error) {

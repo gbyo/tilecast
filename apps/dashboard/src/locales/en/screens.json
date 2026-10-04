@@ -1,8 +1,120 @@
 {
+  "playbackPlan": {
+    "title": "Expected presentation",
+    "loading": "Loading playback explanation",
+    "content": "Selected content",
+    "selectedBy": "Selected by",
+    "nextEvaluation": "Next reevaluation",
+    "noBoundary": "No known boundary",
+    "missingContent": "Selected content is unavailable",
+    "noContent": "No content assigned",
+    "noSelection": "No selection",
+    "why": "Why this selection?",
+    "inspectAt": "Inspect an instant",
+    "inspect": "Inspect",
+    "useNow": "Use server time",
+    "timezone": "Dates and times use your browser time zone: {{timezone}}.",
+    "invalidInstant": "Choose a valid date and time.",
+    "inspectedTime": "Requested: {{at}} · Evaluated: {{evaluatedAt}}",
+    "selection": "Selection and alternatives",
+    "precedence": "Priority {{priority}} · Target specificity {{specificity}}",
+    "synchronization": "Reported synchronization",
+    "synchronizationLimit": "Manifest synchronization does not prove content readiness or successful playback.",
+    "capabilities": "Reported Widget presentation support",
+    "capabilityLimit": "Reported support does not establish media readiness, decoder behavior, network access, or actual rendering.",
+    "boundaryLimit": "The next reevaluation may leave the selected content unchanged. Future predictions use current configuration and the latest reported Player state.",
+    "observationLimit": "This is expected selection, not proof of what appeared on the display.",
+    "viewActivity": "View Player-confirmed Activity",
+    "recordedPresentation": "Recorded presentation",
+    "recordedRevision": "{{type}} · Revision {{revision}}",
+    "recordedInterval": "Recorded window",
+    "openWindow": "Open recorded window",
+    "historyGap": "No recorded expectation covers this instant. Current assignments cannot fill this historical gap.",
+    "presentationId": "Presentation ID",
+    "revision": "Revision",
+    "recordedSource": "Recorded source",
+    "otherRecordedSource": "Recorded source: {{source}}",
+    "requiredSchema": "Requires presentation schema {{version}}",
+    "requiredCapability": "Requires {{name}}@{{version}} · reported {{reported}}",
+    "reportedSchemas": "Reported schemas: {{versions}}",
+    "noneReported": "None reported",
+    "renderer": "Selected renderer: {{renderer}}",
+    "types": {
+      "playlist": "Playlist",
+      "layout": "Layout",
+      "asset": "Asset",
+      "presentation": "Presentation"
+    },
+    "renderers": {
+      "component": "Component",
+      "compatibility": "Compatibility presentation"
+    },
+    "sources": {
+      "takeover": "Takeover",
+      "quick_present": "Show now",
+      "schedule": "Schedule",
+      "assignment": "Fallback assignment"
+    },
+    "basis": {
+      "current_configuration": "Prediction from current configuration",
+      "recorded_expectation": "Recorded historical expectation",
+      "historical_expectation_unavailable": "Historical expectation unavailable"
+    },
+    "status": {
+      "selected": "Selected",
+      "superseded": "Overridden",
+      "inactive": "Inactive",
+      "supported": "Supported",
+      "blocked": "Blocked",
+      "unknown": "Unknown",
+      "not_applicable": "Not applicable",
+      "unavailable": "Unavailable"
+    },
+    "synchronizationStatus": {
+      "not_reported": "Not reported",
+      "current": "Current",
+      "preparing": "Preparing",
+      "out_of_date": "Out of date"
+    },
+    "reasons": {
+      "active_takeover": "An active Takeover takes priority.",
+      "active_quick_present": "An active Show now session takes priority.",
+      "assigned_fallback": "No higher-priority presentation is active; the assignment is the fallback.",
+      "schedule_highest_precedence": "This schedule wins the server's precedence rules.",
+      "schedule_disabled": "This schedule is disabled.",
+      "schedule_not_active": "This schedule is not active at the requested instant.",
+      "schedule_lower_priority": "Another active schedule has a higher priority.",
+      "schedule_less_specific": "Another active schedule targets this Screen more specifically.",
+      "schedule_earlier_start": "Another otherwise equal schedule started later.",
+      "schedule_stable_id_tiebreak": "Another otherwise equal schedule wins the final stable tie-break.",
+      "no_active_takeover": "No Takeover is active at this instant.",
+      "no_active_quick_present": "No Show now session is active at this instant.",
+      "no_assignment": "No fallback presentation is assigned."
+    },
+    "capabilityReasons": {
+      "no_selected_content": "No content is selected for assessment.",
+      "selected_content_not_found": "The selected content no longer exists.",
+      "selected_content_not_published": "The selected Layout has no published revision.",
+      "presentation_requirements_invalid": "The selected content has unavailable presentation requirements.",
+      "reported_requirements_supported": "The Player reports support for the selected Widget presentation requirements.",
+      "player_capabilities_not_reported": "The Player has not reported a presentation capability profile.",
+      "no_widget_presentation_requirements": "This selection has no Widget presentation requirements.",
+      "manifest_v13_capabilities_not_reported": "This content requires manifest v13 support, but the Player has not reported capabilities.",
+      "widget_requirements_unsupported": "At least one Widget requirement cannot use this Player's reported profile."
+    },
+    "widgetReasons": {
+      "player_capabilities_not_reported": "The Player has not reported its presentation capabilities.",
+      "component_capabilities_not_reported": "This component-only Widget needs a reported Player profile.",
+      "no_presentation_requirements": "This Widget has no presentation requirements.",
+      "presentation_requirements_unsupported": "The selected renderer's requirements are not supported by the reported profile.",
+      "reported_requirements_supported": "The reported profile supports this Widget's selected renderer."
+    }
+  },
   "groups": {
     "title": "Display Groups",
     "subtitle": "Keep a set of screens on the same content, schedule, and playback position. Mirror groups preserve synchronized playback.",
     "create": "Create Display Group",
+    "created": "Display Group created.",
     "loading": "Loading Display Groups",
     "loadMore": "Load more Display Groups",
     "loadError": "Display Groups could not be loaded. Try refreshing the page.",
@@ -107,7 +219,10 @@
     "noneReported": "None reported",
     "nothingAssigned": "Nothing assigned",
     "noFallback": "No fallback content",
-    "updateFailed": "Update failed"
+    "updateFailed": "Update failed",
+    "mapLoading": "Loading map…",
+    "mapLoadErrorTitle": "Map couldn't load",
+    "mapLoadErrorBody": "Tilecast couldn't finish rendering this map. Retry, or use the technical detail below to diagnose the problem."
   },
   "status": {
     "online": "Online",
@@ -252,7 +367,17 @@
     "locationCount_other": "{{count}} locations",
     "healthFraction": "{{online}} of {{total}} online",
     "healthAttention_one": "{{count}} needs attention",
-    "healthAttention_other": "{{count}} need attention"
+    "healthAttention_other": "{{count}} need attention",
+    "mapView": "Map view",
+    "mapEmptyTitle": "No screens to show on the map",
+    "mapEmptyBody": "Add coordinates to a location or set an exact map position on a screen.",
+    "mapUnmapped": "Screens without a map position: {{count}}",
+    "mapAriaLabel": "Fleet map",
+    "mapInherited": "From location",
+    "mapOpenScreen": "Open screen",
+    "mapNativeTitle": "Native map",
+    "mapNativeBody": "Tilecast is showing these screens in the system map.",
+    "mapOpenNative": "Open map"
   },
   "grid": {
     "openScreen": "Open {{name}}",
@@ -289,8 +414,6 @@
   "pending": {
     "section": "Pending pairing requests",
     "title": "Waiting for approval",
-    "body_one": "{{count}} player requested pairing.",
-    "body_other": "{{count}} players requested pairing.",
     "review": "Review",
     "expires": "Expires {{time}}"
   },
@@ -299,44 +422,64 @@
     "body": "Enter the six-character code displayed by Tilecast Player.",
     "codeLabel": "Pairing code",
     "codeRequired": "Enter the six-character code",
+    "invalidFormat": "Enter the six characters shown on the player.",
+    "notFound": "No waiting player matches this code.",
+    "expired": "This pairing code has expired.",
     "resolveError": "Pairing code could not be resolved.",
+    "rejected": "Pairing request rejected.",
     "findPlayer": "Find player",
     "gateTitle": "Screen approval requires administrator access.",
     "gateBody": "Editors and Viewers can monitor screens but cannot approve or reject pairing requests.",
-    "backToScreens": "Return to screens",
-    "onTvTitle": "On the TV",
-    "onTvBody": "Open Tilecast Player, connect to this server, and leave the pairing code visible while you approve it."
+    "backToScreens": "Return to screens"
+  },
+  "review": {
+    "previouslyPaired": "Previously paired",
+    "compareHint": "Compare these details with the physical display before approving.",
+    "technicalDetails": "Technical details"
+  },
+  "details": {
+    "moreDetails": "More details"
+  },
+  "qr": {
+    "scan": "Scan QR code",
+    "scanHint": "Scan the QR code shown by Tilecast Player.",
+    "or": "or",
+    "invalid": "This QR code is not a Tilecast pairing code.",
+    "wrongInstallation": "This QR code belongs to another Tilecast installation.",
+    "wrongServer": "This QR code belongs to another Tilecast server."
+  },
+  "success": {
+    "title": "“{{name}}” paired",
+    "body": "The player can now connect to Tilecast.",
+    "openScreen": "Open screen",
+    "done": "Done"
+  },
+  "destination": {
+    "reconnectTo": "Reconnect to {{name}}",
+    "reconnectBody": "This player was previously paired as “{{name}}”. Pairing it again replaces its device credential while keeping the existing screen.",
+    "showReplace": "Replacing an existing screen?",
+    "showNew": "Create a new screen instead",
+    "replaceBody": "Use this when the physical player changed but you want to keep an existing Tilecast screen, including its assignments and history."
   },
   "approval": {
     "step": "Pairing request",
     "title": "Review this player",
     "body": "Confirm the device details before granting it an individual Tilecast credential.",
     "expires": "Expires {{time}}",
-    "device": "Device",
     "platform": "Platform",
     "android": "Android",
     "player": "Player",
     "resolution": "Resolution",
     "locale": "Locale / timezone",
     "network": "Network address",
-    "destination": "Pairing destination",
     "newScreen": "Create new screen",
     "newScreenHint": "Create a new logical screen from this player.",
-    "repair": "Repair existing credential",
-    "repairHint": "Keep this player installation on “{{name}}”.",
-    "replace": "Replace hardware for an existing screen",
-    "replaceHint": "Keep the logical screen, Display Group, content, schedules, policies, and history.",
     "existingScreen": "Existing screen",
-    "chooseScreen": "Choose a screen",
     "searchScreens": "Search screens…",
     "screensLoadError": "Screens could not be loaded.",
     "noMatchingScreens": "No matching eligible screens.",
     "chooseScreenError": "Choose the existing screen whose hardware is being replaced.",
-    "screenNotFound": "The replacement screen could not be found.",
     "selectHint": "The old credential is retired only after this player successfully enrolls.",
-    "pairedBefore": "This device was previously paired as “{{name}}.”",
-    "pairedReplaceBody": "Choose the logical screen above; its identity and configuration are preserved.",
-    "pairedRepairBody": "Repairing the pairing will preserve this screen and its content assignments. The previous device credential will be revoked only after this player completes enrollment.",
     "repairTitle": "Repair pairing for “{{name}}”?",
     "repairBody": "This preserves the existing screen. Its previous device credential is replaced after the new player completes enrollment.",
     "replaceTitle": "Replace hardware for “{{name}}”?",
@@ -352,11 +495,7 @@
     "approving": "Approving…",
     "actionApprove": "Approve and pair",
     "actionRepair": "Repair and replace credential",
-    "actionReplace": "Replace hardware",
-    "confirmFallback": "Confirm pairing change",
-    "confirmFallbackBody": "Review this pairing change before continuing.",
-    "goBack": "Go back",
-    "confirmPairing": "Confirm pairing"
+    "actionReplace": "Replace hardware"
   },
   "takeover": {
     "title": "Takeover",
@@ -519,7 +658,9 @@
     "websiteTitle": "Website playback issue",
     "websiteUnknown": "Unknown website failure",
     "deviceBody": "Player health, device details, and operational controls.",
-    "deviceNav": "Device sections",
+    "diagnosticsTitle": "Diagnostics",
+    "diagnosticsBody": "Inspect device state, health and recovery, or run maintenance actions without leaving this screen.",
+    "deviceNav": "Diagnostics sections",
     "sectionDevice": "Device details",
     "sectionHealth": "Health",
     "sectionMaintenance": "Maintenance",
@@ -717,7 +858,16 @@
       "copyFail": "Clipboard access failed. Select and copy the commands manually.",
       "copiedNote": "Commands copied.",
       "last": "Run both commands, reopen Tilecast Player, and choose Verify again. The enable command preserves other accessibility services."
-    }
+    },
+    "mapPosition": "Map position",
+    "mapPositionCustom": "Using an exact position for this screen.",
+    "mapPositionInherited": "Using the assigned location’s position.",
+    "mapPositionNone": "No position is available yet.",
+    "mapPositionUseLocation": "Use location",
+    "mapPositionClear": "Clear position",
+    "mapPositionPlaceCenter": "Place at map center",
+    "mapPositionAriaLabel": "Choose screen position on map",
+    "mapPositionHint": "Click the map or drag the marker to set an exact screen position."
   },
   "preview": {
     "snapshotsTitle": "Snapshot history",
@@ -728,7 +878,13 @@
   },
   "scope": {
     "ownerNote": "Owner access applies to the entire fleet.",
-    "fullAccess": "This account can operate every screen. Select buildings or Display Groups to narrow it.",
+    "modeLegend": "Screen access",
+    "modeFull": "Full fleet access",
+    "modeFullHint": "This account can operate every screen in the fleet.",
+    "modeLimited": "Limit access",
+    "combineNote": "Locations and Display Groups combine: a screen is included when its location or one of its groups is selected.",
+    "limitedEmpty": "Select at least one location or Display Group, or choose full fleet access.",
+    "loadError": "Screen scope could not be loaded.",
     "limited_one": "This account can operate screens in {{count}} selected place only. It still sees the whole content library.",
     "limited_other": "This account can operate screens in {{count}} selected places only. It still sees the whole content library.",
     "loading": "Loading scope…",
@@ -746,6 +902,7 @@
     "title": "Screen archive",
     "body": "Players with revoked pairings are retained for history but are detached from all live Tilecast configuration.",
     "loading": "Loading archived screens…",
+    "loadError": "Archived screens could not be loaded.",
     "emptyTitle": "No archived screens",
     "emptyBody": "Revoked player pairings will appear here automatically.",
     "back": "Back to screens",
@@ -770,7 +927,7 @@
     "selectAll": "Select all",
     "selectNone": "Select none",
     "loading": "Loading screens…",
-    "empty": "No screens are paired yet.",
+    "screensLoadError": "Screens could not be loaded.",
     "noScreensTitle": "No screens are paired yet",
     "noScreensHint": "Pair a player before applying bulk changes.",
     "selectAria": "Select {{name}}",
@@ -820,7 +977,6 @@
     "undoing": "Undoing…",
     "undoAction": "Undo this change",
     "recentTitle": "Recent bulk changes",
-    "recentEmpty": "No bulk changes yet.",
     "recentEmptyTitle": "No bulk changes yet",
     "recentEmptyHint": "Completed fleet changes will appear here with their undo status.",
     "historyScreens_one": "{{count}} screen",
@@ -830,7 +986,12 @@
     "statusUndone": "Undone",
     "windowClosed": "Undo window closed",
     "applyAction_one": "Change {{count}} screen",
-    "applyAction_other": "Change {{count}} screens"
+    "applyAction_other": "Change {{count}} screens",
+    "applying": "Applying…",
+    "applied": "Bulk changes applied.",
+    "undone": "Bulk changes undone.",
+    "staleBody": "Screens changed since this preview was built. Review the change again before applying.",
+    "reviewAction": "Review changes"
   },
   "network": {
     "title": "Presentation Network",

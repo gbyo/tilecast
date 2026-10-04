@@ -1,9 +1,10 @@
+import { screenQueries } from "../data/screens";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api/client";
+
+import { copyText } from "../lib/clipboard";
 import { Button } from "./ui/button";
-import { toast } from "./ui/toast";
 
 const ACCESSIBILITY_COMPONENT =
   "org.tilecast.player/org.tilecast.player.reliability.TilecastAccessibilityService";
@@ -52,8 +53,7 @@ export function FireTvAccessibilityAdbPanel({
     "idle",
   );
   const screen = useQuery({
-    queryKey: ["screens", screenId],
-    queryFn: () => api.screen(screenId),
+    ...screenQueries.detail(screenId),
   });
 
   const isFireTv = isFireTvScreen(screen.data);
@@ -64,17 +64,16 @@ export function FireTvAccessibilityAdbPanel({
   if (!isFireTv) return null;
 
   const copyCommands = async () => {
-    try {
-      await navigator.clipboard.writeText(commands.combined);
+    if (
+      await copyText(commands.combined, {
+        success: t("detail.fireTv.copiedNote"),
+        failure: t("detail.fireTv.copyFail"),
+      })
+    ) {
       setCopyState("copied");
-      toast.add({ title: t("detail.fireTv.copiedNote"), type: "success" });
       window.setTimeout(() => setCopyState("idle"), 2_000);
-    } catch {
+    } else {
       setCopyState("error");
-      toast.add({
-        title: t("detail.fireTv.copyFail"),
-        type: "error",
-      });
     }
   };
 

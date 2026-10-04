@@ -1199,6 +1199,7 @@
     "searchPlaceholder": "Buscar por nombre o dirección",
     "add": "Añadir ubicación",
     "saved": "Ubicación guardada.",
+    "saveFailed": "No se pudo guardar la ubicación.",
     "deleted": "Ubicación eliminada.",
     "deleteConflict": "Esta ubicación aún tiene pantallas asignadas. Reasígnalas o quítalas antes de eliminarla.",
     "deleteFailed": "No se pudo eliminar la ubicación.",
@@ -1711,7 +1712,8 @@
     "noPlayers": "No hay reproductores Linux disponibles para asignar.",
     "detailError": "No se pudo cargar esta red.",
     "retry": "Intentar de nuevo.",
-    "save": "Guardar red"
+    "save": "Guardar red",
+    "leaveTitle": "¿Descartar los cambios sin guardar de la red?"
   },
   "notifications": {
     "categories": {

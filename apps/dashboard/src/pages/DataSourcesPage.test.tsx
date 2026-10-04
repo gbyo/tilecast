@@ -19,6 +19,7 @@ import {
   sourceIcon,
 } from "../content/dataSourceProviderMeta";
 import { DataSourcesPage } from "./DataSourcesPage";
+import userEvent from "@testing-library/user-event";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -243,5 +244,89 @@ describe("Data Source card actions", () => {
     await waitFor(() =>
       expect(remove).toHaveBeenCalledWith("source-1", "csrf-token"),
     );
+  });
+
+  it("narrows the server query through the provider facet", async () => {
+    const list = vi
+      .spyOn(api, "listDataSourcesPage")
+      .mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 100 });
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [{ id: "rss", name: "RSS" } as DataSourceDefinition],
+    });
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [],
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <DataSourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole("combobox", {
+        name: "Filter by Data Source provider",
+      }),
+    );
+    await user.click(await screen.findByRole("option", { name: "RSS" }));
+
+    await waitFor(() =>
+      expect(
+        list.mock.calls.some((call) => call[0]?.get("provider") === "rss"),
+      ).toBe(true),
+    );
+    expect(
+      await screen.findByRole("button", {
+        name: "Remove filter Filter by Data Source provider: RSS",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the Updated sort action on the filter bar", async () => {
+    vi.spyOn(api, "listDataSourcesPage").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue({
+      revision: "1",
+      compilerVersion: "1",
+      fingerprint: "test",
+      widgets: [],
+      dataSources: [],
+    });
+    vi.spyOn(api, "providerCatalog").mockResolvedValue({
+      revision: 1,
+      providers: [],
+    });
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <DataSourcesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+
+    const sort = await screen.findByRole("button", { name: "Sort by updated" });
+    const pressed = sort.getAttribute("aria-pressed");
+    await user.click(sort);
+    expect(sort.getAttribute("aria-pressed")).not.toBe(pressed);
   });
 });
