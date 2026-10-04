@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router";
@@ -65,8 +65,10 @@ import { stateLabel, stateTone } from "./forms/formStatus";
 import type { FormsT } from "./forms/formSchema";
 import {
   Pagination,
+  useConfirm,
   useDesktopLayout,
   useFormatLocale,
+  useNavigationWarning,
   usePluginTranslation,
   useStudioSession,
 } from "@tilecast/studio";
@@ -278,9 +280,45 @@ function ResponsesTab({
   onSelectRecord: (recordId: string | null) => void;
 }) {
   const { t } = usePluginTranslation("forms", en);
+  const { t: commonT } = useTranslation("common");
   const locale = useFormatLocale();
   const desktop = useDesktopLayout();
   const [detailsOpen, setDetailsOpen] = useState(Boolean(selectedRecordId));
+  const [reviewDirty, setReviewDirty] = useState(false);
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  // Closing the sheet replaces the record deep link away, so the confirmed
+  // close consumes a pass instead of tripping the navigation guard.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty: reviewDirty,
+    title: t("review.leaveTitle"),
+    body: t("review.leaveBody"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
+  useEffect(() => {
+    setReviewDirty(false);
+  }, [selectedRecordId]);
+  const requestCloseDetails = () => {
+    if (!reviewDirty) {
+      setDetailsOpen(false);
+      return;
+    }
+    void confirm({
+      title: t("review.leaveTitle"),
+      body: t("review.leaveBody"),
+      action: commonT("actions.discardChanges"),
+    }).then((ok) => {
+      if (!ok) return;
+      departing.current = true;
+      setDetailsOpen(false);
+    });
+  };
   const [stateFilter, setStateFilter] = useState<string>("needs_review");
   const [search, setSearch] = useState("");
   const [sort, setSort] =
@@ -588,11 +626,15 @@ function ResponsesTab({
           />
         </>
       )}
+      {confirmDialog}
+      {navigationDialog}
       {selectedRecordId &&
         (desktop ? (
           <Sheet
             open={detailsOpen}
-            onOpenChange={setDetailsOpen}
+            onOpenChange={(open) => {
+              if (!open) requestCloseDetails();
+            }}
             onOpenChangeComplete={(open) => {
               if (!open) onSelectRecord(null);
             }}
@@ -610,11 +652,7 @@ function ResponsesTab({
                 <SheetDescription>{t("detail.sheetBody")}</SheetDescription>
               </SheetHeader>
               <div className="grid content-start gap-4 px-4 pb-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDetailsOpen(false)}
-                >
+                <Button variant="ghost" size="sm" onClick={requestCloseDetails}>
                   {t("detail.backToResponses")}
                 </Button>
                 <RecordReview
@@ -622,6 +660,7 @@ function ResponsesTab({
                   recordId={selectedRecordId}
                   csrf={csrf}
                   onAfterTransition={() => void records.refetch()}
+                  onDirtyChange={setReviewDirty}
                 />
               </div>
             </SheetContent>
@@ -629,7 +668,9 @@ function ResponsesTab({
         ) : (
           <Drawer
             open={detailsOpen}
-            onOpenChange={setDetailsOpen}
+            onOpenChange={(open) => {
+              if (!open) requestCloseDetails();
+            }}
             onOpenChangeComplete={(open) => {
               if (!open) onSelectRecord(null);
             }}
@@ -651,7 +692,7 @@ function ResponsesTab({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setDetailsOpen(false)}
+                    onClick={requestCloseDetails}
                   >
                     {t("detail.backToResponses")}
                   </Button>
@@ -660,6 +701,7 @@ function ResponsesTab({
                     recordId={selectedRecordId}
                     csrf={csrf}
                     onAfterTransition={() => void records.refetch()}
+                    onDirtyChange={setReviewDirty}
                   />
                 </div>
               </div>
@@ -712,6 +754,25 @@ function MetadataEditor({
   const [name, setName] = useState(form.name);
   const [description, setDescription] = useState(form.description);
   const [error, setError] = useState("");
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  // No navigation blocker here: FormBuilder already guards this tab, and a
+  // second blocker would stack dialogs. Cancel still confirms.
+  const dirty = name !== form.name || description !== form.description;
+  const requestCancel = () => {
+    if (!dirty) {
+      setEditing(false);
+      return;
+    }
+    void confirm({
+      title: t("editor.leaveTitle"),
+      action: commonT("actions.discardChanges"),
+    }).then((ok) => {
+      if (!ok) return;
+      setName(form.name);
+      setDescription(form.description);
+      setEditing(false);
+    });
+  };
 
   const save = useMutation({
     mutationFn: () =>
@@ -758,6 +819,7 @@ function MetadataEditor({
 
   return (
     <div className="grid gap-3 rounded-xl border border-border bg-card p-4">
+      {confirmDialog}
       {error && (
         <Alert variant="destructive">
           <AlertTitle>{t("detail.detailsError")}</AlertTitle>
@@ -787,14 +849,7 @@ function MetadataEditor({
         />
       </Field>
       <div className="flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setName(form.name);
-            setDescription(form.description);
-            setEditing(false);
-          }}
-        >
+        <Button variant="ghost" onClick={requestCancel}>
           {commonT("actions.cancel")}
         </Button>
         <Button

@@ -315,6 +315,27 @@ describe("Form Data Source Studio", () => {
       screen.getByRole("button", { name: "Save draft" }),
     ).toBeInTheDocument();
   });
+
+  it("confirms before Cancel discards metadata edits", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/f1?tab=form", "owner");
+
+    await user.click(
+      await screen.findByRole("button", { name: "Edit details" }),
+    );
+    await user.type(await screen.findByLabelText("Form name"), "!");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Edit details" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("Form responses table", () => {

@@ -278,7 +278,9 @@
       "attachmentRemovedBy": "Archivo adjunto eliminado por {{name}}",
       "unknown": "{{type}}{{actor}}",
       "byActor": " por {{name}}"
-    }
+    },
+    "leaveTitle": "¿Salir sin guardar?",
+    "leaveBody": "Esta revisión tiene cambios sin guardar."
   },
   "editor": {
     "leaveTitle": "¿Salir sin guardar?",

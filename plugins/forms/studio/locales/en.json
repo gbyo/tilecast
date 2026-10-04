@@ -276,7 +276,9 @@
       "attachmentRemovedBy": "Removed an attachment by {{name}}",
       "unknown": "{{type}}{{actor}}",
       "byActor": " by {{name}}"
-    }
+    },
+    "leaveTitle": "Leave without saving?",
+    "leaveBody": "This review has unsaved changes."
   },
   "editor": {
     "leaveTitle": "Leave without saving?",
