@@ -3318,102 +3318,104 @@ export function ScreenDetailPage() {
                 <>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                     <div className="min-w-0 flex-1">
-                    <Select
-                      items={[
-                        {
-                          value: "__none__",
-                          label: t("detail.noPresentation"),
-                        },
-                        ...(playlists.data?.items ?? []).map((playlist) => ({
-                          value: `playlist:${playlist.id}`,
-                          label: playlist.name,
-                        })),
-                        ...(layouts.data?.items ?? []).map((layout) => ({
-                          value: `layout:${layout.id}`,
-                          label: layout.name,
-                        })),
-                      ]}
-                      value={selectedPresentation || "__none__"}
-                      disabled={assign.isPending}
-                      onValueChange={(value) => {
-                        assign.reset();
-                        setPresentationTouched(true);
-                        setSelectedPresentation(
-                          value === "__none__" ? "" : (value ?? ""),
-                        );
-                      }}
-                    >
-                      <SelectTrigger
-                        aria-label={t("detail.assignedLabel")}
-                        className="w-full"
+                      <Select
+                        items={[
+                          {
+                            value: "__none__",
+                            label: t("detail.noPresentation"),
+                          },
+                          ...(playlists.data?.items ?? []).map((playlist) => ({
+                            value: `playlist:${playlist.id}`,
+                            label: playlist.name,
+                          })),
+                          ...(layouts.data?.items ?? []).map((layout) => ({
+                            value: `layout:${layout.id}`,
+                            label: layout.name,
+                          })),
+                        ]}
+                        value={selectedPresentation || "__none__"}
+                        disabled={assign.isPending}
+                        onValueChange={(value) => {
+                          assign.reset();
+                          setPresentationTouched(true);
+                          setSelectedPresentation(
+                            value === "__none__" ? "" : (value ?? ""),
+                          );
+                        }}
                       >
-                        <SelectValue placeholder={t("detail.noPresentation")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">
-                          {t("detail.noPresentation")}
-                        </SelectItem>
-                        <SelectGroup>
-                          <SelectLabel>
-                            {t("detail.playlistsGroup")}
-                          </SelectLabel>
-                          {playlists.data?.items?.map((playlist) => (
-                            <SelectItem
-                              key={playlist.id}
-                              value={`playlist:${playlist.id}`}
-                            >
-                              {playlist.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
-                          {layouts.data?.items
-                            .filter((layout) => layout.publishedRevision)
-                            .map((layout) => (
+                        <SelectTrigger
+                          aria-label={t("detail.assignedLabel")}
+                          className="w-full"
+                        >
+                          <SelectValue
+                            placeholder={t("detail.noPresentation")}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">
+                            {t("detail.noPresentation")}
+                          </SelectItem>
+                          <SelectGroup>
+                            <SelectLabel>
+                              {t("detail.playlistsGroup")}
+                            </SelectLabel>
+                            {playlists.data?.items?.map((playlist) => (
                               <SelectItem
-                                key={layout.id}
-                                value={`layout:${layout.id}`}
+                                key={playlist.id}
+                                value={`playlist:${playlist.id}`}
                               >
-                                {layout.name}
+                                {playlist.name}
                               </SelectItem>
                             ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
+                            {layouts.data?.items
+                              .filter((layout) => layout.publishedRevision)
+                              .map((layout) => (
+                                <SelectItem
+                                  key={layout.id}
+                                  value={`layout:${layout.id}`}
+                                >
+                                  {layout.name}
+                                </SelectItem>
+                              ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      disabled={
+                        assign.isPending ||
+                        !presentationTouched ||
+                        !assignmentDirty
+                      }
+                      onClick={() => assign.mutate()}
+                    >
+                      {assign.isPending
+                        ? t("groups.detail.applying")
+                        : assignment.data?.groups?.[0]
+                          ? t("groups.detail.apply")
+                          : t("detail.applyAssignment")}
+                    </Button>
                   </div>
-                  <Button
-                    disabled={
-                      assign.isPending ||
-                      !presentationTouched ||
-                      !assignmentDirty
-                    }
-                    onClick={() => assign.mutate()}
-                  >
-                    {assign.isPending
-                      ? t("groups.detail.applying")
-                      : assignment.data?.groups?.[0]
-                        ? t("groups.detail.apply")
-                        : t("detail.applyAssignment")}
-                  </Button>
-                </div>
-                {presentationTouched &&
-                  assignmentDirty &&
-                  !assign.isPending &&
-                  !assign.isError && (
-                    <p className="text-sm text-muted-foreground" role="status">
-                      {t("detail.assignmentPendingHint")}
-                    </p>
+                  {presentationTouched &&
+                    assignmentDirty &&
+                    !assign.isPending &&
+                    !assign.isError && (
+                      <p className="text-sm text-muted-foreground" role="status">
+                        {t("detail.assignmentPendingHint")}
+                      </p>
+                    )}
+                  {assign.isError && (
+                    <Alert variant="destructive">
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>{t("detail.assignmentSaveError")}</AlertTitle>
+                      <AlertDescription>
+                        {apiErrorMessage(assign.error)}
+                      </AlertDescription>
+                    </Alert>
                   )}
-                {assign.isError && (
-                  <Alert variant="destructive">
-                    <CircleAlert aria-hidden="true" />
-                    <AlertTitle>{t("detail.assignmentSaveError")}</AlertTitle>
-                    <AlertDescription>
-                      {apiErrorMessage(assign.error)}
-                    </AlertDescription>
-                  </Alert>
-                )}
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
