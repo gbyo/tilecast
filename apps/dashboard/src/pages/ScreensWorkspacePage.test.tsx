@@ -6,11 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { api } from "../api/client";
-import {
-  PairScreenDialog,
-  ScreensPage,
-  ScreensWorkspacePage,
-} from "./ScreensPage";
+import { PairScreenDialog } from "../pairing/PairScreenDialog";
+import { ScreensPage, ScreensWorkspacePage } from "./ScreensPage";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({

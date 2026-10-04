@@ -44,11 +44,38 @@ func Migrate(ctx context.Context, databaseURL string) error {
 	}
 	defer db.Close()
 
+	// Migration 00111 removes invalid micro-sessions from playback_sessions.
+	// That table has a self-referencing ON DELETE SET NULL foreign key, and
+	// installations created before the supporting parent-session index can
+	// otherwise spend minutes rescanning the table for every deleted row. The
+	// migration has shipped and is immutable, so repair the missing support
+	// index before Goose reaches it. Run the same repair after migration so a
+	// fresh installation also receives the index once the table exists.
+	if err := ensurePlaybackParentIndex(ctx, db); err != nil {
+		return err
+	}
 	if err := useCatalog(); err != nil {
 		return err
 	}
 	if err := goose.UpContext(ctx, db, migrationDir); err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
+	}
+	if err := ensurePlaybackParentIndex(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ensurePlaybackParentIndex(ctx context.Context, db *sql.DB) error {
+	var tableExists bool
+	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.playback_sessions') IS NOT NULL`).Scan(&tableExists); err != nil {
+		return fmt.Errorf("check playback_sessions table: %w", err)
+	}
+	if !tableExists {
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS playback_sessions_parent_session_idx ON playback_sessions(parent_session_id)`); err != nil {
+		return fmt.Errorf("ensure playback parent-session index: %w", err)
 	}
 	return nil
 }

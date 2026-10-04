@@ -84,11 +84,11 @@ export function SettingsPage() {
   const currentBaseline = baseline;
   const currentDirty = dirty.has(active);
   const organizationDirtyHere = organizationDirty.has(active);
-  const navigationWarning = useNavigationWarning(
-    dirty.size > 0,
-    "/settings",
-    t("page.leaveWarning"),
-  );
+  const navigationWarning = useNavigationWarning({
+    dirty: dirty.size > 0,
+    allowPrefix: "/settings",
+    title: t("page.leaveWarning"),
+  });
   const navigate = useNavigate();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const saveOrganization = useMutation({
@@ -533,5 +533,5 @@ function errorMessage(
   t: (key: "page.conflict") => string,
 ) {
   if (!error) return undefined;
-  return isConflict(error) ? t("page.conflict") : error.message;
+  return isConflict(error) ? t("page.conflict") : apiErrorMessage(error);
 }

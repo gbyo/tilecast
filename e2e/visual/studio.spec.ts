@@ -174,6 +174,43 @@ test("playlist-create-dialog", async ({ page }) => {
   await snapshot(page, "playlist-create-dialog");
 });
 
+test("fleet-bulk-review", async ({ page }) => {
+  await page.goto("/screens/bulk");
+  await expect(
+    page.getByRole("heading", { name: "Bulk changes" }).first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Select all" }).click();
+  await page.getByRole("combobox", { name: "Playlist" }).click();
+  await page.getByRole("option", { name: "Morning Announcements" }).click();
+  await page.getByRole("button", { name: "Preview the change" }).click();
+  await expect(
+    page.getByRole("heading", { name: "What will change" }),
+  ).toBeVisible();
+  await snapshot(page, "fleet-bulk-review");
+});
+
+test("screen-scope-editor", async ({ page }) => {
+  await page.goto("/settings/users");
+  const row = page
+    .locator('[data-slot="item"]')
+    .filter({ hasText: "Priya Natarajan" });
+  await row.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Screen scope" }).click();
+  await page.getByRole("radio", { name: "Limit access" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "High School" }),
+  ).toBeVisible();
+  await snapshot(page, "screen-scope-editor");
+});
+
+test("datasource-create", async ({ page }) => {
+  await page.goto("/data-sources/new");
+  await expect(
+    page.getByRole("heading", { name: "Create Data Source" }),
+  ).toBeVisible();
+  await snapshot(page, "datasource-create");
+});
+
 test("activity", async ({ page }) => {
   await page.goto("/activity");
   await page.getByRole("tab", { name: "Proof of Play", exact: true }).click();

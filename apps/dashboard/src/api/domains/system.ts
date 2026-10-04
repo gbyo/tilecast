@@ -31,6 +31,7 @@ import type {
   NotificationWebhookCreated,
   SettingsDocument,
   SettingsExportDocument,
+  SystemIdentity,
   SystemStatus,
   Takeover,
   UpdateDeployment,
@@ -40,6 +41,10 @@ import type {
   UptimeWindow,
   User,
 } from "../types";
+
+export function getSystemIdentity(): Promise<SystemIdentity> {
+  return apiGet("/api/v1/system/identity");
+}
 
 export function listPlayerReleases() {
   return apiGet("/api/v1/player-releases");

@@ -11,10 +11,22 @@ import TilecastCore
 /// - `-TilecastFixtureNativeCredential` gives every server a stored refresh
 ///   token, so the app can rotate it against the fixture server's
 ///   `ios-session` endpoint like a signed-in app.
+/// - `-TilecastFixtureQRScanner` replaces the camera with a stub scanner
+///   whose Simulate button returns `-TilecastFixtureQRPayload`, or a
+///   default wrong-installation approval URL when no payload is given.
+/// - `-TilecastFixtureQRUnavailable` advertises the scanner but fails
+///   every scan without showing anything, like a revoked permission.
 enum FixtureLaunch {
     static let arguments = ProcessInfo.processInfo.arguments
     static var mediaPicker: Bool { arguments.contains("-TilecastFixtureMediaPicker") }
     static var nativeCredential: Bool { arguments.contains("-TilecastFixtureNativeCredential") }
+    static var qrScanner: Bool { arguments.contains("-TilecastFixtureQRScanner") }
+    static var qrUnavailable: Bool { arguments.contains("-TilecastFixtureQRUnavailable") }
+    static var qrPayload: String? {
+        guard let flag = arguments.firstIndex(of: "-TilecastFixtureQRPayload"),
+              arguments.indices.contains(flag + 1) else { return nil }
+        return arguments[flag + 1]
+    }
 
     /// A 1×1 PNG.
     private static let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")!

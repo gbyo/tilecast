@@ -54,6 +54,35 @@ export function navigationState(
 }
 
 /**
+ * Run after the browser has crossed a paint boundary.
+ *
+ * A React effect caused by an interaction may run before the browser paints.
+ * The native app selects its tab as soon as it receives navigation/state, so
+ * sending a changed route too early can let the persistent WebView show its
+ * previous composited frame in the newly selected tab. Two animation frames
+ * guarantee that at least one paint happened between scheduling and sending.
+ */
+function afterNextPaint(callback: () => void): () => void {
+  if (
+    typeof window.requestAnimationFrame !== "function" ||
+    typeof window.cancelAnimationFrame !== "function"
+  ) {
+    const timeout = window.setTimeout(callback, 0);
+    return () => window.clearTimeout(timeout);
+  }
+
+  let secondFrame: number | undefined;
+  const firstFrame = window.requestAnimationFrame(() => {
+    secondFrame = window.requestAnimationFrame(callback);
+  });
+
+  return () => {
+    window.cancelAnimationFrame(firstFrame);
+    if (secondFrame !== undefined) window.cancelAnimationFrame(secondFrame);
+  };
+}
+
+/**
  * Publishes Studio's navigation model to a native host that negotiated the
  * nativeNavigation capability, and carries out its navigation requests with
  * React Router. The host sends only opaque destination ids; Studio resolves
@@ -73,6 +102,9 @@ export function useNativeNavigation(
   // Bumped to resend the catalog or the state unchanged.
   const [catalogNonce, setCatalogNonce] = useState(0);
   const [stateNonce, setStateNonce] = useState(0);
+  // The first state can publish immediately. A changed route waits for a
+  // paint so native selection never outruns WebKit's visible page.
+  const lastPublishedState = useRef<string | null>(null);
 
   const enabled =
     host.status === "ready" &&
@@ -113,11 +145,29 @@ export function useNativeNavigation(
   }, [enabled, host]);
 
   useEffect(() => {
-    if (!enabled) return;
-    void host.send(
-      "navigation/state",
-      JSON.parse(stateJson) as NavigationStatePayload,
-    );
+    if (!enabled) {
+      lastPublishedState.current = null;
+      return;
+    }
+
+    const state = JSON.parse(stateJson) as NavigationStatePayload;
+    const publish = () => {
+      lastPublishedState.current = stateJson;
+      void host.send("navigation/state", state);
+    };
+
+    // Initial state and same-location acknowledgements do not move the
+    // native tab, so publish them immediately. A changed route waits until
+    // WebKit has had a chance to paint the new Studio page.
+    if (
+      lastPublishedState.current === null ||
+      lastPublishedState.current === stateJson
+    ) {
+      publish();
+      return;
+    }
+
+    return afterNextPaint(publish);
   }, [enabled, host, stateJson, stateNonce]);
 
   useEffect(() => {

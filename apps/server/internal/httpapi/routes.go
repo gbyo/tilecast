@@ -188,6 +188,8 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}", s.deleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}/permanent", s.permanentlyDeleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/users/{id}/security/reset", s.resetUserFactors)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("admin")).Get("/users/{id}/screen-scopes", s.getUserScreenScopes)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Put("/users/{id}/screen-scopes", s.putUserScreenScopes)
 			dashboard.With(s.requireScope("read")).Get("/me/preferences", s.getPreferences)
 			dashboard.With(s.requireCSRF, s.requireScope("write")).Patch("/me/preferences", s.updatePreferences)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Patch("/settings", s.updateSettings)

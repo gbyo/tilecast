@@ -7,6 +7,7 @@ import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertAction, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { Skeleton } from "../components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -76,11 +77,11 @@ export function PreferencesPage() {
           draft[definition.key] ?? definition.default,
         ),
     );
-  const navigationWarning = useNavigationWarning(
+  const navigationWarning = useNavigationWarning({
     dirty,
-    "/account",
-    t("preferences.leaveWarning"),
-  );
+    allowPrefix: "/account",
+    title: t("preferences.leaveWarning"),
+  });
   const save = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updatePreferences(revision, values, auth.status?.csrfToken ?? ""),
@@ -114,7 +115,16 @@ export function PreferencesPage() {
     </Alert>
   ) : null;
   if (preferences.isLoading)
-    return <div className="table-loading">{t("preferences.loading")}</div>;
+    return (
+      <div
+        className="grid gap-2"
+        role="status"
+        aria-label={t("preferences.loading")}
+      >
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
   if (preferences.isError && !preferences.data) return loadError;
   const appearance = definitions.find(
     (definition) => definition.key === APPEARANCE_KEY,
@@ -217,17 +227,17 @@ function AppearanceControl({
   };
   return (
     <section
-      className="grid gap-3 rounded-xl border border-border p-4"
+      className="grid gap-4 rounded-xl border border-border p-4"
       aria-labelledby="appearance-control-title"
     >
-      <div className="grid gap-1">
+      <header className="grid gap-1">
         <h3 id="appearance-control-title" className="text-base font-semibold">
           {t("preferences.appearance.title")}
         </h3>
         <p className="text-sm text-muted-foreground">
           {t("preferences.appearance.description")}
         </p>
-      </div>
+      </header>
       <ToggleGroup
         aria-label={t("preferences.appearance.title")}
         value={options.includes(value) ? [value] : []}
@@ -272,17 +282,17 @@ function LanguageControl({
     option === "system" ? systemLabel : NATIVE_LANGUAGE_NAMES[option];
   return (
     <section
-      className="grid gap-3 rounded-xl border border-border p-4"
+      className="grid gap-4 rounded-xl border border-border p-4"
       aria-labelledby="language-control-title"
     >
-      <div className="grid gap-1">
+      <header className="grid gap-1">
         <h3 id="language-control-title" className="text-base font-semibold">
           {t("preferences.language.title")}
         </h3>
         <p className="text-sm text-muted-foreground">
           {t("preferences.language.description")}
         </p>
-      </div>
+      </header>
       <Select
         value={value}
         onValueChange={(next) => {

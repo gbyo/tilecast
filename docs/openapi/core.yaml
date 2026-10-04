@@ -3359,6 +3359,73 @@ paths:
         "404": { description: User not found }
         "409": { description: "User is active, is the current user, or changed
               state" }
+  /api/v1/users/{id}/screen-scopes:
+    get:
+      operationId: getUserScreenScopes
+      description: >-
+        Read which locations and sync groups an account may operate screens
+        in. Requires an Owner or Administrator with the admin scope. An
+        empty grant list means the whole fleet.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Screen scope grants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenScopeList" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+    put:
+      operationId: putUserScreenScopes
+      description: >-
+        Replace an account's screen scope grants. Requires an Owner or
+        Administrator with the admin scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token. An Owner cannot be scoped and
+        nobody can change their own scope.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scopes]
+              properties:
+                scopes:
+                  type: array
+                  items: { $ref: "#/components/schemas/ScreenScope" }
+      responses:
+        "200":
+          description: Screen scope grants replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenScopeList" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+        "422": { description: Scope invalid or account not scopable }
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -15559,6 +15626,23 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ManagedUser" }
         total: { type: integer, minimum: 0 }
+    ScreenScope:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: { type: string, enum: [location, group] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+    ScreenScopeList:
+      type: object
+      additionalProperties: false
+      required: [scopes, wholeFleet]
+      properties:
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenScope" }
+        wholeFleet: { type: boolean }
     AuthStatus:
       type: object
       additionalProperties: false

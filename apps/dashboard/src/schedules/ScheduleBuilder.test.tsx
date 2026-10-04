@@ -1,14 +1,21 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createMemoryRouter } from "react-router";
+import { Link, RouterProvider, createMemoryRouter } from "react-router";
 import { ScheduleEditorPage } from "./ScheduleBuilder";
 import { api } from "../api/client";
 import * as authModule from "../auth/AuthProvider";
-import type { Playlist, Screen, ScreenGroup } from "../api/types";
+import type { Playlist, Schedule, Screen, ScreenGroup } from "../api/types";
 
 class RequestWithoutSignal extends globalThis.Request {
   constructor(input: RequestInfo | URL, init: RequestInit = {}) {
@@ -98,6 +105,54 @@ function renderEditor() {
     </QueryClientProvider>,
   );
 }
+
+function renderEditorWithRoutes(initialEntry: string) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/schedules/new",
+        element: (
+          <>
+            <ScheduleEditorPage />
+            <Link to="/elsewhere">away</Link>
+          </>
+        ),
+      },
+      { path: "/schedules/:id", element: <ScheduleEditorPage /> },
+      { path: "/schedules", element: <p>Schedule list</p> },
+      { path: "/elsewhere", element: <p>Elsewhere</p> },
+    ],
+    { initialEntries: [initialEntry] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
+const existingSchedule: Schedule = {
+  id: "s1",
+  name: "Morning",
+  description: "",
+  playlistId: "p1",
+  playlistName: "Loop",
+  presentationType: "playlist",
+  type: "weekly",
+  timezone: "UTC",
+  priority: 0,
+  specificity: 0,
+  enabled: true,
+  dailyStart: "09:00",
+  dailyEnd: "17:00",
+  daysOfWeek: [1],
+  targets: [],
+  createdAt: "2026-01-01T00:00:00Z",
+  updatedAt: "2026-01-01T00:00:00Z",
+};
 
 describe("ScheduleBuilder targets", () => {
   it("adds and removes a screen target through the picker", async () => {
@@ -255,5 +310,81 @@ describe("ScheduleBuilder presentation picker", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("Morning loop")).toBeInTheDocument();
     expect(playlists).toHaveBeenCalled();
+  });
+});
+
+describe("ScheduleBuilder unsaved changes", () => {
+  it("warns before following an in-app link and discards on confirm", async () => {
+    mockAuth();
+    mockLists();
+    const user = userEvent.setup();
+    renderEditorWithRoutes("/schedules/new");
+
+    await user.type(
+      await screen.findByPlaceholderText("Morning announcements"),
+      "Late night",
+    );
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved schedule changes?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
+  });
+
+  it("leaves quietly when nothing changed", async () => {
+    mockAuth();
+    mockLists();
+    renderEditorWithRoutes("/schedules/new");
+
+    await screen.findByPlaceholderText("Morning announcements");
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("routes Cancel through the shared unsaved-changes dialog", async () => {
+    mockAuth();
+    mockLists();
+    const user = userEvent.setup();
+    renderEditorWithRoutes("/schedules/new");
+
+    await user.type(
+      await screen.findByPlaceholderText("Morning announcements"),
+      "Late night",
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved schedule changes?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Schedule list")).toBeInTheDocument();
+  });
+
+  it("does not warn after a confirmed delete", async () => {
+    mockAuth();
+    mockLists();
+    vi.spyOn(api, "schedule").mockResolvedValue(existingSchedule);
+    vi.spyOn(api, "deleteSchedule").mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderEditorWithRoutes("/schedules/s1");
+
+    const name = await screen.findByPlaceholderText("Morning announcements");
+    await user.type(name, " edited");
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const confirmDelete = await screen.findByRole("alertdialog", {
+      name: "Delete Morning edited?",
+    });
+    await user.click(
+      within(confirmDelete).getByRole("button", { name: "Delete" }),
+    );
+    expect(await screen.findByText("Schedule list")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Discard unsaved schedule changes?"),
+    ).not.toBeInTheDocument();
   });
 });

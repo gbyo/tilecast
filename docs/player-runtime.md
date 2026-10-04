@@ -50,6 +50,9 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
+| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      |
+
+`outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
 `info` (host name and version, engine name and version) is for diagnostics only.
 

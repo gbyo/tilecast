@@ -6,7 +6,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { CalendarDays, Clock3, X } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api } from "../api/client";
@@ -28,6 +28,7 @@ import {
 } from "../settings/settingValues";
 import { PlaylistPicker } from "../components/content-picker";
 import { useConfirm } from "../components/ConfirmDialog";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -180,13 +181,20 @@ export function ScheduleEditorPage() {
   const dirty = scheduleIsDirty(input, baseline);
   const errors = useMemo(() => validateScheduleInput(input, t), [input, t]);
   const valid = Object.keys(errors).length === 0;
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    addEventListener("beforeunload", warn);
-    return () => removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  // A deleted schedule has nothing left to lose; the pass is consumed by the
+  // post-delete navigation so a later departure still warns when dirty.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("editor.discardTitle"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
 
   const selectedPlaylist = playlists.data?.items?.find(
     (playlist) => playlist.id === input.playlistId,
@@ -261,6 +269,7 @@ export function ScheduleEditorPage() {
     mutationFn: () => api.deleteSchedule(id!, csrf),
     onSuccess: () => {
       toast.add({ title: t("notifications.deleted"), type: "success" });
+      departing.current = true;
       void navigate("/schedules");
     },
   });
@@ -275,6 +284,7 @@ export function ScheduleEditorPage() {
   return (
     <>
       {confirmDialog}
+      {navigationDialog}
       <section className="schedule-builder-page">
         <header className="schedule-builder-heading">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -532,19 +542,7 @@ export function ScheduleEditorPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => {
-                if (!dirty) {
-                  void navigate("/schedules");
-                  return;
-                }
-                void confirm({
-                  title: t("editor.discardTitle"),
-                  action: t("editor.discardAction"),
-                  destructive: true,
-                }).then((ok) => {
-                  if (ok) void navigate("/schedules");
-                });
-              }}
+              onClick={() => void navigate("/schedules")}
             >
               {t("common:actions.cancel")}
             </Button>

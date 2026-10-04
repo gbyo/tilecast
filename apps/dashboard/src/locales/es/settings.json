@@ -1712,7 +1712,8 @@
     "noPlayers": "No hay reproductores Linux disponibles para asignar.",
     "detailError": "No se pudo cargar esta red.",
     "retry": "Intentar de nuevo.",
-    "save": "Guardar red"
+    "save": "Guardar red",
+    "leaveTitle": "¿Descartar los cambios sin guardar de la red?"
   },
   "notifications": {
     "categories": {

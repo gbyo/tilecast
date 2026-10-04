@@ -5,17 +5,8 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  ArrowDown,
-  ArrowUp,
-  Copy,
-  EllipsisVertical,
-  SquarePen,
-  Plus,
-  Trash2,
-} from "lucide-react";
-import { Fragment, useState } from "react";
-import type { ReactNode } from "react";
+import { ArrowDown, ArrowUp, EllipsisVertical, Plus } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -31,6 +22,7 @@ import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -42,21 +34,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import {
   Empty,
   EmptyContent,
@@ -84,15 +68,6 @@ import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { canManageContent } from "./ContentPage";
-
-type SourceAction = {
-  label: string;
-  icon: ReactNode;
-  onSelect: () => void;
-  disabled?: boolean;
-  danger?: boolean;
-  separated?: boolean;
-};
 
 export function DataSourcesPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -165,34 +140,38 @@ export function DataSourcesPage() {
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
     },
   });
-  const actionsFor = (source: DataSource): SourceAction[] => {
-    const actions: SourceAction[] = [
+  const actionsFor = (source: DataSource): StudioActionGroup[] => {
+    const primary: StudioAction[] = [
       {
+        id: "open",
         label: canManage
           ? t("common:actions.edit")
           : t("dataSources.list.openAction"),
-        icon: <SquarePen size={14} aria-hidden="true" />,
+        icon: "edit",
         onSelect: () => void navigate(`/data-sources/${source.id}`),
       },
     ];
     if (canManage)
-      actions.push(
-        {
-          label: t("dataSources.list.duplicateAction"),
-          icon: <Copy size={14} aria-hidden="true" />,
-          disabled: duplicate.isPending,
-          onSelect: () => duplicate.mutate(source.id),
-        },
-        {
-          label: t("common:actions.delete"),
-          icon: <Trash2 size={14} aria-hidden="true" />,
-          danger: true,
-          separated: true,
-          disabled: remove.isPending,
-          onSelect: () => setPendingDelete(source),
-        },
-      );
-    return actions;
+      primary.push({
+        id: "duplicate",
+        label: t("dataSources.list.duplicateAction"),
+        icon: "duplicate",
+        disabled: duplicate.isPending,
+        onSelect: () => duplicate.mutate(source.id),
+      });
+    const danger: StudioAction[] = canManage
+      ? [
+          {
+            id: "delete",
+            label: t("common:actions.delete"),
+            icon: "trash",
+            role: "destructive",
+            disabled: remove.isPending,
+            onSelect: () => setPendingDelete(source),
+          },
+        ]
+      : [];
+    return [{ actions: primary }, { actions: danger }];
   };
   const actionError = duplicate.error ?? remove.error;
   // A failed initial load is terminal: the error alert is the state, not the
@@ -207,25 +186,21 @@ export function DataSourcesPage() {
 
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">
-            {t("dataSources.list.title")}
-          </h1>
-          {canManage && (
-            <Button
-              type="button"
-              onClick={() => void navigate("/data-sources/new")}
+      <PageHeader
+        title={t("dataSources.list.title")}
+        description={t("dataSources.list.subtitle")}
+        actions={
+          canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/data-sources/new"
             >
               <Plus size={16} aria-hidden="true" />{" "}
               {t("dataSources.list.createButton")}
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("dataSources.list.subtitle")}
-        </p>
-      </header>
+            </Link>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}
@@ -255,10 +230,21 @@ export function DataSourcesPage() {
       </FilterBar>
       {dataSources.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {dataSources.error instanceof ApiError
-              ? apiErrorMessage(dataSources.error)
-              : t("dataSources.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {dataSources.error instanceof ApiError
+                ? apiErrorMessage(dataSources.error)
+                : t("dataSources.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={dataSources.isFetching}
+              onClick={() => void dataSources.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -290,12 +276,12 @@ export function DataSourcesPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/data-sources/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/data-sources/new"
               >
                 {t("dataSources.list.createButton")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>
@@ -416,7 +402,7 @@ function DataSourceMobileCard({
 }: {
   source: DataSource;
   providerName: string;
-  actions: SourceAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
@@ -439,29 +425,13 @@ function DataSourceMobileCard({
             <span className="truncate">{providerName}</span>
           </span>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-            aria-label={menuLabel}
-          >
-            <EllipsisVertical size={16} aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" aria-label={menuLabel}>
-            {actions.map((action, index) => (
-              <Fragment key={`${action.label}-mobile-${index}`}>
-                {action.separated && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  variant={action.danger ? "destructive" : "default"}
-                  disabled={action.disabled}
-                  onClick={action.onSelect}
-                >
-                  {action.icon}
-                  {action.label}
-                </DropdownMenuItem>
-              </Fragment>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ActionMenuButton
+          label={menuLabel}
+          actions={actions}
+          variant="ghost"
+          size="icon-sm"
+          triggerIcon={<EllipsisVertical size={16} aria-hidden="true" />}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <SourceStatus status={source.status} />
@@ -484,85 +454,56 @@ function DataSourceRow({
 }: {
   source: DataSource;
   providerName: string;
-  actions: SourceAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
   const menuLabel = t("dataSources.list.rowActions", { name: source.name });
   return (
-    <ContextMenu>
-      <ContextMenuTrigger render={<TableRow data-slot="data-source-row" />}>
-        <TableCell>
-          <Link
-            to={`/data-sources/${source.id}`}
-            className="font-medium underline-offset-4 hover:underline"
-          >
-            {source.name}
-          </Link>
-        </TableCell>
-        <TableCell>
-          <span className="flex items-center gap-2">
-            <span aria-hidden="true">
-              {sourceIcon(source.provider, undefined, 18)}
-            </span>
-            {providerName}
+    <ActionContextMenu
+      label={menuLabel}
+      actions={actions}
+      render={<TableRow data-slot="data-source-row" />}
+    >
+      <TableCell>
+        <Link
+          to={`/data-sources/${source.id}`}
+          className="font-medium underline-offset-4 hover:underline"
+        >
+          {source.name}
+        </Link>
+      </TableCell>
+      <TableCell>
+        <span className="flex items-center gap-2">
+          <span aria-hidden="true">
+            {sourceIcon(source.provider, undefined, 18)}
           </span>
-        </TableCell>
-        <TableCell>
-          <SourceStatus status={source.status} />
-        </TableCell>
-        <TableCell>{source.cachedRecordCount}</TableCell>
-        <TableCell>{formatDateTime(source.updatedAt, locale)}</TableCell>
-        <TableCell>
-          <Link
-            to={`/data-sources/${source.id}`}
-            className="underline-offset-4 hover:underline"
-          >
-            {t("dataSources.list.viewLink")}
-          </Link>
-        </TableCell>
-        <TableCell>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="inline-flex size-7 items-center justify-center rounded-xl hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-              aria-label={menuLabel}
-            >
-              <EllipsisVertical size={15} aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" aria-label={menuLabel}>
-              {actions.map((action, index) => (
-                <Fragment key={`${action.label}-${index}`}>
-                  {action.separated && <DropdownMenuSeparator />}
-                  <DropdownMenuItem
-                    variant={action.danger ? "destructive" : "default"}
-                    disabled={action.disabled}
-                    onClick={action.onSelect}
-                  >
-                    {action.icon}
-                    {action.label}
-                  </DropdownMenuItem>
-                </Fragment>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </TableCell>
-      </ContextMenuTrigger>
-      <ContextMenuContent aria-label={menuLabel}>
-        {actions.map((action, index) => (
-          <Fragment key={`${action.label}-${index}`}>
-            {action.separated && <ContextMenuSeparator />}
-            <ContextMenuItem
-              variant={action.danger ? "destructive" : "default"}
-              disabled={action.disabled}
-              onClick={action.onSelect}
-            >
-              {action.icon}
-              {action.label}
-            </ContextMenuItem>
-          </Fragment>
-        ))}
-      </ContextMenuContent>
-    </ContextMenu>
+          {providerName}
+        </span>
+      </TableCell>
+      <TableCell>
+        <SourceStatus status={source.status} />
+      </TableCell>
+      <TableCell>{source.cachedRecordCount}</TableCell>
+      <TableCell>{formatDateTime(source.updatedAt, locale)}</TableCell>
+      <TableCell>
+        <Link
+          to={`/data-sources/${source.id}`}
+          className="underline-offset-4 hover:underline"
+        >
+          {t("dataSources.list.viewLink")}
+        </Link>
+      </TableCell>
+      <TableCell>
+        <ActionMenuButton
+          label={menuLabel}
+          actions={actions}
+          variant="ghost"
+          size="icon-sm"
+          triggerIcon={<EllipsisVertical size={15} aria-hidden="true" />}
+        />
+      </TableCell>
+    </ActionContextMenu>
   );
 }
 
@@ -621,7 +562,6 @@ export function DataSourceEditorPage() {
       <section className="app-editor-route">
         <DataSourceProviderGallery
           exclude={galleryHiddenProviders(catalog.data)}
-          page
           onClose={close}
           onChoose={(choice) => void navigate(`/data-sources/new/${choice}`)}
         />
