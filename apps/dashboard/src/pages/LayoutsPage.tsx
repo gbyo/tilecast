@@ -17,6 +17,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { PageHeader } from "../components/PageHeader";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import type {
   LayoutDocument,
@@ -628,24 +629,18 @@ export function LayoutsPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("library.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("library.description")}
-          </p>
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("library.title")}
+        description={t("library.description")}
+        actions={
+          canManage ? (
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               {t("library.createLayout")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{

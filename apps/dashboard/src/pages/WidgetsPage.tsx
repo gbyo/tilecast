@@ -27,6 +27,7 @@ import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import {
   WidgetProviderGallery,
   YouTubeSourceEditor,
@@ -104,19 +105,17 @@ export function WidgetsPage() {
   });
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t("widgets.list.title")}</h1>
-          {canManage && (
+      <PageHeader
+        title={t("widgets.list.title")}
+        description={t("widgets.list.subtitle")}
+        actions={
+          canManage ? (
             <Button type="button" onClick={() => void navigate("/widgets/new")}>
               <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
             </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("widgets.list.subtitle")}
-        </p>
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}

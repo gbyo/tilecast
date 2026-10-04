@@ -9,6 +9,7 @@
   "actions": {
     "back": "Back",
     "cancel": "Cancel",
+    "clear": "Clear",
     "clearAll": "Clear all",
     "close": "Close",
     "closeToast": "Close toast",
@@ -26,7 +27,8 @@
     "saveChanges": "Save changes",
     "saving": "Saving…",
     "skip": "Skip",
-    "submit": "Submit"
+    "submit": "Submit",
+    "toggleOptions": "Toggle options"
   },
   "status": {
     "loading": "Loading…"
