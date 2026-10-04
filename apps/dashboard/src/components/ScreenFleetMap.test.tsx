@@ -95,7 +95,7 @@ describe("ScreenFleetMap native presentation", () => {
   it("adds fleet overlays as soon as the style is ready", () => {
     hostState.current = {
       status: "unavailable",
-      context: "browser",
+      context: null,
       capabilities: {} as NativeHost["capabilities"],
       send: vi.fn(),
       subscribe: () => () => undefined,
