@@ -109,6 +109,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   const screensRef = useRef(screens);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nativeMapDismissed, setNativeMapDismissed] = useState(false);
+  const [nativePresentFailed, setNativePresentFailed] = useState(false);
 
   const mapped = useMemo(
     () => screens.filter((screen) => screen.mapPosition),
@@ -160,15 +161,27 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     [mapped, t],
   );
 
-  const nativeMapUsable = nativeMapAvailable && nativePayload !== null;
+  // A host that refuses or fails to present falls back to the browser map, so
+  // the page never shows only a placeholder for a map that will not open.
+  const nativeMapUsable =
+    nativeMapAvailable && nativePayload !== null && !nativePresentFailed;
+
+  useEffect(() => {
+    if (!nativeMapAvailable) setNativePresentFailed(false);
+  }, [nativeMapAvailable]);
 
   const presentNativeMap = useCallback(async () => {
     if (!nativeMapUsable || !nativePayload) return false;
-    const reply = await nativeHost.send("system/map-present", nativePayload);
-    if (reply?.ok === true) {
-      setNativeMapDismissed(false);
-      return true;
+    try {
+      const reply = await nativeHost.send("system/map-present", nativePayload);
+      if (reply?.ok === true) {
+        setNativeMapDismissed(false);
+        return true;
+      }
+    } catch {
+      // A rejected send is handled like a failed reply.
     }
+    setNativePresentFailed(true);
     return false;
   }, [nativeHost, nativeMapUsable, nativePayload]);
 
@@ -332,10 +345,8 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   }, [nativeHost, nativeMapUsable, navigate]);
 
   useEffect(() => {
-    if (nativeMapUsable && !nativeMapDismissed && nativePayload) {
-      void nativeHost.send("system/map-present", nativePayload);
-    }
-  }, [nativeHost, nativeMapUsable, nativeMapDismissed, nativePayload]);
+    if (!nativeMapDismissed) void presentNativeMap();
+  }, [nativeMapDismissed, presentNativeMap]);
 
   if (mapped.length === 0) {
     return (
