@@ -4,6 +4,7 @@ mod capture;
 mod commands;
 mod live_stream;
 mod origin;
+mod pairing;
 mod preview;
 mod renderer_commands;
 mod renderer_coordinator;
@@ -28,6 +29,7 @@ pub use commands::{
 };
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use pairing::{PAIRING_RETRY, PairingCoordinator, PairingError, PairingMetadataProvider, PairingOutcome};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
@@ -79,6 +81,15 @@ impl PlayerCore {
     /// Construct the durable coordinator with the host's fixed command handlers.
     pub fn commands<H: Handlers>(&self, handlers: H) -> Coordinator<H> {
         Coordinator::new(self.dependencies.state.clone(), self.dependencies.clock.clone(), handlers)
+    }
+
+    /// Construct pairing policy with the host's private credential/session stores.
+    pub fn pairing(
+        &self,
+        credentials: std::sync::Arc<dyn player_client::CredentialStore>,
+        sessions: std::sync::Arc<dyn player_client::PairingStore>,
+    ) -> PairingCoordinator {
+        PairingCoordinator::new(self.dependencies.clone(), credentials, sessions)
     }
 
     /// Resolve native selection at the host's current wall-clock instant.

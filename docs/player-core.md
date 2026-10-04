@@ -125,6 +125,17 @@ storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
 
+Stage 9 is incomplete. Core now owns pairing eligibility, persistent Player
+identity creation, session creation, and enrollment retry and storage order.
+Edge supplies device metadata and private credential and session stores.
+Edge still owns pairing surfaces, session renewal, reset suppression, and the
+pairing loop. Server reconciliation, manifest preparation, offline activation,
+configuration projections, and telemetry policy remain to be extracted.
+Six Core tests cover identity order, saved claims, storage failure, session
+retirement, polling outcomes, and the enrollment retry budget.
+The existing Edge pairing integration tests have not yet been run for this
+stage-9 change.
+
 ## Core foundation
 
 `crates/player-core` implements native schedule selection, command idempotency,

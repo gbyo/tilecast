@@ -27,16 +27,13 @@ use edge_protocol::PlayerId;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::presentation::PresentationDocument;
 use edge_server::client::{ServerClient, ServerError};
-use edge_server::pairing::{DeviceMetadata, PairingSession, PollStatus};
+use edge_server::pairing::{DeviceMetadata, PairingSession};
 use edge_server::url_policy::normalize_server_url;
-use edge_state::repo::binding::{self, CredentialState, ServerBinding};
-use edge_state::repo::daemon as daemon_repo;
+use edge_state::repo::binding::{CredentialState, ServerBinding};
+use player_core::{PAIRING_RETRY as RETRY, PairingCoordinator, PairingError, PairingOutcome as Outcome};
 
 use crate::daemon::{DaemonContext, VERSION};
 use crate::presentation::ActivationSource;
-
-const RETRY: Duration = Duration::from_secs(5);
-const ENROLL_ATTEMPTS: u32 = 10;
 
 /// What pairing is doing, for status and tests.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -50,16 +47,27 @@ fn set_view(context: &DaemonContext, state: &'static str, code: Option<String>, 
     *context.pairing.lock().unwrap_or_else(|e| e.into_inner()) = PairingView { state, code, reason };
 }
 
-/// Whether this installation may start pairing: it has no usable credential.
-async fn may_pair(context: &DaemonContext) -> Result<Option<ServerBinding>, &'static str> {
+fn coordinator(context: &DaemonContext) -> Result<PairingCoordinator, &'static str> {
     let db = context.db().ok_or("This screen's local state is unavailable.")?;
-    let bound = db.run(|c| binding::get(c)).await.map_err(|_| "This screen's local state is unavailable.")?;
-    let credential_present = FileCredentialStore::read_at(&context.paths.identity_dir()).ok().flatten().is_some();
-    match &bound {
-        Some(record) if record.credential_state == CredentialState::Stored && credential_present => {
-            Err("This screen is already paired.")
-        }
-        _ => Ok(bound),
+    let core =
+        player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: context.clock.clone() });
+    Ok(core.pairing(
+        Arc::new(FileCredentialStore::new(context.paths.identity_dir())),
+        Arc::new(FilePairingStore::new(context.paths.identity_dir())),
+    ))
+}
+
+async fn may_pair(context: &DaemonContext) -> Result<Option<ServerBinding>, &'static str> {
+    coordinator(context)?.may_pair().await.map_err(|error| pairing_message(&error))
+}
+
+fn pairing_message(error: &PairingError) -> &'static str {
+    match error {
+        PairingError::LocalStateUnavailable => "This screen's local state is unavailable.",
+        PairingError::AlreadyPaired => "This screen is already paired.",
+        PairingError::PairingDisabled => "Pairing is turned off on this Tilecast server.",
+        PairingError::SessionNotStored => "The pairing session could not be stored.",
+        PairingError::Server(error) => user_message(error),
     }
 }
 
@@ -86,21 +94,6 @@ fn metadata(player: PlayerId, display: Option<(u32, u32)>) -> DeviceMetadata {
         locale.as_deref().unwrap_or("en-US"),
         timezone.as_deref().unwrap_or("UTC"),
     )
-}
-
-async fn ensure_player_id(context: &DaemonContext) -> Result<PlayerId, &'static str> {
-    let db = context.db().ok_or("This screen's local state is unavailable.")?;
-    let now = context.now();
-    db.run(move |c| {
-        if let Some(identity) = daemon_repo::player_identity(c)? {
-            return Ok(identity.player_id);
-        }
-        let id = PlayerId::from_uuid(uuid::Uuid::new_v4());
-        daemon_repo::set_player_identity(c, id, daemon_repo::PlayerIdentitySource::Generated, now)?;
-        Ok(id)
-    })
-    .await
-    .map_err(|_| "This screen's local state is unavailable.")
 }
 
 fn user_message(error: &ServerError) -> &'static str {
@@ -130,26 +123,25 @@ pub async fn begin(context: &DaemonContext, url: &str) -> Result<(), &'static st
     Ok(())
 }
 
-async fn create_session(context: &DaemonContext, client: &ServerClient) -> Result<PairingSession, &'static str> {
-    let identity = client.identity().await.map_err(|e| user_message(&e))?;
-    if !identity.pairing_enabled {
-        return Err("Pairing is turned off on this Tilecast server.");
+struct Metadata<'a>(&'a DaemonContext);
+
+#[async_trait::async_trait]
+impl player_core::PairingMetadataProvider for Metadata<'_> {
+    async fn metadata(&self, player: PlayerId) -> DeviceMetadata {
+        let display = self
+            .0
+            .presentation
+            .lock()
+            .await
+            .renderer_display()
+            .filter(|display| display.connected)
+            .map(|display| (display.width, display.height));
+        metadata(player, display)
     }
-    let player = ensure_player_id(context).await?;
-    let display = context
-        .presentation
-        .lock()
-        .await
-        .renderer_display()
-        .filter(|display| display.connected)
-        .map(|display| (display.width, display.height));
-    let session = client
-        .create_pairing_session(identity.installation_id, &metadata(player, display))
-        .await
-        .map_err(|e| user_message(&e))?;
-    FilePairingStore::write_at(&session, &context.paths.identity_dir())
-        .map_err(|_| "The pairing session could not be stored.")?;
-    Ok(session)
+}
+
+async fn create_session(context: &DaemonContext, client: &ServerClient) -> Result<PairingSession, &'static str> {
+    coordinator(context)?.create_session(client, &Metadata(context)).await.map_err(|error| pairing_message(&error))
 }
 
 /// Abandons a session in progress and returns to the setup surface.
@@ -186,80 +178,13 @@ async fn activate(context: &DaemonContext, document: PresentationDocument) {
     let _ = engine.activate(document, Vec::new(), None, ActivationSource::StatusSurface, now);
 }
 
-enum Outcome {
-    Enrolled,
-    /// The session is gone; start a fresh one for this server.
-    Replace(String),
-    /// Try again after a delay.
-    Retry,
-}
-
 async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
-    let identity_dir = context.paths.identity_dir();
     let Ok(client) = ServerClient::new(&session.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
     else {
         return Outcome::Replace("server_url_rejected".to_owned());
     };
-    let session = if session.has_enrollment_token() {
-        session
-    } else {
-        if session.is_expired(context.now()) {
-            return Outcome::Replace("expired".to_owned());
-        }
-        match client.poll_pairing(&session).await {
-            Ok(PollStatus::Waiting) => return Outcome::Retry,
-            Ok(PollStatus::Claimed(token)) => {
-                let claimed = session.with_enrollment_token(token);
-                // The token is single-use: keep it before trying to use it.
-                if FilePairingStore::write_at(&claimed, &identity_dir).is_err() {
-                    tracing::error!(component = "pairing", event = "token_not_stored");
-                }
-                claimed
-            }
-            Ok(PollStatus::TokenLost) => return Outcome::Replace("enrollment_token_lost".to_owned()),
-            Ok(PollStatus::Ended(reason)) => return Outcome::Replace(reason),
-            Err(error) => {
-                tracing::warn!(component = "pairing", event = "poll_failed", reason = error.reason_code());
-                return Outcome::Retry;
-            }
-        }
-    };
-    for attempt in 0..ENROLL_ATTEMPTS {
-        match client.enroll(&session).await {
-            Ok(enrolled) => {
-                if FileCredentialStore::write_at(&enrolled.credential, &identity_dir).is_err() {
-                    tracing::error!(component = "pairing", event = "credential_not_stored");
-                    return Outcome::Retry;
-                }
-                let Some(db) = context.db() else { return Outcome::Retry };
-                let now = context.now();
-                let record = ServerBinding {
-                    server_url: session.server_url.clone(),
-                    installation_id: session.installation_id,
-                    organization_name: session.organization_name.clone(),
-                    screen_id: Some(enrolled.screen_id),
-                    screen_name: Some(enrolled.screen_name.clone()),
-                    credential_state: CredentialState::Stored,
-                    identity_verified_at: Some(now),
-                    bound_at: now,
-                };
-                if db.run(move |c| binding::put(c, &record, now)).await.is_err() {
-                    return Outcome::Retry;
-                }
-                let _ = FilePairingStore::remove_at(&identity_dir);
-                tracing::info!(component = "pairing", event = "enrolled", screen = %enrolled.screen_id);
-                return Outcome::Enrolled;
-            }
-            // Only a network failure is retried; a server verdict on a
-            // one-time token is final.
-            Err(ServerError::Network) if attempt + 1 < ENROLL_ATTEMPTS => tokio::time::sleep(RETRY).await,
-            Err(error) => {
-                tracing::warn!(component = "pairing", event = "enrollment_refused", reason = error.reason_code());
-                return Outcome::Replace("enrollment_failed".to_owned());
-            }
-        }
-    }
-    Outcome::Replace("enrollment_failed".to_owned())
+    let Ok(core) = coordinator(context) else { return Outcome::Retry };
+    core.step(&client, session).await
 }
 
 /// The pairing task. Idle while the installation holds a credential.
