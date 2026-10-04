@@ -26,7 +26,7 @@ vi.mock("maplibre-gl", () => {
     addLayer = maplibre.addLayer;
     on = vi.fn((event: string, layerOrHandler: unknown) => {
       if (typeof layerOrHandler === "function") {
-        maplibre.handlers.set(event, () => layerOrHandler());
+        maplibre.handlers.set(event, layerOrHandler as () => void);
       }
     });
     resize = maplibre.resize;
@@ -96,7 +96,7 @@ describe("ScreenFleetMap native presentation", () => {
     hostState.current = {
       status: "unavailable",
       context: null,
-      capabilities: {} as NativeHost["capabilities"],
+      capabilities: {},
       send: vi.fn(),
       subscribe: () => () => undefined,
     } as NativeHost;
