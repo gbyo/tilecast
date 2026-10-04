@@ -8,6 +8,7 @@ on:
         default: false
 
 permissions:
+  actions: read
   contents: read
   checks: write
 
@@ -16,6 +17,7 @@ jobs:
     name: Server CI
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
     services:
@@ -71,3 +73,9 @@ jobs:
         with:
           name: server-coverage
           path: apps/server/coverage.out
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Server CI
+        run: node scripts/ci/timing-summary.mjs --go-json apps/server/test-results.json

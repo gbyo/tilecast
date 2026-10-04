@@ -98,6 +98,11 @@ describe("Countdown Bar editor", () => {
     renderEditor("/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     expect(pressedDays()).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+    const monday = screen.getByRole("button", { name: "Mon" });
+    expect(monday).toHaveAttribute("aria-pressed", "true");
+    expect(monday.className).toContain("aria-pressed:bg-primary");
+    const sunday = screen.getByRole("button", { name: "Sun" });
+    expect(sunday).toHaveAttribute("aria-pressed", "false");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });

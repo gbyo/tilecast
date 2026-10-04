@@ -120,6 +120,42 @@ describe("ScreenActivitySummary", () => {
   });
 });
 
+describe("ScreenActivitySummary for a disabled screen", () => {
+  it("shows the empty state, not a load failure, when the Server answers 404", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "screen_not_found",
+                message: "Screen was not found.",
+              },
+            }),
+            { status: 404, headers: { "Content-Type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ScreenActivitySummary screenId={proof.screenId} onOpen={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText("No technical events have been reported."),
+    ).toBeVisible();
+    expect(screen.queryByText("Activity could not be loaded")).toBeNull();
+  });
+});
+
 describe("toScreenActivity", () => {
   it("names the presentation from its proof record", () => {
     expect(presentationLabel(proof)).toBe("Lobby loop");
