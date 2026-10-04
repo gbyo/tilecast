@@ -141,6 +141,24 @@ test("Dashboard and Server jobs publish timing summaries with read-only Actions 
   }
 });
 
+test("PR reusable validations receive every required permission from their calling job", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/pr-validation.yml", "utf8"),
+  );
+  const rank = { none: 0, read: 1, write: 2 };
+  for (const [name, job] of Object.entries(workflow.jobs)) {
+    if (!job.uses?.startsWith("./.github/workflows/")) continue;
+    const called = parse(readFileSync(job.uses, "utf8"));
+    const grant = job.permissions ?? workflow.permissions;
+    for (const [scope, level] of Object.entries(called.permissions ?? {})) {
+      assert.ok(
+        (rank[grant[scope]] ?? 0) >= rank[level],
+        `${name}: ${job.uses} requires ${scope}:${level}; calling job grants ${grant[scope] ?? "none"}`,
+      );
+    }
+  }
+});
+
 test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
