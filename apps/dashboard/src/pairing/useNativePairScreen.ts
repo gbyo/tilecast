@@ -30,6 +30,6 @@ export function useNativePairScreen() {
       size: "full",
       dismissible: true,
     });
-    if (!accepted) navigate(fallback);
+    if (!accepted) void navigate(fallback);
   };
 }
