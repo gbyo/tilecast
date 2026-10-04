@@ -1,7 +1,7 @@
 [package]
 name = "edge-state"
 description = "Tilecast Edge durable state: SQLite metadata with embedded migrations."
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true

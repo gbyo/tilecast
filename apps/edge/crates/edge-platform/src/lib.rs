@@ -33,3 +33,6 @@ pub mod fs;
 pub mod paths;
 pub mod providers;
 pub mod systemd;
+
+/// Edge product identity, independent of Rust library package versions.
+pub const RELEASE_VERSION: &str = env!("TILECAST_EDGE_RELEASE_VERSION");

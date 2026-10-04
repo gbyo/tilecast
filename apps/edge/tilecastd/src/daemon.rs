@@ -56,12 +56,9 @@ use crate::server_link::{self, LinkState};
 use crate::supervisor::SupervisorConfig;
 
 /// The release version. `TILECAST_EDGE_VERSION` at build time overrides the
-/// crate version; only the update integration test uses it, to build a
+/// Edge release VERSION; only the update integration test uses it, to build a
 /// candidate that reports another version from the same source.
-pub const VERSION: &str = match option_env!("TILECAST_EDGE_VERSION") {
-    Some(version) => version,
-    None => env!("CARGO_PKG_VERSION"),
-};
+pub const VERSION: &str = edge_platform::RELEASE_VERSION;
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 const SUPERVISION_INTERVAL: Duration = Duration::from_secs(15);
 const CAPABILITY_INTERVAL: Duration = Duration::from_secs(300);

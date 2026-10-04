@@ -94,15 +94,31 @@ Rules that follow from the direction:
 
 ## Build and test
 
-Toolchain: Rust 1.98 (`rust-toolchain.toml`). From this directory:
+Toolchain: Rust 1.98 (the root `rust-toolchain.toml`). The virtual Cargo
+workspace, lockfile, formatter settings, dependencies, and lint policy live at
+the repository root. `release/VERSION` owns the Edge product version.
+The build-time `TILECAST_EDGE_VERSION` override is for update qualification.
+
+Release tooling locates the state schema through the state crate's Cargo
+manifest. The Rust SBOM uses compiler artifacts from the four shipped binary
+builds and checks them against root locked metadata. It includes build-time
+packages but excludes test-only and unrelated-product packages. A cached build
+still emits the required artifacts. An incomplete build fails SBOM generation.
+
+From the repository root:
 
 ```sh
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+make edge-check
+make edge-test
 ```
 
-Linux is the target platform. Run the same checks in the development image:
+The Edge commands explicitly select Edge packages. Root default members
+also select Edge today. `--workspace` includes future native products;
+it does not use `default-members` as a filter. The root build directory
+is `target/`. `CARGO_TARGET_DIR` overrides it in CI.
+
+Linux is the target platform. From `apps/edge`, run the same checks in the
+development image:
 
 ```sh
 docker build -t tilecast-wpe-dev -f renderer-wpe/ci/Dockerfile renderer-wpe/ci

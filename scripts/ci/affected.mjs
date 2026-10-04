@@ -157,7 +157,10 @@ const rules = [
   [/^apps\/edge\/[^/]+$/, edgeAreas],
   // Until the first shared crate adds a dedicated portability area, fail
   // conservatively for root Rust inputs. Unknown root crates never bypass CI.
-  [/^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|\.cargo\/.*)$/, areas],
+  [
+    /^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|rustfmt\.toml|\.cargo\/.*)$/,
+    areas,
+  ],
   [/^docs\/player-core\.md$/, ["ci"]],
   [/^deploy\/docker\//, ["container", "e2e"]],
   [/^\.dockerignore$/, ["container", "e2e"]],
