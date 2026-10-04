@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
+import { accountKeys, accountQueries } from "../data/account";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertAction, AlertTitle } from "../components/ui/alert";
@@ -37,10 +38,7 @@ export function PreferencesPage() {
   const { t } = useTranslation(["account", "common"]);
   const auth = useAuth();
   const client = useQueryClient();
-  const preferences = useQuery({
-    queryKey: ["preferences"],
-    queryFn: api.preferences,
-  });
+  const preferences = useQuery(accountQueries.preferences());
   const [baseline, setBaseline] = useState<Record<string, unknown>>();
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [revision, setRevision] = useState(0);
@@ -90,7 +88,7 @@ export function PreferencesPage() {
       setDraft(data.values);
       setRevision(data.revision);
       setSaved(t("preferences.saved"));
-      client.setQueryData(["preferences"], data);
+      client.setQueryData(accountKeys.preferences, data);
     },
   });
   const reload = () => {
