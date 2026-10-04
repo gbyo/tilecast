@@ -173,7 +173,7 @@ export function LivePreviewPanel({
   }, [preview.data?.capturedAt]);
 
   return (
-    <Card role="region" aria-label={t("livePreview.title")} className="min-w-0">
+    <Card role="complementary" aria-label={t("livePreview.title")} className="min-w-0">
       <CardHeader>
         <CardTitle>{t("livePreview.title")}</CardTitle>
         <CardDescription>{t("livePreview.onDemand")}</CardDescription>
