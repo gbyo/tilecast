@@ -3369,7 +3369,9 @@ export function ScreenDetailPage() {
                             ))}
                           </SelectGroup>
                           <SelectGroup>
-                            <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
+                            <SelectLabel>
+                              {t("detail.layoutsGroup")}
+                            </SelectLabel>
                             {layouts.data?.items
                               .filter((layout) => layout.publishedRevision)
                               .map((layout) => (
@@ -3403,7 +3405,10 @@ export function ScreenDetailPage() {
                     assignmentDirty &&
                     !assign.isPending &&
                     !assign.isError && (
-                      <p className="text-sm text-muted-foreground" role="status">
+                      <p
+                        className="text-sm text-muted-foreground"
+                        role="status"
+                      >
                         {t("detail.assignmentPendingHint")}
                       </p>
                     )}
