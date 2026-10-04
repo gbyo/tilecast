@@ -12,12 +12,12 @@ public enum NavigationTab: Hashable, Sendable {
 /// Native navigation for one Studio page: what to show, and what is
 /// selected.
 ///
-/// Selection follows Studio. A tap asks Studio to navigate and changes
-/// nothing by itself; the selection moves only when Studio reports its new
-/// location in `navigation/state`. If an unsaved-changes prompt stops the
-/// navigation, Studio reports the unchanged location, and the selection
-/// stays with the page the user is still on. The model never reads a path:
-/// Studio's `activeDestinationID` is the only input.
+/// Studio owns the confirmed content location, while the native tab bar may
+/// optimistically reflect a tap before Studio finishes navigation. The one
+/// WebView stays attached to the last confirmed tab until Studio reports its
+/// new location in `navigation/state`; if an unsaved-changes prompt stops
+/// navigation, that acknowledgement rolls the tab selection back. The model
+/// never reads a path: Studio's `activeDestinationID` is the only input.
 @MainActor
 @Observable
 public final class NativeNavigationModel {
@@ -28,7 +28,13 @@ public final class NativeNavigationModel {
     public private(set) var activeDestinationID: String?
     /// Diagnostics only.
     public private(set) var path: String?
+    /// What the native tab bar highlights. A destination tap updates this
+    /// immediately so the control responds like a native tab bar.
     public private(set) var selectedTab: NavigationTab = .more
+    /// The tab allowed to expose the confirmed Studio frame. It changes only
+    /// after Studio acknowledges navigation, so a stale WebKit frame is never
+    /// revealed under an optimistically selected tab.
+    private var settledTab: NavigationTab = .more
     /// In the More tab: true shows the destination list, false shows Studio.
     public private(set) var moreShowsList = true
 
@@ -63,9 +69,16 @@ public final class NativeNavigationModel {
     }
 
     /// The tab that shows the one Studio page, or nil while the More list
-    /// covers it.
+    /// covers it. This follows Studio's confirmed location, not an optimistic
+    /// tab-bar selection.
     public var frontendTab: NavigationTab? {
-        selectedTab == .more && moreShowsList ? nil : selectedTab
+        settledTab == .more && moreShowsList ? nil : settledTab
+    }
+
+    /// True only during the short interval between an optimistic primary-tab
+    /// tap and Studio's navigation acknowledgement.
+    public var isTabSelectionPending: Bool {
+        selectedTab != settledTab
     }
 
     // MARK: From Studio
@@ -107,6 +120,7 @@ public final class NativeNavigationModel {
         activeDestinationID = nil
         path = nil
         selectedTab = .more
+        settledTab = .more
         moreShowsList = true
         pendingRequest = nil
     }
@@ -117,10 +131,15 @@ public final class NativeNavigationModel {
     public func selectTab(_ tab: NavigationTab) {
         switch tab {
         case .more:
-            // A second tap on More returns to its list.
+            // A second tap on More returns to its list. This is app-owned
+            // navigation, so it can settle immediately without Studio.
             selectedTab = .more
+            settledTab = .more
             moreShowsList = true
         case .destination(let id):
+            // Give the native control immediate feedback, but leave
+            // settledTab alone until Studio reports the route after paint.
+            selectedTab = .destination(id)
             open(id)
         }
     }
@@ -144,15 +163,20 @@ public final class NativeNavigationModel {
     private func reconcile() {
         guard let catalog else { return }
         if let id = activeDestinationID, primaryDestinations.contains(where: { $0.id == id }) {
-            selectedTab = .destination(id)
+            let tab = NavigationTab.destination(id)
+            selectedTab = tab
+            settledTab = tab
             moreShowsList = false
         } else if let id = activeDestinationID, catalog.destination(withID: id) != nil {
             selectedTab = .more
+            settledTab = .more
             moreShowsList = false
-        } else if frontendTab == nil {
+        } else {
             // A location with no destination, such as My Account, stays in
-            // whichever tab showed Studio; reveal it if the list covered it.
-            moreShowsList = false
+            // whichever tab last showed Studio. An acknowledgement also
+            // rolls back any optimistic selection to that confirmed tab.
+            selectedTab = settledTab
+            if frontendTab == nil { moreShowsList = false }
         }
     }
 
@@ -160,7 +184,9 @@ public final class NativeNavigationModel {
         if let id = activeDestinationID, catalog?.destination(withID: id) != nil {
             reconcile()
         } else {
-            selectedTab = primaryDestinations.first.map { .destination($0.id) } ?? .more
+            let tab = primaryDestinations.first.map { NavigationTab.destination($0.id) } ?? .more
+            selectedTab = tab
+            settledTab = tab
             moreShowsList = false
         }
     }
