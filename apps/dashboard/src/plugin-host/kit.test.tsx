@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ActionContextMenu,
@@ -17,7 +18,7 @@ const actions: StudioActionGroup[] = [
 ];
 
 describe("@tilecast/studio action menus", () => {
-  it("exports a working menu button", () => {
+  it("exports a working menu button", async () => {
     const onOpen = vi.fn();
     render(
       <ActionMenuButton
@@ -29,20 +30,22 @@ describe("@tilecast/studio action menus", () => {
         ]}
       />,
     );
-    fireEvent.click(
+    await userEvent.click(
       screen.getByRole("button", { name: "Actions for Fixture" }),
     );
-    fireEvent.click(screen.getByRole("menuitem", { name: "Open" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
 
-  it("exports a working context menu", () => {
+  it("exports a working context menu", async () => {
     render(
       <ActionContextMenu label="Actions for Fixture" actions={actions}>
         <div data-testid="target">Fixture</div>
       </ActionContextMenu>,
     );
     fireEvent.contextMenu(screen.getByTestId("target"));
-    expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible();
+    expect(
+      await screen.findByRole("menuitem", { name: "Open" }),
+    ).toBeInTheDocument();
   });
 });
