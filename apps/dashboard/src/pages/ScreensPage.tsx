@@ -86,7 +86,10 @@ import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetMap } from "../components/ScreenFleetMap";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenPositionPicker } from "../components/ScreenPositionPicker";
-import { ScreenActivityPanel, ScreenActivitySummary } from "../components/ScreenActivityPanel";
+import {
+  ScreenActivityPanel,
+  ScreenActivitySummary,
+} from "../components/ScreenActivityPanel";
 import { LivePreviewPanel } from "../components/LivePreviewPanel";
 import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
@@ -331,7 +334,10 @@ function ScreenDetailPanel({
 
   return desktop ? (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full gap-4 overflow-hidden sm:max-w-2xl">
+      <SheetContent
+        side="right"
+        className="w-full gap-4 overflow-hidden sm:max-w-2xl"
+      >
         {header}
         {body}
       </SheetContent>
@@ -350,7 +356,11 @@ export function normalizeScreenDetailTab(
   requestedTab: string | null,
   requestedSection: string | null = null,
 ): ScreenDetailTab {
-  if (!requestedTab || requestedTab === "snapshots" || requestedTab === "content")
+  if (
+    !requestedTab ||
+    requestedTab === "snapshots" ||
+    requestedTab === "content"
+  )
     return "overview";
   if (requestedTab === "manage")
     return requestedSection === "settings" ? "settings" : "overview";
