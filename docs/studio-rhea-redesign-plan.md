@@ -1078,17 +1078,26 @@ The Overview is the screen's operational control center:
                                   │ Player update · Current  │
                                   └──────────────────────────┘
 
-┌ Playback and scheduling ───────────────────────────────────┐
-│ assignment picker + Apply                                 │
-│ Screen → Layout → Widget → Data Source                    │
-│ current selection · next change · relevant schedules      │
+┌ Playback ──────────────────────────────────────────────────┐
+│ Expected now · source badge · Why this?                   │
+│ Default content · group scope confirmation                │
+└────────────────────────────────────────────────────────────┘
+
+┌ Schedule ──────────────────────────────────────────────────┐
+│ Active now · truthful Next · other schedules              │
 └────────────────────────────────────────────────────────────┘
 
 ┌ Health & recovery ───────────┐ ┌ Recent technical events ─┐
-│ readiness · sync · playback  │ │ compact recent activity  │
+│ readiness · recovery         │ │ compact recent activity  │
 │ Open Health diagnostics      │ │ Open Activity            │
 └──────────────────────────────┘ └───────────────────────────┘
 ```
+
+> Historical note: this section once described an assignment picker with
+> Apply, an inline content chain, and playback/synchronization facts in
+> Health. The shipped Overview uses Expected now, Default content, a separate
+> Schedule card, a Why-this explanation panel, and a Diagnostics Playback
+> tab instead.
 
 Use Vega `Card` for the few real decision areas, not one Card per field. Preserve and
 elevate `ScreenContentChain`; every dependency remains linked.
@@ -1101,9 +1110,11 @@ It is complementary evidence, not permanent page content.
 Diagnostics opens in a desktop Sheet and the standard mobile Drawer. Use local shadcn
 Tabs inside that surface for:
 
+- Playback — synchronization, manifests, downloads, renderer state, Widget
+  support, and reported playback faults.
 - Device details — hardware, platform, connection, access, hardware history.
-- Health — zero-touch readiness, reliability, playback/synchronization telemetry,
-  display control, recovery, autostart, and capability warnings.
+- Health — zero-touch readiness, reliability, display control, recovery,
+  autostart, and capability warnings.
 - Maintenance — focused commands and recent command results.
 
 This is the one permitted extra navigation layer. Advanced telemetry must remain
