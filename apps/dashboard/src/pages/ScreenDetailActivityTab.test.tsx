@@ -107,18 +107,54 @@ beforeEach(() => {
     "fetch",
     vi.fn((input: RequestInfo | URL) => {
       const url = input instanceof Request ? input.url : String(input);
-      const data = url.includes("/timeline")
+      const data = url.includes("/playback-plan")
         ? {
-            range: { from: "", to: "" },
-            status: { health: "healthy", healthReason: "playing" },
-            entries: [],
-          }
-        : {
             screenId: "screen-1",
-            recentProofOfPlay: [],
-            recentEvents: [],
-            playbackGaps: 0,
-          };
+            at: "2026-09-28T14:00:00Z",
+            evaluatedAt: "2026-09-28T14:00:00Z",
+            basis: "current_configuration",
+            current: {
+              candidates: [
+                {
+                  source: "takeover",
+                  status: "inactive",
+                  reason: "no_active_takeover",
+                },
+                {
+                  source: "quick_present",
+                  status: "inactive",
+                  reason: "no_active_quick_present",
+                },
+                {
+                  source: "schedule",
+                  status: "inactive",
+                  reason: "schedule_not_active",
+                },
+                {
+                  source: "assignment",
+                  status: "inactive",
+                  reason: "no_assignment",
+                },
+              ],
+              synchronization: { status: "current", manifestVersion: 1 },
+              capabilities: {
+                status: "not_applicable",
+                reason: "no_widget_presentation_requirements",
+              },
+            },
+          }
+        : url.includes("/timeline")
+          ? {
+              range: { from: "", to: "" },
+              status: { health: "healthy", healthReason: "playing" },
+              entries: [],
+            }
+          : {
+              screenId: "screen-1",
+              recentProofOfPlay: [],
+              recentEvents: [],
+              playbackGaps: 0,
+            };
       return Promise.resolve(
         new Response(JSON.stringify({ data }), {
           status: 200,
@@ -135,18 +171,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-async function primaryTabs() {
-  return await screen.findByRole("tablist", { name: "Screen details" });
+// A legacy deep link opens a modal panel that hides the page behind it from
+// the accessibility tree, so those tests must read the tab strip as hidden.
+async function primaryTabs({ hidden = false } = {}) {
+  return await screen.findByRole("tablist", { name: "Screen details", hidden });
 }
 
 describe("screen detail navigation", () => {
   it("maps legacy reliability links into Health diagnostics", async () => {
     renderDetail("/screens/screen-1?tab=reliability");
 
-    const tabs = await primaryTabs();
+    const tabs = await primaryTabs({ hidden: true });
     expect(
       within(tabs)
-        .getByRole("tab", { name: "Overview" })
+        .getByRole("tab", { name: "Overview", hidden: true })
         .getAttribute("aria-selected"),
     ).toBe("true");
     expect(within(tabs).queryByRole("tab", { name: "Device" })).toBeNull();
@@ -188,10 +226,10 @@ describe("screen detail navigation", () => {
 
     expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(await screen.findByText("Snapshot history")).toBeTruthy();
-    const tabs = await primaryTabs();
+    const tabs = await primaryTabs({ hidden: true });
     expect(
       within(tabs)
-        .getByRole("tab", { name: "Overview" })
+        .getByRole("tab", { name: "Overview", hidden: true })
         .getAttribute("aria-selected"),
     ).toBe("true");
   });
@@ -279,5 +317,25 @@ describe("screen detail navigation", () => {
     } finally {
       authStatus.user = { id: "user-1", name: "Owner", role: "owner" };
     }
+  });
+
+  it("opens the playback explanation from its stable query state", async () => {
+    renderDetail("/screens/screen-1?panel=explanation");
+
+    expect(
+      await screen.findByRole("dialog", { name: "Why this content?" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("Selection precedence")).toBeTruthy();
+  });
+
+  it("writes a Back-able URL state when Why this opens", async () => {
+    const user = userEvent.setup();
+    renderDetail("/screens/screen-1");
+
+    await user.click(await screen.findByRole("button", { name: "Why this?" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Why this content?" }),
+    ).toBeTruthy();
+    expect(screen.getByText("?panel=explanation")).toBeTruthy();
   });
 });
