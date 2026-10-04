@@ -8,6 +8,8 @@ publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+player-types.workspace = true
+time.workspace = true
 async-trait.workspace = true
 edge-protocol.workspace = true
 rustix = { workspace = true, features = ["fs", "process"] }

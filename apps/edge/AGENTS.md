@@ -9,8 +9,8 @@ it, stop and write the complete tradeoff first.
 Read [`docs/player-core.md`](../../docs/player-core.md) for native Player
 ownership and extraction order. It supplements the Linux architecture without
 changing process, privilege, wire, persistence, or update guarantees. Shared
-Rust crates are not yet implemented. The root Cargo workspace migration is
-implemented. Shared behavior extraction starts after its qualification.
+values are implemented in `crates/player-types`. The root Cargo workspace
+migration is qualified. Remaining shared behavior extraction follows the contract.
 
 ## Fixed decisions
 

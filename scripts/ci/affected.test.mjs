@@ -18,7 +18,7 @@ const selected = (paths) =>
     .filter(([, value]) => value)
     .map(([key]) => key)
     .sort();
-test("root Rust inputs and unknown shared crates cannot bypass validation", () => {
+test("root Rust inputs and shared crates select portable and Edge validation", () => {
   for (const path of [
     "Cargo.toml",
     "Cargo.lock",
@@ -26,11 +26,32 @@ test("root Rust inputs and unknown shared crates cannot bypass validation", () =
     "rustfmt.toml",
     ".cargo/config.toml",
     "crates/player-types/src/lib.rs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "player_core",
+      "ci",
+      "edge_rust",
+      "edge_server",
+      "edge_migration",
+      "edge_activity",
+      "edge_wpe",
+      "edge_conformance",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.ios, false, path);
+    assert.equal(result.android, false, path);
+    assert.equal(result.server, false, path);
+  }
+  for (const path of [
     "crates/future/Cargo.toml",
     "scripts/ci/check-player-architecture.py",
-  ]) {
+  ])
     assert.deepEqual(selected([path]), [...areas].sort(), path);
-  }
+  assert.equal(
+    affected(["apps/edge/crates/edge-platform/src/systemd.rs"]).player_core,
+    false,
+  );
   assert.equal(affected(["docs/player-core.md"]).ci, true);
 });
 test("Studio selects the real stack without Edge or Android", () => {
