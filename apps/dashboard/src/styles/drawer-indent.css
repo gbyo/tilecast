@@ -1,0 +1,76 @@
+/*
+ * The page behind a mobile drawer becomes another sheet: it scales back, drops
+ * a little, and rounds its top corners while the drawer is open.
+ *
+ * Base UI keeps `--drawer-swipe-progress` on `.drawer-indent` current while a
+ * drawer is dragged (0 fully open, 1 fully closed), so every value below is a
+ * pure function of that variable and tracks the finger with no JavaScript.
+ *
+ * Motion is limited to phone and tablet widths, where Tilecast shows drawers
+ * (desktop uses Sheet), and is omitted for reduced-motion users.
+ */
+@media (max-width: 1023.98px) and (prefers-reduced-motion: no-preference) {
+  html:not([data-reduced-motion="true"]) {
+    --drawer-indent-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --drawer-indent-scale: 0.06;
+    --drawer-indent-drop: 10px;
+    --drawer-indent-radius: 12px;
+
+    .drawer-indent-background {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: #000;
+      opacity: 0;
+      transition: opacity 400ms var(--drawer-indent-ease);
+    }
+
+    .drawer-indent-background[data-active] {
+      opacity: 1;
+      transition-duration: 500ms;
+    }
+
+    .drawer-indent {
+      /* 1 while open, easing to 0 as the drawer is dragged shut. */
+      --drawer-indent-open: calc(
+        1 - clamp(0, var(--drawer-swipe-progress, 0), 1)
+      );
+      --drawer-indent-top: var(--drawer-indent-offset, 0px);
+
+      position: relative;
+      z-index: 1;
+      background: var(--background);
+      transform-origin: 50% var(--drawer-indent-top);
+      clip-path: inset(0 0 0 0 round 0);
+      /* The page eases between states with the drawer. */
+      transition:
+        transform 400ms var(--drawer-indent-ease),
+        clip-path 400ms var(--drawer-indent-ease);
+    }
+
+    .drawer-indent[data-active] {
+      transform: translate3d(
+          0,
+          calc(var(--drawer-indent-open) * var(--drawer-indent-drop)),
+          0
+        )
+        scale(calc(1 - var(--drawer-indent-open) * var(--drawer-indent-scale)));
+      /* Clip to the visible window so the rounded corners sit at the top of
+         the screen however far the page is scrolled. */
+      clip-path: inset(
+        var(--drawer-indent-top) 0
+          calc(100% - var(--drawer-indent-top) - 100dvh) 0 round
+          calc(var(--drawer-indent-open) * var(--drawer-indent-radius))
+      );
+      transition-duration: 500ms;
+    }
+
+    /* While a finger is down the page follows it exactly. Base UI marks the
+       dragged drawer and its backdrop with data-swiping. Releasing snaps the
+       progress back to open, so the page must be free to ease there. */
+    &:has([data-swiping]) .drawer-indent {
+      transition: none;
+    }
+  }
+}

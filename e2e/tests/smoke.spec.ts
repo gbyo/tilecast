@@ -75,12 +75,11 @@ test("the fleet map renders through the production MapLibre bundle", async ({
 
   // Keep this browser test deterministic and independent of OpenFreeMap
   // availability. The production MapLibre bundle, worker, WebGL renderer, and
-  // Tilecast fleet GeoJSON source still run; only the third-party style
-  // document is replaced with a minimal valid style.
-  await page.route("https://tiles.openfreemap.org/styles/liberty", (route) =>
+  // Tilecast fleet GeoJSON source still run; only Tilecast's proxied style
+  // response is replaced with a minimal valid style.
+  await page.route("**/maps/openfreemap/styles/liberty", (route) =>
     route.fulfill({
       contentType: "application/json",
-      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         version: 8,
         sources: {},
