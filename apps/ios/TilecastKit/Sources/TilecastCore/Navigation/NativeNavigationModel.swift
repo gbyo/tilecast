@@ -145,6 +145,15 @@ public final class NativeNavigationModel {
         }
     }
 
+    /// The bridge could not deliver a request to Studio. Ignore a failure
+    /// from an older request, but roll back the optimistic selection when the
+    /// current request never reached the frontend.
+    func navigationRequestFailed(_ destinationID: String) {
+        guard pendingRequest == destinationID else { return }
+        pendingRequest = nil
+        selectedTab = settledTab
+    }
+
     /// The native back button. Studio's router decides where it goes.
     public func goBack() {
         guard chrome.showsBackBar else { return }
