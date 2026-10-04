@@ -71,6 +71,10 @@ enum JSONValue: Equatable, Sendable {
         guard case .number(let value) = self, value.rounded() == value, abs(value) < 1e15 else { return nil }
         return Int(value)
     }
+
+    var number: Double? {
+        if case .number(let value) = self { value } else { nil }
+    }
 }
 
 /// Native bridge protocol version 1, as `packages/native-bridge-schema`
@@ -102,6 +106,8 @@ public enum NativeBridgeProtocol {
         public var nativeAlerts: Bool
         /// Studio handles `system/media-intake-completed`.
         public var nativeMediaIntake: Bool
+        /// Studio handles the result of a generic native map action.
+        public var systemMap: Bool
         /// Studio navigates for a deep link's `navigation/open-path`, and
         /// validates the path again.
         public var deepLinks: Bool
@@ -111,12 +117,14 @@ public enum NativeBridgeProtocol {
             nativePresentations: Bool = false,
             nativeAlerts: Bool = false,
             nativeMediaIntake: Bool = false,
+            systemMap: Bool = false,
             deepLinks: Bool = false
         ) {
             self.authLifecycle = authLifecycle
             self.nativePresentations = nativePresentations
             self.nativeAlerts = nativeAlerts
             self.nativeMediaIntake = nativeMediaIntake
+            self.systemMap = systemMap
             self.deepLinks = deepLinks
         }
     }
@@ -152,13 +160,17 @@ public enum NativeBridgeProtocol {
         case alertCancel(alertID: String)
         /// Either page asks to scan one QR code.
         case systemScanQR(QRScanRequest)
+        /// Main page asks to show or update a generic native map.
+        case systemMapPresent(SystemMapPresentation)
+        /// Main page withdraws the matching native map.
+        case systemMapDismiss(mapID: String)
 
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
             case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel, .systemScanQR: nil
             case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
-                 .mediaIntakeStatus, .mediaIntake: .main
+                 .mediaIntakeStatus, .mediaIntake, .systemMapPresent, .systemMapDismiss: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
             }
         }
@@ -226,6 +238,10 @@ public enum NativeBridgeProtocol {
         case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
         case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
         case "system/scan-qr": message = scanQR(payload).map(FrontendMessage.systemScanQR)
+        case "system/map-present": message = systemMap(payload).map(FrontendMessage.systemMapPresent)
+        case "system/map-dismiss":
+            guard Set(payload.keys).isSubset(of: ["mapId"]) else { message = nil; break }
+            message = opaqueID(payload["mapId"]).map { .systemMapDismiss(mapID: $0) }
         default: return .unknownType(type, id: requestID)
         }
         guard let message else { return .malformed(type: type, id: requestID) }
@@ -263,6 +279,7 @@ public enum NativeBridgeProtocol {
                 "systemShare": .bool(true),
                 "systemHaptics": .bool(true),
                 "systemQrScanner": .bool(scannerAvailable),
+                "systemMap": .bool(context == .main),
                 "nativeMediaIntake": .bool(context == .main),
                 "deepLinks": .bool(context == .main),
                 "nativeAlerts": .bool(true),
@@ -318,6 +335,17 @@ public enum NativeBridgeProtocol {
     /// Tells the page that asked how its QR scan ended. Only a scan
     /// carries a value, and only a bounded one: the center normalizes
     /// before this encodes.
+    static func systemMapAction(mapID: String, actionID: String) -> JSONValue {
+        message("system/map-action", [
+            "mapId": .string(mapID),
+            "actionId": .string(actionID),
+        ])
+    }
+
+    static func systemMapDismissed(mapID: String) -> JSONValue {
+        message("system/map-dismissed", ["mapId": .string(mapID)])
+    }
+
     static func qrScanResult(requestID: String, outcome: QRScanOutcome) -> JSONValue {
         var payload: [String: JSONValue] = ["requestId": .string(requestID)]
         switch outcome {
@@ -366,6 +394,7 @@ public enum NativeBridgeProtocol {
                 nativePresentations: capabilities["nativePresentations"] == .bool(true),
                 nativeAlerts: capabilities["nativeAlerts"] == .bool(true),
                 nativeMediaIntake: capabilities["nativeMediaIntake"] == .bool(true),
+                systemMap: capabilities["systemMap"] == .bool(true),
                 deepLinks: capabilities["deepLinks"] == .bool(true)
             )
         default: return nil
@@ -377,6 +406,62 @@ public enum NativeBridgeProtocol {
     private static func hapticFeedback(_ payload: [String: JSONValue]) -> HapticFeedback?? {
         guard let token = payload["feedback"]?.string, isToken(token, 32) else { return nil }
         return .some(HapticFeedback(rawValue: token))
+    }
+
+    static let maximumSystemMapPoints = 500
+
+    private static func systemMap(_ payload: [String: JSONValue]) -> SystemMapPresentation? {
+        guard Set(payload.keys).isSubset(of: ["mapId", "title", "points"]),
+              let mapID = opaqueID(payload["mapId"]),
+              let title = payload["title"]?.string, isBounded(title, 200),
+              case .array(let values)? = payload["points"],
+              !values.isEmpty, values.count <= maximumSystemMapPoints else { return nil }
+
+        var ids = Set<String>()
+        var points: [SystemMapPoint] = []
+        points.reserveCapacity(values.count)
+        for value in values {
+            guard let point = value.object,
+                  Set(point.keys).isSubset(of: ["id", "title", "subtitle", "latitude", "longitude", "tone", "actionId"]),
+                  let id = opaqueID(point["id"]), ids.insert(id).inserted,
+                  let title = point["title"]?.string, isBounded(title, 200),
+                  let latitude = point["latitude"]?.number, (-90...90).contains(latitude),
+                  let longitude = point["longitude"]?.number, (-180...180).contains(longitude) else { return nil }
+
+            let subtitle: String?
+            switch point["subtitle"] {
+            case nil: subtitle = nil
+            case .string(let value)? where isBounded(value, 200): subtitle = value
+            default: return nil
+            }
+
+            let tone: SystemMapTone
+            switch point["tone"] {
+            case nil: tone = .default
+            case .string(let value)?:
+                guard let decoded = SystemMapTone(rawValue: value) else { return nil }
+                tone = decoded
+            default: return nil
+            }
+
+            let actionID: String?
+            switch point["actionId"] {
+            case nil: actionID = nil
+            case let value?: actionID = opaqueID(value)
+            }
+            if point["actionId"] != nil && actionID == nil { return nil }
+
+            points.append(SystemMapPoint(
+                id: id,
+                title: title,
+                subtitle: subtitle,
+                latitude: latitude,
+                longitude: longitude,
+                tone: tone,
+                actionID: actionID
+            ))
+        }
+        return SystemMapPresentation(id: mapID, title: title, points: points)
     }
 
     /// A scan request carries only its id, at the longer bound the
