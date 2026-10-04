@@ -84,7 +84,9 @@ describe("MapLibreSurface", () => {
       maplibre.handlers.get("idle")?.();
     });
 
-    expect(container.querySelector('[data-map-state="degraded"]')).not.toBeNull();
+    expect(
+      container.querySelector('[data-map-state="degraded"]'),
+    ).not.toBeNull();
     expect(screen.getByText("Map data problem")).toBeInTheDocument();
     expect(screen.getByText("Failed to load /planet: 403")).toBeInTheDocument();
   });
