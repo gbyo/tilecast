@@ -26,7 +26,7 @@ vi.mock("maplibre-gl", () => {
     addLayer = maplibre.addLayer;
     on = vi.fn((event: string, layerOrHandler: unknown) => {
       if (typeof layerOrHandler === "function") {
-        maplibre.handlers.set(event, layerOrHandler as () => void);
+        maplibre.handlers.set(event, layerOrHandler);
       }
     });
     resize = maplibre.resize;
