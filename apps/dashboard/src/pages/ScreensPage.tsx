@@ -68,6 +68,7 @@ import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { DashboardSearch } from "../components/DashboardListToolbar";
+import { PageHeader } from "../components/PageHeader";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
@@ -486,36 +487,34 @@ export function ScreensWorkspacePage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {archive
-              ? t("archive.body")
-              : screens.isLoading
-                ? t("page.loadingInventory")
-                : screenInventorySummary(screens.data?.items ?? [], t)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Link
-              className={buttonVariants({ variant: "default", size: "sm" })}
-              to="/screens/pair"
-              onClick={(event) =>
-                void openPairScreen(event, ["pair-screen"], "/screens/pair")
-              }
-            >
-              <Plus aria-hidden="true" /> {t("page.pairScreen")}
-            </Link>
-          )}
-          {manageable && !archive && (
-            <TakeoverAction screens={screens.data?.items ?? []} />
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t("page.title")}
+        description={
+          archive
+            ? t("archive.body")
+            : screens.isLoading
+              ? t("page.loadingInventory")
+              : screenInventorySummary(screens.data?.items ?? [], t)
+        }
+        actions={
+          <>
+            {manageable && (
+              <Link
+                className={buttonVariants({ variant: "default", size: "sm" })}
+                to="/screens/pair"
+                onClick={(event) =>
+                  void openPairScreen(event, ["pair-screen"], "/screens/pair")
+                }
+              >
+                <Plus aria-hidden="true" /> {t("page.pairScreen")}
+              </Link>
+            )}
+            {manageable && !archive && (
+              <TakeoverAction screens={screens.data?.items ?? []} />
+            )}
+          </>
+        }
+      />
       <Tabs
         value={activeTab}
         onValueChange={(value) =>
@@ -2866,90 +2865,90 @@ export function ScreenDetailPage() {
   };
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {screen.name}
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {screen.name}
             <StatusLabel status={screen.status} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {[
-              platformLabel(screen.platform, t),
-              [screen.deviceManufacturer, screen.deviceModel]
-                .filter(Boolean)
-                .join(" "),
-              screen.playerVersion
-                ? t("detail.playerVersion", {
-                    version: screen.playerVersion,
+          </span>
+        }
+        description={[
+          platformLabel(screen.platform, t),
+          [screen.deviceManufacturer, screen.deviceModel]
+            .filter(Boolean)
+            .join(" "),
+          screen.playerVersion
+            ? t("detail.playerVersion", {
+                version: screen.playerVersion,
+              })
+            : t("detail.playerVersionMissing"),
+          [screen.location, roomLabel(screen, t)].filter(Boolean).join(" · ") ||
+            t("detail.noLocation"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        actions={
+          <>
+            {canManageScreens(auth.status?.user) && (
+              <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
+                <Play aria-hidden="true" /> {t("detail.present")}
+              </Button>
+            )}
+            {canManageScreens(auth.status?.user) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  command.mutate({
+                    type: "restart_player_process",
+                    payload: {},
                   })
-                : t("detail.playerVersionMissing"),
-              [screen.location, roomLabel(screen, t)]
-                .filter(Boolean)
-                .join(" · ") || t("detail.noLocation"),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canManageScreens(auth.status?.user) && (
-            <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
-              <Play aria-hidden="true" /> {t("detail.present")}
-            </Button>
-          )}
-          {canManageScreens(auth.status?.user) && (
-            <Button
+                }
+              >
+                <RefreshCw aria-hidden="true" /> {t("list.restart")}
+              </Button>
+            )}
+            <ActionMenuButton
+              label={t("detail.moreActions")}
+              actions={[
+                {
+                  actions: [
+                    ...(canManageScreens(auth.status?.user)
+                      ? [
+                          {
+                            id: "edit-details",
+                            label: t("grid.editDetails"),
+                            icon: "details",
+                            onSelect: () => setEditingDetails(true),
+                          },
+                        ]
+                      : []),
+                    ...(canManageScreens(auth.status?.user) &&
+                    screen.platform.toLowerCase() === "linux"
+                      ? [
+                          {
+                            id: "airplay",
+                            label: t("detail.airplay"),
+                            icon: "airplay",
+                            onSelect: () => setAirplayOpen(true),
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "view-content",
+                      label: t("detail.viewContent"),
+                      icon: "screens",
+                      onSelect: () => selectTab("content"),
+                    },
+                  ],
+                },
+              ]}
               variant="outline"
-              size="sm"
-              onClick={() =>
-                command.mutate({ type: "restart_player_process", payload: {} })
-              }
-            >
-              <RefreshCw aria-hidden="true" /> {t("list.restart")}
-            </Button>
-          )}
-          <ActionMenuButton
-            label={t("detail.moreActions")}
-            actions={[
-              {
-                actions: [
-                  ...(canManageScreens(auth.status?.user)
-                    ? [
-                        {
-                          id: "edit-details",
-                          label: t("grid.editDetails"),
-                          icon: "details",
-                          onSelect: () => setEditingDetails(true),
-                        },
-                      ]
-                    : []),
-                  ...(canManageScreens(auth.status?.user) &&
-                  screen.platform.toLowerCase() === "linux"
-                    ? [
-                        {
-                          id: "airplay",
-                          label: t("detail.airplay"),
-                          icon: "airplay",
-                          onSelect: () => setAirplayOpen(true),
-                        },
-                      ]
-                    : []),
-                  {
-                    id: "view-content",
-                    label: t("detail.viewContent"),
-                    icon: "screens",
-                    onSelect: () => selectTab("content"),
-                  },
-                ],
-              },
-            ]}
-            variant="outline"
-            size="icon-sm"
-          />
-        </div>
-      </header>
+              size="icon-sm"
+            />
+          </>
+        }
+      />
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="screen"

@@ -162,6 +162,7 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { PageHeader } from "../components/PageHeader";
 import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
@@ -734,30 +735,32 @@ export function ContentPage() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t("media.library.title")}</h1>
-          {canManage && libraryView === "active" && (
+      <PageHeader
+        title={t("media.library.title")}
+        description={
+          <>
+            {libraryView === "active"
+              ? t("media.library.descriptionActive")
+              : t("media.library.descriptionArchived")}
+            {typeof libraryTotal === "number" && (
+              <>
+                {" "}
+                {t("media.library.totalAssets", {
+                  count: libraryTotal,
+                })}
+              </>
+            )}
+          </>
+        }
+        actions={
+          canManage && libraryView === "active" ? (
             <Button type="button" onClick={() => fileInput.current?.click()}>
               <Upload size={16} aria-hidden="true" />{" "}
               {t("media.library.uploadAssets")}
             </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {libraryView === "active"
-            ? t("media.library.descriptionActive")
-            : t("media.library.descriptionArchived")}
-          {typeof libraryTotal === "number" && (
-            <>
-              {" "}
-              {t("media.library.totalAssets", {
-                count: libraryTotal,
-              })}
-            </>
-          )}
-        </p>
-      </header>
+          ) : undefined
+        }
+      />
       <SingleToggleGroup
         label={t("media.library.viewLabel")}
         value={libraryView}

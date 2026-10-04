@@ -22,6 +22,7 @@ import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -185,12 +186,11 @@ export function DataSourcesPage() {
 
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">
-            {t("dataSources.list.title")}
-          </h1>
-          {canManage && (
+      <PageHeader
+        title={t("dataSources.list.title")}
+        description={t("dataSources.list.subtitle")}
+        actions={
+          canManage ? (
             <Button
               type="button"
               onClick={() => void navigate("/data-sources/new")}
@@ -198,12 +198,9 @@ export function DataSourcesPage() {
               <Plus size={16} aria-hidden="true" />{" "}
               {t("dataSources.list.createButton")}
             </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("dataSources.list.subtitle")}
-        </p>
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}
