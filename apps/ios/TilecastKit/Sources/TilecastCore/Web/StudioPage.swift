@@ -88,6 +88,8 @@ public final class StudioPage {
     public let alerts = NativeAlertCenter()
     /// The QR scan Studio asked for, in either of its pages.
     public let scanners = QRScanCenter()
+    /// The generic system map the main Studio page asked for.
+    public let maps = SystemMapCenter()
     public private(set) var phase: Phase = .loading
     public private(set) var signInRequired = false
     public private(set) var isClosed = false
@@ -122,6 +124,7 @@ public final class StudioPage {
         let bridge = StudioBridge(origin: profile.address.origin)
         bridge.alerts = alerts
         bridge.scanners = scanners
+        bridge.maps = maps
         scanners.system = system
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
         bridge.install(into: &configuration)
