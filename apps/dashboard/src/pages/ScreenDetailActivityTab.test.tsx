@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -137,7 +143,9 @@ describe("screen detail navigation", () => {
 
     const tabs = await primaryTabs();
     expect(
-      within(tabs).getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
+      within(tabs)
+        .getByRole("tab", { name: "Overview" })
+        .getAttribute("aria-selected"),
     ).toBe("true");
     expect(within(tabs).queryByRole("tab", { name: "Device" })).toBeNull();
 
@@ -145,7 +153,9 @@ describe("screen detail navigation", () => {
       name: "Device sections",
     });
     expect(
-      within(diagnostics).getByRole("tab", { name: "Health" }).getAttribute("aria-selected"),
+      within(diagnostics)
+        .getByRole("tab", { name: "Health" })
+        .getAttribute("aria-selected"),
     ).toBe("true");
     expect(
       await screen.findByRole("heading", { name: "Health & recovery" }),
@@ -178,7 +188,9 @@ describe("screen detail navigation", () => {
     expect(await screen.findByText("Snapshot history")).toBeTruthy();
     const tabs = await primaryTabs();
     expect(
-      within(tabs).getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
+      within(tabs)
+        .getByRole("tab", { name: "Overview" })
+        .getAttribute("aria-selected"),
     ).toBe("true");
   });
 
@@ -186,14 +198,18 @@ describe("screen detail navigation", () => {
     renderDetail("/screens/screen-1?tab=activity");
 
     const tabs = await primaryTabs();
-    expect(within(tabs).getAllByRole("tab", { name: "Activity" })).toHaveLength(1);
+    expect(
+      within(tabs).getAllByRole("tab", { name: "Activity" }),
+    ).toHaveLength(1);
     expect(screen.getAllByRole("tab", { name: "Activity" })).toHaveLength(1);
   });
 
   it("shows Activity without Overview content beneath it", async () => {
     renderDetail("/screens/screen-1?tab=activity");
 
-    expect(await screen.findByRole("heading", { name: "Activity", level: 2 })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Activity", level: 2 }),
+    ).toBeTruthy();
     expect(screen.queryByTestId("preview")).toBeNull();
   });
 
@@ -205,7 +221,9 @@ describe("screen detail navigation", () => {
     await user.click(within(tabs).getByRole("tab", { name: "Activity" }));
 
     await waitFor(() => expect(screen.getByText("?tab=activity")).toBeTruthy());
-    expect(await screen.findByRole("heading", { name: "Activity", level: 2 })).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Activity", level: 2 }),
+    ).toBeTruthy();
   });
 
   it("moves focus across the three primary tabs with arrow keys", async () => {
@@ -229,7 +247,9 @@ describe("screen detail navigation", () => {
     expect(await screen.findByTestId("preview")).toBeTruthy();
     const tabs = await primaryTabs();
     expect(
-      within(tabs).getByRole("tab", { name: "Overview" }).getAttribute("aria-selected"),
+      within(tabs)
+        .getByRole("tab", { name: "Overview" })
+        .getAttribute("aria-selected"),
     ).toBe("true");
   });
 
@@ -251,7 +271,9 @@ describe("screen detail navigation", () => {
     try {
       renderDetail("/screens/screen-1?tab=manage&section=maintenance");
       expect(await screen.findByText("Recent operations")).toBeTruthy();
-      expect(screen.getByText(/No maintenance commands have been sent/)).toBeTruthy();
+      expect(
+        screen.getByText(/No maintenance commands have been sent/),
+      ).toBeTruthy();
     } finally {
       authStatus.user = { id: "user-1", name: "Owner", role: "owner" };
     }
