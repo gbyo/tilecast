@@ -9,10 +9,13 @@ package contenthealth
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 )
 
@@ -23,14 +26,18 @@ type SettingsReader interface {
 
 // Service evaluates content health and maintains the matching incidents.
 type Service struct {
-	db       *pgxpool.Pool
-	settings SettingsReader
+	db          *pgxpool.Pool
+	settings    SettingsReader
+	definitions *contentdefs.Catalog
 }
 
 // NewService builds the content health service.
 func NewService(db *pgxpool.Pool, reader SettingsReader) *Service {
-	return &Service{db: db, settings: reader}
+	return &Service{db: db, settings: reader, definitions: contentdefs.MustLoad()}
 }
+
+// SetContentDefinitions shares the release catalog used for playback projection.
+func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) { s.definitions = catalog }
 
 // Thresholds are the organization's content health settings.
 type Thresholds struct {
@@ -73,11 +80,47 @@ func (s *Service) Sweep(ctx context.Context) error {
 }
 
 func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration) error {
+	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	rows, err := tx.Query(ctx, `SELECT w.provider,w.configuration,w.managed_data_source_id
+		FROM widgets w JOIN assets a ON a.id=w.asset_id AND a.deleted_at IS NULL`)
+	if err != nil {
+		return err
+	}
+	used := []uuid.UUID{}
+	seen := map[uuid.UUID]bool{}
+	for rows.Next() {
+		var provider string
+		var configuration json.RawMessage
+		var managedID *uuid.UUID
+		if err = rows.Scan(&provider, &configuration, &managedID); err != nil {
+			rows.Close()
+			return err
+		}
+		ids := s.definitions.WidgetDataSourceIDs(provider, configuration)
+		if managedID != nil {
+			ids = append(ids, *managedID)
+		}
+		for _, id := range ids {
+			if id != uuid.Nil && !seen[id] {
+				used = append(used, id)
+				seen[id] = true
+			}
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
 	// A source is stale when its last success is older than the threshold, or
 	// when it has never succeeded and has had long enough to try. Serving
 	// cached data is not itself a fault -- that is the cache working -- so the
 	// age of the data, not the flag, is the condition.
-	if _, err := s.db.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO incidents(
 			id,incident_type,severity,status,title,description,opened_at,last_seen_at,
 			failure_code,probable_cause,related_type,related_id,dedupe_key,metadata)
@@ -98,20 +141,12 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		JOIN data_source_refresh_states r ON r.data_source_id=d.id
 		WHERE d.deleted_at IS NULL
 		  AND COALESCE(r.last_success_at,d.created_at) < now()-$1::interval
-		  -- Only report a source something actually uses. An unreferenced
-		  -- source in the library is not an operational problem. The
-		  -- configuration scan matches the reference test used elsewhere for
-		  -- Data Source usage, so both agree on what "in use" means.
-		  AND EXISTS(
-		      SELECT 1 FROM widgets w
-		      JOIN assets a ON a.id=w.asset_id AND a.deleted_at IS NULL
-		      WHERE EXISTS(SELECT 1 FROM jsonb_each_text(w.configuration) field
-		                   WHERE field.value=d.id::text))
-		ON CONFLICT DO NOTHING`, staleAfter); err != nil {
+		  AND d.id=ANY($2::uuid[])
+		ON CONFLICT DO NOTHING`, staleAfter, used); err != nil {
 		return err
 	}
 
-	_, err := s.db.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		UPDATE incidents i SET status='recovered',recovered_at=COALESCE(r.last_success_at,now()),
 			recovery_mode='automatic',
 			resolution_reason=COALESCE(NULLIF(i.resolution_reason,''),'The Data Source refreshed successfully.'),
@@ -123,7 +158,10 @@ func (s *Service) sweepDataSources(ctx context.Context, staleAfter time.Duration
 		  AND (d.deleted_at IS NOT NULL
 		       OR (r.last_success_at IS NOT NULL AND r.last_success_at >= now()-$1::interval))`,
 		staleAfter)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
