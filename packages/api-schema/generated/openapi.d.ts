@@ -1939,6 +1939,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/users/{id}/screen-scopes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet. */
+    get: operations["getUserScreenScopes"];
+    /** @description Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope. */
+    put: operations["putUserScreenScopes"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/auth/logout": {
     parameters: {
       query?: never;
@@ -10328,6 +10346,17 @@ export interface components {
       items: components["schemas"]["ManagedUser"][];
       total: number;
     };
+    ScreenScope: {
+      /** @enum {string} */
+      type: "location" | "group";
+      /** Format: uuid */
+      id: string;
+      name?: string;
+    };
+    ScreenScopeList: {
+      scopes: components["schemas"]["ScreenScope"][];
+      wholeFleet: boolean;
+    };
     AuthStatus: {
       setupRequired: boolean;
       authenticated: boolean;
@@ -16046,6 +16075,118 @@ export interface operations {
       };
       /** @description User is active, is the current user, or changed state */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getUserScreenScopes: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Screen scope grants */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenScopeList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description User not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  putUserScreenScopes: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          scopes: components["schemas"]["ScreenScope"][];
+        };
+      };
+    };
+    responses: {
+      /** @description Screen scope grants replaced */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["ScreenScopeList"];
+          };
+        };
+      };
+      /** @description Invalid request body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description User not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Scope invalid or account not scopable */
+      422: {
         headers: {
           [name: string]: unknown;
         };
