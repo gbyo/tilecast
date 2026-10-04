@@ -27,6 +27,7 @@ on:
       - "server-v*"
 
 permissions:
+  actions: read
   contents: read
   checks: write
 

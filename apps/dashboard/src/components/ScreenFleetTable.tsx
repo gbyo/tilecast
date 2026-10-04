@@ -43,12 +43,14 @@ export function ScreenFleetTable({
   canManage,
   selectedIds,
   csrfToken,
+  showLocation = true,
   onSelectionChange,
 }: {
   screens: Screen[];
   canManage: boolean;
   selectedIds: Set<string>;
   csrfToken: string;
+  showLocation?: boolean;
   onSelectionChange: (id: string, selected: boolean) => void;
 }) {
   const { t } = useTranslation("screens");
@@ -89,31 +91,39 @@ export function ScreenFleetTable({
           header: t("table.colScreen"),
           cell: ({ row }) => {
             const screen = row.original;
+            const details =
+              [
+                screen.roomName,
+                screen.roomNumber
+                  ? t("room.number", { number: screen.roomNumber })
+                  : "",
+                screen.syncGroupName,
+              ]
+                .filter(Boolean)
+                .join(" · ") ||
+              screen.description ||
+              t("table.noDetails");
             return (
-              <div className="flex min-w-48 items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
                   <Monitor className="size-4" aria-hidden="true" />
                 </span>
-                <span className="grid min-w-0 gap-0.5">
+                <span className="grid min-w-0 flex-1 gap-0.5">
                   <Link
                     to={`/screens/${screen.id}`}
-                    className="max-w-64 truncate font-medium text-foreground hover:underline"
+                    className="block max-w-full truncate font-medium text-foreground hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
                     {screen.name}
                   </Link>
-                  <span className="max-w-72 truncate text-xs text-muted-foreground">
-                    {[
-                      screen.roomName,
-                      screen.roomNumber
-                        ? t("room.number", { number: screen.roomNumber })
-                        : "",
-                      screen.syncGroupName,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") ||
-                      screen.description ||
-                      t("table.noDetails")}
+                  <span className="max-w-full truncate text-xs text-muted-foreground">
+                    {details}
+                    {showLocation && screen.location && (
+                      <span className="xl:hidden">
+                        {" · "}
+                        {screen.location}
+                      </span>
+                    )}
                   </span>
                 </span>
               </div>
@@ -142,11 +152,11 @@ export function ScreenFleetTable({
           id: "playing",
           header: t("table.colPlaying"),
           cell: ({ row }) => (
-            <div className="max-w-56">
+            <div className="min-w-0">
               <div className="truncate font-medium">
                 {row.original.nowPlayingName || t("shared.nothingAssigned")}
               </div>
-              <div className="text-xs text-muted-foreground">
+              <div className="truncate text-xs text-muted-foreground">
                 {row.original.nowPlayingName
                   ? row.original.nowPlayingType === "playlist"
                     ? t("list.playingOptions.playlist")
@@ -156,37 +166,57 @@ export function ScreenFleetTable({
             </div>
           ),
         }),
-        columnHelper.display({
-          id: "location",
-          header: t("table.colLocation"),
-          cell: ({ row }) => (
-            <div className="max-w-40 truncate text-muted-foreground">
-              {row.original.location || t("shared.notSet")}
-            </div>
-          ),
-        }),
+        ...(showLocation
+          ? [
+              columnHelper.display({
+                id: "location",
+                header: t("table.colLocation"),
+                cell: ({ row }) => (
+                  <div className="min-w-0 truncate text-muted-foreground">
+                    {row.original.location || t("shared.notSet")}
+                  </div>
+                ),
+              }),
+            ]
+          : []),
         columnHelper.display({
           id: "platform",
           header: t("table.colPlatform"),
-          cell: ({ row }) => (
-            <div className="max-w-48">
-              <div className="truncate">
-                {platformLabel(row.original.platform, t)}
-              </div>
-              <div className="truncate text-xs text-muted-foreground">
-                {[
-                  [row.original.deviceManufacturer, row.original.deviceModel]
-                    .filter(Boolean)
-                    .join(" "),
-                  row.original.screenWidth && row.original.screenHeight
-                    ? `${row.original.screenWidth}×${row.original.screenHeight}`
-                    : "",
-                ]
+          cell: ({ row }) => {
+            const deviceDetails =
+              [
+                [row.original.deviceManufacturer, row.original.deviceModel]
                   .filter(Boolean)
-                  .join(" · ") || t("table.noDevice")}
+                  .join(" "),
+                row.original.screenWidth && row.original.screenHeight
+                  ? `${row.original.screenWidth}×${row.original.screenHeight}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" · ") || t("table.noDevice");
+            return (
+              <div className="min-w-0">
+                <div className="truncate">
+                  {platformLabel(row.original.platform, t)}
+                  {row.original.playerVersion && (
+                    <span className="2xl:hidden">
+                      {" · "}
+                      {row.original.playerVersion}
+                    </span>
+                  )}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {deviceDetails}
+                  {row.original.updateState && (
+                    <span className="2xl:hidden">
+                      {" · "}
+                      {humanize(row.original.updateState)}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ),
+            );
+          },
         }),
         columnHelper.display({
           id: "version",
@@ -249,7 +279,7 @@ export function ScreenFleetTable({
             ]
           : []),
       ]),
-    [canManage, csrfToken, formatLocale, navigate, t],
+    [canManage, csrfToken, formatLocale, navigate, showLocation, t],
   );
   const table = useTable({
     features,
@@ -271,15 +301,15 @@ export function ScreenFleetTable({
   });
 
   return (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-border">
-      <Table className="min-w-[1000px]">
+    <div className="min-w-0 rounded-xl border border-border">
+      <Table className="min-w-[59rem] table-fixed">
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id} className="hover:bg-transparent">
               {group.headers.map((header) => (
                 <TableHead
                   key={header.id}
-                  className="bg-muted/40 text-xs text-muted-foreground"
+                  className={`bg-muted/40 text-xs text-muted-foreground ${columnLayout[header.id] ?? ""}`}
                 >
                   {header.isPlaceholder ? null : (
                     <table.FlexRender header={header} />
@@ -297,7 +327,10 @@ export function ScreenFleetTable({
               className="h-[4.25rem]"
             >
               {row.getAllCells().map((cell) => (
-                <TableCell key={cell.id} className="px-2.5 py-2">
+                <TableCell
+                  key={cell.id}
+                  className={`px-2.5 py-2 ${columnLayout[cell.column.id] ?? ""}`}
+                >
                   <table.FlexRender cell={cell} />
                 </TableCell>
               ))}
@@ -308,6 +341,18 @@ export function ScreenFleetTable({
     </div>
   );
 }
+
+const columnLayout: Record<string, string> = {
+  select: "w-10",
+  screen: "w-[14rem]",
+  status: "w-[10rem]",
+  playing: "w-[11rem]",
+  location: "hidden w-[10rem] xl:table-cell",
+  platform: "w-[12rem]",
+  version: "hidden w-[7rem] 2xl:table-cell",
+  lastSeen: "w-[6.5rem]",
+  actions: "w-10",
+};
 
 function StatusBadge({ status }: { status: ScreenStatus }) {
   const { t } = useTranslation("screens");

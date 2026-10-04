@@ -9,7 +9,7 @@ import {
 import { CalendarDays, Clock3, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
@@ -153,6 +153,8 @@ export function ScheduleEditorPage() {
   const [targetSearch, setTargetSearch] = useState("");
   const [showDateRange, setShowDateRange] = useState(false);
   const [defaultTimezoneApplied, setDefaultTimezoneApplied] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [targetPrefillApplied, setTargetPrefillApplied] = useState(false);
 
   useEffect(() => {
     if (!existing.data) return;
@@ -171,6 +173,57 @@ export function ScheduleEditorPage() {
     });
     setDefaultTimezoneApplied(true);
   }, [baseline, defaultTimezoneApplied, defaults.data?.defaultTimezone, id]);
+  useEffect(() => {
+    // "Add schedule" from a Screen or Display Group preselects that target
+    // for a new schedule. One shot: the query parameter must never overwrite
+    // user edits on a later render.
+    if (id || targetPrefillApplied) return;
+    const screenId = searchParams.get("screen");
+    const groupId = searchParams.get("group");
+    if (!screenId && !groupId) {
+      setTargetPrefillApplied(true);
+      return;
+    }
+    if (scheduleIsDirty(input, baseline)) {
+      setTargetPrefillApplied(true);
+      return;
+    }
+    if (screens.isPending || groups.isPending) return;
+    const target = screenId
+      ? screens.data?.items?.find((screen) => screen.id === screenId)
+        ? {
+            type: "screen" as const,
+            id: screenId,
+            name: screens.data?.items?.find((screen) => screen.id === screenId)
+              ?.name,
+          }
+        : null
+      : groups.data?.items?.find((group) => group.id === groupId)
+        ? {
+            type: "group" as const,
+            id: groupId ?? "",
+            name: groups.data?.items?.find((group) => group.id === groupId)
+              ?.name,
+          }
+        : null;
+    if (target) {
+      const next = { ...input, targets: [target] };
+      setInput(next);
+      setBaseline(next);
+      setTargetTab(target.type === "group" ? "groups" : "screens");
+    }
+    setTargetPrefillApplied(true);
+  }, [
+    baseline,
+    groups.data?.items,
+    groups.isPending,
+    id,
+    input,
+    screens.data?.items,
+    screens.isPending,
+    searchParams,
+    targetPrefillApplied,
+  ]);
 
   const dirty = scheduleIsDirty(input, baseline);
   const errors = useMemo(() => validateScheduleInput(input, t), [input, t]);
