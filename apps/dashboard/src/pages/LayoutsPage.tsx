@@ -797,7 +797,6 @@ export function LayoutsPage() {
                       ? t("library.cardEdit", { name: layout.name })
                       : t("library.cardOpen", { name: layout.name })
                   }
-                  onClick={() => void navigate(`/layouts/${layout.id}`)}
                 >
                   <span className="relative block">
                     <LayoutPreview layout={layout} />

@@ -7,10 +7,10 @@ import {
 import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -110,9 +110,12 @@ export function WidgetsPage() {
         description={t("widgets.list.subtitle")}
         actions={
           canManage ? (
-            <Button type="button" onClick={() => void navigate("/widgets/new")}>
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/widgets/new"
+            >
               <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
-            </Button>
+            </Link>
           ) : undefined
         }
       />
@@ -172,12 +175,12 @@ export function WidgetsPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/widgets/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/widgets/new"
               >
                 {t("widgets.list.create")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>
