@@ -27,7 +27,7 @@ test("mobile playback explanation keeps evidence and instant controls inside the
 }) => {
   await page.goto(`/screens/${ids.cafeteriaEast}`);
   const { panel } = await inspectFuturePlayback(page);
-  await expect(panel.getByText("Selection and alternatives")).toBeVisible();
+  await expect(panel.getByText("Selection precedence")).toBeVisible();
   await expect(
     panel.getByRole("link", { name: "View Player-confirmed Activity" }),
   ).toBeVisible();

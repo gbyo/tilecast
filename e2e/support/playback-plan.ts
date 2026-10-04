@@ -3,11 +3,12 @@ import { expect, type Page } from "@playwright/test";
 // Use the real picker and server authority. A fixed future instant keeps
 // schedule selection stable across visual runs without faking an API response.
 export async function inspectFuturePlayback(page: Page) {
-  const panel = page.getByRole("region", { name: "Expected presentation" });
+  await page.getByRole("button", { name: "Why this?" }).click();
+  const panel = page.getByRole("dialog", { name: "Why this content?" });
   await expect(
     panel.getByText("Prediction from current configuration"),
   ).toBeVisible();
-  await panel.getByRole("button", { name: "Why this selection?" }).click();
+  await panel.getByRole("button", { name: "Inspect another time" }).click();
   await panel
     .getByRole("button", { name: "Inspect an instant", exact: true })
     .click();
