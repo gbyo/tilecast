@@ -223,7 +223,10 @@
     "noneReported": "Ninguno informado",
     "nothingAssigned": "Nada asignado",
     "noFallback": "Sin contenido alternativo",
-    "updateFailed": "Falló la actualización"
+    "updateFailed": "Falló la actualización",
+    "mapLoading": "Cargando mapa…",
+    "mapLoadErrorTitle": "No se pudo cargar el mapa",
+    "mapLoadErrorBody": "Tilecast no pudo terminar de renderizar este mapa. Inténtalo de nuevo o usa el detalle técnico de abajo para diagnosticar el problema."
   },
   "status": {
     "online": "En línea",
