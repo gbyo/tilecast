@@ -57,29 +57,7 @@ fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef 
     player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
 }
 
-/// Where an activation came from, for status and logs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActivationSource {
-    StatusSurface,
-    Fixture,
-    ServerManifest,
-    SafeMode,
-    /// A surface the accepted configuration or an administrator selected
-    /// instead of content: outside active hours, or playback disabled.
-    Policy,
-}
-
-impl ActivationSource {
-    pub fn as_token(self) -> &'static str {
-        match self {
-            Self::StatusSurface => "status_surface",
-            Self::Fixture => "fixture",
-            Self::ServerManifest => "server_manifest",
-            Self::SafeMode => "safe_mode",
-            Self::Policy => "policy",
-        }
-    }
-}
+pub use player_core::ActivationSource;
 
 /// Which verified presentation an activation shows and what selected it:
 /// the same identifiers the reference player reports in its heartbeat.
@@ -697,8 +675,8 @@ impl PresentationEngine {
         false
     }
 
-    pub fn renderer_ready_features(&self) -> Option<Vec<ShortToken>> {
-        self.renderer.as_ref().and_then(|l| l.ready.as_ref()).map(|r| r.features.clone())
+    pub fn renderer_supports(&self, requirements: &[player_core::RendererRequirement]) -> bool {
+        self.native.supports(requirements)
     }
 
     pub fn restart_count(&self) -> u64 {

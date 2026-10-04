@@ -27,20 +27,15 @@
 //! has not produced evidence on screen; it is tried when content returns.
 
 use std::sync::Arc;
-use std::time::Duration;
 
-use edge_protocol::Sha256Digest;
 use edge_protocol::ipc::presentation::PresentationDocument;
-use edge_state::repo::cas::PinReason;
 
 use crate::daemon::DaemonContext;
-use crate::manifest::{self, Candidate, ResolvedPresentation};
+use crate::manifest::{Candidate, ResolvedPresentation};
 use crate::player_config::PlayerConfig;
 use crate::presentation::{ActivationSource, PlaybackIdentity, ServerExtras};
 use crate::schedule::Source;
 
-const MAX_SLEEP: Duration = Duration::from_secs(30);
-const IDLE_SLEEP: Duration = Duration::from_secs(60);
 pub use player_core::{ActivationGate as Gate, should_activate_pending};
 
 pub fn gate(config: &PlayerConfig, playback_disabled: bool, now_ms: i64) -> (Option<Gate>, Option<i64>) {
@@ -108,41 +103,6 @@ async fn show_policy(
     }
 }
 
-fn earliest(a: Option<i64>, b: Option<i64>) -> Option<i64> {
-    match (a, b) {
-        (Some(a), Some(b)) => Some(a.min(b)),
-        (a, b) => a.or(b),
-    }
-}
-
-pub async fn run(context: Arc<DaemonContext>) {
-    // The development fixture is an explicit local presentation source.
-    if context.config.dev.fixture.is_some() {
-        return;
-    }
-    let Some(db) = context.db() else {
-        context.shutdown.cancelled().await;
-        return;
-    };
-    let mut state = player_core::OfflineActivationCoordinator::new(
-        player_core::Dependencies { state: db.clone(), clock: context.clock.clone() },
-        context.cas.clone(),
-    );
-    loop {
-        let boundary = context.manifest_item_boundary.swap(false, std::sync::atomic::Ordering::Relaxed);
-        let next_at = tick(&context, &mut state, boundary).await;
-        let now_ms = context.now().unix_millis();
-        let delay = next_at
-            .map(|at| Duration::from_millis(at.saturating_sub(now_ms).max(50) as u64).min(MAX_SLEEP))
-            .unwrap_or(IDLE_SLEEP);
-        tokio::select! {
-            () = context.shutdown.cancelled() => return,
-            _ = context.manifest_wake.notified() => {},
-            () = tokio::time::sleep(delay) => {},
-        }
-    }
-}
-
 fn identity(candidate: &Candidate, resolved: &ResolvedPresentation) -> PlaybackIdentity {
     let selection = &resolved.selection;
     PlaybackIdentity {
@@ -177,311 +137,180 @@ fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
     }
 }
 
-struct Current {
-    source: ActivationSource,
-    manifest: Option<Sha256Digest>,
-    identity: Option<PlaybackIdentity>,
+#[derive(Debug, PartialEq)]
+struct SelectionKey {
+    playlist: Option<uuid::Uuid>,
+    layout: Option<uuid::Uuid>,
+    schedule: Option<uuid::Uuid>,
+    takeover: Option<uuid::Uuid>,
+}
+
+impl From<&PlaybackIdentity> for SelectionKey {
+    fn from(identity: &PlaybackIdentity) -> Self {
+        Self {
+            playlist: identity.playlist_id,
+            layout: identity.layout_id,
+            schedule: identity.schedule_id,
+            takeover: identity.takeover_id,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct PresentationKey {
     document: PresentationDocument,
     content: Vec<edge_protocol::ipc::presentation::ContentRef>,
-    timing: Option<edge_protocol::ipc::event::SyncTiming>,
-    accepted: bool,
-    evidence: bool,
+    timing: Option<(String, i64, Vec<u64>)>,
+    identity: Option<SelectionKey>,
 }
 
-async fn current(context: &DaemonContext) -> Option<Current> {
-    let engine = context.presentation.lock().await;
-    engine.current().map(|activation| Current {
-        source: activation.source,
-        manifest: activation.manifest(),
-        identity: activation.identity.clone(),
-        document: activation.document.clone(),
-        content: activation.content.clone(),
-        timing: activation.timing.clone(),
-        accepted: engine.current_is_accepted(),
-        evidence: engine.current_has_activation_evidence(),
-    })
+struct Host(Arc<DaemonContext>);
+
+#[async_trait::async_trait]
+impl player_core::OfflineActivationHost for Host {
+    type Configuration = Arc<PlayerConfig>;
+    type Projection = ResolvedPresentation;
+    type Key = PresentationKey;
+
+    fn configuration(&self) -> Self::Configuration {
+        crate::config_sync::effective(&self.0)
+    }
+    fn native_configuration<'a>(&self, configuration: &'a Self::Configuration) -> &'a player_core::NativeConfiguration {
+        &configuration.native
+    }
+    fn project(
+        &self,
+        native: &player_core::NativeManifest,
+        configuration: &Self::Configuration,
+        time: player_core::ActivationTime,
+    ) -> Result<player_core::OfflineProjection<Self::Projection, Self::Key>, &'static str> {
+        let candidate = Candidate::from_native(native.clone());
+        let resolved =
+            candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        let metadata = crate::renderer_adapter::metadata(
+            &resolved.document,
+            ActivationSource::ServerManifest,
+            resolved.projection.as_ref(),
+        )
+        .map_err(|_| "presentation_requirements_invalid")?;
+        let identity = identity(&candidate, &resolved);
+        let key = PresentationKey {
+            document: resolved.document.clone(),
+            content: resolved.content.clone(),
+            // Clock correction must not restart an existing synchronized timeline.
+            timing: resolved.timing.as_ref().map(|t| (t.group_id.clone(), t.anchor_ms, t.durations_ms.clone())),
+            identity: Some(SelectionKey::from(&identity)),
+        };
+        Ok(player_core::OfflineProjection {
+            key,
+            source: resolved.selection.source,
+            requirements: metadata.requirements,
+            next_transition_ms: resolved.next_transition_ms,
+            projection: resolved,
+        })
+    }
+    async fn current(&self) -> Option<player_core::OfflineCurrent<Self::Key>> {
+        let engine = self.0.presentation.lock().await;
+        engine.current().map(|activation| player_core::OfflineCurrent {
+            source: activation.source,
+            manifest: activation.manifest(),
+            key: PresentationKey {
+                document: activation.document.clone(),
+                content: activation.content.clone(),
+                timing: activation
+                    .timing
+                    .as_ref()
+                    .map(|t| (t.group_id.as_str().to_owned(), t.anchor_unix_ms, t.durations_ms.clone())),
+                identity: activation.identity.as_ref().map(SelectionKey::from),
+            },
+            accepted: engine.current_is_accepted(),
+            evidence: engine.current_has_activation_evidence(),
+            playing: matches!(&activation.document, PresentationDocument::Playing { items, .. } if !items.is_empty()),
+        })
+    }
+    async fn health(&self) -> player_core::OfflineRendererHealth {
+        let engine = self.0.presentation.lock().await;
+        player_core::OfflineRendererHealth {
+            safe_mode: engine.is_safe_mode(),
+            current_error: engine.current_has_renderer_error(),
+        }
+    }
+    async fn set_clock_offset(&self, offset_ms: i64) {
+        self.0.presentation.lock().await.set_clock_offset(offset_ms);
+    }
+    async fn supports(&self, requirements: &[player_core::RendererRequirement]) -> bool {
+        self.0.presentation.lock().await.renderer_supports(requirements)
+    }
+    async fn show_gate(
+        &self,
+        gate: Gate,
+        native: Option<&player_core::NativeManifest>,
+        configuration: &Self::Configuration,
+        time: player_core::ActivationTime,
+    ) {
+        let candidate = native.cloned().map(Candidate::from_native);
+        let (document, content) = gate_document(gate, configuration, candidate.as_ref(), time.presentation_ms());
+        show_policy(&self.0, document, content, time.local_ms).await;
+    }
+    async fn show_waiting(&self, now_ms: i64) {
+        let surface = crate::daemon::status_surface_for(&self.0, true);
+        let _ = self.0.presentation.lock().await.activate(
+            surface,
+            Vec::new(),
+            None,
+            ActivationSource::StatusSurface,
+            now_ms,
+        );
+    }
+    async fn activate(
+        &self,
+        native: &player_core::NativeManifest,
+        resolved: Self::Projection,
+        time: player_core::ActivationTime,
+    ) -> Result<player_core::RendererActivationRef, &'static str> {
+        let candidate = Candidate::from_native(native.clone());
+        let identity = identity(&candidate, &resolved);
+        let extras = extras(&resolved, time.offset_ms);
+        self.0
+            .presentation
+            .lock()
+            .await
+            .activate_server_presentation(identity, resolved.document, resolved.content, extras, time.local_ms)
+            .map(|reference| player_core::RendererActivationRef {
+                activation_id: reference.activation_id,
+                generation: reference.generation,
+            })
+            .map_err(|error| {
+                tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
+                "activation_rejected"
+            })
+    }
+    fn promoted(&self) {
+        self.0.manifest_wake.notify_one();
+        self.0.display_wake.notify_one();
+    }
 }
 
-async fn tick(
-    context: &DaemonContext,
-    state: &mut player_core::OfflineActivationCoordinator,
-    item_boundary: bool,
-) -> Option<i64> {
-    let mut local = state.load().await?;
-    let binding = local.binding.clone();
-    let screen_id = binding.screen_id;
-    let local_now_ms = local.local_now_ms;
-    let offset_ms = local.offset_ms;
-    context.presentation.lock().await.set_clock_offset(offset_ms);
-    let presentation_now_ms = local_now_ms.saturating_add(offset_ms);
-    let config = crate::config_sync::effective(context);
-    let (gate, hours_change_ms) = gate(&config, local.playback_disabled, presentation_now_ms);
-    let hours_wake = hours_change_ms.map(|ms| local_now_ms.saturating_add(ms));
-    let current = current(context).await;
-
-    state.retain_pending(&mut local, current.as_ref().and_then(|current| current.manifest)).await;
-    let active = local.active;
-    let pending = local.pending;
-
-    // Safe mode keeps its surface until an operator clears it; after that
-    // the leftover safe-mode activation no longer matches and is replaced.
-    if context.presentation.lock().await.is_safe_mode() {
-        state.suspend_trial();
-        return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
+pub async fn run(context: Arc<DaemonContext>) {
+    if context.config.dev.fixture.is_some() {
+        return;
     }
-    let active_candidate =
-        active.as_ref().and_then(|stored| Candidate::parse(stored.document.clone(), screen_id, stored.digest).ok());
-
-    'pending: {
-        if let Some(stored) = pending.as_ref() {
-            if state.pending_rejected(stored.digest) {
-                break 'pending;
-            }
-            let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
-                Ok(candidate) => candidate,
-                Err(error) => {
-                    if state.note_invalid(stored.digest) {
-                        tracing::warn!(
-                            component = "activation",
-                            event = "pending_invalid",
-                            reason = error.reason_code()
-                        );
-                    }
-                    break 'pending;
-                }
-            };
-            if let Some(gate) = gate
-                && !candidate
-                    .presentation_with(presentation_now_ms, &config)
-                    .is_ok_and(|r| overrides_gate(r.selection.source))
-            {
-                // A policy surface suspends a trial. Restart its deadline only
-                // after the candidate is actually allowed back on screen.
-                state.suspend_trial();
-                let (document, content) =
-                    gate_document(gate, &config, active_candidate.as_ref().or(Some(&candidate)), presentation_now_ms);
-                show_policy(context, document, content, local_now_ms).await;
-                return earliest(hours_wake, Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64)));
-            }
-            let trial = current.as_ref().is_some_and(|c| c.manifest == Some(stored.digest));
-            if trial {
-                let current = current.as_ref()?;
-                let renderer_error = context.presentation.lock().await.current_has_renderer_error();
-                let evidence = player_core::TrialEvidence {
-                    manifest: current.manifest,
-                    accepted: current.accepted,
-                    meaningful: current.evidence,
-                    renderer_error,
-                };
-                let decision = state.trial_decision(stored.digest, local_now_ms, evidence);
-                if decision == player_core::TrialDecision::Failed {
-                    tracing::warn!(component = "activation", event = "pending_trial_failed", manifest = %stored.digest.short(), renderer_error);
-                    break 'pending;
-                }
-                if decision == player_core::TrialDecision::Promote {
-                    if state.promote(&binding, stored, &candidate, evidence).await {
-                        state.suspend_trial();
-                        context.manifest_wake.notify_one();
-                        context.display_wake.notify_one();
-                        return Some(local_now_ms.saturating_add(50));
-                    }
-                    return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-                }
-                let player_core::TrialDecision::AwaitEvidence { deadline_ms: deadline } = decision else { return None };
-                // The trial follows schedule boundaries like any presentation.
-                let next = show(context, state, &candidate, current, &config, local_now_ms, offset_ms).await;
-                return earliest(Some(next.unwrap_or(deadline).min(deadline)), hours_wake);
-            }
-            let resolved = match candidate.presentation_with(presentation_now_ms, &config) {
-                Ok(resolved) => resolved,
-                Err(error) => {
-                    if state.note_invalid(stored.digest) {
-                        tracing::warn!(
-                            component = "activation",
-                            event = "pending_selection_failed",
-                            reason = error.reason_code()
-                        );
-                    }
-                    break 'pending;
-                }
-            };
-            let renderer_features = context.presentation.lock().await.renderer_ready_features();
-            let supported = renderer_features.as_ref().is_some_and(|features| {
-                resolved
-                    .document
-                    .required_features()
-                    .iter()
-                    .all(|required| features.iter().any(|feature| feature.as_str() == *required))
-            });
-            if !supported {
-                // Keep the committed presentation on screen while the optional
-                // remote-web helper or renderer is unavailable. A later
-                // renderer.ready wakes this loop to try the pending manifest.
-                return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-            }
-            let takeover = matches!(resolved.selection.source, Source::Takeover | Source::QuickPresent);
-            let current_is_playing = current.as_ref().is_some_and(|c| {
-                c.source == ActivationSource::ServerManifest
-                    && matches!(&c.document, PresentationDocument::Playing { items, .. } if !items.is_empty())
-            });
-            let grace_at =
-                stored.stored_at.unix_millis().saturating_add(manifest::activation_grace_ms(&stored.document));
-            if should_activate_pending(current_is_playing, takeover, item_boundary, local_now_ms, grace_at) {
-                if manifest::verify_cached(context, &candidate).await.is_err() {
-                    return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-                }
-                let identity = identity(&candidate, &resolved);
-                let extras = extras(&resolved, offset_ms);
-                let result = context.presentation.lock().await.activate_server_presentation(
-                    identity,
-                    resolved.document,
-                    resolved.content,
-                    extras,
-                    local_now_ms,
-                );
-                match result {
-                    Ok(reference) => {
-                        state.start_trial(stored.digest, local_now_ms);
-                        tracing::info!(
-                            component = "activation",
-                            event = "activation_started",
-                            manifest = %stored.digest.short(),
-                            version = stored.version,
-                            generation = reference.generation,
-                            boundary = item_boundary,
-                            grace_expired = local_now_ms >= grace_at,
-                            takeover
-                        );
-                    }
-                    Err(error) => {
-                        tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
-                        return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-                    }
-                }
-                return Some(local_now_ms.saturating_add(250));
-            }
-            return Some(grace_at);
-        }
-    }
-
-    let Some(stored) = active.as_ref() else {
-        if let Some(gate) = gate {
-            let (document, content) = gate_document(gate, &config, None, presentation_now_ms);
-            show_policy(context, document, content, local_now_ms).await;
-            return earliest(hours_wake, Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64)));
-        }
-        // Nothing committed yet. An uncommitted trial whose pending state was
-        // superseded, or a policy surface that no longer applies, leaves the
-        // screen for the waiting surface.
-        if current
-            .as_ref()
-            .is_some_and(|c| matches!(c.source, ActivationSource::ServerManifest | ActivationSource::Policy))
-        {
-            let surface = crate::daemon::status_surface_for(context, true);
-            let _ = context.presentation.lock().await.activate(
-                surface,
-                Vec::new(),
-                None,
-                ActivationSource::StatusSurface,
-                local_now_ms,
-            );
-        }
-        return hours_wake;
+    let Some(db) = context.db() else {
+        context.shutdown.cancelled().await;
+        return;
     };
-    let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
-        Ok(candidate) => candidate,
-        Err(error) => {
-            tracing::warn!(component = "activation", event = "active_invalid", reason = error.reason_code());
-            return None;
-        }
-    };
-    if manifest::verify_cached(context, &candidate).await.is_err() {
-        tracing::warn!(component = "activation", event = "active_cache_unavailable", manifest = %stored.digest.short());
-        return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
-    }
-    let current = current.unwrap_or(Current {
-        source: ActivationSource::StatusSurface,
-        manifest: None,
-        identity: None,
-        document: PresentationDocument::Setup {},
-        content: Vec::new(),
-        timing: None,
-        accepted: false,
-        evidence: false,
-    });
-    let resolved = candidate.presentation_with(presentation_now_ms, &config);
-    if let Some(gate) = gate
-        && !resolved.as_ref().is_ok_and(|r| overrides_gate(r.selection.source))
-    {
-        let (document, content) = gate_document(gate, &config, Some(&candidate), presentation_now_ms);
-        show_policy(context, document, content, local_now_ms).await;
-        let content_wake = resolved.ok().and_then(|r| r.next_transition_ms).map(|at| at.saturating_sub(offset_ms));
-        return earliest(hours_wake, content_wake);
-    }
-    let next = show(context, state, &candidate, &current, &config, local_now_ms, offset_ms).await;
-    earliest(next, hours_wake)
-}
-
-/// Shows `candidate` resolved at `presentation_now_ms`, re-activating only
-/// when what should be on screen differs from what is.
-async fn show(
-    context: &DaemonContext,
-    state: &player_core::OfflineActivationCoordinator,
-    candidate: &Candidate,
-    current: &Current,
-    config: &PlayerConfig,
-    local_now_ms: i64,
-    offset_ms: i64,
-) -> Option<i64> {
-    let presentation_now_ms = local_now_ms.saturating_add(offset_ms);
-    let resolved = match candidate.presentation_with(presentation_now_ms, config) {
-        Ok(resolved) => resolved,
-        Err(error) => {
-            tracing::warn!(component = "activation", event = "selection_failed", reason = error.reason_code());
-            return None;
-        }
-    };
-    let identity = identity(candidate, &resolved);
-    let matches = current.source == ActivationSource::ServerManifest
-        && current.manifest == Some(candidate.digest)
-        && current.document == resolved.document
-        && current.content == resolved.content
-        // The anchor is fixed at activation: a later clock-offset sample must
-        // not restart synchronized playback.
-        && current.timing.as_ref().map(|t| (t.group_id.as_str().to_owned(), t.anchor_unix_ms, t.durations_ms.clone()))
-            == resolved.timing.as_ref().map(|t| (t.group_id.clone(), t.anchor_ms, t.durations_ms.clone()))
-        && current.identity.as_ref().map(|i| (i.playlist_id, i.layout_id, i.schedule_id, i.takeover_id))
-            == Some((identity.playlist_id, identity.layout_id, identity.schedule_id, identity.takeover_id));
-    if !matches {
-        if state.pin(PinReason::ActivePresentation, candidate).await.is_err() {
-            return resolved.next_transition_ms.map(|at| at.saturating_sub(offset_ms));
-        }
-        let extras = extras(&resolved, offset_ms);
-        let next = resolved.next_transition_ms;
-        if let Err(error) = context.presentation.lock().await.activate_server_presentation(
-            identity,
-            resolved.document,
-            resolved.content,
-            extras,
-            local_now_ms,
-        ) {
-            tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
-        }
-        return next.map(|at| at.saturating_sub(offset_ms));
-    }
-    resolved.next_transition_ms.map(|at| at.saturating_sub(offset_ms))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn pending_activation_waits_for_a_boundary_unless_grace_or_takeover_applies() {
-        assert!(!should_activate_pending(true, false, false, 999, 1_000));
-        assert!(should_activate_pending(true, false, true, 999, 1_000));
-        assert!(should_activate_pending(true, false, false, 1_000, 1_000));
-        assert!(should_activate_pending(true, true, false, 999, 1_000));
-        assert!(should_activate_pending(false, false, false, 999, 1_000));
-    }
+    let state = player_core::OfflineActivationCoordinator::new(
+        player_core::Dependencies { state: db.clone(), clock: context.clock.clone() },
+        context.cas.clone(),
+    );
+    player_core::drive_offline_activation(
+        state,
+        &Host(context.clone()),
+        player_core::OfflineActivationSignals {
+            wake: &context.manifest_wake,
+            item_boundary: &context.manifest_item_boundary,
+            shutdown: &context.shutdown,
+        },
+    )
+    .await;
 }

@@ -131,13 +131,15 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-Offline activation driver and projection coordination remain to be extracted.
+Final offline driver qualification remains pending.
 Core now owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence
 requirements for promotion, and verified pin lifetime. Core tests check that
 acceptance alone cannot promote a manifest, a changed target cannot become
-active, and a changed binding resets trial state. Runtime document comparison,
-projection, surface construction, and activation-loop composition remain in Edge.
+active, and a changed binding resets trial state. Core drives offline activation
+ordering and wake timers. Hosts project Runtime documents and supply opaque
+comparison keys. Edge retains Runtime document comparison, projection, and
+surface construction. Core checks packaged and connected support before a trial.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Core now drives the server
 socket, reconnect and liveness timers, heartbeat fallback, push handling,

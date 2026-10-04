@@ -122,8 +122,9 @@ Core owns manifest preparation-worker supervision and target-bound cancellation.
 Core owns telemetry sampling, interval counters, serialization, and bounded
 offline queue policy. Edge supplies semantic observations and measured gauges.
 Core owns offline manifest state, native activation gates, trial deadlines,
-evidence requirements for promotion, and verified pin lifetime. Edge retains
-renderer projection and activation-loop composition until their extraction is complete.
+evidence requirements for promotion, and verified pin lifetime. Core drives the
+offline activation loop. Edge supplies Runtime projection, opaque comparison
+keys, and status surfaces.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.

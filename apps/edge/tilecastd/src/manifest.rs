@@ -440,6 +440,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
 }
 
 impl Candidate {
+    pub(crate) fn from_native(candidate: player_core::NativeManifest) -> Self {
+        Self(candidate)
+    }
     /// Validates a server manifest and its compatibility with this renderer.
     /// Nothing is fetched here.
     pub fn prepare_candidate(document: Value, expected_screen: ScreenId) -> Result<Self, ManifestError> {

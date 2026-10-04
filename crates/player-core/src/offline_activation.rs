@@ -204,6 +204,15 @@ impl OfflineActivationCoordinator {
         Ok(())
     }
 
+    pub(crate) fn now_ms(&self) -> i64 {
+        self.dependencies.clock.now().unix_millis()
+    }
+
+    pub async fn verify_content(&self, candidate: &NativeManifest) -> Result<(), ManifestPreparationError> {
+        let store = self.store.as_ref().ok_or(ManifestPreparationError::StoreUnavailable)?;
+        candidate.verify_content(store).await.map(|_| ())
+    }
+
     pub async fn sweep_pins(
         &self,
         active: &Option<StoredManifest>,

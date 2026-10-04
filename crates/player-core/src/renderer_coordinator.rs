@@ -109,6 +109,13 @@ impl RendererCoordinator {
         Ok(RendererDispatch::Queued)
     }
 
+    /// Preflight an explicit requirement set before replacing the current activation.
+    pub fn supports(&self, requirements: &[RendererRequirement]) -> bool {
+        let Some((connection, connected)) = &self.connected else { return false };
+        self.connection == Some(*connection)
+            && requirements.iter().all(|requirement| self.packaged.check_connected(connected, requirement).is_ok())
+    }
+
     pub fn clear(&mut self) {
         self.current = None;
         self.tracker.clear();
@@ -306,18 +313,23 @@ mod tests {
         let prepared = activation(&mut core, 0);
         let one = uuid::Uuid::from_u128(1);
         let two = uuid::Uuid::from_u128(2);
+        assert!(!core.supports(&prepared.metadata().requirements));
         assert_eq!(core.dispatch(one, &prepared, &port), Err(RendererPortError::NotReady));
         core.connected(one, now(0));
         core.ready(one, ConnectedRendererProfile(RendererSupport::default()));
+        assert!(!core.supports(&prepared.metadata().requirements));
         assert!(matches!(core.dispatch(one, &prepared, &port), Ok(RendererDispatch::Incompatible(missing))
             if missing == vec![(prepared.metadata().requirements[0].clone(), RendererProfileMismatch::Connected)]));
         assert!(port.activations.lock().unwrap().is_empty());
         core.ready(one, ConnectedRendererProfile(support()));
+        assert!(core.supports(&prepared.metadata().requirements));
+        assert!(!core.supports(&[RendererRequirement::Feature(ShortToken::new("future").unwrap())]));
         assert_eq!(core.dispatch(one, &prepared, &port), Ok(RendererDispatch::Queued));
         assert_eq!(port.activations.lock().unwrap()[0], prepared);
         core.connected(two, now(1));
         core.ready(one, ConnectedRendererProfile(support()));
         assert_eq!(core.dispatch(two, &prepared, &port), Err(RendererPortError::NotReady));
+        assert!(!core.supports(&prepared.metadata().requirements));
         core.ready(two, ConnectedRendererProfile(support()));
         assert_eq!(core.dispatch(one, &prepared, &port), Err(RendererPortError::NotReady));
         assert_eq!(core.dispatch(two, &prepared, &port), Ok(RendererDispatch::Queued));

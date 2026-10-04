@@ -10,6 +10,7 @@ mod manifest_worker;
 mod manifests;
 mod native_configuration;
 mod offline_activation;
+mod offline_driver;
 mod origin;
 mod pairing;
 mod preview;
@@ -55,6 +56,10 @@ pub use native_configuration::{
 pub use offline_activation::{
     ACTIVATION_TRIAL_TIMEOUT_MS, ActivationGate, OfflineActivationCoordinator, OfflineManifestState, TrialDecision,
     TrialEvidence, activation_gate, activation_grace_ms, overrides_activation_gate, should_activate_pending,
+};
+pub use offline_driver::{
+    ActivationSource, ActivationTime, OfflineActivationHost, OfflineActivationSignals, OfflineCurrent,
+    OfflineProjection, OfflineRendererHealth, drive_offline_activation,
 };
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use pairing::{
