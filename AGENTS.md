@@ -106,8 +106,9 @@ Watch Live lease and frame coordination. Runtime presentation data stays opaque
 to Core, with explicit resource, compatibility, and evidence metadata.
 Core correlates renderer command results and owns startup Website data-clear
 retry policy. Edge maps wire results and user-facing failure text.
-Activation coordination and server reconciliation remain in Edge
-until their extraction stages.
+Core coordinates activation identity, profile checks, and recovery timing.
+Edge keeps Runtime projection inputs and constructs status payloads.
+Server reconciliation remains in Edge until its extraction stage.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.

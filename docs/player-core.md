@@ -139,7 +139,9 @@ Core owns the renderer recovery ladder and meaningful-evidence rules.
 Core tracks acceptance, errors, and evidence by connection and activation.
 It refuses stale observations and bounds evidence logs and content-item sets.
 Edge maps wire values and executes actions through its RendererPort adapter.
-The activation coordinator and recovery timers still remain in Edge.
+Core coordinates activation identity, profile checks, and recovery timers.
+Core creates recovery Activity events with the existing escalation metadata.
+Edge keeps Runtime projection inputs and constructs status payloads.
 
 The renderer contract carries bounded opaque Runtime data and verified
 object bindings. Edge uses prepared activations through
@@ -166,9 +168,9 @@ Edge owns resource encoding, media grants, and IPC queue operations.
 The Edge port owns its renderer endpoint and caches grants for that session.
 It prepares and activates grants and drains prior generations with its own clock.
 The activation coordinator does not assemble media capabilities.
-Edge checks packaged and connected profiles before activation.
-Activation coordination and recovery timers remain required work for stage 8.
-Stage 8 also requires green selected qualification jobs for the current commit.
+Core checks packaged and connected profiles before activation.
+Stage 8 requires green selected qualification jobs for the current commit.
+Qualification remains pending for the final coordinator extraction.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry

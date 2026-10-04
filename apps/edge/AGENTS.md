@@ -17,7 +17,9 @@ values are implemented in `crates/player-types`, and durable state in
 file stores and Electron import. `crates/player-core` owns native selection,
 command delivery, Activity sessions, the CAS origin adapter, renderer recovery
 decisions, meaningful-evidence rules, and connection-bound acceptance and
-evidence tracking. Edge keeps
+evidence tracking. Core coordinates activation generations, profile checks,
+recovery timing, and recovery Activity events. Edge keeps Runtime projection
+inputs and constructs status payloads. Edge keeps
 renderer transport and decoding. Core owns capture serialization and periodic
 preview policy and Watch Live lease and frame coordination. Edge owns media
 transport, its expiry clock, display-sleep policy, and cursor configuration.

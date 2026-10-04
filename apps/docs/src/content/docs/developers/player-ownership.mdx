@@ -26,8 +26,9 @@ adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
 handlers and lifecycle signals. Core also owns renderer recovery decisions
 and meaningful-evidence rules. Core tracks activation acceptance and evidence
 for the current renderer connection. Edge executes actions through its port.
-Activation coordination and server reconciliation
-remain in Edge until their extraction stages.
+Core coordinates activation identity, profile checks, recovery timing, and
+recovery Activity events. Edge retains Runtime projection inputs and constructs
+status payloads. Server reconciliation remains in Edge until its extraction stage.
 
 Prepared activations carry bounded, opaque Runtime presentation data with
 verified-object bindings. Core owns explicit requirements and evidence metadata;
@@ -36,7 +37,7 @@ Runtime and the host projection. Edge uses these through its
 RendererPort adapter, with a temporary projection bridge in Edge.
 The Edge port owns media grants and their generation lifecycle.
 Separate packaged and connected profiles keep release support distinct from
-what a renderer session advertises. Edge checks both before activation.
+what a renderer session advertises. Core checks both before activation.
 Runtime reports live support in readiness, including discovered Widget versions.
 WPE forwards this report; generated release metadata remains the packaged source.
 The RendererPort interface now defines semantic operations. Edge uses shared
@@ -47,8 +48,8 @@ Watch Live lease, cadence, and frame coordination also run in Core. Edge owns
 wire command results; Core correlates pending commands and owns timeout,
 disconnect, and startup Website data-clear retry policy. Edge also owns
 media transport, its expiry clock, display-sleep policy, cursor configuration,
-and socket delivery. Activation coordination and recovery timers still need
-extraction. Stage 8 remains open until that work and selected qualification pass.
+and socket delivery. Stage 8 remains open until selected qualification passes
+for the final coordinator extraction.
 
 | Your change                                                                                                 | Implementation owner                                                    |
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |

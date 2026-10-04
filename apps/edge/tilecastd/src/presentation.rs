@@ -45,7 +45,13 @@ use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
 
 use crate::media::MediaRegistry;
-use crate::supervisor::{Expectation, HealAction, SupervisorConfig, SupervisorState};
+#[cfg(test)]
+use crate::supervisor::Expectation;
+use crate::supervisor::{HealAction, SupervisorConfig};
+
+fn policy_time(now_ms: i64) -> Timestamp {
+    Timestamp::from_unix_millis(now_ms).expect("native clock is in range")
+}
 
 fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef {
     player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
@@ -140,10 +146,6 @@ impl Activation {
     pub fn manifest(&self) -> Option<edge_protocol::Sha256Digest> {
         self.identity.as_ref().map(|identity| identity.manifest)
     }
-
-    fn expectation_for(&self, item_id: Option<&str>) -> Expectation {
-        self.renderer_metadata.expectation_for(item_id)
-    }
 }
 
 #[cfg(test)]
@@ -182,14 +184,11 @@ pub struct PresentationEngine {
     configure: RendererConfigure,
     media_registry: Arc<Mutex<MediaRegistry>>,
     clock: edge_protocol::time::SharedClock,
-    next_generation: u64,
     current: Option<Activation>,
     renderer: Option<RendererLink>,
     incompatible_reason: Option<String>,
-    supervisor: SupervisorState,
-    supervisor_config: SupervisorConfig,
+    native: player_core::RendererCoordinator,
     restart_count: u64,
-    tracking: player_core::RendererTracker,
     /// Proof-of-play signals for the activity task.
     activity: Option<crate::activity::Handle>,
     /// Corrected-minus-local wall offset handed to the runtime for
@@ -217,14 +216,15 @@ impl PresentationEngine {
             configure,
             media_registry,
             clock,
-            next_generation: 1,
             current: None,
             renderer: None,
             incompatible_reason: None,
-            supervisor: SupervisorState::new(now_ms),
-            supervisor_config,
+            native: player_core::RendererCoordinator::new(
+                crate::renderer_adapter::packaged_profile(),
+                supervisor_config,
+                policy_time(now_ms),
+            ),
             restart_count: 0,
-            tracking: player_core::RendererTracker::default(),
             activity: None,
             clock_offset_ms: 0,
         }
@@ -289,9 +289,13 @@ impl PresentationEngine {
     ) -> Result<ActivationRef, PresentationError> {
         validate_content_references(&document, &content)?;
         let renderer_metadata = crate::renderer_adapter::metadata(&document, source, extras.projection.as_ref())?;
+        let reference = self
+            .native
+            .begin_activation(renderer_metadata.clone(), policy_time(now_ms))
+            .map_err(|_| PresentationError::InvalidRequirements)?;
         let activation = Activation {
-            id: ActivationId::from_uuid(uuid::Uuid::new_v4()),
-            generation: self.next_generation,
+            id: reference.activation_id,
+            generation: reference.generation,
             identity,
             document,
             renderer_metadata,
@@ -300,8 +304,6 @@ impl PresentationEngine {
             source,
             extras,
         };
-        self.next_generation += 1;
-        self.tracking.activate(semantic_ref(activation.reference()));
         let reference = activation.reference();
         tracing::info!(
             component = "presentation",
@@ -316,7 +318,6 @@ impl PresentationEngine {
             self.signal(crate::activity::Signal::Presented(presented));
         }
         self.current = Some(activation);
-        self.supervisor.reset_clock(now_ms);
         self.push_current();
         Ok(reference)
     }
@@ -332,7 +333,7 @@ impl PresentationEngine {
     /// The item the renderer last reported starting for the current
     /// activation, with when it started.
     pub fn current_item(&self) -> Option<(String, Timestamp)> {
-        self.tracking.current_item()
+        self.native.tracker().current_item()
     }
 
     pub fn current_is_server_manifest(&self) -> bool {
@@ -340,30 +341,25 @@ impl PresentationEngine {
     }
 
     pub fn current_has_meaningful_progress(&self) -> bool {
-        self.tracking.meaningful()
+        self.native.tracker().meaningful()
     }
 
     pub fn current_has_activation_evidence(&self) -> bool {
-        let Some(current) = self.current.as_ref() else { return false };
-        if current.renderer_metadata.requires_content_evidence {
-            self.tracking.content_progress()
-        } else {
-            self.tracking.meaningful()
-        }
+        self.native.has_activation_evidence()
     }
 
     /// Items of the current activation that the renderer proved with
     /// content evidence (an image shown, video progress, a layout rendered).
     pub fn content_evidence_items(&self) -> &BTreeSet<String> {
-        self.tracking.content_items()
+        self.native.tracker().content_items()
     }
 
     pub fn current_is_accepted(&self) -> bool {
-        self.tracking.accepted_current()
+        self.native.tracker().accepted_current()
     }
 
     pub fn current_has_renderer_error(&self) -> bool {
-        self.tracking.has_error()
+        self.native.tracker().has_error()
     }
 
     /// Digests the current activation needs pinned.
@@ -381,12 +377,11 @@ impl PresentationEngine {
         );
         let _ = port.configure(&self.configure.kiosk);
         self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
-        self.tracking.connected(connection);
-        self.supervisor.reset_clock(now_ms);
+        self.native.connected(connection, policy_time(now_ms));
     }
 
     pub fn renderer_disconnected(&mut self, session: SessionId) {
-        self.tracking.disconnected(*session.as_uuid());
+        self.native.disconnected(*session.as_uuid());
         if self.renderer.as_ref().is_some_and(|link| link.session.id() == session) {
             self.renderer = None;
         }
@@ -406,30 +401,30 @@ impl PresentationEngine {
             engine = ready.renderer.engine_version.as_str(),
             features = ready.features.len()
         );
+        let profile = crate::renderer_adapter::connected_profile(&ready);
         link.ready = Some(ready);
+        self.native.ready(*session.id().as_uuid(), profile);
         self.push_current();
     }
 
     pub fn accepted(&mut self, session: &SessionHandle, activation: ActivationRef) {
-        self.tracking.accept(*session.id().as_uuid(), semantic_ref(activation));
+        self.native.accepted(*session.id().as_uuid(), semantic_ref(activation));
     }
 
     pub fn rejected(&mut self, session: &SessionHandle, activation: ActivationRef, code: &str) {
-        if self.tracking.reject(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
+        if self.native.rejected(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
             tracing::warn!(component = "presentation", event = "activation_rejected", code);
         }
     }
 
     pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
-        let Some(current) = self.current.as_ref() else { return false };
-        let expectation = current.expectation_for(report.item_id.as_ref().map(SafeText::as_str));
         let semantic = player_core::SemanticRendererProgress {
             activation: semantic_ref(report.activation),
             kind: crate::supervisor::evidence(report.kind),
             item_id: report.item_id.clone(),
             zone_id: report.zone_id.clone(),
         };
-        let decision = self.tracking.progress(*session.id().as_uuid(), &semantic, expectation, now);
+        let decision = self.native.progress(*session.id().as_uuid(), &semantic, now);
         if let Some(kind) = decision.activity_signal {
             self.signal(crate::activity::Signal::Renderer {
                 kind,
@@ -449,7 +444,6 @@ impl PresentationEngine {
                 kind = report.kind.as_str()
             );
         }
-        self.supervisor.on_progress(now.unix_millis(), &self.supervisor_config);
         true
     }
 
@@ -461,7 +455,7 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        if self.tracking.reject(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
+        if self.native.rejected(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
             self.signal(crate::activity::Signal::PlaybackError {
                 item_id: item_id.map(str::to_owned),
                 message: message.to_owned(),
@@ -471,12 +465,11 @@ impl PresentationEngine {
 
     /// Periodic supervision. Returns the action taken, for logging/tests.
     pub fn tick(&mut self, now_ms: i64) -> HealAction {
-        // Nothing to judge until a renderer is ready and showing something.
-        if !self.renderer.as_ref().is_some_and(|link| link.ready.is_some()) || self.current.is_none() {
-            self.supervisor.reset_clock(now_ms);
-            return HealAction::None;
-        }
-        let action = self.supervisor.evaluate(now_ms, &self.supervisor_config);
+        let action = self.native.evaluate_recovery(policy_time(now_ms));
+        self.execute_recovery(action, now_ms)
+    }
+
+    fn execute_recovery(&mut self, action: HealAction, now_ms: i64) -> HealAction {
         match action {
             HealAction::None => {}
             HealAction::Reactivate => {
@@ -492,15 +485,19 @@ impl PresentationEngine {
                     );
                 }
             }
-            HealAction::ReloadRenderer => self.command(RendererCommandKind::Reload),
+            HealAction::ReloadRenderer => {
+                if let Some(link) = &self.renderer {
+                    let _ = self.native.dispatch_recovery(link.port(), action);
+                }
+            }
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
                 if let Some(link) = &self.renderer {
-                    let _ = link.port().request_restart(&ShortToken::new("recovery").expect("literal token"), 5_000);
+                    let _ = self.native.dispatch_recovery(link.port(), action);
                 }
             }
             HealAction::EnterSafeMode => {
-                let reason = SafeText::lossy(self.supervisor.safe_mode_reason.as_deref().unwrap_or("recovery"));
+                let reason = self.native.safe_mode_reason();
                 let _ = self.activate(
                     PresentationDocument::SafeMode { reason },
                     Vec::new(),
@@ -512,32 +509,16 @@ impl PresentationEngine {
         }
         if action != HealAction::None {
             tracing::warn!(component = "presentation", event = "heal_action", action = ?action);
-            // The Electron player's report of a self-heal decision.
-            let (event_type, severity, code) = match action {
-                HealAction::EnterSafeMode => ("safe_mode.entered", "critical", "enter_safe_mode"),
-                HealAction::Reactivate => ("self_heal.attempted", "warning", "reactivate_content"),
-                HealAction::ReloadRenderer => ("self_heal.attempted", "warning", "recreate_renderer"),
-                HealAction::RestartRenderer => ("self_heal.attempted", "warning", "restart_renderer_process"),
-                HealAction::None => unreachable!("checked above"),
-            };
-            let mut event = crate::activity::Event::new(event_type, "reliability");
-            event.severity = Some(severity.into());
-            event.failure_code = Some(code.into());
-            event.metadata = Some(serde_json::json!({ "escalationStep": self.supervisor.escalation_step }));
-            self.signal(crate::activity::Signal::Event(Box::new(event)));
+            if let Some(event) = self.native.recovery_event(action) {
+                self.signal(crate::activity::Signal::Event(Box::new(event)));
+            }
         }
         action
     }
 
-    fn command(&self, command: RendererCommandKind) {
-        if let Some(link) = &self.renderer {
-            let _ = link.port().send_command(uuid::Uuid::new_v4(), &crate::renderer_adapter::command(command));
-        }
-    }
-
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
-        self.tracking.clear();
+        self.native.clear();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -545,10 +526,7 @@ impl PresentationEngine {
     }
 
     fn push_current(&mut self) {
-        let Some((session, ready)) = self
-            .renderer
-            .as_ref()
-            .and_then(|link| link.ready.as_ref().map(|ready| (link.session.clone(), ready.clone())))
+        let Some(session) = self.renderer.as_ref().filter(|link| link.ready.is_some()).map(|link| link.session.clone())
         else {
             return;
         };
@@ -560,9 +538,19 @@ impl PresentationEngine {
                 return;
             }
         };
-        let packaged = crate::renderer_adapter::packaged_profile();
-        let connected = crate::renderer_adapter::connected_profile(&ready);
-        let incompatible = semantic.incompatibilities(&packaged, &connected);
+        let Some(link) = self.renderer.as_ref().filter(|link| link.session.id() == session.id()) else { return };
+        let incompatible = match self.native.dispatch(*session.id().as_uuid(), &semantic, link.port()) {
+            Ok(player_core::RendererDispatch::Queued) => {
+                self.incompatible_reason = None;
+                return;
+            }
+            Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,
+            Err(error) => {
+                self.incompatible_reason = None;
+                tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
+                return;
+            }
+        };
         let missing: Vec<String> = incompatible
             .iter()
             .map(|(requirement, _)| match requirement {
@@ -596,27 +584,19 @@ impl PresentationEngine {
             });
             let event = current.event(fallback, Vec::new(), None, None);
             let _ = session.send_event(event);
-            return;
-        }
-        self.incompatible_reason = None;
-
-        if let Some(link) = self.renderer.as_ref().filter(|link| link.session.id() == session.id())
-            && let Err(error) = link.port().activate(&semantic)
-        {
-            tracing::error!(component = "media", event = "renderer_activation_failed", error = %error);
         }
     }
 
     pub fn status(&self) -> RendererStatus {
         let link = self.renderer.as_ref();
         let ready = link.and_then(|l| l.ready.as_ref());
-        let current_item = self.tracking.current_item();
-        let state = match (link, ready, self.supervisor.safe_mode) {
+        let current_item = self.native.tracker().current_item();
+        let state = match (link, ready, self.native.is_safe_mode()) {
             (_, _, true) => "safe_mode",
             (None, _, _) => "disconnected",
             (Some(_), None, _) => "starting",
             (Some(_), Some(_), _) if self.incompatible_reason.is_some() => "incompatible",
-            (Some(_), Some(_), _) if self.tracking.last_progress().is_some() => "healthy",
+            (Some(_), Some(_), _) if self.native.tracker().last_progress().is_some() => "healthy",
             _ => "waiting_for_progress",
         };
         RendererStatus {
@@ -633,8 +613,8 @@ impl PresentationEngine {
                 .ok()
             }),
             current_activation_generation: self.current.as_ref().map(|a| a.generation),
-            last_progress_at: self.tracking.last_progress(),
-            last_error_code: self.tracking.last_error().cloned(),
+            last_progress_at: self.native.tracker().last_progress(),
+            last_error_code: self.native.tracker().last_error().cloned(),
             incompatible_reason: self.incompatible_reason.as_deref().map(SafeText::lossy),
             current_item_id: current_item.as_ref().map(|(id, _)| ShortText::lossy(id)),
             current_item_started_at: current_item.as_ref().map(|(_, at)| *at),
@@ -726,7 +706,7 @@ impl PresentationEngine {
     }
 
     pub fn is_safe_mode(&self) -> bool {
-        self.supervisor.safe_mode
+        self.native.is_safe_mode()
     }
 
     /// Applies the accepted player configuration: the recovery ladder from
@@ -749,13 +729,13 @@ impl PresentationEngine {
             supervisor.max_ladder_runs_before_safe_mode = reliability.max_ladder_runs_before_safe_mode;
             supervisor.safe_mode_enabled = reliability.safe_mode_enabled;
         }
-        self.supervisor_config = supervisor;
+        self.native.set_config(supervisor);
         self.configure.kiosk.prevent_display_sleep =
             operator.renderer.prevent_display_sleep && config.linux_kiosk.prevent_display_sleep;
     }
 
     pub fn supervisor_config(&self) -> SupervisorConfig {
-        self.supervisor_config
+        self.native.config()
     }
 
     pub fn kiosk_policy(&self) -> KioskPolicy {
@@ -829,16 +809,14 @@ impl PresentationEngine {
     /// Leaves safe mode and restarts the ladder. Returns whether safe mode
     /// was active. Activation shows the right presentation again.
     pub fn clear_safe_mode(&mut self, now_ms: i64) -> bool {
-        let was = self.supervisor.safe_mode;
-        self.supervisor.clear_safe_mode(now_ms);
-        was
+        self.native.clear_safe_mode(policy_time(now_ms))
     }
 
     /// Allows the next recovery rung at once and evaluates it (the reference
     /// player's `retry_player_recovery`).
     pub fn retry_recovery(&mut self, now_ms: i64) -> HealAction {
-        self.supervisor.last_action_at_ms = None;
-        self.tick(now_ms)
+        let action = self.native.retry_recovery(policy_time(now_ms));
+        self.execute_recovery(action, now_ms)
     }
 }
 

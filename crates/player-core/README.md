@@ -70,9 +70,11 @@ The activation coordinator does not assemble media capabilities.
 Edge owns its media-expiry clock, display-sleep policy, and cursor configuration.
 Runtime readiness supplies live schema and declarative support plus discovered
 Widget versions. WPE forwards those namespaces alongside its host features.
-Edge checks both packaged and connected profiles before activation.
-Activation coordination and recovery timers still remain in Edge.
-Stage 8 remains incomplete until that work and selected qualification pass.
+Core checks both packaged and connected profiles before activation.
+Core coordinates activation generations, evidence, and recovery timers.
+Core creates recovery Activity events with the existing escalation metadata.
+Hosts retain Runtime projection inputs and construct status payloads.
+Stage 8 remains incomplete until selected qualification passes.
 
 Run `make player-check` and `make player-test` from the repository root.
 The shared suite runs on Ubuntu and macOS.

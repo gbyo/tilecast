@@ -6,6 +6,7 @@ mod live_stream;
 mod origin;
 mod preview;
 mod renderer_commands;
+mod renderer_coordinator;
 mod renderer_document;
 mod renderer_port;
 mod renderer_profile;
@@ -35,6 +36,7 @@ pub use renderer_commands::{
     RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
     WEBSITE_DATA_CLEAR_TIMEOUT,
 };
+pub use renderer_coordinator::{RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
     ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
 };
