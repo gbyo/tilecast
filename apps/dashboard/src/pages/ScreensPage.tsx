@@ -1532,7 +1532,6 @@ export function ScreenListContent({
               locationId: chosen,
               roomName: screen.roomName ?? "",
               roomNumber: screen.roomNumber ?? "",
-              mapPositionOverride: screen.mapPositionOverride,
             },
             csrfToken,
           ),
@@ -2645,6 +2644,7 @@ export function ScreenDetailPage() {
   const [mapPositionOverride, setMapPositionOverride] = useState<
     MapCoordinates | undefined
   >();
+  const initializedScreenId = useRef<string | null>(null);
   const [policyDirty, setPolicyDirty] = useState(false);
   const [pendingDestination, setPendingDestination] =
     useState<ScreenTabDestination | null>(null);
@@ -2683,7 +2683,12 @@ export function ScreenDetailPage() {
     queryFn: api.locations,
   });
   useEffect(() => {
-    if (!query.data || editingDetails) return;
+    if (!query.data) return;
+    // Polling must not overwrite an open edit, but the first data for a screen
+    // still has to seed the form when "?edit=details" opened it before the
+    // query resolved. Otherwise a save would send a null position.
+    if (editingDetails && initializedScreenId.current === query.data.id) return;
+    initializedScreenId.current = query.data.id;
     detailsForm.reset({
       name: query.data.name,
       locationId: query.data.locationId,
