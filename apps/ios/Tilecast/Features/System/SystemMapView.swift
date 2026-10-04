@@ -93,7 +93,7 @@ struct SystemMapView: View {
         case .positive: .green
         case .warning: .orange
         case .critical: .red
-        case .muted: .secondary
+        case .muted: .gray
         }
     }
 }
