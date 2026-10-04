@@ -189,11 +189,11 @@ extension StubbedHTTPTests {
     }
 
     @Suite struct IOSSessionClientTests {
-        let address = TilecastCoreTests.address("signage.example.org")
+        let serverAddress = address("signage.example.org")
 
         init() { StubProtocol.reset() }
 
-        var client: IOSSessionClient { IOSSessionClient(address: address, transport: stubTransport()) }
+        var client: IOSSessionClient { IOSSessionClient(address: serverAddress, transport: stubTransport()) }
 
         static let cookieHeader = "tilecast_session=opaque; Path=/; HttpOnly; SameSite=Lax"
         static let credentialBody = #"{"data":{"authenticated":true,"credential":{"access_token":"tca_a","refresh_token":"tcr_r","token_type":"Bearer","expires_at":"2026-09-29T21:45:00.123456789Z","scope":"added later"},"addedLater":true}}"#

@@ -26,7 +26,9 @@ cd apps/ios/TilecastKit
 swift test
 ```
 
-The full suite runs on the iOS Simulator, as in CI. The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the UI tests a second time with `scripts/simulator-destination.py --ipad` to test the iPad sidebar.
+The full suite runs on the iOS Simulator, as in CI. `TilecastHostTests` compiles the same Core test sources inside `Tilecast.app`, so real WebKit pages receive the application lifecycle and events. Use this app-hosted target for simulator Core tests. The scheme passes `-TilecastEphemeralServers` so the host starts with in-memory server profiles and credentials.
+
+The UI tests start a loopback fixture server (`TilecastUITests/FixtureStudioServer.swift`), so they need no Tilecast server and no network access. Run the UI tests a second time with `scripts/simulator-destination.py --ipad` to test the iPad sidebar.
 
 ```sh
 cd apps/ios
@@ -34,7 +36,7 @@ scripts/check-architecture.sh
 DESTINATION=$(scripts/simulator-destination.py)
 xcodebuild build-for-testing -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -skipPackagePluginValidation
 scripts/check-localization.py build/DerivedData
-xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastCoreTests
+xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastHostTests
 xcodebuild test-without-building -project Tilecast.xcodeproj -scheme Tilecast -destination "$DESTINATION" -derivedDataPath build/DerivedData -only-testing:TilecastUITests
 ```
 
