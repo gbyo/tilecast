@@ -13,8 +13,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenDetailWithPreviewPage } from "./ScreenDetailWithPreviewPage";
 import { api } from "../api/client";
-import { ApiError } from "../api/errors";
-import { chooseOption } from "../plugin-host/testing";
 
 const authStatus = {
   authenticated: true,
@@ -109,18 +107,54 @@ beforeEach(() => {
     "fetch",
     vi.fn((input: RequestInfo | URL) => {
       const url = input instanceof Request ? input.url : String(input);
-      const data = url.includes("/timeline")
+      const data = url.includes("/playback-plan")
         ? {
-            range: { from: "", to: "" },
-            status: { health: "healthy", healthReason: "playing" },
-            entries: [],
-          }
-        : {
             screenId: "screen-1",
-            recentProofOfPlay: [],
-            recentEvents: [],
-            playbackGaps: 0,
-          };
+            at: "2026-09-28T14:00:00Z",
+            evaluatedAt: "2026-09-28T14:00:00Z",
+            basis: "current_configuration",
+            current: {
+              candidates: [
+                {
+                  source: "takeover",
+                  status: "inactive",
+                  reason: "no_active_takeover",
+                },
+                {
+                  source: "quick_present",
+                  status: "inactive",
+                  reason: "no_active_quick_present",
+                },
+                {
+                  source: "schedule",
+                  status: "inactive",
+                  reason: "schedule_not_active",
+                },
+                {
+                  source: "assignment",
+                  status: "inactive",
+                  reason: "no_assignment",
+                },
+              ],
+              synchronization: { status: "current", manifestVersion: 1 },
+              capabilities: {
+                status: "not_applicable",
+                reason: "no_widget_presentation_requirements",
+              },
+            },
+          }
+        : url.includes("/timeline")
+          ? {
+              range: { from: "", to: "" },
+              status: { health: "healthy", healthReason: "playing" },
+              entries: [],
+            }
+          : {
+              screenId: "screen-1",
+              recentProofOfPlay: [],
+              recentEvents: [],
+              playbackGaps: 0,
+            };
       return Promise.resolve(
         new Response(JSON.stringify({ data }), {
           status: 200,
@@ -285,34 +319,23 @@ describe("screen detail navigation", () => {
     }
   });
 
-  it("distinguishes an unsaved assignment from a failed apply", async () => {
-    vi.mocked(api.playlists).mockResolvedValue({
-      items: [{ id: "playlist-1", name: "Morning announcements" }],
-    } as never);
-    vi.spyOn(api, "assignPlaylist").mockRejectedValue(
-      new ApiError(
-        'Playlist "Morning announcements" is empty',
-        422,
-        "presentation_not_ready",
-      ),
-    );
+  it("opens the playback explanation from its stable query state", async () => {
+    renderDetail("/screens/screen-1?panel=explanation");
 
+    expect(
+      await screen.findByRole("dialog", { name: "Why this content?" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("Selection precedence")).toBeTruthy();
+  });
+
+  it("writes a Back-able URL state when Why this opens", async () => {
     const user = userEvent.setup();
     renderDetail("/screens/screen-1");
 
-    await screen.findByRole("combobox", { name: "Assigned presentation" });
-    await chooseOption("Assigned presentation", "Morning announcements");
+    await user.click(await screen.findByRole("button", { name: "Why this?" }));
     expect(
-      screen.getByText(
-        "This selection is not saved yet. Apply the assignment to send it to the screen.",
-      ),
+      await screen.findByRole("dialog", { name: "Why this content?" }),
     ).toBeTruthy();
-
-    await user.click(screen.getByRole("button", { name: "Apply assignment" }));
-
-    expect(await screen.findByText("Assignment was not changed")).toBeTruthy();
-    expect(
-      screen.getByText('Playlist "Morning announcements" is empty'),
-    ).toBeTruthy();
+    expect(screen.getByText("?panel=explanation")).toBeTruthy();
   });
 });

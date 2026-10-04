@@ -1,4 +1,3 @@
-import { PlaybackPlanPanel } from "../components/PlaybackPlanPanel";
 import {
   canManageScreens,
   screenKeys,
@@ -48,7 +47,7 @@ import {
   useSearchParams,
 } from "react-router";
 import type { TFunction } from "i18next";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
@@ -69,8 +68,12 @@ import {
 import { PairScreenDialog } from "../pairing/PairScreenDialog";
 import { PendingPairings } from "../pairing/PendingPairings";
 import { useNativePairScreen } from "../pairing/useNativePairScreen";
-import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
+import { ScreenDetailPanel } from "../screens/detail/ScreenDetailPanel";
+import { ScreenPlaybackCard } from "../screens/detail/ScreenPlaybackCard";
+import { ScreenScheduleCard } from "../screens/detail/ScreenScheduleCard";
+import { PlaybackExplanationPanel } from "../screens/detail/PlaybackExplanationPanel";
+import { ScreenPlaybackDiagnostics } from "../screens/detail/ScreenPlaybackDiagnostics";
 import { DashboardSearch } from "../components/DashboardListToolbar";
 import { PageHeader } from "../components/PageHeader";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
@@ -131,20 +134,6 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "../components/ui/drawer";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "../components/ui/sheet";
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -170,9 +159,7 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
@@ -191,12 +178,14 @@ const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
 
 export type ScreensT = TFunction<"screens", undefined>;
 
-export type ScreenManageSection = "health" | "maintenance" | "device";
+export type ScreenManageSection =
+  "playback" | "device" | "health" | "maintenance";
 
 const screenManageSections: readonly ScreenManageSection[] = [
+  "playback",
+  "device",
   "health",
   "maintenance",
-  "device",
 ];
 
 export function normalizeScreenManageSection(
@@ -286,63 +275,6 @@ export function ScreenDetailTabs({ policyDirty }: { policyDirty: boolean }) {
         </TabsTrigger>
       ))}
     </TabsList>
-  );
-}
-
-function ScreenDetailPanel({
-  open,
-  onOpenChange,
-  title,
-  description,
-  children,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: ReactNode;
-  description: ReactNode;
-  children: ReactNode;
-}) {
-  const desktop = useDesktopLayout();
-  const header = desktop ? (
-    <SheetHeader className="border-b border-border">
-      <SheetTitle>{title}</SheetTitle>
-      <SheetDescription>{description}</SheetDescription>
-    </SheetHeader>
-  ) : (
-    <DrawerHeader className="text-left">
-      <DrawerTitle>{title}</DrawerTitle>
-      <DrawerDescription>{description}</DrawerDescription>
-    </DrawerHeader>
-  );
-  const body = (
-    <div
-      className={
-        desktop
-          ? "min-h-0 flex-1 overflow-y-auto px-4 pb-6 sm:px-6"
-          : "min-h-0 flex-1 overflow-y-auto px-4 pb-6"
-      }
-    >
-      {children}
-    </div>
-  );
-
-  return desktop ? (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full gap-4 overflow-hidden sm:max-w-2xl"
-      >
-        {header}
-        {body}
-      </SheetContent>
-    </Sheet>
-  ) : (
-    <Drawer open={open} onOpenChange={onOpenChange} showSwipeHandle>
-      <DrawerContent className="max-h-[calc(100dvh-2rem)]">
-        {header}
-        {body}
-      </DrawerContent>
-    </Drawer>
   );
 }
 
@@ -2658,8 +2590,6 @@ export function ScreenDetailPage() {
   const [policyDirty, setPolicyDirty] = useState(false);
   const [pendingDestination, setPendingDestination] =
     useState<ScreenTabDestination | null>(null);
-  const [selectedPresentation, setSelectedPresentation] = useState("");
-  const [presentationTouched, setPresentationTouched] = useState(false);
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(
     () => searchParams.get("present") === "1",
@@ -2741,54 +2671,27 @@ export function ScreenDetailPage() {
     ...screenQueries.assignment(id),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
-  const playlists = useQuery({
-    queryKey: ["playlists", "assignment-picker"],
-    queryFn: () => api.playlists(),
-    enabled: canManageScreens(auth.status?.user),
+  // The playback plan is the authority for expected playback. Previous data
+  // stays visible across the ten-second refresh so the card never flashes.
+  const plan = useQuery({
+    ...screenQueries.playbackPlan(id),
+    placeholderData: (previous) => previous,
   });
-  const layouts = useQuery({
-    queryKey: ["layouts", "assignment-picker"],
-    queryFn: () => api.layouts(""),
-    enabled: canManageScreens(auth.status?.user),
+  // Truthful "Next": ask the same authority what it selects at the upcoming
+  // boundary instead of claiming the boundary itself is a content change.
+  // Specified-instant queries carry their own key and do not poll.
+  const nextBoundary = plan.data?.current?.nextEvaluationAt;
+  const futurePlan = useQuery({
+    ...screenQueries.playbackPlan(id, nextBoundary),
+    enabled: Boolean(nextBoundary),
   });
-  const persistedPresentation = assignment.data?.layoutId
-    ? `layout:${assignment.data.layoutId}`
-    : assignment.data?.playlistId
-      ? `playlist:${assignment.data.playlistId}`
-      : "";
-  const assignmentDirty = selectedPresentation !== persistedPresentation;
-  useEffect(() => {
-    if (!presentationTouched) setSelectedPresentation(persistedPresentation);
-  }, [persistedPresentation, presentationTouched]);
-  const assign = useMutation({
-    mutationFn: () => {
-      const [type, presentationId] = selectedPresentation.split(":");
-      if (type === "layout" && presentationId)
-        return api.assignLayout(
-          id,
-          presentationId,
-          auth.status?.csrfToken ?? "",
-        );
-      if (type === "playlist" && presentationId)
-        return api.assignPlaylist(
-          id,
-          presentationId,
-          auth.status?.csrfToken ?? "",
-        );
-      return api.unassignPlaylist(id, auth.status?.csrfToken ?? "");
-    },
-    onSuccess: async (updated) => {
-      toast.add({ title: "Presentation assignment updated.", type: "success" });
-      setPresentationTouched(false);
-      queryClient.setQueryData(screenKeys.assignment(id), updated);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: screenKeys.assignment(id),
-        }),
-        queryClient.invalidateQueries({ queryKey: screenKeys.list() }),
-      ]);
-    },
-  });
+  const futurePlanState: "loading" | "error" | "ready" = !nextBoundary
+    ? "ready"
+    : futurePlan.isPending
+      ? "loading"
+      : futurePlan.isError
+        ? "error"
+        : "ready";
   const stateMutation = useMutation({
     mutationFn: (enabled: boolean) =>
       api.setScreenEnabled(id, enabled, auth.status?.csrfToken ?? ""),
@@ -2927,6 +2830,7 @@ export function ScreenDetailPage() {
     requestedPanel === "diagnostics" || legacyDiagnosticsOpen;
   const snapshotsOpen =
     requestedPanel === "snapshots" || requestedTab === "snapshots";
+  const explanationOpen = requestedPanel === "explanation";
 
   const commitDestination = (destination: ScreenTabDestination) => {
     const next = new URLSearchParams(searchParams);
@@ -2952,7 +2856,7 @@ export function ScreenDetailPage() {
     commitDestination(destination);
   };
   const setDetailPanel = (
-    panel: "diagnostics" | "snapshots",
+    panel: "diagnostics" | "snapshots" | "explanation",
     open: boolean,
     section: ScreenManageSection = manageSection,
   ) => {
@@ -3364,286 +3268,31 @@ export function ScreenDetailPage() {
                 </Card>
               </div>
 
-              <Card id="screen-content" className="min-w-0 scroll-mt-20">
-                <CardHeader>
-                  <CardTitle>{t("detail.playbackTitle")}</CardTitle>
-                  <CardDescription>{t("detail.playbackBody")}</CardDescription>
-                  <CardAction>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openDiagnostics("health")}
-                    >
-                      {t("detail.diagnostics")}
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="min-w-0">
-                  {assignment.data?.groups?.[0] && (
-                    <Alert>
-                      <Monitor aria-hidden="true" />
-                      <AlertTitle>{t("detail.managedTitle")}</AlertTitle>
-                      <AlertDescription>
-                        <Trans
-                          i18nKey="detail.managedBody"
-                          ns="screens"
-                          values={{ name: assignment.data.groups[0].name }}
-                          components={{
-                            groupLink: (
-                              <Link
-                                to={`/groups/${assignment.data.groups[0].id}`}
-                              />
-                            ),
-                          }}
-                        />
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {canManageScreens(auth.status?.user) ? (
-                    <>
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                        <div className="min-w-0 flex-1">
-                          <Select
-                            items={[
-                              {
-                                value: "__none__",
-                                label: t("detail.noPresentation"),
-                              },
-                              ...(playlists.data?.items ?? []).map(
-                                (playlist) => ({
-                                  value: `playlist:${playlist.id}`,
-                                  label: playlist.name,
-                                }),
-                              ),
-                              ...(layouts.data?.items ?? []).map((layout) => ({
-                                value: `layout:${layout.id}`,
-                                label: layout.name,
-                              })),
-                            ]}
-                            value={selectedPresentation || "__none__"}
-                            disabled={assign.isPending}
-                            onValueChange={(value) => {
-                              assign.reset();
-                              setPresentationTouched(true);
-                              setSelectedPresentation(
-                                value === "__none__" ? "" : (value ?? ""),
-                              );
-                            }}
-                          >
-                            <SelectTrigger
-                              aria-label={t("detail.assignedLabel")}
-                              className="w-full"
-                            >
-                              <SelectValue
-                                placeholder={t("detail.noPresentation")}
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">
-                                {t("detail.noPresentation")}
-                              </SelectItem>
-                              <SelectGroup>
-                                <SelectLabel>
-                                  {t("detail.playlistsGroup")}
-                                </SelectLabel>
-                                {playlists.data?.items?.map((playlist) => (
-                                  <SelectItem
-                                    key={playlist.id}
-                                    value={`playlist:${playlist.id}`}
-                                  >
-                                    {playlist.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                              <SelectGroup>
-                                <SelectLabel>
-                                  {t("detail.layoutsGroup")}
-                                </SelectLabel>
-                                {layouts.data?.items
-                                  .filter((layout) => layout.publishedRevision)
-                                  .map((layout) => (
-                                    <SelectItem
-                                      key={layout.id}
-                                      value={`layout:${layout.id}`}
-                                    >
-                                      {layout.name}
-                                    </SelectItem>
-                                  ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <Button
-                          disabled={
-                            assign.isPending ||
-                            !presentationTouched ||
-                            !assignmentDirty
-                          }
-                          onClick={() => assign.mutate()}
-                        >
-                          {assign.isPending
-                            ? t("groups.detail.applying")
-                            : assignment.data?.groups?.[0]
-                              ? t("groups.detail.apply")
-                              : t("detail.applyAssignment")}
-                        </Button>
-                      </div>
-                      {presentationTouched &&
-                        assignmentDirty &&
-                        !assign.isPending &&
-                        !assign.isError && (
-                          <p
-                            className="text-sm text-muted-foreground"
-                            role="status"
-                          >
-                            {t("detail.assignmentPendingHint")}
-                          </p>
-                        )}
-                      {assign.isError && (
-                        <Alert variant="destructive">
-                          <CircleAlert aria-hidden="true" />
-                          <AlertTitle>
-                            {t("detail.assignmentSaveError")}
-                          </AlertTitle>
-                          <AlertDescription>
-                            {apiErrorMessage(assign.error)}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      {assignment.data?.layoutName ??
-                        assignment.data?.playlistName ??
-                        t("detail.noPresentation")}
-                    </p>
-                  )}
+              <ScreenPlaybackCard
+                screenId={id}
+                screenName={screen.name}
+                screenStatus={screen.status}
+                lastContactAt={screen.lastContactAt}
+                assignment={assignment.data}
+                assignmentLoading={assignment.isPending}
+                assignmentError={assignment.error}
+                plan={plan.data}
+                planLoading={plan.isPending}
+                planError={plan.error}
+                canManage={canManageScreens(auth.status?.user)}
+                csrfToken={auth.status?.csrfToken ?? ""}
+                onExplain={() => setDetailPanel("explanation", true)}
+                onOpenDiagnostics={() => openDiagnostics("playback")}
+              />
 
-                  <ScreenContentChain assignment={assignment.data} />
-
-                  <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
-                    <OverviewFact
-                      label={t("detail.directFallback")}
-                      value={
-                        assignment.data?.layoutName ??
-                        assignment.data?.playlistName ??
-                        t("detail.noFallbackAssigned")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.nextScheduledChange")}
-                      value={
-                        assignment.data?.nextTransitionAt
-                          ? new Date(
-                              assignment.data.nextTransitionAt,
-                            ).toLocaleString(formatLocale)
-                          : t("shared.noneReported")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("list.groupFilter")}
-                      value={
-                        (assignment.data?.groups ?? [])
-                          .map((group) => group.name)
-                          .join(", ") || t("detail.notGrouped")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.relevantSchedules")}
-                      value={
-                        (assignment.data?.relevantSchedules ?? [])
-                          .map(
-                            (schedule) =>
-                              `${schedule.name} (${schedule.priority})`,
-                          )
-                          .join(", ") || t("detail.noSchedules")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("takeover.title")}
-                      value={
-                        assignment.data?.activeTakeoverId
-                          ? t("detail.takeoverProgress", {
-                              state: assignment.data.takeoverState ?? "pending",
-                              progress:
-                                assignment.data.takeoverPreparationProgress ??
-                                0,
-                            })
-                          : t("detail.noTakeover")
-                      }
-                    />
-                  </dl>
-
-                  <PlaybackPlanPanel key={id} screenId={id} />
-
-                  {assignment.error && (
-                    <Alert variant="destructive">
-                      <CircleAlert aria-hidden="true" />
-                      <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
-                      <AlertDescription>
-                        {apiErrorMessage(assignment.error)}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {(
-                    [
-                      ["sync", assignment.data?.lastSynchronizationError],
-                      ["playback", assignment.data?.lastPlaybackError],
-                      ["config", assignment.data?.configurationError],
-                    ] as const
-                  ).map(
-                    ([kind, message]) =>
-                      message && (
-                        <Alert key={kind} variant="destructive">
-                          <CircleAlert aria-hidden="true" />
-                          <AlertTitle>
-                            {t("detail.categorizedError", {
-                              kind: t(`detail.errorKind.${kind}`),
-                            })}
-                          </AlertTitle>
-                          <AlertDescription>{message}</AlertDescription>
-                        </Alert>
-                      ),
-                  )}
-                  {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
-                    (assignment.data?.clockSkewWarningSeconds ?? 300) && (
-                    <Alert>
-                      <CircleAlert aria-hidden="true" />
-                      <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
-                      <AlertDescription>
-                        {t("detail.clockBody")}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {assignment.data?.scheduleEvaluationError && (
-                    <Alert variant="destructive">
-                      <CircleAlert aria-hidden="true" />
-                      <AlertTitle>{t("detail.scheduleEvalTitle")}</AlertTitle>
-                      <AlertDescription>
-                        {assignment.data.scheduleEvaluationError}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  {assignment.data?.websiteFailureCategory &&
-                    [
-                      "failed",
-                      "timed_out",
-                      "blocked",
-                      "showing_fallback",
-                    ].includes(assignment.data.websiteState ?? "") && (
-                      <Alert variant="destructive">
-                        <CircleAlert aria-hidden="true" />
-                        <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
-                        <AlertDescription>
-                          {assignment.data.websiteFailureCategory?.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? t("detail.websiteUnknown")}
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                </CardContent>
-              </Card>
+              <ScreenScheduleCard
+                screenId={id}
+                assignment={assignment.data}
+                plan={plan.data}
+                futurePlan={futurePlan.data}
+                futureState={futurePlanState}
+                loading={assignment.isPending}
+              />
 
               <div className="grid min-w-0 gap-4 lg:grid-cols-2">
                 <Card size="sm" className="min-w-0">
@@ -3670,22 +3319,6 @@ export function ScreenDetailPage() {
                       </Badge>
                     </div>
                     <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-                      <OverviewFact
-                        label={t("detail.factPlayback")}
-                        value={
-                          assignment.data?.playbackState ??
-                          t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factSynchronization")}
-                        value={
-                          assignment.data?.synchronizationStatus?.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? t("shared.notReported")
-                        }
-                      />
                       <OverviewFact
                         label={t("detail.factReliability")}
                         value={
@@ -3743,8 +3376,11 @@ export function ScreenDetailPage() {
             <TabsList
               aria-label={t("detail.deviceNav")}
               variant="line"
-              className="sticky top-0 z-10 grid w-full grid-cols-3 rounded-none border-b border-border bg-popover p-0"
+              className="sticky top-0 z-10 grid w-full grid-cols-4 rounded-none border-b border-border bg-popover p-0"
             >
+              <TabsTrigger value="playback">
+                {t("detail.sectionPlayback")}
+              </TabsTrigger>
               <TabsTrigger value="device">
                 {t("detail.sectionDevice")}
               </TabsTrigger>
@@ -3755,6 +3391,28 @@ export function ScreenDetailPage() {
                 {t("detail.sectionMaintenance")}
               </TabsTrigger>
             </TabsList>
+
+            {manageSection === "playback" && (
+              <section
+                className="space-y-3"
+                aria-labelledby="playback-diagnostics-heading"
+              >
+                <h3
+                  id="playback-diagnostics-heading"
+                  className="text-sm font-semibold"
+                >
+                  {t("diagnostics.playbackTitle")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("diagnostics.playbackBody")}
+                </p>
+                <ScreenPlaybackDiagnostics
+                  assignment={assignment.data}
+                  plan={plan.data}
+                  loading={assignment.isPending || plan.isPending}
+                />
+              </section>
+            )}
 
             {manageSection === "health" && (
               <section
@@ -3767,131 +3425,6 @@ export function ScreenDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   {t("detail.healthBody")}
                 </p>
-                <Card size="sm">
-                  <CardHeader>
-                    <CardTitle>{t("detail.diagnostics")}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                      <OverviewFact
-                        label={t("detail.factServerManifest")}
-                        value={t("detail.manifestVersion", {
-                          version: assignment.data?.manifestVersion ?? 1,
-                        })}
-                      />
-                      <OverviewFact
-                        label={t("detail.factPlayerConfig")}
-                        value={
-                          assignment.data?.activeConfigRevision != null
-                            ? t("detail.configRevision", {
-                                revision: assignment.data.activeConfigRevision,
-                              })
-                            : t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factPlayerManifest")}
-                        value={
-                          assignment.data?.playerActiveManifestVersion != null
-                            ? t("detail.manifestVersion", {
-                                version:
-                                  assignment.data.playerActiveManifestVersion,
-                              })
-                            : t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factSynchronization")}
-                        value={
-                          assignment.data?.synchronizationStatus?.replaceAll(
-                            "_",
-                            " ",
-                          ) ?? t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factClockDifference")}
-                        value={
-                          assignment.data?.deviceClockOffsetSeconds != null
-                            ? t("detail.clockOffset", {
-                                count: Math.abs(
-                                  assignment.data.deviceClockOffsetSeconds,
-                                ),
-                              })
-                            : t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factDownloads")}
-                        value={
-                          assignment.data?.downloadQueueCount != null
-                            ? t("detail.downloads", {
-                                queued: assignment.data.downloadQueueCount,
-                                downloaded:
-                                  assignment.data.downloadedBytes ?? 0,
-                                required: assignment.data.requiredBytes ?? 0,
-                              })
-                            : t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factWebsite")}
-                        value={
-                          assignment.data?.websiteState
-                            ? [
-                                assignment.data.websiteState.replaceAll(
-                                  "_",
-                                  " ",
-                                ),
-                                assignment.data.websiteCurrentHost,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")
-                            : t("detail.websiteInactive")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factBlockedNavigation")}
-                        value={
-                          assignment.data?.websiteBlockedNavigationCount ??
-                          t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factPlayback")}
-                        value={
-                          assignment.data?.playbackState ??
-                          t("shared.notReported")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("takeover.title")}
-                        value={
-                          assignment.data?.activeTakeoverId
-                            ? t("detail.takeoverProgress", {
-                                state:
-                                  assignment.data.takeoverState ?? "pending",
-                                progress:
-                                  assignment.data.takeoverPreparationProgress ??
-                                  0,
-                              })
-                            : t("detail.noTakeover")
-                        }
-                      />
-                      <OverviewFact
-                        label={t("detail.factCache")}
-                        value={
-                          assignment.data?.cacheUsedBytes != null
-                            ? t("detail.cacheUsage", {
-                                used: assignment.data.cacheUsedBytes,
-                                limit: assignment.data.cacheLimitBytes ?? 0,
-                              })
-                            : t("shared.notReported")
-                        }
-                      />
-                    </dl>
-                  </CardContent>
-                </Card>
                 <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
                     <div className="min-w-0 space-y-1">
@@ -5059,6 +4592,14 @@ export function ScreenDetailPage() {
         description={t("preview.snapshotsBody")}
       >
         <SnapshotHistoryPanel screenId={id} />
+      </ScreenDetailPanel>
+      <ScreenDetailPanel
+        open={explanationOpen}
+        onOpenChange={(open) => setDetailPanel("explanation", open)}
+        title={t("playback.explanationTitle")}
+        description={t("playback.explanationBody")}
+      >
+        <PlaybackExplanationPanel screenId={id} assignment={assignment.data} />
       </ScreenDetailPanel>
       <Dialog
         open={pendingDestination !== null}
