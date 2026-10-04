@@ -276,7 +276,7 @@ describe("PairScreenFlow scanner", () => {
 
     await user.click(screen.getByRole("button", { name: "Scan QR code" }));
     await waitFor(() => expect(host.ofType("system/scan-qr")).toHaveLength(1));
-    await act(async () => {
+    act(() => {
       host.deliver("system/qr-scan-result", {
         requestId: host.ofType("system/scan-qr")[0]?.requestId,
         outcome: "cancelled",
