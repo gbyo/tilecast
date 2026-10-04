@@ -1,33 +1,48 @@
 package media
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 )
 
-func TestFieldsReferenceDataSourceRecursesIntoRepeatingGroups(t *testing.T) {
+func TestWidgetSourceUsageFollowsNestedCanonicalIDs(t *testing.T) {
+	target, other := uuid.New(), uuid.New()
 	fields := []contentdefs.FieldDefinition{
 		{
 			Key:     "groups",
 			Control: "repeating_group",
 			ItemFields: []contentdefs.FieldDefinition{
-				{Key: "label", Control: "text"},
-				{Key: "source", Control: "data_source"},
+				{Key: "label", Label: "Label", Control: "text"},
+				{Key: "source", Label: "Source", Control: "data_source"},
 			},
 		},
 	}
+	fields[0].Label = "Groups"
+	fields[0].MaximumItems = 4
+	definition := pluginWidgetCatalog(t).Widgets[0]
+	definition.ConfigurationSchema.Fields = fields
+	definition.DefaultConfiguration = map[string]any{}
+	catalog, err := contentdefs.New([]contentdefs.WidgetDefinition{definition}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{definitions: catalog}
 	configuration := map[string]any{
 		"groups": []any{
-			map[string]any{"label": "First", "source": "other-source"},
-			map[string]any{"label": "Second", "source": "target-source"},
+			map[string]any{"label": "First", "source": other.String()},
+			map[string]any{"label": "Second", "source": strings.ToUpper(target.String())},
 		},
 	}
 
-	if !fieldsReferenceDataSource(fields, configuration, "target-source") {
+	raw, _ := json.Marshal(configuration)
+	if !service.widgetConfigurationReferencesDataSource(definition.ID, raw, nil, target) {
 		t.Fatal("nested data_source control was not discovered")
 	}
-	if fieldsReferenceDataSource(fields, configuration, "missing-source") {
+	if service.widgetConfigurationReferencesDataSource(definition.ID, raw, nil, uuid.New()) {
 		t.Fatal("unreferenced Data Source was reported as a dependency")
 	}
 }

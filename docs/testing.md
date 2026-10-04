@@ -196,6 +196,10 @@ Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server an
 
 Each server integration-test package creates a temporary PostgreSQL database from `TEST_DATABASE_URL` and drops it after the package exits, including after a test failure. The database role needs permission to create and drop databases. Existing advisory locks still serialize tests inside the same package database; separate packages no longer share fixture tables or locks. The CI command uses normal Go package parallelism. Reproduce the server race job with `TEST_DATABASE_URL` set and `go test -race ./...` from `apps/server`.
 
+## Validation timing summaries
+
+Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
+
 Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
 
 ## Deep platform validation
