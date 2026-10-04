@@ -3314,7 +3314,7 @@ export function ScreenDetailPage() {
                         size="sm"
                         onClick={() => openDiagnostics("device")}
                       >
-                        {t("detail.sectionDevice")}
+                        {t("detail.diagnosticsTitle")}
                       </Button>
                     </CardAction>
                   </CardHeader>
