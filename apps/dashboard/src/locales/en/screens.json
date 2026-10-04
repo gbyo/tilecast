@@ -219,7 +219,10 @@
     "noneReported": "None reported",
     "nothingAssigned": "Nothing assigned",
     "noFallback": "No fallback content",
-    "updateFailed": "Update failed"
+    "updateFailed": "Update failed",
+    "mapLoading": "Loading map…",
+    "mapLoadErrorTitle": "Map couldn't load",
+    "mapLoadErrorBody": "Tilecast couldn't finish rendering this map. Retry, or use the technical detail below to diagnose the problem."
   },
   "status": {
     "online": "Online",

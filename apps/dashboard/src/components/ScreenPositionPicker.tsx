@@ -1,15 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Map as MapLibreMap,
   Marker,
-  NavigationControl,
+  type Map as MapLibreMap,
   type MapMouseEvent,
 } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { Crosshair, MapPin, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MapCoordinates } from "../api/types";
-import { OPENFREEMAP_STYLE_URL } from "../lib/maplibre";
+import { MapLibreSurface } from "./MapLibreSurface";
 import { Button } from "./ui/button";
 
 export function ScreenPositionPicker({
@@ -21,15 +19,13 @@ export function ScreenPositionPicker({
   locationPosition?: MapCoordinates;
   onChange: (value?: MapCoordinates) => void;
 }) {
-  const { t } = useTranslation("screens");
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation(["screens", "common"]);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
-  const valueRef = useRef(value);
-  const locationRef = useRef(locationPosition);
+  const onChangeRef = useRef(onChange);
+  const [mapGeneration, setMapGeneration] = useState(0);
 
-  valueRef.current = value;
-  locationRef.current = locationPosition;
+  onChangeRef.current = onChange;
 
   const effectivePosition = value ?? locationPosition;
   // Depend on the coordinates, not the object: the parent may build a new
@@ -40,38 +36,24 @@ export function ScreenPositionPicker({
 
   const placeAtMapCenter = () => {
     const center = mapRef.current?.getCenter().wrap();
-    if (center) onChange({ longitude: center.lng, latitude: center.lat });
+    if (center)
+      onChangeRef.current({ longitude: center.lng, latitude: center.lat });
   };
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-
-    const initial = valueRef.current ?? locationRef.current;
-    const map = new MapLibreMap({
-      container: containerRef.current,
-      style: OPENFREEMAP_STYLE_URL,
-      center: initial ? [initial.longitude, initial.latitude] : [0, 0],
-      zoom: initial ? 17 : 1,
-      attributionControl: {},
-    });
+  const handleMapChange = useCallback((map: MapLibreMap | null) => {
+    markerRef.current?.remove();
+    markerRef.current = null;
     mapRef.current = map;
-    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
-
-    const placeOverride = (longitude: number, latitude: number) => {
-      onChange({ longitude, latitude });
-    };
+    if (!map) return;
 
     map.on("click", (event: MapMouseEvent) => {
-      placeOverride(event.lngLat.lng, event.lngLat.lat);
+      onChangeRef.current({
+        longitude: event.lngLat.lng,
+        latitude: event.lngLat.lat,
+      });
     });
-
-    return () => {
-      markerRef.current?.remove();
-      markerRef.current = null;
-      map.remove();
-      mapRef.current = null;
-    };
-  }, [onChange]);
+    setMapGeneration((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -95,13 +77,16 @@ export function ScreenPositionPicker({
         .addTo(map);
       marker.on("dragend", () => {
         const position = marker.getLngLat();
-        onChange({ longitude: position.lng, latitude: position.lat });
+        onChangeRef.current({
+          longitude: position.lng,
+          latitude: position.lat,
+        });
       });
       markerRef.current = marker;
     } else {
       markerRef.current.setLngLat([longitude, latitude]);
     }
-  }, [latitude, longitude, onChange]);
+  }, [latitude, longitude, mapGeneration]);
 
   return (
     <div className="space-y-2">
@@ -145,10 +130,20 @@ export function ScreenPositionPicker({
         </div>
       </div>
       <div className="overflow-hidden rounded-lg border border-border bg-muted">
-        <div
-          ref={containerRef}
+        <MapLibreSurface
           className="h-56 w-full"
-          aria-label={t("detail.mapPositionAriaLabel")}
+          ariaLabel={t("detail.mapPositionAriaLabel")}
+          initialCenter={
+            effectivePosition
+              ? [effectivePosition.longitude, effectivePosition.latitude]
+              : [0, 0]
+          }
+          initialZoom={effectivePosition ? 17 : 1}
+          onMapChange={handleMapChange}
+          loadingLabel={t("shared.mapLoading")}
+          errorTitle={t("shared.mapLoadErrorTitle")}
+          errorBody={t("shared.mapLoadErrorBody")}
+          retryLabel={t("common:actions.retry")}
         />
       </div>
       <p className="text-xs text-muted-foreground">
