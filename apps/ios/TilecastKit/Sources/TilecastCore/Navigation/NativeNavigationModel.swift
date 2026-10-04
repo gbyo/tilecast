@@ -137,6 +137,7 @@ public final class NativeNavigationModel {
             settledTab = .more
             moreShowsList = true
         case .destination(let id):
+            guard catalog?.destination(withID: id) != nil else { return }
             // Give the native control immediate feedback, but leave
             // settledTab alone until Studio reports the route after paint.
             selectedTab = .destination(id)
