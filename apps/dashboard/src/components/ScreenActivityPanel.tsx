@@ -98,7 +98,7 @@ export function ScreenActivitySummary({
         <CardTitle>{t("screenActivity.lists.eventsTitle")}</CardTitle>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={onOpen}>
-            {t("screenActivity.title")}
+            {t("screenActivity.viewAll")}
           </Button>
         </CardAction>
       </CardHeader>
