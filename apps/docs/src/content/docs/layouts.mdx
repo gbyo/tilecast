@@ -39,6 +39,8 @@ The Layout library loads the first 100 matches. Search to narrow results across 
 
 The Media picker can also upload an image or video; it is added to the Media library. A Playlist zone plays independently inside the Layout. **Loop** returns to the first playable item or stops on the last one. **Corner radius** and each Playlist item's fade or crossfade transition apply in the zone. If media fails, **Fallback** shows the Layout background, keeps the last successfully loaded item, or hides the zone. The Player skips to another playable item when one is available and retries a failed final item after two seconds. A zone needs a Playlist with playable content.
 
+Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
+
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 
 ## Show changing values in text

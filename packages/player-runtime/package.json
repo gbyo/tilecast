@@ -13,6 +13,10 @@
       "types": "./dist/node/compat/projection/index.d.ts",
       "default": "./dist/node/compat/projection/index.js"
     },
+    "./playback-settings": {
+      "types": "./src/compat/projection/playback-defaults.ts",
+      "default": "./src/compat/projection/playback-defaults.ts"
+    },
     "./synchronized": {
       "types": "./dist/node/clock/synchronized.d.ts",
       "default": "./dist/node/clock/synchronized.js"

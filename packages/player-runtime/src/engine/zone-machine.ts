@@ -49,6 +49,8 @@ export function zoneEntry(
     entry,
     loop:
       entry.kind === "video" &&
+      !entry.videoStartOffsetMs &&
+      !entry.videoEndOffsetMs &&
       (entry.loop || ((context.loop ?? true) && context.items.length === 1)),
   };
 }
