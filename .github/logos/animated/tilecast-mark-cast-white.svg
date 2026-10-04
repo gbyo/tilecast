@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 307.49 295.25" fill="#ffffff" role="img" aria-label="Tilecast">
+  <style>
+    .c{transform-box:fill-box;transform-origin:center;animation:tc-screen 2.4s ease-in-out infinite}
+    .a,.b{opacity:0;animation:tc-wave 2.4s cubic-bezier(.22,1,.36,1) infinite}
+    .b{--x:37.7px;--y:33.1px}
+    .a{--x:75.4px;--y:66.1px;animation-delay:.22s}
+    @keyframes tc-wave{0%{opacity:0;transform:translate(var(--x),var(--y))}12%{opacity:1}55%{opacity:1;transform:translate(0,0)}80%,100%{opacity:0;transform:translate(-13.2px,-11.6px)}}
+    @keyframes tc-screen{0%,100%{transform:scale(1)}8%{transform:scale(.94)}20%{transform:scale(1.02)}32%{transform:scale(1)}}
+    @media (prefers-reduced-motion:reduce){.a,.b,.c{animation:none;opacity:1;transform:none}}
+  </style>
+  <path class="a" d="M0,63.79C0,54.86 4.96,49.58 14.21,46.93L157.01,3.63C168.57,0 176.51,3.96 176.51,16.19L176.51,33.05L43.96,69.74C32.39,73.04 26.44,79.32 26.44,90.89L26.44,172.2C26.44,176.17 24.46,178.82 20.49,180.14L15.87,181.46C6.28,184.1 0,179.48 0,169.89L0,63.79Z" />
+  <path class="b" d="M38.01,96.18C38.01,86.93 43.3,81.64 52.56,78.99L199.31,38.01C211.54,34.37 219.48,38.67 219.48,50.57L219.48,66.1L82.3,102.46C70.41,105.77 64.46,112.38 64.46,124.94L64.46,201.29C64.46,205.92 62.47,208.56 58.18,209.89L53.55,211.87C44.29,214.51 38.01,209.89 38.01,200.3L38.01,96.18Z" />
+  <path class="c" d="M75.36,130.23C75.36,121.96 80.32,116.34 89.25,113.7L237,72.05C249.22,68.42 257.49,73.04 257.49,85.27L257.49,184.76C257.49,193.36 252.53,198.65 243.28,201.29L96.19,241.62C83.3,245.25 75.36,240.63 75.36,228.4L75.36,130.23Z" />
+</svg>

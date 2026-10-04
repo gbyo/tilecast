@@ -725,7 +725,7 @@ func selectStructuredRecords(records []StructuredRecord, selection DateSelection
 	}
 	loc, _ := time.LoadLocation(selection.Timezone)
 	target := time.Now().In(loc)
-	if parsed, err := time.ParseInLocation("2006-01-02", previewDate, loc); err == nil {
+	if parsed, ok := previewDateAt(previewDate, selection.Timezone); ok {
 		target = parsed
 	}
 	today := target.Format("2006-01-02")

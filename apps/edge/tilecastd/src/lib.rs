@@ -10,7 +10,7 @@
 //! * [`config`] — operator configuration.
 //! * [`ipc_handler`] — what IPC events and requests do.
 //! * [`presentation`] — the current activation and renderer link.
-//! * [`supervisor`] — the renderer recovery ladder.
+//! * [`supervisor`] — wire-value adapters for Core renderer recovery policy.
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
 //! * [`server_link`] — identity gate, player WebSocket and heartbeat, and
@@ -68,6 +68,7 @@ pub mod presentation_capabilities;
 pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;
+mod renderer_adapter;
 pub mod schedule;
 pub mod self_test;
 pub mod server_link;

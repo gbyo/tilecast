@@ -149,13 +149,17 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="open-sheet" type="button">Open fixture sheet</button></p>
         <p><button id="drill" type="button">Open screen detail</button></p>
         <p id="opened"></p>
+        <p><button id="pair-screen" type="button">Pair screen</button></p>
+        <p id="pair-opened"></p>
         <p id="ended">Ended 0</p>
         <p>
         <button id="haptic" type="button">Haptic</button>
         <button id="share" type="button">Share</button>
         <button id="share-unsafe" type="button">Share unsafe</button>
+        <button id="scan" type="button">Scan QR</button>
         </p>
         <p id="system-result"></p>
+        <p id="scan-result"></p>
         <p><button id="upload-media" type="button">Upload media</button></p>
         <p id="intake"></p>
         <p><button id="ask" type="button">Delete fixture</button></p>
@@ -224,7 +228,17 @@ final class FixtureStudioServer: @unchecked Sendable {
         // refetches when one ends. The fixture just counts.
         let ended = 0;
         let intakeRequests = 0;
+        let scanRequests = 0;
+        let pendingScans = new Set();
         window.tilecastNativeReceiver = (message) => {
+          if (message?.type === "system/qr-scan-result") {
+            // Only the outcome of a scan this document asked for counts.
+            if (!pendingScans.delete(message.payload.requestId)) return true;
+            const { outcome, value } = message.payload;
+            document.getElementById("scan-result").textContent =
+              outcome === "scanned" ? `Scanned ${value}` : outcome === "cancelled" ? "Scan cancelled" : "Scan unavailable";
+            return true;
+          }
           if (message?.type === "system/media-intake-completed") {
             const { outcome, uploadedCount } = message.payload;
             document.getElementById("intake").textContent = `Intake ${outcome} ${uploadedCount}`;
@@ -301,10 +315,33 @@ final class FixtureStudioServer: @unchecked Sendable {
           // Without a native presentation, Studio shows its own dialog.
           document.getElementById("opened").textContent = reply?.ok ? "Opened natively" : "Opened in page";
         });
+        document.getElementById("pair-screen").addEventListener("click", async () => {
+          const reply = handler && await send("presentation/open", {
+            presentationId: `p-${documentId}-${++presentations}`,
+            path: "/__native/modal/fixture/pair",
+            title: "Pair Screen",
+            subtitle: "Made-up pairing",
+            size: "full",
+          });
+          document.getElementById("pair-opened").textContent = reply?.ok ? "Pair opened natively" : "Pair opened in page";
+        });
+        document.getElementById("scan").addEventListener("click", async () => {
+          const requestId = `qr-${documentId}-${++scanRequests}`;
+          const reply = handler && await send("system/scan-qr", { requestId });
+          if (reply?.ok) {
+            pendingScans.add(requestId);
+          } else {
+            document.getElementById("scan-result").textContent = `Scan refused ${reply?.error?.code ?? "unavailable"}`;
+          }
+        });
         render();
         (async () => {
           if (!handler) return;
           const config = await send("config/get", {});
+          // Studio offers scanning only when the host negotiated it.
+          if (config?.payload?.capabilities?.systemQrScanner !== true) {
+            document.getElementById("scan").hidden = true;
+          }
           if (config?.payload?.capabilities?.nativeNavigation !== true) return;
           await send("frontend/ready", {
             capabilities: { nativePresentations: true, nativeAlerts: true, nativeMediaIntake: true, deepLinks: true },
@@ -335,6 +372,9 @@ final class FixtureStudioServer: @unchecked Sendable {
         <p><button id="leave" type="button">Go to Layouts</button></p>
         <p><button id="share" type="button">Share from sheet</button></p>
         <p id="system-result"></p>
+        <p><button id="scan" type="button">Scan QR code</button></p>
+        <p id="scan-result"></p>
+        <p>Enter the code shown on the Player</p>
         <p><button id="ask" type="button">Ask from sheet</button></p>
         <p><button id="grow" type="button">Grow sheet</button></p>
         <p id="chosen"></p>
@@ -344,6 +384,8 @@ final class FixtureStudioServer: @unchecked Sendable {
         const send = (type, payload) => handler.postMessage({ version: 1, type, payload });
         let current = null;
         let shown = 0;
+        let scanRequests = 0;
+        const pendingScans = new Set();
         const text = (id, value) => { document.getElementById(id).textContent = value; };
         text("document", `Presentation document ${documentId}`);
         window.tilecastNativeReceiver = (message) => {
@@ -354,9 +396,13 @@ final class FixtureStudioServer: @unchecked Sendable {
               history.replaceState(null, "", payload.path);
               text("state", `Showing ${location.pathname.slice("/__native/modal/".length)}, time ${++shown}`);
               text("action", "");
+              text("scan-result", "");
               void send("presentation/update", {
                 presentationId: current,
-                header: {
+                header: location.pathname.includes("/pair") ? {
+                  title: "Pair Screen",
+                  subtitle: "Made-up pairing",
+                } : {
                   title: "Fixture Sheet",
                   subtitle: "Made up",
                   actions: [{ id: "ping", label: "Ping", icon: "a-token-no-app-knows" }],
@@ -364,6 +410,12 @@ final class FixtureStudioServer: @unchecked Sendable {
                   menu: [{ id: "about", label: "About the fixture" }],
                 },
               });
+              return true;
+            case "system/qr-scan-result":
+              // Only the outcome of a scan this document asked for counts.
+              if (!pendingScans.delete(payload.requestId)) return true;
+              text("scan-result", payload.outcome === "scanned" ? `Scanned ${payload.value}`
+                : payload.outcome === "cancelled" ? "Scan cancelled" : "Scan unavailable");
               return true;
             case "presentation/action":
               if (payload.presentationId !== current) return false;
@@ -388,6 +440,15 @@ final class FixtureStudioServer: @unchecked Sendable {
           const reply = await send("system/share", { title: "From the sheet", url: "https://example.org/sheet" });
           text("system-result", reply?.ok ? "Share ok" : `Share ${reply?.error?.code ?? "unavailable"}`);
         });
+        document.getElementById("scan").addEventListener("click", async () => {
+          const requestId = `qr-${documentId}-${++scanRequests}`;
+          const reply = await send("system/scan-qr", { requestId });
+          if (reply?.ok) {
+            pendingScans.add(requestId);
+          } else {
+            text("scan-result", `Scan refused ${reply?.error?.code ?? "unavailable"}`);
+          }
+        });
         // A dialog inside a compact presentation asks the sheet for the full
         // height, as Studio's dialog primitives do.
         document.getElementById("grow").addEventListener("click", async () => {
@@ -408,6 +469,10 @@ final class FixtureStudioServer: @unchecked Sendable {
           if (!handler) return;
           const config = await send("config/get", {});
           if (config?.payload?.context !== "presentation") return;
+          // Studio offers scanning only when the host negotiated it.
+          if (config?.payload?.capabilities?.systemQrScanner !== true) {
+            document.getElementById("scan").hidden = true;
+          }
           await send("frontend/ready", { capabilities: { nativePresentations: true, nativeAlerts: true } });
           await send("presentation/ready", {});
         })();

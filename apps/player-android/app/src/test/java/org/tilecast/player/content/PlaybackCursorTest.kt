@@ -34,4 +34,42 @@ class PlaybackCursorTest {
         )
         assertEquals(45_000, effectiveDurationMs(item, emptyList()))
     }
+
+    @Test
+    fun zeroDurationIsUnsetNotAOneMillisecondSlot() {
+        val image = ManifestItem(
+            id = "item",
+            assetId = "asset",
+            assetType = "image",
+            durationMs = 0,
+            fitMode = "contain",
+            transition = "none",
+            audioEnabled = false,
+            volume = 0f,
+            deliveryPolicy = "download",
+        )
+        // A one-millisecond slot rolls a synchronized cycle over every
+        // millisecond. Linux and Edge read zero as unset, and so must this.
+        assertEquals(10_000, effectiveDurationMs(image, emptyList()))
+        assertEquals(10_000, effectiveDurationMs(image.copy(durationMs = -5), emptyList()))
+    }
+
+    @Test
+    fun activityExpectsNoDurationForIndefiniteOrZeroDurationItems() {
+        val item = ManifestItem(
+            id = "item",
+            assetId = "asset",
+            assetType = "image",
+            durationMs = 0,
+            fitMode = "contain",
+            transition = "none",
+            audioEnabled = false,
+            volume = 0f,
+            deliveryPolicy = "download",
+        )
+        assertEquals(null, item.expectedDurationForActivity())
+        assertEquals(null, item.copy(durationMs = Long.MAX_VALUE).expectedDurationForActivity())
+        assertEquals(null, item.copy(durationMs = null).expectedDurationForActivity())
+        assertEquals(12_000L, item.copy(durationMs = 12_000).expectedDurationForActivity())
+    }
 }

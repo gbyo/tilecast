@@ -18,7 +18,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 1. On the display, open Tilecast Player and connect it to the Tilecast Server for this installation. Leave the pairing code visible.
 2. In Studio, open **Screens** > **Fleet**, then select **Pair screen**.
-3. Enter the six-character code in **Pairing code**, then select **Find player**. If the request is already listed under **Pending pairing requests**, select **Review** instead.
+3. Enter the six-character code in **Pairing code**, then select **Find player**. In the Tilecast iOS app you can select **Scan QR code** instead and point the camera at the QR code on the display. Scanning is optional: typing the code always works. If the request is already listed under **Waiting for approval**, select **Review** instead.
 4. Check the Player's reported platform and device details on **Review this player**. Approve only a device you recognize.
 5. Choose a **Pairing destination**:
 
@@ -29,8 +29,8 @@ import { Steps } from "@astrojs/starlight/components";
 6. Finish the selected path:
 
    - New screen: select **Approve and pair**.
-   - Credential repair: select **Repair and replace credential**, review the confirmation, then select **Confirm pairing**.
-   - Hardware replacement: select **Replace hardware**, review the confirmation, then select **Confirm pairing**.
+   - Credential repair: select **Repair and replace credential**, then confirm.
+   - Hardware replacement: select **Replace hardware**, then confirm.
 
 7. Keep the Player connected until it completes enrollment.
 
@@ -46,7 +46,7 @@ Choose **Replace hardware for an existing screen** when the old physical device 
 Start from the pending request and select the existing screen in the replacement flow. Revoking or archiving the old screen first removes it from the active fleet and does not use the hardware-replacement flow.
 :::
 
-Choose **Repair existing credential** only when the same Player installation is still in use. A credential repair keeps that screen and its content assignments; the old credential is replaced after the Player enrolls again.
+Choose **Repair existing credential** only when the same Player installation is still in use. A credential repair keeps the screen's name, description, location, room, content assignments, schedules, policies, and history. Only the device credential is replaced, after the Player enrolls again. If the QR code belongs to another installation, Studio tells you and does not look up the code.
 
 ## Next steps
 

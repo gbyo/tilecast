@@ -1,0 +1,30 @@
+---
+title: Find the right setup for you
+description: Answer a few questions about your network, server, and displays to get the simplest supported way to run Tilecast, with a checklist of guides.
+tableOfContents: false
+---
+
+import SetupAdvisor from "../../../components/SetupAdvisor.astro";
+
+Answer a few questions about where your server and displays are. The Setup Advisor picks the simplest supported way to run Tilecast for you and lists the guides to follow, in order, from an empty computer to a working display.
+
+It isn't a quiz. There are no wrong answers, and "I'm not sure" is a fine reply. It takes about a minute.
+
+<SetupAdvisor />
+
+## How the Setup Advisor works
+
+- It runs in your browser. Your answers aren't sent to Tilecast, Cloudflare, or any other service.
+- The address of this page changes as you answer, so you can bookmark or share your result. The answers appear in the address, and nothing else does.
+- **Copy my setup** copies a short plain-text description for a support request or a GitHub issue. It has your answers and the recommended setup, and no addresses, passwords, or tokens.
+- It only recommends setups that Tilecast supports today. It points you to the guides for the details.
+
+## The setups it can recommend
+
+- **Local network.** The server and every Player are at the same site. Players connect directly. See [Set up Tilecast on a local network](./local-network/).
+- **Cloudflare Tunnel.** Players or staff are away from the server. See [Set up Tilecast with Cloudflare Tunnel](./cloudflare-tunnel/).
+- **Local Players with remote Studio.** Players stay on the local network, and staff reach Studio through a tunnel. See [Local Players with remote Studio](./local-players-remote-studio/).
+- **Restricted network.** VLANs, guest Wi-Fi, or client isolation sit between the Players and the server. See [Check that Players can reach the server](./network-readiness/).
+- **Choose a server first.** You need a computer that stays on. See [Choose where to run Tilecast Server](./choose-a-server/).
+
+Every setup ends with [Verify before you leave the screens unattended](./production-readiness/). If you already know your setup, start from [Getting started](../getting-started/) or [Installation](../installation/) instead.
