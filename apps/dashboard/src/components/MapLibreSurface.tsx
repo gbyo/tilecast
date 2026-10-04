@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { CircleAlert, RefreshCw } from "lucide-react";
 import { createTilecastMap, mapLibreErrorMessage } from "../lib/maplibre";
@@ -26,7 +20,6 @@ export function MapLibreSurface({
   errorTitle,
   errorBody,
   retryLabel,
-  children,
 }: {
   className: string;
   ariaLabel?: string;
@@ -39,7 +32,6 @@ export function MapLibreSurface({
   errorTitle: string;
   errorBody: string;
   retryLabel: string;
-  children?: ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const centerRef = useRef(initialCenter);
@@ -184,7 +176,6 @@ export function MapLibreSurface({
           </div>
         </div>
       )}
-      {children}
     </div>
   );
 }
