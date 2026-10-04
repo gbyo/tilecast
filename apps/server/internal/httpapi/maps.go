@@ -80,6 +80,6 @@ func proxyOpenFreeMap(w http.ResponseWriter, r *http.Request, client *http.Clien
 	if r.Method == http.MethodHead || response.StatusCode == http.StatusNotModified {
 		return nil
 	}
-	_, err = io.Copy(w, response.Body)
-	return err
+	_, _ = io.Copy(w, response.Body)
+	return nil
 }
