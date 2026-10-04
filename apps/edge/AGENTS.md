@@ -43,7 +43,9 @@ Runtime configuration projection from its Linux platform configuration.
 Core owns manifest preparation-worker supervision and target-bound cancellation.
 Core owns telemetry sampling, interval counters, serialization, and bounded
 offline queue policy. Edge supplies semantic observations and measured gauges.
-Edge retains renderer projection and activation coordination until their extraction is complete.
+Core owns offline manifest state, native activation gates, trial deadlines,
+evidence requirements for promotion, and verified pin lifetime. Edge retains
+renderer projection and activation-loop composition until their extraction is complete.
 
 ## Fixed decisions
 

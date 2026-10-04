@@ -42,7 +42,6 @@ use crate::schedule::{self, Selection, Source};
 pub use player_core::{ManifestAsset as Asset, NATIVE_MANIFEST_SCHEMAS as MANIFEST_SCHEMAS};
 #[cfg(test)]
 const MAX_ASSETS: usize = 1024;
-const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
 const LAYOUT_ITEM_PREFIX: &str = "layout-";
 
 /// The installed WPE renderer profile. It is compiled into the daemon release
@@ -1031,15 +1030,7 @@ pub fn manifest_digest(document: &Value) -> Sha256Digest {
     player_core::manifest_digest(document)
 }
 
-pub fn activation_grace_ms(document: &Value) -> i64 {
-    let seconds = document
-        .get("activationGraceSeconds")
-        .and_then(Value::as_u64)
-        .filter(|seconds| *seconds > 0)
-        .unwrap_or(DEFAULT_ACTIVATION_GRACE_SECONDS)
-        .clamp(1, 3_600);
-    (seconds * 1_000) as i64
-}
+pub use player_core::activation_grace_ms;
 
 pub use player_core::{
     ManifestOriginSources as OriginSources, ManifestPreparationError as PreparationError,

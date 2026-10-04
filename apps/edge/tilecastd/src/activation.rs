@@ -31,10 +31,7 @@ use std::time::Duration;
 
 use edge_protocol::Sha256Digest;
 use edge_protocol::ipc::presentation::PresentationDocument;
-use edge_state::repo::binding::{self, CredentialState};
 use edge_state::repo::cas::PinReason;
-use edge_state::repo::manifests::{self, Binding, Stage, StoredManifest};
-use edge_state::repo::playback;
 
 use crate::daemon::DaemonContext;
 use crate::manifest::{self, Candidate, ResolvedPresentation};
@@ -44,45 +41,14 @@ use crate::schedule::Source;
 
 const MAX_SLEEP: Duration = Duration::from_secs(30);
 const IDLE_SLEEP: Duration = Duration::from_secs(60);
-const TRIAL_TIMEOUT: Duration = Duration::from_secs(30);
+pub use player_core::{ActivationGate as Gate, should_activate_pending};
 
-pub fn should_activate_pending(
-    current_is_playing: bool,
-    takeover: bool,
-    item_boundary: bool,
-    now_ms: i64,
-    grace_at_ms: i64,
-) -> bool {
-    !current_is_playing || takeover || item_boundary || now_ms >= grace_at_ms
-}
-
-/// A surface that replaces content by policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Gate {
-    /// Outside configured active hours.
-    Rest,
-    /// An administrator disabled playback.
-    Disabled,
-}
-
-/// Which policy surface, if any, applies at `now_ms` (corrected), and in how
-/// many milliseconds the active-hours answer next changes.
 pub fn gate(config: &PlayerConfig, playback_disabled: bool, now_ms: i64) -> (Option<Gate>, Option<i64>) {
-    let hours = player_core::evaluate_active_hours(config.native.active_hours.as_ref(), now_ms);
-    let gate = if !hours.active {
-        Some(Gate::Rest)
-    } else if playback_disabled {
-        Some(Gate::Disabled)
-    } else {
-        None
-    };
-    (gate, hours.ms_until_transition)
+    player_core::activation_gate(&config.native, playback_disabled, now_ms)
 }
 
 /// A takeover or Quick Present outranks the policy surfaces.
-pub fn overrides_gate(source: Source) -> bool {
-    matches!(source, Source::Takeover | Source::QuickPresent)
-}
+pub use player_core::overrides_activation_gate as overrides_gate;
 
 /// The surface for `gate`. The disabled surface carries the manifest's
 /// branding logo when a verified candidate is available.
@@ -149,20 +115,19 @@ fn earliest(a: Option<i64>, b: Option<i64>) -> Option<i64> {
     }
 }
 
-#[derive(Debug, Default)]
-struct ActivationLoop {
-    binding: Option<Binding>,
-    invalid_pending: Option<Sha256Digest>,
-    pending_error_version: Option<Sha256Digest>,
-    trial: Option<(Sha256Digest, i64)>,
-}
-
 pub async fn run(context: Arc<DaemonContext>) {
     // The development fixture is an explicit local presentation source.
     if context.config.dev.fixture.is_some() {
         return;
     }
-    let mut state = ActivationLoop::default();
+    let Some(db) = context.db() else {
+        context.shutdown.cancelled().await;
+        return;
+    };
+    let mut state = player_core::OfflineActivationCoordinator::new(
+        player_core::Dependencies { state: db.clone(), clock: context.clock.clone() },
+        context.cas.clone(),
+    );
     loop {
         let boundary = context.manifest_item_boundary.swap(false, std::sync::atomic::Ordering::Relaxed);
         let next_at = tick(&context, &mut state, boundary).await;
@@ -237,58 +202,31 @@ async fn current(context: &DaemonContext) -> Option<Current> {
     })
 }
 
-async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary: bool) -> Option<i64> {
-    let db = context.db()?;
-    let bound = db.run(|connection| binding::get(connection)).await.ok().flatten()?;
-    if bound.credential_state != CredentialState::Stored {
-        state.binding = None;
-        return None;
-    }
-    let screen_id = bound.screen_id?;
-    let binding = Binding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url };
-    if state.binding.as_ref() != Some(&binding) {
-        state.binding = Some(binding.clone());
-        state.invalid_pending = None;
-        state.pending_error_version = None;
-        state.trial = None;
-    }
-    let read = |stage: Stage| {
-        let binding = binding.clone();
-        async move { db.run(move |c| manifests::get_for(c, stage, &binding)).await }
-    };
-    let (Ok(active), Ok(mut pending)) = (read(Stage::Active).await, read(Stage::Pending).await) else {
-        return None;
-    };
-    let target_binding = binding.clone();
-    let target = db.run(move |c| manifests::target(c, &target_binding)).await.ok().flatten().map(|t| t.digest);
-
-    let local_now_ms = context.now().unix_millis();
-    let flags = db.run(|connection| playback::get(connection)).await.unwrap_or_default();
-    let offset_ms = flags.server_clock_offset_ms.unwrap_or_default();
+async fn tick(
+    context: &DaemonContext,
+    state: &mut player_core::OfflineActivationCoordinator,
+    item_boundary: bool,
+) -> Option<i64> {
+    let mut local = state.load().await?;
+    let binding = local.binding.clone();
+    let screen_id = binding.screen_id;
+    let local_now_ms = local.local_now_ms;
+    let offset_ms = local.offset_ms;
     context.presentation.lock().await.set_clock_offset(offset_ms);
     let presentation_now_ms = local_now_ms.saturating_add(offset_ms);
     let config = crate::config_sync::effective(context);
-    let (gate, hours_change_ms) = gate(&config, flags.playback_disabled, presentation_now_ms);
+    let (gate, hours_change_ms) = gate(&config, local.playback_disabled, presentation_now_ms);
     let hours_wake = hours_change_ms.map(|ms| local_now_ms.saturating_add(ms));
     let current = current(context).await;
 
-    // A pending manifest that is no longer the target can never be promoted.
-    if let Some(stale) = pending.as_ref().filter(|p| target != Some(p.digest)) {
-        let (discard_binding, digest) = (binding.clone(), stale.digest);
-        if db.run(move |c| manifests::discard_pending(c, &discard_binding, &digest)).await.is_ok() {
-            tracing::info!(component = "activation", event = "pending_superseded", manifest = %digest.short());
-        }
-        pending = None;
-    }
-    if state.trial.is_some_and(|(digest, _)| pending.as_ref().is_none_or(|p| p.digest != digest)) {
-        state.trial = None;
-    }
-    sweep_pins(context, &active, &pending, current.as_ref().and_then(|c| c.manifest)).await;
+    state.retain_pending(&mut local, current.as_ref().and_then(|current| current.manifest)).await;
+    let active = local.active;
+    let pending = local.pending;
 
     // Safe mode keeps its surface until an operator clears it; after that
     // the leftover safe-mode activation no longer matches and is replaced.
     if context.presentation.lock().await.is_safe_mode() {
-        state.trial = None;
+        state.suspend_trial();
         return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
     }
     let active_candidate =
@@ -296,19 +234,18 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
 
     'pending: {
         if let Some(stored) = pending.as_ref() {
-            if state.pending_error_version == Some(stored.digest) {
+            if state.pending_rejected(stored.digest) {
                 break 'pending;
             }
             let candidate = match Candidate::parse(stored.document.clone(), screen_id, stored.digest) {
                 Ok(candidate) => candidate,
                 Err(error) => {
-                    if state.invalid_pending != Some(stored.digest) {
+                    if state.note_invalid(stored.digest) {
                         tracing::warn!(
                             component = "activation",
                             event = "pending_invalid",
                             reason = error.reason_code()
                         );
-                        state.invalid_pending = Some(stored.digest);
                     }
                     break 'pending;
                 }
@@ -320,7 +257,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
             {
                 // A policy surface suspends a trial. Restart its deadline only
                 // after the candidate is actually allowed back on screen.
-                state.trial = None;
+                state.suspend_trial();
                 let (document, content) =
                     gate_document(gate, &config, active_candidate.as_ref().or(Some(&candidate)), presentation_now_ms);
                 show_policy(context, document, content, local_now_ms).await;
@@ -329,45 +266,41 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
             let trial = current.as_ref().is_some_and(|c| c.manifest == Some(stored.digest));
             if trial {
                 let current = current.as_ref()?;
-                let started_at = state.trial.get_or_insert((stored.digest, local_now_ms));
-                if started_at.0 != stored.digest {
-                    *started_at = (stored.digest, local_now_ms);
-                }
-                let deadline = started_at.1.saturating_add(TRIAL_TIMEOUT.as_millis() as i64);
                 let renderer_error = context.presentation.lock().await.current_has_renderer_error();
-                if renderer_error || (local_now_ms >= deadline && !(current.accepted && current.evidence)) {
-                    tracing::warn!(
-                        component = "activation",
-                        event = "pending_trial_failed",
-                        manifest = %stored.digest.short(),
-                        renderer_error
-                    );
-                    state.pending_error_version = Some(stored.digest);
-                    state.trial = None;
+                let evidence = player_core::TrialEvidence {
+                    manifest: current.manifest,
+                    accepted: current.accepted,
+                    meaningful: current.evidence,
+                    renderer_error,
+                };
+                let decision = state.trial_decision(stored.digest, local_now_ms, evidence);
+                if decision == player_core::TrialDecision::Failed {
+                    tracing::warn!(component = "activation", event = "pending_trial_failed", manifest = %stored.digest.short(), renderer_error);
                     break 'pending;
                 }
-                if current.accepted && current.evidence {
-                    if promote(context, &binding, stored, &candidate).await {
-                        state.trial = None;
+                if decision == player_core::TrialDecision::Promote {
+                    if state.promote(&binding, stored, &candidate, evidence).await {
+                        state.suspend_trial();
+                        context.manifest_wake.notify_one();
+                        context.display_wake.notify_one();
                         return Some(local_now_ms.saturating_add(50));
                     }
                     return Some(local_now_ms.saturating_add(MAX_SLEEP.as_millis() as i64));
                 }
+                let player_core::TrialDecision::AwaitEvidence { deadline_ms: deadline } = decision else { return None };
                 // The trial follows schedule boundaries like any presentation.
-                let next =
-                    show(context, &candidate, current, &config, presentation_now_ms, local_now_ms, offset_ms).await;
+                let next = show(context, state, &candidate, current, &config, local_now_ms, offset_ms).await;
                 return earliest(Some(next.unwrap_or(deadline).min(deadline)), hours_wake);
             }
             let resolved = match candidate.presentation_with(presentation_now_ms, &config) {
                 Ok(resolved) => resolved,
                 Err(error) => {
-                    if state.invalid_pending != Some(stored.digest) {
+                    if state.note_invalid(stored.digest) {
                         tracing::warn!(
                             component = "activation",
                             event = "pending_selection_failed",
                             reason = error.reason_code()
                         );
-                        state.invalid_pending = Some(stored.digest);
                     }
                     break 'pending;
                 }
@@ -408,7 +341,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
                 );
                 match result {
                     Ok(reference) => {
-                        state.trial = Some((stored.digest, local_now_ms));
+                        state.start_trial(stored.digest, local_now_ms);
                         tracing::info!(
                             component = "activation",
                             event = "activation_started",
@@ -485,7 +418,7 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
         let content_wake = resolved.ok().and_then(|r| r.next_transition_ms).map(|at| at.saturating_sub(offset_ms));
         return earliest(hours_wake, content_wake);
     }
-    let next = show(context, &candidate, &current, &config, presentation_now_ms, local_now_ms, offset_ms).await;
+    let next = show(context, state, &candidate, &current, &config, local_now_ms, offset_ms).await;
     earliest(next, hours_wake)
 }
 
@@ -493,13 +426,14 @@ async fn tick(context: &DaemonContext, state: &mut ActivationLoop, item_boundary
 /// when what should be on screen differs from what is.
 async fn show(
     context: &DaemonContext,
+    state: &player_core::OfflineActivationCoordinator,
     candidate: &Candidate,
     current: &Current,
     config: &PlayerConfig,
-    presentation_now_ms: i64,
     local_now_ms: i64,
     offset_ms: i64,
 ) -> Option<i64> {
+    let presentation_now_ms = local_now_ms.saturating_add(offset_ms);
     let resolved = match candidate.presentation_with(presentation_now_ms, config) {
         Ok(resolved) => resolved,
         Err(error) => {
@@ -519,7 +453,7 @@ async fn show(
         && current.identity.as_ref().map(|i| (i.playlist_id, i.layout_id, i.schedule_id, i.takeover_id))
             == Some((identity.playlist_id, identity.layout_id, identity.schedule_id, identity.takeover_id));
     if !matches {
-        if pin(context, PinReason::ActivePresentation, candidate).await.is_err() {
+        if state.pin(PinReason::ActivePresentation, candidate).await.is_err() {
             return resolved.next_transition_ms.map(|at| at.saturating_sub(offset_ms));
         }
         let extras = extras(&resolved, offset_ms);
@@ -536,86 +470,6 @@ async fn show(
         return next.map(|at| at.saturating_sub(offset_ms));
     }
     resolved.next_transition_ms.map(|at| at.saturating_sub(offset_ms))
-}
-
-async fn pin(context: &DaemonContext, reason: PinReason, candidate: &Candidate) -> anyhow::Result<()> {
-    let digests = manifest::verify_cached(context, candidate).await?;
-    let cas = context.cas.as_ref().ok_or_else(|| anyhow::anyhow!("CAS is unavailable"))?;
-    cas.replace_pins(reason, &manifest::pin_holder(&candidate.digest), digests).await?;
-    Ok(())
-}
-
-/// Releases presentation pins nobody needs any more. The active, pending and
-/// on-screen manifests keep theirs; everything else (a superseded
-/// preparation, the previous active presentation once replaced, a withdrawn
-/// trial) drains.
-async fn sweep_pins(
-    context: &DaemonContext,
-    active: &Option<StoredManifest>,
-    pending: &Option<StoredManifest>,
-    on_screen: Option<Sha256Digest>,
-) {
-    let Some(db) = context.db() else { return };
-    let keep: Vec<String> = active
-        .iter()
-        .chain(pending.iter())
-        .map(|stored| stored.digest)
-        .chain(on_screen)
-        .map(|digest| manifest::pin_holder(&digest))
-        .collect();
-    let result = db
-        .run(move |c| {
-            let mut released = 0;
-            for reason in [PinReason::ActivePresentation, PinReason::PendingPresentation] {
-                released += edge_state::repo::cas::retain_holders(c, reason, manifest::PIN_PREFIX, &keep)?;
-            }
-            Ok(released)
-        })
-        .await;
-    if let Ok(released) = result
-        && released > 0
-    {
-        tracing::info!(component = "activation", event = "pins_drained", released);
-    }
-}
-
-async fn promote(context: &DaemonContext, binding: &Binding, pending: &StoredManifest, candidate: &Candidate) -> bool {
-    let Some(db) = context.db() else { return false };
-    if pin(context, PinReason::ActivePresentation, candidate).await.is_err() {
-        return false;
-    }
-    let promote_binding = binding.clone();
-    let digest = candidate.digest;
-    let Ok(promoted) =
-        db.run(move |connection| manifests::promote_pending(connection, &promote_binding, &digest)).await
-    else {
-        return false;
-    };
-    if !promoted {
-        return false;
-    }
-    // The new presentation is committed only now, after renderer acceptance
-    // and meaningful evidence. Its pending pins, the previous presentation's
-    // pins and the one-time migration pins can drain.
-    let holder = manifest::pin_holder(&digest);
-    if let Some(cas) = context.cas.as_ref() {
-        let pending_cleared = cas.replace_pins(PinReason::PendingPresentation, &holder, Vec::new()).await;
-        let migration_cleared = cas.replace_pins(PinReason::Migration, "legacy-import", Vec::new()).await;
-        if pending_cleared.is_err() || migration_cleared.is_err() {
-            tracing::warn!(component = "activation", event = "old_pin_drain_incomplete", manifest = %digest.short());
-        }
-    }
-    let active = Some(pending.clone());
-    sweep_pins(context, &active, &None, Some(digest)).await;
-    tracing::info!(
-        component = "activation",
-        event = "activated",
-        manifest = %digest.short(),
-        manifest_version = pending.version
-    );
-    context.manifest_wake.notify_one();
-    context.display_wake.notify_one();
-    true
 }
 
 #[cfg(test)]

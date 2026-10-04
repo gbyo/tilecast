@@ -9,6 +9,7 @@ mod manifest_resources;
 mod manifest_worker;
 mod manifests;
 mod native_configuration;
+mod offline_activation;
 mod origin;
 mod pairing;
 mod preview;
@@ -50,6 +51,10 @@ pub use manifests::{ManifestCoordinator, ManifestPrepared, ManifestSyncError, ma
 pub use native_configuration::{
     ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,
     evaluate_active_hours,
+};
+pub use offline_activation::{
+    ACTIVATION_TRIAL_TIMEOUT_MS, ActivationGate, OfflineActivationCoordinator, OfflineManifestState, TrialDecision,
+    TrialEvidence, activation_gate, activation_grace_ms, overrides_activation_gate, should_activate_pending,
 };
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use pairing::{
