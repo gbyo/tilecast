@@ -217,12 +217,22 @@ type approvePairingRequest struct {
 	Name                      string     `json:"name"`
 	LocationID                *uuid.UUID `json:"locationId"`
 	RoomName                  string     `json:"roomName"`
-	RoomNumber                string                 `json:"roomNumber"`
-	MapPositionOverride       optionalMapCoordinates `json:"mapPositionOverride"`
-	Description               string                 `json:"description"`
+	RoomNumber                string     `json:"roomNumber"`
+	Description               string     `json:"description"`
 	ReplaceExistingCredential bool       `json:"replaceExistingCredential"`
 	ReplaceHardware           bool       `json:"replaceHardware"`
 	ReplacementScreenID       *uuid.UUID `json:"replacementScreenId"`
+}
+
+// updateScreenRequest carries the screen fields an update may change. The map
+// position is update-only: a pairing approval does not accept it.
+type updateScreenRequest struct {
+	Name                string                 `json:"name"`
+	LocationID          *uuid.UUID             `json:"locationId"`
+	RoomName            string                 `json:"roomName"`
+	RoomNumber          string                 `json:"roomNumber"`
+	MapPositionOverride optionalMapCoordinates `json:"mapPositionOverride"`
+	Description         string                 `json:"description"`
 }
 
 func (s *server) approvePairing(w http.ResponseWriter, r *http.Request) {
@@ -325,7 +335,7 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body approvePairingRequest
+	var body updateScreenRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
