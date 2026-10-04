@@ -86,12 +86,22 @@ import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetMap } from "../components/ScreenFleetMap";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenPositionPicker } from "../components/ScreenPositionPicker";
-import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
+import { ScreenActivityPanel, ScreenActivitySummary } from "../components/ScreenActivityPanel";
+import { LivePreviewPanel } from "../components/LivePreviewPanel";
+import { SnapshotHistoryPanel } from "../components/SnapshotHistoryPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Collapsible,
@@ -117,6 +127,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
 import {
   Empty,
   EmptyContent,
@@ -164,11 +188,9 @@ const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
 
 export type ScreensT = TFunction<"screens", undefined>;
 
-export type ScreenManageSection =
-  "settings" | "health" | "maintenance" | "device";
+export type ScreenManageSection = "health" | "maintenance" | "device";
 
 const screenManageSections: readonly ScreenManageSection[] = [
-  "settings",
   "health",
   "maintenance",
   "device",
@@ -178,21 +200,17 @@ export function normalizeScreenManageSection(
   requestedTab: string,
   requestedSection: string | null,
 ): ScreenManageSection {
-  if (requestedTab === "player-settings" || requestedTab === "settings")
-    return "settings";
   if (requestedTab === "reliability") return "health";
   if (requestedTab === "commands") return "maintenance";
   if (requestedTab === "device" && !requestedSection) return "device";
   return screenManageSections.includes(requestedSection as ScreenManageSection)
     ? (requestedSection as ScreenManageSection)
-    : "settings";
+    : "device";
 }
 
-export type ScreenDetailTab =
-  "overview" | "content" | "activity" | "device" | "settings";
+export type ScreenDetailTab = "overview" | "activity" | "settings";
 type ScreenTabDestination = {
   tab: ScreenDetailTab;
-  section?: ScreenManageSection;
 };
 type ScreenCommandAction =
   | {
@@ -222,9 +240,7 @@ type ScreenCommandAction =
 
 const screenDetailTabs: readonly ScreenDetailTab[] = [
   "overview",
-  "content",
   "activity",
-  "device",
   "settings",
 ];
 
@@ -233,17 +249,13 @@ const legacyManageTabs = ["player-settings", "reliability", "commands"];
 
 type ScreenDetailTabLabelKey =
   | "detail.tabOverview"
-  | "detail.tabContent"
   | "detail.tabActivity"
-  | "detail.tabDevice"
   | "detail.tabSettings";
 
 const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
   {
     overview: "detail.tabOverview",
-    content: "detail.tabContent",
     activity: "detail.tabActivity",
-    device: "detail.tabDevice",
     settings: "detail.tabSettings",
   };
 
@@ -253,13 +265,9 @@ const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
  * Must render inside the detail Tabs so the strip keeps its tab context.
  */
 export function ScreenDetailTabs({
-  tab,
   policyDirty,
-  onSelect,
 }: {
-  tab: ScreenDetailTab;
   policyDirty: boolean;
-  onSelect: (next: string) => void;
 }) {
   const { t } = useTranslation(["screens", "common"]);
   const options = screenDetailTabs.map((value) => ({
@@ -267,51 +275,24 @@ export function ScreenDetailTabs({
     label: t(screenDetailTabLabels[value]),
   }));
   return (
-    <>
-      <div className="hidden sm:contents">
-        <TabsList
-          aria-label={t("detail.tabsLabel")}
-          variant="line"
-          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
+    <TabsList
+      aria-label={t("detail.tabsLabel")}
+      variant="line"
+      className="grid min-h-10 w-full grid-cols-3 rounded-none border-b border-border p-0 sm:flex sm:justify-start sm:gap-4"
+    >
+      {options.map((option) => (
+        <TabsTrigger
+          key={option.value}
+          value={option.value}
+          className="min-w-0 px-2 sm:flex-none"
         >
-          {options.map((option) => (
-            <TabsTrigger
-              key={option.value}
-              value={option.value}
-              className="flex-none px-2"
-            >
-              {option.label}{" "}
-              {option.value === "settings" && policyDirty && (
-                <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </div>
-      <div className="flex items-center gap-2 sm:hidden">
-        <Select
-          items={options}
-          value={tab}
-          onValueChange={(next) => {
-            if (next) onSelect(next);
-          }}
-        >
-          <SelectTrigger aria-label={t("detail.tabsLabel")} className="flex-1">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {policyDirty && (
-          <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
-        )}
-      </div>
-    </>
+          <span className="truncate">{option.label}</span>
+          {option.value === "settings" && policyDirty && (
+            <Badge variant="secondary">{t("detail.unsavedBadge")}</Badge>
+          )}
+        </TabsTrigger>
+      ))}
+    </TabsList>
   );
 }
 
@@ -319,16 +300,17 @@ export function normalizeScreenDetailTab(
   requestedTab: string | null,
   requestedSection: string | null = null,
 ): ScreenDetailTab {
-  if (!requestedTab || requestedTab === "snapshots") return "overview";
-  if (requestedTab === "manage") {
-    return normalizeScreenManageSection(requestedTab, requestedSection) ===
-      "settings"
-      ? "settings"
-      : "device";
-  }
-  if (legacyManageTabs.includes(requestedTab)) {
-    return requestedTab === "player-settings" ? "settings" : "device";
-  }
+  if (!requestedTab || requestedTab === "snapshots" || requestedTab === "content")
+    return "overview";
+  if (requestedTab === "manage")
+    return requestedSection === "settings" ? "settings" : "overview";
+  if (requestedTab === "player-settings") return "settings";
+  if (
+    requestedTab === "device" ||
+    requestedTab === "reliability" ||
+    requestedTab === "commands"
+  )
+    return "overview";
   return screenDetailTabs.includes(requestedTab as ScreenDetailTab)
     ? (requestedTab as ScreenDetailTab)
     : "overview";
