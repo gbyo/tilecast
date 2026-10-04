@@ -44,6 +44,8 @@ decoded-image checks and keeps transport decoding in Edge. Core serializes
 captures and checks protected states. Periodic preview leases, uploads,
 capability policy, and fault suspension also run in Core.
 Watch Live lease, cadence, and frame coordination also run in Core. Edge owns
+wire command results; Core correlates pending commands and owns timeout,
+disconnect, and startup Website data-clear retry policy. Edge also owns
 media transport, its expiry clock, display-sleep policy, cursor configuration,
 and socket delivery. Activation coordination and recovery timers still need
 extraction. Stage 8 remains open until that work and selected qualification pass.

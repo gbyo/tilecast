@@ -22,6 +22,8 @@ renderer transport and decoding. Core owns capture serialization and periodic
 preview policy and Watch Live lease and frame coordination. Edge owns media
 transport, its expiry clock, display-sleep policy, and cursor configuration.
 Runtime presentation data stays opaque to Core. Edge keeps
+wire command-result conversion; Core owns result correlation and startup
+Website data-clear retry policy. Edge also keeps
 fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior

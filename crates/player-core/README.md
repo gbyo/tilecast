@@ -57,6 +57,11 @@ Core also owns Watch Live leases, capture cadence, frame replacement, and
 post-capture lease and protected-state checks. Edge owns socket delivery and
 checks protection again before sending a frame.
 
+Core correlates renderer command results with at most eight pending requests.
+Disconnects, timeouts, and canceled callers release their registrations.
+Startup Website data clearing waits for support, retries failures on readiness,
+and completes only once after success. Edge maps wire results and failure text.
+
 Edge now routes prepared activations through its RendererPort adapter.
 A temporary Edge projection bridge removes resource URLs before the port call.
 Resource encoding, IPC, and media grants stay in Edge.

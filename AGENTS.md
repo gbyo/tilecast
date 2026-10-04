@@ -104,6 +104,8 @@ tracking. Edge executes renderer actions through its port
 adapter. Core also owns capture serialization, periodic preview policy, and
 Watch Live lease and frame coordination. Runtime presentation data stays opaque
 to Core, with explicit resource, compatibility, and evidence metadata.
+Core correlates renderer command results and owns startup Website data-clear
+retry policy. Edge maps wire results and user-facing failure text.
 Activation coordination and server reconciliation remain in Edge
 until their extraction stages.
 

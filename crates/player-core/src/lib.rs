@@ -5,6 +5,7 @@ mod commands;
 mod live_stream;
 mod origin;
 mod preview;
+mod renderer_commands;
 mod renderer_document;
 mod renderer_port;
 mod renderer_profile;
@@ -29,6 +30,10 @@ pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
+};
+pub use renderer_commands::{
+    RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
+    WEBSITE_DATA_CLEAR_TIMEOUT,
 };
 pub use renderer_document::{
     ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,

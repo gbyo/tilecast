@@ -158,6 +158,10 @@ Core owns periodic preview leases, cadence, uploads, fault suspension, and
 capability policy. Edge supplies captures, time, and provider identity.
 Core also owns Watch Live leases, cadence, frame replacement, and checks after
 capture. Edge owns socket delivery and checks protection again before sending.
+Core correlates renderer command results with at most eight pending requests.
+Disconnects, timeouts, and cancellation release command registrations.
+Startup Website data clearing retries on readiness until one clear succeeds.
+Edge maps wire results and user-facing failure text.
 Edge owns resource encoding, media grants, and IPC queue operations.
 The Edge port owns its renderer endpoint and caches grants for that session.
 It prepares and activates grants and drains prior generations with its own clock.
