@@ -170,6 +170,15 @@ body {
   height: auto;
   margin-bottom: 8px;
 }
+#message .branded-fallback__logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(320px, 28vw);
+  max-height: min(180px, 20vh);
+  object-fit: contain;
+  margin: 0 auto 24px;
+}
 #message p {
   font-size: 28px;
   margin: 0;
