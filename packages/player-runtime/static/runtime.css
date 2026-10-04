@@ -316,13 +316,13 @@ body {
   top: 0;
   left: 0;
   width: 250px;
-  height: 76px;
+  height: 61px;
   animation: tilecast-outside-hours-x 12s linear infinite alternate;
 }
 #outside-hours-overlay .outside-hours-logo-y {
   display: block;
   width: 250px;
-  height: 76px;
+  height: 61px;
   object-fit: contain;
   animation: tilecast-outside-hours-y 8.5s linear infinite alternate;
 }
@@ -339,7 +339,7 @@ body {
     transform: translateY(0);
   }
   to {
-    transform: translateY(max(0px, calc(100vh - 76px)));
+    transform: translateY(max(0px, calc(100vh - 61px)));
   }
 }
 /* Setup: servers found on the local network, offered as one-tap choices. */
