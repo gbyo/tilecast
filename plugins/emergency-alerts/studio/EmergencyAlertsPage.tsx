@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   ApiError,
   PluginPage,
+  apiErrorMessage,
   useConfirm,
   useFormatLocale,
   useNavigationWarning,
@@ -1162,9 +1163,9 @@ const dateText = (value: string | undefined, locale: string, never: string) =>
   value ? new Date(value).toLocaleString(locale) : never;
 const errorText = (error: unknown) =>
   error instanceof ApiError
-    ? error.message
+    ? apiErrorMessage(error)
     : error instanceof Error
-      ? error.message
+      ? apiErrorMessage(error)
       : "";
 export const emergencyPlaylistLabel = (
   playlist: Pick<Playlist, "name" | "itemCount">,

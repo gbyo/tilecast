@@ -65,6 +65,7 @@ import { stateLabel, stateTone } from "./forms/formStatus";
 import type { FormsT } from "./forms/formSchema";
 import {
   Pagination,
+  apiErrorMessage,
   useConfirm,
   useDesktopLayout,
   useFormatLocale,
@@ -469,7 +470,7 @@ function ResponsesTab({
           <AlertTitle>{t("detail.loadResponsesError")}</AlertTitle>
           <AlertDescription>
             {records.error instanceof Error
-              ? records.error.message
+              ? apiErrorMessage(records.error)
               : t("detail.retry")}
           </AlertDescription>
         </Alert>

@@ -533,5 +533,5 @@ function errorMessage(
   t: (key: "page.conflict") => string,
 ) {
   if (!error) return undefined;
-  return isConflict(error) ? t("page.conflict") : error.message;
+  return isConflict(error) ? t("page.conflict") : apiErrorMessage(error);
 }

@@ -3565,7 +3565,7 @@ export function ScreenDetailPage() {
                   <CircleAlert aria-hidden="true" />
                   <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
                   <AlertDescription>
-                    {assignment.error.message}
+                    {apiErrorMessage(assignment.error)}
                   </AlertDescription>
                 </Alert>
               )}

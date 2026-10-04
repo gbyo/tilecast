@@ -24,6 +24,7 @@ import type {
 import { formsApi } from "../api";
 import {
   ApiError,
+  apiErrorMessage,
   useDesktopLayout,
   useNavigationWarning,
   usePluginTranslation,
@@ -145,7 +146,9 @@ export function FormBuilder({
     },
     onError: (error) =>
       setSaveError(
-        error instanceof Error ? error.message : t("builder.draftFallback"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("builder.draftFallback"),
       ),
   });
 
@@ -180,7 +183,9 @@ export function FormBuilder({
         setPublishError(t("builder.publishConflict"));
       } else {
         setPublishError(
-          error instanceof Error ? error.message : t("builder.publishFallback"),
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : t("builder.publishFallback"),
         );
       }
     },

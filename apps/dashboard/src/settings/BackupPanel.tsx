@@ -4,7 +4,7 @@ import { formatDateTime } from "../lib/dateTime";
 import { useTranslation } from "react-i18next";
 import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -113,7 +113,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          {t("backups.loadError")} {query.error.message}
+          {t("backups.loadError")} {apiErrorMessage(query.error)}
         </AlertDescription>
       </Alert>
     );
