@@ -687,6 +687,7 @@
     "title": "Activity",
     "subtitle": "Recent Player-confirmed playback and technical screen events.",
     "openFiltered": "Open filtered Activity",
+    "viewAll": "View activity",
     "loading": "Loading screen Activity",
     "loadErrorTitle": "Activity could not be loaded",
     "facts": {

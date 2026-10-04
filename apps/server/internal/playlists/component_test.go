@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 )
 
@@ -59,6 +60,84 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	component, _ = service.compileWidgetComponent("probe", json.RawMessage(`{"source":"../../etc"}`))
 	if len(component.Component.DataSources) != 0 || component.Component.Config["title"] != "Untitled" {
 		t.Fatalf("unexpected grant or default: %+v", component.Component)
+	}
+}
+
+func TestGenericMediaFieldsCompileComponentGrants(t *testing.T) {
+	definition := contentdefs.WidgetDefinition{
+		ID: "generic-media-probe", Version: 1, APIVersion: 1,
+		Name: "Generic Media Probe", Category: "Test", Runtime: "native",
+		PresentationSchemaVersion: 1,
+		RequiredCapabilities:      map[string]int{"content.text": 1},
+		EmptyStateBehavior:        "text",
+		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+			{Key: "logoAssetId", Label: "Logo", Control: "media_asset"},
+			{Key: "backgroundAssetId", Label: "Background", Control: "media_asset"},
+			{Key: "watermark", Label: "Watermark", Control: "media_asset"},
+			{Key: "slides", Label: "Slides", Control: "repeating_group", MaximumItems: 3, ItemFields: []contentdefs.FieldDefinition{
+				{Key: "posterAssetId", Label: "Poster", Control: "media_asset"},
+			}},
+		}},
+		DefaultConfiguration: map[string]any{},
+		Component: &contentdefs.ComponentSpec{
+			Type: "tilecast.generic-media-probe", Version: 1, TagName: "tc-widget-generic-media-probe",
+			Entrypoint: "./runtime/index.ts", Empty: "render",
+			ConfigTemplate: json.RawMessage(`{
+				"logoVariantId":{"$config":"logoVariantId","default":""},
+				"backgroundVariantId":{"$config":"backgroundVariantId","default":""},
+				"watermarkVariantId":{"$config":"watermarkVariantId","default":""},
+				"slides":{"$config":"slides","default":[]}
+			}`),
+		},
+		Compatibility: &contentdefs.Compatibility{Fallback: "none"},
+	}
+	catalog, err := contentdefs.New([]contentdefs.WidgetDefinition{definition}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assetIDs := []uuid.UUID{
+		uuid.MustParse("11111111-1111-4111-8111-111111111111"),
+		uuid.MustParse("22222222-2222-4222-8222-222222222222"),
+		uuid.MustParse("33333333-3333-4333-8333-333333333333"),
+		uuid.MustParse("44444444-4444-4444-8444-444444444444"),
+	}
+	variantIDs := []uuid.UUID{
+		uuid.MustParse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
+		uuid.MustParse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+		uuid.MustParse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+		uuid.MustParse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"),
+	}
+	configuration := map[string]any{
+		"logoAssetId":         assetIDs[0].String(),
+		"logoVariantId":       variantIDs[0].String(),
+		"backgroundAssetId":   assetIDs[1].String(),
+		"backgroundVariantId": variantIDs[1].String(),
+		"watermark":           assetIDs[2].String(),
+		"watermarkVariantId":  variantIDs[2].String(),
+		"slides": []any{
+			map[string]any{"posterAssetId": assetIDs[3].String(), "posterVariantId": variantIDs[3].String()},
+		},
+	}
+
+	raw, err := json.Marshal(configuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentation, err := (&Service{definitions: catalog}).compileWidgetComponent(definition.ID, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(presentation.Component.Media) != len(assetIDs) {
+		t.Fatalf("component media grants = %+v", presentation.Component.Media)
+	}
+	for index, grant := range presentation.Component.Media {
+		if grant.AssetID != assetIDs[index].String() || grant.VariantID != variantIDs[index].String() {
+			t.Fatalf("media grant %d = %+v", index, grant)
+		}
+	}
+	compiledSlides := presentation.Component.Config["slides"].([]any)
+	if compiledSlides[0].(map[string]any)["posterVariantId"] != variantIDs[3].String() {
+		t.Fatalf("component config lost nested media variant: %+v", compiledSlides)
 	}
 }
 

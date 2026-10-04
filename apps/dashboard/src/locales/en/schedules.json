@@ -38,7 +38,6 @@
     "descriptionLabel": "Description",
     "descriptionHint": "Optional internal note shown in Studio.",
     "save": "Save schedule",
-    "discardAction": "Discard",
     "deleteTitle": "Delete {{name}}?",
     "discardTitle": "Discard unsaved schedule changes?",
     "presentationLabel": "Presentation",

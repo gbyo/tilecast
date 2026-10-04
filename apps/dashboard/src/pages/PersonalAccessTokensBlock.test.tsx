@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PersonalAccessTokensBlock } from "./PersonalAccessTokensBlock";
 import { api } from "../api/client";
 import type { PersonalAccessToken } from "../api/types";
+import { toast } from "../components/ui/toast";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -63,6 +64,11 @@ describe("PersonalAccessTokensBlock", () => {
 
   it("shows the new secret once on a confirmation screen", async () => {
     const user = userEvent.setup();
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new Error("Clipboard denied"))
+      .mockResolvedValue(undefined);
+    const feedback = vi.spyOn(toast, "add");
     const create = vi
       .spyOn(api, "createPersonalAccessToken")
       .mockResolvedValue({
@@ -83,6 +89,24 @@ describe("PersonalAccessTokensBlock", () => {
     expect(
       await screen.findByDisplayValue("tcp_new-secret"),
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    await waitFor(() =>
+      expect(feedback).toHaveBeenCalledWith({
+        title: "New personal access token could not be copied.",
+        type: "error",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    expect(
+      await screen.findByRole("button", { name: "Copied" }),
+    ).toBeInTheDocument();
+    expect(writeText).toHaveBeenLastCalledWith("tcp_new-secret");
+    expect(feedback).toHaveBeenCalledWith({
+      title: "New personal access token copied.",
+      type: "success",
+    });
 
     await user.click(screen.getByRole("button", { name: "Done" }));
     expect(await screen.findByText("ci-deploy")).toBeInTheDocument();

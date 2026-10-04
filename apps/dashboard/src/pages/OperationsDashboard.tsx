@@ -11,6 +11,7 @@ import {
 } from "../api/domains/activity";
 import { useAuth } from "../auth/AuthProvider";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
+import { PageHeader } from "../components/PageHeader";
 import {
   deriveAttention,
   summarizeFleet,
@@ -145,14 +146,10 @@ export function OperationsDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-4">
-      <header className="grid gap-0.5">
-        <h1 className="text-xl leading-tight font-semibold tracking-tight sm:text-2xl">
-          {t("operations.title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("operations.subtitle")}
-        </p>
-      </header>
+      <PageHeader
+        title={t("operations.title")}
+        description={t("operations.subtitle")}
+      />
 
       {screens.isError && (
         <Alert variant="destructive">

@@ -9,6 +9,7 @@ import "../i18n";
 import {
   presentationLabel,
   ScreenActivityPanel,
+  ScreenActivitySummary,
   toScreenActivity,
 } from "./ScreenActivityPanel";
 
@@ -96,6 +97,26 @@ describe("ScreenActivityPanel", () => {
     expect(proofList).not.toHaveTextContent(
       "No proof of play has been reported.",
     );
+  });
+});
+
+describe("ScreenActivitySummary", () => {
+  it("shows compact recent activity and opens the full Activity workspace", async () => {
+    const onOpen = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ScreenActivitySummary screenId={proof.screenId} onOpen={onOpen} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Recent technical events")).toBeTruthy();
+    screen.getByRole("button", { name: "View activity" }).click();
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });
 

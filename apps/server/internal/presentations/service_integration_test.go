@@ -118,6 +118,20 @@ func TestQuickPresentPersistsGroupStateAndExpiresWithoutSnapshotRestore(t *testi
 	if err != nil || secondActive == nil || secondActive.ID != created.ID || secondActive.TargetType != "group" {
 		t.Fatalf("Span member did not resolve the group Quick Present override: active=%#v err=%v", secondActive, err)
 	}
+	for _, inspection := range []struct {
+		at         time.Time
+		wantActive bool
+	}{{created.StartedAt.Add(-time.Microsecond), false}, {created.StartedAt, true}, {*created.ExpiresAt, false}} {
+		got, lookupErr := service.ActiveForScreenAt(ctx, screenID, inspection.at)
+		if lookupErr != nil || (got != nil) != inspection.wantActive {
+			t.Fatalf("inspect at %s: override=%#v err=%v", inspection.at, got, lookupErr)
+		}
+	}
+	// Inspecting expiry must not reconcile the live override or notify Players.
+	active, err = service.ActiveForScreen(ctx, screenID)
+	if err != nil || active == nil || active.ID != created.ID {
+		t.Fatalf("future inspection changed live override: active=%#v err=%v", active, err)
+	}
 	if _, err = service.Create(ctx, CreateInput{TargetType: "screen", TargetID: screenID, ContentType: "playlist", ContentID: playlistID, Duration: 15 * time.Minute}); !errors.Is(err, ErrConflict) {
 		t.Fatalf("overlapping override error=%v, want ErrConflict", err)
 	}

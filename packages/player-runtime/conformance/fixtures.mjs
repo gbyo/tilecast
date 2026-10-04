@@ -368,17 +368,25 @@ export const fixtures = [
   },
   {
     name: "pairing",
-    description: "Pairing code while approval is pending.",
+    description: "Pairing code and approval QR while approval is pending.",
     steps: [
       {
         present: {
           presentation: {
             state: "pairing",
             code: "K7Q2XD",
-            approvalUrl: "https://signage.example.org/screens/pair",
+            approvalUrl:
+              "https://signage.example.org/screens/pair/K7Q2XD?installation=8c7d4a52-6a1e-4c1a-9f2b-2f6f0e6d7a10",
             organizationName: "Greenwood Schools",
           },
           activation: activation(1),
+        },
+      },
+      {
+        assertPairing: {
+          code: "K7Q 2XD",
+          approvalUrl:
+            "https://signage.example.org/screens/pair/K7Q2XD?installation=8c7d4a52-6a1e-4c1a-9f2b-2f6f0e6d7a10",
         },
       },
       { checkpoint: "pairing", visual: true },

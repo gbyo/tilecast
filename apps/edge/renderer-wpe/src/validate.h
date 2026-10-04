@@ -7,8 +7,12 @@
 #pragma once
 
 #include <glib.h>
+#include <json-glib/json-glib.h>
 
 G_BEGIN_DECLS
+
+/* Live Runtime namespaces: bounded tokens, positive uint32 versions. */
+gboolean tc_runtime_support_valid (JsonNode *node);
 
 /* Exactly 64 lowercase hexadecimal characters. */
 gboolean tc_is_sha256_hex (const char *value);

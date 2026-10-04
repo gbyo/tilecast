@@ -25,6 +25,7 @@ import { RemoteWebPort } from "./remote-web/port";
 import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
 import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
+import { runtimeSupport } from "./host/support";
 
 declare const __RUNTIME_VERSION__: string;
 const RUNTIME_VERSION =
@@ -188,6 +189,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         host.ready({
           contractVersion: RUNTIME_HOST_CONTRACT_VERSION,
           runtimeVersion: RUNTIME_VERSION,
+          support: runtimeSupport(widgets.capabilities(), remoteWeb !== null),
         }),
       ),
     ),

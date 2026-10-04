@@ -1,32 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-
-async function settle(page: Page) {
-  await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0);
-  await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-slot="toast"]')).toHaveCount(0);
-  await expect
-    .poll(() =>
-      page
-        .locator("img")
-        .evaluateAll((images) =>
-          images.every((image) => image.complete && image.naturalWidth > 0),
-        ),
-    )
-    .toBe(true);
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await Promise.all(
-      Array.from(document.images).map((image) => image.decode()),
-    );
-    await Promise.all(
-      Array.from(document.querySelectorAll("[data-tilecast-widget]")).map(
-        (widget) =>
-          (widget as HTMLElement & { updateComplete?: Promise<unknown> })
-            .updateComplete,
-      ),
-    );
-  });
-}
+import { settle } from "../support/settle";
 
 function volatileRegions(scope: Page | Locator) {
   // Server wall time and pairing expiry remain real. Mask only their labels,
@@ -35,6 +8,7 @@ function volatileRegions(scope: Page | Locator) {
     scope.getByRole("button", { name: /^Notifications,/ }),
     scope.locator("p").filter({ hasText: /last contact|Paired \d/ }),
     scope.getByText(/^Updated (?:just now|\d)/),
+    scope.locator("p").filter({ hasText: /^Requested: .* · Evaluated:/ }),
     scope.locator("p").filter({ hasText: /Last signed in/ }),
     scope
       .locator("dt")
@@ -54,6 +28,18 @@ function volatileRegions(scope: Page | Locator) {
       .getByRole("region", { name: "Pending pairing requests" })
       .locator('[data-slot="item-description"]'),
   ];
+}
+
+export async function snapshotRegion(
+  page: Page,
+  region: Locator,
+  name: string,
+) {
+  await settle(page);
+  await expect(region).toHaveScreenshot(`${name}.png`, {
+    mask: volatileRegions(region),
+    maskColor: "#808080",
+  });
 }
 
 export async function snapshot(

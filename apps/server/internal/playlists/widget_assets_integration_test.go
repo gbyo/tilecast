@@ -24,17 +24,6 @@ func insertReadyImageForMediaTest(t *testing.T, f *capabilityFixture) (assetID, 
 func samplerCatalog(t *testing.T) *contentdefs.Catalog {
 	t.Helper()
 	definition := syntheticMediaDefinition()
-	// The nested artwork fixture field has no AssetId suffix and never
-	// projects; drop it from the catalog schema so the projection test reads
-	// only the fields under test.
-	fields := make([]contentdefs.FieldDefinition, 0, len(definition.ConfigurationSchema.Fields))
-	for _, field := range definition.ConfigurationSchema.Fields {
-		if field.Key == "artwork" {
-			continue
-		}
-		fields = append(fields, field)
-	}
-	definition.ConfigurationSchema.Fields = fields
 	definition.DefaultConfiguration = map[string]any{}
 	definition.PresentationSchemaVersion = 1
 	definition.RequiredCapabilities = map[string]int{"layout.surface": 1, "content.asset_image": 2}
@@ -50,12 +39,14 @@ func TestProjectWidgetAssetsProjectsCustomMediaFields(t *testing.T) {
 	f := setupCapabilityFixture(t)
 	logoAsset, logoVariant := insertReadyImageForMediaTest(t, f)
 	backgroundAsset, backgroundVariant := insertReadyImageForMediaTest(t, f)
+	artworkAsset, artworkVariant := insertReadyImageForMediaTest(t, f)
 	slideAsset, slideVariant := insertReadyImageForMediaTest(t, f)
 	f.service.SetContentDefinitions(samplerCatalog(t))
 
 	configuration, _ := json.Marshal(map[string]any{
 		"logoAssetId":       logoAsset.String(),
 		"backgroundAssetId": backgroundAsset.String(),
+		"artwork":           artworkAsset.String(),
 		"slides":            []any{map[string]any{"slideAssetId": slideAsset.String()}},
 	})
 	widget := ManifestWidget{Provider: "media-sampler", Configuration: configuration}
@@ -73,6 +64,9 @@ func TestProjectWidgetAssetsProjectsCustomMediaFields(t *testing.T) {
 	if projected["backgroundVariantId"] != backgroundVariant.String() {
 		t.Fatalf("backgroundVariantId = %v, want %s", projected["backgroundVariantId"], backgroundVariant)
 	}
+	if projected["artworkVariantId"] != artworkVariant.String() {
+		t.Fatalf("artworkVariantId = %v, want %s", projected["artworkVariantId"], artworkVariant)
+	}
 	items, _ := projected["slides"].([]any)
 	if len(items) != 1 {
 		t.Fatalf("slides projected to %v", projected["slides"])
@@ -81,7 +75,7 @@ func TestProjectWidgetAssetsProjectsCustomMediaFields(t *testing.T) {
 	if slide["slideVariantId"] != slideVariant.String() {
 		t.Fatalf("slideVariantId = %v, want %s", slide["slideVariantId"], slideVariant)
 	}
-	if len(manifest.Assets) != 3 {
+	if len(manifest.Assets) != 4 {
 		t.Fatalf("manifest carries %d assets, want one variant per field", len(manifest.Assets))
 	}
 }
