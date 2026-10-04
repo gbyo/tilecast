@@ -61,7 +61,7 @@ export function MapLibreSurface({
 
     let disposed = false;
     let lastError: string | null = null;
-    let styleReady = false;
+    let idle = false;
     let map: MapLibreMap;
 
     setPhase("loading");
@@ -93,7 +93,6 @@ export function MapLibreSurface({
 
     const handleStyleLoad = () => {
       if (disposed) return;
-      styleReady = true;
       try {
         onStyleReadyRef.current?.(map);
         map.resize();
@@ -105,6 +104,7 @@ export function MapLibreSurface({
 
     const handleIdle = () => {
       if (disposed) return;
+      idle = true;
       setPhase("ready");
       setErrorDetail(null);
     };
@@ -114,17 +114,12 @@ export function MapLibreSurface({
     map.on("idle", handleIdle);
 
     const timeout = window.setTimeout(() => {
-      if (disposed || phase === "ready") return;
-      // If the style parsed but the map never becomes idle, the usual causes
-      // are a worker, tile, glyph, sprite, or GPU failure. Surface the last
-      // concrete MapLibre error instead of leaving a permanent grey canvas.
+      if (disposed || idle) return;
+      // If the map never becomes idle, the usual causes are a worker, tile,
+      // glyph, sprite, or GPU failure. Surface the last concrete MapLibre
+      // error instead of leaving a permanent grey canvas.
       setPhase("error");
-      setErrorDetail(
-        lastError ??
-          (styleReady
-            ? "The map did not finish loading its resources."
-            : "The map style did not finish loading."),
-      );
+      setErrorDetail(lastError);
     }, STARTUP_TIMEOUT_MS);
 
     return () => {
