@@ -47,7 +47,8 @@
       "grantingTo": "Concediendo acceso a",
       "searching": "Buscando…",
       "noMatch": "Sin usuarios coincidentes",
-      "noMatchHint": "Prueba con otra búsqueda."
+      "noMatchHint": "Prueba con otra búsqueda.",
+      "searchError": "Falló la búsqueda de usuarios"
     },
     "includedByBroader": "Incluido por una capacidad más amplia.",
     "saveAccess": "Guardar acceso"
@@ -82,9 +83,7 @@
     "publish": "Publicar",
     "leave": {
       "title": "¿Salir sin guardar?",
-      "body": "Tienes cambios sin guardar en este formulario. Si sales ahora, se perderán.",
-      "stay": "Quedarse en la página",
-      "leave": "Salir sin guardar"
+      "body": "Tienes cambios sin guardar en este formulario. Si sales ahora, se perderán."
     },
     "draftError": "Borrador no guardado",
     "draftFallback": "No se pudo guardar el borrador.",
@@ -280,13 +279,13 @@
       "attachmentRemovedBy": "Archivo adjunto eliminado por {{name}}",
       "unknown": "{{type}}{{actor}}",
       "byActor": " por {{name}}"
-    }
+    },
+    "leaveTitle": "¿Salir sin guardar?",
+    "leaveBody": "Esta revisión tiene cambios sin guardar."
   },
   "editor": {
     "leaveTitle": "¿Salir sin guardar?",
     "leaveBody": "Tienes cambios sin guardar en este envío. Si sales ahora, se perderán.",
-    "stay": "Quedarse en la página",
-    "leave": "Salir sin guardar",
     "changesRequested": "Cambios solicitados",
     "anonymousReviewer": "Revisor",
     "saveFailed": "No se pudo guardar",
@@ -313,8 +312,6 @@
     "duplicate": "Duplicar",
     "leaveTitle": "¿Salir sin guardar?",
     "leaveBody": "Esta vista tiene cambios sin guardar.",
-    "stay": "Quedarse",
-    "leave": "Salir",
     "notSaved": "Vista no guardada",
     "saveFallback": "No se pudo guardar la vista.",
     "previewFallback": "No se pudo obtener la vista previa.",
@@ -371,8 +368,6 @@
     },
     "leaveTitle": "¿Salir sin guardar?",
     "leaveBody": "El flujo de trabajo tiene cambios sin guardar.",
-    "stay": "Quedarse",
-    "leave": "Salir",
     "notSaved": "Flujo de trabajo no guardado",
     "saveFallback": "No se pudo guardar el flujo de trabajo.",
     "fixBefore": "Corrige esto antes de guardar",

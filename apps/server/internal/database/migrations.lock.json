@@ -664,5 +664,11 @@
     "file": "00112_preserve_playback_on_reconnect.sql",
     "owner": "core",
     "sha256": "4ba5e7b1eb6691c6feb7a686d30ea7f6cbd7327b101983cc40aae413b8638ecb"
+  },
+  {
+    "version": 113,
+    "file": "00113_screen_map_positions.sql",
+    "owner": "core",
+    "sha256": "d4ec9b5b30558acee97f71b86420c82f3f4a28d14201a74d323072105909c9e5"
   }
 ]

@@ -74,7 +74,7 @@ function renderGalleryWithPluginSource(
   });
   const editor: ReactNode = (
     <QueryClientProvider client={client}>
-      <DataSourceProviderGallery onChoose={onChoose} onClose={vi.fn()} page />
+      <DataSourceProviderGallery onChoose={onChoose} onClose={vi.fn()} />
     </QueryClientProvider>
   );
   return { editor, onChoose };

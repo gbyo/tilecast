@@ -20,6 +20,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { PlaylistItem } from "../api/types";
 import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { useAuth } from "../auth/AuthProvider";
@@ -344,7 +345,7 @@ export function PlaylistPreviewPage() {
         <strong>{t("preview.unavailableTitle")}</strong>
         <span className="text-[#aab8c5]">
           {query.error instanceof Error
-            ? query.error.message
+            ? apiErrorMessage(query.error)
             : t("preview.loadError")}
         </span>
       </main>
