@@ -99,6 +99,13 @@ Use `apps/dashboard/src/data/settings.ts` for the organization settings document
 
 Keep drafts, permission checks, and presentation-page conditions in the UI. The query factories pass cancellation to the typed transport. HTTP-boundary tests verify cancellation and cache separation; the Settings save test verifies that another mounted consumer sees the saved values without an extra request. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
 
+## Schedule query contracts
+
+Schedule pages, editor defaults, detail breadcrumbs, and proposed previews use the factories in `apps/dashboard/src/data/schedules.ts`. Keep complete lists separate from infinite-page results: they have different cache shapes. A preview key includes the Screen, requested instant, and proposal, so one preview cannot reuse another instant's result.
+
+The query tests use MSW at the HTTP boundary and check multi-page loading, shared prefetched details, preview separation, and invalidation. Keep schedule selection on the Server; query factories only fetch and cache the result. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries) for ownership.
+
+
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.

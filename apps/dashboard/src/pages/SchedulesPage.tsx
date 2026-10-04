@@ -1,3 +1,4 @@
+import { scheduleQueries } from "../data/schedules";
 import {
   useInfiniteQuery,
   useMutation,
@@ -1063,12 +1064,7 @@ export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const formatLocale = useFormatLocale();
-  const q = useInfiniteQuery({
-    queryKey: ["schedules"],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.schedulePage("", pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const q = useInfiniteQuery(scheduleQueries.pages());
   const schedules = q.data?.pages.flatMap((page) => page.items) ?? [];
   const enabledCount = schedules.filter((schedule) => schedule.enabled).length;
   const totalSchedules = q.data?.pages[0]?.total ?? 0;
