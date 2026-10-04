@@ -18,7 +18,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
-const dashboardContentSecurityPolicy = "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com https://tiles.openfreemap.org; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+const dashboardContentSecurityPolicy = "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com/beacon.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://images.unsplash.com; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 func (s *server) securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
