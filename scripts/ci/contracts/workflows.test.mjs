@@ -155,6 +155,38 @@ test("Dashboard validation runs independently and keeps coverage across shards",
   );
 });
 
+test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
+  // Dashboard CI measures each Vitest shard; Server CI is one job.
+  for (const [file, jobName, reportArg] of [
+    ["ci-dashboard.yml", "tests", "--junit"],
+    ["ci-server.yml", "validate", "--go-json"],
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+    const job = workflow.jobs[jobName];
+    assert.equal(
+      (job.permissions ?? workflow.permissions).actions,
+      "read",
+      file,
+    );
+    const summary = job.steps.find((step) =>
+      /timing-summary\.mjs/.test(step.run ?? ""),
+    );
+    assert.ok(summary, `${file}: missing timing summary`);
+    assert.equal(summary.if, "always()", file);
+    assert.match(summary.run, new RegExp(`${reportArg} `), file);
+  }
+
+  for (const file of [
+    "pr-validation.yml",
+    "ci-heavy.yml",
+    "server-release.yml",
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+  }
+});
+
 test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));

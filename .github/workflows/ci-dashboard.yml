@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 permissions:
+  actions: read
   contents: read
   checks: write
   issues: write
@@ -13,6 +14,12 @@ jobs:
   lint:
     name: Dashboard format and lint
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     steps:
       # Full history lets React Doctor find the merge base and report only the
       # findings a pull request adds.
@@ -101,6 +108,12 @@ jobs:
             apps/dashboard/vitest-reports/blob-${{ matrix.shard }}.json
             apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
           if-no-files-found: ignore
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Dashboard tests (shard ${{ matrix.shard }}/2)
+        run: node scripts/ci/timing-summary.mjs --junit apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
 
   coverage:
     name: Merge Dashboard coverage
