@@ -279,7 +279,10 @@
     "mapUnmapped": "Экраны без позиции на карте: {{count}}",
     "mapAriaLabel": "Карта экранов",
     "mapInherited": "Из местоположения",
-    "mapOpenScreen": "Открыть экран"
+    "mapOpenScreen": "Открыть экран",
+    "mapNativeTitle": "Системная карта",
+    "mapNativeBody": "Tilecast показывает эти экраны на системной карте.",
+    "mapOpenNative": "Открыть карту"
   },
   "grid": {
     "openScreen": "Открыть {{name}}",
