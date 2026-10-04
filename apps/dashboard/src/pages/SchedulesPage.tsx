@@ -109,7 +109,7 @@ export function GroupsPage() {
   const auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
-  const { t } = useTranslation("screens");
+  const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const q = useInfiniteQuery({
@@ -124,7 +124,7 @@ export function GroupsPage() {
     mutationFn: (value: { name: string; description: string }) =>
       api.createScreenGroup(value, csrf),
     onSuccess: () => {
-      toast.add({ title: "Display Group created.", type: "success" });
+      toast.add({ title: t("groups.created"), type: "success" });
       setCreateOpen(false);
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
@@ -147,7 +147,18 @@ export function GroupsPage() {
       />
       {q.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{t("groups.loadError")}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("groups.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={q.isFetching}
+              onClick={() => void q.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
       {q.isLoading && (

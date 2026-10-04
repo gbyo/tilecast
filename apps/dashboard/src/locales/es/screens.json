@@ -3,6 +3,7 @@
     "title": "Grupos de pantallas",
     "subtitle": "Mantén un conjunto de pantallas con el mismo contenido, programación y posición de reproducción. Los grupos espejados conservan la reproducción sincronizada.",
     "create": "Crear grupo de pantallas",
+    "created": "Grupo de pantallas creado.",
     "loading": "Cargando grupos de pantallas",
     "loadMore": "Cargar más grupos de pantallas",
     "loadError": "No se pudieron cargar los grupos de pantallas. Intenta actualizar la página.",

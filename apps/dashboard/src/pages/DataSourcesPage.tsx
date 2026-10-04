@@ -230,10 +230,21 @@ export function DataSourcesPage() {
       </FilterBar>
       {dataSources.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {dataSources.error instanceof ApiError
-              ? apiErrorMessage(dataSources.error)
-              : t("dataSources.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {dataSources.error instanceof ApiError
+                ? apiErrorMessage(dataSources.error)
+                : t("dataSources.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={dataSources.isFetching}
+              onClick={() => void dataSources.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}

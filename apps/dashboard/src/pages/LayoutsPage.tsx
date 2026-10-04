@@ -707,10 +707,21 @@ export function LayoutsPage() {
 
       {layouts.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {layouts.error instanceof Error
-              ? apiErrorMessage(layouts.error)
-              : t("library.loadFailed")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {layouts.error instanceof Error
+                ? apiErrorMessage(layouts.error)
+                : t("library.loadFailed")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={layouts.isFetching}
+              onClick={() => void layouts.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -725,7 +736,7 @@ export function LayoutsPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : allLayouts.length === 0 ? (
+      ) : layouts.isError && !layouts.data ? null : allLayouts.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
