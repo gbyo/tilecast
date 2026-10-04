@@ -13,6 +13,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScreenDetailWithPreviewPage } from "./ScreenDetailWithPreviewPage";
 import { api } from "../api/client";
+import { ApiError } from "../api/errors";
+import { chooseOption } from "../plugin-host/testing";
 
 const authStatus = {
   authenticated: true,
@@ -281,5 +283,36 @@ describe("screen detail navigation", () => {
     } finally {
       authStatus.user = { id: "user-1", name: "Owner", role: "owner" };
     }
+  });
+
+  it("distinguishes an unsaved assignment from a failed apply", async () => {
+    vi.mocked(api.playlists).mockResolvedValue({
+      items: [{ id: "playlist-1", name: "Morning announcements" }],
+    } as never);
+    vi.spyOn(api, "assignPlaylist").mockRejectedValue(
+      new ApiError(
+        'Playlist "Morning announcements" is empty',
+        422,
+        "presentation_not_ready",
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderDetail("/screens/screen-1");
+
+    await screen.findByRole("combobox", { name: "Assigned presentation" });
+    await chooseOption("Assigned presentation", "Morning announcements");
+    expect(
+      screen.getByText(
+        "This selection is not saved yet. Apply the assignment to send it to the screen.",
+      ),
+    ).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Apply assignment" }));
+
+    expect(await screen.findByText("Assignment was not changed")).toBeTruthy();
+    expect(
+      screen.getByText('Playlist "Morning announcements" is empty'),
+    ).toBeTruthy();
   });
 });

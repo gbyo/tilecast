@@ -613,6 +613,8 @@
     "playlistsGroup": "Playlists",
     "layoutsGroup": "Published layouts",
     "applyAssignment": "Apply assignment",
+    "assignmentPendingHint": "This selection is not saved yet. Apply the assignment to send it to the screen.",
+    "assignmentSaveError": "Assignment was not changed",
     "directFallback": "Direct fallback",
     "noFallbackAssigned": "No fallback assigned",
     "currentSelection": "Current selection",
