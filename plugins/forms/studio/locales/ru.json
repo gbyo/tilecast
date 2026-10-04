@@ -280,7 +280,9 @@
       "attachmentRemovedBy": "Вложение удалено пользователем {{name}}",
       "unknown": "{{type}}{{actor}}",
       "byActor": " ({{name}})"
-    }
+    },
+    "leaveTitle": "Уйти без сохранения?",
+    "leaveBody": "В рассматриваемой записи есть несохранённые изменения."
   },
   "editor": {
     "leaveTitle": "Уйти без сохранения?",
