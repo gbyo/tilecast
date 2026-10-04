@@ -131,7 +131,7 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-The server socket loop, manifest preparation, offline activation,
+The server socket loop, preparation-worker supervision, offline activation,
 configuration ownership projections, and telemetry policy remain to be extracted.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Edge still drives the
@@ -145,7 +145,10 @@ The separate Core, Runtime, and platform projections remain to be completed.
 Core now owns conditional manifest fetches, stable manifest identity,
 binding-scoped target persistence, and native resource-claim validation.
 Runtime-owned fields in the manifest stay opaque. Edge still owns renderer
-projection and compatibility checks and drives preparation and activation.
+projection and compatibility checks and drives preparation-worker supervision
+and activation. Core owns verified content preparation, repair, pin identities,
+and target-bound pending storage. Core tests use SQLite and CAS to check repair
+and replacement during a fetch.
 Core tests cover identity order, saved claims, storage failure, session
 retirement, polling outcomes, reset suppression, and the enrollment retry budget.
 The four existing Edge pairing integration tests pass after orchestration moves.

@@ -22,19 +22,14 @@
 //!    renders them with the reference `renderWidget`/`renderLayout`, so no
 //!    render-tree logic is duplicated here.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::collections::BTreeMap;
 
-use edge_cas::{BlobSource, CasError, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta};
 use edge_protocol::bounded::{SafeText, ShortToken};
 use edge_protocol::ipc::event::{MediaAlias, ProjectionContext};
 use edge_protocol::ipc::presentation::{
     ContentRef, ItemKind, PresentationDocument, PresentationFeature, PresentationItem, StatusSurface, content_uri,
 };
 use edge_protocol::{ScreenId, Sha256Digest};
-use edge_server::AuthenticatedServer;
-use edge_server::origin::OriginBlobSource;
-use edge_state::repo::cas::{Domain, SourceKind};
 use serde_json::Value;
 
 use crate::daemon::DaemonContext;
@@ -1022,26 +1017,11 @@ pub async fn verify_cached(
     context: &DaemonContext,
     candidate: &Candidate,
 ) -> Result<Vec<Sha256Digest>, PreparationError> {
-    let store = context.cas.clone().ok_or(PreparationError::StoreUnavailable)?;
-    let mut digests = BTreeSet::new();
-    for asset in &candidate.required_downloads {
-        let Some((_, record)) = store.open_verified(&asset.digest).await? else {
-            return Err(PreparationError::Missing);
-        };
-        if record.size_bytes != asset.size_bytes {
-            return Err(PreparationError::SizeMismatch);
-        }
-        digests.insert(asset.digest);
-    }
-    Ok(digests.into_iter().collect())
+    let store = context.cas.as_ref().ok_or(PreparationError::StoreUnavailable)?;
+    candidate.verify_content(store).await
 }
 
-/// CAS pin holder for one prepared manifest.
-pub fn pin_holder(manifest: &Sha256Digest) -> String {
-    format!("{PIN_PREFIX}{}", manifest.to_hex())
-}
-
-pub const PIN_PREFIX: &str = "manifest-";
+pub use player_core::{MANIFEST_PIN_PREFIX as PIN_PREFIX, manifest_pin_holder as pin_holder};
 
 /// The manifest's identity: SHA-256 of its encoding without the two
 /// per-request clock members, so an unchanged manifest keeps its identity and
@@ -1060,120 +1040,17 @@ pub fn activation_grace_ms(document: &Value) -> i64 {
     (seconds * 1_000) as i64
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PreparationError {
-    #[error("the content store is unavailable")]
-    StoreUnavailable,
-    #[error("a manifest download path is invalid")]
-    InvalidDownloadPath,
-    #[error("the content store failed: {0}")]
-    Store(#[from] CasError),
-    #[error("a required object could not be fetched: {0}")]
-    Fetch(#[from] FetchError),
-    #[error("a cached object has the wrong size")]
-    SizeMismatch,
-    #[error("a required object is not in the content store")]
-    Missing,
-}
+pub use player_core::{
+    ManifestOriginSources as OriginSources, ManifestPreparationError as PreparationError,
+    ManifestSourcePlan as SourcePlan,
+};
 
-impl PreparationError {
-    pub fn reason_code(&self) -> &'static str {
-        match self {
-            Self::StoreUnavailable => "content_store_unavailable",
-            Self::InvalidDownloadPath => "download_path_invalid",
-            Self::Store(_) => "content_store_failed",
-            Self::Fetch(_) => "media_fetch_failed",
-            Self::SizeMismatch => "media_size_mismatch",
-            Self::Missing => "media_missing",
-        }
-    }
-}
-
-/// Where preparation obtains verified bytes. Production uses the
-/// authenticated origin (docs/tilecast-edge.md §9.2); tests substitute
-/// failing or corrupt sources. Every source feeds the same `Fetcher`, and the
-/// content store verifies every byte.
-pub trait SourcePlan: Send + Sync {
-    fn sources(
-        &self,
-        digest: Sha256Digest,
-        size: u64,
-        origin_path: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<Arc<dyn BlobSource>>, PreparationError>> + Send;
-    fn observer(&self, digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>>;
-}
-
-/// The authenticated Tilecast Server origin.
-#[derive(Debug)]
-pub struct OriginSources<'a> {
-    pub server: &'a AuthenticatedServer,
-}
-
-impl SourcePlan for OriginSources<'_> {
-    async fn sources(
-        &self,
-        _digest: Sha256Digest,
-        _size: u64,
-        origin_path: &str,
-    ) -> Result<Vec<Arc<dyn BlobSource>>, PreparationError> {
-        let origin = OriginBlobSource::new(self.server.clone(), origin_path)
-            .map_err(|_| PreparationError::InvalidDownloadPath)?;
-        Ok(vec![Arc::new(origin) as Arc<dyn BlobSource>])
-    }
-
-    fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
-        None
-    }
-}
-
-/// Fetches one object into the CAS through the verified `Fetcher`.
-pub async fn fetch_object<P: SourcePlan>(
-    store: &edge_cas::ContentStore,
-    plan: &P,
-    digest: Sha256Digest,
-    size_bytes: u64,
-    origin_path: &str,
-    meta: IngestMeta,
-) -> Result<(), PreparationError> {
-    if let Some((_, record)) = store.open_verified(&digest).await? {
-        if record.size_bytes != size_bytes {
-            return Err(PreparationError::SizeMismatch);
-        }
-        return Ok(());
-    }
-    let request = FetchRequest { digest, size_bytes, meta };
-    let sources = plan.sources(digest, size_bytes, origin_path).await?;
-    let observer = plan.observer(digest);
-    let record = Fetcher::new(store.clone(), 2).fetch(&request, &sources, observer.as_deref()).await?;
-    if record.size_bytes != size_bytes {
-        return Err(PreparationError::SizeMismatch);
-    }
-    Ok(())
-}
-
-/// Fetches every variant the candidate needs. The caller persists and pins a
-/// candidate only after this succeeds.
 pub async fn prepare<P: SourcePlan>(
     store: &edge_cas::ContentStore,
     plan: &P,
     candidate: &Candidate,
 ) -> Result<Vec<Sha256Digest>, PreparationError> {
-    let mut digests = BTreeSet::new();
-    for asset in &candidate.required_downloads {
-        let meta = IngestMeta {
-            domain: Domain::Media,
-            content_type: Some(asset.mime_type.clone()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await?;
-        digests.insert(asset.digest);
-    }
-    for digest in &digests {
-        if store.verified_path(digest).await?.is_none() {
-            return Err(PreparationError::Missing);
-        }
-    }
-    Ok(digests.into_iter().collect())
+    candidate.prepare_content(store, plan).await
 }
 
 #[cfg(test)]

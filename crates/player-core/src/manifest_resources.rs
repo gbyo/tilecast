@@ -159,6 +159,20 @@ fn check_layout(
 }
 
 impl NativeManifest {
+    pub async fn verify_content(
+        &self,
+        store: &player_cas::ContentStore,
+    ) -> Result<Vec<Sha256Digest>, crate::ManifestPreparationError> {
+        crate::manifest_content::verify_content(store, self).await
+    }
+
+    pub async fn prepare_content<P: crate::ManifestSourcePlan>(
+        &self,
+        store: &player_cas::ContentStore,
+        plan: &P,
+    ) -> Result<Vec<Sha256Digest>, crate::ManifestPreparationError> {
+        crate::manifest_content::prepare_content(store, plan, self).await
+    }
     /// Re-validates a stored document (offline start, activation).
     pub fn parse(
         document: Value,

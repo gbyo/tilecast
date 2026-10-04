@@ -113,9 +113,10 @@ retry, and persisted clock-sampling policy. Edge supplies private stores,
 device metadata, and status surfaces. The server socket and reconciliation
 loop remain in Edge until their extraction is complete.
 Core owns configuration acceptance, manifest target reconciliation, and native
-manifest resource-claim validation. Runtime presentation fields stay opaque.
+manifest resource-claim validation and verified preparation, repair, and pinning.
+Runtime presentation fields stay opaque.
 Edge retains renderer projection, configuration projection, and manifest
-preparation and activation coordination until their extraction is complete.
+preparation-worker supervision and activation coordination until their extraction is complete.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.
