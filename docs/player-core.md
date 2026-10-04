@@ -126,12 +126,12 @@ storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
 
-Stage 9 is incomplete. Core now owns pairing eligibility, persistent Player
+Stage 9 passed all selected qualification at `f19a6b88`. Core owns pairing eligibility, persistent Player
 identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-Final offline driver qualification remains pending.
+The shared macOS and Linux gates and all selected Edge jobs passed.
 Core now owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence
 requirements for promotion, and verified pin lifetime. Core tests check that
@@ -310,9 +310,13 @@ An unavailable measurement is omitted. Never report it as zero.
 Core tests check offline sample storage, wire fields, queue bounds, and restart
 persistence. Telemetry does not displace proof-of-play events.
 
-Shared display command validation, result vocabulary, and scheduled action
-semantics may use a narrow display provider. CEC and DDC/CI stay in Edge.
-Presentation Network assignment and revision policy may be shared where needed.
+Core validates Display Control payloads and applies committed scheduled actions
+through a narrow provider. It owns retry settlement and power-readback result
+semantics. Edge converts input identifiers to CEC physical addresses and keeps
+probe timers, device access, and hardware readback. Unsupported results settle
+until capabilities change; uncertain results retry.
+Core validates non-secret Presentation Network assignments, identifies obsolete
+profiles, and checks installed revisions and credential availability.
 NetworkManager, Wi-Fi mechanics, helper sockets, and recovery stay in Edge.
 Discovery supplies a candidate URL to the shared URL policy and pairing path.
 Core needs no discovery abstraction until a real consumer requires it.

@@ -47,6 +47,11 @@ Core owns offline manifest state, native activation gates, trial deadlines,
 evidence requirements for promotion, and verified pin lifetime. Core drives the
 offline activation loop. Edge supplies Runtime projection, opaque comparison
 keys, and status surfaces.
+Core owns Display Control payload validation, scheduled policy retry, and
+power-readback result semantics. Edge keeps CEC/DDC, input address conversion,
+probes, and readback. Core owns non-secret Presentation Network assignment
+validation and revision decisions. Edge keeps provisioning credentials, helper
+calls, NetworkManager, and radio recovery.
 
 ## Fixed decisions
 

@@ -3,12 +3,14 @@ mod activity;
 mod capture;
 mod commands;
 mod configuration;
+mod display;
 mod live_stream;
 mod manifest_content;
 mod manifest_resources;
 mod manifest_worker;
 mod manifests;
 mod native_configuration;
+mod network_assignment;
 mod offline_activation;
 mod offline_driver;
 mod origin;
@@ -39,6 +41,12 @@ pub use commands::{
     drive_commands,
 };
 pub use configuration::{ConfigurationCoordinator, ConfigurationHost, ConfigurationOutcome};
+pub use display::{
+    Action as DisplayAction, COMMANDS as DISPLAY_COMMANDS, DisplayControlProvider, DisplayPolicyCoordinator,
+    Invalid as InvalidDisplayAction, PolicyPass as DisplayPolicyPass, PolicyRequest as DisplayPolicyRequest,
+    PowerOutcome as DisplayPowerOutcome, PowerReport as DisplayPowerReport, parse as parse_display_action,
+    parse_policy as parse_display_policy, power_outcome as display_power_outcome,
+};
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
@@ -52,6 +60,10 @@ pub use manifests::{ManifestCoordinator, ManifestPrepared, ManifestSyncError, ma
 pub use native_configuration::{
     ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,
     evaluate_active_hours,
+};
+pub use network_assignment::{
+    Assignment as NetworkAssignment, ProvisioningDecision as NetworkProvisioningDecision,
+    obsolete_profiles as obsolete_network_profiles, parse_assignment as parse_network_assignment,
 };
 pub use offline_activation::{
     ACTIVATION_TRIAL_TIMEOUT_MS, ActivationGate, OfflineActivationCoordinator, OfflineManifestState, TrialDecision,
