@@ -344,6 +344,12 @@ Choose the component that matches the content and task:
   otherwise consequential confirmation.
 - `Sheet` is the desktop contextual detail surface; `Drawer` is for narrow,
   swipeable contextual detail where that interaction helps.
+- A `Drawer` on a narrow browser screen pushes the page back. `DrawerIndentShell`
+  wraps the app once in `main.tsx`. Base UI writes the swipe progress to
+  `--drawer-swipe-progress`, and `styles/drawer-indent.css` uses it to scale,
+  lower, and round the page. A feature does not add this effect itself. The
+  effect is off when the user prefers reduced motion, at desktop width, and
+  inside the Tilecast native host.
 
 Use the generated Base UI components for portal, focus, dismissal, and motion
 behavior. Do not recreate those contracts with page CSS or a custom overlay

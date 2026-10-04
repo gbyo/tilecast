@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { translateKnown } from "../i18n";
+import { apiErrorMessage, translateKnown } from "../i18n";
 import { MetricTile } from "../components/MetricTile";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -135,7 +135,7 @@ export function NeedsAttentionPanel() {
 
       {act.error && (
         <Alert variant="destructive">
-          <AlertDescription>{act.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(act.error)}</AlertDescription>
         </Alert>
       )}
 

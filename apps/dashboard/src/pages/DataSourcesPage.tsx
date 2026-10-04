@@ -22,6 +22,7 @@ import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -33,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   ActionContextMenu,
   ActionMenuButton,
@@ -185,25 +186,21 @@ export function DataSourcesPage() {
 
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">
-            {t("dataSources.list.title")}
-          </h1>
-          {canManage && (
-            <Button
-              type="button"
-              onClick={() => void navigate("/data-sources/new")}
+      <PageHeader
+        title={t("dataSources.list.title")}
+        description={t("dataSources.list.subtitle")}
+        actions={
+          canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/data-sources/new"
             >
               <Plus size={16} aria-hidden="true" />{" "}
               {t("dataSources.list.createButton")}
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("dataSources.list.subtitle")}
-        </p>
-      </header>
+            </Link>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}
@@ -233,10 +230,21 @@ export function DataSourcesPage() {
       </FilterBar>
       {dataSources.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {dataSources.error instanceof ApiError
-              ? apiErrorMessage(dataSources.error)
-              : t("dataSources.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {dataSources.error instanceof ApiError
+                ? apiErrorMessage(dataSources.error)
+                : t("dataSources.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={dataSources.isFetching}
+              onClick={() => void dataSources.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -268,12 +276,12 @@ export function DataSourcesPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/data-sources/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/data-sources/new"
               >
                 {t("dataSources.list.createButton")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>
@@ -554,7 +562,6 @@ export function DataSourceEditorPage() {
       <section className="app-editor-route">
         <DataSourceProviderGallery
           exclude={galleryHiddenProviders(catalog.data)}
-          page
           onClose={close}
           onChoose={(choice) => void navigate(`/data-sources/new/${choice}`)}
         />

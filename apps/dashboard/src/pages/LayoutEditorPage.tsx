@@ -8,7 +8,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "../components/ui/alert";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -198,7 +198,7 @@ import {
   useNativePresentationAvailable,
   useOpenNativePresentation,
 } from "../native-presentation/openNativePresentation";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
@@ -2304,9 +2304,12 @@ export function LayoutEditorPage() {
           <EmptyTitle>{t("editor.unavailableTitle")}</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="secondary" onClick={() => void navigate("/layouts")}>
+          <Link
+            className={buttonVariants({ variant: "secondary" })}
+            to="/layouts"
+          >
             {t("editor.unavailableBack")}
-          </Button>
+          </Link>
         </EmptyContent>
       </Empty>
     );

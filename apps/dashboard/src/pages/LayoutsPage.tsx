@@ -17,6 +17,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { PageHeader } from "../components/PageHeader";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import type {
   LayoutDocument,
@@ -628,24 +629,18 @@ export function LayoutsPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("library.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("library.description")}
-          </p>
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("library.title")}
+        description={t("library.description")}
+        actions={
+          canManage ? (
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               {t("library.createLayout")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{
@@ -712,10 +707,21 @@ export function LayoutsPage() {
 
       {layouts.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {layouts.error instanceof Error
-              ? apiErrorMessage(layouts.error)
-              : t("library.loadFailed")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {layouts.error instanceof Error
+                ? apiErrorMessage(layouts.error)
+                : t("library.loadFailed")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={layouts.isFetching}
+              onClick={() => void layouts.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -730,7 +736,7 @@ export function LayoutsPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : allLayouts.length === 0 ? (
+      ) : layouts.isError && !layouts.data ? null : allLayouts.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -802,7 +808,6 @@ export function LayoutsPage() {
                       ? t("library.cardEdit", { name: layout.name })
                       : t("library.cardOpen", { name: layout.name })
                   }
-                  onClick={() => void navigate(`/layouts/${layout.id}`)}
                 >
                   <span className="relative block">
                     <LayoutPreview layout={layout} />

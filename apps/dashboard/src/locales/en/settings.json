@@ -1701,7 +1701,8 @@
     "noPlayers": "No Linux players are available for assignment.",
     "detailError": "Could not load this network.",
     "retry": "Try again.",
-    "save": "Save network"
+    "save": "Save network",
+    "leaveTitle": "Discard unsaved network changes?"
   },
   "notifications": {
     "categories": {

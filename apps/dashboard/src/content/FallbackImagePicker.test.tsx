@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { Asset } from "../api/types";
@@ -54,13 +55,14 @@ afterEach(() => {
 });
 
 function renderEditor(editor: ReactNode) {
+  const router = createMemoryRouter([{ path: "*", element: editor }]);
   return render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {editor}
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }

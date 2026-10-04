@@ -436,6 +436,15 @@ describe("layout library page", () => {
     expect(search.closest('[data-slot="input-group"]')).not.toBeNull();
   });
 
+  it("reports a failed library load as an error with retry, not as empty", async () => {
+    vi.mocked(api.layoutPage).mockRejectedValueOnce(new Error("boom"));
+    renderPage();
+
+    expect(await screen.findByText("boom")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("No layouts yet")).toBeNull();
+  });
+
   it("renames a layout from its card menu", async () => {
     const user = userEvent.setup();
     renderPage();

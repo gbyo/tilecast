@@ -180,14 +180,7 @@ export function ProofTab({
     setSelectedRecord(null);
     setDetailsOpen(false);
   }, [paramsKey]);
-  useEffect(() => {
-    if (!selectedRecord) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDetailsOpen(false);
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [selectedRecord]);
+  // The shared drawer owns Escape handling; no local listener needed.
 
   if (query.isLoading) return <Loading />;
   if (query.error) return <ErrorNotice error={query.error} />;

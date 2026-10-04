@@ -9,7 +9,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { Link, createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { Playlist } from "../../api/types";
@@ -429,5 +429,89 @@ describe("PlaylistEditor panes", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
     );
+  });
+});
+
+function renderEditorWithRoutes() {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/playlists/:id",
+        element: (
+          <>
+            <PlaylistEditorPage />
+            <Link to="/elsewhere">away</Link>
+          </>
+        ),
+      },
+      { path: "/playlists", element: <p>Playlist library</p> },
+      { path: "/elsewhere", element: <p>Elsewhere</p> },
+    ],
+    { initialEntries: ["/playlists/p1"] },
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
+async function dirtyMetadataThroughDetails() {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "More playlist actions" }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Playlist details" }),
+  );
+  const details = await screen.findByRole("dialog");
+  fireEvent.change(screen.getByLabelText("Name"), {
+    target: { value: "Updated lobby loop" },
+  });
+  fireEvent.click(within(details).getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+}
+
+describe("PlaylistEditor unsaved changes", () => {
+  it("warns before following an in-app link and discards on confirm", async () => {
+    mockServer();
+    mockDesktop();
+    renderEditorWithRoutes();
+
+    await dirtyMetadataThroughDetails();
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved playlist changes?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
+  });
+
+  it("does not warn after a confirmed delete", async () => {
+    mockServer();
+    mockDesktop();
+    vi.spyOn(api, "deletePlaylist").mockResolvedValue(undefined);
+    renderEditorWithRoutes();
+
+    await dirtyMetadataThroughDetails();
+    openMore();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    const confirmDelete = await screen.findByRole("alertdialog", {
+      name: "Delete Lobby loop?",
+    });
+    fireEvent.click(
+      within(confirmDelete).getByRole("button", { name: "Delete playlist" }),
+    );
+    expect(await screen.findByText("Playlist library")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Discard unsaved playlist changes?"),
+    ).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ActionContextMenu,
@@ -36,13 +42,15 @@ describe("@tilecast/studio action menus", () => {
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
 
-  it("exports a working context menu", () => {
+  it("exports a working context menu", async () => {
     render(
       <ActionContextMenu label="Actions for Fixture" actions={actions}>
         <div data-testid="target">Fixture</div>
       </ActionContextMenu>,
     );
     fireEvent.contextMenu(screen.getByTestId("target"));
-    expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Open" })).toBeVisible(),
+    );
   });
 });

@@ -9,6 +9,7 @@ import {
   resolveTimeRange,
   type TimeRangePreset,
 } from "../components/TimeRangePicker";
+import { PageHeader } from "../components/PageHeader";
 import {
   Tabs,
   TabsContent,
@@ -390,35 +391,31 @@ export function ActivityPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("page.subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <TimeRangePicker
-            preset={preset}
-            onPresetChange={(value) => setRange("range", value)}
-            customFrom={customFrom}
-            customTo={customTo}
-            onCustomFromChange={(value) => setRange("from", value)}
-            onCustomToChange={(value) => setRange("to", value)}
-          />
-          {exportHref && (
-            <a
-              className={buttonVariants({ variant: "outline" })}
-              href={exportHref}
-              title={t("page.exportTitle")}
-            >
-              <Download aria-hidden="true" /> {t("page.exportCsv")}
-            </a>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t("page.title")}
+        description={t("page.subtitle")}
+        actions={
+          <>
+            <TimeRangePicker
+              preset={preset}
+              onPresetChange={(value) => setRange("range", value)}
+              customFrom={customFrom}
+              customTo={customTo}
+              onCustomFromChange={(value) => setRange("from", value)}
+              onCustomToChange={(value) => setRange("to", value)}
+            />
+            {exportHref && (
+              <a
+                className={buttonVariants({ variant: "outline" })}
+                href={exportHref}
+                title={t("page.exportTitle")}
+              >
+                <Download aria-hidden="true" /> {t("page.exportCsv")}
+              </a>
+            )}
+          </>
+        }
+      />
 
       <Tabs
         value={tab}
