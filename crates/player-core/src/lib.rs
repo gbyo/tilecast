@@ -6,6 +6,7 @@ mod configuration;
 mod live_stream;
 mod manifest_content;
 mod manifest_resources;
+mod manifest_worker;
 mod manifests;
 mod native_configuration;
 mod origin;
@@ -39,6 +40,10 @@ pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
 };
 pub use manifest_resources::{ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError};
+pub use manifest_worker::{
+    ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,
+    ManifestWorkerHost, SharedManifestPreparationStatus,
+};
 pub use manifests::{ManifestCoordinator, ManifestPrepared, ManifestSyncError, manifest_digest};
 pub use native_configuration::{
     ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,

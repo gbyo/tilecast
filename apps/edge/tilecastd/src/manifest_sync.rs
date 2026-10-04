@@ -18,9 +18,6 @@
 //! target; a newer target aborts an obsolete one, and the pending write
 //! re-checks the target, so an obsolete manifest can never become pending.
 
-use std::sync::Arc;
-
-use edge_protocol::Sha256Digest;
 use edge_server::AuthenticatedServer;
 use edge_state::repo::manifests::{Binding, Target};
 
@@ -99,12 +96,4 @@ pub async fn prepare_target<P: SourcePlan>(
     Ok(prepared)
 }
 
-/// Shared view of what preparation is doing, for status and heartbeat.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PreparationStatus {
-    pub target: Option<Sha256Digest>,
-    pub state: &'static str,
-    pub reason: Option<String>,
-}
-
-pub type SharedPreparationStatus = Arc<std::sync::Mutex<PreparationStatus>>;
+pub use player_core::SharedManifestPreparationStatus as SharedPreparationStatus;

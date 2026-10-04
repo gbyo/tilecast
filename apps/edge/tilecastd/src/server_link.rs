@@ -43,7 +43,7 @@ use player_core::refined_server_offset as refined_offset;
 
 use crate::daemon::{DaemonContext, VERSION};
 use crate::manifest::OriginSources;
-use crate::manifest_sync::{self, PreparationStatus, Prepared};
+use crate::manifest_sync::{self, Prepared};
 
 /// Contact cadence while connected without configuration (the reference
 /// player's heartbeat interval); configuration's `statusReportSeconds`
@@ -90,7 +90,7 @@ struct Link {
     /// The binding whose cached configuration is in force.
     config_binding: Option<ManifestBinding>,
     /// The one preparation in flight and the manifest it prepares.
-    preparation: Option<(edge_protocol::Sha256Digest, tokio::task::JoinHandle<()>)>,
+    preparation: Option<player_core::ManifestPreparationCoordinator>,
     /// Connection events for Activity, as the Electron player reports them.
     activity: Option<crate::activity::Handle>,
 }
@@ -122,20 +122,24 @@ impl Link {
     }
 
     fn abort_preparation(&mut self) {
-        if let Some((_, task)) = self.preparation.take() {
-            task.abort();
+        if let Some(preparation) = &mut self.preparation {
+            preparation.abort();
         }
     }
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    let mut link = Link { activity: Some(context.activity.clone()), ..Link::default() };
+    let preparation = context.db().map(|state| {
+        player_core::ManifestPreparationCoordinator::new(
+            player_core::Dependencies { state: state.clone(), clock: context.clock.clone() },
+            context.preparation.clone(),
+        )
+    });
+    let mut link = Link { activity: Some(context.activity.clone()), preparation, ..Link::default() };
     let mut live_frames = context.live_frames.subscribe();
     loop {
-        if link.preparation.as_ref().is_some_and(|(_, task)| task.is_finished())
-            && let Some((_, task)) = link.preparation.take()
-        {
-            let _ = task.await;
+        if let Some(preparation) = &mut link.preparation {
+            preparation.reap().await;
         }
         let requested = context.sync_request.load(std::sync::atomic::Ordering::Acquire);
         if requested > context.sync_done.borrow().0 {
@@ -290,94 +294,59 @@ fn set_preparation(
     state: &'static str,
     reason: Option<String>,
 ) {
-    *context.preparation.lock().unwrap_or_else(|e| e.into_inner()) = PreparationStatus { target, state, reason };
+    *context.preparation.lock().unwrap_or_else(|error| error.into_inner()) =
+        player_core::ManifestPreparationStatus { target, state, reason };
 }
 
-/// Keeps exactly one preparation running, on the target. A newer target
-/// aborts an obsolete preparation; its CAS partials stay resumable and the
-/// pending write re-checks the target.
+struct PreparationHost {
+    context: Arc<DaemonContext>,
+    server: AuthenticatedServer,
+}
+
+#[async_trait::async_trait]
+impl player_core::ManifestWorkerHost for PreparationHost {
+    async fn content_intact(&self, target: &Target) -> bool {
+        match crate::manifest::Candidate::prepare_candidate(target.document.clone(), target.binding.screen_id) {
+            Ok(candidate) => crate::manifest::verify_cached(&self.context, &candidate).await.is_ok(),
+            // Preserve the existing committed/pending policy: projection failure
+            // cannot replace that document with another preparation of itself.
+            Err(_) => true,
+        }
+    }
+
+    async fn prepare(&self, target: &Target) -> Result<Prepared, player_core::ManifestWorkerFailure> {
+        let plan = OriginSources { server: &self.server };
+        manifest_sync::prepare_target(&self.context, &plan, target).await.map_err(|error| {
+            let kind = match &error {
+                manifest_sync::PrepareError::Manifest(crate::manifest::ManifestError::Incompatible(_)) =>
+                    player_core::ManifestFailureKind::Incompatible,
+                error if error.is_final() => player_core::ManifestFailureKind::Invalid,
+                _ => player_core::ManifestFailureKind::Retryable,
+            };
+            tracing::warn!(component = "manifest", event = "preparation_failed", manifest = %target.digest.short(),
+                state = match kind { player_core::ManifestFailureKind::Incompatible => "incompatible",
+                    player_core::ManifestFailureKind::Invalid => "invalid", player_core::ManifestFailureKind::Retryable => "failed" },
+                reason = error.reason_code(), error = %error);
+            player_core::ManifestWorkerFailure { kind, reason: error.reason_code() }
+        })
+    }
+}
+
 async fn ensure_preparation(
     context: &Arc<DaemonContext>,
     link: &mut Link,
     server: &AuthenticatedServer,
     target: Option<Target>,
 ) {
-    let Some(target) = target else {
-        link.abort_preparation();
-        return;
-    };
-    let digest = target.digest;
-    if link.preparation.as_ref().is_some_and(|(running, _)| *running == digest) {
-        return;
+    if let Some(preparation) = &mut link.preparation {
+        preparation
+            .ensure(
+                target,
+                Arc::new(PreparationHost { context: context.clone(), server: server.clone() }),
+                &context.shutdown,
+            )
+            .await;
     }
-    link.abort_preparation();
-    let Some(db) = context.db() else { return };
-    for stage in [Stage::Active, Stage::Pending] {
-        let stage_binding = target.binding.clone();
-        if db
-            .run(move |c| manifests::get_for(c, stage, &stage_binding))
-            .await
-            .ok()
-            .flatten()
-            .is_some_and(|stored| stored.digest == digest)
-        {
-            // Nothing to do while its content is whole; otherwise the
-            // preparation below repairs it in place.
-            let intact = match crate::manifest::Candidate::prepare_candidate(
-                target.document.clone(),
-                target.binding.screen_id,
-            ) {
-                Ok(candidate) => crate::manifest::verify_cached(context, &candidate).await.is_ok(),
-                Err(_) => true,
-            };
-            if intact {
-                return;
-            }
-        }
-    }
-    // A deterministic rejection of this exact manifest is not retried.
-    let known_final = {
-        let status = context.preparation.lock().unwrap_or_else(|e| e.into_inner());
-        status.target == Some(digest) && matches!(status.state, "incompatible" | "invalid")
-    };
-    if known_final {
-        return;
-    }
-    set_preparation(context, Some(digest), "preparing", None);
-    let worker_context = Arc::clone(context);
-    let worker_server = server.clone();
-    let task = tokio::spawn(async move {
-        let plan = OriginSources { server: &worker_server };
-        let result = tokio::select! {
-            () = worker_context.shutdown.cancelled() => return,
-            result = manifest_sync::prepare_target(&worker_context, &plan, &target) => result,
-        };
-        match result {
-            Ok(Prepared::Current) => set_preparation(&worker_context, Some(digest), "current", None),
-            Ok(Prepared::Repaired) => set_preparation(&worker_context, Some(digest), "repaired", None),
-            Ok(Prepared::Pending) => set_preparation(&worker_context, Some(digest), "pending", None),
-            Ok(Prepared::Superseded) => set_preparation(&worker_context, Some(digest), "superseded", None),
-            Err(error) => {
-                let state = match &error {
-                    manifest_sync::PrepareError::Manifest(crate::manifest::ManifestError::Incompatible(_)) => {
-                        "incompatible"
-                    }
-                    error if error.is_final() => "invalid",
-                    _ => "failed",
-                };
-                tracing::warn!(
-                    component = "manifest",
-                    event = "preparation_failed",
-                    manifest = %digest.short(),
-                    state,
-                    reason = error.reason_code(),
-                    error = %error
-                );
-                set_preparation(&worker_context, Some(digest), state, Some(error.reason_code().to_owned()));
-            }
-        }
-    });
-    link.preparation = Some((digest, task));
 }
 
 async fn sync_manifest(
