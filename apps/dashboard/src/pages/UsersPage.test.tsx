@@ -188,6 +188,11 @@ describe("user editor screen scope disclosure", () => {
     ).toBeNull();
 
     await userEvent.click(trigger);
+    // The scope editor opens on the explicit access choice; location
+    // checkboxes appear once limited access is selected.
+    await userEvent.click(
+      await screen.findByRole("radio", { name: "Limit access" }),
+    );
     expect(
       await screen.findByRole("checkbox", { name: "Library" }),
     ).toBeInTheDocument();
