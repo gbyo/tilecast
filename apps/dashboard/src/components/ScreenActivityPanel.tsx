@@ -76,6 +76,12 @@ async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   }
 }
 
+// The server reports Activity only for enabled screens and answers 404 for a
+// disabled one, which the summary shows as empty rather than as a failure.
+function isDisabledScreen(error: unknown) {
+  return error instanceof ApiError && error.status === 404;
+}
+
 export function ScreenActivitySummary({
   screenId,
   onOpen,
@@ -108,9 +114,13 @@ export function ScreenActivitySummary({
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
-        ) : query.error ? (
+        ) : query.error && !isDisabledScreen(query.error) ? (
           <p className="text-sm text-destructive">
             {t("screenActivity.loadErrorTitle")}
+          </p>
+        ) : query.error ? (
+          <p className="py-2 text-sm text-muted-foreground">
+            {t("screenActivity.lists.eventsEmpty")}
           </p>
         ) : data ? (
           <ItemGroup className="gap-0 divide-y divide-border">
