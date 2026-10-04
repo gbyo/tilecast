@@ -160,8 +160,8 @@ Two of these are conditions, so they open an incident and reach notifications:
 - **A Data Source is not refreshing.** Screens keep showing the cached copy.
   The condition starts after `Stale Data Source after` hours without a
   successful refresh. Set it to suit the feed: a weather feed tolerates far
-  less than a semester calendar. Only a Data Source that a Widget uses is
-  reported.
+  less than a semester calendar. Only a Data Source that a Widget uses opens
+  this incident. The report also lists stale sources without a Widget consumer.
 - **A playlist has nothing to play.** The playlist is assigned to a screen, and
   everything in it has expired, is not available yet, or was removed. A tag
   playlist is evaluated through its tags.
@@ -170,6 +170,11 @@ Two are reported but never open an incident, because neither is a fault:
 
 - **Media expiring soon**, within `Warn about expiring media` days.
 - **Screens with nothing assigned**, which show the no-content message.
+
+The incident sweep uses the release definition catalog for Widget source references.
+It follows nested repeating groups and managed App source ownership.
+It ignores IDs in ordinary text fields and references from deleted Widgets.
+It does not inspect Data Source content payloads.
 
 Both conditions recover on their own. A Data Source recovers when it refreshes.
 A playlist recovers when it has content again, or when no screen is assigned to

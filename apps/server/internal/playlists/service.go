@@ -2490,53 +2490,8 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 	return err
 }
 
-// widgetDataSourceIDs returns every Data Source a widget consumes. Release-defined
-// widgets may declare more than one data_source configuration field, so every such
-// field is inspected; legacy widgets keep their single dataSourceId behavior. The
-// injected definition catalog is the single source of truth for release-defined widgets.
 func (s *Service) widgetDataSourceIDs(provider string, configuration json.RawMessage) []uuid.UUID {
-	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
-		var values map[string]any
-		ids := []uuid.UUID{}
-		if json.Unmarshal(configuration, &values) == nil {
-			// An App recipe's author schema intentionally hides its managed source. The
-			// compiled configuration still carries the explicit relationship so normal
-			// manifest dependency resolution, invalidation, and usage tracking see it.
-			if definition.Recipe != nil {
-				if value, ok := values["managedDataSourceId"].(string); ok {
-					if id, err := uuid.Parse(value); err == nil && id != uuid.Nil {
-						ids = append(ids, id)
-					}
-				}
-			}
-			for _, value := range contentdefs.DataSourceFieldValues(definition.ConfigurationSchema.Fields, values) {
-				if id, err := uuid.Parse(value); err == nil && id != uuid.Nil && !containsUUID(ids, id) {
-					ids = append(ids, id)
-				}
-			}
-		}
-		return ids
-	}
-	switch provider {
-	case "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline":
-		var c struct {
-			DataSourceID uuid.UUID `json:"dataSourceId"`
-		}
-		_ = json.Unmarshal(configuration, &c)
-		if c.DataSourceID != uuid.Nil {
-			return []uuid.UUID{c.DataSourceID}
-		}
-	}
-	return nil
-}
-
-func containsUUID(ids []uuid.UUID, wanted uuid.UUID) bool {
-	for _, id := range ids {
-		if id == wanted {
-			return true
-		}
-	}
-	return false
+	return s.definitions.WidgetDataSourceIDs(provider, configuration)
 }
 
 // legacyWidgetAssetReferences are the historical media pairs for providers without a
