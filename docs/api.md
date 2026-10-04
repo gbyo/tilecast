@@ -12,6 +12,19 @@ Milestone 10 adds `GET /screens/{id}/reliability` for capability-versus-requeste
 
 Installable built-in plugins are listed at `GET /plugins`, with installation and status plus `unsupportedInstallations` for old rows. This release offers Countdown Bar, Emergency Alerts, and Forms. Owner or Administrator with CSRF can install a supported plugin with `POST /plugins/{pluginId}/install` and remove an installation with `DELETE /plugins/{pluginId}/installation`. Removing a row never deletes plugin data. The retired `brand_bug` and `noise_meter` rows are marked `retired: true`, remain inert, and can be removed; unknown rows from newer releases remain distinguishable. Countdown Bar instances are managed below `/plugins/countdown-bar/instances`; Forms retain their form and record endpoints below `/forms` and `/data-sources/{id}`. The Dependency Explorer is a Studio system tool at `GET /plugins/dependency-graph`. Old Players may send a `noiseMeter` object on `POST /player/heartbeat`; the server accepts and ignores it without storing history or updating status. See [Installable built-in plugins](plugins.md) for the current contract.
 
+## Playback Plan
+
+`GET /api/v1/screens/{id}/playback-plan` returns structured expected-selection
+evidence. The route requires management authentication, the `read` scope,
+and access to the Screen. Omit `at` for captured server time. Use one RFC 3339
+`at` instant with a time zone to inspect another time.
+
+Current and future requests use current configuration. Past requests use
+recorded expected playback windows. Historical gaps remain explicit. Current
+selection includes schedule reasoning, manifest synchronization, and Widget
+capability assessment. These reports do not prove actual playback. See
+[Playback Plan evidence](playback-plan.md) for the contract and limits.
+
 ## System
 
 - `GET /healthz` — process liveness; does not depend on PostgreSQL.
@@ -348,7 +361,7 @@ Layout cards follow the same frozen-render contract instead of rebuilding a simp
 
 `GET /api/v1/data-sources` includes the established providers plus the release-defined School Status manual object Source. School Status emits Data Document v1 object fields `status`, `message`, `severity`, `effectiveAt`, `expiresAt`, and `updatedAt`. Player manifests never contain fetch URLs, uploaded CSV bytes, coordinates, contacts, source credentials, or upstream request details.
 
-`POST /api/v1/data-sources/{provider}/preview` performs a bounded real fetch and returns sanitized prepared data plus diagnostics before save. JSON mappings use only RFC 6901 JSON Pointer; CSV uses exact header names. An optional `previewDate` evaluates configured date selection without changing saved data. `GET /api/v1/data-sources/{id}/diagnostics` returns bounded refresh and cache diagnostics without raw payloads.
+`POST /api/v1/data-sources/{provider}/preview` performs a bounded real fetch and returns sanitized prepared data plus diagnostics before save. JSON mappings use only RFC 6901 JSON Pointer; CSV uses exact header names. An optional `previewDate` evaluates date selection and other time-dependent projections without changing saved data. Saved-source previews accept the same date. `GET /api/v1/data-sources/{id}/diagnostics` returns bounded refresh and cache diagnostics without raw payloads.
 
 `POST /api/v1/data-sources/{provider}/inspect` (`rss`, `atom`, `json`, `csv`) reads the connected data under the same fetch policy and reports what it contains: the detected fields (CSV header names or JSON Pointer paths) with up to three short sample values each, the detected CSV delimiter, a suggested mapping derived from field names, and which record fields the Source can actually fill. It intentionally does not require a valid mapping, because it exists to produce one — Studio offers detected fields rather than asking an author to recall column names, and hides display toggles for fields the connection cannot supply. Samples pass through the same sanitizer as records, and no raw payload is returned. `GET /api/v1/data-sources/{id}/inspect` does the same for a saved Source using its stored configuration, because an uploaded CSV's bytes stay on the server and are stripped from detail responses.
 

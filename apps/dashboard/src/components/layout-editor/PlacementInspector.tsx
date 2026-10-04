@@ -16,7 +16,7 @@ import {
   LockOpen,
   Ungroup,
 } from "lucide-react";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import type {
   Asset,
   DataSource,
@@ -26,7 +26,7 @@ import type {
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
-import { Button } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import {
   Accordion,
@@ -335,7 +335,6 @@ export function PlacementInspector({
   const visibility = translatedOptions(visibilityOptions, t);
   const contentMode = translatedOptions(contentModeOptions, t);
   const format = translatedOptions(formatOptions, t);
-  const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
   const queryClient = useQueryClient();
@@ -535,20 +534,20 @@ export function PlacementInspector({
               and then abandoning the author at the Widget list. The Widget editor reports its own
               consumers, so the warning this dialog used to guess at is shown where it is
               actionable. */}
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!content}
-            onClick={() => {
-              if (!content) return;
-              void navigate(
-                `/widgets/${content.id}?returnTo=${encodeURIComponent(location.pathname)}`,
-              );
-            }}
-          >
-            <AppWindow size={16} aria-hidden="true" />
-            {t("inspector.widgetEdit")}
-          </Button>
+          {content ? (
+            <Link
+              className={buttonVariants({ variant: "secondary" })}
+              to={`/widgets/${content.id}?returnTo=${encodeURIComponent(location.pathname)}`}
+            >
+              <AppWindow size={16} aria-hidden="true" />
+              {t("inspector.widgetEdit")}
+            </Link>
+          ) : (
+            <Button type="button" variant="secondary" disabled>
+              <AppWindow size={16} aria-hidden="true" />
+              {t("inspector.widgetEdit")}
+            </Button>
+          )}
         </InspectorSection>
       )}
       {item.type === "playlistZone" && (
@@ -630,13 +629,12 @@ export function PlacementInspector({
               })
             }
           />
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void navigate(`/playlists/${item.playlistId}`)}
+          <Link
+            className={buttonVariants({ variant: "secondary" })}
+            to={`/playlists/${item.playlistId}`}
           >
             {t("inspector.zoneEdit")}
-          </Button>
+          </Link>
         </InspectorSection>
       )}
       {item.type === "asset" && (

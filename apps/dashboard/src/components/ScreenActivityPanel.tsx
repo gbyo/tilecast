@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { translateKnown } from "../i18n";
+import { apiErrorMessage, translateKnown } from "../i18n";
 import { ApiError } from "../api/errors";
 import { getScreenActivity } from "../api/domains/activity";
 import { AlertTriangle } from "lucide-react";
@@ -11,6 +11,13 @@ import { ScreenTimeline } from "./ScreenTimeline";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "./ui/card";
 import {
   Item,
   ItemActions,
@@ -69,6 +76,107 @@ async function loadScreenActivity(id: string): Promise<ScreenActivity> {
   }
 }
 
+export function ScreenActivitySummary({
+  screenId,
+  onOpen,
+}: {
+  screenId: string;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation("activity");
+  const notReported = t("screenActivity.notReported");
+  const query = useQuery({
+    queryKey: ["activity", "screen", screenId],
+    queryFn: () => loadScreenActivity(screenId),
+    refetchInterval: 20_000,
+  });
+  const data = query.data;
+
+  return (
+    <Card size="sm" className="min-w-0">
+      <CardHeader>
+        <CardTitle>{t("screenActivity.lists.eventsTitle")}</CardTitle>
+        <CardAction>
+          <Button variant="ghost" size="sm" onClick={onOpen}>
+            {t("screenActivity.viewAll")}
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="min-w-0">
+        {query.isLoading ? (
+          <div className="space-y-2" aria-label={t("screenActivity.loading")}>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : query.error ? (
+          <p className="text-sm text-destructive">
+            {t("screenActivity.loadErrorTitle")}
+          </p>
+        ) : data ? (
+          <ItemGroup className="gap-0 divide-y divide-border">
+            {data.currentIssue && (
+              <Item
+                size="xs"
+                render={<div role="listitem" />}
+                className="rounded-none px-0"
+              >
+                <ItemContent className="min-w-0">
+                  <ItemTitle>{humanize(data.currentIssue.kind)}</ItemTitle>
+                  <ItemDescription className="line-clamp-2">
+                    {data.currentIssue.description}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge
+                    variant={
+                      data.currentIssue.severity === "critical"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {humanize(data.currentIssue.severity)}
+                  </Badge>
+                </ItemActions>
+              </Item>
+            )}
+            {data.recentEvents.slice(0, 3).map((item) => (
+              <Item
+                key={item.id}
+                size="xs"
+                render={<div role="listitem" />}
+                className="rounded-none px-0"
+              >
+                <ItemContent className="min-w-0">
+                  <ItemTitle>{humanize(item.eventType)}</ItemTitle>
+                  <ItemDescription>
+                    {formatDate(item.timestamp, notReported)}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge
+                    variant={
+                      item.severity === "error" || item.severity === "critical"
+                        ? "destructive"
+                        : "secondary"
+                    }
+                  >
+                    {humanize(item.severity)}
+                  </Badge>
+                </ItemActions>
+              </Item>
+            ))}
+            {!data.currentIssue && !data.recentEvents.length && (
+              <p className="py-2 text-sm text-muted-foreground">
+                {t("screenActivity.lists.eventsEmpty")}
+              </p>
+            )}
+          </ItemGroup>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 /** The screen-detail page owns the Activity tab; this renders its contents. */
 export function ScreenActivityPanel({ screenId }: { screenId: string }) {
   const { t } = useTranslation("activity");
@@ -115,7 +223,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
           <AlertTitle>{t("screenActivity.loadErrorTitle")}</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(query.error)}</AlertDescription>
         </Alert>
       )}
       {data && (

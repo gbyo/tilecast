@@ -1,3 +1,4 @@
+import { contentQueries } from "../../data/content";
 import { useCallback, useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
@@ -308,8 +309,7 @@ export function WidgetLivePreview({
   captureTracking?: ZoneCaptureTracking;
 }) {
   const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: () => api.contentDefinitions(),
+    ...contentQueries.definitions(),
   });
   const provider = asset.widget!.provider;
   const v2 = studioWidgetComponent(definitions.data, provider);

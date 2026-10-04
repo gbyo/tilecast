@@ -3,45 +3,6 @@
   gap: var(--tc-space-2);
 }
 
-.player-updates .settings-subsection {
-  min-width: 0;
-  padding: var(--tc-space-5) 0 var(--tc-space-6);
-  border-bottom: 1px solid var(--tc-border-default);
-}
-
-.player-updates .settings-subsection:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.player-updates .settings-subsection > header {
-  margin-bottom: var(--tc-space-4);
-}
-
-.player-updates .settings-subsection h3 {
-  font: var(--tc-text-section-title);
-}
-
-.player-updates .settings-subsection header p,
-.player-updates .settings-subsection__action p {
-  max-width: 68ch;
-  font: var(--tc-text-supporting);
-  line-height: 1.5;
-}
-
-/* Every section header uses the same two-column shape so titles, descriptions,
-   and any header actions sit on one baseline grid down the whole page. */
-.player-updates .settings-subsection__action {
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--tc-space-3) var(--tc-space-4);
-}
-
-.player-updates .settings-subsection__action > div:first-child {
-  min-width: min(100%, 280px);
-  flex: 1 1 340px;
-}
-
 .player-updates .github-auth__configuration {
   color: var(--tc-text-secondary);
   font: var(--tc-text-supporting);
@@ -102,10 +63,6 @@
 }
 
 @media (max-width: 760px) {
-  .player-updates .settings-subsection__action {
-    align-items: stretch;
-  }
-
   .player-updates .github-auth__actions {
     justify-content: space-between;
   }

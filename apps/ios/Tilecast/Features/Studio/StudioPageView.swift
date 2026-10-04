@@ -74,8 +74,8 @@ struct StudioPageView: View {
         case .ready:
             EmptyView()
         case .loading:
-            ProgressView()
-                .controlSize(.large)
+            TilecastLoadingMark()
+                .accessibilityIdentifier("studio.loading")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.background)
         case .failed(let failure):

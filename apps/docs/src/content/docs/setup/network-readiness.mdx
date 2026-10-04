@@ -1,0 +1,84 @@
+---
+title: Check that Players can reach the server
+description: Test the route from your Players' network to Tilecast Server, and learn what to ask a network administrator to open.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Tilecast needs one thing from your network: every Player must be able to reach Tilecast Server. If your displays are on a separate VLAN, on guest Wi-Fi, or behind a firewall, test that route before you install anything on a display.
+
+Tilecast doesn't bridge networks. It doesn't relay multicast from one network to another, and it can't turn off client isolation on an access point. Someone with control of the network has to allow the connection.
+
+## What a Player needs
+
+A Player talks to the server in a few ways, and each one needs to work.
+
+| Need                   | Why                                                                                                                                                                                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A route to the server  | The Player must be able to open a TCP connection to the server's address and port. The default HTTP port is 8080; behind HTTPS it is usually 443.                                                                                          |
+| DNS, if you use a name | A hostname must resolve on the Player's network. An IP address doesn't need DNS.                                                                                                                                                           |
+| HTTP or HTTPS          | Pairing, manifests, and commands are normal web requests. Public hostnames need HTTPS. Local HTTP is allowed for private IP addresses, `localhost`, and `.local` names.                                                                    |
+| A valid certificate    | With HTTPS, the certificate must be valid and the Player's clock must be accurate. Tilecast doesn't skip certificate errors.                                                                                                               |
+| WebSocket upgrades     | The Player keeps a WebSocket open so the server knows it is online and can tell it about changes at once. If a proxy or firewall blocks the upgrade, the screen doesn't show **Online**, and changes reach it only when it next checks in. |
+| Large downloads        | The Player downloads media from the server. A filter that buffers or times out long downloads can make large files fail.                                                                                                                   |
+
+Two things are optional:
+
+- **LAN discovery (mDNS).** The server can advertise itself as `_tilecast._tcp.local` so that Players list it. Tilecast works without it. Compose turns it off by default, and multicast often doesn't cross VLANs, guest networks, or access points with isolation. When a Player doesn't list your server, enter the address manually.
+- **Website content.** A Website item loads directly on the Player, so the Player's network needs its own route to that website. Test DNS, routing, and HTTPS from the display's network. See [Troubleshoot websites](../../troubleshooting/websites/).
+
+AirPlay and Presentation Networks have their own local-network needs. See [AirPlay Present](../../operations/airplay-present/) and [Set up a Presentation Network](../../administration/presentation-networks/).
+
+## Test the route
+
+Do this from the network your Players will use, not from the server's own network. A laptop on the same Wi-Fi name or VLAN as the displays is a good stand-in.
+
+<Steps>
+
+1. Join the laptop to the Players' network.
+2. Open the server address in a browser, for example `http://192.0.2.10:8080`. You should see the Tilecast sign-in or setup page.
+3. Check readiness from the command line. Replace the address with yours.
+
+   ```sh title="Check server readiness"
+   curl --fail http://192.0.2.10:8080/readyz
+   ```
+
+4. If you use a hostname, confirm that it resolves to the server's address from that network.
+5. If you use HTTPS, confirm that the browser shows no certificate warning.
+
+</Steps>
+
+If every step works, enter the same address on a Player and continue to [pair it](../../players/pair-a-display/). If the Player still can't connect, see [Pairing and connectivity](../../troubleshooting/pairing-connectivity/).
+
+A laptop can pass while a display fails. Displays often sit on a different Wi-Fi name, VLAN, or filtering rule than staff devices. Confirm on a real display before you rely on the setup.
+
+## Choose a fix
+
+| What you found                                           | What to do                                                                                                                                |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| The Players' VLAN can't reach the server's VLAN          | Add a firewall or routing rule that allows the Players' network to reach the server's address and port.                                   |
+| Players are on guest or isolated Wi-Fi                   | Move the Players to a network that can reach the server, or ask for an exception for the server's address. Isolation usually blocks this. |
+| The Player lists no server, but the browser test works   | Skip discovery and enter the address manually.                                                                                            |
+| The Players are at another site                          | Give the server an HTTPS address that works over the Internet. See [Set up Tilecast with Cloudflare Tunnel](../cloudflare-tunnel/).       |
+| The browser test works, but the Player never goes online | Look for a proxy or firewall that blocks WebSocket upgrades, and check the Player's clock if you use HTTPS.                               |
+
+## Ask your network administrator
+
+If you can't change network settings, send this to the person who can. Replace the example values.
+
+> I'm setting up Tilecast digital signage. Please allow the devices on the **display network** to reach one server.
+>
+> - Destination: `192.0.2.10`, TCP port `8080` (or `signage.example.org`, TCP port `443`)
+> - Protocol: HTTP or HTTPS, including WebSocket upgrades
+> - DNS: the Players' network must resolve the server's name, if we use one
+> - Direction: from the display network to the server, started by the display
+> - If a content filter inspects traffic, it must allow long downloads and WebSocket connections
+>
+> Tilecast doesn't need multicast, port forwarding, or any inbound connection from the Internet.
+
+Keep the answer. If a Player later can't connect, you can ask whether that rule changed.
+
+## Next steps
+
+- [Set up Tilecast on a local network](../local-network/).
+- [Networking and remote access](../../administration/networking/) for the public URL, proxies, and passkeys.

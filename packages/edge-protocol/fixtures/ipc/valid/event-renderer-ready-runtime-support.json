@@ -1,0 +1,22 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 1,
+    "event": "renderer.ready",
+    "data": {
+      "renderer": {
+        "kind": "wpe",
+        "version": "0.1.0",
+        "engineVersion": "2.54.0",
+        "platform": "headless"
+      },
+      "features": ["status-surfaces-v1", "render-tree-v1"],
+      "display": null,
+      "support": {
+        "presentationSchemas": [1, 2],
+        "declarativeCapabilities": { "content.text": 1 },
+        "widgetComponents": { "widget.tilecast.clock": 2 }
+      }
+    }
+  }
+}
