@@ -2367,32 +2367,6 @@ function roomLabel(screen: Screen, t: ScreensT) {
   return "";
 }
 
-function selectionSummary(
-  assignment:
-    | {
-        selectionSource?: string;
-        currentScheduleId?: string | null;
-        relevantSchedules?: { id: string; name: string }[];
-      }
-    | undefined,
-  t: ScreensT,
-) {
-  if (assignment?.selectionSource === "takeover") return t("takeover.title");
-  if (assignment?.selectionSource === "quick_present")
-    return t("detail.selectionQuickPresent");
-  if (assignment?.selectionSource === "schedule") {
-    if (!assignment.currentScheduleId) return t("detail.selectionScheduled");
-    const name =
-      assignment.relevantSchedules?.find(
-        (schedule) => schedule.id === assignment.currentScheduleId,
-      )?.name ?? t("detail.selectionScheduleFallback");
-    return t("detail.selectionScheduledNamed", { name });
-  }
-  if (assignment?.selectionSource === "direct_fallback")
-    return t("detail.selectionDirect");
-  return t("detail.selectionNone");
-}
-
 type ScreenGroupView = {
   key: string;
   label: string;
