@@ -6,7 +6,7 @@ import { Button } from "./ui/button";
 
 const STARTUP_TIMEOUT_MS = 12_000;
 
-type MapPhase = "loading" | "ready" | "error";
+type MapPhase = "loading" | "ready" | "degraded" | "error";
 
 export function MapLibreSurface({
   className,
@@ -54,6 +54,7 @@ export function MapLibreSurface({
     let disposed = false;
     let lastError: string | null = null;
     let idle = false;
+    let fatal = false;
     let map: MapLibreMap;
 
     setPhase("loading");
@@ -80,6 +81,7 @@ export function MapLibreSurface({
       if (detail) {
         lastError = detail;
         setErrorDetail(detail);
+        if (idle && !fatal) setPhase("degraded");
       }
       // MapLibre stops its default error logging once an error listener is
       // registered, so keep the concrete renderer/source failure in DevTools.
@@ -94,6 +96,7 @@ export function MapLibreSurface({
       } catch (error) {
         const detail = mapLibreErrorMessage(error);
         lastError = detail;
+        fatal = true;
         setPhase("error");
         setErrorDetail(detail);
       }
@@ -102,12 +105,8 @@ export function MapLibreSurface({
     const handleIdle = () => {
       if (disposed) return;
       idle = true;
-      if (lastError) {
-        setPhase("error");
-        setErrorDetail(lastError);
-        return;
-      }
-      setPhase("ready");
+      if (fatal) return;
+      setPhase(lastError ? "degraded" : "ready");
     };
 
     map.on("error", handleError);
@@ -156,6 +155,35 @@ export function MapLibreSurface({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
             {loadingLabel}
+          </div>
+        </div>
+      )}
+      {phase === "degraded" && (
+        <div
+          className="absolute left-3 top-3 z-20 flex max-w-[min(28rem,calc(100%-1.5rem))] items-start gap-2 rounded-lg border border-border bg-background/95 p-3 shadow-lg backdrop-blur"
+          role="status"
+        >
+          <CircleAlert
+            className="mt-0.5 size-4 shrink-0 text-amber-600"
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <div className="text-sm font-medium">{errorTitle}</div>
+            {errorDetail && (
+              <code className="mt-1 block break-words text-xs text-muted-foreground">
+                {errorDetail}
+              </code>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="mt-1 -ml-2"
+              onClick={retry}
+            >
+              <RefreshCw aria-hidden="true" />
+              {retryLabel}
+            </Button>
           </div>
         </div>
       )}
