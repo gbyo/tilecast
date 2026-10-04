@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
-import { CircleAlert, RefreshCw } from "lucide-react";
+import { CircleAlert, LoaderCircle, RefreshCw } from "lucide-react";
 import { createTilecastMap, mapLibreErrorMessage } from "../lib/maplibre";
 import { Button } from "./ui/button";
 
@@ -147,15 +147,23 @@ export function MapLibreSurface({
         aria-label={ariaLabel}
         aria-hidden={ariaHidden || undefined}
       />
-      <span className="sr-only" aria-live="polite">
-        {phase === "loading"
-          ? loadingLabel
-          : phase === "error"
-            ? errorTitle
-            : ""}
-      </span>
+      {phase === "loading" && (
+        <div
+          className="absolute inset-0 z-10 grid place-items-center bg-background/80"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            {loadingLabel}
+          </div>
+        </div>
+      )}
       {phase === "error" && (
-        <div className="absolute inset-0 z-20 grid place-items-center bg-background/95 p-4">
+        <div
+          className="absolute inset-0 z-20 grid place-items-center bg-background/95 p-4"
+          role="alert"
+        >
           <div className="grid max-w-lg justify-items-center gap-3 text-center">
             <span className="grid size-10 place-items-center rounded-full bg-destructive/10 text-destructive">
               <CircleAlert className="size-5" aria-hidden="true" />
