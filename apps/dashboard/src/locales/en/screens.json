@@ -1,4 +1,115 @@
 {
+  "playbackPlan": {
+    "title": "Expected presentation",
+    "loading": "Loading playback explanation",
+    "content": "Selected content",
+    "selectedBy": "Selected by",
+    "nextEvaluation": "Next reevaluation",
+    "noBoundary": "No known boundary",
+    "missingContent": "Selected content is unavailable",
+    "noContent": "No content assigned",
+    "noSelection": "No selection",
+    "why": "Why this selection?",
+    "inspectAt": "Inspect an instant",
+    "inspect": "Inspect",
+    "useNow": "Use server time",
+    "timezone": "Dates and times use your browser time zone: {{timezone}}.",
+    "invalidInstant": "Choose a valid date and time.",
+    "inspectedTime": "Requested: {{at}} · Evaluated: {{evaluatedAt}}",
+    "selection": "Selection and alternatives",
+    "precedence": "Priority {{priority}} · Target specificity {{specificity}}",
+    "synchronization": "Reported synchronization",
+    "synchronizationLimit": "Manifest synchronization does not prove content readiness or successful playback.",
+    "capabilities": "Reported Widget presentation support",
+    "capabilityLimit": "Reported support does not establish media readiness, decoder behavior, network access, or actual rendering.",
+    "boundaryLimit": "The next reevaluation may leave the selected content unchanged. Future predictions use current configuration and the latest reported Player state.",
+    "observationLimit": "This is expected selection, not proof of what appeared on the display.",
+    "viewActivity": "View Player-confirmed Activity",
+    "recordedPresentation": "Recorded presentation",
+    "recordedRevision": "{{type}} · Revision {{revision}}",
+    "recordedInterval": "Recorded window",
+    "openWindow": "Open recorded window",
+    "historyGap": "No recorded expectation covers this instant. Current assignments cannot fill this historical gap.",
+    "presentationId": "Presentation ID",
+    "revision": "Revision",
+    "recordedSource": "Recorded source",
+    "otherRecordedSource": "Recorded source: {{source}}",
+    "requiredSchema": "Requires presentation schema {{version}}",
+    "requiredCapability": "Requires {{name}}@{{version}} · reported {{reported}}",
+    "reportedSchemas": "Reported schemas: {{versions}}",
+    "noneReported": "None reported",
+    "renderer": "Selected renderer: {{renderer}}",
+    "types": {
+      "playlist": "Playlist",
+      "layout": "Layout",
+      "asset": "Asset",
+      "presentation": "Presentation"
+    },
+    "renderers": {
+      "component": "Component",
+      "compatibility": "Compatibility presentation"
+    },
+    "sources": {
+      "takeover": "Takeover",
+      "quick_present": "Show now",
+      "schedule": "Schedule",
+      "assignment": "Fallback assignment"
+    },
+    "basis": {
+      "current_configuration": "Prediction from current configuration",
+      "recorded_expectation": "Recorded historical expectation",
+      "historical_expectation_unavailable": "Historical expectation unavailable"
+    },
+    "status": {
+      "selected": "Selected",
+      "superseded": "Overridden",
+      "inactive": "Inactive",
+      "supported": "Supported",
+      "blocked": "Blocked",
+      "unknown": "Unknown",
+      "not_applicable": "Not applicable",
+      "unavailable": "Unavailable"
+    },
+    "synchronizationStatus": {
+      "not_reported": "Not reported",
+      "current": "Current",
+      "preparing": "Preparing",
+      "out_of_date": "Out of date"
+    },
+    "reasons": {
+      "active_takeover": "An active Takeover takes priority.",
+      "active_quick_present": "An active Show now session takes priority.",
+      "assigned_fallback": "No higher-priority presentation is active; the assignment is the fallback.",
+      "schedule_highest_precedence": "This schedule wins the server's precedence rules.",
+      "schedule_disabled": "This schedule is disabled.",
+      "schedule_not_active": "This schedule is not active at the requested instant.",
+      "schedule_lower_priority": "Another active schedule has a higher priority.",
+      "schedule_less_specific": "Another active schedule targets this Screen more specifically.",
+      "schedule_earlier_start": "Another otherwise equal schedule started later.",
+      "schedule_stable_id_tiebreak": "Another otherwise equal schedule wins the final stable tie-break.",
+      "no_active_takeover": "No Takeover is active at this instant.",
+      "no_active_quick_present": "No Show now session is active at this instant.",
+      "no_assignment": "No fallback presentation is assigned."
+    },
+    "capabilityReasons": {
+      "no_selected_content": "No content is selected for assessment.",
+      "selected_content_not_found": "The selected content no longer exists.",
+      "selected_content_not_published": "The selected Layout has no published revision.",
+      "presentation_requirements_invalid": "The selected content has unavailable presentation requirements.",
+      "reported_requirements_supported": "The Player reports support for the selected Widget presentation requirements.",
+      "player_capabilities_not_reported": "The Player has not reported a presentation capability profile.",
+      "no_widget_presentation_requirements": "This selection has no Widget presentation requirements.",
+      "manifest_v13_capabilities_not_reported": "This content requires manifest v13 support, but the Player has not reported capabilities.",
+      "widget_requirements_unsupported": "At least one Widget requirement cannot use this Player's reported profile."
+    },
+    "widgetReasons": {
+      "player_capabilities_not_reported": "The Player has not reported its presentation capabilities.",
+      "component_capabilities_not_reported": "This component-only Widget needs a reported Player profile.",
+      "no_presentation_requirements": "This Widget has no presentation requirements.",
+      "presentation_requirements_unsupported": "The selected renderer's requirements are not supported by the reported profile.",
+      "reported_requirements_supported": "The reported profile supports this Widget's selected renderer."
+    }
+  },
   "groups": {
     "title": "Display Groups",
     "subtitle": "Keep a set of screens on the same content, schedule, and playback position. Mirror groups preserve synchronized playback.",

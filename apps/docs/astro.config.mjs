@@ -199,6 +199,7 @@ export default defineConfig({
               label: "Manage screens",
               collapsed: true,
               items: [
+                { slug: "screens/explain-playback" },
                 { slug: "screens/archive" },
                 { slug: "screens/bulk-changes" },
               ],

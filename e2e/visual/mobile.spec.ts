@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
+import { inspectFuturePlayback } from "../support/playback-plan";
+import { snapshotRegion } from "./support";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 
@@ -19,6 +21,23 @@ async function expectNoPageOverflow(page: Page) {
     )
     .toBe(true);
 }
+
+test("mobile playback explanation keeps evidence and instant controls inside the viewport", async ({
+  page,
+}) => {
+  await page.goto(`/screens/${ids.cafeteriaEast}`);
+  const { panel } = await inspectFuturePlayback(page);
+  await expect(panel.getByText("Selection and alternatives")).toBeVisible();
+  await expect(
+    panel.getByRole("link", { name: "View Player-confirmed Activity" }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+  const time = panel.getByLabel("Inspect an instant time");
+  const timeBounds = await time.boundingBox();
+  expect(timeBounds).not.toBeNull();
+  expect(timeBounds!.width).toBeGreaterThanOrEqual(144);
+  await snapshotRegion(page, panel, "screen-playback-explanation-mobile");
+});
 
 test("mobile overview keeps uptime rows inside the viewport", async ({
   page,

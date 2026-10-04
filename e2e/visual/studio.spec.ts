@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
-import { snapshot } from "./support";
+import { snapshot, snapshotRegion } from "./support";
+import { inspectFuturePlayback } from "../support/playback-plan";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 const lobbyPortrait = "de300006-0000-4000-8000-000000000002";
@@ -83,6 +84,8 @@ for (const [name, path, ready] of states) {
         .click();
     }
     if (name.startsWith("screen-")) {
+      const { panel } = await inspectFuturePlayback(page);
+      await panel.getByRole("button", { name: "Why this selection?" }).click();
       // Demo players explicitly acknowledge unsupported captures. Screens
       // without a connected player show Offline rather than awaiting an image.
       await expect(
@@ -101,6 +104,12 @@ for (const [name, path, ready] of states) {
     await snapshot(page, name);
   });
 }
+
+test("screen playback explanation", async ({ page }) => {
+  await page.goto(`/screens/${ids.cafeteriaEast}`);
+  const { panel } = await inspectFuturePlayback(page);
+  await snapshotRegion(page, panel, "screen-playback-explanation");
+});
 
 test("overview", async ({ page }) => {
   await page.goto("/");

@@ -387,7 +387,7 @@ same compilation, renderer choice, and capability comparison as assignment
 validation. The caller supplies a transaction and authorizes resource access.
 The [Playback Plan API](playback-plan.md) uses this evidence for selected
 current content. Historical inspection does not read today's capability
-profile. Studio has no control for this API.
+profile. The Screen Overview Why this selection control shows the report.
 An unpublished Layout returns a conflict; it does not return an empty report
 that could imply support for a published presentation.
 
