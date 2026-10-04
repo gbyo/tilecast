@@ -791,7 +791,7 @@
     "selectAll": "Select all",
     "selectNone": "Select none",
     "loading": "Loading screens…",
-    "empty": "No screens are paired yet.",
+    "screensLoadError": "Screens could not be loaded.",
     "noScreensTitle": "No screens are paired yet",
     "noScreensHint": "Pair a player before applying bulk changes.",
     "selectAria": "Select {{name}}",
@@ -841,7 +841,6 @@
     "undoing": "Undoing…",
     "undoAction": "Undo this change",
     "recentTitle": "Recent bulk changes",
-    "recentEmpty": "No bulk changes yet.",
     "recentEmptyTitle": "No bulk changes yet",
     "recentEmptyHint": "Completed fleet changes will appear here with their undo status.",
     "historyScreens_one": "{{count}} screen",
@@ -851,7 +850,12 @@
     "statusUndone": "Undone",
     "windowClosed": "Undo window closed",
     "applyAction_one": "Change {{count}} screen",
-    "applyAction_other": "Change {{count}} screens"
+    "applyAction_other": "Change {{count}} screens",
+    "applying": "Applying…",
+    "applied": "Bulk changes applied.",
+    "undone": "Bulk changes undone.",
+    "staleBody": "Screens changed since this preview was built. Review the change again before applying.",
+    "reviewAction": "Review changes"
   },
   "network": {
     "title": "Presentation Network",
