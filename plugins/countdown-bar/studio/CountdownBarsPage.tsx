@@ -721,7 +721,7 @@ export function CountdownBarEditorPage() {
                     <ToggleGroupItem
                       key={day.value}
                       value={String(day.value)}
-                      className="min-w-10 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                      className="min-w-10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-primary/90"
                     >
                       {weekdayShortLabel(day.value, t)}
                     </ToggleGroupItem>
