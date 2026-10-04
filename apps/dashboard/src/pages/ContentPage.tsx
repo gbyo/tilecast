@@ -370,7 +370,16 @@ export function ContentPage() {
   const { confirm, dialog: confirmDialog } = useConfirm();
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
-    await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    try {
+      await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.bulkDeleteFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
     toast.add({
       title: t("media.bulkDelete.success", { count: ids.length }),
       type: "success",
@@ -395,8 +404,17 @@ export function ContentPage() {
       action: t("media.archiveDialog.moveToArchive"),
     });
     if (!confirmed) return;
-    await api.archiveAssets([asset.id], csrf);
-    toast.add({ title: "Asset archived.", type: "success" });
+    try {
+      await api.archiveAssets([asset.id], csrf);
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.archiveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.archiveDialog.archived"), type: "success" });
     refreshOrganization();
   };
   const confirmDeleteAsset = async (asset: Asset) => {
@@ -407,8 +425,17 @@ export function ContentPage() {
       destructive: true,
     });
     if (!confirmed) return;
-    await api.deleteAsset(asset.id, csrf);
-    toast.add({ title: "Asset permanently deleted.", type: "success" });
+    try {
+      await api.deleteAsset(asset.id, csrf);
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.deleteFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.deleteDialog.deleted"), type: "success" });
     refreshOrganization();
   };
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -603,7 +630,13 @@ export function ContentPage() {
         sizeBytes,
         uploadedBytes,
       }));
-    localStorage.setItem(resumeKey, JSON.stringify(saved));
+    // Resume persistence is best-effort like the guarded read path: a
+    // throwing store must not take down the library.
+    try {
+      localStorage.setItem(resumeKey, JSON.stringify(saved));
+    } catch {
+      // Continue without persisted resume metadata.
+    }
   }, [queue]);
 
   const updateQueue = (localId: string, update: Partial<QueueItem>) =>
@@ -945,18 +978,40 @@ export function ContentPage() {
           onClear={() => setCheckedAssetIds(new Set())}
           archiveMode={libraryView === "archive"}
           onArchive={async () => {
-            await api.archiveAssets([...checkedAssetIds], csrf);
+            const ids = [...checkedAssetIds];
+            try {
+              await api.archiveAssets(ids, csrf);
+            } catch (error) {
+              toast.add({
+                title: t("media.errors.bulkArchiveFailed"),
+                description: apiErrorMessage(error),
+                type: "error",
+              });
+              return;
+            }
             toast.add({
-              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} archived.`,
+              title: t("media.archiveDialog.archivedBulk", {
+                count: ids.length,
+              }),
               type: "success",
             });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
           onRestore={async () => {
-            await api.restoreAssets([...checkedAssetIds], csrf);
+            const ids = [...checkedAssetIds];
+            try {
+              await api.restoreAssets(ids, csrf);
+            } catch (error) {
+              toast.add({
+                title: t("media.errors.restoreFailed", { count: ids.length }),
+                description: apiErrorMessage(error),
+                type: "error",
+              });
+              return;
+            }
             toast.add({
-              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} restored.`,
+              title: t("media.restore.success", { count: ids.length }),
               type: "success",
             });
             setCheckedAssetIds(new Set());
@@ -1016,22 +1071,43 @@ export function ContentPage() {
             canManage={canManage}
             archived={libraryView === "archive"}
             onDuplicate={(asset) =>
-              void api.duplicateWidget(asset.id, csrf).then(() => {
-                toast.add({
-                  title: t("widgets.duplicateSuccess"),
-                  type: "success",
-                });
-                return queryClient.invalidateQueries({
-                  queryKey: contentKeys.assets,
-                });
-              })
+              void api.duplicateWidget(asset.id, csrf).then(
+                () => {
+                  toast.add({
+                    title: t("widgets.duplicateSuccess"),
+                    type: "success",
+                  });
+                  return queryClient.invalidateQueries({
+                    queryKey: contentKeys.assets,
+                  });
+                },
+                (error: unknown) => {
+                  toast.add({
+                    title: t("widgets.duplicateFailed"),
+                    description: apiErrorMessage(error),
+                    type: "error",
+                  });
+                },
+              )
             }
             onArchive={(asset) => void confirmArchiveAsset(asset)}
             onRestore={(asset) => {
-              void api.restoreAssets([asset.id], csrf).then(() => {
-                toast.add({ title: "Asset restored.", type: "success" });
-                refreshOrganization();
-              });
+              void api
+                .restoreAssets([asset.id], csrf)
+                .then(() => {
+                  toast.add({
+                    title: t("media.restore.success", { count: 1 }),
+                    type: "success",
+                  });
+                  refreshOrganization();
+                })
+                .catch((error: unknown) => {
+                  toast.add({
+                    title: t("media.errors.restoreFailed", { count: 1 }),
+                    description: apiErrorMessage(error),
+                    type: "error",
+                  });
+                });
             }}
             onDelete={(asset) => void confirmDeleteAsset(asset)}
             selectedIds={checkedAssetIds}
@@ -2409,13 +2485,23 @@ export function AssetOrganization({
       return api.asset(asset.id);
     },
     onSuccess: (latest) => {
-      toast.add({ title: "Asset organization updated.", type: "success" });
+      toast.add({
+        title: t("media.details.organizationUpdated"),
+        type: "success",
+      });
       onChanged(latest);
       void queryClient.invalidateQueries({ queryKey: contentKeys.folders });
       void queryClient.invalidateQueries({
         queryKey: contentKeys.collections,
       });
       void queryClient.invalidateQueries({ queryKey: contentKeys.tags });
+    },
+    onError: (error: unknown) => {
+      toast.add({
+        title: t("media.details.organizationFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const assetTagIds = new Set((asset.tags ?? []).map((tag) => tag.id));
@@ -2597,8 +2683,15 @@ export function useMediaAssetDetails({
         csrf,
       ),
     onSuccess: (saved) => {
-      toast.add({ title: "Media details saved.", type: "success" });
+      toast.add({ title: t("media.details.saved"), type: "success" });
       onChanged(saved);
+    },
+    onError: (error: unknown) => {
+      toast.add({
+        title: t("media.details.saveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const { confirm, dialog: archiveConfirmation } = useConfirm();
@@ -2741,8 +2834,17 @@ export function useMediaAssetDetails({
       action: t("media.archiveDialog.moveToArchive"),
     });
     if (!confirmed) return;
-    await api.archiveAssets([asset.id], csrf);
-    toast.add({ title: "Asset archived.", type: "success" });
+    try {
+      await api.archiveAssets([asset.id], csrf);
+    } catch (error: unknown) {
+      toast.add({
+        title: t("media.errors.archiveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.archiveDialog.archived"), type: "success" });
     void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
     onRequestClose();
   };
@@ -2756,13 +2858,22 @@ export function useMediaAssetDetails({
         <Button
           variant="outline"
           onClick={() =>
-            void api.retryAsset(asset.id, csrf).then((next) => {
-              toast.add({
-                title: "Processing retry started.",
-                type: "success",
-              });
-              onChanged(next);
-            })
+            void api.retryAsset(asset.id, csrf).then(
+              (next) => {
+                toast.add({
+                  title: t("media.details.retryStarted"),
+                  type: "success",
+                });
+                onChanged(next);
+              },
+              (error: unknown) => {
+                toast.add({
+                  title: t("media.details.retryFailed"),
+                  description: apiErrorMessage(error),
+                  type: "error",
+                });
+              },
+            )
           }
         >
           {t("media.details.retryProcessing")}
@@ -3372,13 +3483,22 @@ export function WebsiteEditor({
             <AlertDialogAction
               onClick={() => {
                 if (asset)
-                  void api.deleteAsset(asset.id, csrf).then(() => {
-                    toast.add({
-                      title: "Website App deleted.",
-                      type: "success",
-                    });
-                    onClose();
-                  });
+                  void api.deleteAsset(asset.id, csrf).then(
+                    () => {
+                      toast.add({
+                        title: t("media.website.deleted"),
+                        type: "success",
+                      });
+                      onClose();
+                    },
+                    (error: unknown) => {
+                      toast.add({
+                        title: t("media.website.deleteFailed"),
+                        description: apiErrorMessage(error),
+                        type: "error",
+                      });
+                    },
+                  );
               }}
             >
               {t("media.website.deleteWebsite")}

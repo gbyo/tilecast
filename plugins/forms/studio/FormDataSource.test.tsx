@@ -319,6 +319,18 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a search error instead of no-match when the directory fails", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([]);
+    vi.spyOn(formsApi, "searchFormUsers").mockRejectedValue(new Error("boom"));
+    const user = userEvent.setup();
+    renderAt("/plugins/forms/f1?tab=access", "owner");
+
+    await user.type(await screen.findByLabelText("Find a user"), "zoe");
+    expect(await screen.findByText("User search failed")).toBeInTheDocument();
+    expect(screen.queryByText("No matching users")).not.toBeInTheDocument();
+  });
+
   it("confirms before Cancel discards metadata edits", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
     const user = userEvent.setup();

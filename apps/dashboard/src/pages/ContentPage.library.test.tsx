@@ -13,6 +13,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { Asset } from "../api/types";
+import { toast } from "../components/ui/toast";
 import { ContentPage } from "./ContentPage";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -141,5 +142,168 @@ describe("Media library paging", () => {
     ).toBe(true);
     fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
     expect(await screen.findByText("Old-49")).toBeInTheDocument();
+  });
+});
+
+describe("asset action failure feedback", () => {
+  it("reports a failed archive instead of failing silently", async () => {
+    mockLibrary();
+    vi.spyOn(api, "archiveAssets").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for Poster-1" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Move Poster-1 to the archive?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Move to archive" }),
+    );
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not archive the asset.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("reports a failed bulk archive", async () => {
+    mockLibrary();
+    vi.spyOn(api, "archiveAssets").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Poster-1" }));
+    const tray = await screen.findByLabelText("1 selected");
+    fireEvent.click(within(tray).getByRole("button", { name: "Archive" }));
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not archive the selected items.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("reports a failed single delete", async () => {
+    mockLibrary();
+    vi.spyOn(api, "deleteAsset").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    const viewToggle = screen.getByRole("group", { name: "Library view" });
+    fireEvent.click(
+      within(viewToggle).getByRole("button", { name: "Archive" }),
+    );
+    expect(await screen.findByText("Old-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Old-1" }));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Delete permanently" }),
+    );
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Permanently delete Old-1?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete permanently" }),
+    );
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not delete the asset.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("reports a failed bulk delete", async () => {
+    mockLibrary();
+    vi.spyOn(api, "deleteAsset").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    const viewToggle = screen.getByRole("group", { name: "Library view" });
+    fireEvent.click(
+      within(viewToggle).getByRole("button", { name: "Archive" }),
+    );
+    expect(await screen.findByText("Old-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Old-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete permanently" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Delete permanently" }),
+    );
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not delete the selected items.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("reports a failed single restore", async () => {
+    mockLibrary();
+    vi.spyOn(api, "restoreAssets").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    const viewToggle = screen.getByRole("group", { name: "Library view" });
+    fireEvent.click(
+      within(viewToggle).getByRole("button", { name: "Archive" }),
+    );
+    expect(await screen.findByText("Old-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Old-1" }));
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Restore to library" }),
+    );
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not restore 1 item.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("reports a failed bulk restore", async () => {
+    mockLibrary();
+    vi.spyOn(api, "restoreAssets").mockRejectedValue(new Error("boom"));
+    const added = vi.spyOn(toast, "add");
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    const viewToggle = screen.getByRole("group", { name: "Library view" });
+    fireEvent.click(
+      within(viewToggle).getByRole("button", { name: "Archive" }),
+    );
+    expect(await screen.findByText("Old-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Old-1" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restore" }));
+    await waitFor(() =>
+      expect(added).toHaveBeenCalledWith({
+        title: "Could not restore 1 item.",
+        description: "boom",
+        type: "error",
+      }),
+    );
+  });
+
+  it("stays usable when resume persistence throws", async () => {
+    mockLibrary();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    renderPage();
+
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
   });
 });
