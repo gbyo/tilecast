@@ -254,7 +254,7 @@ fn target(db: &StateDb, binding: &Binding, digest: Sha256Digest, version: i64) {
         document: serde_json::json!({"manifestVersion": version}),
         fetched_at: now(),
     };
-    db.run_blocking(move |c| manifests::put_target(c, &target)).expect("target");
+    assert!(db.run_blocking(move |c| manifests::put_target(c, &target)).expect("target"));
 }
 
 fn stored(binding: &Binding, digest: Sha256Digest, version: i64) -> StoredManifest {
@@ -341,7 +341,7 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
         document: serde_json::json!({}),
         fetched_at: now(),
     };
-    assert!(db.run_blocking(move |c| manifests::put_target(c, &stale)).is_err(), "versions never regress");
+    assert!(!db.run_blocking(move |c| manifests::put_target(c, &stale)).unwrap(), "versions never regress");
     let foreign = Binding { screen_id: ScreenId::from_uuid(uuid::Uuid::new_v4()), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     let foreign = Binding { server_url: "https://other.example".to_owned(), ..binding.clone() };

@@ -158,16 +158,16 @@ pub fn target(connection: &Connection, binding: &Binding) -> Result<Option<Targe
     .transpose()
 }
 
-/// Records the server's latest valid manifest. A lower version than the
-/// committed presentation is refused: the server never moves a screen's
-/// manifest version backwards.
-pub fn put_target(connection: &mut Connection, target: &Target) -> Result<()> {
+/// Records the server's latest valid manifest. Returns false (and writes
+/// nothing) when the version is lower than the committed presentation: the
+/// server never moves a screen's manifest version backwards.
+pub fn put_target(connection: &mut Connection, target: &Target) -> Result<bool> {
     if target.etag.len() > 200 || target.version < 0 {
         return Err(StateError::InvalidValue("manifest target bound".to_owned()));
     }
     let tx = connection.transaction()?;
     if get_for(&tx, Stage::Active, &target.binding)?.is_some_and(|active| target.version < active.version) {
-        return Err(StateError::InvalidValue("manifest version regressed".to_owned()));
+        return Ok(false);
     }
     tx.execute(
         "INSERT INTO manifest_target (singleton, installation_id, screen_id, server_url, digest, version, etag,
@@ -189,7 +189,7 @@ pub fn put_target(connection: &mut Connection, target: &Target) -> Result<()> {
         ],
     )?;
     tx.commit()?;
-    Ok(())
+    Ok(true)
 }
 
 /// Stores a prepared manifest as pending only while it is still the target.

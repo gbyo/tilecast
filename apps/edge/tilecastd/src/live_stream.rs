@@ -31,10 +31,6 @@ pub(crate) async fn presentation_protected(context: &DaemonContext) -> bool {
     engine.current().is_some_and(|active| active.renderer_metadata.capture_state.check(false).is_err())
 }
 
-pub(crate) fn clear_pending_frame(context: &DaemonContext, session_id: uuid::Uuid) {
-    player_core::clear_live_frame(&context.live_frames, session_id);
-}
-
 pub async fn run(context: Arc<DaemonContext>) {
     player_core::drive_live_stream(
         Arc::clone(&context),

@@ -96,7 +96,7 @@ fn note_startup_clear_result(state: &mut StartupClear, result: &CommandResult) {
 /// appears later, so a failed startup clear retries on recovery; a
 /// successful one never runs again for this process.
 pub fn clear_at_start_if_configured(context: &std::sync::Arc<DaemonContext>, status: Option<&RemoteWebStatus>) {
-    let clear_on_restart = crate::config_sync::effective(context).website.clear_on_restart;
+    let clear_on_restart = crate::config_sync::effective(context).runtime.website.clear_on_restart;
     {
         let mut state = context.renderer_commands.startup_clear.lock().unwrap_or_else(|e| e.into_inner());
         if !should_clear_at_start(status, clear_on_restart, &mut state) {

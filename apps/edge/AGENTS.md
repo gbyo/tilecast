@@ -30,6 +30,23 @@ fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior
 extraction follows the contract.
+Core owns pairing orchestration and server relationship, credential-rejection,
+retry, and persisted clock-sampling policy. Edge supplies private stores,
+device metadata, and status surfaces. Core drives the server socket,
+heartbeat fallback, push handling, and reconciliation loop. Edge supplies
+heartbeat projection, privacy checks, Activity delivery, and retry jitter.
+Core owns configuration acceptance, manifest target reconciliation, and native
+manifest resource-claim validation and verified preparation, repair, and pinning.
+Runtime presentation fields stay opaque.
+Core owns native configuration values and active-hours policy. Edge separates
+Runtime configuration projection from its Linux platform configuration.
+Core owns manifest preparation-worker supervision and target-bound cancellation.
+Core owns telemetry sampling, interval counters, serialization, and bounded
+offline queue policy. Edge supplies semantic observations and measured gauges.
+Core owns offline manifest state, native activation gates, trial deadlines,
+evidence requirements for promotion, and verified pin lifetime. Core drives the
+offline activation loop. Edge supplies Runtime projection, opaque comparison
+keys, and status surfaces.
 
 ## Fixed decisions
 
