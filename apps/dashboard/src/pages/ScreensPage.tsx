@@ -244,9 +244,6 @@ const screenDetailTabs: readonly ScreenDetailTab[] = [
   "settings",
 ];
 
-// Legacy URLs remain valid while the resource view gets the new tab names.
-const legacyManageTabs = ["player-settings", "reliability", "commands"];
-
 type ScreenDetailTabLabelKey =
   | "detail.tabOverview"
   | "detail.tabActivity"
