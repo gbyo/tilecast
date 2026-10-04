@@ -73,25 +73,33 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         #expect(model.frontendTab == .destination("alpha"))
     }
 
-    @Test func aTapRequestsNavigationWithoutChangingSelection() {
+    @Test func aTapSelectsImmediatelyButWaitsToMoveStudio() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "alpha")
         model.selectTab(.destination("bravo"))
         #expect(requests.sent == ["bravo"])
-        #expect(model.selectedTab == .destination("alpha"), "selection waits for Studio")
+        #expect(model.selectedTab == .destination("bravo"), "the native tab responds to the tap immediately")
+        #expect(model.frontendTab == .destination("alpha"), "Studio stays on the last confirmed tab")
+        #expect(model.isTabSelectionPending)
 
         model.apply(NavigationState(activeDestinationID: "bravo", path: "/anything"))
         #expect(model.selectedTab == .destination("bravo"))
+        #expect(model.frontendTab == .destination("bravo"))
+        #expect(!model.isTabSelectionPending)
     }
 
     @Test func aBlockedNavigationKeepsTheCurrentSelection() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "charlie")
         model.selectTab(.destination("alpha"))
         #expect(requests.sent == ["alpha"])
+        #expect(model.selectedTab == .destination("alpha"), "the tap is reflected optimistically")
+        #expect(model.frontendTab == .more, "the confirmed Studio page does not move early")
+        #expect(model.isTabSelectionPending)
         // Studio's unsaved-changes prompt stopped the navigation, and Studio
         // acknowledged with the unchanged location.
         model.apply(NavigationState(activeDestinationID: "charlie"))
-        #expect(model.selectedTab == .more)
+        #expect(model.selectedTab == .more, "the rejected optimistic selection rolls back")
         #expect(model.frontendTab == .more, "the prompt is visible where the page is")
+        #expect(!model.isTabSelectionPending)
     }
 
     @Test func aBlockedRequestFromTheMoreListRevealsTheCurrentPage() {
@@ -145,6 +153,11 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         let (model, requests) = makeModel(catalog(primary: ["alpha"], more: []))
         model.open("zulu")
         #expect(requests.sent.isEmpty)
+
+        model.selectTab(.destination("zulu"))
+        #expect(requests.sent.isEmpty)
+        #expect(model.selectedTab == .destination("alpha"), "an invalid optimistic selection is ignored")
+        #expect(!model.isTabSelectionPending)
     }
 
     @Test func aReplacementCatalogMovesSelectionOffARemovedTab() {
