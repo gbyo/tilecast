@@ -3235,11 +3235,7 @@ export function ScreenDetailPage() {
         onValueChange={selectTab}
         className="w-full min-w-0 gap-4"
       >
-        <ScreenDetailTabs
-          tab={tab}
-          policyDirty={policyDirty}
-          onSelect={selectTab}
-        />
+        <ScreenDetailTabs policyDirty={policyDirty} />
 
         {tab === "overview" && (
           <TabsContent
