@@ -813,7 +813,7 @@
     "selectAll": "Seleccionar todo",
     "selectNone": "No seleccionar nada",
     "loading": "Cargando pantallas…",
-    "empty": "Aún no hay pantallas conectadas.",
+    "screensLoadError": "No se pudieron cargar las pantallas.",
     "noScreensTitle": "Aún no hay pantallas conectadas",
     "noScreensHint": "Conecta un reproductor antes de aplicar cambios masivos.",
     "selectAria": "Seleccionar {{name}}",
@@ -863,7 +863,6 @@
     "undoing": "Revirtiendo…",
     "undoAction": "Revertir este cambio",
     "recentTitle": "Cambios masivos recientes",
-    "recentEmpty": "Aún no hay cambios masivos.",
     "recentEmptyTitle": "Aún no hay cambios masivos",
     "recentEmptyHint": "Los cambios completados de la flota aparecerán aquí junto con su estado de reversión.",
     "historyScreens_one": "{{count}} pantalla",
@@ -875,7 +874,12 @@
     "windowClosed": "Ventana de reversión cerrada",
     "applyAction_one": "Cambiar {{count}} pantalla",
     "applyAction_other": "Cambiar {{count}} pantallas",
-    "applyAction_many": "Cambiar {{count}} de pantallas"
+    "applyAction_many": "Cambiar {{count}} de pantallas",
+    "applying": "Aplicando…",
+    "applied": "Cambios masivos aplicados.",
+    "undone": "Cambios masivos deshechos.",
+    "staleBody": "Las pantallas cambiaron desde que se generó esta vista previa. Revisa el cambio antes de aplicarlo.",
+    "reviewAction": "Revisar cambios"
   },
   "network": {
     "title": "Red de presentación",
