@@ -85,9 +85,12 @@ export function MapLibreSurface({
 
     const handleError = (event: { error?: unknown }) => {
       const detail = mapLibreErrorMessage(event.error);
-      if (detail) lastError = detail;
-      // MapLibre stops logging an error once an error listener is registered,
-      // so preserve it in DevTools while also making startup failures visible.
+      if (detail) {
+        lastError = detail;
+        setErrorDetail(detail);
+      }
+      // MapLibre stops its default error logging once an error listener is
+      // registered, so keep the concrete renderer/source failure in DevTools.
       console.error("Tilecast map error", event.error ?? event);
     };
 
@@ -97,16 +100,22 @@ export function MapLibreSurface({
         onStyleReadyRef.current?.(map);
         map.resize();
       } catch (error) {
+        const detail = mapLibreErrorMessage(error);
+        lastError = detail;
         setPhase("error");
-        setErrorDetail(mapLibreErrorMessage(error));
+        setErrorDetail(detail);
       }
     };
 
     const handleIdle = () => {
       if (disposed) return;
       idle = true;
+      if (lastError) {
+        setPhase("error");
+        setErrorDetail(lastError);
+        return;
+      }
       setPhase("ready");
-      setErrorDetail(null);
     };
 
     map.on("error", handleError);
