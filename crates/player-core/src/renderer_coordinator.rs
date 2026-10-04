@@ -48,14 +48,12 @@ impl RendererCoordinator {
 
     pub fn begin_activation(
         &mut self,
+        activation_id: ActivationId,
         metadata: RendererMetadata,
         now: Timestamp,
     ) -> Result<RendererActivationRef, PreparedActivationError> {
         metadata.validate()?;
-        let reference = RendererActivationRef {
-            activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()),
-            generation: self.next_generation,
-        };
+        let reference = RendererActivationRef { activation_id, generation: self.next_generation };
         self.next_generation += 1;
         self.current = Some((reference, metadata));
         self.tracker.activate(reference);
@@ -167,9 +165,14 @@ impl RendererCoordinator {
 
     /// Only semantic renderer actions are issued here. Reprojection and the
     /// visual Safe Mode payload remain host/Runtime work.
-    pub fn dispatch_recovery(&self, port: &dyn RendererPort, action: HealAction) -> Result<(), RendererPortError> {
+    pub fn dispatch_recovery(
+        &self,
+        port: &dyn RendererPort,
+        action: HealAction,
+        command_id: uuid::Uuid,
+    ) -> Result<(), RendererPortError> {
         match action {
-            HealAction::ReloadRenderer => port.send_command(uuid::Uuid::new_v4(), &SemanticRendererCommand::Reload),
+            HealAction::ReloadRenderer => port.send_command(command_id, &SemanticRendererCommand::Reload),
             HealAction::RestartRenderer => port.request_restart(&ShortToken::new("recovery").expect("literal"), 5_000),
             _ => Ok(()),
         }
@@ -282,7 +285,9 @@ mod tests {
     }
     fn activation(coordinator: &mut RendererCoordinator, ms: i64) -> RendererActivation {
         let metadata = metadata();
-        let reference = coordinator.begin_activation(metadata.clone(), now(ms)).unwrap();
+        let reference = coordinator
+            .begin_activation(ActivationId::from_uuid(uuid::Uuid::new_v4()), metadata.clone(), now(ms))
+            .unwrap();
         let digest = Sha256Digest::of(b"verified");
         RendererActivation::new(
             reference,
@@ -411,12 +416,12 @@ mod tests {
         assert_eq!(event.severity.as_deref(), Some("warning"));
         assert_eq!(event.failure_code.as_deref(), Some("recreate_renderer"));
         assert_eq!(event.metadata, Some(json!({"escalationStep": core.supervisor.escalation_step})));
-        core.dispatch_recovery(&port, reload).unwrap();
+        core.dispatch_recovery(&port, reload, uuid::Uuid::new_v4()).unwrap();
         assert_eq!(*port.commands.lock().unwrap(), vec![SemanticRendererCommand::Reload]);
         assert_eq!(core.evaluate_recovery(now(809_999)), HealAction::None);
         let restart = core.evaluate_recovery(now(810_000));
         assert_eq!(restart, HealAction::RestartRenderer);
-        core.dispatch_recovery(&port, restart).unwrap();
+        core.dispatch_recovery(&port, restart, uuid::Uuid::new_v4()).unwrap();
         assert_eq!(*port.restarts.lock().unwrap(), vec![(ShortToken::new("recovery").unwrap(), 5_000)]);
         core.progress(connection, &progress(reactivated.reference(), ProgressEvidence::ImageShown), now(811_000));
         core.progress(connection, &progress(reactivated.reference(), ProgressEvidence::ImageShown), now(1_411_000));

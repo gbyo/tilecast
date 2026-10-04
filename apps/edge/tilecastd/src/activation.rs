@@ -34,7 +34,7 @@ use crate::daemon::DaemonContext;
 use crate::manifest::{Candidate, ResolvedPresentation};
 use crate::player_config::PlayerConfig;
 use crate::presentation::{ActivationSource, PlaybackIdentity, ServerExtras};
-use crate::schedule::Source;
+use player_core::Source;
 
 pub use player_core::{ActivationGate as Gate, should_activate_pending};
 
@@ -295,14 +295,11 @@ pub async fn run(context: Arc<DaemonContext>) {
     if context.config.dev.fixture.is_some() {
         return;
     }
-    let Some(db) = context.db() else {
+    let Some(core) = context.core.as_ref() else {
         context.shutdown.cancelled().await;
         return;
     };
-    let state = player_core::OfflineActivationCoordinator::new(
-        player_core::Dependencies { state: db.clone(), clock: context.clock.clone() },
-        context.cas.clone(),
-    );
+    let state = core.offline_activation(context.cas.clone());
     player_core::drive_offline_activation(
         state,
         &Host(context.clone()),

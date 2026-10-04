@@ -15,7 +15,7 @@
 //!   shows an explicit "unavailable" surface and status reports the reason,
 //!   rather than silently dropping content;
 //! * feeds meaningful evidence into the recovery ladder
-//!   ([`crate::supervisor`]) and performs its actions.
+//!   in Player Core and performs its actions through the Edge port.
 //!
 //! Where activations come from is the caller's concern: today daemon status
 //! surfaces ([`crate::daemon::status_surface`]) and the development fixture
@@ -46,8 +46,8 @@ use player_core::RendererPort;
 
 use crate::media::MediaRegistry;
 #[cfg(test)]
-use crate::supervisor::Expectation;
-use crate::supervisor::{HealAction, SupervisorConfig};
+use player_core::Expectation;
+use player_core::{HealAction, SupervisorConfig};
 
 fn policy_time(now_ms: i64) -> Timestamp {
     Timestamp::from_unix_millis(now_ms).expect("native clock is in range")
@@ -128,7 +128,7 @@ impl Activation {
 
 #[cfg(test)]
 fn is_content_evidence(kind: EvidenceKind, expectation: Expectation) -> bool {
-    player_core::is_content_evidence(crate::supervisor::evidence(kind), expectation)
+    player_core::is_content_evidence(crate::renderer_adapter::evidence(kind), expectation)
 }
 
 fn validate_media_aliases(aliases: &[MediaAlias], content: &[ContentRef]) -> Result<(), PresentationError> {
@@ -269,7 +269,11 @@ impl PresentationEngine {
         let renderer_metadata = crate::renderer_adapter::metadata(&document, source, extras.projection.as_ref())?;
         let reference = self
             .native
-            .begin_activation(renderer_metadata.clone(), policy_time(now_ms))
+            .begin_activation(
+                ActivationId::from_uuid(uuid::Uuid::new_v4()),
+                renderer_metadata.clone(),
+                policy_time(now_ms),
+            )
             .map_err(|_| PresentationError::InvalidRequirements)?;
         let activation = Activation {
             id: reference.activation_id,
@@ -398,7 +402,7 @@ impl PresentationEngine {
     pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
         let semantic = player_core::SemanticRendererProgress {
             activation: semantic_ref(report.activation),
-            kind: crate::supervisor::evidence(report.kind),
+            kind: crate::renderer_adapter::evidence(report.kind),
             item_id: report.item_id.clone(),
             zone_id: report.zone_id.clone(),
         };
@@ -465,13 +469,13 @@ impl PresentationEngine {
             }
             HealAction::ReloadRenderer => {
                 if let Some(link) = &self.renderer {
-                    let _ = self.native.dispatch_recovery(link.port(), action);
+                    let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
             }
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
                 if let Some(link) = &self.renderer {
-                    let _ = self.native.dispatch_recovery(link.port(), action);
+                    let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
             }
             HealAction::EnterSafeMode => {

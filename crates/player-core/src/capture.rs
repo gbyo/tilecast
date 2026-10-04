@@ -119,13 +119,20 @@ impl CaptureBroker {
     /// The host checks its current presentation and queues the semantic request
     /// while holding its activation lock. A canceled or expired caller releases
     /// the slot and removes its pending request.
-    pub async fn capture<F, Fut>(&self, max_width: u32, max_height: u32, max_bytes: u32, request: F) -> Answer
+    /// The host supplies a fresh request ID, distinct from prior requests.
+    pub async fn capture<F, Fut>(
+        &self,
+        id: uuid::Uuid,
+        max_width: u32,
+        max_height: u32,
+        max_bytes: u32,
+        request: F,
+    ) -> Answer
     where
         F: FnOnce(RendererCaptureRequest) -> Fut,
         Fut: Future<Output = Result<(), CaptureError>>,
     {
         let _slot = self.slot.lock().await;
-        let id = uuid::Uuid::new_v4();
         let request_value = RendererCaptureRequest { request_id: id, max_width, max_height, max_bytes };
         let (sender, receiver) = oneshot::channel();
         self.pending.lock().unwrap_or_else(|error| error.into_inner()).insert(id, Pending { answer: sender });
@@ -158,16 +165,18 @@ mod tests {
     async fn timeout_removes_pending_request_and_late_answers_are_ignored() {
         let broker = Arc::new(CaptureBroker::default());
         let (request_tx, request_rx) = oneshot::channel();
+        let id = uuid::Uuid::from_u128(41);
         let worker_broker = Arc::clone(&broker);
         let worker = tokio::spawn(async move {
             worker_broker
-                .capture(640, 360, 4, |request| async move {
+                .capture(id, 640, 360, 4, |request| async move {
                     request_tx.send(request).unwrap();
                     Ok(())
                 })
                 .await
         });
         let request = request_rx.await.unwrap();
+        assert_eq!(request.request_id, id);
         tokio::time::advance(RENDERER_CAPTURE_TIMEOUT).await;
         assert_eq!(worker.await.unwrap(), Err(CaptureError::RendererTimeout));
         assert!(broker.pending.lock().unwrap().is_empty());
@@ -182,7 +191,7 @@ mod tests {
         let first_tx = requests_tx.clone();
         let first = tokio::spawn(async move {
             first_broker
-                .capture(640, 360, 4, |request| async move {
+                .capture(uuid::Uuid::new_v4(), 640, 360, 4, |request| async move {
                     first_tx.send(request).await.unwrap();
                     Ok(())
                 })
@@ -192,7 +201,7 @@ mod tests {
         let second_broker = Arc::clone(&broker);
         let second = tokio::spawn(async move {
             second_broker
-                .capture(320, 180, 4, |request| async move {
+                .capture(uuid::Uuid::new_v4(), 320, 180, 4, |request| async move {
                     requests_tx.send(request).await.unwrap();
                     Ok(())
                 })
@@ -223,7 +232,7 @@ mod tests {
     async fn refused_requests_release_the_registration_without_waiting() {
         let broker = CaptureBroker::default();
         assert_eq!(
-            broker.capture(1, 1, 4, |_| async { Err(CaptureError::ProtectedState) }).await,
+            broker.capture(uuid::Uuid::new_v4(), 1, 1, 4, |_| async { Err(CaptureError::ProtectedState) }).await,
             Err(CaptureError::ProtectedState)
         );
         assert!(broker.pending.lock().unwrap().is_empty());

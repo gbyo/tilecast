@@ -48,7 +48,7 @@ pub async fn clear_website_data(context: &DaemonContext) -> CommandResult {
     let answer = context
         .renderer_commands
         .commands
-        .request(CLEAR_TIMEOUT, |id| async move {
+        .request(uuid::Uuid::new_v4(), CLEAR_TIMEOUT, |id| async move {
             context.presentation.lock().await.renderer_command_with_id(id, RendererCommandKind::ClearWebsiteData)
         })
         .await;

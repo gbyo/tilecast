@@ -54,7 +54,7 @@ use crate::media::MediaRegistry;
 use crate::media_channel::{self, MediaChannel, ProcLineage};
 use crate::presentation::{ActivationSource, PresentationEngine};
 use crate::server_link::{self, LinkState};
-use crate::supervisor::SupervisorConfig;
+use player_core::SupervisorConfig;
 
 /// The release version. `TILECAST_EDGE_VERSION` at build time overrides the
 /// Edge release VERSION; only the update integration test uses it, to build a
@@ -75,6 +75,8 @@ pub enum StateMode {
 /// Shared daemon state. Subsystems hold an `Arc<DaemonContext>`.
 #[derive(Debug)]
 pub struct DaemonContext {
+    /// Shared native behavior, absent when durable state is in recovery.
+    pub core: Option<player_core::PlayerCore>,
     pub config: EdgeConfig,
     pub paths: EdgePaths,
     pub clock: SharedClock,
@@ -340,17 +342,20 @@ impl Daemon {
             StateMode::Normal(db) => Some(db.clone()),
             StateMode::Recovery { .. } => None,
         };
-        let pairing_coordinator = network_db.as_ref().map(|db| {
-            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() }).pairing(
+        let core = network_db.as_ref().map(|db| {
+            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() })
+        });
+        let pairing_coordinator = core.as_ref().map(|core| {
+            core.pairing(
                 Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())),
                 Arc::new(edge_server::FilePairingStore::new(paths.identity_dir())),
             )
         });
-        let server_relationship = network_db.as_ref().map(|db| {
-            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() })
-                .server_relationship(Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())))
+        let server_relationship = core.as_ref().map(|core| {
+            core.server_relationship(Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())))
         });
         let context = Arc::new(DaemonContext {
+            core,
             config,
             paths,
             clock,

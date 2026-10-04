@@ -34,7 +34,7 @@ use serde_json::Value;
 
 use crate::daemon::DaemonContext;
 use crate::player_config::{self, PlayerConfig};
-use crate::schedule::{self, Selection, Source};
+use player_core::{Selection, Source};
 
 /// Player manifest schema versions the server compiler emits and this
 /// renderer understands (11 base, 12 data sources, 13 declarative widgets,
@@ -660,7 +660,7 @@ impl Candidate {
     /// Resolves the server-compiled manifest at one corrected server instant
     /// under the accepted player configuration.
     pub fn presentation_with(&self, now_ms: i64, config: &PlayerConfig) -> Result<ResolvedPresentation, ManifestError> {
-        let selection = schedule::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
+        let selection = player_core::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
         let availability = next_availability_transition(&self.document, now_ms)?;
         let next_transition_ms = match (selection.next_transition_ms, availability) {
             (Some(schedule), Some(content)) => Some(schedule.min(content)),
