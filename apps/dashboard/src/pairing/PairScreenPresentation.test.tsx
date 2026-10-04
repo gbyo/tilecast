@@ -10,6 +10,7 @@ import type { PairingRequest, Screen } from "../api/types";
 import {
   NativePresentationContext,
   type NativePresentation,
+  type PresentationChrome,
 } from "../native-presentation/presentationContext";
 import { NativeHostProvider } from "../native-host/NativeHostProvider";
 import { PairScreenPresentation } from "./PairScreenPresentation";
@@ -103,12 +104,10 @@ function renderPresentation(
   );
 }
 
-function testPresentation(
-  overrides: Partial<NativePresentation> = {},
-): NativePresentation {
+function testPresentation(overrides: Partial<NativePresentation> = {}) {
   return {
     presentationId: "p-1",
-    update: vi.fn(),
+    update: vi.fn<(chrome: PresentationChrome) => void>(),
     close: vi.fn(),
     navigate: vi.fn(),
     onAction: () => () => {},
@@ -125,9 +124,8 @@ describe("PairScreenPresentation", () => {
     expect(
       screen.getByRole("textbox", { name: "Pairing code" }),
     ).toBeInTheDocument();
-    const update = vi.mocked(presentation.update);
-    expect(update).toHaveBeenCalled();
-    const chrome = update.mock.calls.at(-1)?.[0];
+    expect(presentation.update).toHaveBeenCalled();
+    const chrome = presentation.update.mock.calls.at(-1)?.[0];
     expect(chrome).toMatchObject({
       size: "full",
       dismissible: true,
