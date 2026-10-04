@@ -4,6 +4,7 @@ on:
   workflow_call:
 
 permissions:
+  actions: read
   contents: read
   checks: write
   issues: write
@@ -14,6 +15,7 @@ jobs:
     name: Dashboard CI
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
       issues: write
@@ -112,3 +114,9 @@ jobs:
         with:
           name: dashboard-coverage
           path: apps/dashboard/coverage
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Dashboard CI
+        run: node scripts/ci/timing-summary.mjs --junit apps/dashboard/test-results/vitest.xml
