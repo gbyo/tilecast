@@ -14,6 +14,13 @@ import { Alert, AlertDescription } from "../../components/ui/alert";
 import { DateInput } from "../../components/date-picker";
 import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { Field, FieldLabel } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import {
@@ -733,36 +740,1079 @@ export function StructuredDataSourceEditor({
       },
     }));
   }, [mapped, available, availableKey]);
-  return (
-    <div
-      className={
-        page
-          ? "grid w-full min-w-0 gap-5"
-          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
-      }
-      role={page ? undefined : "presentation"}
-    >
-      <section
-        className={
-          page
-            ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
-        }
-        role={page ? undefined : "dialog"}
-        aria-modal={page ? undefined : true}
-        aria-labelledby="structured-source-title"
-      >
+  const title = t(
+    dataSource
+      ? "dataSources.structured.titleEdit"
+      : "dataSources.structured.titleCreate",
+    // The provider code (RSS, JSON, CSV, ATOM) interpolates untranslated.
+    { provider: provider.toUpperCase() },
+  );
+  const form = (
+    <>
+      <div className="grid min-w-0 gap-5">
+        <Field>
+          <FieldLabel htmlFor="structured-name">
+            {t("dataSources.editor.name")}
+          </FieldLabel>
+          <Input
+            id="structured-name"
+            value={name}
+            disabled={readOnly}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="structured-description">
+            {t("dataSources.editor.description")}
+          </FieldLabel>
+          <Input
+            id="structured-description"
+            value={description}
+            disabled={readOnly}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
+        {provider === "csv" && (
+          <CsvSourceInput
+            configuration={configuration}
+            readOnly={readOnly}
+            onChange={updateConfiguration}
+          />
+        )}
+        {provider === "feed" && (
+          <Field>
+            <FieldLabel htmlFor="structured-feed-preset">
+              {t("dataSources.structured.feedPreset")}
+            </FieldLabel>
+            <Select
+              value={
+                FEED_PRESETS.some(
+                  (preset) =>
+                    preset.url !== "" &&
+                    preset.url === (configuration.url ?? ""),
+                )
+                  ? (configuration.url ?? "")
+                  : "custom"
+              }
+              disabled={readOnly}
+              onValueChange={(next) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  url: (next === "custom" ? "https://" : next) ?? "https://",
+                  uploadedContent: undefined,
+                  uploaded: false,
+                }))
+              }
+              items={FEED_PRESETS.map((preset) => ({
+                value: preset.url === "" ? "custom" : preset.url,
+                label: t(`dataSources.structured.feedPresetNames.${preset.id}`),
+              }))}
+            >
+              <SelectTrigger
+                id="structured-feed-preset"
+                aria-label={t("dataSources.structured.feedPreset")}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FEED_PRESETS.map((preset) => (
+                  <SelectItem
+                    key={preset.id}
+                    value={preset.url === "" ? "custom" : preset.url}
+                  >
+                    {t(`dataSources.structured.feedPresetNames.${preset.id}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {t("dataSources.structured.feedPresetAttribution")}
+            </p>
+          </Field>
+        )}
+        {provider !== "csv" && (
+          <Field>
+            <FieldLabel htmlFor="structured-url">
+              {t(
+                provider === "json"
+                  ? "dataSources.structured.apiUrl"
+                  : "dataSources.structured.feedUrl",
+              )}
+            </FieldLabel>
+            <Input
+              id="structured-url"
+              type="url"
+              value={configuration.url ?? ""}
+              placeholder={
+                provider === "json"
+                  ? "https://api.example.org/items"
+                  : "https://example.org/feed.xml"
+              }
+              disabled={readOnly}
+              onChange={(e) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  url: e.target.value,
+                  uploadedContent: undefined,
+                  uploaded: false,
+                }))
+              }
+            />
+          </Field>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="structured-presentation">
+              {t("dataSources.structured.presentation")}
+            </FieldLabel>
+            <Select
+              value={configuration.presentation}
+              disabled={readOnly}
+              onValueChange={(next) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  presentation: next as StructuredSourceConfig["presentation"],
+                }))
+              }
+              items={presentationOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
+            >
+              <SelectTrigger
+                id="structured-presentation"
+                aria-label={t("dataSources.structured.presentation")}
+              >
+                <SelectValue>
+                  {optionLabel(
+                    presentationOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    })),
+                    configuration.presentation,
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {presentationOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="structured-max-items">
+              {t("dataSources.structured.maxItems")}
+            </FieldLabel>
+            <Input
+              id="structured-max-items"
+              type="number"
+              min={1}
+              max={200}
+              value={configuration.maxItems}
+              disabled={readOnly}
+              onChange={(e) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  maxItems: Number(e.target.value),
+                }))
+              }
+            />
+          </Field>
+        </div>
+        {/* Feeds publish a fixed record, so the author chooses which parts of it to
+              show — but only from the parts this feed actually carries. Mapped Sources
+              have no such list: what they map is what they display. */}
+        {!mapped && (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium">
+              {t("dataSources.structured.displayedFields")}
+            </legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {(
+                Object.keys(configuration.fields) as Array<
+                  keyof StructuredSourceConfig["fields"]
+                >
+              )
+                .filter(
+                  (field) =>
+                    !inspection.data ||
+                    inspection.data.available[field] ||
+                    configuration.fields[field],
+                )
+                .map((field) => (
+                  // The wrapping label names the checkbox; an extra aria-label
+                  // would double the accessible name ("Title Title").
+                  <label
+                    key={field}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <Checkbox
+                      checked={configuration.fields[field]}
+                      disabled={readOnly}
+                      onCheckedChange={(checked) =>
+                        setConfiguration((current) => ({
+                          ...current,
+                          fields: {
+                            ...current.fields,
+                            [field]: checked === true,
+                          },
+                        }))
+                      }
+                    />
+                    <span>{t(structuredFieldKeys[field])}</span>
+                  </label>
+                ))}
+            </div>
+            {inspection.data && (
+              <p className="text-sm text-muted-foreground">
+                {t("dataSources.structured.feedItemsRead", {
+                  count: inspection.data.rowCount,
+                })}
+              </p>
+            )}
+          </fieldset>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="structured-keyword">
+              {t("dataSources.editor.keywordFilter")}
+            </FieldLabel>
+            <Input
+              id="structured-keyword"
+              value={configuration.filterKeyword ?? ""}
+              disabled={readOnly}
+              onChange={(e) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  filterKeyword: e.target.value,
+                }))
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="structured-sort">
+              {t("dataSources.structured.sort")}
+            </FieldLabel>
+            <Select
+              value={configuration.sort}
+              disabled={readOnly}
+              onValueChange={(next) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  sort: next as StructuredSourceConfig["sort"],
+                }))
+              }
+              items={sortOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
+            >
+              <SelectTrigger
+                id="structured-sort"
+                aria-label={t("dataSources.structured.sort")}
+              >
+                <SelectValue>
+                  {optionLabel(
+                    sortOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    })),
+                    configuration.sort,
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+        {(provider === "json" || provider === "csv") && mapping && (
+          <>
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-medium">
+                {t("dataSources.structured.fieldMapping")}
+              </legend>
+              <StructuredDetectionNotice
+                provider={provider}
+                detectable={detectable}
+                inspection={inspection}
+              />
+              {provider === "json" && (
+                <Field>
+                  <FieldLabel htmlFor="mapping-root-list">
+                    {t(mappingFieldKeys.rootList)}
+                  </FieldLabel>
+                  <Input
+                    id="mapping-root-list"
+                    value={mapping.rootList}
+                    placeholder="/items"
+                    disabled={readOnly}
+                    onChange={(e) => updateMapping("rootList", e.target.value)}
+                  />
+                </Field>
+              )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                {mappedDisplayFields.map((field) => {
+                  const key = mappingSlotForField[field]!;
+                  return (
+                    <MappingSelect
+                      key={key}
+                      label={t(mappingFieldKeys[key])}
+                      value={mapping[key]}
+                      fields={detectedFields}
+                      placeholder={mappingPlaceholders[provider][key]}
+                      disabled={readOnly}
+                      onChange={(value) => updateMapping(key, value)}
+                    />
+                  );
+                })}
+              </div>
+              {provider === "csv" && (
+                <Field>
+                  <FieldLabel htmlFor="csv-delimiter">
+                    {t("dataSources.structured.delimiter")}
+                  </FieldLabel>
+                  <Select
+                    value={configuration.delimiter ?? ""}
+                    disabled={readOnly}
+                    onValueChange={(next) =>
+                      setConfiguration((c) => ({
+                        ...c,
+                        delimiter: next as StructuredSourceConfig["delimiter"],
+                      }))
+                    }
+                    items={delimiterOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    }))}
+                  >
+                    <SelectTrigger
+                      id="csv-delimiter"
+                      aria-label={t("dataSources.structured.delimiter")}
+                    >
+                      <SelectValue>
+                        {optionLabel(
+                          delimiterOptions.map((option) => ({
+                            value: option.value,
+                            label: t(option.labelKey),
+                          })),
+                          configuration.delimiter ?? "",
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {delimiterOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {t(option.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+              <div className="grid gap-2">
+                <strong className="text-sm font-medium">
+                  {t("dataSources.structured.optionalValues")}
+                </strong>
+                <small className="text-xs text-muted-foreground">
+                  {t("dataSources.structured.optionalValuesHint")}
+                </small>
+                {Object.entries(mapping.valueFields ?? {}).map(
+                  ([label, path]) => (
+                    <div
+                      className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
+                      key={label}
+                    >
+                      <Input
+                        aria-label={t("dataSources.structured.valueLabel")}
+                        value={label}
+                        disabled={readOnly}
+                        onChange={(event) =>
+                          renameValueField(label, event.target.value)
+                        }
+                      />
+                      <Input
+                        aria-label={t("dataSources.structured.valuePath")}
+                        value={path}
+                        disabled={readOnly}
+                        onChange={(event) =>
+                          setValueField(label, event.target.value)
+                        }
+                      />
+                      <Select
+                        value={mapping.valueFieldTypes?.[label] ?? "text"}
+                        disabled={readOnly}
+                        onValueChange={(next) =>
+                          setValueFieldType(label, next as StructuredValueType)
+                        }
+                        items={valueTypeOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        }))}
+                      >
+                        <SelectTrigger
+                          aria-label={t("dataSources.structured.valueType", {
+                            label,
+                          })}
+                        >
+                          <SelectValue>
+                            {optionLabel(
+                              valueTypeOptions.map((option) => ({
+                                value: option.value,
+                                label: t(option.labelKey),
+                              })),
+                              mapping.valueFieldTypes?.[label] ?? "text",
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {valueTypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("dataSources.structured.removeValue", {
+                          label,
+                        })}
+                        disabled={readOnly}
+                        onClick={() => removeValueField(label)}
+                      >
+                        <Trash2 size={15} aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ),
+                )}
+                {!readOnly &&
+                  unmappedTimestamps.length > 0 &&
+                  Object.keys(mapping.valueFields ?? {}).length <
+                    maximumValueFields && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={addTimestampValues}
+                    >
+                      <Plus size={15} aria-hidden="true" />{" "}
+                      {t("dataSources.structured.addTimestamps", {
+                        count: unmappedTimestamps.length,
+                      })}
+                    </Button>
+                  )}
+                {!readOnly &&
+                  Object.keys(mapping.valueFields ?? {}).length <
+                    maximumValueFields && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        // Generated default value label the author renames.
+                        setValueField(
+                          `Value ${Object.keys(mapping.valueFields ?? {}).length + 1}`,
+                          provider === "json" ? "/value" : "value",
+                        )
+                      }
+                    >
+                      <Plus size={15} aria-hidden="true" />{" "}
+                      {t("dataSources.structured.addValue")}
+                    </Button>
+                  )}
+              </div>
+            </fieldset>
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-medium">
+                {t("dataSources.structured.dateAware")}
+              </legend>
+              <label className="flex items-start gap-2 text-sm">
+                <Switch
+                  checked={configuration.dateSelection.enabled}
+                  disabled={readOnly}
+                  onCheckedChange={(checked) =>
+                    setConfiguration((current) => ({
+                      ...current,
+                      dateSelection: {
+                        ...current.dateSelection,
+                        enabled: checked === true,
+                      },
+                    }))
+                  }
+                  aria-label={t("dataSources.structured.selectByLocalDate")}
+                  className="mt-0.5"
+                />
+                <span className="grid gap-0.5">
+                  <strong className="font-medium">
+                    {t("dataSources.structured.selectByLocalDate")}
+                  </strong>
+                  <small className="text-xs text-muted-foreground">
+                    {t("dataSources.structured.selectByLocalDateHint")}
+                  </small>
+                </span>
+              </label>
+              {configuration.dateSelection.enabled && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="date-format">
+                        {t("dataSources.structured.dateFormat")}
+                      </FieldLabel>
+                      <Select
+                        value={configuration.dateSelection.dateFormat}
+                        disabled={readOnly}
+                        onValueChange={(next) =>
+                          setConfiguration((current) => ({
+                            ...current,
+                            dateSelection: {
+                              ...current.dateSelection,
+                              dateFormat:
+                                next as StructuredSourceConfig["dateSelection"]["dateFormat"],
+                            },
+                          }))
+                        }
+                        items={dateFormatOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        }))}
+                      >
+                        <SelectTrigger
+                          id="date-format"
+                          aria-label={t("dataSources.structured.dateFormat")}
+                        >
+                          <SelectValue>
+                            {optionLabel(
+                              dateFormatOptions.map((option) => ({
+                                value: option.value,
+                                label: t(option.labelKey),
+                              })),
+                              configuration.dateSelection.dateFormat,
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dateFormatOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="date-timezone">
+                        {t("dataSources.editor.timezone")}
+                      </FieldLabel>
+                      <Input
+                        id="date-timezone"
+                        value={configuration.dateSelection.timezone}
+                        disabled={readOnly}
+                        onChange={(event) => {
+                          touchedTimezone.current = true;
+                          setConfiguration((current) => ({
+                            ...current,
+                            dateSelection: {
+                              ...current.dateSelection,
+                              timezone: event.target.value,
+                            },
+                          }));
+                        }}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="date-mode">
+                        {t("dataSources.manual.selection")}
+                      </FieldLabel>
+                      <Select
+                        value={configuration.dateSelection.mode}
+                        disabled={readOnly}
+                        onValueChange={(next) =>
+                          setConfiguration((current) => ({
+                            ...current,
+                            dateSelection: {
+                              ...current.dateSelection,
+                              mode: next as StructuredSourceConfig["dateSelection"]["mode"],
+                            },
+                          }))
+                        }
+                        items={dateModeOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        }))}
+                      >
+                        <SelectTrigger
+                          id="date-mode"
+                          aria-label={t("dataSources.manual.selection")}
+                        >
+                          <SelectValue>
+                            {optionLabel(
+                              dateModeOptions.map((option) => ({
+                                value: option.value,
+                                label: t(option.labelKey),
+                              })),
+                              configuration.dateSelection.mode,
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dateModeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="date-no-match">
+                        {t("dataSources.structured.noMatch")}
+                      </FieldLabel>
+                      <Select
+                        value={configuration.dateSelection.noMatchBehavior}
+                        disabled={readOnly}
+                        onValueChange={(next) =>
+                          setConfiguration((current) => ({
+                            ...current,
+                            dateSelection: {
+                              ...current.dateSelection,
+                              noMatchBehavior:
+                                next as StructuredSourceConfig["dateSelection"]["noMatchBehavior"],
+                            },
+                          }))
+                        }
+                        items={noMatchOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        }))}
+                      >
+                        <SelectTrigger
+                          id="date-no-match"
+                          aria-label={t("dataSources.structured.noMatch")}
+                        >
+                          <SelectValue>
+                            {optionLabel(
+                              noMatchOptions.map((option) => ({
+                                value: option.value,
+                                label: t(option.labelKey),
+                              })),
+                              configuration.dateSelection.noMatchBehavior,
+                            )}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {noMatchOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(option.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                  {configuration.dateSelection.mode === "custom_range" && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field>
+                        <FieldLabel htmlFor="date-start">
+                          {t("dataSources.structured.startDate")}
+                        </FieldLabel>
+                        <DateInput
+                          id="date-start"
+                          value={
+                            configuration.dateSelection.customStartDate ?? ""
+                          }
+                          disabled={readOnly}
+                          onChange={(value) =>
+                            setConfiguration((current) => ({
+                              ...current,
+                              dateSelection: {
+                                ...current.dateSelection,
+                                customStartDate: value,
+                              },
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="date-end">
+                          {t("dataSources.structured.endDate")}
+                        </FieldLabel>
+                        <DateInput
+                          id="date-end"
+                          value={
+                            configuration.dateSelection.customEndDate ?? ""
+                          }
+                          disabled={readOnly}
+                          onChange={(value) =>
+                            setConfiguration((current) => ({
+                              ...current,
+                              dateSelection: {
+                                ...current.dateSelection,
+                                customEndDate: value,
+                              },
+                            }))
+                          }
+                        />
+                      </Field>
+                    </div>
+                  )}
+                  {configuration.dateSelection.noMatchBehavior ===
+                    "fallback_text" && (
+                    <Field>
+                      <FieldLabel htmlFor="date-fallback">
+                        {t("dataSources.structured.fallbackText")}
+                      </FieldLabel>
+                      <Input
+                        id="date-fallback"
+                        value={configuration.dateSelection.fallbackText ?? ""}
+                        disabled={readOnly}
+                        onChange={(event) =>
+                          setConfiguration((current) => ({
+                            ...current,
+                            dateSelection: {
+                              ...current.dateSelection,
+                              fallbackText: event.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </Field>
+                  )}
+                  {/* The wrapping label names the switch; an extra aria-label
+                        would double the accessible name. */}
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={configuration.dateSelection.excludePast}
+                      disabled={readOnly}
+                      onCheckedChange={(checked) =>
+                        setConfiguration((current) => ({
+                          ...current,
+                          dateSelection: {
+                            ...current.dateSelection,
+                            excludePast: checked === true,
+                          },
+                        }))
+                      }
+                    />
+                    <span>{t("dataSources.structured.excludePast")}</span>
+                  </label>
+                  <Field>
+                    <FieldLabel htmlFor="preview-date">
+                      {t("dataSources.structured.previewDate")}
+                    </FieldLabel>
+                    <DateInput
+                      id="preview-date"
+                      value={previewDate}
+                      onChange={setPreviewDate}
+                    />
+                  </Field>
+                </>
+              )}
+            </fieldset>
+          </>
+        )}
+        <fieldset className="grid gap-3">
+          <legend className="text-sm font-medium">
+            {t("dataSources.structured.recordFilters")}
+          </legend>
+          <div className="grid gap-2">
+            {(configuration.filters ?? []).map((filter, index) => (
+              <div
+                className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
+                key={index}
+              >
+                <Input
+                  aria-label={t("dataSources.structured.filterField")}
+                  value={filter.field}
+                  disabled={readOnly}
+                  onChange={(event) =>
+                    setConfiguration((current) => ({
+                      ...current,
+                      filters: (current.filters ?? []).map((item, position) =>
+                        position === index
+                          ? { ...item, field: event.target.value }
+                          : item,
+                      ),
+                    }))
+                  }
+                />
+                <Select
+                  value={filter.operator}
+                  disabled={readOnly}
+                  onValueChange={(next) =>
+                    setConfiguration((current) => ({
+                      ...current,
+                      filters: (current.filters ?? []).map((item, position) =>
+                        position === index
+                          ? {
+                              ...item,
+                              operator: next as "equals" | "contains",
+                            }
+                          : item,
+                      ),
+                    }))
+                  }
+                  items={filterOperatorOptions.map((option) => ({
+                    value: option.value,
+                    label: t(option.labelKey),
+                  }))}
+                >
+                  <SelectTrigger
+                    aria-label={t("dataSources.structured.filterOperator")}
+                  >
+                    <SelectValue>
+                      {optionLabel(
+                        filterOperatorOptions.map((option) => ({
+                          value: option.value,
+                          label: t(option.labelKey),
+                        })),
+                        filter.operator,
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filterOperatorOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {t(option.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  aria-label={t("dataSources.structured.filterValue")}
+                  value={filter.value}
+                  disabled={readOnly}
+                  onChange={(event) =>
+                    setConfiguration((current) => ({
+                      ...current,
+                      filters: (current.filters ?? []).map((item, position) =>
+                        position === index
+                          ? { ...item, value: event.target.value }
+                          : item,
+                      ),
+                    }))
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("dataSources.structured.removeFilter")}
+                  disabled={readOnly}
+                  onClick={() =>
+                    setConfiguration((current) => ({
+                      ...current,
+                      filters: (current.filters ?? []).filter(
+                        (_, position) => position !== index,
+                      ),
+                    }))
+                  }
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                </Button>
+              </div>
+            ))}
+            {!readOnly && (configuration.filters?.length ?? 0) < 8 && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() =>
+                  setConfiguration((current) => ({
+                    ...current,
+                    filters: [
+                      ...(current.filters ?? []),
+                      { field: "title", operator: "contains", value: "" },
+                    ],
+                  }))
+                }
+              >
+                <Plus size={15} aria-hidden="true" />{" "}
+                {t("dataSources.structured.addFilter")}
+              </Button>
+            )}
+          </div>
+        </fieldset>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor="structured-refresh">
+              {t("dataSources.editor.refreshInterval")}
+            </FieldLabel>
+            <Select
+              value={configuration.refreshIntervalSeconds}
+              disabled={readOnly || Boolean(configuration.uploaded)}
+              onValueChange={(next) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  refreshIntervalSeconds: Number(next),
+                }))
+              }
+              items={refreshOptions.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+              }))}
+            >
+              <SelectTrigger
+                id="structured-refresh"
+                aria-label={t("dataSources.editor.refreshInterval")}
+              >
+                <SelectValue>
+                  {optionLabel(
+                    refreshOptions.map((option) => ({
+                      value: option.value,
+                      label: t(option.labelKey),
+                    })),
+                    configuration.refreshIntervalSeconds,
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {refreshOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {t(option.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="structured-empty-state">
+              {t("dataSources.editor.emptyState")}
+            </FieldLabel>
+            <Input
+              id="structured-empty-state"
+              value={configuration.emptyState}
+              disabled={readOnly}
+              onChange={(e) =>
+                setConfiguration((c) => ({
+                  ...c,
+                  emptyState: e.target.value,
+                }))
+              }
+            />
+          </Field>
+        </div>
+        {diagnostics.data && (
+          <div className="grid gap-1 rounded-xl border border-border bg-card p-3">
+            <strong className="text-sm font-medium">
+              {t("dataSources.diagnostics.title")}
+            </strong>
+            <span className="text-sm">
+              {diagnostics.data.parseStatus} ·{" "}
+              {diagnostics.data.httpResultCategory ??
+                t("dataSources.diagnostics.notAttempted")}{" "}
+              ·{" "}
+              {t("dataSources.diagnostics.items", {
+                count: diagnostics.data.availableItemCount,
+              })}
+              {diagnostics.data.usingCachedData
+                ? t("dataSources.diagnostics.cachedSuffix")
+                : ""}
+            </span>
+            <small className="text-xs text-muted-foreground">
+              {t("dataSources.diagnostics.lastAttempt", {
+                value: diagnostics.data.lastAttemptedRefresh
+                  ? new Date(
+                      diagnostics.data.lastAttemptedRefresh,
+                    ).toLocaleString(locale)
+                  : t("dataSources.diagnostics.notYet"),
+              })}
+            </small>
+            <small className="text-xs text-muted-foreground">
+              {t("dataSources.diagnostics.lastSuccess", {
+                value: diagnostics.data.lastSuccessfulRefresh
+                  ? new Date(
+                      diagnostics.data.lastSuccessfulRefresh,
+                    ).toLocaleString(locale)
+                  : t("dataSources.diagnostics.notYet"),
+              })}
+            </small>
+          </div>
+        )}
+        {preview && (
+          <div className="grid gap-2 rounded-xl border border-border bg-card p-3">
+            <strong className="text-sm font-medium">
+              {t("dataSources.structured.mappedItems", {
+                count: preview.configuration.data.records.length,
+              })}
+            </strong>
+            {preview.configuration.data.records.slice(0, 8).map((record) => (
+              <article
+                key={record.id}
+                className="grid gap-0.5 border-b border-border pb-2 last:border-0 last:pb-0"
+              >
+                <strong className="text-sm font-medium">
+                  {record.title || t("dataSources.structured.untitledItem")}
+                </strong>
+                {record.subtitle && (
+                  <span className="text-sm text-muted-foreground">
+                    {record.subtitle}
+                  </span>
+                )}
+                {record.date && (
+                  <small className="text-xs text-muted-foreground">
+                    {formatRegionalDateTimeValue(
+                      record.date,
+                      record.date.includes("T") ? "datetime" : "date",
+                      {
+                        ...regional,
+                        timezone:
+                          configuration.dateSelection.timezone ||
+                          regional.timezone,
+                      },
+                    )}
+                  </small>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+        {(previewMutation.error || save.error) && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {apiErrorMessage(previewMutation.error ?? save.error)}
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+      <footer className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={previewMutation.isPending}
+          onClick={() => previewMutation.mutate()}
+        >
+          {previewMutation.isPending
+            ? t("dataSources.preview.loading")
+            : t("dataSources.preview.mappedData")}
+        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            disabled={save.isPending || !name.trim()}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending
+              ? t("common:actions.saving")
+              : t("dataSources.editor.save")}
+          </Button>
+        )}
+      </footer>
+    </>
+  );
+  if (page) {
+    return (
+      <section className="grid w-full min-w-0 gap-5" aria-label={title}>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <h2 id="structured-source-title" className="text-xl font-semibold">
-              {t(
-                dataSource
-                  ? "dataSources.structured.titleEdit"
-                  : "dataSources.structured.titleCreate",
-                // The provider code (RSS, JSON, CSV, ATOM) interpolates untranslated.
-                { provider: provider.toUpperCase() },
-              )}
-            </h2>
+            <h2 className="text-xl font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
               {t("dataSources.structured.description")}
             </p>
@@ -777,1087 +1827,26 @@ export function StructuredDataSourceEditor({
             <X aria-hidden="true" />
           </Button>
         </div>
-        <div className="grid min-w-0 gap-5">
-          <Field>
-            <FieldLabel htmlFor="structured-name">
-              {t("dataSources.editor.name")}
-            </FieldLabel>
-            <Input
-              id="structured-name"
-              value={name}
-              disabled={readOnly}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="structured-description">
-              {t("dataSources.editor.description")}
-            </FieldLabel>
-            <Input
-              id="structured-description"
-              value={description}
-              disabled={readOnly}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </Field>
-          {provider === "csv" && (
-            <CsvSourceInput
-              configuration={configuration}
-              readOnly={readOnly}
-              onChange={updateConfiguration}
-            />
-          )}
-          {provider === "feed" && (
-            <Field>
-              <FieldLabel htmlFor="structured-feed-preset">
-                {t("dataSources.structured.feedPreset")}
-              </FieldLabel>
-              <Select
-                value={
-                  FEED_PRESETS.some(
-                    (preset) =>
-                      preset.url !== "" &&
-                      preset.url === (configuration.url ?? ""),
-                  )
-                    ? (configuration.url ?? "")
-                    : "custom"
-                }
-                disabled={readOnly}
-                onValueChange={(next) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    url: (next === "custom" ? "https://" : next) ?? "https://",
-                    uploadedContent: undefined,
-                    uploaded: false,
-                  }))
-                }
-                items={FEED_PRESETS.map((preset) => ({
-                  value: preset.url === "" ? "custom" : preset.url,
-                  label: t(
-                    `dataSources.structured.feedPresetNames.${preset.id}`,
-                  ),
-                }))}
-              >
-                <SelectTrigger
-                  id="structured-feed-preset"
-                  aria-label={t("dataSources.structured.feedPreset")}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FEED_PRESETS.map((preset) => (
-                    <SelectItem
-                      key={preset.id}
-                      value={preset.url === "" ? "custom" : preset.url}
-                    >
-                      {t(`dataSources.structured.feedPresetNames.${preset.id}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {t("dataSources.structured.feedPresetAttribution")}
-              </p>
-            </Field>
-          )}
-          {provider !== "csv" && (
-            <Field>
-              <FieldLabel htmlFor="structured-url">
-                {t(
-                  provider === "json"
-                    ? "dataSources.structured.apiUrl"
-                    : "dataSources.structured.feedUrl",
-                )}
-              </FieldLabel>
-              <Input
-                id="structured-url"
-                type="url"
-                value={configuration.url ?? ""}
-                placeholder={
-                  provider === "json"
-                    ? "https://api.example.org/items"
-                    : "https://example.org/feed.xml"
-                }
-                disabled={readOnly}
-                onChange={(e) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    url: e.target.value,
-                    uploadedContent: undefined,
-                    uploaded: false,
-                  }))
-                }
-              />
-            </Field>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="structured-presentation">
-                {t("dataSources.structured.presentation")}
-              </FieldLabel>
-              <Select
-                value={configuration.presentation}
-                disabled={readOnly}
-                onValueChange={(next) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    presentation:
-                      next as StructuredSourceConfig["presentation"],
-                  }))
-                }
-                items={presentationOptions.map((option) => ({
-                  value: option.value,
-                  label: t(option.labelKey),
-                }))}
-              >
-                <SelectTrigger
-                  id="structured-presentation"
-                  aria-label={t("dataSources.structured.presentation")}
-                >
-                  <SelectValue>
-                    {optionLabel(
-                      presentationOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.labelKey),
-                      })),
-                      configuration.presentation,
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {presentationOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="structured-max-items">
-                {t("dataSources.structured.maxItems")}
-              </FieldLabel>
-              <Input
-                id="structured-max-items"
-                type="number"
-                min={1}
-                max={200}
-                value={configuration.maxItems}
-                disabled={readOnly}
-                onChange={(e) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    maxItems: Number(e.target.value),
-                  }))
-                }
-              />
-            </Field>
-          </div>
-          {/* Feeds publish a fixed record, so the author chooses which parts of it to
-              show — but only from the parts this feed actually carries. Mapped Sources
-              have no such list: what they map is what they display. */}
-          {!mapped && (
-            <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">
-                {t("dataSources.structured.displayedFields")}
-              </legend>
-              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                {(
-                  Object.keys(configuration.fields) as Array<
-                    keyof StructuredSourceConfig["fields"]
-                  >
-                )
-                  .filter(
-                    (field) =>
-                      !inspection.data ||
-                      inspection.data.available[field] ||
-                      configuration.fields[field],
-                  )
-                  .map((field) => (
-                    // The wrapping label names the checkbox; an extra aria-label
-                    // would double the accessible name ("Title Title").
-                    <label
-                      key={field}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <Checkbox
-                        checked={configuration.fields[field]}
-                        disabled={readOnly}
-                        onCheckedChange={(checked) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            fields: {
-                              ...current.fields,
-                              [field]: checked === true,
-                            },
-                          }))
-                        }
-                      />
-                      <span>{t(structuredFieldKeys[field])}</span>
-                    </label>
-                  ))}
-              </div>
-              {inspection.data && (
-                <p className="text-sm text-muted-foreground">
-                  {t("dataSources.structured.feedItemsRead", {
-                    count: inspection.data.rowCount,
-                  })}
-                </p>
-              )}
-            </fieldset>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="structured-keyword">
-                {t("dataSources.editor.keywordFilter")}
-              </FieldLabel>
-              <Input
-                id="structured-keyword"
-                value={configuration.filterKeyword ?? ""}
-                disabled={readOnly}
-                onChange={(e) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    filterKeyword: e.target.value,
-                  }))
-                }
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="structured-sort">
-                {t("dataSources.structured.sort")}
-              </FieldLabel>
-              <Select
-                value={configuration.sort}
-                disabled={readOnly}
-                onValueChange={(next) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    sort: next as StructuredSourceConfig["sort"],
-                  }))
-                }
-                items={sortOptions.map((option) => ({
-                  value: option.value,
-                  label: t(option.labelKey),
-                }))}
-              >
-                <SelectTrigger
-                  id="structured-sort"
-                  aria-label={t("dataSources.structured.sort")}
-                >
-                  <SelectValue>
-                    {optionLabel(
-                      sortOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.labelKey),
-                      })),
-                      configuration.sort,
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {sortOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          {(provider === "json" || provider === "csv") && mapping && (
-            <>
-              <fieldset className="grid gap-3">
-                <legend className="text-sm font-medium">
-                  {t("dataSources.structured.fieldMapping")}
-                </legend>
-                <StructuredDetectionNotice
-                  provider={provider}
-                  detectable={detectable}
-                  inspection={inspection}
-                />
-                {provider === "json" && (
-                  <Field>
-                    <FieldLabel htmlFor="mapping-root-list">
-                      {t(mappingFieldKeys.rootList)}
-                    </FieldLabel>
-                    <Input
-                      id="mapping-root-list"
-                      value={mapping.rootList}
-                      placeholder="/items"
-                      disabled={readOnly}
-                      onChange={(e) =>
-                        updateMapping("rootList", e.target.value)
-                      }
-                    />
-                  </Field>
-                )}
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {mappedDisplayFields.map((field) => {
-                    const key = mappingSlotForField[field]!;
-                    return (
-                      <MappingSelect
-                        key={key}
-                        label={t(mappingFieldKeys[key])}
-                        value={mapping[key]}
-                        fields={detectedFields}
-                        placeholder={mappingPlaceholders[provider][key]}
-                        disabled={readOnly}
-                        onChange={(value) => updateMapping(key, value)}
-                      />
-                    );
-                  })}
-                </div>
-                {provider === "csv" && (
-                  <Field>
-                    <FieldLabel htmlFor="csv-delimiter">
-                      {t("dataSources.structured.delimiter")}
-                    </FieldLabel>
-                    <Select
-                      value={configuration.delimiter ?? ""}
-                      disabled={readOnly}
-                      onValueChange={(next) =>
-                        setConfiguration((c) => ({
-                          ...c,
-                          delimiter:
-                            next as StructuredSourceConfig["delimiter"],
-                        }))
-                      }
-                      items={delimiterOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.labelKey),
-                      }))}
-                    >
-                      <SelectTrigger
-                        id="csv-delimiter"
-                        aria-label={t("dataSources.structured.delimiter")}
-                      >
-                        <SelectValue>
-                          {optionLabel(
-                            delimiterOptions.map((option) => ({
-                              value: option.value,
-                              label: t(option.labelKey),
-                            })),
-                            configuration.delimiter ?? "",
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {delimiterOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {t(option.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-                <div className="grid gap-2">
-                  <strong className="text-sm font-medium">
-                    {t("dataSources.structured.optionalValues")}
-                  </strong>
-                  <small className="text-xs text-muted-foreground">
-                    {t("dataSources.structured.optionalValuesHint")}
-                  </small>
-                  {Object.entries(mapping.valueFields ?? {}).map(
-                    ([label, path]) => (
-                      <div
-                        className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
-                        key={label}
-                      >
-                        <Input
-                          aria-label={t("dataSources.structured.valueLabel")}
-                          value={label}
-                          disabled={readOnly}
-                          onChange={(event) =>
-                            renameValueField(label, event.target.value)
-                          }
-                        />
-                        <Input
-                          aria-label={t("dataSources.structured.valuePath")}
-                          value={path}
-                          disabled={readOnly}
-                          onChange={(event) =>
-                            setValueField(label, event.target.value)
-                          }
-                        />
-                        <Select
-                          value={mapping.valueFieldTypes?.[label] ?? "text"}
-                          disabled={readOnly}
-                          onValueChange={(next) =>
-                            setValueFieldType(
-                              label,
-                              next as StructuredValueType,
-                            )
-                          }
-                          items={valueTypeOptions.map((option) => ({
-                            value: option.value,
-                            label: t(option.labelKey),
-                          }))}
-                        >
-                          <SelectTrigger
-                            aria-label={t("dataSources.structured.valueType", {
-                              label,
-                            })}
-                          >
-                            <SelectValue>
-                              {optionLabel(
-                                valueTypeOptions.map((option) => ({
-                                  value: option.value,
-                                  label: t(option.labelKey),
-                                })),
-                                mapping.valueFieldTypes?.[label] ?? "text",
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {valueTypeOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {t(option.labelKey)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("dataSources.structured.removeValue", {
-                            label,
-                          })}
-                          disabled={readOnly}
-                          onClick={() => removeValueField(label)}
-                        >
-                          <Trash2 size={15} aria-hidden="true" />
-                        </Button>
-                      </div>
-                    ),
-                  )}
-                  {!readOnly &&
-                    unmappedTimestamps.length > 0 &&
-                    Object.keys(mapping.valueFields ?? {}).length <
-                      maximumValueFields && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={addTimestampValues}
-                      >
-                        <Plus size={15} aria-hidden="true" />{" "}
-                        {t("dataSources.structured.addTimestamps", {
-                          count: unmappedTimestamps.length,
-                        })}
-                      </Button>
-                    )}
-                  {!readOnly &&
-                    Object.keys(mapping.valueFields ?? {}).length <
-                      maximumValueFields && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() =>
-                          // Generated default value label the author renames.
-                          setValueField(
-                            `Value ${Object.keys(mapping.valueFields ?? {}).length + 1}`,
-                            provider === "json" ? "/value" : "value",
-                          )
-                        }
-                      >
-                        <Plus size={15} aria-hidden="true" />{" "}
-                        {t("dataSources.structured.addValue")}
-                      </Button>
-                    )}
-                </div>
-              </fieldset>
-              <fieldset className="grid gap-3">
-                <legend className="text-sm font-medium">
-                  {t("dataSources.structured.dateAware")}
-                </legend>
-                <label className="flex items-start gap-2 text-sm">
-                  <Switch
-                    checked={configuration.dateSelection.enabled}
-                    disabled={readOnly}
-                    onCheckedChange={(checked) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        dateSelection: {
-                          ...current.dateSelection,
-                          enabled: checked === true,
-                        },
-                      }))
-                    }
-                    aria-label={t("dataSources.structured.selectByLocalDate")}
-                    className="mt-0.5"
-                  />
-                  <span className="grid gap-0.5">
-                    <strong className="font-medium">
-                      {t("dataSources.structured.selectByLocalDate")}
-                    </strong>
-                    <small className="text-xs text-muted-foreground">
-                      {t("dataSources.structured.selectByLocalDateHint")}
-                    </small>
-                  </span>
-                </label>
-                {configuration.dateSelection.enabled && (
-                  <>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field>
-                        <FieldLabel htmlFor="date-format">
-                          {t("dataSources.structured.dateFormat")}
-                        </FieldLabel>
-                        <Select
-                          value={configuration.dateSelection.dateFormat}
-                          disabled={readOnly}
-                          onValueChange={(next) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              dateSelection: {
-                                ...current.dateSelection,
-                                dateFormat:
-                                  next as StructuredSourceConfig["dateSelection"]["dateFormat"],
-                              },
-                            }))
-                          }
-                          items={dateFormatOptions.map((option) => ({
-                            value: option.value,
-                            label: t(option.labelKey),
-                          }))}
-                        >
-                          <SelectTrigger
-                            id="date-format"
-                            aria-label={t("dataSources.structured.dateFormat")}
-                          >
-                            <SelectValue>
-                              {optionLabel(
-                                dateFormatOptions.map((option) => ({
-                                  value: option.value,
-                                  label: t(option.labelKey),
-                                })),
-                                configuration.dateSelection.dateFormat,
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dateFormatOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {t(option.labelKey)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="date-timezone">
-                          {t("dataSources.editor.timezone")}
-                        </FieldLabel>
-                        <Input
-                          id="date-timezone"
-                          value={configuration.dateSelection.timezone}
-                          disabled={readOnly}
-                          onChange={(event) => {
-                            touchedTimezone.current = true;
-                            setConfiguration((current) => ({
-                              ...current,
-                              dateSelection: {
-                                ...current.dateSelection,
-                                timezone: event.target.value,
-                              },
-                            }));
-                          }}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="date-mode">
-                          {t("dataSources.manual.selection")}
-                        </FieldLabel>
-                        <Select
-                          value={configuration.dateSelection.mode}
-                          disabled={readOnly}
-                          onValueChange={(next) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              dateSelection: {
-                                ...current.dateSelection,
-                                mode: next as StructuredSourceConfig["dateSelection"]["mode"],
-                              },
-                            }))
-                          }
-                          items={dateModeOptions.map((option) => ({
-                            value: option.value,
-                            label: t(option.labelKey),
-                          }))}
-                        >
-                          <SelectTrigger
-                            id="date-mode"
-                            aria-label={t("dataSources.manual.selection")}
-                          >
-                            <SelectValue>
-                              {optionLabel(
-                                dateModeOptions.map((option) => ({
-                                  value: option.value,
-                                  label: t(option.labelKey),
-                                })),
-                                configuration.dateSelection.mode,
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dateModeOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {t(option.labelKey)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="date-no-match">
-                          {t("dataSources.structured.noMatch")}
-                        </FieldLabel>
-                        <Select
-                          value={configuration.dateSelection.noMatchBehavior}
-                          disabled={readOnly}
-                          onValueChange={(next) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              dateSelection: {
-                                ...current.dateSelection,
-                                noMatchBehavior:
-                                  next as StructuredSourceConfig["dateSelection"]["noMatchBehavior"],
-                              },
-                            }))
-                          }
-                          items={noMatchOptions.map((option) => ({
-                            value: option.value,
-                            label: t(option.labelKey),
-                          }))}
-                        >
-                          <SelectTrigger
-                            id="date-no-match"
-                            aria-label={t("dataSources.structured.noMatch")}
-                          >
-                            <SelectValue>
-                              {optionLabel(
-                                noMatchOptions.map((option) => ({
-                                  value: option.value,
-                                  label: t(option.labelKey),
-                                })),
-                                configuration.dateSelection.noMatchBehavior,
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {noMatchOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {t(option.labelKey)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    </div>
-                    {configuration.dateSelection.mode === "custom_range" && (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <Field>
-                          <FieldLabel htmlFor="date-start">
-                            {t("dataSources.structured.startDate")}
-                          </FieldLabel>
-                          <DateInput
-                            id="date-start"
-                            value={
-                              configuration.dateSelection.customStartDate ?? ""
-                            }
-                            disabled={readOnly}
-                            onChange={(value) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                dateSelection: {
-                                  ...current.dateSelection,
-                                  customStartDate: value,
-                                },
-                              }))
-                            }
-                          />
-                        </Field>
-                        <Field>
-                          <FieldLabel htmlFor="date-end">
-                            {t("dataSources.structured.endDate")}
-                          </FieldLabel>
-                          <DateInput
-                            id="date-end"
-                            value={
-                              configuration.dateSelection.customEndDate ?? ""
-                            }
-                            disabled={readOnly}
-                            onChange={(value) =>
-                              setConfiguration((current) => ({
-                                ...current,
-                                dateSelection: {
-                                  ...current.dateSelection,
-                                  customEndDate: value,
-                                },
-                              }))
-                            }
-                          />
-                        </Field>
-                      </div>
-                    )}
-                    {configuration.dateSelection.noMatchBehavior ===
-                      "fallback_text" && (
-                      <Field>
-                        <FieldLabel htmlFor="date-fallback">
-                          {t("dataSources.structured.fallbackText")}
-                        </FieldLabel>
-                        <Input
-                          id="date-fallback"
-                          value={configuration.dateSelection.fallbackText ?? ""}
-                          disabled={readOnly}
-                          onChange={(event) =>
-                            setConfiguration((current) => ({
-                              ...current,
-                              dateSelection: {
-                                ...current.dateSelection,
-                                fallbackText: event.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </Field>
-                    )}
-                    {/* The wrapping label names the switch; an extra aria-label
-                        would double the accessible name. */}
-                    <label className="flex items-center gap-2 text-sm">
-                      <Switch
-                        checked={configuration.dateSelection.excludePast}
-                        disabled={readOnly}
-                        onCheckedChange={(checked) =>
-                          setConfiguration((current) => ({
-                            ...current,
-                            dateSelection: {
-                              ...current.dateSelection,
-                              excludePast: checked === true,
-                            },
-                          }))
-                        }
-                      />
-                      <span>{t("dataSources.structured.excludePast")}</span>
-                    </label>
-                    <Field>
-                      <FieldLabel htmlFor="preview-date">
-                        {t("dataSources.structured.previewDate")}
-                      </FieldLabel>
-                      <DateInput
-                        id="preview-date"
-                        value={previewDate}
-                        onChange={setPreviewDate}
-                      />
-                    </Field>
-                  </>
-                )}
-              </fieldset>
-            </>
-          )}
-          <fieldset className="grid gap-3">
-            <legend className="text-sm font-medium">
-              {t("dataSources.structured.recordFilters")}
-            </legend>
-            <div className="grid gap-2">
-              {(configuration.filters ?? []).map((filter, index) => (
-                <div
-                  className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-center"
-                  key={index}
-                >
-                  <Input
-                    aria-label={t("dataSources.structured.filterField")}
-                    value={filter.field}
-                    disabled={readOnly}
-                    onChange={(event) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        filters: (current.filters ?? []).map(
-                          (item, position) =>
-                            position === index
-                              ? { ...item, field: event.target.value }
-                              : item,
-                        ),
-                      }))
-                    }
-                  />
-                  <Select
-                    value={filter.operator}
-                    disabled={readOnly}
-                    onValueChange={(next) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        filters: (current.filters ?? []).map(
-                          (item, position) =>
-                            position === index
-                              ? {
-                                  ...item,
-                                  operator: next as "equals" | "contains",
-                                }
-                              : item,
-                        ),
-                      }))
-                    }
-                    items={filterOperatorOptions.map((option) => ({
-                      value: option.value,
-                      label: t(option.labelKey),
-                    }))}
-                  >
-                    <SelectTrigger
-                      aria-label={t("dataSources.structured.filterOperator")}
-                    >
-                      <SelectValue>
-                        {optionLabel(
-                          filterOperatorOptions.map((option) => ({
-                            value: option.value,
-                            label: t(option.labelKey),
-                          })),
-                          filter.operator,
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filterOperatorOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {t(option.labelKey)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    aria-label={t("dataSources.structured.filterValue")}
-                    value={filter.value}
-                    disabled={readOnly}
-                    onChange={(event) =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        filters: (current.filters ?? []).map(
-                          (item, position) =>
-                            position === index
-                              ? { ...item, value: event.target.value }
-                              : item,
-                        ),
-                      }))
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("dataSources.structured.removeFilter")}
-                    disabled={readOnly}
-                    onClick={() =>
-                      setConfiguration((current) => ({
-                        ...current,
-                        filters: (current.filters ?? []).filter(
-                          (_, position) => position !== index,
-                        ),
-                      }))
-                    }
-                  >
-                    <Trash2 size={15} aria-hidden="true" />
-                  </Button>
-                </div>
-              ))}
-              {!readOnly && (configuration.filters?.length ?? 0) < 8 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    setConfiguration((current) => ({
-                      ...current,
-                      filters: [
-                        ...(current.filters ?? []),
-                        { field: "title", operator: "contains", value: "" },
-                      ],
-                    }))
-                  }
-                >
-                  <Plus size={15} aria-hidden="true" />{" "}
-                  {t("dataSources.structured.addFilter")}
-                </Button>
-              )}
-            </div>
-          </fieldset>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="structured-refresh">
-                {t("dataSources.editor.refreshInterval")}
-              </FieldLabel>
-              <Select
-                value={configuration.refreshIntervalSeconds}
-                disabled={readOnly || Boolean(configuration.uploaded)}
-                onValueChange={(next) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    refreshIntervalSeconds: Number(next),
-                  }))
-                }
-                items={refreshOptions.map((option) => ({
-                  value: option.value,
-                  label: t(option.labelKey),
-                }))}
-              >
-                <SelectTrigger
-                  id="structured-refresh"
-                  aria-label={t("dataSources.editor.refreshInterval")}
-                >
-                  <SelectValue>
-                    {optionLabel(
-                      refreshOptions.map((option) => ({
-                        value: option.value,
-                        label: t(option.labelKey),
-                      })),
-                      configuration.refreshIntervalSeconds,
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {refreshOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {t(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="structured-empty-state">
-                {t("dataSources.editor.emptyState")}
-              </FieldLabel>
-              <Input
-                id="structured-empty-state"
-                value={configuration.emptyState}
-                disabled={readOnly}
-                onChange={(e) =>
-                  setConfiguration((c) => ({
-                    ...c,
-                    emptyState: e.target.value,
-                  }))
-                }
-              />
-            </Field>
-          </div>
-          {diagnostics.data && (
-            <div className="grid gap-1 rounded-xl border border-border bg-card p-3">
-              <strong className="text-sm font-medium">
-                {t("dataSources.diagnostics.title")}
-              </strong>
-              <span className="text-sm">
-                {diagnostics.data.parseStatus} ·{" "}
-                {diagnostics.data.httpResultCategory ??
-                  t("dataSources.diagnostics.notAttempted")}{" "}
-                ·{" "}
-                {t("dataSources.diagnostics.items", {
-                  count: diagnostics.data.availableItemCount,
-                })}
-                {diagnostics.data.usingCachedData
-                  ? t("dataSources.diagnostics.cachedSuffix")
-                  : ""}
-              </span>
-              <small className="text-xs text-muted-foreground">
-                {t("dataSources.diagnostics.lastAttempt", {
-                  value: diagnostics.data.lastAttemptedRefresh
-                    ? new Date(
-                        diagnostics.data.lastAttemptedRefresh,
-                      ).toLocaleString(locale)
-                    : t("dataSources.diagnostics.notYet"),
-                })}
-              </small>
-              <small className="text-xs text-muted-foreground">
-                {t("dataSources.diagnostics.lastSuccess", {
-                  value: diagnostics.data.lastSuccessfulRefresh
-                    ? new Date(
-                        diagnostics.data.lastSuccessfulRefresh,
-                      ).toLocaleString(locale)
-                    : t("dataSources.diagnostics.notYet"),
-                })}
-              </small>
-            </div>
-          )}
-          {preview && (
-            <div className="grid gap-2 rounded-xl border border-border bg-card p-3">
-              <strong className="text-sm font-medium">
-                {t("dataSources.structured.mappedItems", {
-                  count: preview.configuration.data.records.length,
-                })}
-              </strong>
-              {preview.configuration.data.records.slice(0, 8).map((record) => (
-                <article
-                  key={record.id}
-                  className="grid gap-0.5 border-b border-border pb-2 last:border-0 last:pb-0"
-                >
-                  <strong className="text-sm font-medium">
-                    {record.title || t("dataSources.structured.untitledItem")}
-                  </strong>
-                  {record.subtitle && (
-                    <span className="text-sm text-muted-foreground">
-                      {record.subtitle}
-                    </span>
-                  )}
-                  {record.date && (
-                    <small className="text-xs text-muted-foreground">
-                      {formatRegionalDateTimeValue(
-                        record.date,
-                        record.date.includes("T") ? "datetime" : "date",
-                        {
-                          ...regional,
-                          timezone:
-                            configuration.dateSelection.timezone ||
-                            regional.timezone,
-                        },
-                      )}
-                    </small>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-          {(previewMutation.error || save.error) && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {apiErrorMessage(previewMutation.error ?? save.error)}
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-        <footer className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={previewMutation.isPending}
-            onClick={() => previewMutation.mutate()}
-          >
-            {previewMutation.isPending
-              ? t("dataSources.preview.loading")
-              : t("dataSources.preview.mappedData")}
-          </Button>
-          {!readOnly && (
-            <Button
-              type="button"
-              disabled={save.isPending || !name.trim()}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending
-                ? t("common:actions.saving")
-                : t("dataSources.editor.save")}
-            </Button>
-          )}
-        </footer>
+        {form}
       </section>
-    </div>
+    );
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {t("dataSources.structured.description")}
+          </DialogDescription>
+        </DialogHeader>
+        {form}
+      </DialogContent>
+    </Dialog>
   );
 }

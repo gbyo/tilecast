@@ -16,7 +16,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function pairingRequest(overrides: Partial<PairingRequest> = {}): PairingRequest {
+function pairingRequest(
+  overrides: Partial<PairingRequest> = {},
+): PairingRequest {
   return {
     id: "pairing",
     status: "pending",
@@ -146,9 +148,7 @@ describe("PairingDestination", () => {
       "credential_repair",
     );
 
-    expect(
-      screen.getByText("Reconnect to Lobby Display"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Reconnect to Lobby Display")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Replacing an existing screen?" }),
     ).not.toBeInTheDocument();

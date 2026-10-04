@@ -545,6 +545,22 @@
         }
       }
     },
+    "Loading…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando…"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка…"
+          }
+        }
+      }
+    },
     "Manage Servers…": {
       "localizations": {
         "es": {
@@ -621,6 +637,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "ОК"
+          }
+        }
+      }
+    },
+    "Open": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть"
           }
         }
       }

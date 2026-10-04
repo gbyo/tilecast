@@ -5,32 +5,18 @@ import {
   tableFeatures,
   useTable,
 } from "@tanstack/react-table";
-import {
-  CircleAlert,
-  Ellipsis,
-  Monitor,
-  Pencil,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+import { CircleAlert, Ellipsis, Monitor } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import type { Screen, ScreenStatus } from "../api/types";
-import { api } from "../api/client";
 import { useFormatLocale } from "../i18n";
 
 type ScreensT = TFunction<"screens", undefined>;
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+import { ActionMenuButton } from "./studio/ActionMenu";
+import { screenRowActionGroups } from "./screenActions";
 import {
   Table,
   TableBody,
@@ -273,75 +259,21 @@ export function ScreenFleetTable({
                 id: "actions",
                 header: "",
                 cell: ({ row }) => (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="ghost" size="icon-sm" />}
-                      aria-label={t("table.rowActions", {
-                        name: row.original.name,
-                      })}
-                    >
-                      <Ellipsis aria-hidden="true" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        render={<Link to={`/screens/${row.original.id}`} />}
-                      >
-                        <Monitor aria-hidden="true" /> {t("grid.openItem")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() =>
-                          void api.createScreenCommand(
-                            row.original.id,
-                            "restart_player_process",
-                            {},
-                            csrfToken,
-                          )
-                        }
-                      >
-                        <RefreshCw aria-hidden="true" />{" "}
-                        {t("grid.restartPlayer")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        render={
-                          <Link
-                            to={`/screens/${row.original.id}?tab=content`}
-                          />
-                        }
-                      >
-                        <Pencil aria-hidden="true" /> {t("grid.assignContent")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        render={
-                          <Link
-                            to={`/screens/${row.original.id}?edit=details`}
-                          />
-                        }
-                      >
-                        <Pencil aria-hidden="true" /> {t("grid.editDetails")}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        render={
-                          <Link to={`/screens/${row.original.id}?present=1`} />
-                        }
-                      >
-                        <Play aria-hidden="true" /> {t("grid.showNow")}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() =>
-                          void navigate(
-                            row.original.syncGroupId
-                              ? `/groups/${row.original.syncGroupId}`
-                              : "/groups",
-                          )
-                        }
-                      >
-                        {row.original.syncGroupId
-                          ? t("grid.openGroup")
-                          : t("grid.addToGroup")}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <ActionMenuButton
+                    label={t("table.rowActions", {
+                      name: row.original.name,
+                    })}
+                    actions={screenRowActionGroups({
+                      screen: row.original,
+                      t,
+                      navigate,
+                      csrfToken,
+                      canManage,
+                    })}
+                    variant="ghost"
+                    size="icon-sm"
+                    triggerIcon={<Ellipsis aria-hidden="true" />}
+                  />
                 ),
               }),
             ]

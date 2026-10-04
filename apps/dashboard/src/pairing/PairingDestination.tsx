@@ -15,9 +15,7 @@ import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { deviceLabel } from "./pairingFlow";
 
 export type PairingOperation =
-  | "new_screen"
-  | "credential_repair"
-  | "replace_hardware";
+  "new_screen" | "credential_repair" | "replace_hardware";
 
 /**
  * Decides what pairing means, with progressive disclosure. A recognized
@@ -40,8 +38,7 @@ export function PairingDestination({
 }) {
   const { t } = useTranslation("screens");
   const { t: commonT } = useTranslation("common");
-  const recognized =
-    request.previouslyPaired && request.hasActiveCredential;
+  const recognized = request.previouslyPaired && request.hasActiveCredential;
   const screens = useQuery({
     ...screenQueries.replacementOptions(),
     enabled: destination === "replace_hardware",

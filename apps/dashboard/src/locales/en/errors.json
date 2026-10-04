@@ -6,6 +6,8 @@
     "uploadFailed": "Upload failed."
   },
   "codes": {
+    "invalid_playback_plan_instant": "Use one RFC 3339 instant with a time zone, or omit at for server time.",
+    "playback_expectation_ambiguous": "Recorded playback expectations overlap at this instant.",
     "forbidden": "Your role does not allow this action.",
     "rate_limited": "Too many attempts. Wait a moment and try again.",
     "authentication_required": "Authentication is required.",

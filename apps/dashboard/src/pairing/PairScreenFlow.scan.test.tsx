@@ -281,15 +281,15 @@ describe("PairScreenFlow scanner", () => {
         requestId: host.ofType("system/scan-qr")[0]?.requestId,
         outcome: "cancelled",
       });
+      // Flush the async result handling the delivery schedules.
+      await Promise.resolve();
     });
 
     expect(resolve).not.toHaveBeenCalled();
     expect(
       screen.getByRole("textbox", { name: "Pairing code" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Scan QR code" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Scan QR code" })).toBeEnabled();
   });
 
   it("keeps manual entry when the host refuses the scan", async () => {

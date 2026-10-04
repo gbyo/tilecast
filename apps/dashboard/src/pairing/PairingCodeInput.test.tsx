@@ -4,10 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import React from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  filterPairingCodeInput,
-  PairingCodeInput,
-} from "./PairingCodeInput";
+import { filterPairingCodeInput, PairingCodeInput } from "./PairingCodeInput";
 
 afterEach(() => {
   cleanup();

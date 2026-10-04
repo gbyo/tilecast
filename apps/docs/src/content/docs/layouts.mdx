@@ -3,9 +3,19 @@ title: Build a Layout
 description: Arrange media, Widgets, playlist zones, and live text on a reusable canvas.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/layout-editor.png";
+import darkScreenshot from "../../assets/screenshots/layout-editor-dark.png";
+
 A **Layout** places content in fixed areas on a canvas. Use one to combine, for example, a notice, a live schedule, and a Playlist zone on one screen. You can use a published Layout as fullscreen content or add it to a Playlist.
 
 import { Steps } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Hallway Split canvas with an Announcements Playlist zone on the left and Spirit week and Go Falcons panels on the right."
+/>
 
 ## Create a Layout
 

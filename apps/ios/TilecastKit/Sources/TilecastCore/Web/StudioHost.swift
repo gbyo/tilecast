@@ -29,6 +29,7 @@ public enum SignInStep: Equatable, Sendable {
 public final class StudioHost {
     public enum Connection: Equatable {
         case noServer
+        case starting
         case verifying(ServerProfile)
         case unavailable(ServerProfile, InstallationIdentityError)
         case identityChanged(ServerProfile, found: InstallationIdentity)
@@ -36,7 +37,7 @@ public final class StudioHost {
 
         public static func == (lhs: Connection, rhs: Connection) -> Bool {
             switch (lhs, rhs) {
-            case (.noServer, .noServer): true
+            case (.noServer, .noServer), (.starting, .starting): true
             case let (.verifying(a), .verifying(b)): a.id == b.id
             case let (.unavailable(a, x), .unavailable(b, y)): a.id == b.id && x == y
             case let (.identityChanged(a, x), .identityChanged(b, y)): a.id == b.id && x == y
@@ -47,7 +48,7 @@ public final class StudioHost {
     }
 
     public let directory: ServerDirectory
-    public private(set) var connection: Connection = .noServer
+    public private(set) var connection: Connection
     /// The native API credential lifecycle for the connected server.
     public private(set) var nativeAuth: NativeAuthSession?
     /// What the app does for Studio's haptic and share requests. The app
@@ -94,6 +95,7 @@ public final class StudioHost {
         self.mediaIntake = mediaIntake
         self.now = now
         self.directory = directory
+        connection = directory.servers.isEmpty ? .noServer : .starting
         self.dataStores = dataStores
         self.identityClient = identityClient
         self.credentials = credentials
@@ -238,7 +240,11 @@ public final class StudioHost {
             nativeAuth = auth
             watch(auth, page: page)
             mediaIntake.attach(bridge: page.bridge, auth: auth)
-            page.bridge.onReadinessChange = { [weak self] in self?.deliverPendingDeepLink() }
+            let pageReadinessChange = page.bridge.onReadinessChange
+            page.bridge.onReadinessChange = { [weak self] in
+                pageReadinessChange?()
+                self?.deliverPendingDeepLink()
+            }
             connection = .connected(page)
             page.start()
         }
@@ -350,6 +356,7 @@ public final class StudioHost {
     private func endSessionScopedWork() {
         mediaIntake.cancelActive()
         page?.scanners.withdrawAll()
+        page?.maps.withdrawAll()
         pendingDeepLink = nil
     }
 

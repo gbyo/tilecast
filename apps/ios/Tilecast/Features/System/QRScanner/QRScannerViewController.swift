@@ -43,12 +43,21 @@ final class QRScannerViewController: UIViewController {
         let instruction = UILabel()
         instruction.text = String(localized: "Point the camera at the Tilecast QR code.")
         instruction.textColor = .white
-        instruction.font = .preferredFont(forTextStyle: .body)
+        instruction.font = Typography.uiFont(.body, weight: .regular)
+        instruction.adjustsFontForContentSizeCategory = true
         instruction.textAlignment = .center
         instruction.numberOfLines = 0
         instruction.translatesAutoresizingMaskIntoConstraints = false
         instruction.accessibilityIdentifier = "qrscanner.instruction"
-        view.addSubview(instruction)
+
+        // Camera frames can be nearly white. Keep the instruction readable
+        // without covering more of the preview than necessary.
+        let instructionBackground = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+        instructionBackground.translatesAutoresizingMaskIntoConstraints = false
+        instructionBackground.layer.cornerRadius = 14
+        instructionBackground.clipsToBounds = true
+        instructionBackground.contentView.addSubview(instruction)
+        view.addSubview(instructionBackground)
 
         var configuration = UIButton.Configuration.bordered()
         configuration.title = String(localized: "Cancel")
@@ -64,9 +73,15 @@ final class QRScannerViewController: UIViewController {
         NSLayoutConstraint.activate([
             cancel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
             cancel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            instruction.topAnchor.constraint(equalTo: cancel.bottomAnchor, constant: 16),
-            instruction.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 32),
-            instruction.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -32),
+            instructionBackground.topAnchor.constraint(equalTo: cancel.bottomAnchor, constant: 16),
+            instructionBackground.centerXAnchor.constraint(equalTo: view.safeAreaLayoutGuide.centerXAnchor),
+            instructionBackground.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 24),
+            instructionBackground.trailingAnchor.constraint(lessThanOrEqualTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -24),
+            instructionBackground.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+            instruction.topAnchor.constraint(equalTo: instructionBackground.contentView.topAnchor, constant: 10),
+            instruction.bottomAnchor.constraint(equalTo: instructionBackground.contentView.bottomAnchor, constant: -10),
+            instruction.leadingAnchor.constraint(equalTo: instructionBackground.contentView.leadingAnchor, constant: 14),
+            instruction.trailingAnchor.constraint(equalTo: instructionBackground.contentView.trailingAnchor, constant: -14),
         ])
     }
 

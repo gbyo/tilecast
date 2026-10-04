@@ -5,7 +5,7 @@ import { Search, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { IntegrationScope, IntegrationToken } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { TFunction } from "i18next";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateInput } from "../components/date-picker";
@@ -245,7 +245,8 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           {tokens.isError && (
             <Alert variant="destructive">
               <AlertDescription>
-                {t("integrations.tokensLoadError")} {tokens.error.message}
+                {t("integrations.tokensLoadError")}{" "}
+                {apiErrorMessage(tokens.error)}
               </AlertDescription>
             </Alert>
           )}
@@ -320,7 +321,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
           )}
           {revoke.error && !(revoke.error instanceof CancelledAction) && (
             <Alert variant="destructive">
-              <AlertDescription>{revoke.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(revoke.error)}
+              </AlertDescription>
             </Alert>
           )}
         </section>
@@ -424,7 +427,7 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
                   <Alert variant="destructive">
                     <AlertDescription>
                       {t("integrations.sourcesLoadError")}{" "}
-                      {sources.error.message}
+                      {apiErrorMessage(sources.error)}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -512,7 +515,9 @@ export function IntegrationTokensPanel({ owner }: { owner: boolean }) {
 
             {create.error && (
               <Alert variant="destructive">
-                <AlertDescription>{create.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(create.error)}
+                </AlertDescription>
               </Alert>
             )}
 

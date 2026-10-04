@@ -26,6 +26,7 @@ import type {
   WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type {
   Asset,
   ContentDefinitionField,
@@ -33,6 +34,8 @@ import type {
 } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
+import { useConfirm } from "../components/ConfirmDialog";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { Field, FieldDescription, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
@@ -250,7 +253,9 @@ export function V2WidgetEditor({
     } catch (error) {
       return {
         problem:
-          error instanceof Error ? error.message : "Configuration is invalid.",
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : "Configuration is invalid.",
       };
     }
   }, [component, previewConfiguration]);
@@ -294,10 +299,50 @@ export function V2WidgetEditor({
     [definition.configurationSchema.fields, configuration],
   );
 
+  // touched starts true for existing Widgets because load-time migration may
+  // have rewritten the configuration; only a real author edit counts as dirty.
+  const savedIdentity = useRef({
+    name: asset?.name ?? definition.name,
+    description: asset?.description ?? definition.description,
+  });
+  const initialConfiguration = useRef<Record<string, unknown> | null>(null);
+  if (initialConfiguration.current === null)
+    initialConfiguration.current = configuration;
   const dirty =
-    touched.current ||
-    name !== (asset?.name ?? definition.name) ||
-    description !== (asset?.description ?? definition.description);
+    name !== savedIdentity.current.name ||
+    description !== savedIdentity.current.description ||
+    (touched.current &&
+      JSON.stringify(configuration) !==
+        JSON.stringify(initialConfiguration.current));
+  // Back and in-app departures confirm through one shared dialog, while the
+  // post-save and confirmed-close navigations each consume a single pass.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty: dirty && !readOnly && Boolean(component),
+    title: t("widgets.editors.v2.leaveTitle"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const requestClose = () => {
+    if (!dirty || readOnly) {
+      onClose();
+      return;
+    }
+    void confirm({
+      title: t("widgets.editors.v2.leaveTitle"),
+      action: t("common:actions.discardChanges"),
+    }).then((ok) => {
+      if (!ok) return;
+      departing.current = true;
+      onClose();
+    });
+  };
   const previewBlocked =
     !regional.ready ||
     !component ||
@@ -364,6 +409,11 @@ export function V2WidgetEditor({
     mutationFn: runCanonicalSave,
     onSuccess: ({ saved, previewImage, previewFailed }) => {
       touched.current = false;
+      savedIdentity.current = {
+        name: saved.name,
+        description: saved.description,
+      };
+      departing.current = true;
       toast.add({
         title: asset
           ? t("widgets.editors.v2.savedUpdated")
@@ -430,9 +480,11 @@ export function V2WidgetEditor({
 
   return (
     <section className="v2-editor" aria-labelledby="v2-editor-title">
+      {confirmDialog}
+      {navigationDialog}
       <header className="v2-editor__header">
         <div className="v2-editor__title">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={requestClose}>
             {t("common:actions.back")}
           </Button>
           <div>

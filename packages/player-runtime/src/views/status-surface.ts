@@ -123,13 +123,15 @@ export class StatusSurface extends LitElement {
                   Enter this code in Tilecast Studio<br />or scan the QR code
                 </p>
               </div>
-              ${qr
-                ? html`<img
-                    class="pairing__qr"
-                    src=${qr}
-                    alt="QR code: scan to approve this screen in Tilecast Studio"
-                  />`
-                : nothing}
+              ${
+                qr
+                  ? html`<img
+                      class="pairing__qr"
+                      src=${qr}
+                      alt="QR code: scan to approve this screen in Tilecast Studio"
+                    />`
+                  : nothing
+              }
             </div>
             <p class="pairing__waiting">Waiting for approval…</p>
           </div>`,
@@ -224,17 +226,28 @@ export class StatusSurface extends LitElement {
             </button>`,
         )}
       </div>
-      <input
-        id="setup-input"
-        type="url"
-        placeholder="https://signage.example.org"
-        autofocus
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter") {
-            submit((event.target as HTMLInputElement).value);
-          }
+      <form
+        id="setup-manual"
+        @submit=${(event: SubmitEvent) => {
+          event.preventDefault();
+          submit(
+            (
+              event.currentTarget as HTMLFormElement
+            ).querySelector<HTMLInputElement>("#setup-input")?.value ?? "",
+          );
         }}
-      />
+      >
+        <label for="setup-input">Server address</label>
+        <input
+          id="setup-input"
+          name="server-address"
+          type="url"
+          placeholder="https://signage.example.org"
+          autofocus
+          autocomplete="url"
+        />
+        <button type="submit">Connect</button>
+      </form>
       <div id="setup-error" role="status">${this.setupError}</div>`;
   }
 

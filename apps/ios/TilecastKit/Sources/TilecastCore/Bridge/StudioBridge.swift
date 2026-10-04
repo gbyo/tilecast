@@ -84,6 +84,8 @@ public final class StudioBridge {
     public var isQRScannerAvailable: (@MainActor () -> Bool)?
     /// The one scan for this server. Both kinds of page may ask for one.
     weak var scanners: QRScanCenter?
+    /// The one native map the main page may present.
+    weak var maps: SystemMapCenter?
 
     let origin: WebOrigin
     private weak var page: WebPage?
@@ -107,7 +109,12 @@ public final class StudioBridge {
         self.context = context
         navigation = NativeNavigationModel()
         navigation.requestNavigation = { [weak self] id in
-            Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
+            Task { [weak self] in
+                guard let self else { return }
+                if await !self.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) {
+                    self.navigation.navigationRequestFailed(id)
+                }
+            }
         }
         navigation.requestBack = { [weak self] in
             Task { await self?.send(NativeBridgeProtocol.navigationBack()) }
@@ -142,6 +149,7 @@ public final class StudioBridge {
         isMediaIntakeAvailable = nil
         onMediaIntake = nil
         isQRScannerAvailable = nil
+        maps?.withdraw(from: self)
         reset()
         onStateChange = nil
         onReadinessChange = nil
@@ -158,6 +166,8 @@ public final class StudioBridge {
         alerts?.withdraw(from: self)
         // So does a scan: a result must never reach a new document.
         scanners?.withdraw(from: self)
+        // A map's opaque actions also belong to the document that supplied them.
+        maps?.withdraw(from: self)
     }
 
     /// A new document replaced the old one.
@@ -168,6 +178,7 @@ public final class StudioBridge {
     private func reset() {
         alerts?.withdraw(from: self)
         scanners?.withdraw(from: self)
+        maps?.withdraw(from: self)
         isFrontendReady = false
         frontendCapabilities = .init()
         navigation.reset()
@@ -303,6 +314,13 @@ public final class StudioBridge {
                 guard isFrontendReady, scanners?.begin(request, from: self) == true else {
                     return NativeBridgeProtocol.reply(id: id, error: .unavailable)
                 }
+            case .systemMapPresent(let presentation):
+                guard isFrontendReady, frontendCapabilities.systemMap,
+                      maps?.present(presentation, from: self) == true else {
+                    return NativeBridgeProtocol.reply(id: id, error: .unavailable)
+                }
+            case .systemMapDismiss(let mapID):
+                maps?.dismiss(mapID: mapID, from: self)
             case .presentationReady:
                 onPresentationMessage?(.ready)
             case .presentationUpdate(let update):
@@ -334,6 +352,18 @@ public final class StudioBridge {
     public func sendQRScanResult(requestID: String, outcome: QRScanOutcome) async -> Bool {
         guard isFrontendReady else { return false }
         return await send(NativeBridgeProtocol.qrScanResult(requestID: requestID, outcome: outcome))
+    }
+
+    @discardableResult
+    public func sendSystemMapAction(mapID: String, actionID: String) async -> Bool {
+        guard context == .main, isFrontendReady, frontendCapabilities.systemMap else { return false }
+        return await send(NativeBridgeProtocol.systemMapAction(mapID: mapID, actionID: actionID))
+    }
+
+    @discardableResult
+    public func sendSystemMapDismissed(mapID: String) async -> Bool {
+        guard context == .main, isFrontendReady, frontendCapabilities.systemMap else { return false }
+        return await send(NativeBridgeProtocol.systemMapDismissed(mapID: mapID))
     }
 
     /// Whether Studio in this page can receive a deep link's path now: it

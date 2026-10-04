@@ -11,7 +11,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function pairingRequest(overrides: Partial<PairingRequest> = {}): PairingRequest {
+function pairingRequest(
+  overrides: Partial<PairingRequest> = {},
+): PairingRequest {
   return {
     id: "pairing",
     status: "pending",
@@ -73,9 +75,7 @@ describe("PairingPlayerReview", () => {
     render(<PairingPlayerReview request={pairingRequest()} />);
 
     expect(screen.queryByText("192.168.1.50")).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Technical details" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Technical details" }));
 
     expect(screen.getByText("192.168.1.50")).toBeInTheDocument();
     expect(screen.getByText("0.10.1")).toBeInTheDocument();
@@ -103,9 +103,7 @@ describe("PairingPlayerReview", () => {
         })}
       />,
     );
-    await user.click(
-      screen.getByRole("button", { name: "Technical details" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Technical details" }));
 
     expect(screen.queryByText("none")).not.toBeInTheDocument();
   });

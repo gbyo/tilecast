@@ -127,7 +127,9 @@ describe("PairScreenPresentation", () => {
       expect.objectContaining({
         size: "full",
         dismissible: true,
-        header: expect.objectContaining({ title: "Pair a screen" }),
+        header: expect.objectContaining({ title: "Pair a screen" }) as {
+          title: string;
+        },
       }),
     );
   });

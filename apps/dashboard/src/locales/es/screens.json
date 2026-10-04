@@ -1,8 +1,120 @@
 {
+  "playbackPlan": {
+    "title": "Presentación esperada",
+    "loading": "Cargando la explicación de reproducción",
+    "content": "Contenido seleccionado",
+    "selectedBy": "Seleccionado por",
+    "nextEvaluation": "Próxima reevaluación",
+    "noBoundary": "Sin límite conocido",
+    "missingContent": "El contenido seleccionado no está disponible",
+    "noContent": "Sin contenido asignado",
+    "noSelection": "Sin selección",
+    "why": "¿Por qué esta selección?",
+    "inspectAt": "Consultar un instante",
+    "inspect": "Consultar",
+    "useNow": "Usar la hora del servidor",
+    "timezone": "Las fechas y horas usan la zona horaria del navegador: {{timezone}}.",
+    "invalidInstant": "Elige una fecha y hora válidas.",
+    "inspectedTime": "Solicitado: {{at}} · Evaluado: {{evaluatedAt}}",
+    "selection": "Selección y alternativas",
+    "precedence": "Prioridad {{priority}} · Especificidad del destino {{specificity}}",
+    "synchronization": "Sincronización informada",
+    "synchronizationLimit": "La sincronización del manifiesto no demuestra que el contenido esté listo ni que se haya reproducido correctamente.",
+    "capabilities": "Compatibilidad informada de las presentaciones de Widgets",
+    "capabilityLimit": "La compatibilidad informada no garantiza la disponibilidad del contenido multimedia, el comportamiento del decodificador, el acceso a la red ni la representación real.",
+    "boundaryLimit": "La próxima reevaluación puede mantener el contenido seleccionado. Las predicciones futuras usan la configuración actual y el último estado informado del Player.",
+    "observationLimit": "Esta es la selección esperada, no una prueba de lo que apareció en la pantalla.",
+    "viewActivity": "Ver la Actividad confirmada por el Player",
+    "recordedPresentation": "Presentación registrada",
+    "recordedRevision": "{{type}} · Revisión {{revision}}",
+    "recordedInterval": "Intervalo registrado",
+    "openWindow": "Intervalo registrado abierto",
+    "historyGap": "Ninguna expectativa registrada cubre este instante. Las asignaciones actuales no pueden completar este vacío histórico.",
+    "presentationId": "ID de presentación",
+    "revision": "Revisión",
+    "recordedSource": "Origen registrado",
+    "otherRecordedSource": "Origen registrado: {{source}}",
+    "requiredSchema": "Requiere el esquema de presentación {{version}}",
+    "requiredCapability": "Requiere {{name}}@{{version}} · informado {{reported}}",
+    "reportedSchemas": "Esquemas informados: {{versions}}",
+    "noneReported": "Ninguno informado",
+    "renderer": "Representador seleccionado: {{renderer}}",
+    "types": {
+      "playlist": "Lista de reproducción",
+      "layout": "Diseño",
+      "asset": "Recurso",
+      "presentation": "Presentación"
+    },
+    "renderers": {
+      "component": "Componente",
+      "compatibility": "Presentación de compatibilidad"
+    },
+    "sources": {
+      "takeover": "Toma de control",
+      "quick_present": "Mostrar ahora",
+      "schedule": "Programación",
+      "assignment": "Asignación de respaldo"
+    },
+    "basis": {
+      "current_configuration": "Predicción basada en la configuración actual",
+      "recorded_expectation": "Expectativa histórica registrada",
+      "historical_expectation_unavailable": "Expectativa histórica no disponible"
+    },
+    "status": {
+      "selected": "Seleccionado",
+      "superseded": "Reemplazado",
+      "inactive": "Inactivo",
+      "supported": "Compatible",
+      "blocked": "Bloqueado",
+      "unknown": "Desconocido",
+      "not_applicable": "No corresponde",
+      "unavailable": "No disponible"
+    },
+    "synchronizationStatus": {
+      "not_reported": "No informado",
+      "current": "Actualizado",
+      "preparing": "Preparando",
+      "out_of_date": "Desactualizado"
+    },
+    "reasons": {
+      "active_takeover": "Una toma de control activa tiene prioridad.",
+      "active_quick_present": "Una sesión activa de Mostrar ahora tiene prioridad.",
+      "assigned_fallback": "No hay una presentación activa de mayor prioridad; la asignación es el respaldo.",
+      "schedule_highest_precedence": "Esta programación gana según las reglas de precedencia del servidor.",
+      "schedule_disabled": "Esta programación está deshabilitada.",
+      "schedule_not_active": "Esta programación no está activa en el instante solicitado.",
+      "schedule_lower_priority": "Otra programación activa tiene mayor prioridad.",
+      "schedule_less_specific": "Otra programación activa se dirige a esta pantalla de forma más específica.",
+      "schedule_earlier_start": "Otra programación equivalente comenzó más tarde.",
+      "schedule_stable_id_tiebreak": "Otra programación equivalente gana el desempate estable final.",
+      "no_active_takeover": "No hay una toma de control activa en este instante.",
+      "no_active_quick_present": "No hay una sesión activa de Mostrar ahora en este instante.",
+      "no_assignment": "No se ha asignado una presentación de respaldo."
+    },
+    "capabilityReasons": {
+      "no_selected_content": "No hay contenido seleccionado para evaluar.",
+      "selected_content_not_found": "El contenido seleccionado ya no existe.",
+      "selected_content_not_published": "El Diseño seleccionado no tiene una revisión publicada.",
+      "presentation_requirements_invalid": "Los requisitos de presentación del contenido seleccionado no están disponibles.",
+      "reported_requirements_supported": "El Player informa compatibilidad con los requisitos de presentación de los Widgets seleccionados.",
+      "player_capabilities_not_reported": "El Player no ha informado un perfil de capacidades de presentación.",
+      "no_widget_presentation_requirements": "Esta selección no tiene requisitos de presentación de Widgets.",
+      "manifest_v13_capabilities_not_reported": "Este contenido requiere compatibilidad con el manifiesto v13, pero el Player no ha informado sus capacidades.",
+      "widget_requirements_unsupported": "Al menos un requisito de Widget no puede usar el perfil informado de este Player."
+    },
+    "widgetReasons": {
+      "player_capabilities_not_reported": "El Player no ha informado sus capacidades de presentación.",
+      "component_capabilities_not_reported": "Este Widget solo de componente necesita un perfil informado del Player.",
+      "no_presentation_requirements": "Este Widget no tiene requisitos de presentación.",
+      "presentation_requirements_unsupported": "El perfil informado no admite los requisitos del representador seleccionado.",
+      "reported_requirements_supported": "El perfil informado admite el representador seleccionado de este Widget."
+    }
+  },
   "groups": {
     "title": "Grupos de pantallas",
     "subtitle": "Mantén un conjunto de pantallas con el mismo contenido, programación y posición de reproducción. Los grupos espejados conservan la reproducción sincronizada.",
     "create": "Crear grupo de pantallas",
+    "created": "Grupo de pantallas creado.",
     "loading": "Cargando grupos de pantallas",
     "loadMore": "Cargar más grupos de pantallas",
     "loadError": "No se pudieron cargar los grupos de pantallas. Intenta actualizar la página.",
@@ -111,7 +223,10 @@
     "noneReported": "Ninguno informado",
     "nothingAssigned": "Nada asignado",
     "noFallback": "Sin contenido alternativo",
-    "updateFailed": "Falló la actualización"
+    "updateFailed": "Falló la actualización",
+    "mapLoading": "Cargando mapa…",
+    "mapLoadErrorTitle": "No se pudo cargar el mapa",
+    "mapLoadErrorBody": "Tilecast no pudo terminar de renderizar este mapa. Inténtalo de nuevo o usa el detalle técnico de abajo para diagnosticar el problema."
   },
   "status": {
     "online": "En línea",
@@ -262,7 +377,17 @@
     "healthFraction": "{{online}} de {{total}} en línea",
     "healthAttention_one": "{{count}} requiere atención",
     "healthAttention_other": "{{count}} requieren atención",
-    "healthAttention_many": "{{count}} de requieren atención"
+    "healthAttention_many": "{{count}} de requieren atención",
+    "mapView": "Vista de mapa",
+    "mapEmptyTitle": "No hay pantallas para mostrar en el mapa",
+    "mapEmptyBody": "Añade coordenadas a una ubicación o establece una posición exacta en una pantalla.",
+    "mapUnmapped": "Pantallas sin posición en el mapa: {{count}}",
+    "mapAriaLabel": "Mapa de la flota",
+    "mapInherited": "Desde la ubicación",
+    "mapOpenScreen": "Abrir pantalla",
+    "mapNativeTitle": "Mapa nativo",
+    "mapNativeBody": "Tilecast muestra estas pantallas en el mapa del sistema.",
+    "mapOpenNative": "Abrir mapa"
   },
   "grid": {
     "openScreen": "Abrir {{name}}",
@@ -553,7 +678,9 @@
     "websiteTitle": "Problema de reproducción web",
     "websiteUnknown": "Falla web desconocida",
     "deviceBody": "Salud del reproductor, detalles del dispositivo y controles operativos.",
-    "deviceNav": "Secciones del dispositivo",
+    "diagnosticsTitle": "Diagnóstico",
+    "diagnosticsBody": "Revisa el estado y la recuperación del dispositivo o ejecuta acciones de mantenimiento sin salir de esta pantalla.",
+    "deviceNav": "Secciones de diagnóstico",
     "sectionDevice": "Detalles del dispositivo",
     "sectionHealth": "Salud",
     "sectionMaintenance": "Mantenimiento",
@@ -751,7 +878,16 @@
       "copyFail": "Falló el acceso al portapapeles. Selecciona y copia los comandos manualmente.",
       "copiedNote": "Comandos copiados.",
       "last": "Ejecuta ambos comandos, vuelve a abrir Tilecast Player y elige Verificar de nuevo. El comando de habilitación conserva otros servicios de accesibilidad."
-    }
+    },
+    "mapPosition": "Posición en el mapa",
+    "mapPositionCustom": "Usando una posición exacta para esta pantalla.",
+    "mapPositionInherited": "Usando la posición de la ubicación asignada.",
+    "mapPositionNone": "No hay ninguna posición disponible.",
+    "mapPositionUseLocation": "Usar ubicación",
+    "mapPositionClear": "Borrar posición",
+    "mapPositionPlaceCenter": "Colocar en el centro del mapa",
+    "mapPositionAriaLabel": "Elegir la posición de la pantalla en el mapa",
+    "mapPositionHint": "Haz clic en el mapa o arrastra el marcador para establecer una posición exacta."
   },
   "preview": {
     "snapshotsTitle": "Historial de capturas",
@@ -762,7 +898,13 @@
   },
   "scope": {
     "ownerNote": "El acceso de propiedad se aplica a toda la flota.",
-    "fullAccess": "Esta cuenta puede operar todas las pantallas. Selecciona edificios o grupos de pantallas para limitarla.",
+    "modeLegend": "Acceso a pantallas",
+    "modeFull": "Acceso total a la flota",
+    "modeFullHint": "Esta cuenta puede operar todas las pantallas de la flota.",
+    "modeLimited": "Limitar acceso",
+    "combineNote": "Las ubicaciones y los grupos de pantallas se combinan: una pantalla se incluye cuando su ubicación o uno de sus grupos está seleccionado.",
+    "limitedEmpty": "Selecciona al menos una ubicación o un grupo de pantallas, o elige el acceso total a la flota.",
+    "loadError": "No se pudo cargar el alcance de pantalla.",
     "limited_one": "Esta cuenta puede operar pantallas solo en {{count}} lugar seleccionado. Sigue viendo toda la biblioteca de contenido.",
     "limited_other": "Esta cuenta puede operar pantallas solo en {{count}} lugares seleccionados. Sigue viendo toda la biblioteca de contenido.",
     "limited_many": "Esta cuenta puede operar pantallas solo en {{count}} de lugares seleccionados. Sigue viendo toda la biblioteca de contenido.",
@@ -807,7 +949,7 @@
     "selectAll": "Seleccionar todo",
     "selectNone": "No seleccionar nada",
     "loading": "Cargando pantallas…",
-    "empty": "Aún no hay pantallas conectadas.",
+    "screensLoadError": "No se pudieron cargar las pantallas.",
     "noScreensTitle": "Aún no hay pantallas conectadas",
     "noScreensHint": "Conecta un reproductor antes de aplicar cambios masivos.",
     "selectAria": "Seleccionar {{name}}",
@@ -857,7 +999,6 @@
     "undoing": "Revirtiendo…",
     "undoAction": "Revertir este cambio",
     "recentTitle": "Cambios masivos recientes",
-    "recentEmpty": "Aún no hay cambios masivos.",
     "recentEmptyTitle": "Aún no hay cambios masivos",
     "recentEmptyHint": "Los cambios completados de la flota aparecerán aquí junto con su estado de reversión.",
     "historyScreens_one": "{{count}} pantalla",
@@ -869,7 +1010,12 @@
     "windowClosed": "Ventana de reversión cerrada",
     "applyAction_one": "Cambiar {{count}} pantalla",
     "applyAction_other": "Cambiar {{count}} pantallas",
-    "applyAction_many": "Cambiar {{count}} de pantallas"
+    "applyAction_many": "Cambiar {{count}} de pantallas",
+    "applying": "Aplicando…",
+    "applied": "Cambios masivos aplicados.",
+    "undone": "Cambios masivos deshechos.",
+    "staleBody": "Las pantallas cambiaron desde que se generó esta vista previa. Revisa el cambio antes de aplicarlo.",
+    "reviewAction": "Revisar cambios"
   },
   "network": {
     "title": "Red de presentación",

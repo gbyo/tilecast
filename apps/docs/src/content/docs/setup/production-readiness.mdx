@@ -1,0 +1,36 @@
+---
+title: Verify before you leave the screens unattended
+description: A checklist to work through before displays run without anyone watching them.
+---
+
+Work through this list once the first display shows content. Each item links to the page that explains how to do it. The point is to find a problem while you're standing next to the screen, not after a power cut.
+
+## The server
+
+- **The server starts after a reboot.** Restart the host, then wait. Open Studio without running any command. Docker must start at boot, and the containers use `restart: unless-stopped`. See [Choose where to run Tilecast Server](../choose-a-server/).
+- **`TILECAST_PUBLIC_URL` is correct.** It must be the address people and Players really use. See [Networking and remote access](../../administration/networking/).
+- **HTTPS is on where it's needed.** Any address reachable from the Internet needs HTTPS, with `TILECAST_COOKIE_SECURE=true`. A local HTTP address is acceptable only on a network you trust. See [Installation](../../installation/).
+- **PostgreSQL isn't exposed.** Compose doesn't publish its port. Don't add one.
+- **Credentials are secure.** `POSTGRES_PASSWORD` is long and random, `deploy/docker/.env` isn't in version control, and the Owner account has a strong password. Turn on two-step verification. See [Sign-in security](../../administration/sign-in-security/).
+- **Storage is persistent and backed up.** Both Docker volumes are kept. A scheduled backup runs, and you downloaded a copy to another location. See [Back up and restore Tilecast](../../administration/backups/).
+
+## The displays
+
+- **The Player is paired and shows content.** Assign a playlist or Layout and watch it play. See [Pair a display](../../players/pair-a-display/) and [Tilecast Studio](../../studio/).
+- **The Player reconnects.** Unplug the display's network for a minute, then reconnect it. **Screens** > **Fleet** should return to **Online**. See [Understand a screen's status](../../operations/screen-status/).
+- **A server restart is tolerated.** Restart the server containers while the display plays. Content should keep playing, and the screen should come back online.
+- **The display recovers from a power cut.** Switch the display off and on. Confirm that Tilecast Player starts without anyone touching it. This depends on the exact device, so test the model you will install. See [Reliability and kiosk](../../players/reliability-kiosk/) and [Active hours and power](../../players/active-hours-power/).
+
+## Outages
+
+- **You know what an Internet outage does.** Players keep playing downloaded content. They can't receive changes while the connection to the server is down. If Players reach the server through a tunnel, the site's Internet connection decides that.
+- **You know what a Player or network outage does.** A screen that stops contacting the server shows as stale and then offline. Decide who looks at it. See [Activity](../../operations/activity/) and the [notifications](../../integrations/notifications/) you can set up.
+
+## Staying current
+
+- **You understand updates.** Server and Player updates are separate. Decide how you will apply each, and take a backup before a server update. See [Update Tilecast Server](../../administration/server-updates/) and [Update a Player](../../players/update-a-player/).
+- **You read the operations pages.** [Operations](../../operations/) explains monitoring, takeovers, and device actions.
+
+## If something doesn't pass
+
+Use [Troubleshooting](../../troubleshooting/) to find the page for the symptom. Pairing and connection problems are in [Pairing and connectivity](../../troubleshooting/pairing-connectivity/).

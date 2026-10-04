@@ -349,6 +349,52 @@ describe("screen management", () => {
     ).toBeTruthy();
   });
 
+  it("moves screens to a location without resending their map positions", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 1024px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    const updateScreen = vi
+      .spyOn(api, "updateScreen")
+      .mockResolvedValue({} as Screen);
+    const item = {
+      id: "screen-1",
+      name: "Lobby",
+      description: "",
+      location: "Main entrance",
+      mapPositionOverride: { latitude: 34.157, longitude: -82.027 },
+      platform: "android-tv",
+      status: "online",
+      enabled: true,
+      hasActiveCredential: true,
+    } as Screen;
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent screens={[item]} loading={false} canManage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("checkbox", { name: "Select Lobby" }),
+    );
+    await interaction.click(
+      screen.getByRole("button", { name: "Move to location" }),
+    );
+    await waitFor(() => expect(updateScreen).toHaveBeenCalledTimes(1));
+    // A position another editor saved after this list loaded must survive.
+    expect(updateScreen.mock.calls[0]?.[1]).not.toHaveProperty(
+      "mapPositionOverride",
+    );
+  });
+
   it("keeps card selection separate from navigation links", async () => {
     const item = {
       id: "screen-2",
@@ -619,5 +665,4 @@ describe("screen management", () => {
       autostartWarning({ commissioningState: "complete", powerAssist }, t),
     ).toBe(undefined);
   });
-
 });

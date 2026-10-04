@@ -379,6 +379,31 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 - The heap grows by about 100 KB during 119 Clock V2 rotations. This is less than the image-only control, which shows that the conformance host's own evidence log causes the growth.
 - A static Widget has no timer. Clock V2 wakes once each second with seconds and once each minute without seconds.
 
+### 14.2 Structured capability evidence
+
+`playlists.Service.PresentationCapabilityEvidenceInTx` reads the reachable
+Widget requirements for a playlist, published Layout, or asset. It uses the
+same compilation, renderer choice, and capability comparison as assignment
+validation. The caller supplies a transaction and authorizes resource access.
+The [Playback Plan API](playback-plan.md) uses this evidence for selected
+current content. Historical inspection does not read today's capability
+profile. The Screen Overview Why this selection control shows the report.
+An unpublished Layout returns a conflict; it does not return an empty report
+that could imply support for a published presentation.
+
+The report includes Widget identities, required schema and capability
+versions, reported Player capabilities, and stable reason codes. It excludes
+Widget configuration and Data Source payloads. A supported component takes
+precedence over its compatibility presentation. A supported compatibility
+presentation remains a valid fallback when the component is unsupported.
+
+An unreported Player profile is `unknown`. Each requirement has a null
+`supported` value until the Player reports capabilities. A component-only Widget or content
+that requires manifest v13 is `blocked` when the Player has not reported
+capabilities. No Widget presentation requirements means `not_applicable`.
+This evidence does not establish content readiness, media decoder support,
+network availability, or proof of actual playback.
+
 ## 15. Deferred from PR 1
 
 - The theme is the Tilecast display theme plus Widget author colors. Player branding colors join the context in a later PR; this needs no new setting.

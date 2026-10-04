@@ -52,13 +52,28 @@ hero:
     - text: Get started
       link: getting-started/
       icon: right-arrow
+    - text: Find your setup
+      link: setup/
+      icon: right-arrow
+      variant: secondary
     - text: View on GitHub
       link: https://github.com/gbyo/tilecast
       icon: external
       variant: minimal
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/studio-overview.png";
+import darkScreenshot from "../../assets/screenshots/studio-overview-dark.png";
+
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Tilecast Studio Overview with fleet status, screens needing attention, assigned presentations, and upcoming schedules."
+  priority
+/>
 
 ## Where to start
 

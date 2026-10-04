@@ -99,16 +99,16 @@ describe("useNativeQrScanner", () => {
       capabilities: { systemQrScanner: true },
     });
     const { result } = renderHook(() => useNativeQrScanner(), { wrapper });
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     let scanned: unknown;
     await act(async () => {
       const pending = result.current().then((value) => {
         scanned = value;
       });
-      await waitFor(() => expect(host.ofType("system/scan-qr")).toHaveLength(1));
+      await waitFor(() =>
+        expect(host.ofType("system/scan-qr")).toHaveLength(1),
+      );
       const requestId = host.ofType("system/scan-qr")[0]?.requestId as string;
       expect(requestId).toMatch(/^qr-[0-9a-f]{32}$/);
       // A stale result from an earlier scan must not resolve this one.
@@ -133,16 +133,16 @@ describe("useNativeQrScanner", () => {
       capabilities: { systemQrScanner: true },
     });
     const { result } = renderHook(() => useNativeQrScanner(), { wrapper });
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     let outcome: unknown;
     await act(async () => {
       const pending = result.current().then((value) => {
         outcome = value;
       });
-      await waitFor(() => expect(host.ofType("system/scan-qr")).toHaveLength(1));
+      await waitFor(() =>
+        expect(host.ofType("system/scan-qr")).toHaveLength(1),
+      );
       const requestId = host.ofType("system/scan-qr")[0]?.requestId as string;
       host.deliver("system/qr-scan-result", {
         requestId,
@@ -166,9 +166,7 @@ describe("useNativeQrScanner", () => {
       },
     });
     const { result } = renderHook(() => useNativeQrScanner(), { wrapper });
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     await expect(result.current()).resolves.toBeNull();
   });
@@ -180,16 +178,16 @@ describe("useNativeQrScanner", () => {
     const { result, unmount } = renderHook(() => useNativeQrScanner(), {
       wrapper,
     });
-    await waitFor(() =>
-      expect(host.ofType("frontend/ready")).toHaveLength(1),
-    );
+    await waitFor(() => expect(host.ofType("frontend/ready")).toHaveLength(1));
 
     let settled = false;
     await act(async () => {
       const pending = result.current().then(() => {
         settled = true;
       });
-      await waitFor(() => expect(host.ofType("system/scan-qr")).toHaveLength(1));
+      await waitFor(() =>
+        expect(host.ofType("system/scan-qr")).toHaveLength(1),
+      );
       unmount();
       await pending;
     });

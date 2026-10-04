@@ -55,7 +55,7 @@ import {
 } from "../components/ui/select";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 type UserRole = User["role"];
 type UserInput = {
@@ -172,7 +172,7 @@ export function UsersPage() {
       ) : users.error ? (
         <Alert variant="destructive">
           <AlertDescription role="alert">
-            {users.error.message}
+            {apiErrorMessage(users.error)}
           </AlertDescription>
         </Alert>
       ) : (
@@ -401,7 +401,7 @@ function UserCreateDialog({
           {create.error && (
             <Alert variant="destructive">
               <AlertDescription role="alert">
-                {create.error.message}
+                {apiErrorMessage(create.error)}
               </AlertDescription>
             </Alert>
           )}

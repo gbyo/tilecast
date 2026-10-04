@@ -26,7 +26,9 @@ describe("pairingQrDataUri", () => {
     const viewBox = svg.match(/viewBox="0 0 (\d+) (\d+)"/);
     expect(viewBox).not.toBeNull();
     const size = Number(viewBox![1]);
-    const path = svg.match(/<path d="([^"]*)"/)![1];
+    const path = svg.match(/<path d="([^"]*)"/)?.[1];
+    expect(path).toBeDefined();
+    if (!path) throw new Error("expected QR SVG path");
     const coordinates = [...path.matchAll(/M(\d+) (\d+)h1v1h-1z/g)].map(
       ([, x, y]) => [Number(x), Number(y)] as const,
     );
@@ -44,7 +46,9 @@ describe("pairingQrDataUri", () => {
   });
 
   it("bounds an overlong value", () => {
-    const bounded = pairingQrDataUri(`https://signage.example.org/${"a".repeat(5000)}`);
+    const bounded = pairingQrDataUri(
+      `https://signage.example.org/${"a".repeat(5000)}`,
+    );
     expect(bounded).not.toBe("");
     expect(svgOf(bounded)).toContain("<svg");
   });

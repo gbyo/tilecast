@@ -19,7 +19,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 export const personalAccessTokensKey = ["me", "security", "pats"] as const;
 
@@ -216,7 +216,7 @@ export function PersonalAccessTokensBlock() {
         <Alert variant="destructive" className="mt-3 max-w-xl">
           <AlertDescription role="alert">
             {create.error instanceof ApiError
-              ? create.error.message
+              ? apiErrorMessage(create.error)
               : t("pat.createError")}
           </AlertDescription>
         </Alert>
@@ -282,7 +282,7 @@ export function PersonalAccessTokensBlock() {
         <Alert variant="destructive" className="mt-3 max-w-xl">
           <AlertDescription role="alert">
             {revoke.error instanceof ApiError
-              ? revoke.error.message
+              ? apiErrorMessage(revoke.error)
               : t("pat.revokeError")}
           </AlertDescription>
         </Alert>
