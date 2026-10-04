@@ -57,7 +57,7 @@ export function screenRowActionGroups({
       {
         id: "assign-content",
         label: t("grid.assignContent"),
-        onSelect: () => void navigate(`/screens/${screen.id}?tab=content`),
+        onSelect: () => void navigate(`/screens/${screen.id}?focus=content`),
       },
       {
         id: "show-now",

@@ -50,8 +50,22 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
+| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      |
+
+`outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
 `info` (host name and version, engine name and version) is for diagnostics only.
+
+`RuntimeReadyV1` has optional `support` metadata with separate
+`presentationSchemas`, `declarativeCapabilities`, and `widgetComponents` fields.
+Each namespace has at most 256 entries. Versions are positive uint32 values;
+capability names are contract tokens of at most 64 ASCII characters.
+The Runtime uses its generated schema and declarative constants and its live
+Widget discovery registry. Remote web support requires the running host port.
+WPE validates and forwards this report in `renderer.ready.support` with its live
+host features. Edge checks this connected profile independently of the generated
+installed-release profile. Missing support is empty. Contract version 1 and the
+existing readiness messages without this optional member remain valid.
 
 The runtime validates the host object at start (`hostContractProblem`). A missing bridge or a different contract version shows the "Display bridge unavailable" surface instead of a black screen.
 

@@ -72,7 +72,7 @@ function ActionGroups({
                 action.role === "destructive" ? "destructive" : "default"
               }
               disabled={action.disabled}
-              onClick={action.onSelect}
+              onClick={() => action.onSelect()}
             >
               {action.icon === undefined ? null : (
                 <ActionIcon token={action.icon} />

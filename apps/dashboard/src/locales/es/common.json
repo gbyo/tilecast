@@ -9,11 +9,13 @@
   "actions": {
     "back": "Atrás",
     "cancel": "Cancelar",
+    "clear": "Borrar",
     "clearAll": "Borrar todo",
     "close": "Cerrar",
     "closeToast": "Cerrar notificación",
     "confirm": "Confirmar",
     "delete": "Eliminar",
+    "discardChanges": "Descartar cambios",
     "edit": "Editar",
     "loadMore": "Cargar más",
     "next": "Siguiente",
@@ -26,7 +28,8 @@
     "saveChanges": "Guardar cambios",
     "saving": "Guardando…",
     "skip": "Omitir",
-    "submit": "Enviar"
+    "submit": "Enviar",
+    "toggleOptions": "Alternar opciones"
   },
   "status": {
     "loading": "Cargando…"

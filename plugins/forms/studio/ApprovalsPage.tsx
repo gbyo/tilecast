@@ -29,6 +29,7 @@ import {
 import { Skeleton } from "@tilecast/studio/ui/skeleton";
 import {
   Pagination,
+  apiErrorMessage,
   useFormatLocale,
   usePluginTranslation,
 } from "@tilecast/studio";
@@ -162,7 +163,7 @@ export function ApprovalsPage() {
           <AlertTitle>{t("approvals.loadErrorTitle")}</AlertTitle>
           <AlertDescription>
             {approvals.error instanceof Error
-              ? approvals.error.message
+              ? apiErrorMessage(approvals.error)
               : t("approvals.loadErrorFallback")}
           </AlertDescription>
         </Alert>

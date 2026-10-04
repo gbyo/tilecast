@@ -44,13 +44,13 @@ function renderDialog(path = "/screens/pair") {
 
 describe("PairScreenDialog", () => {
   it("hosts the flow in a dialog on desktop widths", () => {
-    const { container } = renderDialog();
+    renderDialog();
 
     expect(
-      container.querySelector('[data-slot="dialog-content"]'),
+      document.querySelector('[data-slot="dialog-content"]'),
     ).toBeInTheDocument();
     expect(
-      container.querySelector('[data-slot="drawer-content"]'),
+      document.querySelector('[data-slot="drawer-content"]'),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "Pairing code" }),
@@ -63,13 +63,13 @@ describe("PairScreenDialog", () => {
       configurable: true,
       value: 500,
     });
-    const { container } = renderDialog();
+    renderDialog();
 
     expect(
-      container.querySelector('[data-slot="drawer-content"]'),
+      document.querySelector('[data-slot="drawer-content"]'),
     ).toBeInTheDocument();
     expect(
-      container.querySelector('[data-slot="dialog-content"]'),
+      document.querySelector('[data-slot="dialog-content"]'),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "Pairing code" }),

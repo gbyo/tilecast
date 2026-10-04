@@ -31,13 +31,17 @@ struct StudioShell: View {
         }
         .environment(slot)
         .mediaIntake(host.mediaIntake)
-        .
-      nativeAlert(from: host.page?.alerts, for: .main)
+        .nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
         .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
         .sheet(item: presentation) { presentation in
             if let coordinator = host.page?.presentations {
                 PresentationSheet(coordinator: coordinator, presentation: presentation)
+            }
+        }
+        .sheet(item: systemMap) { map in
+            if let center = host.page?.maps {
+                SystemMapView(center: center, presentation: map)
             }
         }
         // The cached presentation page is a whole second Studio: the first
@@ -62,6 +66,15 @@ struct StudioShell: View {
     private var webViewBehindTabs: Bool {
         host.page?.bridge.navigation.isAvailable == true
             && NativeNavigationShell.usesTabs(horizontalSizeClass: horizontalSizeClass)
+    }
+
+    /// The generic MapKit presentation Studio asked for. The center reports
+    /// system dismissal back to the document that supplied the opaque actions.
+    private var systemMap: Binding<SystemMapPresentation?> {
+        Binding(
+            get: { host.page?.maps.current },
+            set: { if $0 == nil { host.page?.maps.userDismissed() } }
+        )
     }
 
     /// The native presentation Studio asked for. Dismissing the sheet in

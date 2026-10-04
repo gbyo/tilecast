@@ -10,18 +10,13 @@ import type { ScreenDetailTab } from "./ScreensPage";
 import { i18n } from "../i18n";
 
 function renderTabs(tab: ScreenDetailTab = "overview", policyDirty = false) {
-  const onSelect = vi.fn();
   const onValueChange = vi.fn();
   render(
     <Tabs value={tab} onValueChange={onValueChange}>
-      <ScreenDetailTabs
-        tab={tab}
-        policyDirty={policyDirty}
-        onSelect={onSelect}
-      />
+      <ScreenDetailTabs policyDirty={policyDirty} />
     </Tabs>,
   );
-  return { onSelect, onValueChange };
+  return { onValueChange };
 }
 
 describe("ScreenDetailTabs", () => {
@@ -30,40 +25,27 @@ describe("ScreenDetailTabs", () => {
     await i18n.changeLanguage("en");
   });
 
-  it("lists every destination in the desktop strip", async () => {
+  it("keeps the primary navigation focused on operator workflows", async () => {
     const { onValueChange } = renderTabs();
     const user = userEvent.setup();
 
-    for (const label of [
-      "Overview",
-      "Content",
-      "Activity",
-      "Device",
-      "Settings",
-    ]) {
+    for (const label of ["Overview", "Activity", "Settings"]) {
       expect(
         await screen.findByRole("tab", { name: new RegExp(`^${label}`) }),
       ).toBeTruthy();
     }
-    await user.click(screen.getByRole("tab", { name: /^Device/ }));
-    expect(onValueChange.mock.calls[0]?.[0]).toBe("device");
+    expect(screen.queryByRole("tab", { name: "Content" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Device" })).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: /^Activity/ }));
+    expect(onValueChange.mock.calls[0]?.[0]).toBe("activity");
   });
 
-  it("switches sections through the narrow picker", async () => {
-    const { onSelect } = renderTabs();
-    const user = userEvent.setup();
-
-    await user.click(
-      await screen.findByRole("combobox", { name: "Screen details" }),
-    );
-    await user.click(await screen.findByRole("option", { name: "Device" }));
-    expect(onSelect).toHaveBeenCalledWith("device");
-  });
-
-  it("keeps the unsaved badge visible on both surfaces while dirty", async () => {
+  it("keeps the unsaved badge on Settings while dirty", async () => {
     renderTabs("settings", true);
 
-    expect(await screen.findAllByText("Unsaved")).toHaveLength(2);
+    expect(await screen.findByText("Unsaved")).toBeTruthy();
+    expect(screen.getAllByText("Unsaved")).toHaveLength(1);
   });
 
   it("hides the unsaved badge while clean", async () => {
@@ -73,15 +55,15 @@ describe("ScreenDetailTabs", () => {
     expect(screen.queryByText("Unsaved")).toBeNull();
   });
 
-  it("shows one navigation surface per breakpoint", async () => {
+  it("uses one responsive tablist instead of a separate mobile picker", async () => {
     renderTabs();
 
-    const strip = (await screen.findByRole("tablist")).parentElement;
-    expect(strip?.className).toContain("hidden");
-    expect(strip?.className).toContain("sm:contents");
-    const picker = (
-      await screen.findByRole("combobox", { name: "Screen details" })
-    ).closest("div[class*='sm:hidden']");
-    expect(picker).not.toBeNull();
+    const tablist = await screen.findByRole("tablist", {
+      name: "Screen details",
+    });
+    expect(tablist.className).toContain("grid-cols-3");
+    expect(
+      screen.queryByRole("combobox", { name: "Screen details" }),
+    ).toBeNull();
   });
 });

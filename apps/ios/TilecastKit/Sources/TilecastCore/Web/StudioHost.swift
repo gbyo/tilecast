@@ -356,6 +356,7 @@ public final class StudioHost {
     private func endSessionScopedWork() {
         mediaIntake.cancelActive()
         page?.scanners.withdrawAll()
+        page?.maps.withdrawAll()
         pendingDeepLink = nil
     }
 

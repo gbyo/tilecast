@@ -5,18 +5,23 @@
 import { LitElement, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { cssProps } from "./css-props";
-import type { RuntimePresentation } from "../host/contract";
+import type { OutsideHoursLogoV1, RuntimePresentation } from "../host/contract";
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
 
 export class OutsideHours extends LitElement {
-  static override properties = { presentation: { attribute: false } };
+  static override properties = {
+    presentation: { attribute: false },
+    logo: { attribute: false },
+  };
 
   declare presentation: Sleep | null;
+  declare logo: OutsideHoursLogoV1 | undefined;
 
   constructor() {
     super();
     this.presentation = null;
+    this.logo = undefined;
   }
 
   protected override createRenderRoot(): HTMLElement {
@@ -36,7 +41,11 @@ export class OutsideHours extends LitElement {
           ? html`<div class="outside-hours-logo-x">
               <img
                 class="outside-hours-logo-y"
-                src="tilecast-logo-cast-white.svg"
+                src=${
+                  this.logo === "pulse"
+                    ? "tilecast-logo-pulse-white.svg"
+                    : "tilecast-logo-cast-white.svg"
+                }
                 alt="Tilecast"
               />
             </div>`

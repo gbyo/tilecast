@@ -35,7 +35,7 @@ import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { api } from "../api/client";
 import type { Screen, UpdateDeploymentScreen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { TFunction } from "i18next";
 import {
   bucketCounts,
@@ -103,7 +103,9 @@ export function useUpdateDeployment({
     },
     onError: (error: unknown) =>
       setActionError(
-        error instanceof Error ? error.message : t("updates.requestFailed"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("updates.requestFailed"),
       ),
   });
   const cancel = useMutation({
@@ -119,7 +121,9 @@ export function useUpdateDeployment({
     },
     onError: (error: unknown) =>
       setActionError(
-        error instanceof Error ? error.message : t("updates.requestFailed"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("updates.requestFailed"),
       ),
   });
 
@@ -146,7 +150,7 @@ export function useUpdateDeployment({
           <AlertTitle>{t("updates.statusesLoadError")}</AlertTitle>
           <AlertDescription>
             {detail.error instanceof Error
-              ? detail.error.message
+              ? apiErrorMessage(detail.error)
               : t("updates.requestFailed")}
           </AlertDescription>
         </Alert>

@@ -6,6 +6,8 @@
     "uploadFailed": "La subida falló."
   },
   "codes": {
+    "invalid_playback_plan_instant": "Usa un solo instante RFC 3339 con zona horaria, u omite at para usar la hora del servidor.",
+    "playback_expectation_ambiguous": "Las expectativas de reproducción registradas se superponen en este instante.",
     "forbidden": "Tu rol no permite esta acción.",
     "rate_limited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
     "authentication_required": "Es necesario autenticarse.",

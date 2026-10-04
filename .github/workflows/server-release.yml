@@ -51,6 +51,14 @@ jobs:
     uses: ./.github/workflows/ci-server.yml
 
   dashboard_ci:
+    # A called workflow cannot request more than its caller grants, and
+    # ci-dashboard.yml requests the pull request comment permissions. The React
+    # Doctor step is skipped on release runs, so nothing uses them here.
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     uses: ./.github/workflows/ci-dashboard.yml
 
   container_ci:

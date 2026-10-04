@@ -15,6 +15,7 @@ import {
   isPresentationPath,
   isStudioPath,
   studioCapabilities,
+  validateSystemMap,
   validateSystemShare,
 } from "./protocol";
 
@@ -179,6 +180,41 @@ describe("system messages Studio sends", () => {
   });
 });
 
+describe("system maps", () => {
+  it("accepts bounded generic map snapshots and rejects unsafe coordinates", () => {
+    expect(
+      validateSystemMap({
+        mapId: "fleet-screens",
+        title: "Fleet",
+        points: [
+          {
+            id: "screen-1",
+            title: "Lobby",
+            latitude: 34.157,
+            longitude: -82.027,
+            tone: "positive",
+            actionId: "screen-1",
+          },
+        ],
+      }),
+    ).not.toBeNull();
+    expect(
+      validateSystemMap({
+        mapId: "fleet-screens",
+        title: "Fleet",
+        points: [
+          {
+            id: "screen-1",
+            title: "Lobby",
+            latitude: 91,
+            longitude: -82.027,
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+});
+
 describe("deep link paths", () => {
   const paths = corpus.deepLinkPaths as { accept: string[]; refuse: string[] };
   it.each(paths.accept)("accepts %j", (path) => {
@@ -322,6 +358,7 @@ describe("messages Studio sends", () => {
         systemShare: false,
         systemHaptics: false,
         systemQrScanner: false,
+        systemMap: false,
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,
@@ -349,6 +386,7 @@ describe("messages Studio sends", () => {
         systemShare: false,
         systemHaptics: true,
         systemQrScanner: false,
+        systemMap: false,
         nativeMediaIntake: false,
         deepLinks: false,
         nativeAlerts: false,

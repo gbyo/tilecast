@@ -226,17 +226,28 @@ export class StatusSurface extends LitElement {
             </button>`,
         )}
       </div>
-      <input
-        id="setup-input"
-        type="url"
-        placeholder="https://signage.example.org"
-        autofocus
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter") {
-            submit((event.target as HTMLInputElement).value);
-          }
+      <form
+        id="setup-manual"
+        @submit=${(event: SubmitEvent) => {
+          event.preventDefault();
+          submit(
+            (
+              event.currentTarget as HTMLFormElement
+            ).querySelector<HTMLInputElement>("#setup-input")?.value ?? "",
+          );
         }}
-      />
+      >
+        <label for="setup-input">Server address</label>
+        <input
+          id="setup-input"
+          name="server-address"
+          type="url"
+          placeholder="https://signage.example.org"
+          autofocus
+          autocomplete="url"
+        />
+        <button type="submit">Connect</button>
+      </form>
       <div id="setup-error" role="status">${this.setupError}</div>`;
   }
 

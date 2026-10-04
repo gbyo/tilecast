@@ -30,7 +30,6 @@ so B and C roll back to 0.2.0, a release that was itself installed by an
 update rather than by the migrator.
 """
 import base64
-import glob
 import hashlib
 import json
 import os
@@ -426,8 +425,7 @@ def package(version, tree):
     archive = os.path.join(RELEASES, version, f"tilecast-edge-{version}-{ARCH}.tar.zst")
     subprocess.run(f"tar --sort=name --numeric-owner --owner=0 --group=0 -C '{tree}' -cf - . | zstd -3 -q -o '{archive}'",
                    shell=True, check=True)
-    schema = max(int(os.path.basename(p).split("_", 1)[0])
-                 for p in glob.glob(os.path.join(EDGE, "crates/edge-state/migrations/[0-9][0-9][0-9][0-9]_*.sql")))
+    schema = int(output("python3", os.path.join(EDGE, "release/inputs.py"), "state-schema"))
     envelope = os.path.join(RELEASES, version, "tilecast-edge-update.json")
     m.run("python3", os.path.join(EDGE, "release", "envelope.py"), "--tree", tree, "--archive", archive,
           "--arch", ARCH, "--state-schema", str(schema), "--out", envelope, stdout=subprocess.DEVNULL)
