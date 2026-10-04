@@ -3742,7 +3742,7 @@ export function ScreenDetailPage() {
             <TabsList
               aria-label={t("detail.deviceNav")}
               variant="line"
-              className="grid w-full grid-cols-3 rounded-none border-b border-border p-0"
+              className="sticky top-0 z-10 grid w-full grid-cols-3 rounded-none border-b border-border bg-popover p-0"
             >
               <TabsTrigger value="device">
                 {t("detail.sectionDevice")}
