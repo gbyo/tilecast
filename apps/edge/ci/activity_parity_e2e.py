@@ -267,7 +267,7 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
     work = tempfile.mkdtemp(prefix="tilecast-parity-")
     processes = []
-    target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(e2e.EDGE, "target")), "debug")
+    target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(e2e.ROOT, "target")), "debug")
     renderer_bin, runtime, gst = "/target/renderer/tilecast-renderer-wpe", "/target/runtime", "/target/renderer/gstreamer-1.0"
     try:
         e2e.run("dropdb", "--if-exists", e2e.DATABASE)

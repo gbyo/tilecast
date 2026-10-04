@@ -235,6 +235,50 @@ windows for content".
   text only for a decorative image.
 - Don't rely on color alone. Point to a label or position as well.
 
+### Product screenshots
+
+- Show real Tilecast UI from the production Studio in Demo Mode. Don't mock
+  the interface, invent values, or rename seeded content for a picture.
+- Add screenshots to help readers locate a control or confirm a result, never
+  merely to decorate a page. Reuse an asset when it explains the same state.
+- Prefer a focused dialog or panel capture for a procedure. Include enough
+  surrounding UI to identify the location. Exclude browser chrome and the
+  operating system desktop.
+- Use a normal rectangular image with a quiet border and small radius. Don't
+  add device frames, browser-window frames, perspective, decorative backgrounds,
+  gradients, floating effects, or heavy shadows.
+- Exclude credentials, tokens, recovery codes, private URLs, and other secrets.
+  Avoid irrelevant changing timestamps by choosing a useful crop. Don't mask
+  real UI or change application state to make an image look better.
+- Write useful alt text for every meaningful screenshot: describe the controls
+  or state that matter, without starting with "Screenshot of". Don't rely on
+  color alone. Captions are optional; explain why a state matters rather than
+  repeating the alt text or adding promotional copy.
+- Capture at 2× pixel density without changing the viewport or UI scale.
+  Store lossless PNG sources in `src/assets/screenshots/`. Import them into
+  the docs-only `Screenshot.astro` figure so Astro optimizes responsive delivery.
+  Capture a matching light and dark pair; the figure follows the docs theme.
+  Ordinary screenshots stay lazy-loaded. Use `priority` only for an image
+  that actually appears above the fold.
+- When the UI changes, regenerate inaccurate images from Demo Mode. Never
+  reuse masked visual-regression baselines as public screenshots.
+
+From the repository root, install Chromium once with
+`npx playwright install chromium`, then regenerate:
+
+```sh
+make demo
+npm run docs:screenshots
+npm run docs:build
+```
+
+The command resets `kitchen-sink` before each capture and hides only the Demo
+Mode banner (or its compact editor badge). Run it separately from browser and visual tests, which reset the
+same installation. It overwrites only its named assets; review every image
+before committing, including both themes. CI checks the docs but does not regenerate these sources.
+See [`e2e/docs-screenshots/README.md`](../../e2e/docs-screenshots/README.md)
+for the capture inventory and review procedure.
+
 ## Localization
 
 English is the canonical language. Write sentences that translate well: one

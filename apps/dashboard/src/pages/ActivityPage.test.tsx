@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
+import "@testing-library/jest-dom/vitest";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -13,6 +15,22 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityPage } from "./ActivityPage";
 import { api } from "../api/client";
+
+const defaultMatchMedia = window.matchMedia.bind(window);
+
+// Only the layout breakpoint: Base UI reads pointer queries too.
+function mockDesktop() {
+  window.matchMedia = (query: string) => ({
+    matches: query === "(min-width: 1024px)",
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => true,
+  });
+}
 
 const authStatus = {
   authenticated: true,
@@ -161,6 +179,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  window.matchMedia = defaultMatchMedia;
 });
 
 describe("Activity overview", () => {
@@ -438,6 +457,7 @@ describe("Activity filters", () => {
   });
 
   it("drops a filter the next tab cannot apply when switching tabs", async () => {
+    mockDesktop();
     const user = userEvent.setup();
     renderPage("/activity?tab=proof&screen=screen-1&media=asset-1");
 
@@ -464,9 +484,13 @@ describe("Activity filters", () => {
 
 describe("Activity tabs", () => {
   it("exposes the reports as tabs and switches the panel", async () => {
+    mockDesktop();
     const user = userEvent.setup();
     renderPage();
 
+    expect(
+      screen.queryByRole("combobox", { name: "Activity reports" }),
+    ).not.toBeInTheDocument();
     const tabs = await screen.findByRole("tablist", {
       name: "Activity reports",
     });
@@ -489,6 +513,27 @@ describe("Activity tabs", () => {
       ),
     ).toBeTruthy();
     expect(within(panel).getByText("No technical events")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("tab=events");
+  });
+
+  it("offers a report selector instead of tabs on narrow screens", async () => {
+    renderPage();
+
+    const select = await screen.findByRole("combobox", {
+      name: "Activity reports",
+    });
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: "Screen Events" }),
+    ).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "events" } });
+
+    const panel = screen.getByRole("tabpanel");
+    expect(
+      await within(panel).findByText(
+        "No technical screen events matched these filters.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByRole("status").textContent).toContain("tab=events");
   });
 });
