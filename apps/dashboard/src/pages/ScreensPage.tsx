@@ -3660,48 +3660,30 @@ export function ScreenDetailPage() {
           </TabsContent>
         )}
 
-        {tab === "device" && (
-          <TabsContent
-            value="device"
-            className="min-w-0 space-y-4 outline-none"
+        <ScreenDetailPanel
+          open={diagnosticsOpen}
+          onOpenChange={(open) => setDetailPanel("diagnostics", open)}
+          title={t("detail.tabDevice")}
+          description={t("detail.deviceBody")}
+        >
+          <Tabs
+            value={manageSection}
+            onValueChange={setDiagnosticsSection}
+            className="min-w-0 gap-4"
           >
-            <section className="space-y-3" aria-labelledby="device-heading">
-              <header>
-                <h2 id="device-heading" className="text-base font-semibold">
-                  {t("detail.tabDevice")}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("detail.deviceBody")}
-                </p>
-              </header>
-              <nav
-                aria-label={t("detail.deviceNav")}
-                className="flex flex-wrap gap-1 border-b border-border"
-              >
-                {(
-                  [
-                    ["device", t("detail.sectionDevice")],
-                    ["health", t("detail.sectionHealth")],
-                    ["maintenance", t("detail.sectionMaintenance")],
-                  ] as const
-                ).map(([section, label]) => (
-                  <Link
-                    key={section}
-                    to={
-                      section === "device"
-                        ? "?tab=device"
-                        : `?tab=device&section=${section}`
-                    }
-                    aria-current={
-                      manageSection === section ? "page" : undefined
-                    }
-                    className={`border-b-2 px-2 py-2 text-sm ${manageSection === section ? "border-primary font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-                  >
-                    {label}
-                  </Link>
-                ))}
-              </nav>
-            </section>
+            <TabsList
+              aria-label={t("detail.deviceNav")}
+              variant="line"
+              className="grid w-full grid-cols-3 rounded-none border-b border-border p-0"
+            >
+              <TabsTrigger value="device">
+                {t("detail.sectionDevice")}
+              </TabsTrigger>
+              <TabsTrigger value="health">{t("detail.sectionHealth")}</TabsTrigger>
+              <TabsTrigger value="maintenance">
+                {t("detail.sectionMaintenance")}
+              </TabsTrigger>
+            </TabsList>
 
             {manageSection === "health" && (
               <section
@@ -4769,8 +4751,8 @@ export function ScreenDetailPage() {
                 )}
               </>
             )}
-          </TabsContent>
-        )}
+          </Tabs>
+        </ScreenDetailPanel>
 
         {tab === "settings" && (
           <TabsContent value="settings" className="min-w-0 outline-none">
