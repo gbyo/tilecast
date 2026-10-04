@@ -107,7 +107,12 @@ public final class StudioBridge {
         self.context = context
         navigation = NativeNavigationModel()
         navigation.requestNavigation = { [weak self] id in
-            Task { await self?.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) }
+            Task { [weak self] in
+                guard let self else { return }
+                if await !self.send(NativeBridgeProtocol.navigationRequest(destinationID: id)) {
+                    self.navigation.navigationRequestFailed(id)
+                }
+            }
         }
         navigation.requestBack = { [weak self] in
             Task { await self?.send(NativeBridgeProtocol.navigationBack()) }
