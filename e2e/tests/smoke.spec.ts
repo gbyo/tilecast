@@ -80,6 +80,7 @@ test("the fleet map renders through the production MapLibre bundle", async ({
   await page.route("https://tiles.openfreemap.org/styles/liberty", (route) =>
     route.fulfill({
       contentType: "application/json",
+      headers: { "Access-Control-Allow-Origin": "*" },
       body: JSON.stringify({
         version: 8,
         sources: {},
