@@ -3246,16 +3246,9 @@ export function ScreenDetailPage() {
               className="space-y-4"
               aria-labelledby="screen-overview-title"
             >
-              <header>
-                <h2
-                  id="screen-overview-title"
-                  className="text-base font-semibold"
-                >
-                  {t("detail.tabOverview")}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("detail.overviewBody")}
-                </p>
+              <header className="sr-only">
+                <h2 id="screen-overview-title">{t("detail.tabOverview")}</h2>
+                <p>{t("detail.overviewBody")}</p>
               </header>
               {reliability.data?.externalPresentationState &&
                 reliability.data.externalPresentationState !== "none" && (
@@ -3270,481 +3263,393 @@ export function ScreenDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-4">
-                <OverviewFact
-                  label={t("detail.factConnection")}
-                  value={<StatusLabel status={screen.status} />}
-                />
-                <OverviewFact
-                  label={t("detail.factLocation")}
-                  value={
-                    [screen.location, roomLabel(screen, t)]
-                      .filter(Boolean)
-                      .join(" · ") || t("shared.notSet")
-                  }
-                />
-                <OverviewFact
-                  label={t("detail.factLastContact")}
-                  value={formatContact(screen.lastContactAt, t, formatLocale)}
-                />
-                <OverviewFact
-                  label={t("detail.factPlayerUpdate")}
-                  value={
-                    screen.updateError
-                      ? t("shared.updateFailed")
-                      : (screen.updateState?.replaceAll("_", " ") ??
-                        t("detail.noDeployment"))
-                  }
-                />
-                <OverviewFact
-                  label={t("detail.factReliability")}
-                  value={
-                    reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                    t("shared.notReported")
-                  }
-                />
-                <OverviewFact
-                  label={t("detail.factPlayerSettings")}
-                  value={
-                    <Link
-                      to="?tab=settings"
-                      className="underline underline-offset-4"
-                    >
-                      {t("detail.policyOverrides", {
-                        count: Object.keys(screenPolicy.data?.values ?? {})
-                          .length,
-                      })}
-                    </Link>
-                  }
-                />
-              </dl>
-              <PlaybackPlanPanel key={id} screenId={id} />
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => selectTab("content")}
-                >
-                  {t("detail.viewContent")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => selectTab("activity")}
-                >
-                  {t("detail.viewActivity")}
-                </Button>
-              </div>
-              <section
-                className="space-y-2"
-                aria-labelledby="screen-hardware-history-title"
-              >
-                <header>
-                  <h3
-                    id="screen-hardware-history-title"
-                    className="text-sm font-semibold"
-                  >
-                    {t("detail.hwTitle")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("detail.hwBody")}
-                  </p>
-                </header>
-                {playerHistory.data?.items.length ? (
-                  <ItemGroup className="gap-0 divide-y divide-border">
-                    {playerHistory.data.items.map((hardware) => (
-                      <Item
-                        key={hardware.id}
-                        size="xs"
-                        render={<div role="listitem" />}
-                        className="rounded-none px-0"
-                      >
-                        <ItemContent className="min-w-0">
-                          <ItemTitle>
-                            {hardware.manufacturer} {hardware.model}
-                          </ItemTitle>
-                          <ItemDescription>
-                            {hardware.platform} · {hardware.playerVersion} ·{" "}
-                            {hardware.screenWidth}×{hardware.screenHeight} ·{" "}
-                            {t("detail.hwPaired", {
-                              date: new Date(
-                                hardware.pairedAt,
-                              ).toLocaleDateString(formatLocale),
-                            })}
-                            {hardware.retiredAt
-                              ? t("detail.hwRetired", {
-                                  date: new Date(
-                                    hardware.retiredAt,
-                                  ).toLocaleDateString(formatLocale),
-                                })
-                              : t("detail.hwCurrent")}
-                            {hardware.retirementReason
-                              ? ` · ${hardware.retirementReason}`
-                              : ""}
-                          </ItemDescription>
-                        </ItemContent>
-                      </Item>
-                    ))}
-                  </ItemGroup>
-                ) : playerHistory.isLoading ? (
-                  <Skeleton className="h-12 w-full" />
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {t("detail.hwEmpty")}
-                  </p>
-                )}
-              </section>
-            </section>
-          </TabsContent>
-        )}
 
-        {tab === "content" && (
-          <TabsContent value="content" className="min-w-0 outline-none">
-            <section
-              className="min-w-0 space-y-5 rounded-xl border border-border p-4 sm:p-5"
-              aria-labelledby="screen-playback-title"
-            >
-              <header>
-                <h2
-                  id="screen-playback-title"
-                  className="text-base font-semibold"
-                >
-                  {t("detail.playbackTitle")}
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("detail.playbackBody")}
-                </p>
-              </header>
-              {assignment.data?.groups?.[0] && (
-                <Alert>
-                  <Monitor aria-hidden="true" />
-                  <AlertTitle>{t("detail.managedTitle")}</AlertTitle>
-                  <AlertDescription>
-                    <Trans
-                      i18nKey="detail.managedBody"
-                      ns="screens"
-                      values={{ name: assignment.data.groups[0].name }}
-                      components={{
-                        groupLink: (
-                          <Link
-                            to={`/groups/${assignment.data.groups[0].id}`}
-                          />
-                        ),
-                      }}
-                    />
-                  </AlertDescription>
-                </Alert>
-              )}
-              {canManageScreens(auth.status?.user) ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1">
-                    <Select
-                      items={[
-                        {
-                          value: "__none__",
-                          label: t("detail.noPresentation"),
-                        },
-                        ...(playlists.data?.items ?? []).map((playlist) => ({
-                          value: `playlist:${playlist.id}`,
-                          label: playlist.name,
-                        })),
-                        ...(layouts.data?.items ?? []).map((layout) => ({
-                          value: `layout:${layout.id}`,
-                          label: layout.name,
-                        })),
-                      ]}
-                      value={selectedPresentation || "__none__"}
-                      onValueChange={(value) =>
-                        setSelectedPresentation(
-                          value === "__none__" ? "" : (value ?? ""),
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        aria-label={t("detail.assignedLabel")}
-                        className="w-full"
+              <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+                <LivePreviewPanel
+                  screenId={id}
+                  onOpenHistory={() => setDetailPanel("snapshots", true)}
+                />
+                <Card size="sm" className="min-w-0">
+                  <CardHeader>
+                    <CardTitle>{t("detail.factConnectionTitle")}</CardTitle>
+                    <CardDescription>{t("detail.overviewBody")}</CardDescription>
+                    <CardAction>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDiagnostics("device")}
                       >
-                        <SelectValue placeholder={t("detail.noPresentation")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">
-                          {t("detail.noPresentation")}
-                        </SelectItem>
-                        <SelectGroup>
-                          <SelectLabel>
-                            {t("detail.playlistsGroup")}
-                          </SelectLabel>
-                          {playlists.data?.items?.map((playlist) => (
-                            <SelectItem
-                              key={playlist.id}
-                              value={`playlist:${playlist.id}`}
-                            >
-                              {playlist.name}
+                        {t("detail.sectionDevice")}
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2 xl:grid-cols-1">
+                      <OverviewFact
+                        label={t("detail.factConnection")}
+                        value={<StatusLabel status={screen.status} />}
+                      />
+                      <OverviewFact
+                        label={t("detail.factLocation")}
+                        value={
+                          [screen.location, roomLabel(screen, t)]
+                            .filter(Boolean)
+                            .join(" · ") || t("shared.notSet")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factLastContact")}
+                        value={formatContact(
+                          screen.lastContactAt,
+                          t,
+                          formatLocale,
+                        )}
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerUpdate")}
+                        value={
+                          screen.updateError
+                            ? t("shared.updateFailed")
+                            : (screen.updateState?.replaceAll("_", " ") ??
+                              t("detail.noDeployment"))
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factReliability")}
+                        value={
+                          reliability.data?.effectiveMode?.replaceAll("_", " ") ??
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerSettings")}
+                        value={
+                          <Link
+                            to="?tab=settings"
+                            className="underline underline-offset-4"
+                          >
+                            {t("detail.policyOverrides", {
+                              count: Object.keys(screenPolicy.data?.values ?? {})
+                                .length,
+                            })}
+                          </Link>
+                        }
+                      />
+                    </dl>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card id="screen-content" className="min-w-0 scroll-mt-20">
+                <CardHeader>
+                  <CardTitle>{t("detail.playbackTitle")}</CardTitle>
+                  <CardDescription>{t("detail.playbackBody")}</CardDescription>
+                  <CardAction>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => openDiagnostics("health")}
+                    >
+                      {t("detail.diagnostics")}
+                    </Button>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="min-w-0">
+                  {assignment.data?.groups?.[0] && (
+                    <Alert>
+                      <Monitor aria-hidden="true" />
+                      <AlertTitle>{t("detail.managedTitle")}</AlertTitle>
+                      <AlertDescription>
+                        <Trans
+                          i18nKey="detail.managedBody"
+                          ns="screens"
+                          values={{ name: assignment.data.groups[0].name }}
+                          components={{
+                            groupLink: (
+                              <Link
+                                to={`/groups/${assignment.data.groups[0].id}`}
+                              />
+                            ),
+                          }}
+                        />
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {canManageScreens(auth.status?.user) ? (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="min-w-0 flex-1">
+                        <Select
+                          items={[
+                            {
+                              value: "__none__",
+                              label: t("detail.noPresentation"),
+                            },
+                            ...(playlists.data?.items ?? []).map((playlist) => ({
+                              value: `playlist:${playlist.id}`,
+                              label: playlist.name,
+                            })),
+                            ...(layouts.data?.items ?? []).map((layout) => ({
+                              value: `layout:${layout.id}`,
+                              label: layout.name,
+                            })),
+                          ]}
+                          value={selectedPresentation || "__none__"}
+                          onValueChange={(value) =>
+                            setSelectedPresentation(
+                              value === "__none__" ? "" : (value ?? ""),
+                            )
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label={t("detail.assignedLabel")}
+                            className="w-full"
+                          >
+                            <SelectValue
+                              placeholder={t("detail.noPresentation")}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">
+                              {t("detail.noPresentation")}
                             </SelectItem>
-                          ))}
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
-                          {layouts.data?.items
-                            .filter((layout) => layout.publishedRevision)
-                            .map((layout) => (
-                              <SelectItem
-                                key={layout.id}
-                                value={`layout:${layout.id}`}
-                              >
-                                {layout.name}
-                              </SelectItem>
-                            ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    disabled={
-                      assign.isPending ||
-                      selectedPresentation ===
-                        (assignment.data?.layoutId
-                          ? `layout:${assignment.data.layoutId}`
-                          : assignment.data?.playlistId
-                            ? `playlist:${assignment.data.playlistId}`
-                            : "")
-                    }
-                    onClick={() => assign.mutate()}
-                  >
-                    {assign.isPending
-                      ? t("groups.detail.applying")
-                      : assignment.data?.groups?.[0]
-                        ? t("groups.detail.apply")
-                        : t("detail.applyAssignment")}
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {assignment.data?.layoutName ??
-                    assignment.data?.playlistName ??
-                    t("detail.noPresentation")}
-                </p>
-              )}
-              <ScreenContentChain assignment={assignment.data} />
-              <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
-                <OverviewFact
-                  label={t("detail.directFallback")}
-                  value={
-                    assignment.data?.layoutName ??
-                    assignment.data?.playlistName ??
-                    t("detail.noFallbackAssigned")
-                  }
-                />
-                <OverviewFact
-                  label={t("detail.currentSelection")}
-                  value={selectionSummary(assignment.data, t)}
-                />
-                <OverviewFact
-                  label={t("detail.nextScheduledChange")}
-                  value={
-                    assignment.data?.nextTransitionAt
-                      ? new Date(
-                          assignment.data.nextTransitionAt,
-                        ).toLocaleString(formatLocale)
-                      : t("shared.noneReported")
-                  }
-                />
-                <OverviewFact
-                  label={t("list.groupFilter")}
-                  value={
-                    (assignment.data?.groups ?? [])
-                      .map((group) => group.name)
-                      .join(", ") || t("detail.notGrouped")
-                  }
-                />
-                <OverviewFact
-                  label={t("detail.relevantSchedules")}
-                  value={
-                    (assignment.data?.relevantSchedules ?? [])
-                      .map(
-                        (schedule) => `${schedule.name} (${schedule.priority})`,
-                      )
-                      .join(", ") || t("detail.noSchedules")
-                  }
-                />
-              </dl>
-              <Collapsible className="border-t border-border pt-3">
-                <CollapsibleTrigger className="flex w-full cursor-pointer items-center justify-between gap-2 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  {t("detail.diagnostics")}
-                  <CollapsibleChevron size={16} />
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <SelectGroup>
+                              <SelectLabel>{t("detail.playlistsGroup")}</SelectLabel>
+                              {playlists.data?.items?.map((playlist) => (
+                                <SelectItem
+                                  key={playlist.id}
+                                  value={`playlist:${playlist.id}`}
+                                >
+                                  {playlist.name}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                            <SelectGroup>
+                              <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
+                              {layouts.data?.items
+                                .filter((layout) => layout.publishedRevision)
+                                .map((layout) => (
+                                  <SelectItem
+                                    key={layout.id}
+                                    value={`layout:${layout.id}`}
+                                  >
+                                    {layout.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        disabled={
+                          assign.isPending ||
+                          selectedPresentation ===
+                            (assignment.data?.layoutId
+                              ? `layout:${assignment.data.layoutId}`
+                              : assignment.data?.playlistId
+                                ? `playlist:${assignment.data.playlistId}`
+                                : "")
+                        }
+                        onClick={() => assign.mutate()}
+                      >
+                        {assign.isPending
+                          ? t("groups.detail.applying")
+                          : assignment.data?.groups?.[0]
+                            ? t("groups.detail.apply")
+                            : t("detail.applyAssignment")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {assignment.data?.layoutName ??
+                        assignment.data?.playlistName ??
+                        t("detail.noPresentation")}
+                    </p>
+                  )}
+
+                  <ScreenContentChain assignment={assignment.data} />
+
+                  <dl className="grid gap-x-6 gap-y-4 border-y border-border py-4 sm:grid-cols-2 xl:grid-cols-3">
                     <OverviewFact
-                      label={t("detail.factServerManifest")}
-                      value={t("detail.manifestVersion", {
-                        version: assignment.data?.manifestVersion ?? 1,
-                      })}
-                    />
-                    <OverviewFact
-                      label={t("detail.factPlayerConfig")}
+                      label={t("detail.directFallback")}
                       value={
-                        assignment.data?.activeConfigRevision != null
-                          ? t("detail.configRevision", {
-                              revision: assignment.data.activeConfigRevision,
-                            })
-                          : t("shared.notReported")
+                        assignment.data?.layoutName ??
+                        assignment.data?.playlistName ??
+                        t("detail.noFallbackAssigned")
                       }
                     />
                     <OverviewFact
-                      label={t("detail.factPlayerManifest")}
+                      label={t("detail.currentSelection")}
+                      value={selectionSummary(assignment.data, t)}
+                    />
+                    <OverviewFact
+                      label={t("detail.nextScheduledChange")}
                       value={
-                        assignment.data?.playerActiveManifestVersion != null
-                          ? t("detail.manifestVersion", {
-                              version:
-                                assignment.data.playerActiveManifestVersion,
-                            })
-                          : t("shared.notReported")
+                        assignment.data?.nextTransitionAt
+                          ? new Date(
+                              assignment.data.nextTransitionAt,
+                            ).toLocaleString(formatLocale)
+                          : t("shared.noneReported")
                       }
                     />
                     <OverviewFact
-                      label={t("detail.factSynchronization")}
+                      label={t("list.groupFilter")}
                       value={
-                        assignment.data?.synchronizationStatus?.replaceAll(
-                          "_",
-                          " ",
-                        ) ?? t("shared.notReported")
+                        (assignment.data?.groups ?? [])
+                          .map((group) => group.name)
+                          .join(", ") || t("detail.notGrouped")
                       }
                     />
                     <OverviewFact
-                      label={t("detail.factClockDifference")}
+                      label={t("detail.relevantSchedules")}
                       value={
-                        assignment.data?.deviceClockOffsetSeconds != null
-                          ? t("detail.clockOffset", {
-                              count: Math.abs(
-                                assignment.data.deviceClockOffsetSeconds,
-                              ),
-                            })
-                          : t("shared.notReported")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.factDownloads")}
-                      value={
-                        assignment.data?.downloadQueueCount != null
-                          ? t("detail.downloads", {
-                              queued: assignment.data.downloadQueueCount,
-                              downloaded: assignment.data.downloadedBytes ?? 0,
-                              required: assignment.data.requiredBytes ?? 0,
-                            })
-                          : t("shared.notReported")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.factWebsite")}
-                      value={
-                        assignment.data?.websiteState
-                          ? `${assignment.data.websiteState?.replaceAll("_", " ") ?? t("shared.notReported")}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
-                          : t("detail.websiteInactive")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.factBlockedNavigation")}
-                      value={
-                        assignment.data?.websiteBlockedNavigationCount ??
-                        t("shared.notReported")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.factPlayback")}
-                      value={
-                        assignment.data?.playbackState ??
-                        t("shared.notReported")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("takeover.title")}
-                      value={
-                        assignment.data?.activeTakeoverId
-                          ? t("detail.takeoverProgress", {
-                              state: assignment.data.takeoverState ?? "pending",
-                              progress:
-                                assignment.data.takeoverPreparationProgress ??
-                                0,
-                            })
-                          : t("detail.noTakeover")
-                      }
-                    />
-                    <OverviewFact
-                      label={t("detail.factCache")}
-                      value={
-                        assignment.data?.cacheUsedBytes != null
-                          ? t("detail.cacheUsage", {
-                              used: assignment.data.cacheUsedBytes,
-                              limit: assignment.data.cacheLimitBytes ?? 0,
-                            })
-                          : t("shared.notReported")
+                        (assignment.data?.relevantSchedules ?? [])
+                          .map(
+                            (schedule) =>
+                              `${schedule.name} (${schedule.priority})`,
+                          )
+                          .join(", ") || t("detail.noSchedules")
                       }
                     />
                   </dl>
-                </CollapsibleContent>
-              </Collapsible>
-              {assignment.error && (
-                <Alert variant="destructive">
-                  <CircleAlert aria-hidden="true" />
-                  <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
-                  <AlertDescription>
-                    {apiErrorMessage(assignment.error)}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {(
-                [
-                  ["sync", assignment.data?.lastSynchronizationError],
-                  ["playback", assignment.data?.lastPlaybackError],
-                  ["config", assignment.data?.configurationError],
-                ] as const
-              ).map(
-                ([kind, message]) =>
-                  message && (
-                    <Alert key={kind} variant="destructive">
+
+                  <PlaybackPlanPanel key={id} screenId={id} />
+
+                  {assignment.error && (
+                    <Alert variant="destructive">
                       <CircleAlert aria-hidden="true" />
-                      <AlertTitle>
-                        {t("detail.categorizedError", {
-                          kind: t(`detail.errorKind.${kind}`),
-                        })}
-                      </AlertTitle>
-                      <AlertDescription>{message}</AlertDescription>
+                      <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
+                      <AlertDescription>
+                        {apiErrorMessage(assignment.error)}
+                      </AlertDescription>
                     </Alert>
-                  ),
-              )}
-              {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
-                (assignment.data?.clockSkewWarningSeconds ?? 300) && (
-                <Alert>
-                  <CircleAlert aria-hidden="true" />
-                  <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
-                  <AlertDescription>{t("detail.clockBody")}</AlertDescription>
-                </Alert>
-              )}
-              {assignment.data?.scheduleEvaluationError && (
-                <Alert variant="destructive">
-                  <CircleAlert aria-hidden="true" />
-                  <AlertTitle>{t("detail.scheduleEvalTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {assignment.data.scheduleEvaluationError}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {assignment.data?.websiteFailureCategory &&
-                ["failed", "timed_out", "blocked", "showing_fallback"].includes(
-                  assignment.data.websiteState ?? "",
-                ) && (
-                  <Alert variant="destructive">
-                    <CircleAlert aria-hidden="true" />
-                    <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
-                    <AlertDescription>
-                      {assignment.data.websiteFailureCategory?.replaceAll(
-                        "_",
-                        " ",
-                      ) ?? t("detail.websiteUnknown")}
-                    </AlertDescription>
-                  </Alert>
-                )}
+                  )}
+                  {(
+                    [
+                      ["sync", assignment.data?.lastSynchronizationError],
+                      ["playback", assignment.data?.lastPlaybackError],
+                      ["config", assignment.data?.configurationError],
+                    ] as const
+                  ).map(
+                    ([kind, message]) =>
+                      message && (
+                        <Alert key={kind} variant="destructive">
+                          <CircleAlert aria-hidden="true" />
+                          <AlertTitle>
+                            {t("detail.categorizedError", {
+                              kind: t(`detail.errorKind.${kind}`),
+                            })}
+                          </AlertTitle>
+                          <AlertDescription>{message}</AlertDescription>
+                        </Alert>
+                      ),
+                  )}
+                  {Math.abs(assignment.data?.deviceClockOffsetSeconds ?? 0) >
+                    (assignment.data?.clockSkewWarningSeconds ?? 300) && (
+                    <Alert>
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
+                      <AlertDescription>{t("detail.clockBody")}</AlertDescription>
+                    </Alert>
+                  )}
+                  {assignment.data?.scheduleEvaluationError && (
+                    <Alert variant="destructive">
+                      <CircleAlert aria-hidden="true" />
+                      <AlertTitle>{t("detail.scheduleEvalTitle")}</AlertTitle>
+                      <AlertDescription>
+                        {assignment.data.scheduleEvaluationError}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  {assignment.data?.websiteFailureCategory &&
+                    ["failed", "timed_out", "blocked", "showing_fallback"].includes(
+                      assignment.data.websiteState ?? "",
+                    ) && (
+                      <Alert variant="destructive">
+                        <CircleAlert aria-hidden="true" />
+                        <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
+                        <AlertDescription>
+                          {assignment.data.websiteFailureCategory?.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? t("detail.websiteUnknown")}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                </CardContent>
+              </Card>
+
+              <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+                <Card size="sm" className="min-w-0">
+                  <CardHeader>
+                    <CardTitle>{t("detail.healthTitle")}</CardTitle>
+                    <CardDescription>{t("detail.healthBody")}</CardDescription>
+                    <CardAction>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDiagnostics("health")}
+                      >
+                        {t("detail.sectionHealth")}
+                      </Button>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium">
+                        {t("detail.zeroTouch")}
+                      </span>
+                      <Badge variant="outline">
+                        {zeroTouchReadiness(reliability.data, t)}
+                      </Badge>
+                    </div>
+                    <dl className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label={t("detail.factPlayback")}
+                        value={
+                          assignment.data?.playbackState ??
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factSynchronization")}
+                        value={
+                          assignment.data?.synchronizationStatus?.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factReliability")}
+                        value={
+                          reliability.data?.effectiveMode?.replaceAll("_", " ") ??
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerUpdate")}
+                        value={
+                          screen.updateError
+                            ? t("shared.updateFailed")
+                            : (screen.updateState?.replaceAll("_", " ") ??
+                              t("detail.noDeployment"))
+                        }
+                      />
+                    </dl>
+                    {reliabilityCapabilityWarning(reliability.data, t) && (
+                      <Alert>
+                        <AlertDescription>
+                          {reliabilityCapabilityWarning(reliability.data, t)}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+                <ScreenActivitySummary
+                  screenId={id}
+                  onOpen={() => selectTab("activity")}
+                />
+              </div>
             </section>
           </TabsContent>
         )}
