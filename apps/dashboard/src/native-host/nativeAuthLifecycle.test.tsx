@@ -168,6 +168,7 @@ describe("native auth lifecycle", () => {
           nativeMediaIntake: true,
           deepLinks: true,
           nativeAlerts: true,
+          systemMap: true,
         },
       },
     );
