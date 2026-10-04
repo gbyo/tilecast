@@ -9,9 +9,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Crosshair, MapPin, RotateCcw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MapCoordinates } from "../api/types";
+import { OPENFREEMAP_STYLE_URL } from "../lib/maplibre";
 import { Button } from "./ui/button";
-
-const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
 export function ScreenPositionPicker({
   value,
