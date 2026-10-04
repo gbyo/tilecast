@@ -259,7 +259,10 @@
     "mapUnmapped": "Screens without a map position: {{count}}",
     "mapAriaLabel": "Fleet map",
     "mapInherited": "From location",
-    "mapOpenScreen": "Open screen"
+    "mapOpenScreen": "Open screen",
+    "mapNativeTitle": "Native map",
+    "mapNativeBody": "Tilecast is showing these screens in the system map.",
+    "mapOpenNative": "Open map"
   },
   "grid": {
     "openScreen": "Open {{name}}",
