@@ -27,9 +27,7 @@ describe("OpenFreeMap request routing", () => {
       proxyOpenFreeMapURL(
         "https://tiles.openfreemap.org/planet/20260927_080001_pt/7/34/51.pbf?x=1",
       ),
-    ).toBe(
-      "/maps/openfreemap/planet/20260927_080001_pt/7/34/51.pbf?x=1",
-    );
+    ).toBe("/maps/openfreemap/planet/20260927_080001_pt/7/34/51.pbf?x=1");
   });
 
   it("does not proxy lookalike or unrelated hosts", () => {
