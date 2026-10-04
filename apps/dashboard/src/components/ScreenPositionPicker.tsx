@@ -40,7 +40,8 @@ export function ScreenPositionPicker({
 
   const placeAtMapCenter = () => {
     const center = mapRef.current?.getCenter().wrap();
-    if (center) onChangeRef.current({ longitude: center.lng, latitude: center.lat });
+    if (center)
+      onChangeRef.current({ longitude: center.lng, latitude: center.lat });
   };
 
   const handleMapChange = useCallback((map: MapLibreMap | null) => {
