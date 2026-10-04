@@ -3313,7 +3313,8 @@ export function ScreenDetailPage() {
                 </Alert>
               )}
               {canManageScreens(auth.status?.user) ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
                   <div className="min-w-0 flex-1">
                     <Select
                       items={[
@@ -3402,6 +3403,7 @@ export function ScreenDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {assignment.data?.layoutName ??
