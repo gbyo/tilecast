@@ -22,13 +22,9 @@ export function ScreenPositionPicker({
   const { t } = useTranslation(["screens", "common"]);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
-  const valueRef = useRef(value);
-  const locationRef = useRef(locationPosition);
   const onChangeRef = useRef(onChange);
   const [mapGeneration, setMapGeneration] = useState(0);
 
-  valueRef.current = value;
-  locationRef.current = locationPosition;
   onChangeRef.current = onChange;
 
   const effectivePosition = value ?? locationPosition;
