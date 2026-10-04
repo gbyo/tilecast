@@ -87,6 +87,19 @@ func catalog(primary: [String], more: [String], extraGroup: [String] = []) -> Na
         #expect(!model.isTabSelectionPending)
     }
 
+    @Test func anUndeliveredRequestRollsBackTheOptimisticSelection() {
+        let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: []), active: "alpha")
+        model.selectTab(.destination("bravo"))
+        #expect(requests.sent == ["bravo"])
+        #expect(model.selectedTab == .destination("bravo"))
+        #expect(model.isTabSelectionPending)
+
+        model.navigationRequestFailed("bravo")
+        #expect(model.selectedTab == .destination("alpha"))
+        #expect(model.frontendTab == .destination("alpha"))
+        #expect(!model.isTabSelectionPending)
+    }
+
     @Test func aBlockedNavigationKeepsTheCurrentSelection() {
         let (model, requests) = makeModel(catalog(primary: ["alpha", "bravo"], more: ["charlie"]), active: "charlie")
         model.selectTab(.destination("alpha"))
