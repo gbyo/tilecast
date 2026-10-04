@@ -3725,6 +3725,121 @@ export function ScreenDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   {t("detail.healthBody")}
                 </p>
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{t("detail.diagnostics")}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                      <OverviewFact
+                        label={t("detail.factServerManifest")}
+                        value={t("detail.manifestVersion", {
+                          version: assignment.data?.manifestVersion ?? 1,
+                        })}
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerConfig")}
+                        value={
+                          assignment.data?.activeConfigRevision != null
+                            ? t("detail.configRevision", {
+                                revision: assignment.data.activeConfigRevision,
+                              })
+                            : t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayerManifest")}
+                        value={
+                          assignment.data?.playerActiveManifestVersion != null
+                            ? t("detail.manifestVersion", {
+                                version:
+                                  assignment.data.playerActiveManifestVersion,
+                              })
+                            : t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factSynchronization")}
+                        value={
+                          assignment.data?.synchronizationStatus?.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factClockDifference")}
+                        value={
+                          assignment.data?.deviceClockOffsetSeconds != null
+                            ? t("detail.clockOffset", {
+                                count: Math.abs(
+                                  assignment.data.deviceClockOffsetSeconds,
+                                ),
+                              })
+                            : t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factDownloads")}
+                        value={
+                          assignment.data?.downloadQueueCount != null
+                            ? t("detail.downloads", {
+                                queued: assignment.data.downloadQueueCount,
+                                downloaded: assignment.data.downloadedBytes ?? 0,
+                                required: assignment.data.requiredBytes ?? 0,
+                              })
+                            : t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factWebsite")}
+                        value={
+                          assignment.data?.websiteState
+                            ? `${assignment.data.websiteState.replaceAll("_", " ")}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                            : t("detail.websiteInactive")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factBlockedNavigation")}
+                        value={
+                          assignment.data?.websiteBlockedNavigationCount ??
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factPlayback")}
+                        value={
+                          assignment.data?.playbackState ??
+                          t("shared.notReported")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("takeover.title")}
+                        value={
+                          assignment.data?.activeTakeoverId
+                            ? t("detail.takeoverProgress", {
+                                state: assignment.data.takeoverState ?? "pending",
+                                progress:
+                                  assignment.data.takeoverPreparationProgress ??
+                                  0,
+                              })
+                            : t("detail.noTakeover")
+                        }
+                      />
+                      <OverviewFact
+                        label={t("detail.factCache")}
+                        value={
+                          assignment.data?.cacheUsedBytes != null
+                            ? t("detail.cacheUsage", {
+                                used: assignment.data.cacheUsedBytes,
+                                limit: assignment.data.cacheLimitBytes ?? 0,
+                              })
+                            : t("shared.notReported")
+                        }
+                      />
+                    </dl>
+                  </CardContent>
+                </Card>
                 <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
                     <div className="min-w-0 space-y-1">
@@ -4718,6 +4833,58 @@ export function ScreenDetailPage() {
                     </dl>
                   </section>
                 </section>
+                <Card size="sm">
+                  <CardHeader>
+                    <CardTitle>{t("detail.hwTitle")}</CardTitle>
+                    <CardDescription>{t("detail.hwBody")}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {playerHistory.data?.items.length ? (
+                      <ItemGroup className="gap-0 divide-y divide-border">
+                        {playerHistory.data.items.map((hardware) => (
+                          <Item
+                            key={hardware.id}
+                            size="xs"
+                            render={<div role="listitem" />}
+                            className="rounded-none px-0"
+                          >
+                            <ItemContent className="min-w-0">
+                              <ItemTitle>
+                                {hardware.manufacturer} {hardware.model}
+                              </ItemTitle>
+                              <ItemDescription>
+                                {hardware.platform} · {hardware.playerVersion} ·{" "}
+                                {hardware.screenWidth}×{hardware.screenHeight} ·{" "}
+                                {t("detail.hwPaired", {
+                                  date: new Date(
+                                    hardware.pairedAt,
+                                  ).toLocaleDateString(formatLocale),
+                                })}
+                                {hardware.retiredAt
+                                  ? t("detail.hwRetired", {
+                                      date: new Date(
+                                        hardware.retiredAt,
+                                      ).toLocaleDateString(formatLocale),
+                                    })
+                                  : t("detail.hwCurrent")}
+                                {hardware.retirementReason
+                                  ? ` · ${hardware.retirementReason}`
+                                  : ""}
+                              </ItemDescription>
+                            </ItemContent>
+                          </Item>
+                        ))}
+                      </ItemGroup>
+                    ) : playerHistory.isLoading ? (
+                      <Skeleton className="h-12 w-full" />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {t("detail.hwEmpty")}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {canManageScreens(auth.status?.user) && (
                   <section
                     className="space-y-4 border-t border-border pt-4"
