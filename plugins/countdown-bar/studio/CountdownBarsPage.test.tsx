@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   chooseOption,
@@ -274,4 +280,26 @@ describe("Countdown Bar editor", () => {
     expect(submitted[0]?.scheduleType).toBe("weekly");
     expect(submitted[0]?.displayMode).toBe("push");
   }, 10_000);
+
+  it("warns before Cancel leaves with unsaved changes", async () => {
+    renderEditor("/plugins/countdown-bar/new");
+    await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Dismissal" },
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    expect(
+      within(dialog).getByText("This countdown has unsaved changes."),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+  });
 });

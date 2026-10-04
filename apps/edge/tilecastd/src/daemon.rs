@@ -30,17 +30,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use edge_cas::space::{SpaceProbe, StatvfsProbe};
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
 use edge_platform::capabilities::CapabilityRegistry;
-use edge_platform::disk::{SpaceProbe, StatvfsProbe};
+use edge_platform::clock::system_clock;
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
 use edge_platform::systemd::Notifier;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::event::KioskPolicy;
 use edge_protocol::ipc::presentation::{PresentationDocument, StatusSurface};
-use edge_protocol::time::{SharedClock, system_clock};
+use edge_protocol::time::SharedClock;
 use edge_protocol::{PlayerId, Timestamp};
 use edge_state::repo::{binding, cas, daemon as daemon_repo};
 use edge_state::{OpenOptions, StateDb, StateError};
@@ -56,12 +57,9 @@ use crate::server_link::{self, LinkState};
 use crate::supervisor::SupervisorConfig;
 
 /// The release version. `TILECAST_EDGE_VERSION` at build time overrides the
-/// crate version; only the update integration test uses it, to build a
+/// Edge release VERSION; only the update integration test uses it, to build a
 /// candidate that reports another version from the same source.
-pub const VERSION: &str = match option_env!("TILECAST_EDGE_VERSION") {
-    Some(version) => version,
-    None => env!("CARGO_PKG_VERSION"),
-};
+pub const VERSION: &str = edge_platform::RELEASE_VERSION;
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 const SUPERVISION_INTERVAL: Duration = Duration::from_secs(15);
 const CAPABILITY_INTERVAL: Duration = Duration::from_secs(300);
@@ -287,6 +285,7 @@ impl Daemon {
             media_registry.clone(),
             kiosk,
             supervisor,
+            clock.clone(),
             now.unix_millis(),
         );
         presentation.set_activity(activity.clone());

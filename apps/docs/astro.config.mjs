@@ -199,6 +199,7 @@ export default defineConfig({
               label: "Manage screens",
               collapsed: true,
               items: [
+                { slug: "screens/explain-playback" },
                 { slug: "screens/archive" },
                 { slug: "screens/bulk-changes" },
               ],
@@ -405,6 +406,7 @@ export default defineConfig({
             { slug: "developers" },
             { slug: "developers/demo-mode" },
             { slug: "developers/testing" },
+            { slug: "developers/player-ownership" },
             { slug: "developers/ios-app" },
             {
               label: "Plugin development",

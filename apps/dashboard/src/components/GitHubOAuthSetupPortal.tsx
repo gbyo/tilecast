@@ -13,6 +13,7 @@ import {
   startGitHubDeviceAuthorization,
 } from "../api/domains/system";
 import { ApiError, FALLBACK_REQUEST_MESSAGE } from "../api/errors";
+import { apiErrorMessage } from "../i18n";
 import type { GitHubDeviceStart } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription } from "./ui/alert";
@@ -42,7 +43,7 @@ async function configureGitHubClientID(
       error instanceof ApiError &&
         error.status > 0 &&
         error.message !== FALLBACK_REQUEST_MESSAGE
-        ? error.message
+        ? apiErrorMessage(error)
         : (t?.("updates.setup.saveError") ??
             "Tilecast could not save the GitHub Client ID."),
       { cause: error },
@@ -140,7 +141,7 @@ export function GitHubOAuthSetupPortal() {
       });
       await queryClient.invalidateQueries({ queryKey: ["player-releases"] });
     },
-    onError: (error) => setMessage(error.message),
+    onError: (error) => setMessage(apiErrorMessage(error)),
   });
 
   useEffect(() => {
@@ -186,7 +187,7 @@ export function GitHubOAuthSetupPortal() {
           setFlow(null);
           setMessage(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("updates.setup.incomplete"),
           );
         });

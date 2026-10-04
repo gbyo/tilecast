@@ -19,6 +19,7 @@
 //! A screen whose credential the server rejected starts pairing again with
 //! its bound server; the existing protocol reuses its screen record.
 
+use edge_server::{FileCredentialStore, FilePairingStore};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -53,8 +54,7 @@ fn set_view(context: &DaemonContext, state: &'static str, code: Option<String>, 
 async fn may_pair(context: &DaemonContext) -> Result<Option<ServerBinding>, &'static str> {
     let db = context.db().ok_or("This screen's local state is unavailable.")?;
     let bound = db.run(|c| binding::get(c)).await.map_err(|_| "This screen's local state is unavailable.")?;
-    let credential_present =
-        edge_server::DeviceCredential::load(&context.paths.identity_dir()).ok().flatten().is_some();
+    let credential_present = FileCredentialStore::read_at(&context.paths.identity_dir()).ok().flatten().is_some();
     match &bound {
         Some(record) if record.credential_state == CredentialState::Stored && credential_present => {
             Err("This screen is already paired.")
@@ -77,6 +77,7 @@ fn metadata(player: PlayerId, display: Option<(u32, u32)>) -> DeviceMetadata {
     let timezone = jiff::tz::TimeZone::system().iana_name().map(str::to_owned);
     DeviceMetadata::new(
         *player.as_uuid(),
+        "linux",
         &read_small("/proc/sys/kernel/hostname"),
         &format!("Linux {}", std::env::consts::ARCH),
         &read_small("/proc/sys/kernel/osrelease"),
@@ -94,7 +95,7 @@ async fn ensure_player_id(context: &DaemonContext) -> Result<PlayerId, &'static 
         if let Some(identity) = daemon_repo::player_identity(c)? {
             return Ok(identity.player_id);
         }
-        let id = PlayerId::new_random();
+        let id = PlayerId::from_uuid(uuid::Uuid::new_v4());
         daemon_repo::set_player_identity(c, id, daemon_repo::PlayerIdentitySource::Generated, now)?;
         Ok(id)
     })
@@ -120,7 +121,8 @@ pub async fn begin(context: &DaemonContext, url: &str) -> Result<(), &'static st
     context.pairing_suppressed.store(false, std::sync::atomic::Ordering::Release);
     let normalized =
         normalize_server_url(url).map_err(|_| "That address is not allowed. Public servers need https://.")?;
-    let client = ServerClient::new(&normalized).map_err(|e| user_message(&e))?;
+    let client = ServerClient::new(&normalized, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
+        .map_err(|e| user_message(&e))?;
     let session = create_session(context, &client).await?;
     tracing::info!(component = "pairing", event = "session_created", server = %client.base_url());
     show(context, &session).await;
@@ -145,7 +147,8 @@ async fn create_session(context: &DaemonContext, client: &ServerClient) -> Resul
         .create_pairing_session(identity.installation_id, &metadata(player, display))
         .await
         .map_err(|e| user_message(&e))?;
-    session.save(&context.paths.identity_dir()).map_err(|_| "The pairing session could not be stored.")?;
+    FilePairingStore::write_at(&session, &context.paths.identity_dir())
+        .map_err(|_| "The pairing session could not be stored.")?;
     Ok(session)
 }
 
@@ -154,7 +157,7 @@ pub async fn reset(context: &DaemonContext) {
     // A screen with a rejected credential would otherwise pair again at once.
     context.pairing_suppressed.store(true, std::sync::atomic::Ordering::Release);
     take_renewal(context);
-    let _ = PairingSession::remove(&context.paths.identity_dir());
+    let _ = FilePairingStore::remove_at(&context.paths.identity_dir());
     set_view(context, "unpaired", None, Some("reset".to_owned()));
     show_setup(context).await;
     context.pairing_wake.notify_one();
@@ -193,7 +196,8 @@ enum Outcome {
 
 async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
     let identity_dir = context.paths.identity_dir();
-    let Ok(client) = ServerClient::new(&session.server_url) else {
+    let Ok(client) = ServerClient::new(&session.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
+    else {
         return Outcome::Replace("server_url_rejected".to_owned());
     };
     let session = if session.has_enrollment_token() {
@@ -207,7 +211,7 @@ async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
             Ok(PollStatus::Claimed(token)) => {
                 let claimed = session.with_enrollment_token(token);
                 // The token is single-use: keep it before trying to use it.
-                if claimed.save(&identity_dir).is_err() {
+                if FilePairingStore::write_at(&claimed, &identity_dir).is_err() {
                     tracing::error!(component = "pairing", event = "token_not_stored");
                 }
                 claimed
@@ -223,7 +227,7 @@ async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
     for attempt in 0..ENROLL_ATTEMPTS {
         match client.enroll(&session).await {
             Ok(enrolled) => {
-                if enrolled.credential.save(&identity_dir).is_err() {
+                if FileCredentialStore::write_at(&enrolled.credential, &identity_dir).is_err() {
                     tracing::error!(component = "pairing", event = "credential_not_stored");
                     return Outcome::Retry;
                 }
@@ -242,7 +246,7 @@ async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
                 if db.run(move |c| binding::put(c, &record, now)).await.is_err() {
                     return Outcome::Retry;
                 }
-                let _ = PairingSession::remove(&identity_dir);
+                let _ = FilePairingStore::remove_at(&identity_dir);
                 tracing::info!(component = "pairing", event = "enrolled", screen = %enrolled.screen_id);
                 return Outcome::Enrolled;
             }
@@ -268,7 +272,7 @@ pub async fn run(context: Arc<DaemonContext>) {
         let mut delay = None;
         match may_pair(&context).await {
             Err(_) => set_view(&context, "paired", None, None),
-            Ok(bound) => match PairingSession::load(&identity_dir) {
+            Ok(bound) => match FilePairingStore::read_at(&identity_dir) {
                 Ok(Some(session)) => {
                     show(&context, &session).await;
                     let interval = Duration::from_secs(u64::from(session.polling_interval_seconds));
@@ -284,9 +288,12 @@ pub async fn run(context: Arc<DaemonContext>) {
                         Outcome::Retry => delay = Some(interval),
                         Outcome::Replace(reason) => {
                             tracing::info!(component = "pairing", event = "session_ended", reason = reason.as_str());
-                            let _ = PairingSession::remove(&identity_dir);
+                            let _ = FilePairingStore::remove_at(&identity_dir);
                             set_view(&context, "renewing", None, Some(reason));
-                            match ServerClient::new(&server_url) {
+                            match ServerClient::new(
+                                &server_url,
+                                &format!("tilecastd/{}", edge_platform::RELEASE_VERSION),
+                            ) {
                                 Ok(client) => {
                                     // Show and poll the new session at once.
                                     delay = Some(Duration::ZERO);
@@ -323,7 +330,7 @@ pub async fn run(context: Arc<DaemonContext>) {
                 },
                 Err(error) => {
                     tracing::error!(component = "pairing", event = "session_unreadable", error = %error);
-                    let _ = PairingSession::remove(&identity_dir);
+                    let _ = FilePairingStore::remove_at(&identity_dir);
                     delay = Some(RETRY);
                 }
             },

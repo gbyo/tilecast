@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
 import { api } from "../api/client";
+import { settingsQueries } from "../data/settings";
 import type { SettingDefinition } from "../api/types";
 import type { TFunction } from "i18next";
 import { useAuth } from "../auth/AuthProvider";
@@ -120,10 +121,7 @@ export function PlayerPolicyEditor({
   const manageable = ["owner", "administrator"].includes(
     auth.status?.user?.role ?? "",
   );
-  const settings = useQuery({
-    queryKey: ["settings", "policy-definitions"],
-    queryFn: api.settings,
-  });
+  const settings = useQuery(settingsQueries.organization());
   const policy = useQuery({
     queryKey: [target, id, "policy"],
     queryFn: () =>

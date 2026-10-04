@@ -20,6 +20,7 @@ Tilecast is a self-hosted modular monolith with one organization per installatio
 - `apps/dashboard/src/data/content.ts` owns Content catalog query keys and options. Asset pages use the actual request filters as their cache key. The library and picker share pagination and processing refresh. The API domain module retains response normalization.
 - `apps/dashboard/src/data/layouts.ts` owns Layout query keys and options. The editor, popup preview, and Screen content dependencies share normalized detail data. Revision history uses a detail child key. Local draft history and autosave remain editor state.
 - `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
+- `apps/dashboard/src/data/settings.ts` owns the organization settings document query. Settings, regional formatting, policy definitions, and Takeover defaults share this cache. A successful settings save updates the shared document. `apps/dashboard/src/data/account.ts` owns the separate account preferences query. Both queries cancel through the typed transport. Local drafts remain in the editor.
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
 - `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
@@ -42,6 +43,21 @@ During development Vite runs separately and proxies `/api` to the server. The co
 Studio text is localized in the browser with react-i18next. English is bundled and each other language is a separate lazily loaded chunk, so the server embeds every locale but a browser only downloads the one it uses. The server API stays English; each person's language is the `preference.language` user preference. See [localization](localization.md).
 
 ## Player enrollment and playback
+
+The accepted native Player extraction contract is
+[`player-core.md`](player-core.md). It separates shared native behavior from
+Linux host integration. Presentation decisions and execution remain with
+Presentation Model and Player Runtime. Generic native values are implemented in
+`crates/player-types`, and durable metadata in `crates/player-state`. Historical
+Edge repository APIs remain outside the shared crate. Verified storage lives in
+`crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
+its private file stores and Electron import. The Core foundation owns native
+selection, command idempotency, Activity sessions, and the CAS origin adapter.
+Core also owns renderer recovery decisions and meaningful-evidence rules.
+Edge executes renderer actions through its RendererPort adapter.
+Activation coordination and server reconciliation remain in Edge until their
+extraction stages. Edge retains
+its current process and security boundaries.
 
 The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 
@@ -76,6 +92,15 @@ use one precedence comparator. Disabled schedules do not contribute a next
 transition. The supplied schedules describe a configuration at an explicit
 instant; they do not establish a historical expectation. Historical reports
 must use recorded expected playback windows.
+
+`internal/playbackplan.Current` composes the assignment reader, schedule
+explanation, and active Takeover and Quick Present readers. It selects content
+in this order: Takeover, Quick Present, schedule, then assignment. Display-control
+schedules do not select content. Inspection does not create manifest state or
+expire temporary presentations. The next evaluation time is a boundary for
+another evaluation; it does not guarantee a change in selected content.
+This internal reader predicts selection from current configuration. It does
+not establish content readiness, Player capability, or actual playback.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for

@@ -136,7 +136,7 @@ pub(crate) mod tests {
             player_id: None,
             server: Some(ServerBindingStatus {
                 server_url: ShortText::lossy("https://signs.example.org"),
-                installation_id: InstallationId::new_random(),
+                installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()),
                 screen_id: None,
                 screen_name: None,
                 identity_verified_at: None,

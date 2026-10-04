@@ -995,7 +995,10 @@
       "allOf": [
         {
           "if": { "properties": { "outcome": { "const": "scanned" } } },
-          "then": { "required": ["value"] }
+          "then": {
+            "properties": { "value": { "$ref": "#/$defs/qrScanValue" } },
+            "required": ["value"]
+          }
         }
       ]
     }

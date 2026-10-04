@@ -4,6 +4,7 @@ import { Wifi, WifiOff } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { PresentationNetworkReadiness, Screen } from "../api/types";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Badge } from "./ui/badge";
@@ -166,7 +167,9 @@ export function ScreenPresentationNetworkPanel({
         <Alert variant="destructive">
           <WifiOff aria-hidden="true" />
           <AlertTitle>{t("network.loadError")}</AlertTitle>
-          <AlertDescription>{readiness.error.message}</AlertDescription>
+          <AlertDescription>
+            {apiErrorMessage(readiness.error)}
+          </AlertDescription>
         </Alert>
       ) : (
         <>

@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { Button } from "../../components/ui/button";
 import {
@@ -98,7 +99,9 @@ export function PlaylistCreateDialog({
           </fieldset>
           {create.error && (
             <Alert variant="destructive">
-              <AlertDescription>{create.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(create.error)}
+              </AlertDescription>
             </Alert>
           )}
         </div>

@@ -1,3 +1,4 @@
+import { PlaybackPlanPanel } from "../components/PlaybackPlanPanel";
 import {
   canManageScreens,
   screenKeys,
@@ -6,6 +7,7 @@ import {
 } from "../data/screens";
 
 import { formatBytes } from "../lib/formatBytes";
+import { settingsQueries } from "../data/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -48,7 +50,7 @@ import {
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
@@ -70,6 +72,7 @@ import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { DashboardSearch } from "../components/DashboardListToolbar";
+import { PageHeader } from "../components/PageHeader";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
@@ -490,36 +493,34 @@ export function ScreensWorkspacePage() {
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {archive
-              ? t("archive.body")
-              : screens.isLoading
-                ? t("page.loadingInventory")
-                : screenInventorySummary(screens.data?.items ?? [], t)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Link
-              className={buttonVariants({ variant: "default", size: "sm" })}
-              to="/screens/pair"
-              onClick={(event) =>
-                void openPairScreen(event, ["pair-screen"], "/screens/pair")
-              }
-            >
-              <Plus aria-hidden="true" /> {t("page.pairScreen")}
-            </Link>
-          )}
-          {manageable && !archive && (
-            <TakeoverAction screens={screens.data?.items ?? []} />
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t("page.title")}
+        description={
+          archive
+            ? t("archive.body")
+            : screens.isLoading
+              ? t("page.loadingInventory")
+              : screenInventorySummary(screens.data?.items ?? [], t)
+        }
+        actions={
+          <>
+            {manageable && (
+              <Link
+                className={buttonVariants({ variant: "default", size: "sm" })}
+                to="/screens/pair"
+                onClick={(event) =>
+                  void openPairScreen(event, ["pair-screen"], "/screens/pair")
+                }
+              >
+                <Plus aria-hidden="true" /> {t("page.pairScreen")}
+              </Link>
+            )}
+            {manageable && !archive && (
+              <TakeoverAction screens={screens.data?.items ?? []} />
+            )}
+          </>
+        }
+      />
       <Tabs
         value={activeTab}
         onValueChange={(value) =>
@@ -560,7 +561,7 @@ export function ScreensPage() {
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{screens.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(screens.error)}</AlertDescription>
         </Alert>
       )}
       <PendingPairings
@@ -860,8 +861,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
     enabled: open,
   });
   const runtimeSettings = useQuery({
-    queryKey: ["settings", "takeover-defaults"],
-    queryFn: api.settings,
+    ...settingsQueries.organization(),
     enabled: open,
   });
   const activate = useMutation({
@@ -1102,7 +1102,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             <Alert variant="destructive">
               <CircleAlert aria-hidden="true" />
               <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-              <AlertDescription>{activate.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(activate.error)}
+              </AlertDescription>
             </Alert>
           )}
           <DialogFooter className="border-t border-border pt-4 sm:justify-between">
@@ -1214,7 +1216,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-                <AlertDescription>{activate.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(activate.error)}
+                </AlertDescription>
               </Alert>
             )}
             <DialogFooter>
@@ -2895,90 +2899,90 @@ export function ScreenDetailPage() {
   };
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {screen.name}
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {screen.name}
             <StatusLabel status={screen.status} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {[
-              platformLabel(screen.platform, t),
-              [screen.deviceManufacturer, screen.deviceModel]
-                .filter(Boolean)
-                .join(" "),
-              screen.playerVersion
-                ? t("detail.playerVersion", {
-                    version: screen.playerVersion,
+          </span>
+        }
+        description={[
+          platformLabel(screen.platform, t),
+          [screen.deviceManufacturer, screen.deviceModel]
+            .filter(Boolean)
+            .join(" "),
+          screen.playerVersion
+            ? t("detail.playerVersion", {
+                version: screen.playerVersion,
+              })
+            : t("detail.playerVersionMissing"),
+          [screen.location, roomLabel(screen, t)].filter(Boolean).join(" · ") ||
+            t("detail.noLocation"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        actions={
+          <>
+            {canManageScreens(auth.status?.user) && (
+              <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
+                <Play aria-hidden="true" /> {t("detail.present")}
+              </Button>
+            )}
+            {canManageScreens(auth.status?.user) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  command.mutate({
+                    type: "restart_player_process",
+                    payload: {},
                   })
-                : t("detail.playerVersionMissing"),
-              [screen.location, roomLabel(screen, t)]
-                .filter(Boolean)
-                .join(" · ") || t("detail.noLocation"),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canManageScreens(auth.status?.user) && (
-            <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
-              <Play aria-hidden="true" /> {t("detail.present")}
-            </Button>
-          )}
-          {canManageScreens(auth.status?.user) && (
-            <Button
+                }
+              >
+                <RefreshCw aria-hidden="true" /> {t("list.restart")}
+              </Button>
+            )}
+            <ActionMenuButton
+              label={t("detail.moreActions")}
+              actions={[
+                {
+                  actions: [
+                    ...(canManageScreens(auth.status?.user)
+                      ? [
+                          {
+                            id: "edit-details",
+                            label: t("grid.editDetails"),
+                            icon: "details",
+                            onSelect: () => setEditingDetails(true),
+                          },
+                        ]
+                      : []),
+                    ...(canManageScreens(auth.status?.user) &&
+                    screen.platform.toLowerCase() === "linux"
+                      ? [
+                          {
+                            id: "airplay",
+                            label: t("detail.airplay"),
+                            icon: "airplay",
+                            onSelect: () => setAirplayOpen(true),
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "view-content",
+                      label: t("detail.viewContent"),
+                      icon: "screens",
+                      onSelect: () => selectTab("content"),
+                    },
+                  ],
+                },
+              ]}
               variant="outline"
-              size="sm"
-              onClick={() =>
-                command.mutate({ type: "restart_player_process", payload: {} })
-              }
-            >
-              <RefreshCw aria-hidden="true" /> {t("list.restart")}
-            </Button>
-          )}
-          <ActionMenuButton
-            label={t("detail.moreActions")}
-            actions={[
-              {
-                actions: [
-                  ...(canManageScreens(auth.status?.user)
-                    ? [
-                        {
-                          id: "edit-details",
-                          label: t("grid.editDetails"),
-                          icon: "details",
-                          onSelect: () => setEditingDetails(true),
-                        },
-                      ]
-                    : []),
-                  ...(canManageScreens(auth.status?.user) &&
-                  screen.platform.toLowerCase() === "linux"
-                    ? [
-                        {
-                          id: "airplay",
-                          label: t("detail.airplay"),
-                          icon: "airplay",
-                          onSelect: () => setAirplayOpen(true),
-                        },
-                      ]
-                    : []),
-                  {
-                    id: "view-content",
-                    label: t("detail.viewContent"),
-                    icon: "screens",
-                    onSelect: () => selectTab("content"),
-                  },
-                ],
-              },
-            ]}
-            variant="outline"
-            size="icon-sm"
-          />
-        </div>
-      </header>
+              size="icon-sm"
+            />
+          </>
+        }
+      />
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="screen"
@@ -3019,7 +3023,7 @@ export function ScreenDetailPage() {
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("detail.saveError")}</AlertTitle>
                 <AlertDescription>
-                  {updateDetails.error.message}
+                  {apiErrorMessage(updateDetails.error)}
                 </AlertDescription>
               </Alert>
             )}
@@ -3177,14 +3181,6 @@ export function ScreenDetailPage() {
                   value={<StatusLabel status={screen.status} />}
                 />
                 <OverviewFact
-                  label={t("grid.nowPlaying")}
-                  value={
-                    assignment.data?.layoutName ??
-                    assignment.data?.playlistName ??
-                    t("detail.factNoContent")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factLocation")}
                   value={
                     [screen.location, roomLabel(screen, t)]
@@ -3213,16 +3209,6 @@ export function ScreenDetailPage() {
                   }
                 />
                 <OverviewFact
-                  label={t("detail.factNextChange")}
-                  value={
-                    assignment.data?.nextTransitionAt
-                      ? new Date(
-                          assignment.data.nextTransitionAt,
-                        ).toLocaleString(formatLocale)
-                      : t("detail.noneScheduled")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factPlayerSettings")}
                   value={
                     <Link
@@ -3237,6 +3223,7 @@ export function ScreenDetailPage() {
                   }
                 />
               </dl>
+              <PlaybackPlanPanel key={id} screenId={id} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
@@ -3607,7 +3594,7 @@ export function ScreenDetailPage() {
                   <CircleAlert aria-hidden="true" />
                   <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
                   <AlertDescription>
-                    {assignment.error.message}
+                    {apiErrorMessage(assignment.error)}
                   </AlertDescription>
                 </Alert>
               )}

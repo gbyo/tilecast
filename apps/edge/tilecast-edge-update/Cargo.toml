@@ -1,7 +1,7 @@
 [package]
 name = "tilecast-edge-update"
 description = "The narrow root helper for Tilecast Edge updates (M10): stage, activate, confirm and roll back signed releases."
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
@@ -29,7 +29,7 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "net", "time", "process", "io-util"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 zbus.workspace = true
 
 [dev-dependencies]

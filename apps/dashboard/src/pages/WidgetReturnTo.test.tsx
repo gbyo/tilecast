@@ -6,7 +6,12 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import {
+  Outlet,
+  RouterProvider,
+  createMemoryRouter,
+  useLocation,
+} from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { Asset, ContentDefinitionCatalog } from "../api/types";
@@ -90,18 +95,32 @@ function editorAt(url: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  // A data router like production Studio, so the editor's navigation
+  // blocking sees the router it ships with.
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: (
+          <>
+            <CurrentPath />
+            <Outlet />
+          </>
+        ),
+        children: [
+          { path: "widgets/:id", element: <WidgetEditorPage /> },
+          { path: "widgets", element: <div>Widget list</div> },
+          { path: "layouts/:id", element: <div>Layout editor</div> },
+          { path: "playlists/:id", element: <div>Playlist editor</div> },
+        ],
+      },
+    ],
+    { initialEntries: [url] },
+  );
   return render(
     <QueryClientProvider client={client}>
       <AuthProvider>
-        <MemoryRouter initialEntries={[url]}>
-          <CurrentPath />
-          <Routes>
-            <Route path="/widgets/:id" element={<WidgetEditorPage />} />
-            <Route path="/widgets" element={<div>Widget list</div>} />
-            <Route path="/layouts/:id" element={<div>Layout editor</div>} />
-            <Route path="/playlists/:id" element={<div>Playlist editor</div>} />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </AuthProvider>
     </QueryClientProvider>,
   );

@@ -188,6 +188,8 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}", s.deleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}/permanent", s.permanentlyDeleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/users/{id}/security/reset", s.resetUserFactors)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("admin")).Get("/users/{id}/screen-scopes", s.getUserScreenScopes)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Put("/users/{id}/screen-scopes", s.putUserScreenScopes)
 			dashboard.With(s.requireScope("read")).Get("/me/preferences", s.getPreferences)
 			dashboard.With(s.requireCSRF, s.requireScope("write")).Patch("/me/preferences", s.updatePreferences)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Patch("/settings", s.updateSettings)
@@ -363,6 +365,7 @@ func (s *server) routes() chi.Router {
 				dashboard.With(s.requireRoles(contentManagers...), s.requireCSRF, s.requireScope("write")).Delete("/campaigns/{id}", s.archiveCampaign)
 			}
 			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playlist-assignment", s.getPlaylistAssignment)
+			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playback-plan", s.getPlaybackPlan)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Put("/screens/{id}/playlist-assignment", s.assignPlaylist)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Delete("/screens/{id}/playlist-assignment", s.unassignPlaylist)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF, s.requireScope("write")).Patch("/assets/{id}", s.updateAsset)

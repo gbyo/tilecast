@@ -18,7 +18,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useOpenNativePresentation } from "../native-presentation/openNativePresentation";
 import {
   LiveStreamDialog,
@@ -88,7 +88,7 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
         if (active)
           setRenewalError(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("livePreview.sessionFailed"),
           );
       }
@@ -115,7 +115,9 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
     },
     onError: (error) => {
       setManualRefreshError(
-        error instanceof Error ? error.message : t("livePreview.sessionFailed"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("livePreview.sessionFailed"),
       );
     },
   });
