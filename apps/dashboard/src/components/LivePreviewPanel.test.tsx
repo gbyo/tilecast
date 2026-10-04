@@ -48,13 +48,16 @@ const preview = {
   fileSize: 1024,
 };
 
-function renderPanel() {
+function renderPanel(onOpenHistory?: () => void) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   const view = render(
     <QueryClientProvider client={client}>
-      <LivePreviewPanel screenId="screen-1" />
+      <LivePreviewPanel
+        screenId="screen-1"
+        onOpenHistory={onOpenHistory}
+      />
     </QueryClientProvider>,
   );
   return { client, ...view };
@@ -81,6 +84,14 @@ afterEach(() => {
 });
 
 describe("LivePreviewPanel", () => {
+  it("opens snapshot history from the preview actions when provided", async () => {
+    const onOpenHistory = vi.fn();
+    renderPanel(onOpenHistory);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Snapshot history" }));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+  });
+
   it("shows an image error and recovers only for a newer capture", async () => {
     const { client } = renderPanel();
 
