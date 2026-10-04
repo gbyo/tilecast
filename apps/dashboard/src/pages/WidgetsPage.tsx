@@ -158,10 +158,21 @@ export function WidgetsPage() {
         </div>
       ) : widgets.isError ? (
         <Alert variant="destructive">
-          <AlertDescription>
-            {widgets.error instanceof ApiError
-              ? apiErrorMessage(widgets.error)
-              : t("widgets.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {widgets.error instanceof ApiError
+                ? apiErrorMessage(widgets.error)
+                : t("widgets.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={widgets.isFetching}
+              onClick={() => void widgets.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       ) : items.length === 0 ? (

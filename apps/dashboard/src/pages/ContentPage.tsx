@@ -969,7 +969,18 @@ export function ContentPage() {
       {assets.isError && (
         <Alert variant="destructive">
           <AlertTitle>{t("media.library.loadError")}</AlertTitle>
-          <AlertDescription>{apiErrorMessage(assets.error)}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{apiErrorMessage(assets.error)}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={assets.isFetching}
+              onClick={() => void assets.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
       {assets.isLoading ? (
@@ -979,7 +990,7 @@ export function ContentPage() {
             {t("media.library.loading")}
           </p>
         </div>
-      ) : libraryItems.length === 0 ? (
+      ) : assets.isError && !assets.data ? null : libraryItems.length === 0 ? (
         <ContentEmpty
           canManage={canManage && libraryView === "active"}
           onChoose={() => fileInput.current?.click()}
