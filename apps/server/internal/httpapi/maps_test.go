@@ -23,6 +23,9 @@ func TestProxyOpenFreeMapForwardsPublicMapResponse(t *testing.T) {
 		if got := r.Header.Get("If-None-Match"); got != `"tile-v1"` {
 			t.Fatalf("If-None-Match = %q", got)
 		}
+		if got := r.Header.Get("Origin"); got != "" {
+			t.Fatalf("Origin must not be forwarded upstream, got %q", got)
+		}
 		w.Header().Set("Content-Type", "application/x-protobuf")
 		w.Header().Set("Cache-Control", "public, max-age=3600")
 		w.Header().Set("ETag", `"tile-v2"`)
@@ -37,7 +40,7 @@ func TestProxyOpenFreeMapForwardsPublicMapResponse(t *testing.T) {
 	}
 
 	router := chi.NewRouter()
-	router.Get("/api/v1/maps/openfreemap/*", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/maps/openfreemap/*", func(w http.ResponseWriter, r *http.Request) {
 		if err := proxyOpenFreeMap(w, r, upstream.Client(), base); err != nil {
 			t.Fatalf("proxyOpenFreeMap: %v", err)
 		}
@@ -45,10 +48,11 @@ func TestProxyOpenFreeMapForwardsPublicMapResponse(t *testing.T) {
 
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/maps/openfreemap/planet/latest/7/34/51.pbf?foo=bar",
+		"/maps/openfreemap/planet/latest/7/34/51.pbf?foo=bar",
 		nil,
 	)
 	request.Header.Set("If-None-Match", `"tile-v1"`)
+	request.Header.Set("Origin", "https://studio.example.test")
 	response := httptest.NewRecorder()
 
 	router.ServeHTTP(response, request)
@@ -85,7 +89,7 @@ func TestProxyOpenFreeMapPreservesUpstreamStatus(t *testing.T) {
 	}
 
 	router := chi.NewRouter()
-	router.Get("/api/v1/maps/openfreemap/*", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/maps/openfreemap/*", func(w http.ResponseWriter, r *http.Request) {
 		if err := proxyOpenFreeMap(w, r, upstream.Client(), base); err != nil {
 			t.Fatalf("proxyOpenFreeMap: %v", err)
 		}
@@ -94,7 +98,7 @@ func TestProxyOpenFreeMapPreservesUpstreamStatus(t *testing.T) {
 	response := httptest.NewRecorder()
 	router.ServeHTTP(
 		response,
-		httptest.NewRequest(http.MethodGet, "/api/v1/maps/openfreemap/styles/liberty", nil),
+		httptest.NewRequest(http.MethodGet, "/maps/openfreemap/styles/liberty", nil),
 	)
 
 	if response.Code != http.StatusServiceUnavailable {
