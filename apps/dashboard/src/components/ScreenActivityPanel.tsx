@@ -115,7 +115,11 @@ export function ScreenActivitySummary({
         ) : data ? (
           <ItemGroup className="gap-0 divide-y divide-border">
             {data.currentIssue && (
-              <Item size="xs" className="rounded-none px-0">
+              <Item
+                size="xs"
+                render={<div role="listitem" />}
+                className="rounded-none px-0"
+              >
                 <ItemContent className="min-w-0">
                   <ItemTitle>{humanize(data.currentIssue.kind)}</ItemTitle>
                   <ItemDescription className="line-clamp-2">
@@ -136,7 +140,12 @@ export function ScreenActivitySummary({
               </Item>
             )}
             {data.recentEvents.slice(0, 3).map((item) => (
-              <Item key={item.id} size="xs" className="rounded-none px-0">
+              <Item
+                key={item.id}
+                size="xs"
+                render={<div role="listitem" />}
+                className="rounded-none px-0"
+              >
                 <ItemContent className="min-w-0">
                   <ItemTitle>{humanize(item.eventType)}</ItemTitle>
                   <ItemDescription>
