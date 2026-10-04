@@ -257,9 +257,8 @@ const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
   };
 
 /**
- * The detail section navigation: a tab strip on desktop and a section
- * picker on narrow screens, both driving the same query-backed tab state.
- * Must render inside the detail Tabs so the strip keeps its tab context.
+ * Primary Screen-detail navigation. The same three-tab strip is used at every
+ * breakpoint so operators do not have to relearn the resource on mobile.
  */
 export function ScreenDetailTabs({
   policyDirty,
@@ -3534,6 +3533,18 @@ export function ScreenDetailPage() {
                               `${schedule.name} (${schedule.priority})`,
                           )
                           .join(", ") || t("detail.noSchedules")
+                      }
+                    />
+                    <OverviewFact
+                      label={t("takeover.title")}
+                      value={
+                        assignment.data?.activeTakeoverId
+                          ? t("detail.takeoverProgress", {
+                              state: assignment.data.takeoverState ?? "pending",
+                              progress:
+                                assignment.data.takeoverPreparationProgress ?? 0,
+                            })
+                          : t("detail.noTakeover")
                       }
                     />
                   </dl>
