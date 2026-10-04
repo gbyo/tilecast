@@ -388,3 +388,87 @@ describe("ScheduleBuilder unsaved changes", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("ScheduleBuilder target prefill", () => {
+  it("preselects the screen from ?screen= for a new schedule", async () => {
+    mockAuth();
+    mockLists();
+    renderEditorWithRoutes("/schedules/new?screen=s1");
+    expect(await screen.findByLabelText("Remove Lobby")).toBeInTheDocument();
+  });
+
+  it("preselects the group from ?group= for a new schedule", async () => {
+    mockAuth();
+    mockLists();
+    renderEditorWithRoutes("/schedules/new?group=g1");
+    expect(
+      await screen.findByLabelText("Remove West Wing"),
+    ).toBeInTheDocument();
+  });
+
+  it("seeds nothing for an unknown prefill target", async () => {
+    mockAuth();
+    mockLists();
+    renderEditorWithRoutes("/schedules/new?screen=missing");
+    await screen.findByPlaceholderText("Morning announcements");
+    expect(screen.queryByLabelText("Remove Lobby")).toBeNull();
+    expect(screen.queryByLabelText("Remove Hall")).toBeNull();
+    expect(screen.queryByLabelText("Remove West Wing")).toBeNull();
+  });
+
+  it("never overwrites an edited schedule from the query parameter", async () => {
+    mockAuth();
+    // Inline the list mocks: the screen catalog resolves only after the
+    // operator has started typing, and spying api.screens twice breaks the
+    // deferred promise.
+    const empty = { items: [], total: 0, page: 1, pageSize: 100 };
+    vi.spyOn(api, "playlists").mockResolvedValue(empty);
+    vi.spyOn(api, "playlistPage").mockResolvedValue(empty);
+    vi.spyOn(api, "layouts").mockResolvedValue(empty);
+    vi.spyOn(api, "layoutPage").mockResolvedValue(empty);
+    let resolveScreens: (value: {
+      items: Screen[];
+      total: number;
+    }) => void = () => undefined;
+    vi.spyOn(api, "screens").mockReturnValue(
+      new Promise((resolve) => {
+        resolveScreens = resolve;
+      }),
+    );
+    vi.spyOn(api, "screenGroups").mockResolvedValue({
+      items: [],
+      total: 1,
+      page: 1,
+      pageSize: 100,
+    });
+    vi.spyOn(api, "schedules").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 100,
+      defaultTimezone: "UTC",
+    });
+    const user = userEvent.setup();
+    renderEditorWithRoutes("/schedules/new?screen=s1");
+
+    // The operator starts typing before the screen catalog resolves.
+    await user.type(
+      await screen.findByPlaceholderText("Morning announcements"),
+      "Evening",
+    );
+    resolveScreens({ items: [lobby, hall], total: 2 });
+    // The catalog demonstrably loaded, yet the dirty draft stays untouched.
+    await user.click(await screen.findByLabelText("Search screens"));
+    await screen.findByRole("option", { name: /Lobby/ });
+    expect(screen.queryByLabelText("Remove Lobby")).toBeNull();
+  });
+
+  it("ignores prefill parameters when editing an existing schedule", async () => {
+    mockAuth();
+    mockLists();
+    vi.spyOn(api, "schedule").mockResolvedValue(existingSchedule);
+    renderEditorWithRoutes("/schedules/s1?screen=s2");
+    await screen.findByDisplayValue("Morning");
+    expect(screen.queryByLabelText("Remove Hall")).toBeNull();
+  });
+});

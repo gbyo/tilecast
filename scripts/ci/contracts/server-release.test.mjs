@@ -181,7 +181,11 @@ test("the release caller grants every called validation its permissions", () => 
   const release = workflow("server-release.yml");
   const rank = { read: 1, write: 2 };
   const granted = release.permissions;
-  assert.deepEqual(granted, { contents: "read", checks: "write" });
+  assert.deepEqual(granted, {
+    actions: "read",
+    contents: "read",
+    checks: "write",
+  });
 
   // The release job overrides with exactly what publishing needs.
   assert.deepEqual(release.jobs.release.permissions, {
@@ -190,15 +194,17 @@ test("the release caller grants every called validation its permissions", () => 
   });
 
   // A reusable workflow cannot elevate beyond its caller, so every called
-  // validation must fit inside the caller grant.
+  // validation must fit inside the grant of the job that calls it. A calling
+  // job may set its own permissions; otherwise it inherits the workflow's.
   for (const job of Object.values(release.jobs)) {
     if (!job.uses?.startsWith("./")) continue;
+    const callerGrant = job.permissions ?? granted;
     const called = workflow(job.uses.replace("./.github/workflows/", ""));
     assert.ok(Object.hasOwn(called.on, "workflow_call"), job.uses);
     for (const [scope, level] of Object.entries(called.permissions ?? {})) {
       assert.ok(
-        granted[scope] && rank[granted[scope]] >= rank[level],
-        `${job.uses} needs ${scope}:${level}, caller grants ${granted[scope] ?? "nothing"}`,
+        callerGrant[scope] && rank[callerGrant[scope]] >= rank[level],
+        `${job.uses} needs ${scope}:${level}, caller grants ${callerGrant[scope] ?? "nothing"}`,
       );
     }
   }
