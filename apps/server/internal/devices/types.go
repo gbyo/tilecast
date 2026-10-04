@@ -108,6 +108,16 @@ type EnrollmentResult struct {
 	DeviceCredential string    `json:"deviceCredential"`
 }
 
+type MapCoordinates struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type ScreenMapPosition struct {
+	MapCoordinates
+	Source string `json:"source"`
+}
+
 type Screen struct {
 	ID                        uuid.UUID  `json:"id"`
 	Name                      string     `json:"name"`
@@ -115,8 +125,10 @@ type Screen struct {
 	Location                  string     `json:"location"`
 	LocationID                *uuid.UUID `json:"locationId,omitempty"`
 	LocationDetails           *Location  `json:"locationDetails,omitempty"`
-	RoomName                  string     `json:"roomName"`
-	RoomNumber                string     `json:"roomNumber"`
+	RoomName                  string             `json:"roomName"`
+	RoomNumber                string             `json:"roomNumber"`
+	MapPositionOverride       *MapCoordinates    `json:"mapPositionOverride,omitempty"`
+	MapPosition               *ScreenMapPosition `json:"mapPosition,omitempty"`
 	SyncGroupID               *uuid.UUID `json:"syncGroupId,omitempty"`
 	SyncGroupName             *string    `json:"syncGroupName,omitempty"`
 	NowPlayingName            *string    `json:"nowPlayingName,omitempty"`

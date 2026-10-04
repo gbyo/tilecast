@@ -10202,6 +10202,16 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    MapCoordinates: {
+      latitude: number;
+      longitude: number;
+    };
+    ScreenMapPosition: {
+      latitude: number;
+      longitude: number;
+      /** @enum {string} */
+      source: "screen" | "location";
+    };
     Screen: {
       /** Format: uuid */
       id: string;
@@ -10213,6 +10223,8 @@ export interface components {
       locationDetails?: components["schemas"]["ScreenLocation"];
       roomName: string;
       roomNumber: string;
+      mapPositionOverride?: components["schemas"]["MapCoordinates"];
+      mapPosition?: components["schemas"]["ScreenMapPosition"];
       /** Format: uuid */
       syncGroupId?: string;
       syncGroupName?: string;
@@ -16893,6 +16905,7 @@ export interface operations {
           locationId?: string | null;
           roomName?: string;
           roomNumber?: string;
+          mapPositionOverride?: components["schemas"]["MapCoordinates"] | null;
           description?: string;
         };
       };

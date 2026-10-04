@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -198,12 +199,27 @@ func (s *server) listPendingPairings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": requests, "total": len(requests)}})
 }
 
+type optionalMapCoordinates struct {
+	Value *devices.MapCoordinates
+	Set   bool
+}
+
+func (value *optionalMapCoordinates) UnmarshalJSON(data []byte) error {
+	value.Set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		value.Value = nil
+		return nil
+	}
+	return json.Unmarshal(data, &value.Value)
+}
+
 type approvePairingRequest struct {
 	Name                      string     `json:"name"`
 	LocationID                *uuid.UUID `json:"locationId"`
 	RoomName                  string     `json:"roomName"`
-	RoomNumber                string     `json:"roomNumber"`
-	Description               string     `json:"description"`
+	RoomNumber                string                 `json:"roomNumber"`
+	MapPositionOverride       optionalMapCoordinates `json:"mapPositionOverride"`
+	Description               string                 `json:"description"`
 	ReplaceExistingCredential bool       `json:"replaceExistingCredential"`
 	ReplaceHardware           bool       `json:"replaceHardware"`
 	ReplacementScreenID       *uuid.UUID `json:"replacementScreenId"`
@@ -320,7 +336,7 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.Description)
+	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.MapPositionOverride.Value, body.MapPositionOverride.Set, body.Description)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
 		return

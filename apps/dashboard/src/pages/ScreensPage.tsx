@@ -14,6 +14,7 @@ import {
   Grid2X2,
   Link2,
   List,
+  MapPinned,
   Monitor,
   Play,
   RefreshCw,
@@ -51,6 +52,7 @@ import { useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
+  MapCoordinates,
   PlayerCommandType,
   ReliabilityStatus,
   Screen,
@@ -78,7 +80,9 @@ import { isAndroidScreen } from "../playerPlatform";
 import { previewAge } from "../components/livePreviewState";
 import { screenRowActionGroups } from "../components/screenActions";
 import { ActionMenuButton } from "../components/studio/ActionMenu";
+import { ScreenFleetMap } from "../components/ScreenFleetMap";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
+import { ScreenPositionPicker } from "../components/ScreenPositionPicker";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
@@ -1297,12 +1301,12 @@ export function ScreenListContent({
     "tilecast.screens.sort",
     "name-asc",
   );
-  const [view, setView] = useStoredState<"table" | "grid">(
+  const [view, setView] = useStoredState<"table" | "grid" | "map">(
     "tilecast.screens.view",
     "table",
   );
   const desktop = useDesktopLayout();
-  const effectiveView = desktop ? view : "grid";
+  const effectiveView = view === "map" ? "map" : desktop ? view : "grid";
   const [collapsed, setCollapsed] = useState<Set<string>>(
     () =>
       new Set(
@@ -1524,6 +1528,7 @@ export function ScreenListContent({
               locationId: chosen,
               roomName: screen.roomName ?? "",
               roomNumber: screen.roomNumber ?? "",
+              mapPositionOverride: screen.mapPositionOverride,
             },
             csrfToken,
           ),
@@ -1838,52 +1843,60 @@ export function ScreenListContent({
           )}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <FleetFilterSelect
-              label={t("list.groupBy")}
-              value={groupBy}
-              onChange={setGroupBy}
-              options={[
-                { value: "location", label: t("list.groupOptions.location") },
-                { value: "status", label: t("list.groupOptions.status") },
-                { value: "sync", label: t("list.groupOptions.sync") },
-                { value: "none", label: t("list.groupOptions.none") },
-              ]}
-            />
-            <FleetFilterSelect
-              label={t("list.sortLabel")}
-              className="w-52 max-sm:flex-1"
-              value={sort}
-              onChange={setSort}
-              options={[
-                { value: "name-asc", label: t("list.sortOptions.nameAsc") },
-                { value: "name-desc", label: t("list.sortOptions.nameDesc") },
-                {
-                  value: "location-asc",
-                  label: t("list.sortOptions.locationAsc"),
-                },
-                { value: "status-asc", label: t("list.sortOptions.status") },
-                {
-                  value: "contact-desc",
-                  label: t("list.sortOptions.contactDesc"),
-                },
-                {
-                  value: "contact-asc",
-                  label: t("list.sortOptions.contactAsc"),
-                },
-                { value: "added-desc", label: t("list.sortOptions.addedDesc") },
-                {
-                  value: "platform-asc",
-                  label: t("list.sortOptions.platform"),
-                },
-              ]}
-            />
+            {effectiveView !== "map" && (
+              <>
+                <FleetFilterSelect
+                  label={t("list.groupBy")}
+                  value={groupBy}
+                  onChange={setGroupBy}
+                  options={[
+                    { value: "location", label: t("list.groupOptions.location") },
+                    { value: "status", label: t("list.groupOptions.status") },
+                    { value: "sync", label: t("list.groupOptions.sync") },
+                    { value: "none", label: t("list.groupOptions.none") },
+                  ]}
+                />
+                <FleetFilterSelect
+                  label={t("list.sortLabel")}
+                  className="w-52 max-sm:flex-1"
+                  value={sort}
+                  onChange={setSort}
+                  options={[
+                    { value: "name-asc", label: t("list.sortOptions.nameAsc") },
+                    { value: "name-desc", label: t("list.sortOptions.nameDesc") },
+                    {
+                      value: "location-asc",
+                      label: t("list.sortOptions.locationAsc"),
+                    },
+                    { value: "status-asc", label: t("list.sortOptions.status") },
+                    {
+                      value: "contact-desc",
+                      label: t("list.sortOptions.contactDesc"),
+                    },
+                    {
+                      value: "contact-asc",
+                      label: t("list.sortOptions.contactAsc"),
+                    },
+                    { value: "added-desc", label: t("list.sortOptions.addedDesc") },
+                    {
+                      value: "platform-asc",
+                      label: t("list.sortOptions.platform"),
+                    },
+                  ]}
+                />
+              </>
+            )}
             <ToggleGroup
-              className="hidden lg:flex"
+              className="flex"
               value={[view]}
               multiple={false}
               onValueChange={(values) => {
                 const selectedView = values[0];
-                if (selectedView === "table" || selectedView === "grid") {
+                if (
+                  selectedView === "table" ||
+                  selectedView === "grid" ||
+                  selectedView === "map"
+                ) {
                   setView(selectedView);
                 }
               }}
@@ -1891,11 +1904,18 @@ export function ScreenListContent({
               variant="outline"
               spacing={0}
             >
-              <ToggleGroupItem value="table" aria-label={t("list.tableView")}>
+              <ToggleGroupItem
+                value="table"
+                aria-label={t("list.tableView")}
+                className="hidden lg:inline-flex"
+              >
                 <List aria-hidden="true" />
               </ToggleGroupItem>
               <ToggleGroupItem value="grid" aria-label={t("list.gridView")}>
                 <Grid2X2 aria-hidden="true" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="map" aria-label={t("list.mapView")}>
+                <MapPinned aria-hidden="true" />
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -1966,6 +1986,8 @@ export function ScreenListContent({
             </Button>
           </EmptyContent>
         </Empty>
+      ) : effectiveView === "map" ? (
+        <ScreenFleetMap screens={filtered} />
       ) : visibleGroups.every((group) => collapsed.has(group.key)) ? (
         <Empty className="min-h-40 border-y border-dashed py-6">
           <EmptyHeader>
@@ -2604,6 +2626,8 @@ export function ScreenDetailPage() {
   const queryClient = useQueryClient();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
+  const [mapPositionOverride, setMapPositionOverride] =
+    useState<MapCoordinates | undefined>();
   const [policyDirty, setPolicyDirty] = useState(false);
   const [pendingDestination, setPendingDestination] =
     useState<ScreenTabDestination | null>(null);
@@ -2650,10 +2674,15 @@ export function ScreenDetailPage() {
       roomNumber: query.data.roomNumber ?? "",
       description: query.data.description,
     });
+    setMapPositionOverride(query.data.mapPositionOverride);
   }, [detailsForm, editingDetails, query.data]);
   const updateDetails = useMutation({
     mutationFn: (values: ApprovalForm) =>
-      api.updateScreen(id, values, auth.status?.csrfToken ?? ""),
+      api.updateScreen(
+        id,
+        { ...values, mapPositionOverride: mapPositionOverride ?? null },
+        auth.status?.csrfToken ?? "",
+      ),
     onSuccess: async (updated) => {
       toast.add({ title: "Screen details saved.", type: "success" });
       queryClient.setQueryData(screenQueries.detail(id).queryKey, updated);
@@ -3021,6 +3050,22 @@ export function ScreenDetailPage() {
                   shouldDirty: true,
                 })
               }
+            />
+            <ScreenPositionPicker
+              value={mapPositionOverride}
+              locationPosition={(() => {
+                const selected = (locations.data?.items ?? []).find(
+                  (location) => location.id === detailsForm.watch("locationId"),
+                );
+                return typeof selected?.latitude === "number" &&
+                  typeof selected.longitude === "number"
+                  ? {
+                      latitude: selected.latitude,
+                      longitude: selected.longitude,
+                    }
+                  : undefined;
+              })()}
+              onChange={setMapPositionOverride}
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field className="gap-2">

@@ -252,7 +252,14 @@
     "locationCount_other": "{{count}} locations",
     "healthFraction": "{{online}} of {{total}} online",
     "healthAttention_one": "{{count}} needs attention",
-    "healthAttention_other": "{{count}} need attention"
+    "healthAttention_other": "{{count}} need attention",
+    "mapView": "Map view",
+    "mapEmptyTitle": "No screens to show on the map",
+    "mapEmptyBody": "Add coordinates to a location or set an exact map position on a screen.",
+    "mapUnmapped": "Screens without a map position: {{count}}",
+    "mapAriaLabel": "Fleet map",
+    "mapInherited": "From location",
+    "mapOpenScreen": "Open screen"
   },
   "grid": {
     "openScreen": "Open {{name}}",
@@ -731,7 +738,15 @@
       "copyFail": "Clipboard access failed. Select and copy the commands manually.",
       "copiedNote": "Commands copied.",
       "last": "Run both commands, reopen Tilecast Player, and choose Verify again. The enable command preserves other accessibility services."
-    }
+    },
+    "mapPosition": "Map position",
+    "mapPositionCustom": "Using an exact position for this screen.",
+    "mapPositionInherited": "Using the assigned location’s position.",
+    "mapPositionNone": "No position is available yet.",
+    "mapPositionUseLocation": "Use location",
+    "mapPositionClear": "Clear position",
+    "mapPositionAriaLabel": "Choose screen position on map",
+    "mapPositionHint": "Click the map or drag the marker to set an exact screen position."
   },
   "preview": {
     "snapshotsTitle": "Snapshot history",
