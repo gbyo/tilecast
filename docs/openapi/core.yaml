@@ -4087,6 +4087,10 @@ paths:
                 locationId: { type: [string, "null"], format: uuid }
                 roomName: { type: string, maxLength: 120 }
                 roomNumber: { type: string, maxLength: 80 }
+                mapPositionOverride:
+                  oneOf:
+                    - { $ref: "#/components/schemas/MapCoordinates" }
+                    - { type: "null" }
                 description: { type: string, maxLength: 1000 }
       responses:
         "200":
@@ -15461,6 +15465,21 @@ components:
         screenCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    MapCoordinates:
+      type: object
+      additionalProperties: false
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    ScreenMapPosition:
+      type: object
+      additionalProperties: false
+      required: [latitude, longitude, source]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        source: { type: string, enum: [screen, location] }
     Screen:
       type: object
       additionalProperties: false
@@ -15498,6 +15517,8 @@ components:
         locationDetails: { $ref: "#/components/schemas/ScreenLocation" }
         roomName: { type: string }
         roomNumber: { type: string }
+        mapPositionOverride: { $ref: "#/components/schemas/MapCoordinates" }
+        mapPosition: { $ref: "#/components/schemas/ScreenMapPosition" }
         syncGroupId: { type: string, format: uuid }
         syncGroupName: { type: string }
         nowPlayingName: { type: string }

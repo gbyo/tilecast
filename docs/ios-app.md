@@ -207,6 +207,10 @@ The bridge is privileged. The app applies these rules:
 | `system/media-intake-status`    | Studio to native | Main page only. Whether the app can start media intake now                       |
 | `system/media-intake`           | Studio to native | Main page only. Choose media with system pickers and upload it                   |
 | `system/media-intake-completed` | native to Studio | Main page only. A small result: request identifier, outcome, and count           |
+| `system/map-present`            | Studio to native | Main page only. Present or update bounded geographic points in the system map    |
+| `system/map-dismiss`            | Studio to native | Main page only. Withdraw the matching native map                                 |
+| `system/map-action`             | native to Studio | Main page only. The user chose an opaque action attached to a map point          |
+| `system/map-dismissed`          | native to Studio | Main page only. The system map was dismissed                                     |
 
 The `config/get` reply reports `protocolVersion: 1`, `capabilities.nativeNavigation: true`, and `capabilities.authLifecycle: true`. Studio reports its own capabilities in the `frontend/ready` payload, as `capabilities.authLifecycle: true`. The app sends `auth/sign-out-request` only to a Studio that reported this capability. Studio sends `auth/signed-out` only to an app that offered it. Studio detects the app by the exact `tilecastNative` handler and this reply. It does not read the user agent, and it does not compare server or app versions. A browser has no such handler, so Studio sends nothing in a browser.
 
@@ -430,6 +434,7 @@ Each integration is a separate capability in the `config/get` reply, so an older
 | `systemHaptics`     | main, presentation | not needed                         | Standard system feedback for a semantic type                  |
 | `systemShare`       | main, presentation | not needed                         | The system share sheet                                        |
 | `systemQrScanner`   | main, presentation | not needed                         | One QR scan with the system camera. Studio handles the result |
+| `systemMap`         | main               | `systemMap`                        | Present bounded geographic points with the platform map UI    |
 | `nativeMediaIntake` | main               | `nativeMediaIntake`                | System pickers and a native upload. Studio handles the result |
 | `deepLinks`         | main               | `deepLinks`                        | The app delivers a validated path from a deep link            |
 
@@ -492,6 +497,20 @@ The app advertises the scanner only when the hardware supports the Data Scanner 
 A scanned QR is input, not authority. Scanning never changes the configured server. Scanning never bypasses installation verification. The app never loads the scanned URL. Studio extracts the pairing code and resolves it against the active Tilecast Server. The approval URL carries the installation ID as non-secret context: `/screens/pair/<code>?installation=<uuid>`. A QR from the same installation resolves even when its origin differs from the configured address, for example a LAN address against a public hostname. A QR from another installation cannot trigger a pairing lookup.
 
 Use `useNativeQrScanner()` in `apps/dashboard/src/native-host/useNativeQrScanner.ts`. It generates the request id, ignores stale results, and resolves cleanly on unmount. QR parsing lives in the pairing feature, not in the hook.
+
+### System maps
+
+`systemMap` is a generic progressive enhancement for geographic visualizations. Studio remains the product interface and remains responsible for fetching, filtering, labeling, and navigating its resources. The app receives only one complete map snapshot:
+
+- an opaque map id and localized title;
+- at most 500 points, each with an opaque id, localized title and optional subtitle, latitude and longitude, a semantic tone, and an optional opaque action id;
+- no route, screen model, location model, credential, or API response.
+
+The main page sends `system/map-present`. A later snapshot with the same map id updates the native view. `system/map-dismiss` withdraws it. The app uses SwiftUI MapKit and asks for no location permission because it shows Studio-supplied coordinates rather than the device's position.
+
+A point action sends `system/map-action`; Studio decides what it means and performs normal React Router navigation. Closing the native map sends `system/map-dismissed`. A main-frame navigation, server switch, or sign-out withdraws the old map and its actions, so an action can never escape the document that created it.
+
+Browser Studio never depends on this capability. A host without `systemMap` keeps the web map, so adding or changing an ordinary Studio map requires no Swift work.
 
 ### Deep links
 

@@ -384,7 +384,17 @@
     "healthAttention_one": "Требует внимания: {{count}}",
     "healthAttention_few": "Требуют внимания: {{count}}",
     "healthAttention_many": "Требуют внимания: {{count}}",
-    "healthAttention_other": "Требуют внимания: {{count}}"
+    "healthAttention_other": "Требуют внимания: {{count}}",
+    "mapView": "Карта",
+    "mapEmptyTitle": "На карте пока нет экранов",
+    "mapEmptyBody": "Добавьте координаты для местоположения или задайте точную позицию экрана.",
+    "mapUnmapped": "Экраны без позиции на карте: {{count}}",
+    "mapAriaLabel": "Карта экранов",
+    "mapInherited": "Из местоположения",
+    "mapOpenScreen": "Открыть экран",
+    "mapNativeTitle": "Системная карта",
+    "mapNativeBody": "Tilecast показывает эти экраны на системной карте.",
+    "mapOpenNative": "Открыть карту"
   },
   "grid": {
     "openScreen": "Открыть {{name}}",
@@ -883,7 +893,16 @@
       "copyFail": "Не удалось обратиться к буферу обмена. Выделите и скопируйте команды вручную.",
       "copiedNote": "Команды скопированы.",
       "last": "Выполните обе команды, снова откройте Tilecast Player и выберите «Проверить». Команда включения сохраняет другие службы доступности."
-    }
+    },
+    "mapPosition": "Позиция на карте",
+    "mapPositionCustom": "Используется точная позиция этого экрана.",
+    "mapPositionInherited": "Используется позиция назначенного местоположения.",
+    "mapPositionNone": "Позиция пока не задана.",
+    "mapPositionUseLocation": "Использовать местоположение",
+    "mapPositionClear": "Очистить позицию",
+    "mapPositionPlaceCenter": "Поставить в центр карты",
+    "mapPositionAriaLabel": "Выбор позиции экрана на карте",
+    "mapPositionHint": "Нажмите на карту или перетащите маркер, чтобы задать точную позицию экрана."
   },
   "preview": {
     "snapshotsTitle": "История снимков",

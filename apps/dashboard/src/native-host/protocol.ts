@@ -23,6 +23,8 @@ export type NativeCapabilities = {
   systemHaptics: boolean;
   /** The host scans one QR code for system/scan-qr. */
   systemQrScanner: boolean;
+  /** The host can present a set of geographic points in its native map UI. */
+  systemMap: boolean;
   /** The host can choose media with system pickers and upload it itself. */
   nativeMediaIntake: boolean;
   /** The host can deliver a deep link's path with navigation/open-path. */
@@ -38,6 +40,7 @@ export const noNativeCapabilities: NativeCapabilities = {
   systemShare: false,
   systemHaptics: false,
   systemQrScanner: false,
+  systemMap: false,
   nativeMediaIntake: false,
   deepLinks: false,
   nativeAlerts: false,
@@ -55,6 +58,7 @@ export type FrontendCapabilities = {
   authLifecycle?: boolean;
   nativePresentations?: boolean;
   nativeMediaIntake?: boolean;
+  systemMap?: boolean;
   deepLinks?: boolean;
   nativeAlerts?: boolean;
 };
@@ -68,6 +72,7 @@ export const studioCapabilities: FrontendCapabilities = {
   authLifecycle: true,
   nativePresentations: true,
   nativeMediaIntake: true,
+  systemMap: true,
   deepLinks: true,
   nativeAlerts: true,
 };
@@ -134,6 +139,31 @@ export type SystemSharePayload = {
   title?: string;
   text?: string;
   url?: string;
+};
+
+export const systemMapTones = [
+  "default",
+  "positive",
+  "warning",
+  "critical",
+  "muted",
+] as const;
+export type SystemMapTone = (typeof systemMapTones)[number];
+
+export type SystemMapPoint = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  latitude: number;
+  longitude: number;
+  tone?: SystemMapTone;
+  actionId?: string;
+};
+
+export type SystemMapPayload = {
+  mapId: string;
+  title: string;
+  points: SystemMapPoint[];
 };
 
 export type MediaIntakeKind = "image" | "video";
@@ -235,6 +265,10 @@ export type FrontendToNativePayloads = {
   "system/media-intake": MediaIntakePayload;
   /** Either page: scan one QR code. The host answers system/qr-scan-result. */
   "system/scan-qr": QrScanRequestPayload;
+  /** Main page: present bounded geographic points in the host's native map. */
+  "system/map-present": SystemMapPayload;
+  /** Main page: dismiss the matching native map if it is still showing. */
+  "system/map-dismiss": { mapId: string };
   /** Either page: show a native alert. The host answers alert/action. */
   "alert/present": AlertPresentPayload;
   /** Either page: withdraw an alert this page presented. */
@@ -264,6 +298,10 @@ export type NativeToFrontendPayloads = {
   "system/media-intake-completed": MediaIntakeCompletedPayload;
   /** Either page: the outcome of a system/scan-qr this page requested. */
   "system/qr-scan-result": QrScanResultPayload;
+  /** Main page: the user chose an action exposed by a native map point. */
+  "system/map-action": { mapId: string; actionId: string };
+  /** Main page: the native map went away. */
+  "system/map-dismissed": { mapId: string };
   /** The user chose a button of an alert this page presented. */
   "alert/action": { alertId: string; actionId: string };
   /** Main page: the user tapped the native back button. */
@@ -482,6 +520,56 @@ export function isShareableUrl(value: unknown): value is string {
  * and nothing that carries a credential. Returns null when the request
  * must not be sent.
  */
+export function validateSystemMap(value: unknown): SystemMapPayload | null {
+  if (!isObject(value)) return null;
+  const { mapId, title, points } = value;
+  if (
+    !isOpaqueId(mapId) ||
+    !isBoundedString(title, 200) ||
+    !Array.isArray(points) ||
+    points.length === 0 ||
+    points.length > 500
+  ) {
+    return null;
+  }
+  const normalized: SystemMapPoint[] = [];
+  const ids = new Set<string>();
+  for (const point of points) {
+    if (!isObject(point)) return null;
+    const { id, title, subtitle, latitude, longitude, tone, actionId } = point;
+    if (
+      !isOpaqueId(id) ||
+      ids.has(id) ||
+      !isBoundedString(title, 200) ||
+      (subtitle !== undefined && !isBoundedString(subtitle, 200)) ||
+      typeof latitude !== "number" ||
+      !Number.isFinite(latitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      typeof longitude !== "number" ||
+      !Number.isFinite(longitude) ||
+      longitude < -180 ||
+      longitude > 180 ||
+      (tone !== undefined &&
+        !(systemMapTones as readonly unknown[]).includes(tone)) ||
+      (actionId !== undefined && !isOpaqueId(actionId))
+    ) {
+      return null;
+    }
+    ids.add(id);
+    normalized.push({
+      id,
+      title,
+      ...(typeof subtitle === "string" ? { subtitle } : {}),
+      latitude,
+      longitude,
+      ...(typeof tone === "string" ? { tone: tone as SystemMapTone } : {}),
+      ...(typeof actionId === "string" ? { actionId } : {}),
+    });
+  }
+  return { mapId, title, points: normalized };
+}
+
 export function validateSystemShare(value: unknown): SystemSharePayload | null {
   if (!isObject(value)) return null;
   const { title, text, url } = value;
@@ -657,6 +745,24 @@ export function decodeNativeMessage(
           },
         },
       };
+    case "system/map-action":
+      if (!isOpaqueId(payload.mapId) || !isOpaqueId(payload.actionId)) {
+        return { outcome: "malformed" };
+      }
+      return {
+        outcome: "accept",
+        message: {
+          type,
+          ...withId,
+          payload: { mapId: payload.mapId, actionId: payload.actionId },
+        },
+      };
+    case "system/map-dismissed":
+      if (!isOpaqueId(payload.mapId)) return { outcome: "malformed" };
+      return {
+        outcome: "accept",
+        message: { type, ...withId, payload: { mapId: payload.mapId } },
+      };
     case "system/qr-scan-result": {
       if (
         !isQrScanRequestId(payload.requestId) ||
@@ -785,6 +891,7 @@ export function decodeHostConfig(
       systemShare: capabilities.systemShare === true,
       systemHaptics: capabilities.systemHaptics === true,
       systemQrScanner: capabilities.systemQrScanner === true,
+      systemMap: capabilities.systemMap === true,
       nativeMediaIntake: capabilities.nativeMediaIntake === true,
       deepLinks: capabilities.deepLinks === true,
       nativeAlerts: capabilities.nativeAlerts === true,
