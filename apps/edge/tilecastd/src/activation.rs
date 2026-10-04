@@ -38,7 +38,7 @@ use edge_state::repo::playback;
 
 use crate::daemon::DaemonContext;
 use crate::manifest::{self, Candidate, ResolvedPresentation};
-use crate::player_config::{self, PlayerConfig};
+use crate::player_config::PlayerConfig;
 use crate::presentation::{ActivationSource, PlaybackIdentity, ServerExtras};
 use crate::schedule::Source;
 
@@ -68,7 +68,7 @@ pub enum Gate {
 /// Which policy surface, if any, applies at `now_ms` (corrected), and in how
 /// many milliseconds the active-hours answer next changes.
 pub fn gate(config: &PlayerConfig, playback_disabled: bool, now_ms: i64) -> (Option<Gate>, Option<i64>) {
-    let hours = player_config::evaluate_active_hours(config.power.active_hours.as_ref(), now_ms);
+    let hours = player_core::evaluate_active_hours(config.native.active_hours.as_ref(), now_ms);
     let gate = if !hours.active {
         Some(Gate::Rest)
     } else if playback_disabled {
@@ -96,9 +96,9 @@ pub fn gate_document(
     match gate {
         Gate::Rest => (
             PresentationDocument::Sleep {
-                display: ShortToken::new(config.power.outside_display.as_str()).ok(),
-                text: Some(SafeText::lossy(&config.power.outside_text)),
-                text_color: Some(SafeText::lossy(config.branding.text())),
+                display: ShortToken::new(config.runtime.power.outside_display.as_str()).ok(),
+                text: Some(SafeText::lossy(&config.runtime.power.outside_text)),
+                text_color: Some(SafeText::lossy(config.runtime.branding.text())),
             },
             Vec::new(),
         ),
@@ -106,7 +106,7 @@ pub fn gate_document(
             if let Some(Ok(surface)) = candidate.map(|candidate| candidate.disabled_surface(now_ms, config)) {
                 return surface;
             }
-            let branding = &config.branding;
+            let branding = &config.runtime.branding;
             (
                 PresentationDocument::Disabled(edge_protocol::ipc::presentation::StatusSurface {
                     title: SafeText::lossy(branding.disabled_title.as_deref().unwrap_or("Screen disabled")),

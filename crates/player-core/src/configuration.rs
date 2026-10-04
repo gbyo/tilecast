@@ -1,7 +1,7 @@
 //! Binding-scoped configuration acceptance. Hosts validate ownership projections.
-use crate::Dependencies;
+use crate::{Dependencies, NativeConfiguration};
 use async_trait::async_trait;
-use player_client::player_api::{ConfigFetch, MAX_CONFIG_BYTES};
+use player_client::player_api::ConfigFetch;
 use player_client::{AuthenticatedServer, ServerError};
 use player_state::repo::config::{self, AcceptOutcome, ConfigStage};
 use player_state::repo::manifests::Binding;
@@ -16,16 +16,19 @@ pub enum ConfigurationOutcome {
 
 /// Metadata for acceptance plus a projection owned by the host/Runtime.
 #[derive(Debug)]
-pub struct PreparedConfiguration<T> {
-    pub schema_version: i64,
-    pub revision: i64,
-    pub projection: T,
+struct PreparedConfiguration<T> {
+    native: NativeConfiguration,
+    projection: T,
 }
 
 #[async_trait]
 pub trait ConfigurationHost: Send + Sync {
     type Projection: Send;
-    fn prepare_configuration(&self, document: &Value) -> Result<PreparedConfiguration<Self::Projection>, &'static str>;
+    fn prepare_configuration(
+        &self,
+        document: &Value,
+        native: &NativeConfiguration,
+    ) -> Result<Self::Projection, &'static str>;
     async fn install_configuration(&self, projection: Option<Self::Projection>);
 }
 
@@ -59,7 +62,11 @@ impl ConfigurationCoordinator {
         };
         match prepare(host, &stored.document) {
             Ok(parsed) => {
-                tracing::info!(component = "config", event = "cached_config_applied", revision = parsed.revision);
+                tracing::info!(
+                    component = "config",
+                    event = "cached_config_applied",
+                    revision = parsed.native.revision
+                );
                 host.install_configuration(Some(parsed.projection)).await;
             }
             Err(reason) => tracing::warn!(component = "config", event = "cached_config_invalid", reason),
@@ -117,10 +124,11 @@ impl ConfigurationCoordinator {
             }
         };
         if let Some(current) = current.as_ref()
-            && parsed.revision <= current.revision
+            && parsed.native.revision <= current.revision
         {
-            let same = parsed.revision == current.revision && comparable(&document) == comparable(&current.document);
-            if parsed.revision == current.revision
+            let same =
+                parsed.native.revision == current.revision && comparable(&document) == comparable(&current.document);
+            if parsed.native.revision == current.revision
                 && let Some(etag) = etag.clone()
             {
                 let (bind, revision) = (binding.clone(), current.revision);
@@ -130,20 +138,23 @@ impl ConfigurationCoordinator {
                 self.record(None).await;
                 return Ok(ConfigurationOutcome::Unchanged);
             }
-            let reason =
-                if parsed.revision < current.revision { "config_revision_stale" } else { "config_revision_not_newer" };
+            let reason = if parsed.native.revision < current.revision {
+                "config_revision_stale"
+            } else {
+                "config_revision_not_newer"
+            };
             tracing::warn!(
                 component = "config",
                 event = "config_refused",
                 reason,
-                revision = parsed.revision,
+                revision = parsed.native.revision,
                 current = current.revision
             );
             self.record(Some(reason)).await;
             return Ok(ConfigurationOutcome::Refused { reason });
         }
         let (bind, schema, revision, now) =
-            (binding.clone(), parsed.schema_version, parsed.revision, self.dependencies.clock.now());
+            (binding.clone(), parsed.native.schema_version, parsed.native.revision, self.dependencies.clock.now());
         let stored_document = document.clone();
         let accepted =
             db.run(move |c| config::accept(c, &bind, schema, revision, etag.as_deref(), &stored_document, now)).await;
@@ -171,20 +182,9 @@ fn prepare<H: ConfigurationHost>(
     host: &H,
     document: &Value,
 ) -> Result<PreparedConfiguration<H::Projection>, &'static str> {
-    if !document.is_object() {
-        return Err("config_malformed");
-    }
-    if serde_json::to_vec(document).map_or(true, |encoded| encoded.len() > MAX_CONFIG_BYTES) {
-        return Err("config_too_large");
-    }
-    let prepared = host.prepare_configuration(document)?;
-    if document.get("schemaVersion").and_then(Value::as_i64) != Some(prepared.schema_version) {
-        return Err("config_schema_unsupported");
-    }
-    if document.get("configRevision").and_then(Value::as_i64) != Some(prepared.revision) || prepared.revision < 0 {
-        return Err("config_revision_invalid");
-    }
-    Ok(prepared)
+    let native = NativeConfiguration::parse(document).map_err(|error| error.reason_code())?;
+    let projection = host.prepare_configuration(document, &native)?;
+    Ok(PreparedConfiguration { native, projection })
 }
 
 fn comparable(document: &Value) -> Value {
@@ -210,6 +210,7 @@ impl ConfigurationApi for AuthenticatedServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use player_client::player_api::MAX_CONFIG_BYTES;
     use player_state::{OpenOptions, StateDb};
     use player_types::{InstallationId, ScreenId, Timestamp, time::ManualClock};
     use serde_json::json;
@@ -221,13 +222,8 @@ mod tests {
     #[async_trait]
     impl ConfigurationHost for Host {
         type Projection = Value;
-        fn prepare_configuration(&self, document: &Value) -> Result<PreparedConfiguration<Value>, &'static str> {
-            let schema_version = document["schemaVersion"]
-                .as_i64()
-                .filter(|version| *version == 1)
-                .ok_or("config_schema_unsupported")?;
-            let revision = document["configRevision"].as_i64().ok_or("config_revision_invalid")?;
-            Ok(PreparedConfiguration { schema_version, revision, projection: document.clone() })
+        fn prepare_configuration(&self, document: &Value, _: &NativeConfiguration) -> Result<Value, &'static str> {
+            Ok(document.clone())
         }
         async fn install_configuration(&self, projection: Option<Value>) {
             self.0.lock().unwrap().push(projection);

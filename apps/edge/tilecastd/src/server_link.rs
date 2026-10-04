@@ -149,7 +149,7 @@ pub async fn run(context: Arc<DaemonContext>) {
         if !matches!(state, LinkState::Connected | LinkState::Retrying(_)) {
             context.command_server.send_replace(None);
         }
-        let contact_interval = crate::config_sync::effective(&context).sync.status_report;
+        let contact_interval = crate::config_sync::effective(&context).native.sync.status_report;
         let mut delay = match &state {
             LinkState::Connected => {
                 link.backoff.connected(Instant::now());
@@ -473,7 +473,8 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
         let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
         match sent {
             Ok(()) => {
-                link.next_heartbeat = Some(Instant::now() + crate::config_sync::effective(context).sync.status_report);
+                link.next_heartbeat =
+                    Some(Instant::now() + crate::config_sync::effective(context).native.sync.status_report);
                 *context.last_server_contact.lock().unwrap_or_else(|e| e.into_inner()) = Some(context.now());
             }
             Err(ServerError::CredentialRejected) => {
@@ -483,7 +484,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
             Err(error) => return ServerLinkState::from_error(&error),
         }
     }
-    let reconcile_interval = crate::config_sync::effective(context).sync.manifest_reconciliation;
+    let reconcile_interval = crate::config_sync::effective(context).native.sync.manifest_reconciliation;
     if let Some(screen_id) = bound.screen_id {
         let binding =
             ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url.clone() };

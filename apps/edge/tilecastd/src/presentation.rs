@@ -723,7 +723,7 @@ impl PresentationEngine {
             stall_threshold_ms: operator.renderer.stall_threshold_seconds as i64 * 1_000,
             ..SupervisorConfig::default()
         };
-        if let Some(reliability) = config.reliability {
+        if let Some(reliability) = config.native.reliability {
             supervisor.stall_threshold_ms = reliability.stall_threshold_ms;
             supervisor.ladder_run_window_ms = reliability.ladder_run_window_ms;
             supervisor.max_ladder_runs_before_safe_mode = reliability.max_ladder_runs_before_safe_mode;
@@ -731,7 +731,7 @@ impl PresentationEngine {
         }
         self.native.set_config(supervisor);
         self.configure.kiosk.prevent_display_sleep =
-            operator.renderer.prevent_display_sleep && config.linux_kiosk.prevent_display_sleep;
+            operator.renderer.prevent_display_sleep && config.platform.linux_kiosk.prevent_display_sleep;
     }
 
     pub fn supervisor_config(&self) -> SupervisorConfig {

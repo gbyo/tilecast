@@ -45,13 +45,9 @@ impl player_core::ConfigurationHost for Projection<'_> {
     fn prepare_configuration(
         &self,
         document: &serde_json::Value,
-    ) -> Result<player_core::PreparedConfiguration<PlayerConfig>, &'static str> {
-        let parsed = PlayerConfig::parse(document).map_err(|error| error.reason_code())?;
-        Ok(player_core::PreparedConfiguration {
-            schema_version: parsed.schema_version,
-            revision: parsed.revision,
-            projection: parsed,
-        })
+        native: &player_core::NativeConfiguration,
+    ) -> Result<PlayerConfig, &'static str> {
+        PlayerConfig::project(document, native.clone()).map_err(|error| error.reason_code())
     }
 
     async fn install_configuration(&self, config: Option<PlayerConfig>) {
@@ -72,7 +68,12 @@ pub fn effective(context: &DaemonContext) -> Arc<PlayerConfig> {
 
 /// The accepted revision, if any, for the heartbeat.
 pub fn accepted_revision(context: &DaemonContext) -> Option<i64> {
-    context.player_config.read().unwrap_or_else(|poison| poison.into_inner()).as_ref().map(|config| config.revision)
+    context
+        .player_config
+        .read()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .as_ref()
+        .map(|config| config.native.revision)
 }
 
 /// Applies the accepted configuration for `binding` from local state.
@@ -105,8 +106,13 @@ pub async fn install(context: &DaemonContext, config: Option<PlayerConfig>) {
 pub fn store_policy(context: &DaemonContext, config: &PlayerConfig) -> StorePolicy {
     let operator = &context.config.cas;
     StorePolicy {
-        limit_bytes: config.cache.maximum_bytes.map_or(operator.limit_bytes, |max| max.min(operator.limit_bytes)),
+        limit_bytes: config
+            .native
+            .cache
+            .maximum_bytes
+            .map_or(operator.limit_bytes, |max| max.min(operator.limit_bytes)),
         reserved_free_bytes: config
+            .native
             .cache
             .minimum_free_bytes
             .map_or(operator.reserved_free_bytes, |min| min.max(operator.reserved_free_bytes)),

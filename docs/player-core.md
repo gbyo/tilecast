@@ -132,16 +132,19 @@ session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
 The server socket loop, preparation-worker supervision, offline activation,
-configuration ownership projections, and telemetry policy remain to be extracted.
+and telemetry policy remain to be extracted.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Edge still drives the
 server socket and reconciliation loop.
 Core owns conditional configuration fetches, binding-scoped acceptance,
 revision ordering, current/previous persistence, and refusal reporting.
-The configuration host validates a bounded document and supplies its projection.
-Core carries that projection without interpreting Runtime or Linux settings.
-Edge still validates and applies its existing configuration fields.
-The separate Core, Runtime, and platform projections remain to be completed.
+Core validates the bounded configuration envelope and projects cache limits,
+reconciliation intervals, recovery policy, and active-hours scheduling.
+The configuration host validates its remaining sections and receives the native
+projection with the bounded document. Core carries the host projection without
+interpreting Runtime or Linux settings. Edge separates its Runtime projection
+from Linux kiosk and Presentation Network policy. Runtime fields keep their
+existing values and defaults, including unknown bounded playback context fields.
 Core now owns conditional manifest fetches, stable manifest identity,
 binding-scoped target persistence, and native resource-claim validation.
 Runtime-owned fields in the manifest stay opaque. Edge still owns renderer

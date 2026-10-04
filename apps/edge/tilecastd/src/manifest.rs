@@ -503,7 +503,7 @@ impl Candidate {
             }
             None => None,
         };
-        let branding = &config.branding;
+        let branding = &config.runtime.branding;
         let surface = StatusSurface {
             title: SafeText::lossy(title),
             message: SafeText::lossy(message),
@@ -528,7 +528,7 @@ impl Candidate {
         now_ms: i64,
         config: &PlayerConfig,
     ) -> Result<(PresentationDocument, Vec<ContentRef>), ManifestError> {
-        let branding = &config.branding;
+        let branding = &config.runtime.branding;
         self.status(
             "disabled",
             branding.disabled_title.as_deref().unwrap_or("Screen disabled"),
@@ -600,7 +600,7 @@ impl Candidate {
         }
         let string = |key: &str| site.get(key).and_then(Value::as_str).unwrap_or("");
         let positive = |key: &str| site.get(key).and_then(Value::as_u64).filter(|value| *value > 0);
-        let website = &config.website;
+        let website = &config.runtime.website;
         let mut fallback_src = Value::Null;
         if let Some(fallback) = site.get("fallbackImageAssetId").and_then(Value::as_str) {
             let variant = site.get("fallbackVariantId").and_then(Value::as_str);
@@ -721,7 +721,7 @@ impl Candidate {
         }
 
         let Some(playlist_id) = selection.playlist_id else {
-            let branding = &config.branding;
+            let branding = &config.runtime.branding;
             let (document, content) = self.status(
                 "idle",
                 branding.no_content_title.as_deref().unwrap_or("No content assigned"),
@@ -760,7 +760,7 @@ impl Candidate {
             };
             let settings = player_config::item_settings(
                 item.as_object().ok_or(ManifestError::Structure)?,
-                &config.playback,
+                &config.runtime.playback,
                 authored_duration,
             );
             let (duration_ms, fit_mode, transition, volume, audio_enabled) =
@@ -972,7 +972,8 @@ impl Candidate {
             return Err(ManifestError::Bound);
         }
         let _ = now_ms;
-        let playback = (!config.playback.context.is_empty()).then(|| Value::Object(config.playback.context.clone()));
+        let playback = (!config.runtime.playback.context.is_empty())
+            .then(|| Value::Object(config.runtime.playback.context.clone()));
         Ok((ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback }, content))
     }
 
@@ -1286,8 +1287,8 @@ mod tests {
         let candidate = parse(website_manifest(site())).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         let mut config = PlayerConfig::default();
-        config.website.cookie_policy = Some("disabled".to_owned());
-        config.website.default_zoom_percent = Some(125);
+        config.runtime.website.cookie_policy = Some("disabled".to_owned());
+        config.runtime.website.default_zoom_percent = Some(125);
         let resolved = candidate.presentation_with(1_000, &config).unwrap();
         let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(items[0].kind, ItemKind::Website);

@@ -7,6 +7,7 @@ mod live_stream;
 mod manifest_content;
 mod manifest_resources;
 mod manifests;
+mod native_configuration;
 mod origin;
 mod pairing;
 mod preview;
@@ -32,13 +33,17 @@ pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
     drive_commands,
 };
-pub use configuration::{ConfigurationCoordinator, ConfigurationHost, ConfigurationOutcome, PreparedConfiguration};
+pub use configuration::{ConfigurationCoordinator, ConfigurationHost, ConfigurationOutcome};
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
 };
 pub use manifest_resources::{ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError};
 pub use manifests::{ManifestCoordinator, ManifestPrepared, ManifestSyncError, manifest_digest};
+pub use native_configuration::{
+    ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,
+    evaluate_active_hours,
+};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use pairing::{
     PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,

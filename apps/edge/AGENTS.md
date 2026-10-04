@@ -37,7 +37,9 @@ loop remain in Edge until their extraction is complete.
 Core owns configuration acceptance, manifest target reconciliation, and native
 manifest resource-claim validation and verified preparation, repair, and pinning.
 Runtime presentation fields stay opaque.
-Edge retains renderer projection, configuration projection, and manifest
+Core owns native configuration values and active-hours policy. Edge separates
+Runtime configuration projection from its Linux platform configuration.
+Edge retains renderer projection and manifest
 preparation-worker supervision and activation coordination until their extraction is complete.
 
 ## Fixed decisions
