@@ -9,10 +9,12 @@ import { initI18n } from "./i18n";
 import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
+import "./styles/drawer-indent.css";
 // Page-specific refinements intentionally load after shared Signal styles.
 import "./styles/screens.css";
 import "./styles/data-sources.css";
 import "./styles/player-updates.css";
+import { DrawerIndentShell } from "./components/ui/drawer";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 const queryClient = new QueryClient({
@@ -30,7 +32,9 @@ function render() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
-            <RouterProvider router={router} />
+            <DrawerIndentShell>
+              <RouterProvider router={router} />
+            </DrawerIndentShell>
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
