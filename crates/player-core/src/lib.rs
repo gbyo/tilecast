@@ -22,6 +22,7 @@ mod renderer_tracking;
 mod schedule;
 mod server_link;
 mod supervisor;
+mod telemetry;
 
 pub use activity::{
     Clocks as ActivityClocks, Event as ActivityEvent, ItemInfo as ActivityItem, Persisted as PersistedActivity,
@@ -84,6 +85,7 @@ pub use server_link::{
 pub use supervisor::{
     Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,
 };
+pub use telemetry::{TELEMETRY_INTERVAL, TelemetryGauges, TelemetryHost, TelemetryTick, drive_telemetry};
 
 use player_state::StateDb;
 use player_types::time::SharedClock;

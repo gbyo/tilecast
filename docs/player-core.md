@@ -131,7 +131,7 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-The server socket loop, offline activation, and telemetry policy remain to be extracted.
+The server socket loop and offline activation remain to be extracted.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Edge still drives the
 server socket and reconciliation loop.
@@ -292,9 +292,12 @@ architecture, and platform family are stable. Hostname, display dimensions,
 locale, timezone, display state, free storage, and uptime can change.
 Add a narrow snapshot provider only for fields that Core actually needs.
 
-Core may own telemetry cadence, counters, bounded retention, serialization,
-and offline outbox policy. Linux owns measurements from `/proc` and hardware.
+Core owns telemetry cadence, interval counters, serialization, and bounded
+offline outbox policy. The telemetry host supplies semantic observations and
+measured gauges. Linux owns measurements from `/proc` and hardware.
 An unavailable measurement is omitted. Never report it as zero.
+Core tests check offline sample storage, wire fields, queue bounds, and restart
+persistence. Telemetry does not displace proof-of-play events.
 
 Shared display command validation, result vocabulary, and scheduled action
 semantics may use a narrow display provider. CEC and DDC/CI stay in Edge.

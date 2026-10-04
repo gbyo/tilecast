@@ -118,6 +118,8 @@ Runtime presentation fields stay opaque.
 Core owns native configuration values and active-hours policy. Edge separates
 Runtime configuration projection from its Linux platform configuration.
 Core owns manifest preparation-worker supervision and target-bound cancellation.
+Core owns telemetry sampling, interval counters, serialization, and bounded
+offline queue policy. Edge supplies semantic observations and measured gauges.
 Edge retains renderer projection and activation coordination until their extraction is complete.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
