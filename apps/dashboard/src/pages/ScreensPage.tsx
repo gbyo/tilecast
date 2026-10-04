@@ -3686,8 +3686,10 @@ export function ScreenDetailPage() {
                       <OverviewFact
                         label={t("detail.factReliability")}
                         value={
-                          reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                          t("shared.notReported")
+                          reliability.data?.effectiveMode?.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? t("shared.notReported")
                         }
                       />
                       <OverviewFact
