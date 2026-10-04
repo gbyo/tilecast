@@ -23,11 +23,14 @@ func TestSecurityHeadersContentSecurityPolicy(t *testing.T) {
 	if strings.Contains(policy, "script-src 'self' 'unsafe-inline'") {
 		t.Fatal("script-src must not allow unsafe inline scripts")
 	}
-	if !strings.Contains(policy, "connect-src 'self' https://tiles.openfreemap.org") {
-		t.Fatal("connect-src must allow the OpenFreeMap style and tile origin")
+	if !strings.Contains(policy, "connect-src 'self'") {
+		t.Fatal("connect-src must allow same-origin map requests")
 	}
-	if !strings.Contains(policy, "img-src 'self' data: blob: https://images.unsplash.com https://tiles.openfreemap.org") {
-		t.Fatal("img-src must allow MapLibre blob images and OpenFreeMap raster and sprite resources")
+	if strings.Contains(policy, "tiles.openfreemap.org") {
+		t.Fatal("the browser must not connect directly to OpenFreeMap")
+	}
+	if !strings.Contains(policy, "img-src 'self' data: blob: https://images.unsplash.com") {
+		t.Fatal("img-src must allow same-origin MapLibre resources and approved dashboard images")
 	}
 	if !strings.Contains(policy, "worker-src 'self'") {
 		t.Fatal("worker-src must allow the same-origin bundled MapLibre worker")
