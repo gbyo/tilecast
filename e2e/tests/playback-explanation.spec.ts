@@ -16,10 +16,10 @@ test("Screen explanation follows server selection and preserves historical gaps"
   await expect(
     panel.getByText(plan.current.selected.name, { exact: true }),
   ).toBeVisible();
-  await expect(panel.getByText("Selection and alternatives")).toBeVisible();
+  await expect(panel.getByText("Selection precedence")).toBeVisible();
   await expect(
     panel.getByText(
-      "Manifest synchronization does not prove content readiness or successful playback.",
+      "The next reevaluation may leave the selected content unchanged. Future predictions use current configuration and the latest reported Player state.",
     ),
   ).toBeVisible();
   await expect(
@@ -47,7 +47,7 @@ test("Screen explanation follows server selection and preserves historical gaps"
       "No recorded expectation covers this instant. Current assignments cannot fill this historical gap.",
     ),
   ).toBeVisible();
-  await expect(panel.getByText("Selection and alternatives")).toHaveCount(0);
+  await expect(panel.getByText("Selection precedence")).toHaveCount(0);
   await expect(
     panel.getByText(plan.current.selected.name, { exact: true }),
   ).toHaveCount(0);

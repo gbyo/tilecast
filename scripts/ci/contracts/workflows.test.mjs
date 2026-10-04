@@ -151,6 +151,33 @@ test("Linux release packaging is path-gated on PRs and full on main", () => {
   assert.ok(pr.jobs.required.needs.includes("linux_player_ci"));
 });
 
+test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
+  for (const [file, reportArg] of [
+    ["ci-dashboard.yml", "--junit"],
+    ["ci-server.yml", "--go-json"],
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+    const job = workflow.jobs.validate;
+    assert.equal(job.permissions.actions, "read", file);
+    const summary = job.steps.find((step) =>
+      /timing-summary\.mjs/.test(step.run ?? ""),
+    );
+    assert.ok(summary, `${file}: missing timing summary`);
+    assert.equal(summary.if, "always()", file);
+    assert.match(summary.run, new RegExp(`${reportArg} `), file);
+  }
+
+  for (const file of [
+    "pr-validation.yml",
+    "ci-heavy.yml",
+    "server-release.yml",
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+  }
+});
+
 test("change detectors run only the dependency-free affected graph gate", () => {
   for (const file of ["pr-validation.yml", "ci-edge.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
