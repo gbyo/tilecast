@@ -1,3 +1,4 @@
+import { scheduleQueries } from "../data/schedules";
 import {
   useInfiniteQuery,
   useMutation,
@@ -17,6 +18,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { useConfirm } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -108,7 +110,7 @@ export function GroupsPage() {
   const auth = useAuth(),
     csrf = auth.status?.csrfToken ?? "",
     client = useQueryClient();
-  const { t } = useTranslation("screens");
+  const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const manageable = canManage(auth.status?.user?.role);
   const q = useInfiniteQuery({
@@ -123,7 +125,7 @@ export function GroupsPage() {
     mutationFn: (value: { name: string; description: string }) =>
       api.createScreenGroup(value, csrf),
     onSuccess: () => {
-      toast.add({ title: "Display Group created.", type: "success" });
+      toast.add({ title: t("groups.created"), type: "success" });
       setCreateOpen(false);
       return client.invalidateQueries({ queryKey: ["screen-groups"] });
     },
@@ -133,26 +135,31 @@ export function GroupsPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("groups.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("groups.subtitle")}
-          </p>
-        </div>
-        {manageable && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("groups.title")}
+        description={t("groups.subtitle")}
+        actions={
+          manageable ? (
             <Button type="button" onClick={() => setCreateOpen(true)}>
               {t("groups.create")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       {q.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{t("groups.loadError")}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{t("groups.loadError")}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={q.isFetching}
+              onClick={() => void q.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
       {q.isLoading && (
@@ -513,72 +520,72 @@ export function GroupDetailPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {groupData.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {groupData.description || t("groups.detail.descriptionFallback")}
-          </p>
-        </div>
-        {manageable && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setEditOpen(true)}
-            >
-              {t("groups.detail.edit")}
-            </Button>
-            {editOpen && (
-              <GroupDialog
-                title={t("groups.detail.edit")}
-                action={t("common:actions.saveChanges")}
-                initial={{
-                  name: groupData.name,
-                  description: groupData.description,
-                }}
-                pending={update.isPending}
-                error={update.error?.message}
-                onClose={() => setEditOpen(false)}
-                onSave={(value) => {
-                  update.mutate(value, { onSuccess: () => setEditOpen(false) });
-                }}
-              />
-            )}
-            <Button type="button" onClick={() => setAirplayOpen(true)}>
-              {t("groups.detail.present")}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setQuickPresentOpen(true)}
-            >
-              {t("groups.detail.showNow")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                void confirm({
-                  title: t("groups.detail.deleteTitle", {
+      <PageHeader
+        title={groupData.name}
+        description={
+          groupData.description || t("groups.detail.descriptionFallback")
+        }
+        actions={
+          manageable ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEditOpen(true)}
+              >
+                {t("groups.detail.edit")}
+              </Button>
+              {editOpen && (
+                <GroupDialog
+                  title={t("groups.detail.edit")}
+                  action={t("common:actions.saveChanges")}
+                  initial={{
                     name: groupData.name,
-                  }),
-                  body: t("groups.detail.deleteBody"),
-                  action: t("common:actions.delete"),
-                  destructive: true,
-                }).then((ok) => {
-                  if (ok) deleteGroup.mutate();
-                });
-              }}
-            >
-              {t("groups.detail.delete")}
-            </Button>
-            {confirmDialog}
-          </div>
-        )}
-      </header>
+                    description: groupData.description,
+                  }}
+                  pending={update.isPending}
+                  error={update.error?.message}
+                  onClose={() => setEditOpen(false)}
+                  onSave={(value) => {
+                    update.mutate(value, {
+                      onSuccess: () => setEditOpen(false),
+                    });
+                  }}
+                />
+              )}
+              <Button type="button" onClick={() => setAirplayOpen(true)}>
+                {t("groups.detail.present")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setQuickPresentOpen(true)}
+              >
+                {t("groups.detail.showNow")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  void confirm({
+                    title: t("groups.detail.deleteTitle", {
+                      name: groupData.name,
+                    }),
+                    body: t("groups.detail.deleteBody"),
+                    action: t("common:actions.delete"),
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) deleteGroup.mutate();
+                  });
+                }}
+              >
+                {t("groups.detail.delete")}
+              </Button>
+              {confirmDialog}
+            </>
+          ) : undefined
+        }
+      />
       {mutationError && (
         <Alert variant="destructive">
           <AlertDescription>{mutationError.message}</AlertDescription>
@@ -1057,12 +1064,7 @@ export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const formatLocale = useFormatLocale();
-  const q = useInfiniteQuery({
-    queryKey: ["schedules"],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.schedulePage("", pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const q = useInfiniteQuery(scheduleQueries.pages());
   const schedules = q.data?.pages.flatMap((page) => page.items) ?? [];
   const enabledCount = schedules.filter((schedule) => schedule.enabled).length;
   const totalSchedules = q.data?.pages[0]?.total ?? 0;

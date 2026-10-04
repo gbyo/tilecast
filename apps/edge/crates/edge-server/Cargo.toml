@@ -1,13 +1,15 @@
 [package]
 name = "edge-server"
 description = "Tilecast Edge's Tilecast Server client: URL policy, identity gate, device credential, legacy import and the origin blob source."
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+player-client.workspace = true
+player-core.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 edge-cas.workspace = true
@@ -24,7 +26,7 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-tungstenite.workspace = true
 tracing.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 edge-protocol = { workspace = true, features = ["test-util"] }
@@ -33,7 +35,7 @@ hyper-util.workspace = true
 http-body-util.workspace = true
 bytes.workspace = true
 tempfile.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [lints]
 workspace = true

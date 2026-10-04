@@ -52,7 +52,11 @@ pub async fn read_frame<R: AsyncRead + Unpin>(reader: &mut R) -> Result<Frame, I
 }
 
 pub async fn write_frame<W: AsyncWrite + Unpin>(writer: &mut W, message: &Frame) -> Result<(), IoError> {
-    let bytes = frame::encode(&message.encode())?;
+    write_payload(writer, &message.encode()).await
+}
+
+pub(crate) async fn write_payload<W: AsyncWrite + Unpin>(writer: &mut W, payload: &[u8]) -> Result<(), IoError> {
+    let bytes = frame::encode(payload)?;
     writer.write_all(&bytes).await?;
     writer.flush().await?;
     Ok(())

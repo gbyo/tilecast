@@ -1,0 +1,69 @@
+---
+title: Set up Tilecast on a local network
+description: Choose the server's local address, set it as the public URL, and connect Players over your own network.
+---
+
+Use this setup when Tilecast Server and every Player are at the same site. Players connect straight to the server over your local network. Nothing has to be reachable from the Internet, so you don't need Cloudflare Tunnel, port forwarding, or a domain name.
+
+This page covers the decisions that are specific to a local network. The commands that start the server are in the [installation guide](../../installation/), so they stay in one place.
+
+## Choose the server's address
+
+Players and browsers use one address to reach the server. Tilecast calls it the **public URL**, and you set it in `TILECAST_PUBLIC_URL`.
+
+Pick an address that won't change. If the address changes after you pair Players, they can't find the server until you update them.
+
+| Address style               | Example                      | Notes                                                                                                                                                  |
+| --------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reserved private IP address | `http://192.0.2.10:8080`     | Works on any network. Reserve it in your router (a DHCP reservation) so it doesn't change.                                                             |
+| A `.local` name             | `http://tilecast.local:8080` | Easier to read, but whether a Player can resolve it depends on the device and your network. Test it on a real display. If it fails, use an IP address. |
+
+The addresses above are examples. Replace them with your server's real address.
+
+The Player accepts HTTP only for private IP addresses, `localhost`, and `.local` names. A name from your own DNS, such as `signage.lan`, needs HTTPS. HTTP isn't encrypted, so use it only on a network you trust.
+
+## Set the environment values
+
+Follow [Start Tilecast Server](../../installation/#start-tilecast-server). In step 3, use the **Trusted LAN over HTTP** row:
+
+```dotenv title="deploy/docker/.env"
+TILECAST_PUBLIC_URL=http://192.0.2.10:8080
+TILECAST_COOKIE_SECURE=false
+```
+
+`TILECAST_COOKIE_SECURE=false` lets Studio sign in over plain HTTP. Set it to `true` only when the public URL is HTTPS.
+
+Passkeys need HTTPS and a hostname, so they aren't available on an HTTP address or an IP address. Authenticator apps and recovery codes still work. See [Sign-in security](../../administration/sign-in-security/).
+
+## Open the port to your network only
+
+The server listens on port 8080 (`TILECAST_PORT`). Use the host's firewall to allow it from your local network and block it from anywhere else. Don't forward this port on your router.
+
+Never expose PostgreSQL. Compose doesn't publish its port, and you shouldn't add one.
+
+## Connect Players
+
+The Player needs the server's address typed in, or found by discovery.
+
+- **Manual entry always works.** Enter the address as you set it in `TILECAST_PUBLIC_URL`, without a path. Include `http://`: the Android Player assumes HTTPS when you leave the scheme out.
+- **Discovery is optional.** The Compose file turns off mDNS (`TILECAST_MDNS_ENABLED=false`) because multicast doesn't pass through Docker's default networking on every system. Multicast can also be blocked by VLANs, guest Wi-Fi, and access-point isolation. See [Check that Players can reach the server](../network-readiness/).
+
+Then [install the Player](../../players/) on each display and [pair it](../../players/pair-a-display/).
+
+## Check that it works
+
+From a computer on the same network as your Players, open the public URL in a browser. You should see the Tilecast sign-in or setup page.
+
+Check readiness from the command line. Replace the address with your own.
+
+```sh title="Check server readiness"
+curl --fail http://192.0.2.10:8080/readyz
+```
+
+A failed check returns HTTP 503. Use `/healthz` to see whether the server process answers at all.
+
+A browser on your network that opens the page proves the route from that computer, not from the display's network. If Players are on different Wi-Fi or a different VLAN, use [Check that Players can reach the server](../network-readiness/) before you install on displays.
+
+## Add remote access later
+
+If staff later need Studio from outside the site, add a Cloudflare Tunnel hostname. The [local Players with remote Studio](../local-players-remote-studio/) guide explains how to do it while Players keep using the local address.

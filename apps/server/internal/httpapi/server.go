@@ -30,6 +30,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/notify"
 	"github.com/tilecast/tilecast/apps/server/internal/oauth"
+	"github.com/tilecast/tilecast/apps/server/internal/playbackplan"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
@@ -92,6 +93,7 @@ type server struct {
 	devices                       *devices.Service
 	media                         *media.Service
 	playlists                     *playlists.Service
+	playbackPlan                  *playbackplan.Inspector
 	campaigns                     *campaigns.Service
 	presentations                 *presentations.Service
 	plugins                       *plugins.Service
@@ -216,6 +218,9 @@ func New(deps Dependencies) *API {
 			notifier = s.devices
 		}
 		s.takeovers = takeovers.NewService(s.db, s.playlists, notifier, time.Duration(s.operations.MaxTakeoverDurationHours)*time.Hour)
+	}
+	if s.db != nil && s.playlists != nil && s.scheduling != nil && s.presentations != nil {
+		s.playbackPlan = playbackplan.NewInspector(playbackplan.NewSnapshotCurrent(s.db, s.playlists, s.scheduling, s.presentations), playbackplan.NewHistory(s.db))
 	}
 	return &API{Handler: s.routes(), server: s}
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { AirplaySession, ReliabilityStatus } from "../api/types";
 import { airplayCapabilityBlockDetail } from "./airplayCapability";
 import { Alert, AlertDescription } from "./ui/alert";
@@ -103,7 +104,7 @@ function airplayCreateError(error: unknown, t: TFunction<"alerts">): string {
   )
     return t("airplay.createError.gatewayUnavailable");
   return error instanceof Error
-    ? error.message
+    ? apiErrorMessage(error)
     : t("airplay.createError.generic");
 }
 
@@ -602,7 +603,9 @@ export function AirPlayPresentDialog({
             </div>
             {stop.error && (
               <Alert variant="destructive">
-                <AlertDescription>{stop.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(stop.error)}
+                </AlertDescription>
               </Alert>
             )}
             <DialogFooter className="border-t border-border pt-4">

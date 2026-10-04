@@ -559,7 +559,7 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if provider == "calendar" {
-		preview, err := s.media.CalendarPreview(r.Context(), body.Configuration)
+		preview, err := s.media.CalendarPreview(r.Context(), body.Configuration, body.PreviewDate)
 		if err != nil {
 			s.writeMediaError(w, r, err)
 			return
@@ -568,7 +568,7 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if provider == "manual" {
-		preview, err := s.media.ManualPreview(r.Context(), body.Configuration)
+		preview, err := s.media.ManualPreview(r.Context(), body.Configuration, body.PreviewDate)
 		if err != nil {
 			s.writeMediaError(w, r, err)
 			return
@@ -577,7 +577,7 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if provider == "weather" {
-		preview, err := s.media.WeatherPreview(r.Context(), body.Configuration)
+		preview, err := s.media.WeatherPreview(r.Context(), body.Configuration, body.PreviewDate)
 		if err != nil {
 			s.writeMediaError(w, r, err)
 			return
@@ -599,11 +599,11 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		var preview any
 		switch provider {
 		case "transit":
-			preview, _, err = s.media.RefreshTransitPreview(r.Context(), normalized.(media.TransitSourceConfig))
+			preview, _, err = s.media.RefreshTransitPreview(r.Context(), normalized.(media.TransitSourceConfig), body.PreviewDate)
 		case "cap_alerts":
-			preview, _, err = s.media.RefreshCAPPreview(r.Context(), normalized.(media.CAPAlertsSourceConfig))
+			preview, _, err = s.media.RefreshCAPPreview(r.Context(), normalized.(media.CAPAlertsSourceConfig), body.PreviewDate)
 		case "air_quality":
-			preview, _, err = s.media.RefreshAirQualityPreview(r.Context(), normalized.(media.AirQualitySourceConfig))
+			preview, _, err = s.media.RefreshAirQualityPreview(r.Context(), normalized.(media.AirQualitySourceConfig), body.PreviewDate)
 		}
 		if err != nil {
 			s.writeMediaError(w, r, err)
@@ -619,9 +619,9 @@ func (s *server) previewDataSource(w http.ResponseWriter, r *http.Request) {
 		case "manual_object":
 			preview, err = s.media.ManualObjectPreview(r.Context(), provider, body.Configuration)
 		case "manual_records":
-			preview, err = s.media.ManualRecordsPreview(r.Context(), provider, body.Configuration)
+			preview, err = s.media.ManualRecordsPreview(r.Context(), provider, body.Configuration, body.PreviewDate)
 		default:
-			preview, err = s.media.HTTPRecordsPreview(r.Context(), provider, body.Configuration)
+			preview, err = s.media.HTTPRecordsPreview(r.Context(), provider, body.Configuration, body.PreviewDate)
 		}
 		if err != nil {
 			s.writeMediaError(w, r, err)
