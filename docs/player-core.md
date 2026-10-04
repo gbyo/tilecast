@@ -135,7 +135,42 @@ Edge supplies its migration hold outside Core.
 Activity consumes semantic signals and injected clocks and IDs.
 The persisted session encoding and parity fixtures remain unchanged.
 Edge retains renderer signal adapters and outbox delivery in this stage.
-Renderer supervision stays in Edge until the RendererPort extraction.
+Core owns the renderer recovery ladder and meaningful-evidence rules.
+Core tracks acceptance, errors, and evidence by connection and activation.
+It refuses stale observations and bounds evidence logs and content-item sets.
+Edge maps wire values and executes actions through its RendererPort adapter.
+Core coordinates activation identity, profile checks, and recovery timers.
+Core creates recovery Activity events with the existing escalation metadata.
+Edge keeps Runtime projection inputs and constructs status payloads.
+
+The renderer contract carries bounded opaque Runtime data and verified
+object bindings. Edge uses prepared activations through
+its RendererPort adapter. A temporary projection bridge remains in Edge.
+Separate packaged and connected profiles check host features, presentation
+schemas, declarative capabilities, and Widget component versions.
+Release support does not replace a missing session advertisement.
+The RendererPort interface defines semantic operations and immutable prepared
+activations. Edge uses Core checks for decoded capture dimensions, size, and
+JPEG signature. Transport decoding stays in Edge.
+Core serializes captures across preview and Watch Live.
+It checks protected states and applies the ten-second timeout.
+Canceled and expired requests release their capture slot.
+Edge decodes requested replies on the capture caller's task.
+Core owns periodic preview leases, cadence, uploads, fault suspension, and
+capability policy. Edge supplies captures, time, and provider identity.
+Core also owns Watch Live leases, cadence, frame replacement, and checks after
+capture. Edge owns socket delivery and checks protection again before sending.
+Core correlates renderer command results with at most eight pending requests.
+Disconnects, timeouts, and cancellation release command registrations.
+Startup Website data clearing retries on readiness until one clear succeeds.
+Edge maps wire results and user-facing failure text.
+Edge owns resource encoding, media grants, and IPC queue operations.
+The Edge port owns its renderer endpoint and caches grants for that session.
+It prepares and activates grants and drains prior generations with its own clock.
+The activation coordinator does not assemble media capabilities.
+Core checks packaged and connected profiles before activation.
+Stage 8 requires green selected qualification jobs for the current commit.
+PR #1224 records qualification for the renderer extraction.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
@@ -162,10 +197,23 @@ Do not duplicate presentation-default calculations in Core.
 
 ## Renderer semantics and authorization
 
-Core uses a semantic `RendererPort` for configure, activate, clear, typed
+Core uses a semantic `RendererPort` for activate, clear, typed
 commands, capture, and restart or reload requests. It receives bounded typed
 events for connection, readiness, acceptance, refusal, meaningful evidence,
 playback errors, command results, capture results, and disconnection.
+
+Runtime owns presentation fields. Core carries bounded opaque JSON and separate
+resource bindings. Projection supplies explicit requirements, activation identity,
+evidence expectations, and capture protection. Core does not infer these values
+from arbitrary Runtime JSON. New transitions, Website options, and Layout visual
+properties normally require no Core change. Unknown Runtime fields pass through
+the Core and Edge preparation path except for declared resource bindings.
+
+The combined document and context have a four MiB bound and at most 1,024
+bindings. Bindings use valid JSON pointers without duplicates. Each binding must
+refer to an object in the activation's verified-content set. Missing resources
+fail closed. Core owns no visual status defaults. Edge constructs status payloads
+and owns display-sleep policy, cursor configuration, and media-expiry time.
 
 The host owns transport. Core must not contain `SessionHandle`, Unix renderer
 sockets, Edge wire frames, WPE APIs, IPC Base64 encoding, renderer UID/PID,
@@ -190,6 +238,14 @@ profile. Component version skew produces a truthful incompatibility or error.
 Do not assume these profiles match. Presentation schema, host features,
 declarative capabilities, Widget capabilities, remote web, and synchronization
 remain distinct contracts.
+
+`RuntimeReadyV1.support` reports live presentation schemas and declarative
+capabilities from Runtime constants, and Widget versions from live discovery.
+WPE forwards this optional bounded metadata in `renderer.ready.support`.
+Edge combines it with live host features for the connected profile.
+An absent namespace stays empty. Generated release files remain the packaged
+profile source. This additive readiness report leaves existing activation and
+capture wire fixtures unchanged.
 
 ## Platform facts and optional features
 

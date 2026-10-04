@@ -1,8 +1,19 @@
 //! Shared native Player behavior. Hosts supply services and platform handlers.
 mod activity;
+mod capture;
 mod commands;
+mod live_stream;
 mod origin;
+mod preview;
+mod renderer_commands;
+mod renderer_coordinator;
+mod renderer_document;
+mod renderer_port;
+mod renderer_profile;
+mod renderer_resources;
+mod renderer_tracking;
 mod schedule;
+mod supervisor;
 
 pub use activity::{
     Clocks as ActivityClocks, Event as ActivityEvent, ItemInfo as ActivityItem, Persisted as PersistedActivity,
@@ -10,12 +21,39 @@ pub use activity::{
     RendererSignal as ActivityRendererSignal, Signal as ActivitySignal, Tracker as ActivityTracker,
     reason as activity_reason,
 };
+pub use capture::{CaptureBroker, CaptureError, CaptureState, RENDERER_CAPTURE_TIMEOUT};
 pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
     drive_commands,
 };
+pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use preview::{
+    PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
+    PreviewHost, drive_preview,
+};
+pub use renderer_commands::{
+    RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
+    WEBSITE_DATA_CLEAR_TIMEOUT,
+};
+pub use renderer_coordinator::{RendererCoordinator, RendererDispatch};
+pub use renderer_document::{
+    ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
+};
+pub use renderer_port::{
+    CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,
+    SemanticRendererCommand,
+};
+pub use renderer_profile::{
+    ConnectedRendererProfile, PackagedRendererProfile, RendererProfileError, RendererProfileMismatch,
+    RendererRequirement, RendererSupport,
+};
+pub use renderer_resources::{ObjectBinding, ResourceError, RuntimePayload};
+pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticRendererProgress};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
+pub use supervisor::{
+    Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,
+};
 
 use player_state::StateDb;
 use player_types::time::SharedClock;

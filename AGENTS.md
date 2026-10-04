@@ -98,8 +98,17 @@ implemented by Edge adapters; privileged helpers must not depend on storage.
 Server transport lives in `crates/player-client`. Edge owns credential and
 pairing files. Hosts supply product identity and device metadata.
 The Core foundation owns native selection, command delivery, and Activity
-sessions in `crates/player-core`. Renderer recovery and server reconciliation
-remain in Edge until their extraction stages.
+sessions in `crates/player-core`. Core also owns the renderer recovery ladder
+and meaningful-evidence rules, with connection-bound acceptance and evidence
+tracking. Edge executes renderer actions through its port
+adapter. Core also owns capture serialization, periodic preview policy, and
+Watch Live lease and frame coordination. Runtime presentation data stays opaque
+to Core, with explicit resource, compatibility, and evidence metadata.
+Core correlates renderer command results and owns startup Website data-clear
+retry policy. Edge maps wire results and user-facing failure text.
+Core coordinates activation identity, profile checks, and recovery timing.
+Edge keeps Runtime projection inputs and constructs status payloads.
+Server reconciliation remains in Edge until its extraction stage.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.
