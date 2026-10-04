@@ -108,6 +108,7 @@ func foundationJSON(_ data: Data) throws -> Any {
             #expect(capabilities.nativePresentations == (expected["nativePresentations"] ?? false))
             #expect(capabilities.nativeAlerts == (expected["nativeAlerts"] ?? false))
             #expect(capabilities.nativeMediaIntake == (expected["nativeMediaIntake"] ?? false))
+            #expect(capabilities.systemMap == (expected["systemMap"] ?? false))
             #expect(capabilities.deepLinks == (expected["deepLinks"] ?? false))
         }
         if let expected = entry.hapticFeedback {
