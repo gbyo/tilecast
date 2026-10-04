@@ -9,6 +9,7 @@
 import { assign, setup, type ActorRefFrom } from "xstate";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
+import { positiveDurationMs } from "../clock/duration";
 import {
   resolveNativeVideoLoop,
   resolvePlaylistAdvance,
@@ -91,7 +92,9 @@ export const zoneMachine = setup({
       if (!canAdvance(context)) return;
       const epoch = context.epoch;
       context.timers.after(
-        current.entry.durationMs ?? ZONE_IMAGE_DEFAULT_MS,
+        // Zero reads as unset, so two zero-length images do not swap at
+        // timer speed.
+        positiveDurationMs(current.entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS,
         () => self.send({ type: "NEXT", epoch }),
       );
     },

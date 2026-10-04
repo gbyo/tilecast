@@ -159,6 +159,11 @@ func normalizePlayerActivity(event *playerActivityEventInput, now time.Time) err
 	if event.DurationMS != nil && *event.DurationMS < 0 || event.ExpectedDurationMS != nil && *event.ExpectedDurationMS < 0 {
 		return errors.New("durations may not be negative")
 	}
+	if event.ExpectedDurationMS != nil && *event.ExpectedDurationMS == 0 {
+		// Zero is how stored item data spells "no duration". Keeping it would
+		// make every indefinite item look like a play cut short at zero.
+		event.ExpectedDurationMS = nil
+	}
 	if event.ElapsedRealtimeMS != nil && *event.ElapsedRealtimeMS < 0 {
 		return errors.New("elapsedRealtimeMs may not be negative")
 	}
@@ -402,11 +407,12 @@ func endPlaybackSession(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event pl
 	if err != nil {
 		return err
 	}
+	micro := isMicroPlay(event)
 	// A terminal event with no matching start is the shape a v1 Linux player
 	// produced. Synthesising the session from the reported duration is the only
 	// way that playback appears in Proof of Play at all, so it is kept for the
 	// transition period; contract v2 players always send the start event.
-	if tag.RowsAffected() == 0 && synthesizesMissingStart(event) {
+	if tag.RowsAffected() == 0 && !micro && synthesizesMissingStart(event) {
 		fallback := event
 		fallback.Result = result
 		if err := startPlaybackSession(r, tx, screenID, fallback); err != nil {
@@ -422,7 +428,47 @@ func endPlaybackSession(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event pl
 				metadata=metadata||'{"synthesizedStart":true}'::jsonb,updated_at=now()
 			WHERE screen_id=$1 AND activity_session_id=$2 AND ended_at IS NULL`,
 			screenID, event.ActivitySessionID, event.ID, event.OccurredAt, event.DurationMS, result, event.FailureCode, started, terminalReason)
+		if err != nil {
+			return err
+		}
 	}
+	if micro {
+		return discardMicroPlaybackSession(r, tx, screenID, event.ActivitySessionID)
+	}
+	return err
+}
+
+// isMicroPlay reports whether a child session ended as expected without having
+// been on screen long enough to count as a play. Failures are never micro
+// plays: a renderer that fails in 60 ms is exactly what an operator needs to
+// see. The raw events stay in the Screen Events stream either way, so the
+// storm remains diagnosable; only the derived Proof of Play row is withheld.
+func isMicroPlay(event playerActivityEventInput) bool {
+	if event.DurationMS == nil || *event.DurationMS >= minimumPlaybackSessionMS {
+		return false
+	}
+	if canonicalActivityEventType(event.EventType) != "content.completed" {
+		return false
+	}
+	if contractSessionType(event) == sessionTypePresentation {
+		return false
+	}
+	if event.Result != "completed" && event.Result != "success" {
+		return false
+	}
+	switch contractTerminalReason(event) {
+	case terminalExpectedItemBoundary, terminalCompletedDuration:
+		return true
+	}
+	return false
+}
+
+func discardMicroPlaybackSession(r *http.Request, tx pgx.Tx, screenID uuid.UUID, activitySessionID string) error {
+	_, err := tx.Exec(r.Context(), `
+		DELETE FROM playback_sessions
+		WHERE screen_id=$1 AND activity_session_id=$2 AND session_type<>'presentation'
+		  AND COALESCE(actual_duration_ms,0) < $3`,
+		screenID, activitySessionID, minimumPlaybackSessionMS)
 	return err
 }
 
