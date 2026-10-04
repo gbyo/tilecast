@@ -26,8 +26,18 @@ content. The response retains the scheduling authority's candidate reasons.
 The next evaluation time is the earliest schedule transition or active
 temporary-presentation expiry. It does not guarantee a change in selected
 content. Inspection does not initialize manifest state or expire a temporary
-presentation. These readers do not use a shared database snapshot. This
-selection foundation does not establish content health, dependencies,
+presentation. `SnapshotCurrent.At` binds the assignment, schedule, Quick
+Present, and Takeover readers to one read-only, repeatable-read transaction.
+Concurrent configuration changes do not change that snapshot. A later
+inspection reads the committed changes. Disabled schedules remain inactive
+alternatives in the explanation and do not create evaluation boundaries.
+
+`Current.At` remains the deterministic composition entry point for supplied
+readers. Production inspection uses `SnapshotCurrent.At` to obtain consistent
+selection evidence. The snapshot does not reserve configuration for a later
+mutation. A mutation must validate its own current transaction state.
+
+This selection foundation does not establish content health, dependencies,
 Player compatibility, or observed playback.
 
 ## Historical expectations

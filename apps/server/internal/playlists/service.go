@@ -1474,15 +1474,34 @@ func (s *Service) Assignment(ctx context.Context, screenID uuid.UUID) (Assignmen
 // ReadAssignment reads the existing assignment state without initializing a
 // manifest row. Inspectors must not change the installation they explain.
 func (s *Service) ReadAssignment(ctx context.Context, screenID uuid.UUID) (Assignment, error) {
+	a, err := s.readAssignmentState(ctx, s.db, screenID)
+	if err != nil {
+		return Assignment{}, err
+	}
+	return s.assignmentDetails(ctx, screenID, a)
+}
+
+// ReadAssignmentStateInTx reads selection and synchronization state from the
+// caller's snapshot. It excludes ancillary group/schedule display details.
+func (s *Service) ReadAssignmentStateInTx(ctx context.Context, tx pgx.Tx, screenID uuid.UUID) (Assignment, error) {
+	return s.readAssignmentState(ctx, tx, screenID)
+}
+
+func (s *Service) readAssignmentState(ctx context.Context, q presentationQuery, screenID uuid.UUID) (Assignment, error) {
 	var a Assignment
 	a.ScreenID = screenID
-	err := s.db.QueryRow(ctx, `SELECT COALESCE(ga.playlist_id,pa.playlist_id),p.name,p.revision,COALESCE(ga.layout_id,pa.layout_id),l.name,lr.revision,CASE WHEN COALESCE(ga.layout_id,pa.layout_id) IS NOT NULL THEN 'layout' WHEN COALESCE(ga.playlist_id,pa.playlist_id) IS NOT NULL THEN 'playlist' END,ms.manifest_version,ps.active_manifest_version,ps.pending_manifest_version,ps.download_queue_count,ps.downloaded_bytes,ps.required_bytes,ps.cache_used_bytes,ps.cache_limit_bytes,ps.current_item_id,ps.current_asset_id,ps.playback_state,ps.last_sync_error,ps.last_playback_error,ps.current_schedule_id,ps.current_playlist_id,ps.selection_source,ps.next_transition_at,ps.device_clock_offset_seconds,ps.schedule_evaluation_error,ps.schedule_manifest_version,ps.current_website_asset_id,ps.website_state,ps.website_load_started_at,ps.website_load_completed_at,ps.website_failure_category,ps.website_blocked_navigation_count,ps.website_current_host,ps.website_fallback_shown,ps.website_renderer_recovery_count FROM screen_manifest_state ms LEFT JOIN screen_group_memberships gm ON gm.screen_id=ms.screen_id LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=gm.screen_group_id LEFT JOIN screen_playlist_assignments pa ON pa.screen_id=ms.screen_id LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,pa.playlist_id) LEFT JOIN layouts l ON l.id=COALESCE(ga.layout_id,pa.layout_id) LEFT JOIN layout_revisions lr ON lr.id=l.published_revision_id LEFT JOIN screen_player_status ps ON ps.screen_id=ms.screen_id WHERE ms.screen_id=$1`, screenID).Scan(&a.PlaylistID, &a.PlaylistName, &a.PlaylistRevision, &a.LayoutID, &a.LayoutName, &a.LayoutRevision, &a.PresentationType, &a.ManifestVersion, &a.PlayerActiveManifestVersion, &a.PlayerPendingManifestVersion, &a.DownloadQueueCount, &a.DownloadedBytes, &a.RequiredBytes, &a.CacheUsedBytes, &a.CacheLimitBytes, &a.CurrentItemID, &a.CurrentAssetID, &a.PlaybackState, &a.LastSyncError, &a.LastPlaybackError, &a.CurrentScheduleID, &a.CurrentPlaylistID, &a.SelectionSource, &a.NextTransitionAt, &a.DeviceClockOffsetSeconds, &a.ScheduleEvaluationError, &a.ScheduleManifestVersion, &a.CurrentWebsiteAssetID, &a.WebsiteState, &a.WebsiteLoadStartedAt, &a.WebsiteLoadCompletedAt, &a.WebsiteFailureCategory, &a.WebsiteBlockedNavigationCount, &a.WebsiteCurrentHost, &a.WebsiteFallbackShown, &a.WebsiteRendererRecoveryCount)
+	err := q.QueryRow(ctx, `SELECT COALESCE(ga.playlist_id,pa.playlist_id),p.name,p.revision,COALESCE(ga.layout_id,pa.layout_id),l.name,lr.revision,CASE WHEN COALESCE(ga.layout_id,pa.layout_id) IS NOT NULL THEN 'layout' WHEN COALESCE(ga.playlist_id,pa.playlist_id) IS NOT NULL THEN 'playlist' END,ms.manifest_version,ps.active_manifest_version,ps.pending_manifest_version,ps.download_queue_count,ps.downloaded_bytes,ps.required_bytes,ps.cache_used_bytes,ps.cache_limit_bytes,ps.current_item_id,ps.current_asset_id,ps.playback_state,ps.last_sync_error,ps.last_playback_error,ps.current_schedule_id,ps.current_playlist_id,ps.selection_source,ps.next_transition_at,ps.device_clock_offset_seconds,ps.schedule_evaluation_error,ps.schedule_manifest_version,ps.current_website_asset_id,ps.website_state,ps.website_load_started_at,ps.website_load_completed_at,ps.website_failure_category,ps.website_blocked_navigation_count,ps.website_current_host,ps.website_fallback_shown,ps.website_renderer_recovery_count FROM screen_manifest_state ms LEFT JOIN screen_group_memberships gm ON gm.screen_id=ms.screen_id LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=gm.screen_group_id LEFT JOIN screen_playlist_assignments pa ON pa.screen_id=ms.screen_id LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,pa.playlist_id) LEFT JOIN layouts l ON l.id=COALESCE(ga.layout_id,pa.layout_id) LEFT JOIN layout_revisions lr ON lr.id=l.published_revision_id LEFT JOIN screen_player_status ps ON ps.screen_id=ms.screen_id WHERE ms.screen_id=$1`, screenID).Scan(&a.PlaylistID, &a.PlaylistName, &a.PlaylistRevision, &a.LayoutID, &a.LayoutName, &a.LayoutRevision, &a.PresentationType, &a.ManifestVersion, &a.PlayerActiveManifestVersion, &a.PlayerPendingManifestVersion, &a.DownloadQueueCount, &a.DownloadedBytes, &a.RequiredBytes, &a.CacheUsedBytes, &a.CacheLimitBytes, &a.CurrentItemID, &a.CurrentAssetID, &a.PlaybackState, &a.LastSyncError, &a.LastPlaybackError, &a.CurrentScheduleID, &a.CurrentPlaylistID, &a.SelectionSource, &a.NextTransitionAt, &a.DeviceClockOffsetSeconds, &a.ScheduleEvaluationError, &a.ScheduleManifestVersion, &a.CurrentWebsiteAssetID, &a.WebsiteState, &a.WebsiteLoadStartedAt, &a.WebsiteLoadCompletedAt, &a.WebsiteFailureCategory, &a.WebsiteBlockedNavigationCount, &a.WebsiteCurrentHost, &a.WebsiteFallbackShown, &a.WebsiteRendererRecoveryCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Assignment{}, ErrNotFound
 	}
 	if err != nil {
 		return Assignment{}, err
 	}
+	return a, nil
+}
+
+func (s *Service) assignmentDetails(ctx context.Context, screenID uuid.UUID, a Assignment) (Assignment, error) {
+	var err error
 	_ = s.db.QueryRow(ctx, `SELECT active_takeover_id,takeover_state,takeover_preparation_progress,playback_disabled,last_command_id,last_command_state,last_command_result,last_command_completed_at FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&a.ActiveTakeoverID, &a.TakeoverState, &a.TakeoverPreparationProgress, &a.PlaybackDisabled, &a.LastCommandID, &a.LastCommandState, &a.LastCommandResult, &a.LastCommandCompletedAt)
 	_ = s.db.QueryRow(ctx, `SELECT active_config_revision,configuration_error FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&a.ActiveConfigRevision, &a.ConfigurationError)
 	a.Groups = []AssignmentGroup{}
