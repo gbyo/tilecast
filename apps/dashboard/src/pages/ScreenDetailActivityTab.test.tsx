@@ -96,7 +96,9 @@ function stubApi() {
   });
   vi.spyOn(api, "playlistAssignment").mockResolvedValue(empty);
   vi.spyOn(api, "screen").mockResolvedValue(screenRecord as never);
-  vi.spyOn(api, "screens").mockResolvedValue({ items: [screenRecord] } as never);
+  vi.spyOn(api, "screens").mockResolvedValue({
+    items: [screenRecord],
+  } as never);
 }
 
 beforeEach(() => {
@@ -138,8 +140,10 @@ async function primaryTabs() {
 }
 
 describe("screen detail navigation", () => {
-  it("maps legacy reliability links to Overview and opens Health diagnostics", async () => {
-    renderDetail("/screens/screen-1?tab=reliability");
+  it(
+    "maps legacy reliability links to Overview and opens Health diagnostics",
+    async () => {
+      renderDetail("/screens/screen-1?tab=reliability");
 
     const tabs = await primaryTabs();
     expect(
@@ -160,7 +164,8 @@ describe("screen detail navigation", () => {
     expect(
       await screen.findByRole("heading", { name: "Health & recovery" }),
     ).toBeTruthy();
-  });
+    },
+  );
 
   it("shows only the selected primary workspace", async () => {
     const user = userEvent.setup();
@@ -181,8 +186,10 @@ describe("screen detail navigation", () => {
     expect(screen.queryByText("Snapshot history")).toBeNull();
   });
 
-  it("keeps the legacy snapshot URL on Overview and opens history", async () => {
-    renderDetail("/screens/screen-1?tab=snapshots");
+  it(
+    "keeps the legacy snapshot URL on Overview and opens history",
+    async () => {
+      renderDetail("/screens/screen-1?tab=snapshots");
 
     expect(await screen.findByTestId("preview")).toBeTruthy();
     expect(await screen.findByText("Snapshot history")).toBeTruthy();
@@ -192,7 +199,8 @@ describe("screen detail navigation", () => {
         .getByRole("tab", { name: "Overview" })
         .getAttribute("aria-selected"),
     ).toBe("true");
-  });
+    },
+  );
 
   it("renders exactly one Activity tab in the primary strip", async () => {
     renderDetail("/screens/screen-1?tab=activity");
@@ -266,8 +274,10 @@ describe("screen detail navigation", () => {
     expect(screen.getByText("Installer source")).toBeTruthy();
   });
 
-  it("keeps viewer maintenance history accessible through diagnostics", async () => {
-    authStatus.user = { id: "user-2", name: "Viewer", role: "viewer" };
+  it(
+    "keeps viewer maintenance history accessible through diagnostics",
+    async () => {
+      authStatus.user = { id: "user-2", name: "Viewer", role: "viewer" };
     try {
       renderDetail("/screens/screen-1?tab=manage&section=maintenance");
       expect(await screen.findByText("Recent operations")).toBeTruthy();
@@ -277,5 +287,6 @@ describe("screen detail navigation", () => {
     } finally {
       authStatus.user = { id: "user-1", name: "Owner", role: "owner" };
     }
-  });
+    },
+  );
 });
