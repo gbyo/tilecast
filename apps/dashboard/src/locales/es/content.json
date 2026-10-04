@@ -7,7 +7,11 @@
       "description": "Los elementos archivados permanecen disponibles hasta que los restaures o los elimines de forma permanente.",
       "keepInLibrary": "Mantener en la biblioteca",
       "moveToArchive": "Mover al archivo",
-      "title": "¿Mover {{name}} al archivo?"
+      "title": "¿Mover {{name}} al archivo?",
+      "archived": "Elemento archivado.",
+      "archivedBulk_one": "Se archivó {{count}} elemento.",
+      "archivedBulk_other": "Se archivaron {{count}} elementos.",
+      "archivedBulk_many": "Se archivaron {{count}} de elementos."
     },
     "badge": {
       "archived": "Archivado",
@@ -43,7 +47,8 @@
     },
     "deleteDialog": {
       "keepItem": "Conservar elemento",
-      "title": "¿Eliminar {{name}} de forma permanente?"
+      "title": "¿Eliminar {{name}} de forma permanente?",
+      "deleted": "Elemento eliminado de forma permanente."
     },
     "details": {
       "archiveAsset": "Archivar archivo",
@@ -71,6 +76,12 @@
       "playlistsGroup": "Listas de reproducción",
       "publishedHint": "Publicado",
       "retryProcessing": "Reintentar el procesamiento",
+      "retryStarted": "Se inició el reprocesamiento.",
+      "retryFailed": "No se pudo reiniciar el procesamiento.",
+      "saved": "Detalles del medio guardados.",
+      "saveFailed": "No se pudieron guardar los detalles del medio.",
+      "organizationUpdated": "Organización del recurso actualizada.",
+      "organizationFailed": "No se pudo actualizar la organización del recurso.",
       "statusField": "Estado",
       "tags": "Etiquetas",
       "unfiled": "Sin carpeta"
@@ -85,6 +96,15 @@
       "dropHint": "Arrastra imágenes o videos aquí, o elige archivos para empezar tu biblioteca.",
       "libraryTitle": "Aún no hay contenido multimedia",
       "uploadRoles": "Un propietario, administrador o editor puede subir multimedia."
+    },
+    "errors": {
+      "archiveFailed": "No se pudo archivar el elemento.",
+      "deleteFailed": "No se pudo eliminar el elemento.",
+      "restoreFailed_one": "No se pudo restaurar {{count}} elemento.",
+      "restoreFailed_other": "No se pudieron restaurar {{count}} elementos.",
+      "restoreFailed_many": "No se pudieron restaurar {{count}} de elementos.",
+      "bulkDeleteFailed": "No se pudieron eliminar los elementos seleccionados.",
+      "bulkArchiveFailed": "No se pudieron archivar los elementos seleccionados."
     },
     "library": {
       "descriptionActive": "Imágenes y videos subidos disponibles para listas de reproducción y diseños.",
@@ -161,6 +181,11 @@
     },
     "preview": {
       "unavailable": "Vista previa no disponible"
+    },
+    "restore": {
+      "success_one": "{{count}} elemento restaurado.",
+      "success_other": "{{count}} elementos restaurados.",
+      "success_many": "{{count}} de elementos restaurados."
     },
     "status": {
       "deleted": "Eliminado",
@@ -251,7 +276,9 @@
       "urlField": "URL HTTPS",
       "userAgent": "Agente de usuario personalizado",
       "userAgentHint": "Déjalo en blanco para usar el agente de usuario estándar de Android WebView. Los cambios pueden romper sitios.",
-      "zoom": "Porcentaje de zoom"
+      "zoom": "Porcentaje de zoom",
+      "deleted": "Aplicación web eliminada.",
+      "deleteFailed": "No se pudo eliminar la aplicación web."
     }
   },
   "picker": {
@@ -391,6 +418,7 @@
   },
   "widgets": {
     "duplicateSuccess": "Widget duplicado.",
+    "duplicateFailed": "No se pudo duplicar el widget.",
     "list": {
       "title": "Widgets",
       "create": "Crear widget",

@@ -40,7 +40,7 @@ import { toast } from "@tilecast/studio/ui/toast";
 import { expandCapabilities } from "./capabilities";
 import { formToneBadgeProps } from "./formBadge";
 import type { FormsT } from "./formSchema";
-import { usePluginTranslation } from "@tilecast/studio";
+import { apiErrorMessage, usePluginTranslation } from "@tilecast/studio";
 import en from "../locales/en.json";
 
 // Grantable capabilities in lattice order (broadest first), each with a plain-language implication.
@@ -127,7 +127,9 @@ export function AccessPanel({
       setError("");
     },
     onError: (err) =>
-      setError(err instanceof Error ? err.message : t("access.updateError")),
+      setError(
+        err instanceof Error ? apiErrorMessage(err) : t("access.updateError"),
+      ),
   });
 
   if (access.isLoading) return <Spinner aria-label={t("access.loading")} />;
@@ -137,7 +139,7 @@ export function AccessPanel({
         <AlertTitle>{t("access.loadError")}</AlertTitle>
         <AlertDescription>
           {access.error instanceof Error
-            ? access.error.message
+            ? apiErrorMessage(access.error)
             : t("access.loadRetry")}
         </AlertDescription>
       </Alert>
@@ -340,6 +342,15 @@ function GrantAccess({
       ) : search.trim().length > 0 ? (
         directory.isLoading ? (
           <Spinner aria-label={t("access.grant.searching")} />
+        ) : directory.isError ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("access.grant.searchError")}</AlertTitle>
+            <AlertDescription>
+              {directory.error instanceof Error
+                ? apiErrorMessage(directory.error)
+                : t("access.loadRetry")}
+            </AlertDescription>
+          </Alert>
         ) : (directory.data ?? []).filter(
             (user) => !excludeUserIds.has(user.id),
           ).length === 0 ? (

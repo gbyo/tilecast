@@ -47,7 +47,8 @@
       "grantingTo": "Granting access to",
       "searching": "Searching…",
       "noMatch": "No matching users",
-      "noMatchHint": "Try a different search."
+      "noMatchHint": "Try a different search.",
+      "searchError": "User search failed"
     },
     "includedByBroader": "Included by a broader capability.",
     "saveAccess": "Save access"

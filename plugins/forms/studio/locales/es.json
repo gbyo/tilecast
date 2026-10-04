@@ -47,7 +47,8 @@
       "grantingTo": "Concediendo acceso a",
       "searching": "Buscando…",
       "noMatch": "Sin usuarios coincidentes",
-      "noMatchHint": "Prueba con otra búsqueda."
+      "noMatchHint": "Prueba con otra búsqueda.",
+      "searchError": "Falló la búsqueda de usuarios"
     },
     "includedByBroader": "Incluido por una capacidad más amplia.",
     "saveAccess": "Guardar acceso"
