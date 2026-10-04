@@ -11,7 +11,8 @@ ownership and extraction order. It supplements the Linux architecture without
 changing process, privilege, wire, persistence, or update guarantees. Shared
 values are implemented in `crates/player-types`, and durable state in
 `crates/player-state`. Historical Edge-only repositories use
-`edge-state::platform`. The root Cargo workspace
+`edge-state::platform`. Verified storage lives in `crates/player-cas`;
+`edge-cas::space` supplies Linux free-space providers. The root Cargo workspace
 migration is qualified. Remaining shared behavior extraction follows the contract.
 
 ## Fixed decisions

@@ -166,3 +166,50 @@ test("shared validation selects registered root crates and never Edge packages",
     rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("privileged Edge helpers have no storage, server client, or Core dependency", () => {
+  const root = manifest("Cargo.toml");
+  const packages = new Map(
+    root.workspace.members.map((path) => {
+      const data = manifest(`${path}/Cargo.toml`);
+      return [data.package.name, { path, data }];
+    }),
+  );
+  const forbidden = new Set([
+    "edge-state",
+    "edge-cas",
+    "edge-server",
+    "player-state",
+    "player-cas",
+    "player-client",
+    "player-core",
+  ]);
+  for (const helper of ["tilecast-edge-migrate", "tilecast-edge-update"]) {
+    const seen = new Set();
+    const queue = [helper];
+    for (const name of queue) {
+      assert.equal(forbidden.has(name), false, `${helper} reaches ${name}`);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const item = packages.get(name);
+      if (!item) continue;
+      const tables = [item.data, ...Object.values(item.data.target ?? {})];
+      for (const table of tables) {
+        for (const [alias, original] of Object.entries(
+          table.dependencies ?? {},
+        )) {
+          const dependency = original.workspace
+            ? root.workspace.dependencies[alias]
+            : original;
+          let target = dependency.package ?? alias;
+          if (dependency.path) {
+            const base = original.workspace ? "." : item.path;
+            target = manifest(resolve(base, dependency.path, "Cargo.toml"))
+              .package.name;
+          }
+          if (packages.has(target)) queue.push(target);
+        }
+      }
+    }
+  }
+});

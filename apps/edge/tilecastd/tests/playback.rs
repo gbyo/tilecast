@@ -946,7 +946,7 @@ impl edge_protocol::time::WallClock for SteppedClock {
 #[derive(Debug)]
 struct Space(AtomicU64);
 
-impl edge_platform::disk::SpaceProbe for Space {
+impl edge_cas::space::SpaceProbe for Space {
     fn available_bytes(&self, _: &Path) -> std::io::Result<u64> {
         Ok(self.0.load(Ordering::SeqCst))
     }
