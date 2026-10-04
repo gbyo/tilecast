@@ -2700,6 +2700,20 @@ export function ScreenDetailPage() {
     ...screenQueries.detail(id),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
+  useEffect(() => {
+    if (
+      searchParams.get("tab") !== "content" &&
+      searchParams.get("focus") !== "content"
+    )
+      return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("screen-content")?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [query.data?.id, searchParams]);
   const screens = useQuery({
     ...screenQueries.list(),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
@@ -2940,6 +2954,7 @@ export function ScreenDetailPage() {
     else next.set("tab", destination.tab);
     next.delete("panel");
     next.delete("section");
+    next.delete("focus");
     setSearchParams(next);
     setPendingDestination(null);
     setPolicyDirty(false);
