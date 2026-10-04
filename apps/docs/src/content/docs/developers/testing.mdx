@@ -60,6 +60,8 @@ Ordinary settings, user, authentication, backup, and content administration HTTP
 
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
+Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.
+
 ## Run tests for changed code
 
 Fetch `origin/main`, then ask Vitest to run tests related to changed files in Dashboard or Linux Player:

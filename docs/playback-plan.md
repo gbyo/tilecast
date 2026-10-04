@@ -7,17 +7,31 @@ Screen Overview.
 
 ## Studio inspection
 
-The Expected presentation panel shows selected content, its source, and the
-next reevaluation boundary. The Why this selection control shows candidate
-reasons, schedule context, reported synchronization, and Widget support.
-These decisions come from the API. Studio does not evaluate precedence or
-capability compatibility.
+The Playback card shows Expected now with a source badge: Takeover, Show
+Now, Schedule, or Default. It also shows the default content that plays when
+nothing overrides it. The Schedule card shows the active schedule, a truthful
+Next row, and the other content schedules. Display-control schedules stay out
+of content selection. These decisions come from the API. Studio does not
+evaluate precedence or capability compatibility.
 
-The panel refreshes server-time inspection every ten seconds. A specified
-instant uses a separate Screen query key. Use Refresh to read it again.
-Screen invalidation includes both current and specified-instant inspections.
-Query cancellation reaches the typed transport. A loading or failed request
-does not display another instant's cached evidence.
+Next never treats the boundary as a change. Studio reads the current plan,
+then reads the plan at `nextEvaluationAt` through a separate query key. It
+compares the two selections. It shows a change only when the authority
+selects different content at the boundary. It shows the boundary alone when
+the second read fails.
+
+Why this opens the explanation panel. It lists Takeover, Show Now, schedule,
+and default candidates in stable precedence order with status badges and
+reasons. It traces the selected playlist or layout through its content path.
+It does not show synchronization or capability evidence. That evidence lives
+in the Diagnostics Playback tab with manifests, downloads, renderer state,
+and Widget support.
+
+The current inspection refreshes every ten seconds. A specified instant uses
+a separate Screen query key and does not poll. Screen invalidation includes
+both current and specified-instant inspections. Query cancellation reaches
+the typed transport. A loading or failed request does not display another
+instant's cached evidence.
 
 The time picker and displayed dates use the browser time zone. The panel
 states that time zone. The shared calendar includes the next ten years when
