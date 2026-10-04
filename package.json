@@ -26,7 +26,7 @@
     "player-contracts:check": "node scripts/generate-player-contracts.mjs --check",
     "player:linux:dist": "npm run dist --workspace @gibsonmb71/tilecast-player-linux",
     "format": "prettier --write .",
-    "format:check": "prettier --write . && git diff --exit-code",
+    "format:check": "prettier --check .",
     "lint": "npm run lint --workspace @tilecast/dashboard",
     "doctor": "npm run doctor --workspace @tilecast/dashboard",
     "doctor:changed": "npm run doctor:changed --workspace @tilecast/dashboard",
