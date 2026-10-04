@@ -2,9 +2,10 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderPluginRoute } from "@tilecast/studio/testing";
+import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
 import { formsApi } from "./api";
 import { FormsPluginPage } from "./FormsPluginPage";
+import { ApiError } from "@tilecast/studio";
 
 afterEach(() => {
   cleanup();
@@ -56,5 +57,25 @@ describe("Forms plugin", () => {
     expect(await screen.findByText("Could not load forms")).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
     expect(screen.queryByText("No forms yet")).not.toBeInTheDocument();
+  });
+
+  it("presents library load failures through the localized API error path", async () => {
+    await i18n.changeLanguage("ru");
+    vi.spyOn(formsApi, "listForms").mockRejectedValue(
+      new ApiError("Server-provided forms failure.", 429, "rate_limited"),
+    );
+
+    renderPluginRoute(<FormsPluginPage />, {
+      path: "/plugins/forms",
+      patterns: ["/plugins/forms"],
+      role: "owner",
+    });
+
+    expect(
+      await screen.findByText(
+        "Слишком много попыток. Подождите немного и повторите попытку.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Server-provided forms failure.")).toBe(null);
   });
 });

@@ -6,6 +6,7 @@
  * Widget's state into evidence, and nothing is left behind on disposal.
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { announceError, widgetInputRevision } from "@tilecast/widget-sdk";
 import type {
   RuntimeItem,
   RuntimeWidgetComponentPayload,
@@ -332,13 +333,9 @@ describe("Layout zones", () => {
     await (element as unknown as { updateComplete: Promise<unknown> })
       .updateComplete;
 
-    element.dispatchEvent(
-      new CustomEvent("tilecast-widget-error", {
-        bubbles: true,
-        composed: true,
-        detail: { code: "runtime_failure" },
-      }),
-    );
+    announceError(element, "stale_failure", widgetInputRevision(element) - 1);
+    expect(log.some((entry) => entry.startsWith("zoneFailed:"))).toBe(false);
+    announceError(element, "runtime_failure");
 
     expect(
       log.filter((entry) => entry === "layout-zone-rendered/zone"),

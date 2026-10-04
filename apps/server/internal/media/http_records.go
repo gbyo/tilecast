@@ -241,7 +241,7 @@ func httpRecordsFromCSV(body []byte, spec contentdefs.FetchSpec, limit int) ([]m
 
 // HTTPRecordsPreview projects an unsaved http_records configuration, so Studio previews
 // exercise the same request and mapping the Player will receive.
-func (s *Service) HTTPRecordsPreview(ctx context.Context, provider string, raw json.RawMessage) (TypedDatasetPayload, error) {
+func (s *Service) HTTPRecordsPreview(ctx context.Context, provider string, raw json.RawMessage, previewDates ...string) (TypedDatasetPayload, error) {
 	definition, ok := s.httpRecordsSpec(provider)
 	if !ok {
 		return TypedDatasetPayload{}, errors.New("data source provider does not fetch records")
@@ -259,5 +259,76 @@ func (s *Service) HTTPRecordsPreview(ctx context.Context, provider string, raw j
 		return TypedDatasetPayload{}, err
 	}
 	payload, _, err := s.refreshHTTPRecords(ctx, definition, config)
-	return payload, err
+	if err != nil || len(previewDates) == 0 || previewDates[0] == "" {
+		return payload, err
+	}
+	return httpRecordsPreviewForDate(payload, definition, previewDates[0]), nil
+}
+
+// httpRecordsPreviewForDate selects records with a declared date field for the
+// chosen preview day, or evaluates declared start/end fields as an active window.
+// Sources without those temporal fields are independent of the preview date.
+func httpRecordsPreviewForDate(payload TypedDatasetPayload, definition contentdefs.DataSourceDefinition, previewDate string) TypedDatasetPayload {
+	date, ok := previewDateAt(previewDate, "UTC")
+	if !ok {
+		return payload
+	}
+	dateKey, startKey, endKey := "", "", ""
+	for _, field := range definition.OutputSchema.Fields {
+		if field.Type != "date" && field.Type != "datetime" {
+			continue
+		}
+		switch field.Key {
+		case "date":
+			dateKey = field.Key
+		case "start", "effective":
+			startKey = field.Key
+		case "end", "expires":
+			endKey = field.Key
+		}
+	}
+	if dateKey == "" && startKey == "" && endKey == "" {
+		return payload
+	}
+	for datasetIndex := range payload.Datasets {
+		dataset := &payload.Datasets[datasetIndex]
+		if len(dataset.Records) == 0 {
+			continue
+		}
+		selected := make([]TypedRecord, 0, len(dataset.Records))
+		for _, record := range dataset.Records {
+			if dateKey != "" {
+				if recordDateInLocation(record.Values[dateKey], time.UTC) != previewDate {
+					continue
+				}
+			} else {
+				if startKey != "" {
+					start, valid := parsePreviewRecordTime(record.Values[startKey])
+					if valid && start.After(date) {
+						continue
+					}
+				}
+				if endKey != "" {
+					end, valid := parsePreviewRecordTime(record.Values[endKey])
+					if valid && !end.After(date) {
+						continue
+					}
+				}
+			}
+			selected = append(selected, record)
+		}
+		dataset.Records = selected
+	}
+	return payload
+}
+
+func parsePreviewRecordTime(value string) (time.Time, bool) {
+	if parsed, err := time.Parse(time.RFC3339, value); err == nil {
+		return parsed, true
+	}
+	parsed, err := time.ParseInLocation("2006-01-02", value, time.UTC)
+	if err != nil || parsed.Format("2006-01-02") != value {
+		return time.Time{}, false
+	}
+	return parsed, true
 }

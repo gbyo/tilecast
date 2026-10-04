@@ -3359,6 +3359,73 @@ paths:
         "404": { description: User not found }
         "409": { description: "User is active, is the current user, or changed
               state" }
+  /api/v1/users/{id}/screen-scopes:
+    get:
+      operationId: getUserScreenScopes
+      description: >-
+        Read which locations and sync groups an account may operate screens
+        in. Requires an Owner or Administrator with the admin scope. An
+        empty grant list means the whole fleet.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Screen scope grants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenScopeList" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+    put:
+      operationId: putUserScreenScopes
+      description: >-
+        Replace an account's screen scope grants. Requires an Owner or
+        Administrator with the admin scope. Cookie-authenticated unsafe
+        requests require X-CSRF-Token. An Owner cannot be scoped and
+        nobody can change their own scope.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scopes]
+              properties:
+                scopes:
+                  type: array
+                  items: { $ref: "#/components/schemas/ScreenScope" }
+      responses:
+        "200":
+          description: Screen scope grants replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/ScreenScopeList" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+        "422": { description: Scope invalid or account not scopable }
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -4020,6 +4087,10 @@ paths:
                 locationId: { type: [string, "null"], format: uuid }
                 roomName: { type: string, maxLength: 120 }
                 roomNumber: { type: string, maxLength: 80 }
+                mapPositionOverride:
+                  oneOf:
+                    - { $ref: "#/components/schemas/MapCoordinates" }
+                    - { type: "null" }
                 description: { type: string, maxLength: 1000 }
       responses:
         "200":
@@ -5087,6 +5158,50 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/Playlist" }
+  /api/v1/screens/{id}/playback-plan:
+    parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+    get:
+      operationId: getScreenPlaybackPlan
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Inspect expected presentation selection for one Screen. Requires the
+        read scope and access to the Screen. Omit at to use captured server time.
+        Instants before captured server time use recorded expected playback
+        windows. Historical gaps do not use current configuration. Current and
+        future instants evaluate current configuration in one read-only snapshot.
+        Reported capability and synchronization evidence describes current state,
+        including for future predictions. This endpoint does not prove actual play.
+      parameters:
+        - in: query
+          name: at
+          description: One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected.
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Expected selection or explicit historical evidence gap
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaybackPlan" }
+        "400":
+          description: invalid_playback_plan_instant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlaybackPlanError" }
+        "401": { description: Management authentication required }
+        "403": { description: Grant lacks the read scope }
+        "404":
+          {
+            description: "Invalid Screen ID, screen_not_found, or Screen outside account scope",
+          }
+        "409":
+          description: playback_expectation_ambiguous; recorded windows overlap
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlaybackPlanError" }
   /api/v1/screens/{id}/playlist-assignment:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
@@ -12445,6 +12560,288 @@ components:
         presentationType: { type: string, enum: [playlist, layout] }
         priority: { type: integer }
         enabled: { type: boolean }
+    PlaybackPlanError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+    PlaybackPlan:
+      type: object
+      additionalProperties: false
+      required: [screenId, at, evaluatedAt, basis]
+      description: Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+      properties:
+        screenId: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+        evaluatedAt: { type: string, format: date-time }
+        basis:
+          type: string
+          enum:
+            [
+              current_configuration,
+              recorded_expectation,
+              historical_expectation_unavailable,
+            ]
+        current: { $ref: "#/components/schemas/PlaybackPlanCurrent" }
+        historical: { $ref: "#/components/schemas/PlaybackPlanHistorical" }
+    PlaybackPlanCurrent:
+      type: object
+      additionalProperties: false
+      required: [candidates, synchronization, capabilities]
+      properties:
+        selected: { $ref: "#/components/schemas/PlaybackPlanSelection" }
+        candidates:
+          type: array
+          items: { $ref: "#/components/schemas/PlaybackPlanCandidate" }
+        nextEvaluationAt:
+          type: string
+          format: date-time
+          description: Next reevaluation boundary, not a guarantee that selected content changes.
+        synchronization:
+          { $ref: "#/components/schemas/PlaybackPlanSynchronization" }
+        capabilities: { $ref: "#/components/schemas/PlaybackPlanCapabilities" }
+    PlaybackPlanSelection:
+      type: object
+      additionalProperties: false
+      required: [source, contentType, contentId, reason]
+      properties:
+        source:
+          {
+            type: string,
+            enum: [takeover, quick_present, schedule, assignment],
+          }
+        contentType: { type: string, enum: [playlist, layout, asset] }
+        contentId: { type: string, format: uuid }
+        name:
+          {
+            type: string,
+            description: "Current selected content name; absent for a missing resource.",
+          }
+        scheduleName:
+          {
+            type: string,
+            description: "Current selected schedule name, when a schedule selects the content.",
+          }
+        selectionId: { type: string, format: uuid }
+        revision:
+          type: integer
+          format: int64
+          description: Current playlist or published Layout revision; absent for assets, missing resources, and unpublished Layouts.
+        reason: { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
+    PlaybackPlanSelectionReason:
+      type: string
+      enum:
+        [
+          active_takeover,
+          active_quick_present,
+          assigned_fallback,
+          schedule_highest_precedence,
+          schedule_disabled,
+          schedule_not_active,
+          schedule_lower_priority,
+          schedule_less_specific,
+          schedule_earlier_start,
+          schedule_stable_id_tiebreak,
+          no_active_takeover,
+          no_active_quick_present,
+          no_assignment,
+        ]
+    PlaybackPlanCandidate:
+      type: object
+      additionalProperties: false
+      required: [source, status, reason]
+      properties:
+        source:
+          {
+            type: string,
+            enum: [takeover, quick_present, schedule, assignment],
+          }
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [selected, superseded, inactive] }
+        reason: { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
+        scheduleReason:
+          { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
+        name:
+          {
+            type: string,
+            description: "Current schedule candidate name, when available.",
+          }
+        schedule: { $ref: "#/components/schemas/PlaybackPlanScheduleCandidate" }
+    PlaybackPlanScheduleCandidate:
+      type: object
+      additionalProperties: false
+      required: [scheduleId, status, reason, priority, specificity]
+      description: Scheduling authority evidence remains available when a temporary presentation supersedes the schedule.
+      properties:
+        scheduleId: { type: string, format: uuid }
+        status: { type: string, enum: [selected, superseded, inactive] }
+        reason: { $ref: "#/components/schemas/PlaybackPlanSelectionReason" }
+        priority: { type: integer }
+        specificity: { type: integer }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+    PlaybackPlanSynchronization:
+      type: object
+      additionalProperties: false
+      required: [status, manifestVersion]
+      description: Latest reported manifest synchronization; not content readiness or proof of playback.
+      properties:
+        status:
+          {
+            type: string,
+            enum: [not_reported, current, preparing, out_of_date],
+          }
+        manifestVersion: { type: integer, format: int64 }
+        activeManifestVersion: { type: integer, format: int64 }
+        pendingManifestVersion: { type: integer, format: int64 }
+    PlaybackPlanCapabilities:
+      type: object
+      additionalProperties: false
+      required: [status, reason]
+      properties:
+        status:
+          {
+            type: string,
+            enum: [supported, blocked, unknown, not_applicable, unavailable],
+          }
+        reason:
+          {
+            type: string,
+            enum:
+              [
+                no_selected_content,
+                selected_content_not_found,
+                selected_content_not_published,
+                presentation_requirements_invalid,
+                reported_requirements_supported,
+                player_capabilities_not_reported,
+                no_widget_presentation_requirements,
+                manifest_v13_capabilities_not_reported,
+                widget_requirements_unsupported,
+              ],
+          }
+        evidence:
+          { $ref: "#/components/schemas/PlaybackPlanCapabilityEvidence" }
+    PlaybackPlanCapabilityEvidence:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          screenId,
+          status,
+          reason,
+          reported,
+          schemaVersions,
+          nativeCapabilities,
+          webRuntimeVersion,
+          requiresManifestV13,
+          widgets,
+        ]
+      description: Widget presentation requirements and reported support. No Data Source configuration or content payload is returned. Media decoder, network, readiness, and actual rendering behavior are outside this evidence.
+      properties:
+        screenId: { type: string, format: uuid }
+        status:
+          { type: string, enum: [supported, blocked, unknown, not_applicable] }
+        reason:
+          {
+            type: string,
+            enum:
+              [
+                reported_requirements_supported,
+                player_capabilities_not_reported,
+                no_widget_presentation_requirements,
+                manifest_v13_capabilities_not_reported,
+                widget_requirements_unsupported,
+              ],
+          }
+        reported: { type: boolean }
+        schemaVersions:
+          type: array
+          items: { type: integer }
+        nativeCapabilities:
+          type: object
+          additionalProperties: { type: integer }
+        webRuntimeVersion: { type: integer }
+        requiresManifestV13: { type: boolean }
+        widgets:
+          type: array
+          items: { $ref: "#/components/schemas/PlaybackPlanWidgetCapabilities" }
+    PlaybackPlanWidgetCapabilities:
+      type: object
+      additionalProperties: false
+      required: [assetId, name, status, reason]
+      properties:
+        assetId: { type: string, format: uuid }
+        name: { type: string }
+        status: { type: string, enum: [supported, blocked, unknown] }
+        reason:
+          {
+            type: string,
+            enum:
+              [
+                player_capabilities_not_reported,
+                component_capabilities_not_reported,
+                no_presentation_requirements,
+                presentation_requirements_unsupported,
+                reported_requirements_supported,
+              ],
+          }
+        selectedRenderer: { type: string, enum: [component, compatibility] }
+        component:
+          { $ref: "#/components/schemas/PlaybackPlanPresentationRequirements" }
+        compatibility:
+          { $ref: "#/components/schemas/PlaybackPlanPresentationRequirements" }
+    PlaybackPlanPresentationRequirements:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, capabilities, supported]
+      properties:
+        schemaVersion: { type: integer }
+        capabilities:
+          type: object
+          additionalProperties: { type: integer }
+        supported:
+          type: [boolean, "null"]
+          description: Null until the Player reports its presentation profile.
+    PlaybackPlanHistorical:
+      type: object
+      additionalProperties: false
+      properties:
+        expectation:
+          { $ref: "#/components/schemas/PlaybackPlanRecordedExpectation" }
+    PlaybackPlanRecordedExpectation:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          windowId,
+          presentationType,
+          presentationId,
+          presentationRevision,
+          source,
+          timezone,
+          start,
+        ]
+      properties:
+        windowId: { type: string, format: uuid }
+        presentationType: { type: string }
+        presentationId: { type: string }
+        presentationRevision: { type: string }
+        manifestVersion: { type: integer, format: int64 }
+        scheduleId: { type: string }
+        source: { type: string }
+        timezone: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        supersededAt: { type: string, format: date-time }
+        supersededReason: { type: string }
+        contentType: { type: string }
+        contentId: { type: string }
     ScreenPlaylistAssignment:
       type: object
       additionalProperties: false
@@ -15071,6 +15468,21 @@ components:
         screenCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    MapCoordinates:
+      type: object
+      additionalProperties: false
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+    ScreenMapPosition:
+      type: object
+      additionalProperties: false
+      required: [latitude, longitude, source]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        source: { type: string, enum: [screen, location] }
     Screen:
       type: object
       additionalProperties: false
@@ -15108,6 +15520,8 @@ components:
         locationDetails: { $ref: "#/components/schemas/ScreenLocation" }
         roomName: { type: string }
         roomNumber: { type: string }
+        mapPositionOverride: { $ref: "#/components/schemas/MapCoordinates" }
+        mapPosition: { $ref: "#/components/schemas/ScreenMapPosition" }
         syncGroupId: { type: string, format: uuid }
         syncGroupName: { type: string }
         nowPlayingName: { type: string }
@@ -15236,6 +15650,23 @@ components:
           type: array
           items: { $ref: "#/components/schemas/ManagedUser" }
         total: { type: integer, minimum: 0 }
+    ScreenScope:
+      type: object
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type: { type: string, enum: [location, group] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+    ScreenScopeList:
+      type: object
+      additionalProperties: false
+      required: [scopes, wholeFleet]
+      properties:
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/ScreenScope" }
+        wholeFleet: { type: boolean }
     AuthStatus:
       type: object
       additionalProperties: false

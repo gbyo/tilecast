@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react";
+import { useTranslation } from "react-i18next";
 import { cn } from "cn";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ function ComboboxTrigger({
   children,
   ...props
 }: ComboboxPrimitive.Trigger.Props) {
+  const { t } = useTranslation("common");
   return (
     <ComboboxPrimitive.Trigger
       data-slot="combobox-trigger"
@@ -32,11 +34,13 @@ function ComboboxTrigger({
     >
       {children}
       <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+      <span className="sr-only">{t("actions.toggleOptions")}</span>
     </ComboboxPrimitive.Trigger>
   );
 }
 
 function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
+  const { t } = useTranslation("common");
   return (
     <ComboboxPrimitive.Clear
       data-slot="combobox-clear"
@@ -45,6 +49,7 @@ function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
       {...props}
     >
       <XIcon className="pointer-events-none" />
+      <span className="sr-only">{t("actions.clear")}</span>
     </ComboboxPrimitive.Clear>
   );
 }
@@ -240,6 +245,7 @@ function ComboboxChip({
 }: ComboboxPrimitive.Chip.Props & {
   showRemove?: boolean;
 }) {
+  const { t } = useTranslation("common");
   return (
     <ComboboxPrimitive.Chip
       data-slot="combobox-chip"
@@ -257,6 +263,7 @@ function ComboboxChip({
           data-slot="combobox-chip-remove"
         >
           <XIcon className="pointer-events-none" />
+          <span className="sr-only">{t("actions.remove")}</span>
         </ComboboxPrimitive.ChipRemove>
       )}
     </ComboboxPrimitive.Chip>

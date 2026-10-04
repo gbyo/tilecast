@@ -19,6 +19,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Tilecast uses the camera to scan pairing QR codes shown by Tilecast Player.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Tilecast connects to Tilecast servers on your local network.</string>
 	<key>UIApplicationSceneManifest</key>

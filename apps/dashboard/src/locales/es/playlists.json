@@ -192,7 +192,8 @@
       "itemsAdded_other": "{{count}} elementos agregados a la lista de reproducción."
     },
     "loadingLabel": "Cargando lista de reproducción",
-    "noPublishedLayoutsTitle": "No hay diseños publicados"
+    "noPublishedLayoutsTitle": "No hay diseños publicados",
+    "leaveTitle": "¿Descartar los cambios sin guardar de la lista de reproducción?"
   },
   "header": {
     "back": "Listas de reproducción",

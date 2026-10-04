@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useBlocker } from "react-router";
+import { useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -36,7 +35,7 @@ import { toast } from "@tilecast/studio/ui/toast";
 import { formToneBadgeProps } from "./formBadge";
 import { slugifyKey } from "./formKeys";
 import type { FormsT } from "./formSchema";
-import { usePluginTranslation } from "@tilecast/studio";
+import { useNavigationWarning, usePluginTranslation } from "@tilecast/studio";
 import en from "../locales/en.json";
 
 type CapabilityOptionLabelKey =
@@ -86,26 +85,17 @@ export function WorkflowEditor({
   const baseline = useRef(JSON.stringify(form.workflow));
   const current = JSON.stringify({ states, transitions });
   const dirty = current !== baseline.current;
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty &&
-      (currentLocation.pathname !== nextLocation.pathname ||
-        currentLocation.search !== nextLocation.search ||
-        currentLocation.hash !== nextLocation.hash),
-  );
-
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // Any change to the path, query string, or hash unmounts this editor (the
+  // detail tabs are search-param driven), so all three count as leaving.
+  const navigationWarning = useNavigationWarning({
+    dirty,
+    title: t("workflow.leaveTitle"),
+    body: t("workflow.leaveBody"),
+    shouldBlock: (currentLocation, nextLocation) =>
+      currentLocation.pathname !== nextLocation.pathname ||
+      currentLocation.search !== nextLocation.search ||
+      currentLocation.hash !== nextLocation.hash,
+  });
 
   const errors = useMemo(
     () => validateWorkflow(states, transitions, t),
@@ -222,20 +212,7 @@ export function WorkflowEditor({
 
   return (
     <div className="grid gap-4">
-      {blocker.state === "blocked" && (
-        <Alert>
-          <AlertTitle>{t("workflow.leaveTitle")}</AlertTitle>
-          <AlertDescription>{t("workflow.leaveBody")}</AlertDescription>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => blocker.reset?.()}>
-              {t("workflow.stay")}
-            </Button>
-            <Button variant="default" onClick={() => blocker.proceed?.()}>
-              {t("workflow.leave")}
-            </Button>
-          </div>
-        </Alert>
-      )}
+      {navigationWarning}
       {error && (
         <Alert variant="destructive">
           <AlertTitle>{t("workflow.notSaved")}</AlertTitle>

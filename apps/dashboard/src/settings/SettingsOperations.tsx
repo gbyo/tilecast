@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DateTimeInput } from "../components/date-picker";
 import { GitHubIcon } from "../components/GitHubIcon";
@@ -602,7 +603,7 @@ export function PlayerUpdatesPanel({
         ...flow,
         retryAfterSeconds: flow.pollIntervalSeconds,
       }),
-    onError: (error) => setGitHubAuthMessage(error.message),
+    onError: (error) => setGitHubAuthMessage(apiErrorMessage(error)),
   });
   const disconnectGitHub = useMutation({
     mutationFn: () => api.disconnectGitHub(auth.status?.csrfToken ?? ""),
@@ -616,7 +617,7 @@ export function PlayerUpdatesPanel({
       });
       await client.invalidateQueries({ queryKey: ["player-releases"] });
     },
-    onError: (error) => setGitHubAuthMessage(error.message),
+    onError: (error) => setGitHubAuthMessage(apiErrorMessage(error)),
   });
   useEffect(() => {
     if (!githubFlow) return;
@@ -665,7 +666,7 @@ export function PlayerUpdatesPanel({
           setGitHubFlow(null);
           setGitHubAuthMessage(
             error instanceof Error
-              ? error.message
+              ? apiErrorMessage(error)
               : t("updates.panel.githubIncomplete"),
           );
         });
@@ -1090,7 +1091,9 @@ export function PlayerUpdatesPanel({
                               locale,
                             )}
                           </span>
-                          <span>{formatBytes(release.apkSizeBytes)}</span>
+                          <span>
+                            {formatBytes(release.apkSizeBytes, locale)}
+                          </span>
                         </div>
                         {release.cacheStatus === "downloading" && (
                           <span className="player-release-cache-progress grid gap-1">
@@ -1099,8 +1102,12 @@ export function PlayerUpdatesPanel({
                                 version: release.versionName,
                                 downloaded: formatBytes(
                                   release.downloadedBytes,
+                                  locale,
                                 ),
-                                total: formatBytes(release.apkSizeBytes),
+                                total: formatBytes(
+                                  release.apkSizeBytes,
+                                  locale,
+                                ),
                               })}
                               value={Math.min(
                                 release.downloadedBytes,
@@ -1113,8 +1120,12 @@ export function PlayerUpdatesPanel({
                               {t("updates.panel.downloadProgress", {
                                 downloaded: formatBytes(
                                   release.downloadedBytes,
+                                  locale,
                                 ),
-                                total: formatBytes(release.apkSizeBytes),
+                                total: formatBytes(
+                                  release.apkSizeBytes,
+                                  locale,
+                                ),
                               })}
                             </small>
                           </span>
@@ -1259,7 +1270,7 @@ export function PlayerUpdatesPanel({
                               )}
                             </TableCell>
                             <TableCell className="px-3 py-2 whitespace-nowrap tabular-nums">
-                              {formatBytes(release.apkSizeBytes)}
+                              {formatBytes(release.apkSizeBytes, locale)}
                             </TableCell>
                             <TableCell className="px-3 py-2">
                               <Badge {...statusBadgeAppearance(readiness.tone)}>
@@ -1274,9 +1285,11 @@ export function PlayerUpdatesPanel({
                                         version: release.versionName,
                                         downloaded: formatBytes(
                                           release.downloadedBytes,
+                                          locale,
                                         ),
                                         total: formatBytes(
                                           release.apkSizeBytes,
+                                          locale,
                                         ),
                                       },
                                     )}
@@ -1291,8 +1304,12 @@ export function PlayerUpdatesPanel({
                                     {t("updates.panel.downloadProgress", {
                                       downloaded: formatBytes(
                                         release.downloadedBytes,
+                                        locale,
                                       ),
-                                      total: formatBytes(release.apkSizeBytes),
+                                      total: formatBytes(
+                                        release.apkSizeBytes,
+                                        locale,
+                                      ),
                                     })}
                                   </small>
                                 </span>
@@ -1397,7 +1414,7 @@ export function PlayerUpdatesPanel({
                       {t("updates.panel.freesStorage", {
                         version: purging.versionName,
                         code: purging.versionCode,
-                        size: formatBytes(purging.apkSizeBytes),
+                        size: formatBytes(purging.apkSizeBytes, locale),
                       })}
                     </p>
                     {purgeAction(purging) === "delete" ? (
@@ -2301,6 +2318,7 @@ function PlayerReleaseUpload({
   onImported: () => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
   const slots = RELEASE_FILES[platform];
   const artifactLabel =
     platform === "edge"
@@ -2413,7 +2431,7 @@ function PlayerReleaseUpload({
             </strong>
             <small className="text-xs text-muted-foreground">
               {files[label]
-                ? formatBytes(files[label].size)
+                ? formatBytes(files[label].size, locale)
                 : t("updates.panel.fileRequired")}
             </small>
           </div>
@@ -2448,7 +2466,7 @@ function PlayerReleaseUpload({
                     upload.data.channel === "beta"
                       ? t("updates.panel.channelBeta")
                       : t("updates.panel.channelStable"),
-                  size: formatBytes(upload.data.apkSizeBytes),
+                  size: formatBytes(upload.data.apkSizeBytes, locale),
                 })}
               </span>
             )}
@@ -2569,11 +2587,6 @@ function humanize(value: string) {
   return value
     .replaceAll("_", " ")
     .replace(/^./, (letter) => letter.toUpperCase());
-}
-function formatBytes(value: number) {
-  return value >= 1024 ** 3
-    ? `${(value / 1024 ** 3).toFixed(1)} GB`
-    : `${(value / 1024 ** 2).toFixed(1)} MB`;
 }
 function formatDuration(seconds: number, t: TFunction<["settings", "common"]>) {
   const days = Math.floor(seconds / 86400);

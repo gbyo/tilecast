@@ -7,7 +7,10 @@
       "description": "Archived items stay available until you restore or permanently delete them.",
       "keepInLibrary": "Keep in library",
       "moveToArchive": "Move to archive",
-      "title": "Move {{name}} to the archive?"
+      "title": "Move {{name}} to the archive?",
+      "archived": "Asset archived.",
+      "archivedBulk_one": "{{count}} item archived.",
+      "archivedBulk_other": "{{count}} items archived."
     },
     "badge": {
       "archived": "Archived",
@@ -15,6 +18,8 @@
     },
     "bulkDelete": {
       "keepItems": "Keep items",
+      "success_one": "{{count}} archived item permanently deleted.",
+      "success_other": "{{count}} archived items permanently deleted.",
       "title_one": "Permanently delete {{count}} archived item?",
       "title_other": "Permanently delete {{count}} archived items?"
     },
@@ -37,7 +42,8 @@
     },
     "deleteDialog": {
       "keepItem": "Keep item",
-      "title": "Permanently delete {{name}}?"
+      "title": "Permanently delete {{name}}?",
+      "deleted": "Asset permanently deleted."
     },
     "details": {
       "archiveAsset": "Archive asset",
@@ -65,6 +71,12 @@
       "playlistsGroup": "Playlists",
       "publishedHint": "Published",
       "retryProcessing": "Retry processing",
+      "retryStarted": "Processing retry started.",
+      "retryFailed": "Could not restart processing.",
+      "saved": "Media details saved.",
+      "saveFailed": "Could not save the media details.",
+      "organizationUpdated": "Asset organization updated.",
+      "organizationFailed": "Could not update the asset organization.",
       "statusField": "Status",
       "tags": "Tags",
       "unfiled": "Unfiled"
@@ -79,6 +91,14 @@
       "dropHint": "Drag images or videos here, or choose files to begin your library.",
       "libraryTitle": "No media yet",
       "uploadRoles": "An Owner, Administrator, or Editor can upload media."
+    },
+    "errors": {
+      "archiveFailed": "Could not archive the asset.",
+      "deleteFailed": "Could not delete the asset.",
+      "restoreFailed_one": "Could not restore {{count}} item.",
+      "restoreFailed_other": "Could not restore {{count}} items.",
+      "bulkDeleteFailed": "Could not delete the selected items.",
+      "bulkArchiveFailed": "Could not archive the selected items."
     },
     "library": {
       "descriptionActive": "Uploaded images and videos available to playlists and Layouts.",
@@ -154,6 +174,10 @@
     "preview": {
       "unavailable": "Preview unavailable"
     },
+    "restore": {
+      "success_one": "{{count}} item restored.",
+      "success_other": "{{count}} items restored."
+    },
     "status": {
       "deleted": "Deleted",
       "deleting": "Deleting",
@@ -170,7 +194,6 @@
       "collectionOption": "{{name}} ({{count}})",
       "filterByStatus": "Filter by status",
       "folderOption": "{{name}} ({{count}})",
-      "resetFilters": "Reset filters",
       "search": "Search media",
       "sortMedia": "Sort media",
       "tagOption": "{{name}} ({{count}})",
@@ -243,7 +266,9 @@
       "urlField": "HTTPS URL",
       "userAgent": "Custom user agent",
       "userAgentHint": "Leave blank for Android WebView’s standard user agent. Overrides can break sites.",
-      "zoom": "Zoom percentage"
+      "zoom": "Zoom percentage",
+      "deleted": "Website App deleted.",
+      "deleteFailed": "Could not delete the Website App."
     }
   },
   "picker": {
@@ -380,6 +405,7 @@
   },
   "widgets": {
     "duplicateSuccess": "Widget duplicated.",
+    "duplicateFailed": "Could not duplicate the Widget.",
     "list": {
       "title": "Widgets",
       "create": "Create Widget",
@@ -552,6 +578,8 @@
         "columns": "Columns",
         "none": "None",
         "remove": "Remove",
+        "fallbackPickerTitle": "Choose a fallback image",
+        "fallbackPickerDescription": "Search or browse ready images.",
         "valueField": "Value field",
         "labelField": "Label field",
         "titleField": "Title field",
@@ -626,6 +654,7 @@
       "v2": {
         "unavailable": "This Widget's preview component is not part of this Studio build, so it cannot be edited here yet.",
         "unsaved": "Unsaved changes",
+        "leaveTitle": "Discard unsaved widget changes?",
         "savedUpdated": "Widget updated.",
         "savedCreated": "Widget created.",
         "noControls": "This section has no controls for the current configuration.",

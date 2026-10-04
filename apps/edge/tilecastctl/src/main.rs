@@ -17,7 +17,7 @@ use edge_protocol::ipc::status::DaemonStatus;
 use serde_json::Value;
 
 #[derive(Debug, Parser)]
-#[command(name = "tilecastctl", version, about = "Inspect and test the local Tilecast Edge daemon")]
+#[command(name = "tilecastctl", version = edge_platform::RELEASE_VERSION, about = "Inspect and test the local Tilecast Edge daemon")]
 struct Cli {
     /// Edge socket path.
     #[arg(long, value_name = "PATH")]
@@ -65,7 +65,7 @@ fn main() -> ExitCode {
 
 async fn run(cli: Cli) -> ExitCode {
     let socket = cli.socket.unwrap_or_else(|| PathBuf::from(DEFAULT_RUNTIME_DIR).join(SOCKET_NAME));
-    let options = ClientOptions::new(Role::Tilecastctl, "tilecastctl", env!("CARGO_PKG_VERSION"));
+    let options = ClientOptions::new(Role::Tilecastctl, "tilecastctl", edge_platform::RELEASE_VERSION);
     let client = match IpcClient::connect(&socket, options).await {
         Ok(client) => client,
         Err(error) => {

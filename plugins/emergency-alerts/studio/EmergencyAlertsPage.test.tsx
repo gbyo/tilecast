@@ -1,11 +1,19 @@
 // @vitest-environment jsdom
 
-import { cleanup, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PluginT } from "@tilecast/studio";
 import { i18n, renderPluginRoute } from "@tilecast/studio/testing";
 import { api } from "./api";
+import type { NWSAlertRule } from "./types";
 import en from "./locales/en.json";
 import {
   emergencyDisplayLabel,
@@ -383,5 +391,107 @@ describe("Emergency Alerts plugin", () => {
     expect(
       emergencyPlaylistLabel({ name: "Closure draft", itemCount: 0 }, t),
     ).toBe("Closure draft — empty, add content first");
+  });
+});
+
+describe("Emergency Alerts unsaved changes", () => {
+  function mockSettings(rules: NWSAlertRule[] = [], pollIntervalSeconds = 120) {
+    vi.spyOn(api, "nwsAlertSettings").mockResolvedValue({
+      monitor: {
+        enabled: true,
+        areas: ["OH"],
+        zones: [],
+        pollIntervalSeconds,
+        lastPolledAt: "2026-07-28T12:00:00Z",
+        lastSuccessAt: "2026-07-28T12:00:00Z",
+        lastMatchedCount: 1,
+        updatedAt: "2026-07-28T12:00:00Z",
+      },
+      rules,
+      activeAlerts: [],
+    });
+    vi.spyOn(api, "screens").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "screenGroups").mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.spyOn(api, "playlists").mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.spyOn(api, "nwsZones").mockResolvedValue({ items: [] });
+  }
+
+  const tornadoRule: NWSAlertRule = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Tornadoes",
+    enabled: true,
+    eventNames: ["Tornado Warning"],
+    minimumSeverity: "Severe",
+    minimumUrgency: "Expected",
+    responseMode: "takeover",
+    presentationMode: "builtin",
+    playlistId: undefined,
+    playlistName: "",
+    tickerDisplayMode: "push",
+    tickerHeightPx: 96,
+    tickerSpeed: "medium",
+    maximumDurationMinutes: 360,
+    screenIds: [],
+    groupIds: [],
+    createdAt: "2026-07-28T12:00:00Z",
+    updatedAt: "2026-07-28T12:00:00Z",
+  };
+
+  it("confirms before Cancel discards a dirty rule edit", async () => {
+    mockSettings([tornadoRule]);
+    const user = userEvent.setup();
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(await screen.findByText("Edit rule")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Rule name"), " updated");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText("Edit rule")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("warns before leaving with unsaved monitor changes", async () => {
+    mockSettings([], 300);
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
+    });
+
+    // The server value hydrates into local state first; editing before that
+    // would be overwritten and read as clean.
+    const pollInterval = await screen.findByLabelText("Poll interval");
+    await waitFor(() => expect(pollInterval).toHaveValue("300"));
+    fireEvent.change(pollInterval, { target: { value: "120" } });
+    fireEvent.click(screen.getByRole("link", { name: /Plugins/ }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    expect(
+      within(dialog).getByText(
+        "The monitor settings or alert rules have unsaved changes.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
   });
 });

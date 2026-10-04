@@ -16,7 +16,7 @@ This is also what makes passkeys possible. Browsers refuse WebAuthn outside a se
 
 Cloudflare is optional. Follow [`deploy/cloudflare/README.md`](../deploy/cloudflare/README.md) to enable the profile. The Tunnel route should target `http://server:8080`. Do not publish PostgreSQL.
 
-Players using a Tunnel normally enter its public HTTPS hostname manually. LAN discovery advertises local services only and is not a Tunnel discovery mechanism.
+Do not apply a Cloudflare Access login policy to the hostname that players use. A player cannot complete an Access login or send Access service-token headers. Players using a Tunnel normally enter its public HTTPS hostname manually. LAN discovery advertises local services only and is not a Tunnel discovery mechanism.
 
 The dashboard CSP permits Cloudflare Web Analytics' beacon when a proxied deployment injects it. Automatic injection reports to the same origin. Keep `script-src` free of `unsafe-inline` when applying a custom CSP.
 

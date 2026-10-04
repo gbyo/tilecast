@@ -20,6 +20,7 @@
 import { and, assign, enqueueActions, setup, type ActorRefFrom } from "xstate";
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
+import { MIN_ITEM_DWELL_MS, positiveDurationMs } from "../clock/duration";
 import {
   ItemCompletion,
   playbackAuthorityOf,
@@ -65,6 +66,8 @@ export interface PresentationContext {
   consecutiveFailures: number;
   consecutiveEmptySkips: number;
   nextMount: number;
+  /** Monotonic time the current occurrence mounted, for the dwell floor. */
+  mountedAtMs: number;
   previousItemId: string | null;
   stage: StageEntry | null;
   completion: ItemCompletion;
@@ -205,6 +208,7 @@ export const presentationMachine = setup({
       return {
         stage,
         nextMount: context.nextMount + 1,
+        mountedAtMs: context.clock.monotonicNow(),
         // Exactly one completion may act per occurrence. Only a single-video
         // local playlist restarts in place; everything else advances.
         completion: new ItemCompletion(
@@ -232,16 +236,17 @@ export const presentationMachine = setup({
         context.timers.after(delayMs, () =>
           self.send({ type: "DURATION_DUE", mount: stage.mount }),
         );
-      if (item.kind === "video" && item.durationMs) {
+      const authored = positiveDurationMs(item.durationMs);
+      if (item.kind === "video" && authored) {
         // A fixed duration (rare for video) also bounds the item.
-        due(item.durationMs);
+        due(authored);
       } else if (item.kind === "website" || item.kind === "youtube") {
         // YouTube "play until the video ends" completes on the player's own
         // end signal (SURFACE_ENDED), not on a timer.
         const untilEnd =
-          item.durationMs == null &&
+          authored == null &&
           remoteWebSpecOf(item)?.presentation.playUntilEnd === true;
-        if (!untilEnd) due(item.durationMs ?? WEBSITE_DEFAULT_MS);
+        if (!untilEnd) due(authored ?? WEBSITE_DEFAULT_MS);
       }
     },
     nextIndex: assign(({ context }) => ({
@@ -268,6 +273,7 @@ export const presentationMachine = setup({
         context.timers.every(ALIVE_INTERVAL_MS, () =>
           report.evidence(kind, item.id),
         );
+      const authored = positiveDurationMs(item.durationMs);
       const complete = (delayMs: number | null) => {
         if (context.authority !== "local" || !delayMs) return;
         context.timers.after(delayMs, () =>
@@ -278,17 +284,19 @@ export const presentationMachine = setup({
         case "image":
           report.evidence("image-shown", item.id);
           alive("image-shown");
-          complete(item.durationMs ?? IMAGE_DEFAULT_MS);
+          // Zero is not a duration. It reads as "unset", so an image stored
+          // with 0 gets the default instead of holding the playlist forever.
+          complete(authored ?? IMAGE_DEFAULT_MS);
           break;
         case "widget":
           report.evidence("widget-shown", item.id);
           alive("widget-alive");
-          complete(item.durationMs);
+          complete(authored);
           break;
         case "layout":
           report.evidence("layout-shown", item.id);
           alive("layout-alive");
-          complete(item.durationMs);
+          complete(authored);
           break;
         case "website":
         case "youtube":
@@ -300,9 +308,25 @@ export const presentationMachine = setup({
       }
     },
     /** Ask the arbiter what a completion signal means for this occurrence. */
-    finish: enqueueActions(({ context, event, enqueue }) => {
+    finish: enqueueActions(({ context, event, enqueue, self }) => {
       const source = completionSource(event);
       if (!source || !context.stage) return;
+      // A duration timer never completes an occurrence before it has been on
+      // screen for the dwell floor. A zero or one-millisecond duration would
+      // otherwise advance, remount the same item and repeat as fast as the
+      // renderer can paint. The completion is not dropped: it is delivered
+      // again once the floor has passed, before the arbiter settles, so
+      // exactly one path still wins the occurrence. Completions the surface
+      // reports itself (media ended, end offset) come from the media's own
+      // clock, not from a number in the manifest, and are not delayed.
+      const remainingDwellMs =
+        MIN_ITEM_DWELL_MS -
+        (context.clock.monotonicNow() - context.mountedAtMs);
+      if (source === "duration-timer" && remainingDwellMs > 0) {
+        const timers = context.timers;
+        enqueue(() => timers.after(remainingDwellMs, () => self.send(event)));
+        return;
+      }
       // The arbiter is settled here, while the transition is computed, so a
       // second signal in the same macrostep already sees it settled.
       const outcome = context.completion.complete(source);
@@ -418,8 +442,9 @@ export const presentationMachine = setup({
       const stage = context.stage!;
       context.reporter.evidence("image-shown", stage.item.id);
       if (context.authority !== "local") return;
-      context.timers.after(stage.item.durationMs ?? WEBSITE_DEFAULT_MS, () =>
-        self.send({ type: "DURATION_DUE", mount: stage.mount }),
+      context.timers.after(
+        positiveDurationMs(stage.item.durationMs) ?? WEBSITE_DEFAULT_MS,
+        () => self.send({ type: "DURATION_DUE", mount: stage.mount }),
       );
     },
     stopTimers: ({ context }) => context.timers.cancelAll(),
@@ -436,6 +461,7 @@ export const presentationMachine = setup({
       consecutiveFailures: 0,
       consecutiveEmptySkips: 0,
       nextMount: input.firstMount,
+      mountedAtMs: input.clock.monotonicNow(),
       previousItemId: input.previousItemId,
       stage: null,
       completion: new ItemCompletion(authority, false),
