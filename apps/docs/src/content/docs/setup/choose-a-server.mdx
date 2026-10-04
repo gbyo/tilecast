@@ -1,0 +1,51 @@
+---
+title: Choose where to run Tilecast Server
+description: Pick a computer for Tilecast Server that stays on, runs Docker, and has room for your media.
+---
+
+Tilecast Server runs in Docker on a computer you control. Your displays keep playing content they already downloaded if the server is off, but they can't receive changes, commands, or new content until it's back. Choose a computer that stays on.
+
+If you're starting from nothing, a computer in the same building as your displays is the easiest place to start. Move to a hosted server later if your needs change.
+
+## What the server needs
+
+- **Docker Engine and Docker Compose v2.** The [installation guide](../../installation/) starts everything with `docker compose`.
+- **A computer that stays on.** Don't use a laptop that sleeps, or a machine that someone shuts down at night, if your displays need updates while it's off.
+- **Docker that starts at boot.** The Compose file restarts the containers with `restart: unless-stopped`, but only after Docker itself is running. Enable the Docker service at boot on your operating system.
+- **Disk space for media.** Tilecast keeps your uploads and the versions it prepares for Players. By default it also keeps the original files (`TILECAST_KEEP_ORIGINALS=true`) and rejects an upload that would leave less than 1 GiB free (`TILECAST_MEDIA_RESERVED_FREE_BYTES`).
+- **A 64-bit x86_64 CPU.** Tilecast's release workflows don't state a multi-architecture build. Before you use another architecture, such as an ARM single-board computer, check the platforms listed for the `ghcr.io/gbyo/tilecast-server` image on GitHub.
+
+The Compose file starts PostgreSQL beside the server, and the server image includes FFmpeg and FFprobe. You don't install them separately.
+
+Tilecast doesn't publish minimum CPU or memory figures. Media processing uses background workers (`TILECAST_MEDIA_WORKERS`, 2 by default), so a computer that handles video conversion slowly still works; uploads finish processing later.
+
+## Pick a place to run it
+
+| Option                                            | Good for                                                  | Things to check                                                                                                                            |
+| ------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| A spare PC or small desktop computer at your site | One site, Players on the same network                     | It must stay powered on and keep the same local address. Plan for power cuts.                                                              |
+| A virtual machine on a server you already run     | Sites that have a hypervisor and a backup routine         | Give it a fixed address and store the Docker volumes where your backups reach.                                                             |
+| A rented virtual server (VPS) on the Internet     | Players at several sites, or no suitable computer on site | Players reach it over the Internet, so it needs HTTPS. Use a reverse proxy, or run it behind a [Cloudflare Tunnel](../cloudflare-tunnel/). |
+| A computer at one site, reached through a tunnel  | Remote Players without renting a server                   | The site's Internet connection and power now matter to every remote display. See [Cloudflare Tunnel](../cloudflare-tunnel/).               |
+
+A network-attached storage device or router that can run Docker may also work. Treat it like any other computer: check it can keep the containers running and has room for the data.
+
+## Where the data lives
+
+Compose creates two named volumes. Keep both when you move or rebuild the server.
+
+- `postgres_data` holds the database.
+- `tilecast_data` holds media, backups, and cached Player releases.
+
+Backups from Studio are stored in `tilecast_data`, so a failed disk takes them too. Download a copy and keep it somewhere else. See [Back up and restore Tilecast](../../administration/backups/).
+
+## Before you continue
+
+Check that you can answer yes to each of these.
+
+- Does the computer stay on when nobody is using it?
+- Can you run `docker compose version` and see version 2 or later?
+- Is there room for your media, plus space for backups?
+- Will the computer keep a stable address on your network?
+
+If so, continue to [Installation](../../installation/). If you used the [Setup Advisor](../), return to your plan.

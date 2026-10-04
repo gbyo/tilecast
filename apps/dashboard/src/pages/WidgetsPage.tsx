@@ -7,10 +7,10 @@ import {
 import { Grid2X2, List, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -19,13 +19,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
@@ -33,10 +26,8 @@ import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import {
   WidgetProviderGallery,
   YouTubeSourceEditor,
@@ -85,9 +76,24 @@ export function WidgetsPage() {
     queryFn: api.contentDefinitions,
   });
   const filterProviders = definitions.data?.widgets ?? [];
-  const providerOptions = [
-    { value: "", label: t("widgets.list.allTypes") },
-    ...filterProviders.map((item) => ({ value: item.id, label: item.name })),
+  const providerOptions = filterProviders.map((item) => ({
+    value: item.id,
+    label: item.name,
+  }));
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("widgets.list.search"),
+      placeholder: t("widgets.list.search"),
+    },
+    {
+      key: "provider",
+      kind: "select",
+      label: t("widgets.list.filterProvider"),
+      allLabel: t("widgets.list.allTypes"),
+      options: providerOptions,
+    },
   ];
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
@@ -99,48 +105,32 @@ export function WidgetsPage() {
   });
   return (
     <section className="w-full min-w-0 space-y-5">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t("widgets.list.title")}</h1>
-          {canManage && (
-            <Button type="button" onClick={() => void navigate("/widgets/new")}>
+      <PageHeader
+        title={t("widgets.list.title")}
+        description={t("widgets.list.subtitle")}
+        actions={
+          canManage ? (
+            <Link
+              className={buttonVariants({ variant: "default" })}
+              to="/widgets/new"
+            >
               <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {t("widgets.list.subtitle")}
-        </p>
-      </header>
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("widgets.list.search")}
-          placeholder={t("widgets.list.search")}
-        />
-        <Select
-          items={providerOptions}
-          value={provider}
-          onValueChange={(next) => {
-            if (typeof next === "string") setProvider(next);
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("widgets.list.filterProvider")}
-            className="w-56 max-sm:flex-1"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">{t("widgets.list.allTypes")}</SelectItem>
-            {filterProviders.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            </Link>
+          ) : undefined
+        }
+      />
+      <FilterBar
+        definitions={filterDefinitions}
+        values={{ search, provider }}
+        onChange={(key, value) => {
+          if (key === "search") setSearch(value);
+          if (key === "provider") setProvider(value);
+        }}
+        onClear={() => {
+          setSearch("");
+          setProvider("");
+        }}
+      >
         <ToggleGroup
           aria-label={t("widgets.list.view")}
           variant="outline"
@@ -159,7 +149,7 @@ export function WidgetsPage() {
             <List size={16} aria-hidden="true" />
           </ToggleGroupItem>
         </ToggleGroup>
-      </DashboardListToolbar>
+      </FilterBar>
       {widgets.isLoading ? (
         <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
           <Skeleton className="h-24" />
@@ -168,10 +158,21 @@ export function WidgetsPage() {
         </div>
       ) : widgets.isError ? (
         <Alert variant="destructive">
-          <AlertDescription>
-            {widgets.error instanceof ApiError
-              ? apiErrorMessage(widgets.error)
-              : t("widgets.list.loadError")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {widgets.error instanceof ApiError
+                ? apiErrorMessage(widgets.error)
+                : t("widgets.list.loadError")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={widgets.isFetching}
+              onClick={() => void widgets.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       ) : items.length === 0 ? (
@@ -185,12 +186,12 @@ export function WidgetsPage() {
           </EmptyHeader>
           {canManage && (
             <EmptyContent>
-              <Button
-                type="button"
-                onClick={() => void navigate("/widgets/new")}
+              <Link
+                className={buttonVariants({ variant: "default" })}
+                to="/widgets/new"
               >
                 {t("widgets.list.create")}
-              </Button>
+              </Link>
             </EmptyContent>
           )}
         </Empty>

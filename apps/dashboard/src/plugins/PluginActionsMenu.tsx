@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, PackageMinus } from "lucide-react";
+import { PackageMinus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useStudioSession } from "../plugin-host/session";
 import { Alert, AlertDescription } from "../components/ui/alert";
@@ -15,13 +15,7 @@ import {
   AlertDialogMedia,
   AlertDialogTitle,
 } from "../components/ui/alert-dialog";
-import { Button } from "../components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
+import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { Spinner } from "../components/ui/spinner";
 import type { PluginInUseResource } from "../api/types";
 import { apiErrorMessage } from "../i18n";
@@ -53,25 +47,25 @@ export function PluginActionsMenu({ pluginId }: { pluginId: string }) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="outline" size="icon" />}
-          aria-label={t("actionsMenu.menuLabel", { name: plugin.name })}
-        >
-          <MoreHorizontal aria-hidden="true" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => {
-              remove.reset();
-              setOpen(true);
-            }}
-          >
-            <PackageMinus aria-hidden="true" /> {t("actionsMenu.remove")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <ActionMenuButton
+        label={t("actionsMenu.menuLabel", { name: plugin.name })}
+        actions={[
+          {
+            actions: [
+              {
+                id: "remove",
+                label: t("actionsMenu.remove"),
+                icon: "remove",
+                role: "destructive",
+                onSelect: () => {
+                  remove.reset();
+                  setOpen(true);
+                },
+              },
+            ],
+          },
+        ]}
+      />
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           {blockers ? (

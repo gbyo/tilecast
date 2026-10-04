@@ -7,6 +7,7 @@ import {
   empty,
   failure,
   ready,
+  widgetInputRevision,
   WidgetRegistry,
   type WidgetContext,
 } from "../src/index.ts";
@@ -46,7 +47,10 @@ function makeDefinition(
         this.dispatchEvent(
           new CustomEvent("tilecast-widget-error", {
             bubbles: true,
-            detail: { code: "<img src=x onerror=alert(1)>" },
+            detail: {
+              code: "<img src=x onerror=alert(1)>",
+              revision: widgetInputRevision(this),
+            },
           }),
         );
         return;
@@ -187,17 +191,98 @@ describe("WidgetMount", () => {
     });
     // The element instance survives; this probe re-renders on demand.
     expect(test.element).toBe(original);
+    expect(test.states.at(-1)).toEqual({ state: "pending" });
     original.render();
     expect(test.states.at(-1)).toEqual({
       state: "empty",
       reason: "nothing_today",
     });
+    expect(test.states).toEqual([
+      { state: "ready" },
+      { state: "pending" },
+      { state: "empty", reason: "nothing_today" },
+    ]);
     test.mount.update({
       component: { type: second.type, version: 2, config: { mode: "ready" } },
     });
     expect(test.element).not.toBe(original);
     expect(original.isConnected).toBe(false);
     expect(test.element?.tagName.toLowerCase()).toBe(second.tagName);
+    const secondElement = test.element;
+    test.mount.update({
+      component: { type: second.type, version: 1, config: { mode: "ready" } },
+    });
+    expect(test.element).not.toBe(secondElement);
+    test.dispose();
+  });
+
+  it("re-arms readiness after a ready update", () => {
+    const definition = makeDefinition();
+    const test = mountForTest(definition, { config: { mode: "ready" } });
+    const element = test.element as HTMLElement & { render(): void };
+
+    test.mount.update({
+      component: {
+        type: definition.type,
+        version: 2,
+        config: { mode: "ready" },
+      },
+    });
+
+    expect(test.states).toEqual([{ state: "ready" }, { state: "pending" }]);
+    element.render();
+    expect(test.states).toEqual([
+      { state: "ready" },
+      { state: "pending" },
+      { state: "ready" },
+    ]);
+    test.dispose();
+  });
+
+  it("times out when an updated Widget stays silent", () => {
+    const definition = makeDefinition();
+    const clock = createManualClock();
+    const test = mountForTest(definition, {
+      config: { mode: "ready" },
+      context: createTestContext({ clock }),
+    });
+
+    test.mount.update({
+      component: {
+        type: definition.type,
+        version: 2,
+        config: { mode: "silent" },
+      },
+    });
+    expect(test.states).toEqual([{ state: "ready" }, { state: "pending" }]);
+    expect(clock.pendingTimers).toBe(1);
+
+    clock.advance(10_000);
+    expect(test.states.at(-1)).toEqual({
+      state: "error",
+      code: "widget_ready_timeout",
+    });
+    test.dispose();
+  });
+
+  it("ignores an event from an older input revision", () => {
+    const test = mountForTest(makeDefinition(), { config: { mode: "ready" } });
+    const element = test.element!;
+    const type = element.getAttribute("data-tilecast-widget")!;
+
+    test.mount.update({
+      component: { type, version: 2, config: { mode: "ready" } },
+    });
+    const revisionB = widgetInputRevision(element);
+    test.mount.update({
+      component: { type, version: 2, config: { mode: "ready" } },
+    });
+    const revisionC = widgetInputRevision(element);
+
+    announceEmpty(element, "late_b", revisionB);
+    expect(test.mount.state).toEqual({ state: "pending" });
+    announceReady(element, revisionC);
+    expect(test.mount.state).toEqual({ state: "ready" });
     test.dispose();
   });
 
@@ -271,6 +356,9 @@ describe("WidgetMount", () => {
     expect(test.element).toBe(original);
     expect(original.data).toEqual({ attribution: "Second" });
     expect(original.context).toBe(secondContext);
+    expect(test.states.at(-1)).toEqual({ state: "pending" });
+    announceReady(original);
+    expect(test.states.at(-1)).toEqual({ state: "ready" });
     test.dispose();
   });
 

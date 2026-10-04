@@ -187,7 +187,8 @@
       "itemsAdded_other": "{{count}} items added to the playlist."
     },
     "loadingLabel": "Loading playlist",
-    "noPublishedLayoutsTitle": "No published Layouts"
+    "noPublishedLayoutsTitle": "No published Layouts",
+    "leaveTitle": "Discard unsaved playlist changes?"
   },
   "header": {
     "back": "Playlists",
