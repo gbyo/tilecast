@@ -26,8 +26,11 @@ func TestSecurityHeadersContentSecurityPolicy(t *testing.T) {
 	if !strings.Contains(policy, "connect-src 'self' https://tiles.openfreemap.org") {
 		t.Fatal("connect-src must allow the OpenFreeMap style and tile origin")
 	}
-	if !strings.Contains(policy, "img-src 'self' data: https://images.unsplash.com https://tiles.openfreemap.org") {
-		t.Fatal("img-src must allow OpenFreeMap raster and sprite resources")
+	if !strings.Contains(policy, "img-src 'self' data: blob: https://images.unsplash.com https://tiles.openfreemap.org") {
+		t.Fatal("img-src must allow MapLibre blob images and OpenFreeMap raster and sprite resources")
+	}
+	if !strings.Contains(policy, "worker-src 'self'") {
+		t.Fatal("worker-src must allow the same-origin bundled MapLibre worker")
 	}
 	if strings.Contains(policy, "connect-src *") || strings.Contains(policy, "connect-src 'self' https:") {
 		t.Fatal("connect-src must remain scoped to explicit trusted origins")
