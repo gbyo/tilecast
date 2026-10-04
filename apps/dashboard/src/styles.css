@@ -205,40 +205,6 @@ a {
   margin: 5px 0;
   color: var(--muted);
 }
-.settings-subsection header p,
-.settings-subsection__action p {
-  color: var(--tc-ink-muted);
-  margin: 6px 0 0;
-  max-width: 760px;
-}
-.settings-sections {
-  display: grid;
-}
-.settings-subsection {
-  padding: 24px 0 8px;
-  border-bottom: 1px solid var(--tc-border);
-}
-.settings-subsection:last-child {
-  border-bottom: 0;
-}
-.settings-subsection > header {
-  margin-bottom: 7px;
-}
-.settings-subsection h3 {
-  margin: 0;
-  font-size: 16px;
-}
-.settings-subsection h4 {
-  margin: 0 0 8px;
-  font-size: 13px;
-}
-.settings-subsection__action {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 18px;
-}
-
 .setting-dependency {
   font-size: 12px;
 }
@@ -256,20 +222,6 @@ a {
 .setting-control--checks {
   display: grid;
   gap: 6px;
-}
-
-.screen-scope-editor {
-  display: grid;
-  gap: 12px;
-}
-.screen-scope-editor fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
-}
-.role-description {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
 }
 
 .check-option {
@@ -296,12 +248,6 @@ a {
   }
 }
 
-@media (max-width: 600px) {
-  .settings-subsection {
-    padding-top: 20px;
-  }
-}
-
 .screens-page {
   width: min(1120px, 100%);
 }
@@ -316,40 +262,6 @@ a {
   background: var(--tc-surface);
   border: 1px solid var(--tc-border);
   border-radius: var(--tc-radius-md);
-}
-.device-facts {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 0 0 25px;
-  border: 1px solid var(--tc-border);
-  border-radius: var(--tc-radius-sm);
-}
-.device-facts div {
-  display: grid;
-  grid-template-columns: 115px 1fr;
-  gap: 9px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--tc-border);
-}
-.device-facts div:nth-child(odd) {
-  border-inline-end: 1px solid var(--tc-border);
-}
-.device-facts dt {
-  color: var(--tc-ink-muted);
-  font-size: 12px;
-}
-.device-facts dd {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 650;
-}
-@media (max-width: 620px) {
-  .device-facts {
-    grid-template-columns: 1fr;
-  }
-  .device-facts div:nth-child(odd) {
-    border-inline-end: 0;
-  }
 }
 .schedule-card {
   display: grid;

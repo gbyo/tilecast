@@ -9,7 +9,8 @@
  * Grants come from the component presentation (`dataSources`), so a Widget
  * cannot probe for unrelated manifest content.
  */
-import { useQueries } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQueries, type UseQueryResult } from "@tanstack/react-query";
 import {
   createWidgetResources,
   type WidgetDataDocument,
@@ -354,42 +355,65 @@ export function useWidgetPreviewResources(
    */
   previewDate?: string,
 ): PreviewResources {
-  const previews = useQueries({
+  // Callers can build equivalent grant arrays on every render. TanStack's
+  // combine memoization keeps resources stable until inputs or query results
+  // change, so reporting readiness cannot start another input revision.
+  const inputKey = JSON.stringify({
+    dataSourceIds,
+    declaredDataSources,
+    declaredMedia,
+  });
+  const combine = useCallback(
+    (
+      previews: UseQueryResult<
+        Awaited<ReturnType<typeof api.previewSavedDataSource>>
+      >[],
+    ): PreviewResources => {
+      const { dataSourceIds, declaredDataSources, declaredMedia } = JSON.parse(
+        inputKey,
+      ) as {
+        dataSourceIds: string[];
+        declaredDataSources: string[];
+        declaredMedia: { assetId: string; variantId: string }[];
+      };
+      const documents = new Map<string, WidgetDataDocument>();
+      const failedIds: string[] = [];
+      // Only failures inside the presentation's grants count.
+      const granted = new Set(declaredDataSources);
+      previews.forEach((preview, index) => {
+        const id = dataSourceIds[index];
+        if (!id || preview.isLoading) return;
+        if (preview.isError || !preview.data) {
+          if (granted.has(id)) failedIds.push(id);
+          return;
+        }
+        const document = previewToDataDocument(preview.data);
+        if (document) documents.set(id, document);
+        else if (granted.has(id)) failedIds.push(id);
+      });
+      const media = new Map(
+        declaredMedia.map((ref) => [
+          `${ref.assetId}/${ref.variantId}`,
+          api.assetPreviewUrl(ref.assetId),
+        ]),
+      );
+      return {
+        resources: createWidgetResources(
+          { documents, media },
+          { dataSources: declaredDataSources, media: declaredMedia },
+        ),
+        loading: previews.some((preview) => preview.isLoading),
+        failedIds,
+      };
+    },
+    [inputKey],
+  );
+  return useQueries({
     queries: dataSourceIds.map((id) => ({
       queryKey: ["widget-v2-source-preview", id, previewDate ?? null],
       queryFn: () => api.previewSavedDataSource(id, previewDate),
       retry: false,
     })),
+    combine,
   });
-  const documents = new Map<string, WidgetDataDocument>();
-  const failedIds: string[] = [];
-  // Only failures inside the presentation's grants count: a connected source
-  // the Widget cannot see is invisible to it, while a granted source that
-  // cannot be loaded must surface as an error, never as an empty Widget.
-  const granted = new Set(declaredDataSources);
-  previews.forEach((preview, index) => {
-    const id = dataSourceIds[index];
-    if (!id || preview.isLoading) return;
-    if (preview.isError || !preview.data) {
-      if (granted.has(id)) failedIds.push(id);
-      return;
-    }
-    const document = previewToDataDocument(preview.data);
-    if (document) documents.set(id, document);
-    else if (granted.has(id)) failedIds.push(id);
-  });
-  const media = new Map(
-    declaredMedia.map((ref) => [
-      `${ref.assetId}/${ref.variantId}`,
-      api.assetPreviewUrl(ref.assetId),
-    ]),
-  );
-  return {
-    resources: createWidgetResources(
-      { documents, media },
-      { dataSources: [...declaredDataSources], media: [...declaredMedia] },
-    ),
-    loading: previews.some((preview) => preview.isLoading),
-    failedIds,
-  };
 }

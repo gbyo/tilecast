@@ -5,27 +5,22 @@ import TilecastCore
 struct AddServerView: View {
     @Environment(StudioHost.self) private var host
     @Environment(\.dismiss) private var dismiss
-    @State private var setup: ServerSetup?
+    @State private var setup: ServerSetup
     @State private var added = false
     @FocusState private var addressFocused: Bool
 
+    init(directory: ServerDirectory) {
+        _setup = State(initialValue: ServerSetup(directory: directory, identityClient: InstallationIdentityClient()))
+    }
+
     var body: some View {
         NavigationStack {
-            Group {
-                if let setup {
-                    form(setup)
-                }
-            }
-            .navigationTitle("Add Server")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-        .task {
-            if setup == nil {
-                setup = ServerSetup(directory: host.directory, identityClient: InstallationIdentityClient())
-            }
+            form(setup)
+                .navigationTitle("Add Server")
+                .navigationBarTitleDisplayMode(.inline)
         }
         .sensoryFeedback(.success, trigger: added)
-        .interactiveDismissDisabled(setup?.step == .checking)
+        .interactiveDismissDisabled(setup.step == .checking)
     }
 
     @ViewBuilder private func form(_ setup: ServerSetup) -> some View {

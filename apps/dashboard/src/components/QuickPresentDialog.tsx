@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { Asset } from "../api/types";
 import {
   ContentPicker,
@@ -266,7 +267,9 @@ export function QuickPresentDialog({
             </label>
             {present.error && (
               <Alert variant="destructive">
-                <AlertDescription>{present.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(present.error)}
+                </AlertDescription>
               </Alert>
             )}
           </div>

@@ -3,7 +3,8 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { toast } from "../components/ui/toast";
@@ -176,8 +177,11 @@ function renderEditor(editor: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([{ path: "*", element: editor }]);
   return render(
-    <QueryClientProvider client={client}>{editor}</QueryClientProvider>,
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
   );
 }
 
@@ -203,6 +207,68 @@ describe("Widget editor experience", () => {
       screen.getByRole("button", { name: /Google Sheets — Display/ }),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /ESPN/ })).toBeNull();
+  });
+
+  it("traps focus in the modal gallery and restores it when closed", async () => {
+    const user = userEvent.setup();
+    function ModalGalleryHarness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open widget gallery
+          </button>
+          {open && (
+            <WidgetProviderGallery
+              onChoose={vi.fn()}
+              onClose={() => setOpen(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    renderEditor(<ModalGalleryHarness />);
+    const opener = screen.getByRole("button", { name: "Open widget gallery" });
+    await user.click(opener);
+
+    const dialog = await screen.findByRole(
+      "dialog",
+      { name: "Create Widget" },
+      { timeout: 500 },
+    );
+    await screen.findByRole("heading", { name: "Featured" }, { timeout: 500 });
+    await waitFor(
+      () => {
+        expect(dialog).toContainElement(document.activeElement as HTMLElement);
+      },
+      { timeout: 500 },
+    );
+
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    expect(first).toBeDefined();
+    expect(last).toBeDefined();
+
+    last?.focus();
+    await user.tab();
+    await waitFor(() => {
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    });
+    first?.focus();
+    await user.tab({ shift: true });
+    await waitFor(() => {
+      expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    });
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(opener).toHaveFocus();
   });
 
   it("has no native-editor fallback left to recreate", () => {

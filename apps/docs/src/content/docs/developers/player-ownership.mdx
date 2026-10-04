@@ -1,0 +1,96 @@
+---
+title: Choose where Player code belongs
+description: Find the implementation and contract owner before changing a Player.
+---
+
+Before changing Player behavior, decide whether the change concerns presentation,
+shared native behavior, or a host's operating system. The accepted
+[Player Core contract](https://github.com/gbyo/tilecast/blob/main/docs/player-core.md)
+defines that boundary and the review sequence. Generic IDs, digests, bounded
+values, timestamps, and capability vocabulary now live in `crates/player-types`.
+Edge still owns the wire protocols and supplies clocks and random ID generation.
+Durable metadata now lives in `crates/player-state`. Its migrations include
+historical Edge tables, while Linux update, network recovery, and legacy import
+repositories stay in `edge-state::platform`.
+The content store lives in `crates/player-cas`. It owns verification, resume,
+pins, eviction, and crash reconciliation. Edge supplies Linux free-space
+measurements through the store's narrow `SpaceProbe` interface.
+Server transport now lives in `crates/player-client`. Hosts supply product
+identity, device metadata, and private storage. Edge keeps its credential and
+pairing files and its Electron import. Stored credentials are sent only after
+the client verifies the installation identity.
+
+The Core foundation now lives in `crates/player-core`: native schedule selection,
+command delivery and idempotency, Activity session tracking, and the CAS origin
+adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
+handlers and lifecycle signals. Core also owns renderer recovery decisions
+and meaningful-evidence rules. Core tracks activation acceptance and evidence
+for the current renderer connection. Edge executes actions through its port.
+Core coordinates activation identity, profile checks, recovery timing, and
+recovery Activity events. Edge retains Runtime projection inputs and constructs
+status payloads. Server reconciliation remains in Edge until its extraction stage.
+
+Prepared activations carry bounded, opaque Runtime presentation data with
+verified-object bindings. Core owns explicit requirements and evidence metadata;
+transitions, Website options, Layout properties, and status styling stay with
+Runtime and the host projection. Edge uses these through its
+RendererPort adapter, with a temporary projection bridge in Edge.
+The Edge port owns media grants and their generation lifecycle.
+Separate packaged and connected profiles keep release support distinct from
+what a renderer session advertises. Core checks both before activation.
+Runtime reports live support in readiness, including discovered Widget versions.
+WPE forwards this report; generated release metadata remains the packaged source.
+The RendererPort interface now defines semantic operations. Edge uses shared
+decoded-image checks and keeps transport decoding in Edge. Core serializes
+captures and checks protected states. Periodic preview leases, uploads,
+capability policy, and fault suspension also run in Core.
+Watch Live lease, cadence, and frame coordination also run in Core. Edge owns
+wire command results; Core correlates pending commands and owns timeout,
+disconnect, and startup Website data-clear retry policy. Edge also owns
+media transport, its expiry clock, display-sleep policy, cursor configuration,
+and socket delivery. Stage 8 completion requires selected qualification for
+the final code commit. The renderer extraction's qualification ledger is in
+[PR #1224](https://github.com/gbyo/tilecast/pull/1224).
+
+| Your change                                                                                                 | Implementation owner                                                    |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget                                  |
+| Pure playback defaults, item availability, or zone decisions shared by Studio and Runtime                   | Presentation Model as that work lands                                   |
+| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core during extraction; currently the Edge native implementation |
+| CEC/DDC, NetworkManager, systemd, Linux credential files, WPE hosting, or Edge rollback                     | Linux Edge                                                              |
+| A rule that independently implemented Players must agree on                                                 | A fixture at the rule's existing contract owner                         |
+
+For example, a command redelivery fix belongs in shared native behavior. A
+CEC adapter fix stays in Edge. A transition changes Player Runtime. A manifest
+field starts with the manifest schema and its consumers.
+
+## Check the boundary
+
+From the repository root, run:
+
+```sh
+python3 scripts/ci/check-player-architecture.py
+```
+
+Run `make player-check` and `make player-test` to check the shared Rust crates.
+CI runs these crates on Ubuntu and macOS. Edge integration checks still run on
+Linux, including the tests selected when a shared crate changes.
+
+The check rejects dependencies from shared Player crates back into a native host,
+including aliases, workspace dependencies, and target-specific dependencies.
+`make check` and CI also run it. Read the
+[contract ownership guide](https://github.com/gbyo/tilecast/blob/main/docs/player-contracts.md)
+before adding a fixture. Keep HTTP contracts in OpenAPI, manifest documents in
+the manifest schema, and presentation conformance with Player Runtime.
+
+## Preserve Edge's guarantees
+
+Move implementation under the existing tests. Keep shipped SQLite migrations
+unchanged, verify content before use, preserve the installation identity check,
+and keep renderer media authorization and signed-update rollback intact. The
+[Edge implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md)
+links to the integration and system tests.
+
+Android continues to use Kotlin and shared contracts. This extraction doesn't
+build another Player or require Rust on browser and smart-TV hosts. It also
+doesn't establish physical Edge hardware qualification.

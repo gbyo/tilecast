@@ -318,6 +318,51 @@ pub struct RendererReady {
     /// renderer without remote web support.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remote_web: Option<RemoteWebStatus>,
+    /// Support reported by the running Runtime, never inferred from release metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub support: Option<Box<RuntimeSupport>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RuntimeSupport {
+    #[serde(deserialize_with = "support_schemas")]
+    pub presentation_schemas: Vec<u32>,
+    #[serde(deserialize_with = "support_versions")]
+    pub declarative_capabilities: std::collections::BTreeMap<ShortToken, u32>,
+    #[serde(deserialize_with = "support_versions")]
+    pub widget_components: std::collections::BTreeMap<ShortToken, u32>,
+}
+
+fn support_schemas<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<u32>, D::Error> {
+    let schemas: Vec<u32> = bounded_vec(d, 256)?;
+    let unique: std::collections::BTreeSet<_> = schemas.iter().collect();
+    if schemas.contains(&0) || unique.len() != schemas.len() {
+        return Err(D::Error::custom("invalid Runtime support schemas"));
+    }
+    Ok(schemas)
+}
+
+fn support_versions<'de, D: serde::Deserializer<'de>>(
+    d: D,
+) -> Result<std::collections::BTreeMap<ShortToken, u32>, D::Error> {
+    struct Versions;
+    impl<'de> serde::de::Visitor<'de> for Versions {
+        type Value = std::collections::BTreeMap<ShortToken, u32>;
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("at most 256 distinct capability tokens with positive versions")
+        }
+        fn visit_map<M: serde::de::MapAccess<'de>>(self, mut map: M) -> Result<Self::Value, M::Error> {
+            let mut out = Self::Value::new();
+            while let Some((name, version)) = map.next_entry::<ShortToken, u32>()? {
+                if out.len() == 256 || version == 0 || out.insert(name, version).is_some() {
+                    return Err(M::Error::custom("invalid Runtime support versions"));
+                }
+            }
+            Ok(out)
+        }
+    }
+    d.deserialize_map(Versions)
 }
 
 /// Whether remote web works, and why not (docs/tilecast-edge-remote-web-
@@ -694,6 +739,40 @@ impl PreviewResult {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn runtime_support_is_optional_bounded_and_keeps_namespaces_separate() {
+        use super::RendererReady;
+        use serde_json::json;
+        let legacy =
+            include_str!("../../../../../../packages/edge-protocol/fixtures/ipc/valid/event-renderer-ready.json");
+        let frame: serde_json::Value = serde_json::from_str(legacy).unwrap();
+        let mut ready = frame["frame"]["data"].clone();
+        assert!(serde_json::from_value::<RendererReady>(ready.clone()).unwrap().support.is_none());
+        let support = json!({"presentationSchemas": [1, 2],
+            "declarativeCapabilities": {"content.text": 2}, "widgetComponents": {"widget.tilecast.clock": 1}});
+        ready["support"] = support.clone();
+        let parsed: RendererReady = serde_json::from_value(ready.clone()).unwrap();
+        assert_eq!(parsed.support.unwrap().widget_components.values().copied().collect::<Vec<_>>(), vec![1]);
+        for invalid in [
+            json!({"presentationSchemas": [1,1], "declarativeCapabilities": {}, "widgetComponents": {}}),
+            json!({"presentationSchemas": [0], "declarativeCapabilities": {}, "widgetComponents": {}}),
+            json!({"presentationSchemas": [1], "declarativeCapabilities": {"content.text": 0}, "widgetComponents": {}}),
+            json!({"presentationSchemas": [1], "declarativeCapabilities": {}, "widgetComponents": {"bad/name": 1}}),
+            json!({"presentationSchemas": [1], "declarativeCapabilities": {}, "widgetComponents": {"widget.a": 4294967296_u64}}),
+            json!({"presentationSchemas": (1..=257).collect::<Vec<_>>(), "declarativeCapabilities": {}, "widgetComponents": {}}),
+        ] {
+            ready["support"] = invalid;
+            assert!(serde_json::from_value::<RendererReady>(ready.clone()).is_err());
+        }
+        let mut excessive = support.clone();
+        excessive["widgetComponents"] =
+            serde_json::Value::Object((0..257).map(|i| (format!("widget.a{i}"), json!(1))).collect());
+        ready["support"] = excessive;
+        assert!(serde_json::from_value::<RendererReady>(ready).is_err());
+        assert!(serde_json::from_str::<super::RuntimeSupport>(
+            r#"{"presentationSchemas":[1],"declarativeCapabilities":{"content.text":1,"content.text":2},"widgetComponents":{}}"#
+        ).is_err());
+    }
     use super::*;
     use serde_json::json;
 

@@ -27,16 +27,18 @@
 //!   stage, AirPlay session files, Presentation Network radio state, and
 //!   website storage.
 
+use crate::FileCredentialStore;
 use std::io::{Read as _, Seek as _};
 use std::path::{Path, PathBuf};
 
 use edge_cas::{ContentStore, IngestMeta};
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_state::StateDb;
+use edge_state::platform::legacy;
 use edge_state::repo::binding::{CredentialState, ServerBinding};
 use edge_state::repo::cas::{Domain, PinReason, SourceKind};
 use edge_state::repo::daemon::PlayerIdentitySource;
-use edge_state::repo::{binding, commands, daemon, legacy, playback};
+use edge_state::repo::{binding, commands, daemon, playback};
 use serde::Deserialize;
 
 use crate::client::{ServerClient, ServerError};
@@ -252,12 +254,12 @@ async fn run(
 
     // Identity gate: nothing is stored, and the credential is not sent,
     // until the server proves it is the saved installation.
-    let client = ServerClient::new(&server_url)?;
+    let client = ServerClient::new(&server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))?;
     let verified = client.verify_installation(installation_id, credential.clone()).await?;
 
     db.run(move |c| daemon::set_player_identity(c, player_id, PlayerIdentitySource::LegacyImport, now).map(|_| ()))
         .await?;
-    credential.save(identity_dir).map_err(|e| ImportError::Identity(e.to_string()))?;
+    FileCredentialStore::write_at(&credential, identity_dir).map_err(|e| ImportError::Identity(e.to_string()))?;
     let binding_record = ServerBinding {
         server_url: server_url.clone(),
         installation_id,
