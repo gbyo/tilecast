@@ -1,4 +1,9 @@
-import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  mutationOptions,
+  queryOptions,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { api } from "../api/client";
 import { hasNextPage } from "../api/pagination";
 import type { ScheduleInput } from "../api/types";
@@ -44,5 +49,26 @@ export const scheduleQueries = {
       queryKey: scheduleKeys.preview(screenId, timestamp, proposed),
       queryFn: () => api.previewSchedule(screenId, timestamp, proposed),
       enabled: Boolean(screenId),
+    }),
+};
+
+function invalidateSchedules(client: QueryClient) {
+  void client.invalidateQueries({ queryKey: scheduleKeys.all });
+  void client.invalidateQueries({ queryKey: scheduleKeys.previews });
+}
+
+export const scheduleMutations = {
+  save: (client: QueryClient, csrf: string, id?: string) =>
+    mutationOptions({
+      mutationFn: (input: ScheduleInput) =>
+        id
+          ? api.updateSchedule(id, input, csrf)
+          : api.createSchedule(input, csrf),
+      onSuccess: () => invalidateSchedules(client),
+    }),
+  remove: (client: QueryClient, csrf: string, id: string) =>
+    mutationOptions({
+      mutationFn: () => api.deleteSchedule(id, csrf),
+      onSuccess: () => invalidateSchedules(client),
     }),
 };

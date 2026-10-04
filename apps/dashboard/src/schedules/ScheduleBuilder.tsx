@@ -1,4 +1,4 @@
-import { scheduleKeys, scheduleQueries } from "../data/schedules";
+import { scheduleMutations, scheduleQueries } from "../data/schedules";
 import {
   useMutation,
   useQuery,
@@ -240,34 +240,9 @@ export function ScheduleEditorPage() {
     key: K,
     value: ScheduleInput[K],
   ) => setInput((current) => ({ ...current, [key]: value }));
-  const save = useMutation({
-    mutationFn: () =>
-      id
-        ? api.updateSchedule(id, input, csrf)
-        : api.createSchedule(input, csrf),
-    onSuccess: (schedule) => {
-      toast.add({
-        title: id ? t("notifications.updated") : t("notifications.created"),
-        type: "success",
-      });
-      const next = scheduleToInput(schedule);
-      setBaseline(next);
-      setInput(next);
-      void client.invalidateQueries({ queryKey: scheduleKeys.all });
-      void client.invalidateQueries({ queryKey: scheduleKeys.previews });
-      void navigate(`/schedules/${schedule.id}`, { replace: true });
-    },
-  });
-  const remove = useMutation({
-    mutationFn: () => api.deleteSchedule(id!, csrf),
-    onSuccess: () => {
-      toast.add({ title: t("notifications.deleted"), type: "success" });
-      void client.invalidateQueries({ queryKey: scheduleKeys.all });
-      void client.invalidateQueries({ queryKey: scheduleKeys.previews });
-      departing.current = true;
-      void navigate("/schedules");
-    },
-  });
+  const save = useMutation(scheduleMutations.save(client, csrf, id));
+  const remove = useMutation(scheduleMutations.remove(client, csrf, id ?? ""));
+
 
   if (id && existing.isLoading)
     return (
@@ -294,7 +269,21 @@ export function ScheduleEditorPage() {
           onSubmit={(event) => {
             event.preventDefault();
             setAttempted(true);
-            if (valid) save.mutate();
+            if (valid)
+              save.mutate(input, {
+                onSuccess: (schedule) => {
+                  toast.add({
+                    title: id
+                      ? t("notifications.updated")
+                      : t("notifications.created"),
+                    type: "success",
+                  });
+                  const next = scheduleToInput(schedule);
+                  setBaseline(next);
+                  setInput(next);
+                  void navigate(`/schedules/${schedule.id}`, { replace: true });
+                },
+              });
           }}
         >
           <main className="schedule-builder__main">
@@ -527,7 +516,17 @@ export function ScheduleEditorPage() {
                     action: t("common:actions.delete"),
                     destructive: true,
                   }).then((ok) => {
-                    if (ok) remove.mutate();
+                    if (ok)
+                      remove.mutate(undefined, {
+                        onSuccess: () => {
+                          toast.add({
+                            title: t("notifications.deleted"),
+                            type: "success",
+                          });
+                          departing.current = true;
+                          void navigate("/schedules");
+                        },
+                      });
                   })
                 }
               >
