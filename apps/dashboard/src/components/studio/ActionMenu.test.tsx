@@ -66,7 +66,9 @@ describe("ActionMenuButton in a browser", () => {
     );
     const open = await screen.findByRole("menuitem", { name: "Open" });
     expect(open).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Delete" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("separator")).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
       "data-variant",
@@ -178,7 +180,9 @@ describe("ActionContextMenu", () => {
     fireEvent.contextMenu(screen.getByTestId("card"));
     const open = await screen.findByRole("menuitem", { name: "Open" });
     expect(open).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: "Delete" }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
   });
