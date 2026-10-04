@@ -248,9 +248,7 @@ const screenDetailTabs: readonly ScreenDetailTab[] = [
 ];
 
 type ScreenDetailTabLabelKey =
-  | "detail.tabOverview"
-  | "detail.tabActivity"
-  | "detail.tabSettings";
+  "detail.tabOverview" | "detail.tabActivity" | "detail.tabSettings";
 
 const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
   {
@@ -263,11 +261,7 @@ const screenDetailTabLabels: Record<ScreenDetailTab, ScreenDetailTabLabelKey> =
  * Primary Screen-detail navigation. The same three-tab strip is used at every
  * breakpoint so operators do not have to relearn the resource on mobile.
  */
-export function ScreenDetailTabs({
-  policyDirty,
-}: {
-  policyDirty: boolean;
-}) {
+export function ScreenDetailTabs({ policyDirty }: { policyDirty: boolean }) {
   const { t } = useTranslation(["screens", "common"]);
   const options = screenDetailTabs.map((value) => ({
     value,
@@ -3311,7 +3305,9 @@ export function ScreenDetailPage() {
                 <Card size="sm" className="min-w-0">
                   <CardHeader>
                     <CardTitle>{t("detail.factConnectionTitle")}</CardTitle>
-                    <CardDescription>{t("detail.overviewBody")}</CardDescription>
+                    <CardDescription>
+                      {t("detail.overviewBody")}
+                    </CardDescription>
                     <CardAction>
                       <Button
                         variant="ghost"
@@ -3356,8 +3352,10 @@ export function ScreenDetailPage() {
                       <OverviewFact
                         label={t("detail.factReliability")}
                         value={
-                          reliability.data?.effectiveMode?.replaceAll("_", " ") ??
-                          t("shared.notReported")
+                          reliability.data?.effectiveMode?.replaceAll(
+                            "_",
+                            " ",
+                          ) ?? t("shared.notReported")
                         }
                       />
                       <OverviewFact
@@ -3368,8 +3366,9 @@ export function ScreenDetailPage() {
                             className="underline underline-offset-4"
                           >
                             {t("detail.policyOverrides", {
-                              count: Object.keys(screenPolicy.data?.values ?? {})
-                                .length,
+                              count: Object.keys(
+                                screenPolicy.data?.values ?? {},
+                              ).length,
                             })}
                           </Link>
                         }
@@ -3423,10 +3422,12 @@ export function ScreenDetailPage() {
                               value: "__none__",
                               label: t("detail.noPresentation"),
                             },
-                            ...(playlists.data?.items ?? []).map((playlist) => ({
-                              value: `playlist:${playlist.id}`,
-                              label: playlist.name,
-                            })),
+                            ...(playlists.data?.items ?? []).map(
+                              (playlist) => ({
+                                value: `playlist:${playlist.id}`,
+                                label: playlist.name,
+                              }),
+                            ),
                             ...(layouts.data?.items ?? []).map((layout) => ({
                               value: `layout:${layout.id}`,
                               label: layout.name,
@@ -3452,7 +3453,9 @@ export function ScreenDetailPage() {
                               {t("detail.noPresentation")}
                             </SelectItem>
                             <SelectGroup>
-                              <SelectLabel>{t("detail.playlistsGroup")}</SelectLabel>
+                              <SelectLabel>
+                                {t("detail.playlistsGroup")}
+                              </SelectLabel>
                               {playlists.data?.items?.map((playlist) => (
                                 <SelectItem
                                   key={playlist.id}
@@ -3463,7 +3466,9 @@ export function ScreenDetailPage() {
                               ))}
                             </SelectGroup>
                             <SelectGroup>
-                              <SelectLabel>{t("detail.layoutsGroup")}</SelectLabel>
+                              <SelectLabel>
+                                {t("detail.layoutsGroup")}
+                              </SelectLabel>
                               {layouts.data?.items
                                 .filter((layout) => layout.publishedRevision)
                                 .map((layout) => (
@@ -3556,7 +3561,8 @@ export function ScreenDetailPage() {
                           ? t("detail.takeoverProgress", {
                               state: assignment.data.takeoverState ?? "pending",
                               progress:
-                                assignment.data.takeoverPreparationProgress ?? 0,
+                                assignment.data.takeoverPreparationProgress ??
+                                0,
                             })
                           : t("detail.noTakeover")
                       }
@@ -3599,7 +3605,9 @@ export function ScreenDetailPage() {
                     <Alert>
                       <CircleAlert aria-hidden="true" />
                       <AlertTitle>{t("detail.clockTitle")}</AlertTitle>
-                      <AlertDescription>{t("detail.clockBody")}</AlertDescription>
+                      <AlertDescription>
+                        {t("detail.clockBody")}
+                      </AlertDescription>
                     </Alert>
                   )}
                   {assignment.data?.scheduleEvaluationError && (
@@ -3612,9 +3620,12 @@ export function ScreenDetailPage() {
                     </Alert>
                   )}
                   {assignment.data?.websiteFailureCategory &&
-                    ["failed", "timed_out", "blocked", "showing_fallback"].includes(
-                      assignment.data.websiteState ?? "",
-                    ) && (
+                    [
+                      "failed",
+                      "timed_out",
+                      "blocked",
+                      "showing_fallback",
+                    ].includes(assignment.data.websiteState ?? "") && (
                       <Alert variant="destructive">
                         <CircleAlert aria-hidden="true" />
                         <AlertTitle>{t("detail.websiteTitle")}</AlertTitle>
@@ -3730,7 +3741,9 @@ export function ScreenDetailPage() {
               <TabsTrigger value="device">
                 {t("detail.sectionDevice")}
               </TabsTrigger>
-              <TabsTrigger value="health">{t("detail.sectionHealth")}</TabsTrigger>
+              <TabsTrigger value="health">
+                {t("detail.sectionHealth")}
+              </TabsTrigger>
               <TabsTrigger value="maintenance">
                 {t("detail.sectionMaintenance")}
               </TabsTrigger>
@@ -3807,7 +3820,8 @@ export function ScreenDetailPage() {
                           assignment.data?.downloadQueueCount != null
                             ? t("detail.downloads", {
                                 queued: assignment.data.downloadQueueCount,
-                                downloaded: assignment.data.downloadedBytes ?? 0,
+                                downloaded:
+                                  assignment.data.downloadedBytes ?? 0,
                                 required: assignment.data.requiredBytes ?? 0,
                               })
                             : t("shared.notReported")
@@ -3848,7 +3862,8 @@ export function ScreenDetailPage() {
                         value={
                           assignment.data?.activeTakeoverId
                             ? t("detail.takeoverProgress", {
-                                state: assignment.data.takeoverState ?? "pending",
+                                state:
+                                  assignment.data.takeoverState ?? "pending",
                                 progress:
                                   assignment.data.takeoverPreparationProgress ??
                                   0,
