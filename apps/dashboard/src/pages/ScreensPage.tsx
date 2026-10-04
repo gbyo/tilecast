@@ -2992,6 +2992,20 @@ export function ScreenDetailPage() {
   };
   const openDiagnostics = (section: ScreenManageSection = "device") =>
     setDetailPanel("diagnostics", true, section);
+  const viewContent = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("tab");
+    next.delete("panel");
+    next.delete("section");
+    next.set("focus", "content");
+    setSearchParams(next);
+    window.requestAnimationFrame(() => {
+      document.getElementById("screen-content")?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+    });
+  };
   const setDiagnosticsSection = (section: string) => {
     if (!screenManageSections.includes(section as ScreenManageSection)) return;
     openDiagnostics(section as ScreenManageSection);
@@ -3071,7 +3085,7 @@ export function ScreenDetailPage() {
                       id: "view-content",
                       label: t("detail.viewContent"),
                       icon: "screens",
-                      onSelect: () => selectTab("content"),
+                      onSelect: viewContent,
                     },
                   ],
                 },
