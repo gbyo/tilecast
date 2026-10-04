@@ -5,7 +5,7 @@ import { History } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
@@ -87,7 +87,7 @@ export function PlaylistRevisionsPanel({
   if (revisions.error)
     return (
       <Alert variant="destructive">
-        <AlertDescription>{revisions.error.message}</AlertDescription>
+        <AlertDescription>{apiErrorMessage(revisions.error)}</AlertDescription>
       </Alert>
     );
 
@@ -120,7 +120,7 @@ export function PlaylistRevisionsPanel({
       )}
       {restore.error && (
         <Alert variant="destructive">
-          <AlertDescription>{restore.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(restore.error)}</AlertDescription>
         </Alert>
       )}
 

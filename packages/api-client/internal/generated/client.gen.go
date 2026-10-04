@@ -3741,6 +3741,24 @@ func (e ScreenPreviewMetadataStatus) Valid() bool {
 	}
 }
 
+// Defines values for ScreenScopeType.
+const (
+	ScreenScopeTypeGroup    ScreenScopeType = "group"
+	ScreenScopeTypeLocation ScreenScopeType = "location"
+)
+
+// Valid indicates whether the value is a known member of the ScreenScopeType enum.
+func (e ScreenScopeType) Valid() bool {
+	switch e {
+	case ScreenScopeTypeGroup:
+		return true
+	case ScreenScopeTypeLocation:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenSnapshotTrigger.
 const (
 	ScreenSnapshotTriggerManual    ScreenSnapshotTrigger = "manual"
@@ -9443,6 +9461,22 @@ type ScreenPreviewMetadata struct {
 // ScreenPreviewMetadataStatus defines model for ScreenPreviewMetadata.Status.
 type ScreenPreviewMetadataStatus string
 
+// ScreenScope defines model for ScreenScope.
+type ScreenScope struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name *string            `json:"name,omitempty"`
+	Type ScreenScopeType    `json:"type"`
+}
+
+// ScreenScopeType defines model for ScreenScope.Type.
+type ScreenScopeType string
+
+// ScreenScopeList defines model for ScreenScopeList.
+type ScreenScopeList struct {
+	Scopes     []ScreenScope `json:"scopes"`
+	WholeFleet bool          `json:"wholeFleet"`
+}
+
 // ScreenSnapshot defines model for ScreenSnapshot.
 type ScreenSnapshot struct {
 	CapturedAt    time.Time             `json:"capturedAt"`
@@ -12068,6 +12102,16 @@ type PermanentlyDeleteUserParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// PutUserScreenScopesJSONBody defines parameters for PutUserScreenScopes.
+type PutUserScreenScopesJSONBody struct {
+	Scopes []ScreenScope `json:"scopes"`
+}
+
+// PutUserScreenScopesParams defines parameters for PutUserScreenScopes.
+type PutUserScreenScopesParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // ResetUserSecurityParams defines parameters for ResetUserSecurity.
 type ResetUserSecurityParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -12473,6 +12517,9 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// PutUserScreenScopesJSONRequestBody defines body for PutUserScreenScopes for application/json ContentType.
+type PutUserScreenScopesJSONRequestBody PutUserScreenScopesJSONBody
 
 // CreateWidgetJSONRequestBody defines body for CreateWidget for application/json ContentType.
 type CreateWidgetJSONRequestBody = WidgetInput
@@ -16279,6 +16326,23 @@ type ClientInterface interface {
 	//
 	// Permanently removes an inactive user account. Account-owned preferences, sessions, grants, and security credentials are removed; retained records keep their history with user attribution cleared.
 	PermanentlyDeleteUser(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+	//
+	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResetUserSecurity performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
 	//
@@ -24225,6 +24289,53 @@ func (c *Client) UpdateUser(ctx context.Context, id openapi_types.UUID, params *
 // Permanently removes an inactive user account. Account-owned preferences, sessions, grants, and security credentials are removed; retained records keep their history with user attribution cleared.
 func (c *Client) PermanentlyDeleteUser(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPermanentlyDeleteUserRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+//
+// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+func (c *Client) GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserScreenScopesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *Client) PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserScreenScopesRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *Client) PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserScreenScopesRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -41964,6 +42075,100 @@ func NewPermanentlyDeleteUserRequest(server string, id openapi_types.UUID, param
 	return req, nil
 }
 
+// NewGetUserScreenScopesRequest constructs an http.Request for the GetUserScreenScopes method
+func NewGetUserScreenScopesRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/screen-scopes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutUserScreenScopesRequest calls the generic PutUserScreenScopes builder with application/json body
+func NewPutUserScreenScopesRequest(server string, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutUserScreenScopesRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewPutUserScreenScopesRequestWithBody constructs an http.Request for the PutUserScreenScopes method, with any body, and a specified content type
+func NewPutUserScreenScopesRequestWithBody(server string, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/screen-scopes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewResetUserSecurityRequest constructs an http.Request for the ResetUserSecurity method
 func NewResetUserSecurityRequest(server string, id openapi_types.UUID, params *ResetUserSecurityParams) (*http.Request, error) {
 	var err error
@@ -46001,6 +46206,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	PermanentlyDeleteUserWithResponse(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*PermanentlyDeleteUserResponse, error)
+
+	// GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+	//
+	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error)
+
+	// PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
+
+	// PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
 
 	// ResetUserSecurityWithResponse performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
 	//
@@ -61779,6 +62005,96 @@ func (r PermanentlyDeleteUserResponse) ContentType() string {
 	return ""
 }
 
+type GetUserScreenScopesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenScopeList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetUserScreenScopesResponse) GetJSON200() *struct {
+	Data ScreenScopeList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetUserScreenScopesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserScreenScopesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserScreenScopesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserScreenScopesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutUserScreenScopesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenScopeList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutUserScreenScopesResponse) GetJSON200() *struct {
+	Data ScreenScopeList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PutUserScreenScopesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutUserScreenScopesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutUserScreenScopesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutUserScreenScopesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ResetUserSecurityResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -68824,6 +69140,45 @@ func (c *ClientWithResponses) PermanentlyDeleteUserWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParsePermanentlyDeleteUserResponse(rsp)
+}
+
+// GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+//
+// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error) {
+	rsp, err := c.GetUserScreenScopes(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserScreenScopesResponse(rsp)
+}
+
+// PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
+	rsp, err := c.PutUserScreenScopesWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserScreenScopesResponse(rsp)
+}
+
+// PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *ClientWithResponses) PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
+	rsp, err := c.PutUserScreenScopes(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserScreenScopesResponse(rsp)
 }
 
 // ResetUserSecurityWithResponse performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
@@ -79585,6 +79940,86 @@ func ParsePermanentlyDeleteUserResponse(rsp *http.Response) (*PermanentlyDeleteU
 	response := &PermanentlyDeleteUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetUserScreenScopesResponse parses an HTTP response from a GetUserScreenScopesWithResponse call
+func ParseGetUserScreenScopesResponse(rsp *http.Response) (*GetUserScreenScopesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserScreenScopesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenScopeList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePutUserScreenScopesResponse parses an HTTP response from a PutUserScreenScopesWithResponse call
+func ParsePutUserScreenScopesResponse(rsp *http.Response) (*PutUserScreenScopesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutUserScreenScopesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenScopeList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

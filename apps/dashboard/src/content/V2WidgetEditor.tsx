@@ -26,6 +26,7 @@ import type {
   WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type {
   Asset,
   ContentDefinitionField,
@@ -252,7 +253,9 @@ export function V2WidgetEditor({
     } catch (error) {
       return {
         problem:
-          error instanceof Error ? error.message : "Configuration is invalid.",
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : "Configuration is invalid.",
       };
     }
   }, [component, previewConfiguration]);

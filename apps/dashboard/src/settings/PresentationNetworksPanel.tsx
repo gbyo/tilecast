@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { LockKeyhole, Pencil, Plus, Search, Trash2, Wifi } from "lucide-react";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type {
   PresentationNetwork,
   PresentationNetworkInput,
@@ -89,7 +90,7 @@ function isLinux(screen: Screen) {
 
 function safeError(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim()
-    ? error.message
+    ? apiErrorMessage(error)
     : fallback;
 }
 
@@ -289,7 +290,7 @@ export function PresentationNetworksPanel({
           {networks.error && (
             <Alert variant="destructive">
               <AlertDescription>
-                {t("networks.loadError")} {networks.error.message}
+                {t("networks.loadError")} {apiErrorMessage(networks.error)}
               </AlertDescription>
             </Alert>
           )}

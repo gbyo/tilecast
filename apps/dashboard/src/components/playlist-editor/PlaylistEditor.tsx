@@ -61,6 +61,7 @@ import type {
   PlaylistBulkItemUpdateInput,
 } from "../../api/types";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { toast } from "../ui/toast";
 import { useAuth } from "../../auth/AuthProvider";
 import { ContentPicker, type ContentPickerResult } from "../content-picker";
@@ -186,7 +187,7 @@ export function PlaylistEditorPage() {
       setMetadataDirty(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const saveTagRule = useMutation({
@@ -207,7 +208,7 @@ export function PlaylistEditorPage() {
       setTagRuleDirty(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const publish = useMutation({
@@ -263,7 +264,7 @@ export function PlaylistEditorPage() {
       update(playlist);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const deleteItem = useMutation({
@@ -274,7 +275,7 @@ export function PlaylistEditorPage() {
       setItemInspectorOpen(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const reorder = useMutation({
@@ -283,7 +284,7 @@ export function PlaylistEditorPage() {
       update(playlist);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const bulkUpdate = useMutation({
@@ -303,7 +304,7 @@ export function PlaylistEditorPage() {
         type: "success",
       });
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const add = async (selected: Asset[]): Promise<ContentPickerResult> => {
@@ -339,7 +340,9 @@ export function PlaylistEditorPage() {
           id: asset.id,
           name: asset.name,
           message:
-            error instanceof Error ? error.message : t("editor.addItemError"),
+            error instanceof Error
+              ? apiErrorMessage(error)
+              : t("editor.addItemError"),
         });
       }
     }
@@ -367,7 +370,9 @@ export function PlaylistEditorPage() {
         setAddFailure(result.failures[0]?.message ?? "");
       } catch (error) {
         setAddFailure(
-          error instanceof Error ? error.message : t("editor.widgetAddError"),
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : t("editor.widgetAddError"),
         );
       }
     })();
@@ -401,7 +406,9 @@ export function PlaylistEditorPage() {
       toast.add({ title: t("editor.toasts.layoutAdded"), type: "success" });
     } catch (error) {
       setAddFailure(
-        error instanceof Error ? error.message : t("editor.layoutAddError"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("editor.layoutAddError"),
       );
     }
   };
@@ -616,7 +623,9 @@ export function PlaylistEditorPage() {
             ))}
             {publish.error && (
               <Alert variant="destructive">
-                <AlertDescription>{publish.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(publish.error)}
+                </AlertDescription>
               </Alert>
             )}
             {editorError && (

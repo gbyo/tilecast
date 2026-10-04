@@ -1343,49 +1343,317 @@ export function YouTubeSourceEditor({
     else onClose();
   };
   const close = requestClose;
-  useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        if (dirty) setConfirmDiscard(true);
-        else onClose();
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [dirty, onClose]);
-  return (
-    <div
-      className={
-        page
-          ? "grid w-full min-w-0 gap-5"
-          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
-      }
-      role={page ? undefined : "presentation"}
-    >
-      <section
-        className={
-          page
-            ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
-        }
-        role={page ? undefined : "dialog"}
-        aria-modal={page ? undefined : true}
-        aria-labelledby="youtube-source-title"
-      >
+  const title = asset
+    ? t("widgets.editors.youtube.editTitle")
+    : t("widgets.editors.youtube.createTitle");
+  const form = (
+    <>
+      <Field>
+        <FieldLabel htmlFor="name">
+          {t("widgets.editors.youtube.nameLabel")}
+        </FieldLabel>
+        <Input
+          id="name"
+          disabled={readOnly}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setDirty(true);
+          }}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="youtube-description">
+          {t("widgets.editors.shared.description")}
+        </FieldLabel>
+        <Textarea
+          id="youtube-description"
+          disabled={readOnly}
+          value={description}
+          onChange={(event) => {
+            setDescription(event.target.value);
+            setDirty(true);
+          }}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="youtube-url">
+          {t("widgets.editors.youtube.urlLabel")}
+        </FieldLabel>
+        <Input
+          id="youtube-url"
+          disabled={readOnly}
+          value={configuration.url}
+          onChange={(event) => set("url", event.target.value)}
+        />
+        <FieldDescription>
+          {t("widgets.editors.youtube.urlHint")}
+        </FieldDescription>
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field>
+          <FieldLabel htmlFor="youtube-start">
+            {t("widgets.editors.youtube.startLabel")}
+          </FieldLabel>
+          <Input
+            id="youtube-start"
+            type="number"
+            min={0}
+            disabled={readOnly}
+            value={configuration.startSeconds}
+            onChange={(event) =>
+              set("startSeconds", Number(event.target.value))
+            }
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-end">
+            {t("widgets.editors.youtube.endLabel")}
+          </FieldLabel>
+          <Input
+            id="youtube-end"
+            type="number"
+            min={1}
+            disabled={readOnly}
+            value={configuration.endSeconds ?? ""}
+            onChange={(event) =>
+              set(
+                "endSeconds",
+                event.target.value ? Number(event.target.value) : undefined,
+              )
+            }
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-volume">
+            {t("widgets.editors.youtube.volumeLabel")}
+          </FieldLabel>
+          <div className="flex items-center gap-2">
+            <Input
+              id="youtube-volume"
+              type="number"
+              min={0}
+              max={100}
+              disabled={readOnly || configuration.muted}
+              value={configuration.volume}
+              onChange={(event) => set("volume", Number(event.target.value))}
+              className="max-w-28"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+          </div>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="youtube-captions">
+            {t("widgets.editors.youtube.captionsLabel")}
+          </FieldLabel>
+          <Input
+            id="youtube-captions"
+            disabled={readOnly || !configuration.captions}
+            placeholder="en"
+            value={configuration.captionLanguage}
+            onChange={(event) => set("captionLanguage", event.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {(
+          [
+            ["loop", "widgets.editors.youtube.loop"],
+            ["muted", "widgets.editors.youtube.muted"],
+            ["captions", "widgets.editors.youtube.captions"],
+            ["controls", "widgets.editors.youtube.controls"],
+          ] as const
+        ).map(([key, labelKey]) => (
+          <label key={key} className="flex items-center gap-2 text-sm">
+            <Switch
+              disabled={readOnly}
+              checked={configuration[key]}
+              onCheckedChange={(checked) => set(key, checked === true)}
+              aria-label={t(labelKey)}
+            />
+            <span>{t(labelKey)}</span>
+          </label>
+        ))}
+      </div>
+      <Field>
+        <FieldLabel htmlFor="youtube-playback-mode">
+          {t("widgets.editors.youtube.behavior")}
+        </FieldLabel>
+        <Select
+          items={[
+            {
+              value: "until_end",
+              label: t("widgets.editors.youtube.behaviorUntilEnd"),
+            },
+            {
+              value: "fixed_duration",
+              label: t("widgets.editors.youtube.behaviorFixed"),
+            },
+          ]}
+          disabled={readOnly}
+          value={configuration.playlistPlaybackMode}
+          onValueChange={(next) =>
+            set(
+              "playlistPlaybackMode",
+              next as YouTubeConfig["playlistPlaybackMode"],
+            )
+          }
+        >
+          <SelectTrigger
+            id="youtube-playback-mode"
+            aria-label={t("widgets.editors.youtube.behavior")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="until_end">
+              {t("widgets.editors.youtube.behaviorUntilEnd")}
+            </SelectItem>
+            <SelectItem value="fixed_duration">
+              {t("widgets.editors.youtube.behaviorFixed")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {configuration.playlistPlaybackMode === "fixed_duration" && (
+        <Field>
+          <FieldLabel htmlFor="youtube-fixed-duration">
+            {t("widgets.editors.youtube.fixedDuration")}
+          </FieldLabel>
+          <Input
+            id="youtube-fixed-duration"
+            type="number"
+            min={1}
+            max={86400}
+            disabled={readOnly}
+            value={configuration.fixedDurationSeconds ?? 30}
+            onChange={(event) =>
+              set("fixedDurationSeconds", Number(event.target.value))
+            }
+          />
+        </Field>
+      )}
+      <Field>
+        <FieldLabel htmlFor="youtube-failure">
+          {t("widgets.editors.youtube.failure")}
+        </FieldLabel>
+        <Select
+          items={[
+            {
+              value: "placeholder",
+              label: t("widgets.editors.youtube.failurePlaceholder"),
+            },
+            {
+              value: "fallback_image",
+              label: t("widgets.editors.youtube.failureImage"),
+            },
+            {
+              value: "skip",
+              label: t("widgets.editors.youtube.failureSkip"),
+            },
+          ]}
+          disabled={readOnly}
+          value={configuration.failureBehavior}
+          onValueChange={(next) =>
+            set("failureBehavior", next as YouTubeConfig["failureBehavior"])
+          }
+        >
+          <SelectTrigger
+            id="youtube-failure"
+            aria-label={t("widgets.editors.youtube.failure")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="placeholder">
+              {t("widgets.editors.youtube.failurePlaceholder")}
+            </SelectItem>
+            <SelectItem value="fallback_image">
+              {t("widgets.editors.youtube.failureImage")}
+            </SelectItem>
+            <SelectItem value="skip">
+              {t("widgets.editors.youtube.failureSkip")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="youtube-fallback">
+          {t("widgets.editors.youtube.fallback")}
+        </FieldLabel>
+        <FallbackImagePicker
+          id="youtube-fallback"
+          label={t("widgets.editors.youtube.fallback")}
+          value={configuration.fallbackImageAssetId}
+          onChange={(next) => set("fallbackImageAssetId", next)}
+          disabled={readOnly}
+          csrf={csrf}
+          noneLabel={t("widgets.editors.shared.none")}
+          clearLabel={t("common:actions.remove")}
+          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+          pickerDescription={t(
+            "widgets.editors.shared.fallbackPickerDescription",
+          )}
+          pickerConfirm={t("common:actions.confirm")}
+        />
+      </Field>
+      {save.error && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {widgetSaveErrorMessage(t, save.error)}
+          </AlertDescription>
+        </Alert>
+      )}
+      <footer className="flex flex-wrap items-center gap-2">
+        {!readOnly && !page && (
+          <Button
+            disabled={save.isPending || !name.trim()}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending
+              ? t("common:actions.saving")
+              : t("widgets.editors.shared.saveWidget")}
+          </Button>
+        )}
+        <Button type="button" variant="outline" onClick={requestClose}>
+          {t("common:actions.cancel")}
+        </Button>
+      </footer>
+      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("widgets.editors.youtube.discardTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("widgets.editors.youtube.discardHint")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("widgets.editors.youtube.keepEditing")}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={onClose}>
+              {t("widgets.editors.youtube.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {navigationDialog}
+    </>
+  );
+  if (page) {
+    return (
+      <section className="grid w-full min-w-0 gap-5" aria-label={title}>
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <h2 id="youtube-source-title" className="text-xl font-semibold">
-              {asset
-                ? t("widgets.editors.youtube.editTitle")
-                : t("widgets.editors.youtube.createTitle")}
-            </h2>
+            <h2 className="text-xl font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">
               {t("widgets.editors.youtube.hint")}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {page && !readOnly && (
+            {!readOnly && (
               <EditorHeaderActions
                 dirty={dirty}
                 dirtyLabel={t("widgets.editors.v2.unsaved")}
@@ -1409,299 +1677,26 @@ export function YouTubeSourceEditor({
             </Button>
           </div>
         </div>
-        <Field>
-          <FieldLabel htmlFor="name">
-            {t("widgets.editors.youtube.nameLabel")}
-          </FieldLabel>
-          <Input
-            id="name"
-            disabled={readOnly}
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value);
-              setDirty(true);
-            }}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="youtube-description">
-            {t("widgets.editors.shared.description")}
-          </FieldLabel>
-          <Textarea
-            id="youtube-description"
-            disabled={readOnly}
-            value={description}
-            onChange={(event) => {
-              setDescription(event.target.value);
-              setDirty(true);
-            }}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="youtube-url">
-            {t("widgets.editors.youtube.urlLabel")}
-          </FieldLabel>
-          <Input
-            id="youtube-url"
-            disabled={readOnly}
-            value={configuration.url}
-            onChange={(event) => set("url", event.target.value)}
-          />
-          <FieldDescription>
-            {t("widgets.editors.youtube.urlHint")}
-          </FieldDescription>
-        </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field>
-            <FieldLabel htmlFor="youtube-start">
-              {t("widgets.editors.youtube.startLabel")}
-            </FieldLabel>
-            <Input
-              id="youtube-start"
-              type="number"
-              min={0}
-              disabled={readOnly}
-              value={configuration.startSeconds}
-              onChange={(event) =>
-                set("startSeconds", Number(event.target.value))
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="youtube-end">
-              {t("widgets.editors.youtube.endLabel")}
-            </FieldLabel>
-            <Input
-              id="youtube-end"
-              type="number"
-              min={1}
-              disabled={readOnly}
-              value={configuration.endSeconds ?? ""}
-              onChange={(event) =>
-                set(
-                  "endSeconds",
-                  event.target.value ? Number(event.target.value) : undefined,
-                )
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="youtube-volume">
-              {t("widgets.editors.youtube.volumeLabel")}
-            </FieldLabel>
-            <div className="flex items-center gap-2">
-              <Input
-                id="youtube-volume"
-                type="number"
-                min={0}
-                max={100}
-                disabled={readOnly || configuration.muted}
-                value={configuration.volume}
-                onChange={(event) => set("volume", Number(event.target.value))}
-                className="max-w-28"
-              />
-              <span className="text-sm text-muted-foreground">%</span>
-            </div>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="youtube-captions">
-              {t("widgets.editors.youtube.captionsLabel")}
-            </FieldLabel>
-            <Input
-              id="youtube-captions"
-              disabled={readOnly || !configuration.captions}
-              placeholder="en"
-              value={configuration.captionLanguage}
-              onChange={(event) => set("captionLanguage", event.target.value)}
-            />
-          </Field>
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {(
-            [
-              ["loop", "widgets.editors.youtube.loop"],
-              ["muted", "widgets.editors.youtube.muted"],
-              ["captions", "widgets.editors.youtube.captions"],
-              ["controls", "widgets.editors.youtube.controls"],
-            ] as const
-          ).map(([key, labelKey]) => (
-            <label key={key} className="flex items-center gap-2 text-sm">
-              <Switch
-                disabled={readOnly}
-                checked={configuration[key]}
-                onCheckedChange={(checked) => set(key, checked === true)}
-                aria-label={t(labelKey)}
-              />
-              <span>{t(labelKey)}</span>
-            </label>
-          ))}
-        </div>
-        <Field>
-          <FieldLabel htmlFor="youtube-playback-mode">
-            {t("widgets.editors.youtube.behavior")}
-          </FieldLabel>
-          <Select
-            items={[
-              {
-                value: "until_end",
-                label: t("widgets.editors.youtube.behaviorUntilEnd"),
-              },
-              {
-                value: "fixed_duration",
-                label: t("widgets.editors.youtube.behaviorFixed"),
-              },
-            ]}
-            disabled={readOnly}
-            value={configuration.playlistPlaybackMode}
-            onValueChange={(next) =>
-              set(
-                "playlistPlaybackMode",
-                next as YouTubeConfig["playlistPlaybackMode"],
-              )
-            }
-          >
-            <SelectTrigger
-              id="youtube-playback-mode"
-              aria-label={t("widgets.editors.youtube.behavior")}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="until_end">
-                {t("widgets.editors.youtube.behaviorUntilEnd")}
-              </SelectItem>
-              <SelectItem value="fixed_duration">
-                {t("widgets.editors.youtube.behaviorFixed")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        {configuration.playlistPlaybackMode === "fixed_duration" && (
-          <Field>
-            <FieldLabel htmlFor="youtube-fixed-duration">
-              {t("widgets.editors.youtube.fixedDuration")}
-            </FieldLabel>
-            <Input
-              id="youtube-fixed-duration"
-              type="number"
-              min={1}
-              max={86400}
-              disabled={readOnly}
-              value={configuration.fixedDurationSeconds ?? 30}
-              onChange={(event) =>
-                set("fixedDurationSeconds", Number(event.target.value))
-              }
-            />
-          </Field>
-        )}
-        <Field>
-          <FieldLabel htmlFor="youtube-failure">
-            {t("widgets.editors.youtube.failure")}
-          </FieldLabel>
-          <Select
-            items={[
-              {
-                value: "placeholder",
-                label: t("widgets.editors.youtube.failurePlaceholder"),
-              },
-              {
-                value: "fallback_image",
-                label: t("widgets.editors.youtube.failureImage"),
-              },
-              {
-                value: "skip",
-                label: t("widgets.editors.youtube.failureSkip"),
-              },
-            ]}
-            disabled={readOnly}
-            value={configuration.failureBehavior}
-            onValueChange={(next) =>
-              set("failureBehavior", next as YouTubeConfig["failureBehavior"])
-            }
-          >
-            <SelectTrigger
-              id="youtube-failure"
-              aria-label={t("widgets.editors.youtube.failure")}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="placeholder">
-                {t("widgets.editors.youtube.failurePlaceholder")}
-              </SelectItem>
-              <SelectItem value="fallback_image">
-                {t("widgets.editors.youtube.failureImage")}
-              </SelectItem>
-              <SelectItem value="skip">
-                {t("widgets.editors.youtube.failureSkip")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="youtube-fallback">
-            {t("widgets.editors.youtube.fallback")}
-          </FieldLabel>
-          <FallbackImagePicker
-            id="youtube-fallback"
-            label={t("widgets.editors.youtube.fallback")}
-            value={configuration.fallbackImageAssetId}
-            onChange={(next) => set("fallbackImageAssetId", next)}
-            disabled={readOnly}
-            csrf={csrf}
-            noneLabel={t("widgets.editors.shared.none")}
-            clearLabel={t("common:actions.remove")}
-            pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
-            pickerDescription={t(
-              "widgets.editors.shared.fallbackPickerDescription",
-            )}
-            pickerConfirm={t("common:actions.confirm")}
-          />
-        </Field>
-        {save.error && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {widgetSaveErrorMessage(t, save.error)}
-            </AlertDescription>
-          </Alert>
-        )}
-        <footer className="flex flex-wrap items-center gap-2">
-          {!readOnly && !page && (
-            <Button
-              disabled={save.isPending || !name.trim()}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending
-                ? t("common:actions.saving")
-                : t("widgets.editors.shared.saveWidget")}
-            </Button>
-          )}
-          <Button type="button" variant="outline" onClick={requestClose}>
-            {t("common:actions.cancel")}
-          </Button>
-        </footer>
-        <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("widgets.editors.youtube.discardTitle")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("widgets.editors.youtube.discardHint")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {t("widgets.editors.youtube.keepEditing")}
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={onClose}>
-                {t("widgets.editors.youtube.discard")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        {navigationDialog}
+        {form}
       </section>
-    </div>
+    );
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) requestClose();
+      }}
+    >
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {t("widgets.editors.youtube.hint")}
+          </DialogDescription>
+        </DialogHeader>
+        {form}
+      </DialogContent>
+    </Dialog>
   );
 }

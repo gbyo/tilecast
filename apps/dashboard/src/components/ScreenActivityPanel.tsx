@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { translateKnown } from "../i18n";
+import { apiErrorMessage, translateKnown } from "../i18n";
 import { ApiError } from "../api/errors";
 import { getScreenActivity } from "../api/domains/activity";
 import { AlertTriangle } from "lucide-react";
@@ -115,7 +115,7 @@ export function ScreenActivityPanel({ screenId }: { screenId: string }) {
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
           <AlertTitle>{t("screenActivity.loadErrorTitle")}</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(query.error)}</AlertDescription>
         </Alert>
       )}
       {data && (
