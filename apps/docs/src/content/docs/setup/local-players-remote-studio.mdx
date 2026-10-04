@@ -1,0 +1,76 @@
+---
+title: Local Players with remote Studio
+description: Keep Players on your local network while staff open Studio from outside through a Cloudflare Tunnel hostname.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Use this setup when your Players are at the same site as Tilecast Server and should keep reaching it if the Internet goes down, but staff also need to open Studio from outside.
+
+Players already keep playing downloaded content when the server is unreachable. This setup goes further: local Players keep receiving changes, commands, and status updates over your local network during an Internet outage.
+
+## How it works
+
+Tilecast Server has one **public URL**, `TILECAST_PUBLIC_URL`. There is no setting for a second address. It still works because of how the server and Players behave today:
+
+- The server accepts Player requests on any address that reaches it. It doesn't check the address against `TILECAST_PUBLIC_URL`.
+- A Player uses the address you typed into it. Before it sends its credential, the Player checks the server's installation identity, not its address.
+
+So you set the public URL to the HTTPS hostname that staff use, and you type the server's local address into each local Player.
+
+Tilecast has no dedicated feature or automated test for this setup. Try it with one display before you roll it out.
+
+## Set it up
+
+<Steps>
+
+1. Choose a stable local address for the server and open the port to your local network. See [Set up Tilecast on a local network](../local-network/).
+2. Create the tunnel and start Tilecast with the `tunnel` profile. See [Set up Tilecast with Cloudflare Tunnel](../cloudflare-tunnel/). Set `TILECAST_PUBLIC_URL` to the HTTPS hostname and `TILECAST_COOKIE_SECURE=true`.
+3. Leave LAN discovery off. This is the default (`TILECAST_MDNS_ENABLED=false`).
+4. On each local Player, enter the server's local address with its scheme, for example `http://192.0.2.10:8080`. Pair it as usual.
+5. Staff open Studio at the HTTPS hostname.
+
+</Steps>
+
+## What to expect
+
+| Area                  | Behavior                                                                                                                                                                                                                    |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local Players         | Connect over your local network. An Internet outage doesn't cut them off from the server.                                                                                                                                   |
+| Studio                | Open it at the HTTPS hostname, from inside or outside the site. The sign-in cookie is marked secure, so browsers don't keep it from a plain-HTTP address. Studio itself needs the Internet; only the Players are protected. |
+| LAN discovery         | If you enable mDNS, the server advertises `TILECAST_PUBLIC_URL`, which is the tunnel hostname. A Player that picks it from the list uses that hostname. Keep discovery off and type the local address.                      |
+| Linux installer       | The install script writes `TILECAST_PUBLIC_URL` into the Player, whichever address you download it from. See the next section.                                                                                              |
+| Pairing approval link | The QR code on a Player opens the approval page on `TILECAST_PUBLIC_URL`. A person who scans it needs Internet access. Anyone can instead enter the code in **Screens** > **Fleet** > **Pair screen**.                      |
+| Remote Players        | Players at other sites use the HTTPS hostname, as described in the [Cloudflare Tunnel guide](../cloudflare-tunnel/).                                                                                                        |
+
+## Point a Linux Player at the local address
+
+The installer sets the Player's server address to the public URL. To use the local address instead, override it in the Player's user service on the kiosk account.
+
+```sh title="On the Linux Player, as the kiosk user"
+systemctl --user edit tilecast-player
+```
+
+In the editor, add these lines with your server's local address, then save.
+
+```ini
+[Service]
+Environment=TILECAST_SERVER_URL=http://192.0.2.10:8080
+```
+
+Restart the Player.
+
+```sh title="Restart the Player"
+systemctl --user restart tilecast-player
+```
+
+Use [Install Tilecast Player on Linux](../../players/install-linux/) for the rest of the install.
+
+## If you change the public URL later
+
+Changing `TILECAST_PUBLIC_URL` changes which address the server advertises, what the installer writes, and the domain that passkeys are bound to. Passkeys created for the old domain stop working and must be enrolled again. Players that you entered a local address on keep working, because they don't use the public URL.
+
+## Related pages
+
+- [Networking and remote access](../../administration/networking/) explains the public URL and tunnels.
+- [Check that Players can reach the server](../network-readiness/) if your Players are on a separate network.
