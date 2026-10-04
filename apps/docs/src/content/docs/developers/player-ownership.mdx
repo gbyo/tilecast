@@ -20,15 +20,17 @@ identity, device metadata, and private storage. Edge keeps its credential and
 pairing files and its Electron import. Stored credentials are sent only after
 the client verifies the installation identity.
 
-The Core foundation now lives in `crates/player-core`: native schedule selection,
-command delivery and idempotency, Activity session tracking, and the CAS origin
-adapter. `PlayerCore::new` receives shared services; Edge supplies fixed command
-handlers and lifecycle signals. Core also owns renderer recovery decisions
-and meaningful-evidence rules. Core tracks activation acceptance and evidence
-for the current renderer connection. Edge executes actions through its port.
-Core coordinates activation identity, profile checks, recovery timing, and
-recovery Activity events. Edge retains Runtime projection inputs and constructs
-status payloads. Server reconciliation remains in Edge until its extraction stage.
+Shared native behavior lives in `crates/player-core`: pairing, server
+reconciliation, manifest preparation, configuration acceptance, offline
+activation, native selection, commands, Activity reporting, telemetry policy,
+and renderer recovery. Edge constructs one `PlayerCore` with shared services
+and connects Linux adapters to its domain drivers. Hosts supply clocks and
+fresh IDs; Core persists identity and correlates requests.
+
+Edge retains private stores, hardware access, renderer transport, Runtime
+projection, status payloads, and lifecycle. Display scheduling and non-secret
+network-assignment decisions run in Core; CEC/DDC, NetworkManager, provisioning
+credentials, and radio recovery stay in Edge.
 
 Prepared activations carry bounded, opaque Runtime presentation data with
 verified-object bindings. Core owns explicit requirements and evidence metadata;
@@ -56,13 +58,16 @@ the final code commit. The renderer extraction's qualification ledger is in
 | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget                                  |
 | Pure playback defaults, item availability, or zone decisions shared by Studio and Runtime                   | Presentation Model as that work lands                                   |
-| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core during extraction; currently the Edge native implementation |
+| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core                                                             |
 | CEC/DDC, NetworkManager, systemd, Linux credential files, WPE hosting, or Edge rollback                     | Linux Edge                                                              |
 | A rule that independently implemented Players must agree on                                                 | A fixture at the rule's existing contract owner                         |
 
 For example, a command redelivery fix belongs in shared native behavior. A
 CEC adapter fix stays in Edge. A transition changes Player Runtime. A manifest
 field starts with the manifest schema and its consumers.
+The [native-host readiness review](https://github.com/gbyo/tilecast/blob/main/docs/player-core-readiness.md)
+records the architecture audit, current qualification, and remaining platform
+work for a future macOS host.
 
 ## Check the boundary
 
