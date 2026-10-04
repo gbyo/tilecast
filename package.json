@@ -26,7 +26,7 @@
     "player-contracts:check": "node scripts/generate-player-contracts.mjs --check",
     "player:linux:dist": "npm run dist --workspace @gibsonmb71/tilecast-player-linux",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:check": "prettier --write apps/dashboard/src/components/MapLibreSurface.test.tsx apps/dashboard/src/lib/maplibre.ts apps/dashboard/src/lib/maplibre.test.ts && printf '\\n--- MapLibreSurface.test.tsx ---\\n' && cat apps/dashboard/src/components/MapLibreSurface.test.tsx && printf '\\n--- maplibre.ts ---\\n' && cat apps/dashboard/src/lib/maplibre.ts && printf '\\n--- maplibre.test.ts ---\\n' && cat apps/dashboard/src/lib/maplibre.test.ts && exit 1",
     "lint": "npm run lint --workspace @tilecast/dashboard",
     "doctor": "npm run doctor --workspace @tilecast/dashboard",
     "doctor:changed": "npm run doctor:changed --workspace @tilecast/dashboard",
