@@ -155,7 +155,7 @@ export function ScreenActivitySummary({
                 <ItemActions>
                   <Badge
                     variant={
-                      item.severity === "failed" || item.severity === "critical"
+                      item.severity === "error" || item.severity === "critical"
                         ? "destructive"
                         : "secondary"
                     }

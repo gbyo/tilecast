@@ -173,7 +173,11 @@ export function LivePreviewPanel({
   }, [preview.data?.capturedAt]);
 
   return (
-    <Card role="complementary" aria-label={t("livePreview.title")} className="min-w-0">
+    <Card
+      role="complementary"
+      aria-label={t("livePreview.title")}
+      className="min-w-0"
+    >
       <CardHeader>
         <CardTitle>{t("livePreview.title")}</CardTitle>
         <CardDescription>{t("livePreview.onDemand")}</CardDescription>
@@ -275,7 +279,10 @@ export function LivePreviewPanel({
             <dt>{t("livePreview.image")}</dt>
             <dd className="m-0 break-words text-muted-foreground">
               {preview.data?.width && preview.data?.height
-                ? `${preview.data.width}×${preview.data.height} · ${formatBytes(preview.data.fileSize, formatLocale)}`
+                ? `${preview.data.width}×${preview.data.height} · ${formatBytes(
+                    preview.data.fileSize,
+                    formatLocale,
+                  )}`
                 : t("livePreview.noImage")}
             </dd>
           </div>
