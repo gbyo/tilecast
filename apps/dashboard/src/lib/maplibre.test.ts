@@ -15,10 +15,7 @@ vi.mock("maplibre-gl", () => {
   };
 });
 
-import {
-  OPENFREEMAP_STYLE_URL,
-  proxyOpenFreeMapURL,
-} from "./maplibre";
+import { OPENFREEMAP_STYLE_URL, proxyOpenFreeMapURL } from "./maplibre";
 
 describe("OpenFreeMap request routing", () => {
   it("uses Tilecast's same-origin style endpoint", () => {
