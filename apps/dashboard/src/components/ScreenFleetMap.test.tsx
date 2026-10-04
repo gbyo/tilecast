@@ -96,10 +96,10 @@ describe("ScreenFleetMap native presentation", () => {
     hostState.current = {
       status: "unavailable",
       context: null,
-      capabilities: {},
+      capabilities: {} as NativeHost["capabilities"],
       send: vi.fn(),
       subscribe: () => () => undefined,
-    } as NativeHost;
+    };
 
     renderMap();
     expect(maplibre.constructed).toBe(1);
