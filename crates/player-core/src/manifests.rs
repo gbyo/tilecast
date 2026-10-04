@@ -95,11 +95,15 @@ impl ManifestCoordinator {
             fetched_at: self.dependencies.clock.now(),
         };
         let stored = target.clone();
-        self.dependencies
+        let accepted = self
+            .dependencies
             .state
             .run(move |connection| manifests::put_target(connection, &stored))
             .await
-            .map_err(|_| ManifestSyncError::Regressed)?;
+            .map_err(|_| ManifestSyncError::State)?;
+        if !accepted {
+            return Err(ManifestSyncError::Regressed);
+        }
         tracing::info!(component = "manifest", event = "target", manifest = %digest.short(), version);
         Ok(Some(target))
     }
@@ -243,7 +247,7 @@ mod tests {
         ) -> Result<Vec<Arc<dyn player_cas::BlobSource>>, crate::ManifestPreparationError> {
             if let Some((state, target)) = &self.supersede {
                 let target = target.clone();
-                state.run(move |connection| manifests::put_target(connection, &target)).await.unwrap();
+                assert!(state.run(move |connection| manifests::put_target(connection, &target)).await.unwrap());
             }
             Ok(vec![Arc::new(player_cas::fetch::LocalFileSource { path: self.path.clone() })])
         }
@@ -469,6 +473,17 @@ mod tests {
             Err(ManifestSyncError::Bound)
         ));
         assert_eq!(core.persisted_target(&binding).await.unwrap().digest, target.digest);
+    }
+
+    #[tokio::test]
+    async fn storage_failures_are_state_errors_not_version_regressions() {
+        let (_dir, core, binding) = fixture();
+        let oversized_etag = "e".repeat(201);
+        assert!(matches!(
+            core.reconcile_with(&Api::modified(document(&binding, 1), &oversized_etag), &binding).await,
+            Err(ManifestSyncError::State)
+        ));
+        assert!(core.persisted_target(&binding).await.is_none());
     }
 
     #[tokio::test]

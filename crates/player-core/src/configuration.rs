@@ -128,9 +128,7 @@ impl ConfigurationCoordinator {
         {
             let same =
                 parsed.native.revision == current.revision && comparable(&document) == comparable(&current.document);
-            if parsed.native.revision == current.revision
-                && let Some(etag) = etag.clone()
-            {
+            if same && let Some(etag) = etag.clone() {
                 let (bind, revision) = (binding.clone(), current.revision);
                 let _ = db.run(move |c| config::set_current_etag(c, &bind, revision, &etag)).await;
             }
@@ -298,7 +296,7 @@ mod tests {
         );
         let current = stored(&core, &binding, ConfigStage::Current).await.unwrap();
         assert_eq!(current.document, first);
-        assert_eq!(current.etag.as_deref(), Some("conflict"));
+        assert_eq!(current.etag.as_deref(), Some("resend"), "a refused document must not overwrite the stored ETag");
         assert_eq!(host.0.lock().unwrap().len(), 1);
         let mut newer = first.clone();
         newer["configRevision"] = json!(2);

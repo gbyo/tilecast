@@ -120,8 +120,7 @@ impl OfflineActivationCoordinator {
         let target = db
             .run(move |connection| manifests::target(connection, &target_binding))
             .await
-            .ok()
-            .flatten()
+            .ok()?
             .map(|target| target.digest);
         let local_now_ms = self.dependencies.clock.now().unix_millis();
         let flags = db.run(|connection| playback::get(connection)).await.unwrap_or_default();
@@ -378,7 +377,7 @@ mod tests {
         core.dependencies
             .state
             .run(move |connection| {
-                manifests::put_target(connection, &target)?;
+                assert!(manifests::put_target(connection, &target)?);
                 assert!(manifests::put_pending_for_target(connection, &write)?);
                 Ok(())
             })
@@ -439,7 +438,9 @@ mod tests {
             etag: "third".into(),
             fetched_at: core.dependencies.clock.now(),
         };
-        core.dependencies.state.run(move |connection| manifests::put_target(connection, &third)).await.unwrap();
+        assert!(
+            core.dependencies.state.run(move |connection| manifests::put_target(connection, &third)).await.unwrap()
+        );
         local = core.load().await.unwrap();
         core.retain_pending(&mut local, Some(first.digest)).await;
         assert!(local.pending.is_none());
@@ -472,5 +473,34 @@ mod tests {
         assert_eq!(core.trial_decision(digest, 120000, waiting), TrialDecision::Failed);
         assert!(core.pending_rejected(digest));
         assert_eq!(core.trial_decision(Sha256Digest::of(b"other"), 120000, waiting), TrialDecision::NotCurrent);
+    }
+
+    #[tokio::test]
+    async fn a_failed_target_read_skips_activation_without_discarding_pending() {
+        let (_dir, mut core, binding) = fixture().await;
+        let (stored, _) = pending(&core, &binding, 1).await;
+        core.dependencies
+            .state
+            .run(|connection| {
+                connection.execute("DROP TABLE manifest_target", [])?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        // A failed read is not a missing target: the tick skips instead of
+        // feeding retain_pending a state that would discard prepared work.
+        assert!(core.load().await.is_none());
+        if let Some(mut local) = core.load().await {
+            core.retain_pending(&mut local, None).await;
+        }
+        let lookup = binding.clone();
+        let kept = core
+            .dependencies
+            .state
+            .run(move |connection| manifests::get_for(connection, Stage::Pending, &lookup))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(kept.digest, stored.digest);
     }
 }

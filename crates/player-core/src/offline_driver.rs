@@ -455,7 +455,7 @@ mod tests {
                 },
                 now,
             )?;
-            manifests::put_target(
+            assert!(manifests::put_target(
                 connection,
                 &Target {
                     binding: write.clone(),
@@ -465,7 +465,7 @@ mod tests {
                     fetched_at: now,
                     etag: "1".into(),
                 },
-            )?;
+            )?);
             assert!(manifests::put_pending_for_target(
                 connection,
                 &StoredManifest { binding: write, digest, version: 1, document, stored_at: now }

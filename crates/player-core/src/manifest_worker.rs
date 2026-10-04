@@ -76,7 +76,7 @@ impl ManifestPreparationCoordinator {
             return;
         };
         let digest = target.digest;
-        if self.worker.as_ref().is_some_and(|(running, _)| *running == digest) {
+        if self.worker.as_ref().is_some_and(|(running, task)| *running == digest && !task.is_finished()) {
             return;
         }
         self.abort();
@@ -274,6 +274,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_finished_retryable_worker_restarts_without_waiting_for_reap() {
+        let (_dir, mut core, host, mut calls) = fixture();
+        let shutdown = CancellationToken::new();
+        let target = target(1);
+        let reply = host.reply(&target);
+        core.ensure(Some(target.clone()), host.clone(), &shutdown).await;
+        assert_eq!(calls.recv().await, Some(target.digest));
+        reply
+            .send(Err(ManifestWorkerFailure { kind: ManifestFailureKind::Retryable, reason: "fixture_retry" }))
+            .unwrap();
+        // The worker finished after the loop's reap: ensure must still restart it.
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while core.worker.as_ref().is_some_and(|(_, task)| !task.is_finished()) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(core.status.lock().unwrap().state, "failed");
+        let retry = host.reply(&target);
+        core.ensure(Some(target.clone()), host.clone(), &shutdown).await;
+        let restarted = tokio::time::timeout(Duration::from_secs(2), calls.recv()).await.unwrap();
+        assert_eq!(restarted, Some(target.digest));
+        assert_eq!(core.status.lock().unwrap().state, "preparing");
+        retry.send(Ok(ManifestPrepared::Pending)).unwrap();
+        completed(&mut core).await;
+        assert_eq!(core.status.lock().unwrap().state, "pending");
+    }
+
+    #[tokio::test]
     async fn cached_content_is_rechecked_and_missing_content_is_repaired() {
         let (_dir, mut core, host, mut calls) = fixture();
         let shutdown = CancellationToken::new();
@@ -282,7 +312,7 @@ mod tests {
         core.dependencies
             .state
             .run(move |connection| {
-                manifests::put_target(connection, &stored_target)?;
+                assert!(manifests::put_target(connection, &stored_target)?);
                 let manifest = StoredManifest {
                     binding: stored_target.binding,
                     digest: stored_target.digest,

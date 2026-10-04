@@ -162,6 +162,7 @@ impl PairingCoordinator {
                 Ok(None) => match bound.filter(|record| record.credential_state != CredentialState::Stored) {
                     Some(record) if !self.control.suppressed.load(Ordering::Acquire) => {
                         if self.begin(&record.server_url, user_agent, host).await.is_err() {
+                            host.show_pairing(PairingStatus::Setup).await;
                             delay = Some(PAIRING_RETRY * 6);
                         }
                     }
@@ -584,6 +585,11 @@ mod tests {
             Err(PairingError::Server(ServerError::Url(_)))
         ));
         assert_eq!(core.reconcile("test", &host).await, Duration::from_secs(30));
+        assert_eq!(
+            *host.0.lock().unwrap(),
+            vec![PairingStatus::Reset, PairingStatus::Setup, PairingStatus::Setup],
+            "a failed repair leaves no stale surface behind"
+        );
         assert!(stores.state.run(|connection| daemon::player_identity(connection)).await.unwrap().is_none());
     }
 

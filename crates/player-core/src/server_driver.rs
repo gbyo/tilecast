@@ -3,7 +3,7 @@ use crate::{
     ActivityEvent, ConfigurationCoordinator, ConfigurationHost, Dependencies, LiveFrame, ManifestCoordinator,
     ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestSyncError, ManifestWorkerHost,
     NativeConfiguration, ServerBackoff as Backoff, ServerLinkState as LinkState, ServerLinkState, ServerRelationship,
-    ServerRelationshipError, SharedManifestPreparationStatus,
+    SharedManifestPreparationStatus,
 };
 use player_client::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent};
 use player_client::{AuthenticatedServer, ServerError};
@@ -138,6 +138,10 @@ pub async fn drive_server_link<H: ServerLinkHost>(context: ServerLinkServices<'_
         }
         if !matches!(state, LinkState::Connected | LinkState::Retrying(_)) {
             context.signals.command_server.send_replace(None);
+            // A stopped relationship retires the socket with it; a transient
+            // failure keeps a working socket while it retries.
+            link.socket = None;
+            link.last_socket_activity = None;
         }
         let contact_interval = context.host.native_configuration().sync.status_report;
         let mut delay = match &state {
@@ -320,12 +324,7 @@ async fn pass<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>, link: &mut
     let relationship = context.relationship;
     let (bound, server) = match relationship.verify(context.user_agent).await {
         Ok(verified) => verified,
-        Err(error) => {
-            if matches!(error, ServerRelationshipError::Identity(_)) {
-                link.socket = None;
-            }
-            return error.state();
-        }
+        Err(error) => return error.state(),
     };
     // A new relationship (or a changed server) polls commands at once; a
     // continuing one only refreshes the handle.
