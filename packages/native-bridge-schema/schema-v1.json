@@ -8,8 +8,15 @@
     "versionProbe": {
       "description": "Read first. A receiver refuses any version it does not implement before it inspects the rest of the message.",
       "type": "object",
-      "required": ["version"],
-      "properties": { "version": { "type": "integer", "minimum": 1 } }
+      "required": [
+        "version"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
     },
     "messageType": {
       "type": "string",
@@ -25,13 +32,25 @@
     },
     "envelope": {
       "type": "object",
-      "required": ["version", "type", "payload"],
+      "required": [
+        "version",
+        "type",
+        "payload"
+      ],
       "additionalProperties": false,
       "properties": {
-        "version": { "const": 1 },
-        "id": { "$ref": "#/$defs/requestId" },
-        "type": { "$ref": "#/$defs/messageType" },
-        "payload": { "type": "object" }
+        "version": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/requestId"
+        },
+        "type": {
+          "$ref": "#/$defs/messageType"
+        },
+        "payload": {
+          "type": "object"
+        }
       }
     },
     "destinationId": {
@@ -60,25 +79,45 @@
       "maxLength": 40,
       "pattern": "^[a-z][a-z0-9-]*$"
     },
-    "emptyPayload": { "type": "object" },
+    "emptyPayload": {
+      "type": "object"
+    },
     "navigationDestination": {
       "type": "object",
-      "required": ["id", "title", "icon"],
+      "required": [
+        "id",
+        "title",
+        "icon"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/destinationId" },
-        "title": { "$ref": "#/$defs/title" },
-        "icon": { "$ref": "#/$defs/iconToken" },
+        "id": {
+          "$ref": "#/$defs/destinationId"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "icon": {
+          "$ref": "#/$defs/iconToken"
+        },
         "mobilePlacement": {
           "description": "Where a compact-width host prefers the destination. Omitted means more.",
-          "enum": ["primary", "more"]
+          "enum": [
+            "primary",
+            "more"
+          ]
         }
       }
     },
     "navigationGroup": {
       "type": "object",
-      "required": ["id", "items"],
+      "required": [
+        "id",
+        "items"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/groupId" },
+        "id": {
+          "$ref": "#/$defs/groupId"
+        },
         "title": {
           "description": "Omitted for a group that has no heading.",
           "$ref": "#/$defs/title"
@@ -87,29 +126,44 @@
           "type": "array",
           "minItems": 1,
           "maxItems": 64,
-          "items": { "$ref": "#/$defs/navigationDestination" }
+          "items": {
+            "$ref": "#/$defs/navigationDestination"
+          }
         }
       }
     },
     "navigationCatalogPayload": {
       "description": "A complete snapshot that replaces the previous catalog. Groups and items are in display order. Destination identifiers are unique across the catalog, and the catalog holds at most 128 destinations. No groups means native navigation is not available now.",
       "type": "object",
-      "required": ["groups"],
+      "required": [
+        "groups"
+      ],
       "properties": {
         "groups": {
           "type": "array",
           "maxItems": 32,
-          "items": { "$ref": "#/$defs/navigationGroup" }
+          "items": {
+            "$ref": "#/$defs/navigationGroup"
+          }
         }
       }
     },
     "navigationStatePayload": {
       "type": "object",
-      "required": ["activeDestinationId"],
+      "required": [
+        "activeDestinationId"
+      ],
       "properties": {
         "activeDestinationId": {
           "description": "The destination Studio resolved for the current location, or null when the location belongs to no destination. Authoritative for native selection.",
-          "oneOf": [{ "$ref": "#/$defs/destinationId" }, { "type": "null" }]
+          "oneOf": [
+            {
+              "$ref": "#/$defs/destinationId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "path": {
           "description": "The location path, without a query string. Diagnostics only. A host never derives selection from it.",
@@ -145,6 +199,10 @@
             "deepLinks": {
               "description": "Studio handles navigation/open-path that a host sends for a deep link, and refuses the reserved authentication paths.",
               "type": "boolean"
+            },
+            "systemMap": {
+              "description": "Studio handles system/map-action and system/map-dismissed for a generic native map presentation.",
+              "type": "boolean"
             }
           }
         }
@@ -155,11 +213,15 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "title": { "$ref": "#/$defs/title" },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
         "back": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["label"],
+          "required": [
+            "label"
+          ],
           "properties": {
             "label": {
               "description": "The name of the page back leads to, already localized.",
@@ -171,15 +233,27 @@
     },
     "navigationRequestPayload": {
       "type": "object",
-      "required": ["destinationId"],
-      "properties": { "destinationId": { "$ref": "#/$defs/destinationId" } }
+      "required": [
+        "destinationId"
+      ],
+      "properties": {
+        "destinationId": {
+          "$ref": "#/$defs/destinationId"
+        }
+      }
     },
     "configGetResult": {
       "description": "The payload of a successful config/get reply.",
       "type": "object",
-      "required": ["protocolVersion", "capabilities"],
+      "required": [
+        "protocolVersion",
+        "capabilities"
+      ],
       "properties": {
-        "protocolVersion": { "type": "integer", "minimum": 1 },
+        "protocolVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
         "context": {
           "description": "The kind of page this bridge belongs to. Omitted means main, as hosts before presentations reply.",
           "$ref": "#/$defs/bridgeContext"
@@ -188,7 +262,9 @@
           "description": "Capabilities the host offers. A capability that is absent or not true is unavailable.",
           "type": "object",
           "properties": {
-            "nativeNavigation": { "type": "boolean" },
+            "nativeNavigation": {
+              "type": "boolean"
+            },
             "authLifecycle": {
               "description": "The host keeps a native credential whose lifecycle follows Studio's sign-out. Studio reports auth/signed-out only to a host that offers it.",
               "type": "boolean"
@@ -220,6 +296,10 @@
             "deepLinks": {
               "description": "The host can deliver a validated Studio path with navigation/open-path when the app opens from a deep link. Main page only. Sent only to a Studio that reported deepLinks.",
               "type": "boolean"
+            },
+            "systemMap": {
+              "description": "The host can present bounded geographic points with its native map UI. Main page only.",
+              "type": "boolean"
             }
           }
         }
@@ -227,7 +307,10 @@
     },
     "bridgeContext": {
       "description": "The kind of page a bridge endpoint belongs to. main is the one Studio page with native navigation and the auth lifecycle. presentation is the page that renders native presentation content.",
-      "enum": ["main", "presentation"]
+      "enum": [
+        "main",
+        "presentation"
+      ]
     },
     "presentationId": {
       "description": "An opaque identifier Studio creates for one presentation. It is not a request id: it separates one presentation from the next, so a late message about an old presentation cannot change a newer one.",
@@ -266,33 +349,58 @@
     },
     "presentationAction": {
       "type": "object",
-      "required": ["id", "label", "icon"],
+      "required": [
+        "id",
+        "label",
+        "icon"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/actionId" },
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
         "label": {
           "description": "Localized. The host shows the icon and uses the label for accessibility.",
           "$ref": "#/$defs/title"
         },
-        "icon": { "$ref": "#/$defs/iconToken" }
+        "icon": {
+          "$ref": "#/$defs/iconToken"
+        }
       }
     },
     "presentationMenuItem": {
       "type": "object",
-      "required": ["id", "label"],
+      "required": [
+        "id",
+        "label"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/actionId" },
-        "label": { "$ref": "#/$defs/title" },
-        "icon": { "$ref": "#/$defs/iconToken" },
-        "disabled": { "type": "boolean" }
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
+        "label": {
+          "$ref": "#/$defs/title"
+        },
+        "icon": {
+          "$ref": "#/$defs/iconToken"
+        },
+        "disabled": {
+          "type": "boolean"
+        }
       }
     },
     "presentationHeader": {
       "description": "A complete snapshot of the native header. It replaces the previous header; omitted actions and menu mean none. Action and menu ids are unique across the header.",
       "type": "object",
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "properties": {
-        "title": { "$ref": "#/$defs/title" },
-        "subtitle": { "$ref": "#/$defs/title" },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "subtitle": {
+          "$ref": "#/$defs/title"
+        },
         "navigation": {
           "description": "The leading control. close dismisses the presentation. back reports the action id back. A host shows any other value as close.",
           "type": "string",
@@ -311,37 +419,67 @@
         "actions": {
           "type": "array",
           "maxItems": 4,
-          "items": { "$ref": "#/$defs/presentationAction" }
+          "items": {
+            "$ref": "#/$defs/presentationAction"
+          }
         },
         "menu": {
           "type": "array",
           "maxItems": 16,
-          "items": { "$ref": "#/$defs/presentationMenuItem" }
+          "items": {
+            "$ref": "#/$defs/presentationMenuItem"
+          }
         }
       }
     },
     "presentationOpenPayload": {
       "description": "The main Studio page asks the host to present a route. title and subtitle are already localized. dismissible defaults to true.",
       "type": "object",
-      "required": ["presentationId", "path", "title"],
+      "required": [
+        "presentationId",
+        "path",
+        "title"
+      ],
       "properties": {
-        "presentationId": { "$ref": "#/$defs/presentationId" },
-        "path": { "$ref": "#/$defs/presentationPath" },
-        "title": { "$ref": "#/$defs/title" },
-        "subtitle": { "$ref": "#/$defs/title" },
-        "size": { "$ref": "#/$defs/presentationSize" },
-        "dismissible": { "type": "boolean" }
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/presentationPath"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "subtitle": {
+          "$ref": "#/$defs/title"
+        },
+        "size": {
+          "$ref": "#/$defs/presentationSize"
+        },
+        "dismissible": {
+          "type": "boolean"
+        }
       }
     },
     "presentationUpdatePayload": {
       "description": "The presentation page changes its native chrome. Each property that is present replaces the current value.",
       "type": "object",
-      "required": ["presentationId"],
+      "required": [
+        "presentationId"
+      ],
       "properties": {
-        "presentationId": { "$ref": "#/$defs/presentationId" },
-        "header": { "$ref": "#/$defs/presentationHeader" },
-        "size": { "$ref": "#/$defs/presentationSize" },
-        "dismissible": { "type": "boolean" }
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "header": {
+          "$ref": "#/$defs/presentationHeader"
+        },
+        "size": {
+          "$ref": "#/$defs/presentationSize"
+        },
+        "dismissible": {
+          "type": "boolean"
+        }
       }
     },
     "alertId": {
@@ -355,85 +493,162 @@
       "description": "One button of a native alert. label is already localized. role is advisory: cancel and destructive get the platform's styling, and any other value is default.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "label"],
+      "required": [
+        "id",
+        "label"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/actionId" },
-        "label": { "type": "string", "minLength": 1, "maxLength": 60 },
-        "role": { "enum": ["default", "cancel", "destructive"] }
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "role": {
+          "enum": [
+            "default",
+            "cancel",
+            "destructive"
+          ]
+        }
       }
     },
     "alertPresentPayload": {
       "description": "Studio asks the host to show an alert with one to three buttons. The host answers ok when it shows the alert, and unavailable when it cannot, for example because another alert is showing. Studio then shows its own dialog.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["alertId", "title", "actions"],
+      "required": [
+        "alertId",
+        "title",
+        "actions"
+      ],
       "properties": {
-        "alertId": { "$ref": "#/$defs/alertId" },
-        "title": { "$ref": "#/$defs/title" },
-        "message": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "alertId": {
+          "$ref": "#/$defs/alertId"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
         "actions": {
           "type": "array",
           "minItems": 1,
           "maxItems": 3,
-          "items": { "$ref": "#/$defs/alertButton" }
+          "items": {
+            "$ref": "#/$defs/alertButton"
+          }
         }
       }
     },
     "alertIdPayload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["alertId"],
-      "properties": { "alertId": { "$ref": "#/$defs/alertId" } }
+      "required": [
+        "alertId"
+      ],
+      "properties": {
+        "alertId": {
+          "$ref": "#/$defs/alertId"
+        }
+      }
     },
     "alertActionPayload": {
       "description": "The user chose a button. actionId is one of the ids Studio sent.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["alertId", "actionId"],
+      "required": [
+        "alertId",
+        "actionId"
+      ],
       "properties": {
-        "alertId": { "$ref": "#/$defs/alertId" },
-        "actionId": { "$ref": "#/$defs/actionId" }
+        "alertId": {
+          "$ref": "#/$defs/alertId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/actionId"
+        }
       }
     },
     "presentationIdPayload": {
       "type": "object",
-      "required": ["presentationId"],
-      "properties": { "presentationId": { "$ref": "#/$defs/presentationId" } }
+      "required": [
+        "presentationId"
+      ],
+      "properties": {
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        }
+      }
     },
     "presentationNavigatePayload": {
       "type": "object",
-      "required": ["presentationId", "path"],
+      "required": [
+        "presentationId",
+        "path"
+      ],
       "properties": {
-        "presentationId": { "$ref": "#/$defs/presentationId" },
-        "path": { "$ref": "#/$defs/studioPath" }
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/studioPath"
+        }
       }
     },
     "presentationShowPayload": {
       "type": "object",
-      "required": ["presentationId", "path"],
+      "required": [
+        "presentationId",
+        "path"
+      ],
       "properties": {
-        "presentationId": { "$ref": "#/$defs/presentationId" },
-        "path": { "$ref": "#/$defs/presentationPath" }
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "path": {
+          "$ref": "#/$defs/presentationPath"
+        }
       }
     },
     "presentationActionPayload": {
       "type": "object",
-      "required": ["presentationId", "actionId"],
+      "required": [
+        "presentationId",
+        "actionId"
+      ],
       "properties": {
-        "presentationId": { "$ref": "#/$defs/presentationId" },
-        "actionId": { "$ref": "#/$defs/actionId" }
+        "presentationId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/actionId"
+        }
       }
     },
     "navigationOpenPathPayload": {
       "description": "The host relays a path from a presentation to the main Studio page, which navigates with its router.",
       "type": "object",
-      "required": ["path"],
-      "properties": { "path": { "$ref": "#/$defs/studioPath" } }
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/studioPath"
+        }
+      }
     },
     "frontendToNative": {
       "description": "Studio to the native host. Each message receives a reply.",
       "allOf": [
-        { "$ref": "#/$defs/envelope" },
+        {
+          "$ref": "#/$defs/envelope"
+        },
         {
           "properties": {
             "type": {
@@ -455,164 +670,346 @@
                 "system/share",
                 "system/media-intake-status",
                 "system/media-intake",
-                "system/scan-qr"
+                "system/scan-qr",
+                "system/map-present",
+                "system/map-dismiss"
               ]
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "config/get" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "config/get"
+              }
+            }
+          },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
+            }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "frontend/ready" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "frontend/ready"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/frontendReadyPayload" }
+              "payload": {
+                "$ref": "#/$defs/frontendReadyPayload"
+              }
             }
           }
         },
         {
           "description": "Studio completed its own sign-out. The payload carries no credential or account data.",
-          "if": { "properties": { "type": { "const": "auth/signed-out" } } },
-          "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
-          }
-        },
-        {
-          "if": { "properties": { "type": { "const": "navigation/catalog" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "auth/signed-out"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/navigationCatalogPayload" }
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "navigation/state" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigation/catalog"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/navigationStatePayload" }
+              "payload": {
+                "$ref": "#/$defs/navigationCatalogPayload"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigation/state"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/navigationStatePayload"
+              }
             }
           }
         },
         {
           "description": "Main page only. A presentation page that sends it gets forbidden.",
-          "if": { "properties": { "type": { "const": "presentation/open" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "presentation/open"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationOpenPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationOpenPayload"
+              }
             }
           }
         },
         {
           "description": "Presentation page only. Its Studio started, is signed in, and receives presentation/show.",
-          "if": { "properties": { "type": { "const": "presentation/ready" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "presentation/ready"
+              }
+            }
+          },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
+            }
           }
         },
         {
           "description": "Presentation page only. A host ignores an update for a presentation that is not active.",
           "if": {
-            "properties": { "type": { "const": "presentation/update" } }
+            "properties": {
+              "type": {
+                "const": "presentation/update"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationUpdatePayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationUpdatePayload"
+              }
             }
           }
         },
         {
           "description": "Presentation page only. Asks the host to dismiss the presentation.",
-          "if": { "properties": { "type": { "const": "presentation/close" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "presentation/close"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationIdPayload"
+              }
             }
           }
         },
         {
           "description": "Main page only. Describes the native navigation bar for the current page. A host that does not know this message answers unknown_type, and Studio keeps its own breadcrumbs.",
-          "if": { "properties": { "type": { "const": "navigation/chrome" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigation/chrome"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/navigationChromePayload" }
+              "payload": {
+                "$ref": "#/$defs/navigationChromePayload"
+              }
             }
           }
         },
         {
           "description": "Either page. Shows a native alert, so a confirmation matches the platform. The page that sent it receives alert/action.",
-          "if": { "properties": { "type": { "const": "alert/present" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "alert/present"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/alertPresentPayload" }
+              "payload": {
+                "$ref": "#/$defs/alertPresentPayload"
+              }
             }
           }
         },
         {
           "description": "Either page. Withdraws an alert the page presented, for example when the dialog's owner went away. A host ignores an alert that is not showing.",
-          "if": { "properties": { "type": { "const": "alert/cancel" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "alert/cancel"
+              }
+            }
+          },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/alertIdPayload" } }
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/alertIdPayload"
+              }
+            }
           }
         },
         {
           "description": "Presentation page only. The host dismisses the presentation, then relays the path to the main page with navigation/open-path.",
           "if": {
-            "properties": { "type": { "const": "presentation/navigate" } }
+            "properties": {
+              "type": {
+                "const": "presentation/navigate"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationNavigatePayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationNavigatePayload"
+              }
             }
           }
         },
         {
           "description": "Either context. The host maps the semantic feedback onto standard system feedback and never a custom pattern.",
-          "if": { "properties": { "type": { "const": "system/haptic" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/haptic"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/systemHapticPayload" }
+              "payload": {
+                "$ref": "#/$defs/systemHapticPayload"
+              }
             }
           }
         },
         {
           "description": "Either context. The host presents the system share sheet, or replies unavailable.",
-          "if": { "properties": { "type": { "const": "system/share" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/share"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/systemSharePayload" }
+              "payload": {
+                "$ref": "#/$defs/systemSharePayload"
+              }
             }
           }
         },
         {
           "description": "Main page only. The reply payload is systemMediaIntakeStatusReplyPayload.",
           "if": {
-            "properties": { "type": { "const": "system/media-intake-status" } }
+            "properties": {
+              "type": {
+                "const": "system/media-intake-status"
+              }
+            }
           },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
+            }
           }
         },
         {
           "description": "Main page only. A presentation page that sends it gets forbidden. Sent only when the host offered nativeMediaIntake and reported it available.",
           "if": {
-            "properties": { "type": { "const": "system/media-intake" } }
+            "properties": {
+              "type": {
+                "const": "system/media-intake"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/systemMediaIntakePayload" }
+              "payload": {
+                "$ref": "#/$defs/systemMediaIntakePayload"
+              }
             }
           }
         },
         {
           "description": "Either context. Studio asks the host to scan one QR code. The host replies ok when it begins presenting the scanner, or unavailable when it cannot: unsupported hardware, another scan active, or no camera. The result arrives later as system/qr-scan-result.",
-          "if": { "properties": { "type": { "const": "system/scan-qr" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/scan-qr"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/systemQrScanPayload" }
+              "payload": {
+                "$ref": "#/$defs/systemQrScanPayload"
+              }
+            }
+          }
+        },
+        {
+          "description": "Main page only. Present or update a bounded set of geographic points in the host's native map.",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/map-present"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/systemMapPayload"
+              }
+            }
+          }
+        },
+        {
+          "description": "Main page only. Withdraw the matching native map if it is still active.",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/map-dismiss"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/systemMapIdPayload"
+              }
             }
           }
         }
@@ -621,7 +1018,9 @@
     "nativeToFrontend": {
       "description": "The native host to Studio.",
       "allOf": [
-        { "$ref": "#/$defs/envelope" },
+        {
+          "$ref": "#/$defs/envelope"
+        },
         {
           "properties": {
             "type": {
@@ -636,7 +1035,9 @@
                 "alert/action",
                 "navigation/back",
                 "system/media-intake-completed",
-                "system/qr-scan-result"
+                "system/qr-scan-result",
+                "system/map-action",
+                "system/map-dismissed"
               ]
             }
           }
@@ -644,97 +1045,169 @@
         {
           "description": "Main page only. Studio navigates with its router, so unsaved-change blockers apply.",
           "if": {
-            "properties": { "type": { "const": "navigation/open-path" } }
+            "properties": {
+              "type": {
+                "const": "navigation/open-path"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/navigationOpenPathPayload" }
+              "payload": {
+                "$ref": "#/$defs/navigationOpenPathPayload"
+              }
             }
           }
         },
         {
           "description": "Presentation page only. Studio shows this route for this presentation without a page load.",
-          "if": { "properties": { "type": { "const": "presentation/show" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "presentation/show"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationShowPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationShowPayload"
+              }
             }
           }
         },
         {
           "description": "Presentation page only. The user chose a header action.",
           "if": {
-            "properties": { "type": { "const": "presentation/action" } }
+            "properties": {
+              "type": {
+                "const": "presentation/action"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationActionPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationActionPayload"
+              }
             }
           }
         },
         {
           "description": "Presentation page only. The native sheet went away, however it was dismissed.",
           "if": {
-            "properties": { "type": { "const": "presentation/dismissed" } }
+            "properties": {
+              "type": {
+                "const": "presentation/dismissed"
+              }
+            }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationIdPayload"
+              }
             }
           }
         },
         {
           "description": "Main page only. A presentation ended, however it was dismissed. Studio refetches what a presentation may have changed. Sent only when the main page negotiated nativePresentations.",
-          "if": { "properties": { "type": { "const": "presentation/ended" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "presentation/ended"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/presentationIdPayload" }
+              "payload": {
+                "$ref": "#/$defs/presentationIdPayload"
+              }
             }
           }
         },
         {
           "description": "Main page only. The user tapped the native back button. Studio navigates to the previous page of its trail with React Router, so unsaved-change blockers apply. Sent only after Studio sent navigation/chrome with back.",
-          "if": { "properties": { "type": { "const": "navigation/back" } } },
-          "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
-          }
-        },
-        {
-          "description": "The user chose a button of an alert this page presented.",
-          "if": { "properties": { "type": { "const": "alert/action" } } },
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigation/back"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/alertActionPayload" }
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
             }
           }
         },
         {
-          "if": { "properties": { "type": { "const": "navigation/request" } } },
+          "description": "The user chose a button of an alert this page presented.",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "alert/action"
+              }
+            }
+          },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/navigationRequestPayload" }
+              "payload": {
+                "$ref": "#/$defs/alertActionPayload"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "navigation/request"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/navigationRequestPayload"
+              }
             }
           }
         },
         {
           "description": "The host asks Studio to sign out with its normal logout. Studio answers with auth/signed-out when it is done. The payload carries no credential.",
           "if": {
-            "properties": { "type": { "const": "auth/sign-out-request" } }
+            "properties": {
+              "type": {
+                "const": "auth/sign-out-request"
+              }
+            }
           },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/emptyPayload" } }
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/emptyPayload"
+              }
+            }
           }
         },
         {
           "description": "Main page only. Sent to the page that asked, and only when it reported nativeMediaIntake. A page that no longer exists is not reloaded for it.",
           "if": {
             "properties": {
-              "type": { "const": "system/media-intake-completed" }
+              "type": {
+                "const": "system/media-intake-completed"
+              }
             }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/mediaIntakeCompletedPayload" }
+              "payload": {
+                "$ref": "#/$defs/mediaIntakeCompletedPayload"
+              }
             }
           }
         },
@@ -742,12 +1215,50 @@
           "description": "Either context. Sent to the page that asked for system/scan-qr, and only while that scan is active. A result for a stale request, or for a page whose presentation ended, is never delivered to another page.",
           "if": {
             "properties": {
-              "type": { "const": "system/qr-scan-result" }
+              "type": {
+                "const": "system/qr-scan-result"
+              }
             }
           },
           "then": {
             "properties": {
-              "payload": { "$ref": "#/$defs/qrScanResultPayload" }
+              "payload": {
+                "$ref": "#/$defs/qrScanResultPayload"
+              }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The user chose an opaque action exposed by a native map point.",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/map-action"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/systemMapActionPayload"
+              }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The native map was dismissed by the user.",
+          "if": {
+            "properties": {
+              "type": {
+                "const": "system/map-dismissed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "payload": {
+                "$ref": "#/$defs/systemMapIdPayload"
+              }
             }
           }
         }
@@ -756,16 +1267,29 @@
     "reply": {
       "description": "The native host's reply to a frontendToNative message.",
       "type": "object",
-      "required": ["version", "ok"],
+      "required": [
+        "version",
+        "ok"
+      ],
       "additionalProperties": false,
       "properties": {
-        "version": { "const": 1 },
-        "id": { "$ref": "#/$defs/requestId" },
-        "ok": { "type": "boolean" },
-        "payload": { "type": "object" },
+        "version": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/requestId"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "payload": {
+          "type": "object"
+        },
         "error": {
           "type": "object",
-          "required": ["code"],
+          "required": [
+            "code"
+          ],
           "properties": {
             "code": {
               "enum": [
@@ -778,19 +1302,38 @@
             },
             "supportedVersions": {
               "type": "array",
-              "items": { "type": "integer", "minimum": 1 }
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
             }
           }
         }
       },
-      "if": { "properties": { "ok": { "const": true } } },
+      "if": {
+        "properties": {
+          "ok": {
+            "const": true
+          }
+        }
+      },
       "then": {
-        "required": ["payload"],
-        "properties": { "payload": true, "error": false }
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "payload": true,
+          "error": false
+        }
       },
       "else": {
-        "required": ["error"],
-        "properties": { "error": true, "payload": false }
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": true,
+          "payload": false
+        }
       }
     },
     "hapticFeedback": {
@@ -802,8 +1345,14 @@
     },
     "systemHapticPayload": {
       "type": "object",
-      "required": ["feedback"],
-      "properties": { "feedback": { "$ref": "#/$defs/hapticFeedback" } }
+      "required": [
+        "feedback"
+      ],
+      "properties": {
+        "feedback": {
+          "$ref": "#/$defs/hapticFeedback"
+        }
+      }
     },
     "shareUrl": {
       "description": "An absolute HTTP or HTTPS URL without user information. A host also refuses a URL whose query or fragment names a credential, and a URL that carries a Tilecast credential.",
@@ -822,12 +1371,32 @@
           "minLength": 1,
           "maxLength": 200
         },
-        "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
-        "url": { "$ref": "#/$defs/shareUrl" }
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "url": {
+          "$ref": "#/$defs/shareUrl"
+        }
       },
       "anyOf": [
-        { "required": ["text"], "properties": { "text": true } },
-        { "required": ["url"], "properties": { "url": true } }
+        {
+          "required": [
+            "text"
+          ],
+          "properties": {
+            "text": true
+          }
+        },
+        {
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": true
+          }
+        }
       ]
     },
     "mediaIntakeKind": {
@@ -839,7 +1408,9 @@
     },
     "systemMediaIntakeStatusReplyPayload": {
       "type": "object",
-      "required": ["available"],
+      "required": [
+        "available"
+      ],
       "properties": {
         "available": {
           "description": "Whether the host can start media intake now: it needs a native credential for this server. Studio uses its own uploader when this is not true.",
@@ -850,25 +1421,50 @@
     "systemMediaIntakePayload": {
       "description": "Asks the host to choose media with system pickers and upload it. The request carries no file data, no path, and no credential. The host replies unavailable when it cannot begin, and Studio uses its own uploader.",
       "type": "object",
-      "required": ["requestId"],
+      "required": [
+        "requestId"
+      ],
       "properties": {
-        "requestId": { "$ref": "#/$defs/presentationId" },
+        "requestId": {
+          "$ref": "#/$defs/presentationId"
+        },
         "accept": {
           "type": "array",
           "maxItems": 4,
-          "items": { "$ref": "#/$defs/mediaIntakeKind" }
+          "items": {
+            "$ref": "#/$defs/mediaIntakeKind"
+          }
         },
-        "multiple": { "type": "boolean" }
+        "multiple": {
+          "type": "boolean"
+        }
       }
     },
     "mediaIntakeCompletedPayload": {
       "description": "A small coordination result. The host uploaded the media itself. Studio refetches its own media queries.",
       "type": "object",
-      "required": ["requestId", "outcome", "uploadedCount"],
+      "required": [
+        "requestId",
+        "outcome",
+        "uploadedCount"
+      ],
       "properties": {
-        "requestId": { "$ref": "#/$defs/presentationId" },
-        "outcome": { "enum": ["completed", "partial", "failed", "cancelled"] },
-        "uploadedCount": { "type": "integer", "minimum": 0, "maximum": 1000 }
+        "requestId": {
+          "$ref": "#/$defs/presentationId"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "uploadedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
       }
     },
     "qrScanRequestId": {
@@ -887,28 +1483,156 @@
     "systemQrScanPayload": {
       "description": "Asks the host to scan one QR code with the system camera. The host replies ok when scanning begins; the result arrives later as system/qr-scan-result.",
       "type": "object",
-      "required": ["requestId"],
+      "required": [
+        "requestId"
+      ],
       "additionalProperties": false,
       "properties": {
-        "requestId": { "$ref": "#/$defs/qrScanRequestId" }
+        "requestId": {
+          "$ref": "#/$defs/qrScanRequestId"
+        }
       }
     },
     "qrScanResultPayload": {
       "description": "The outcome of one QR scan. scanned carries the payload text; cancelled means the user dismissed the scanner; unavailable means scanning failed after acceptance, for example a revoked permission.",
       "type": "object",
-      "required": ["requestId", "outcome"],
+      "required": [
+        "requestId",
+        "outcome"
+      ],
       "additionalProperties": false,
       "properties": {
-        "requestId": { "$ref": "#/$defs/qrScanRequestId" },
-        "outcome": { "enum": ["scanned", "cancelled", "unavailable"] },
-        "value": { "$ref": "#/$defs/qrScanValue" }
+        "requestId": {
+          "$ref": "#/$defs/qrScanRequestId"
+        },
+        "outcome": {
+          "enum": [
+            "scanned",
+            "cancelled",
+            "unavailable"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/qrScanValue"
+        }
       },
       "allOf": [
         {
-          "if": { "properties": { "outcome": { "const": "scanned" } } },
-          "then": { "required": ["value"] }
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "scanned"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
         }
       ]
+    },
+    "systemMapTone": {
+      "description": "Semantic marker styling. The host chooses the platform color.",
+      "enum": [
+        "default",
+        "positive",
+        "warning",
+        "critical",
+        "muted"
+      ]
+    },
+    "systemMapPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "latitude",
+        "longitude"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/actionId"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "subtitle": {
+          "$ref": "#/$defs/title"
+        },
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "tone": {
+          "$ref": "#/$defs/systemMapTone"
+        },
+        "actionId": {
+          "$ref": "#/$defs/actionId"
+        }
+      }
+    },
+    "systemMapPayload": {
+      "description": "A complete generic native-map snapshot. The host learns only bounded labels, coordinates, semantic tones, and opaque actions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapId",
+        "title",
+        "points"
+      ],
+      "properties": {
+        "mapId": {
+          "$ref": "#/$defs/actionId"
+        },
+        "title": {
+          "$ref": "#/$defs/title"
+        },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/systemMapPoint"
+          }
+        }
+      }
+    },
+    "systemMapIdPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapId"
+      ],
+      "properties": {
+        "mapId": {
+          "$ref": "#/$defs/actionId"
+        }
+      }
+    },
+    "systemMapActionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mapId",
+        "actionId"
+      ],
+      "properties": {
+        "mapId": {
+          "$ref": "#/$defs/actionId"
+        },
+        "actionId": {
+          "$ref": "#/$defs/actionId"
+        }
+      }
     }
   }
 }
