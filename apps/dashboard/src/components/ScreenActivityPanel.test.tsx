@@ -115,7 +115,7 @@ describe("ScreenActivitySummary", () => {
     );
 
     expect(await screen.findByText("Recent technical events")).toBeTruthy();
-    screen.getByRole("button", { name: "Activity" }).click();
+    screen.getByRole("button", { name: "View activity" }).click();
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });
