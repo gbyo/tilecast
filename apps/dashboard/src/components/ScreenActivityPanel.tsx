@@ -155,7 +155,9 @@ export function ScreenActivitySummary({
                 <ItemActions>
                   <Badge
                     variant={
-                      item.severity === "critical" ? "destructive" : "secondary"
+                      item.severity === "error" || item.severity === "critical"
+                        ? "destructive"
+                        : "secondary"
                     }
                   >
                     {humanize(item.severity)}
