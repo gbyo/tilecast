@@ -1,6 +1,6 @@
 /**
- * Outside active hours (`sleep`): true black, a bouncing Tilecast logo, or the
- * organization's custom text. All media is torn down while this shows.
+ * Outside active hours (`sleep`): true black, a bouncing Tilecast logo with
+ * the Cast animation, or the organization's custom text. All media is torn down while this shows.
  */
 import { LitElement, html, nothing } from "lit";
 import { classMap } from "lit/directives/class-map.js";
@@ -36,7 +36,7 @@ export class OutsideHours extends LitElement {
           ? html`<div class="outside-hours-logo-x">
               <img
                 class="outside-hours-logo-y"
-                src="tilecast-logo-white.svg"
+                src="tilecast-logo-cast-white.svg"
                 alt="Tilecast"
               />
             </div>`
