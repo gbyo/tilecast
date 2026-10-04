@@ -15,7 +15,7 @@ export default defineConfig({
     ...functional.use,
     browserName: "chromium",
     viewport: { width: 1440, height: 1000 },
-    deviceScaleFactor: 1,
+    deviceScaleFactor: 2,
     locale: "en-US",
     timezoneId: "America/Chicago",
     reducedMotion: "reduce",

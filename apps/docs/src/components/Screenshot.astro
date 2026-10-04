@@ -10,10 +10,21 @@ interface Props {
 }
 
 const { src, alt, caption, priority = false } = Astro.props;
+// Captures use 2× pixel density; retain their original CSS dimensions while
+// letting Astro generate responsive variants up to the full source resolution.
+const width = src.width / 2;
+const height = src.height / 2;
 ---
 
 <figure>
-  <Image src={src} alt={alt} layout="constrained" priority={priority} />
+  <Image
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    layout="constrained"
+    priority={priority}
+  />
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
 

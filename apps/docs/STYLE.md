@@ -254,7 +254,8 @@ windows for content".
   or state that matter, without starting with "Screenshot of". Don't rely on
   color alone. Captions are optional; explain why a state matters rather than
   repeating the alt text or adding promotional copy.
-- Store lossless PNG sources in `src/assets/screenshots/`. Import them into
+- Capture at 2× pixel density without changing the viewport or UI scale.
+  Store lossless PNG sources in `src/assets/screenshots/`. Import them into
   the docs-only `Screenshot.astro` figure so Astro optimizes responsive delivery.
   Ordinary screenshots stay lazy-loaded. Use `priority` only for an image
   that actually appears above the fold.

@@ -17,7 +17,9 @@ reset the same installation. Use `TILECAST_E2E_BASE_URL` or
 setup refuses a server that does not report Demo Mode.
 
 Each capture starts with a kitchen-sink reset. Chromium uses a 1440 × 1000
-viewport, scale 1, en-US, America/Chicago, light appearance, and reduced motion.
+viewport, scale 2, en-US, America/Chicago, light appearance, and reduced motion.
+Context captures are 2880 × 2000 pixels. The figure keeps their original CSS
+dimensions while Astro generates responsive variants up to the 2× source size.
 Only the Clock editor uses the visual suite's fixed browser Date. Other
 captures use real time, so contact ages and upcoming dates match the Server.
 The shared render helper waits for loading indicators, toasts, fonts, decoded
