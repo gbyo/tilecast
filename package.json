@@ -16,6 +16,7 @@
     "docs:check": "npm run check --workspace @tilecast/docs",
     "docs:build": "npm run build --workspace @tilecast/docs",
     "docs:preview": "npm run preview --workspace @tilecast/docs --",
+    "docs:screenshots": "playwright test -c e2e/docs-screenshots/playwright.config.ts",
     "player:linux": "npm start --workspace @gibsonmb71/tilecast-player-linux",
     "player:linux:build": "npm run build --workspace @gibsonmb71/tilecast-player-linux",
     "player:linux:test": "npm test --workspace @gibsonmb71/tilecast-player-linux",

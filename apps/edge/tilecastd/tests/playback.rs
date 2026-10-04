@@ -1771,7 +1771,7 @@ async fn configuration_and_disable_playback_change_the_screen_live_and_after_an_
     let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
     let surface = wait_for("the disabled surface offline", || renderer.last().as_ref().and_then(disabled_title)).await;
     assert_eq!(surface.0, "Closed today");
-    assert_eq!(player.context.player_config.read().unwrap().as_ref().map(|c| c.revision), Some(5));
+    assert_eq!(player.context.player_config.read().unwrap().as_ref().map(|c| c.native.revision), Some(5));
 
     harness.fake.offline.store(false, Ordering::SeqCst);
     let delivery = harness.fake.offer("enable_playback", uuid::Uuid::new_v4(), json!({}));

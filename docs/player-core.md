@@ -1,7 +1,8 @@
 # Native Player Core
 
 **Status:** Accepted extraction contract. The five shared crates and Core
-foundation are implemented. Renderer and reconciliation extraction remains.
+foundation and renderer stage are implemented and qualified.
+Reconciliation extraction remains.
 Edge keeps its current behavior throughout the extraction.
 
 This document defines ownership for native Player work. It supplements
@@ -124,6 +125,54 @@ user agent and device metadata. `CredentialStore` and `PairingStore` are private
 storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
+
+Stage 9 is incomplete. Core now owns pairing eligibility, persistent Player
+identity creation, session creation, enrollment retry and storage order,
+session renewal, reset suppression, and polling cadence.
+Edge supplies device metadata and private credential and session stores.
+Edge still constructs pairing surfaces and supplies wake and shutdown signals.
+Final offline driver qualification remains pending.
+Core now owns binding-scoped offline manifest reads, stale pending retirement,
+active-hours and disabled gates, pending grace and trial deadlines, evidence
+requirements for promotion, and verified pin lifetime. Core tests check that
+acceptance alone cannot promote a manifest, a changed target cannot become
+active, and a changed binding resets trial state. Core drives offline activation
+ordering and wake timers. Hosts project Runtime documents and supply opaque
+comparison keys. Edge retains Runtime document comparison, projection, and
+surface construction. Core checks packaged and connected support before a trial.
+Core now owns server relationship verification, credential rejection,
+retry backoff, and persisted policy-clock samples. Core now drives the server
+socket, reconnect and liveness timers, heartbeat fallback, push handling,
+configuration and manifest reconciliation, and command/Watch Live wakes.
+Edge supplies heartbeat projection, renderer privacy checks, Activity delivery,
+and retry jitter. Socket credentials still pass the public identity gate.
+Core owns conditional configuration fetches, binding-scoped acceptance,
+revision ordering, current/previous persistence, and refusal reporting.
+Core validates the bounded configuration envelope and projects cache limits,
+reconciliation intervals, recovery policy, and active-hours scheduling.
+The configuration host validates its remaining sections and receives the native
+projection with the bounded document. Core carries the host projection without
+interpreting Runtime or Linux settings. Edge separates its Runtime projection
+from Linux kiosk and Presentation Network policy. Runtime fields keep their
+existing values and defaults, including unknown bounded playback context fields.
+Core now owns conditional manifest fetches, stable manifest identity,
+binding-scoped target persistence, and native resource-claim validation.
+Runtime-owned fields in the manifest stay opaque. Edge still owns renderer
+projection and compatibility checks and drives activation. Core owns
+preparation-worker supervision, verified content preparation, repair, pin identities,
+and target-bound pending storage. Core tests use SQLite and CAS to check repair
+and replacement during a fetch.
+Core worker tests cover replacement and shutdown cancellation, deterministic
+rejection, transient retries, and cached-content repair.
+Core tests cover identity order, saved claims, storage failure, session
+retirement, polling outcomes, reset suppression, and the enrollment retry budget.
+The four existing Edge pairing integration tests pass after orchestration moves.
+Core clock tests use SQLite to check precision and persistence after reopening.
+The first stage-9 CI run passed 39 of 40 Linux playback tests. The clock
+sampling test failed on a timestamp rewrite with a final offset change of 9 ms.
+The sampling rule is unchanged. The same test passed in isolation in Linux
+Docker, and all 40 playback tests then passed locally in that image.
+The CI qualification gate remains unqualified until the current head passes.
 
 ## Core foundation
 
@@ -254,9 +303,12 @@ architecture, and platform family are stable. Hostname, display dimensions,
 locale, timezone, display state, free storage, and uptime can change.
 Add a narrow snapshot provider only for fields that Core actually needs.
 
-Core may own telemetry cadence, counters, bounded retention, serialization,
-and offline outbox policy. Linux owns measurements from `/proc` and hardware.
+Core owns telemetry cadence, interval counters, serialization, and bounded
+offline outbox policy. The telemetry host supplies semantic observations and
+measured gauges. Linux owns measurements from `/proc` and hardware.
 An unavailable measurement is omitted. Never report it as zero.
+Core tests check offline sample storage, wire fields, queue bounds, and restart
+persistence. Telemetry does not displace proof-of-play events.
 
 Shared display command validation, result vocabulary, and scheduled action
 semantics may use a narrow display provider. CEC and DDC/CI stay in Edge.

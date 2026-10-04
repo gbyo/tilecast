@@ -140,8 +140,21 @@ export default defineConfig({
       // the reader's work rather than the filesystem or Studio's own menu.
       sidebar: [
         { label: "Home", slug: "index" },
+        { label: "Setup Advisor", slug: "setup" },
         { slug: "getting-started" },
         { slug: "installation" },
+        {
+          label: "Hosting and networking",
+          collapsed: true,
+          items: [
+            { slug: "setup/choose-a-server" },
+            { slug: "setup/local-network" },
+            { slug: "setup/cloudflare-tunnel" },
+            { slug: "setup/local-players-remote-studio" },
+            { slug: "setup/network-readiness" },
+            { slug: "setup/production-readiness" },
+          ],
+        },
         {
           label: "Tilecast Studio",
           collapsed: true,

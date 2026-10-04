@@ -3,6 +3,10 @@ title: Pair a display
 description: Approve a Tilecast Player and enroll it as a screen.
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
+import screenshot from "../../../assets/screenshots/pair-screen.png";
+import darkScreenshot from "../../../assets/screenshots/pair-screen-dark.png";
+
 Pairing enrolls a Player as a screen in your Tilecast installation. An Owner or Administrator must approve the request in Studio.
 
 import { Steps } from "@astrojs/starlight/components";
@@ -26,6 +30,12 @@ import { Steps } from "@astrojs/starlight/components";
 8. Select **Approve and pair**.
 
 </Steps>
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Pair screen review showing the pending Player hardware details, pairing choices, screen-name fields, and Approve and pair control."
+/>
 
 The Player enrolls after approval. An Android Player then opens the required commissioning checklist. Complete it before normal playback; see [Install Tilecast Player on Android TV](../install-android/). A Linux Player returns to its paired screen and waits for content.
 

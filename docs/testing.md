@@ -146,6 +146,32 @@ npm run doctor:changed
 
 `npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only findings that your branch adds compared with the base branch. Pull request CI runs the changed scope against the pull request base and fails on new errors. Warnings do not fail the job. A release run has no base branch, so it skips this step.
 
+## Public documentation captures
+
+The documentation generator uses the production Demo Mode installation. It
+uses the Studio visual suite's browser settings and render waits. It does not
+use regression masks or the pixel-difference contract.
+
+```sh
+make demo
+npm run docs:screenshots
+npm run docs:check
+npm run docs:build
+```
+
+Install Chromium with `npx playwright install chromium` before the first run.
+Run the generator separately from the other Demo Mode suites. Each capture
+resets the same installation. The generator refuses a non-demo server.
+
+The generator writes only named PNG files under
+`apps/docs/src/assets/screenshots/`. Each state has light and dark sources at
+2× pixel density. The docs figure selects the source for the docs theme.
+The generator hides only the Demo Mode notice.
+Review all images before commit. CI does not regenerate these source assets.
+See the [capture inventory](../e2e/docs-screenshots/README.md) for routes,
+required states, crops, and omitted states. The public screenshot policy is in
+[the docs style guide](../apps/docs/STYLE.md#product-screenshots).
+
 ## Coverage
 
 Coverage is diagnostic. There is no repository percentage gate.

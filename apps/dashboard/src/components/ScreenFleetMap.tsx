@@ -11,6 +11,7 @@ import { ExternalLink, MapPinned } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import type { Screen } from "../api/types";
+import { OPENFREEMAP_STYLE_URL } from "../lib/maplibre";
 import { useNativeHost } from "../native-host/NativeHostProvider";
 import { validateSystemMap, type SystemMapTone } from "../native-host/protocol";
 import { Badge } from "./ui/badge";
@@ -27,7 +28,6 @@ const MAP_SOURCE_ID = "fleet-screens";
 const CLUSTER_LAYER_ID = "fleet-screen-clusters";
 const CLUSTER_COUNT_LAYER_ID = "fleet-screen-cluster-count";
 const SCREEN_LAYER_ID = "fleet-screen-points";
-const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const NATIVE_MAP_ID = "fleet-screens";
 
 const statusLabelKeys = {

@@ -28,7 +28,7 @@ vi.mock("maplibre-gl", () => {
     remove = vi.fn();
   }
   class NavigationControl {}
-  return { Map, Marker, NavigationControl };
+  return { Map, Marker, NavigationControl, setWorkerUrl: vi.fn() };
 });
 
 afterEach(() => {
