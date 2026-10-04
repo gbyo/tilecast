@@ -3,6 +3,7 @@
     "title": "Display Groups",
     "subtitle": "Keep a set of screens on the same content, schedule, and playback position. Mirror groups preserve synchronized playback.",
     "create": "Create Display Group",
+    "created": "Display Group created.",
     "loading": "Loading Display Groups",
     "loadMore": "Load more Display Groups",
     "loadError": "Display Groups could not be loaded. Try refreshing the page.",
