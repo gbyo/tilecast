@@ -92,6 +92,11 @@ describe("Countdown Bar editor", () => {
     renderEditor("/plugins/countdown-bar/new");
     await waitFor(() => expect(screen.getByLabelText("Name")).toBeEnabled());
     expect(pressedDays()).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri"]);
+    const monday = screen.getByRole("button", { name: "Mon" });
+    expect(monday).toHaveAttribute("data-state", "on");
+    expect(monday.className).toContain("data-[state=on]:bg-primary");
+    const sunday = screen.getByRole("button", { name: "Sun" });
+    expect(sunday).toHaveAttribute("data-state", "off");
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Lunch" },
     });
