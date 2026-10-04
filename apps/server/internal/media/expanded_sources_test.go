@@ -29,6 +29,29 @@ func TestManualSourceNormalizesTypedRows(t *testing.T) {
 	}
 }
 
+func TestManualPreviewSelectsRowsForThePreviewDate(t *testing.T) {
+	raw, _ := json.Marshal(ManualSourceConfig{
+		Columns: []ManualColumn{
+			{Key: "title", Label: "Title", Type: "text"},
+			{Key: "date", Label: "Date", Type: "date"},
+		},
+		Rows: []ManualRow{
+			{ID: "d43f00ab-b7d9-4c39-a67b-24f7649c558d", Values: map[string]string{"title": "Earlier", "date": "2026-09-23"}},
+			{ID: "e53f00ab-b7d9-4c39-a67b-24f7649c558e", Values: map[string]string{"title": "Selected", "date": "2026-09-24"}},
+		},
+		DateField:     "date",
+		DateSelection: DateSelection{Enabled: true, DateFormat: "iso_date", Timezone: "UTC", Mode: "today", NoMatchBehavior: "empty"},
+	})
+	normalized, err := (manualSourceProvider{}).Normalize(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := manualPreviewData(normalized.(ManualSourceConfig), "2026-09-24", time.Monday)
+	if len(data.Records) != 1 || data.Records[0].Values["title"] != "Selected" {
+		t.Fatalf("manual preview records = %+v", data.Records)
+	}
+}
+
 func TestManualSourceAllowsLegacyCurrencyWithoutMetadata(t *testing.T) {
 	raw, _ := json.Marshal(ManualSourceConfig{
 		Columns: []ManualColumn{{Key: "price", Label: "Price", Type: "currency"}},
@@ -120,6 +143,18 @@ func TestNormalizeWeatherForecastProducesCurrentAndDailyRecords(t *testing.T) {
 	}
 	if len(data.Records) != 3 || data.Records[0].Values["condition"] != "Partlycloudy" || data.Records[1].Values["high"] != "20" {
 		t.Fatalf("unexpected weather records: %#v", data.Records)
+	}
+}
+
+func TestWeatherPreviewSelectsForecastForThePreviewDate(t *testing.T) {
+	data := TypedRecordData{Records: []TypedRecord{
+		{ID: "current", Values: map[string]string{"kind": "current", "date": "2026-07-16"}},
+		{ID: "day-2026-07-16", Values: map[string]string{"kind": "forecast", "date": "2026-07-16"}},
+		{ID: "day-2026-07-17", Values: map[string]string{"kind": "forecast", "date": "2026-07-17"}},
+	}}
+	preview := weatherPreviewForDate(data, "2026-07-17", "UTC")
+	if len(preview.Records) != 1 || preview.Records[0].ID != "day-2026-07-17" {
+		t.Fatalf("weather preview records = %+v", preview.Records)
 	}
 }
 

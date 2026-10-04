@@ -3,6 +3,10 @@ title: Create and reuse Widgets
 description: Choose a Widget by what the screen should show, connect a compatible Data Source, and check the result in Studio's live preview.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/widget-editor.png";
+import darkScreenshot from "../../assets/screenshots/widget-editor-dark.png";
+
 import { Steps } from "@astrojs/starlight/components";
 
 A **Widget** is a reusable visual item, such as a clock, a list of announcements, or a weather forecast. Add a Widget to a Playlist or place it on a Layout.
@@ -72,13 +76,21 @@ Change any field Studio chose. If you switch to another source, Studio keeps you
 
 Some Widgets need your choices. A Table shows only the **Columns** you add. An Agenda can't place an event without a **Start field**. News and Weather read their source's fields directly and have no field controls.
 
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Lobby Clock editor with timezone and appearance controls beside a ready live preview at the Small zone size."
+/>
+
 ## Check the live preview
 
 The preview in the Widget editor uses the same Widget renderer as current Linux and Tilecast Edge Players. What you see there is what those screens show.
 
 - **Preview size** switches between **Landscape 16:9**, **Portrait 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and a **Custom** size. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget.
-- **Preview time** is **Live** by default. Select **At a time** to see how a Clock, Agenda, or other time-based Widget looks at a chosen date and time. The selected calendar date also drives date-sensitive Data Source previews, so both use the same day.
+- **Preview time** is **Live** by default. Select **At a time** to see how a Clock, Agenda, or other time-based Widget looks at a chosen date and time. The selected calendar date also drives time-sensitive Data Source previews, so both use the same day.
 - In **Live** mode, the preview uses the Data Source's current data. If the source has no data yet, the preview shows the Widget's empty message.
+
+Changing the preview time keeps the saved data and update time of manual objects and approved Form snapshots. It does not retrieve historical source data.
 
 For Widgets that chart time-series data, Studio uses the same points, timezone, and units as the Player.
 

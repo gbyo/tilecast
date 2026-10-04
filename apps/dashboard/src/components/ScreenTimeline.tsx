@@ -20,6 +20,7 @@ import {
   type TimelineDomain,
 } from "../api/domains/activity";
 import { buildActivityLink } from "../pages/activityLinks";
+import { apiErrorMessage } from "../i18n";
 
 type TimelineEntry = {
   id: string;
@@ -190,7 +191,7 @@ export function ScreenTimeline({ screenId }: { screenId: string }) {
         <Alert variant="destructive">
           <AlertTriangle aria-hidden="true" />
           <AlertTitle>{t("timeline.loadFailed")}</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(query.error)}</AlertDescription>
         </Alert>
       )}
       {query.data &&

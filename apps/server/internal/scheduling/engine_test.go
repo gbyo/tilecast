@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/google/uuid"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -65,6 +66,22 @@ func TestSharedParityFixtures(t *testing.T) {
 	for _, f := range fixtures {
 		t.Run(f.Name, func(t *testing.T) {
 			r := Resolve(f.Now, f.Schedules)
+			explanation := Explain(f.Now, f.Schedules)
+			if !reflect.DeepEqual(explanation.Resolution, r) {
+				t.Fatal("explanation changed the schedule fixture resolution")
+			}
+			selected := 0
+			for _, candidate := range explanation.Candidates {
+				if candidate.Status == CandidateSelected {
+					selected++
+					if candidate.ScheduleID.String() != f.ExpectedScheduleID || candidate.Reason != ReasonSelected {
+						t.Fatalf("fixture selected explanation=%+v", candidate)
+					}
+				}
+			}
+			if (r.Winner == nil && selected != 0) || (r.Winner != nil && selected != 1) {
+				t.Fatalf("selected candidates=%d winner=%+v", selected, r.Winner)
+			}
 			schedule, playlist, source := "", "fallback", "direct_fallback"
 			if r.Winner != nil {
 				schedule = r.Winner.Schedule.ID.String()

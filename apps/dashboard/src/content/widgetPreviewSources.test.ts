@@ -4,6 +4,7 @@ import {
   widgetPreviewAssetFields,
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
+  widgetPreviewMedia,
 } from "./widgetPreviewSources";
 
 const fields: ContentDefinitionField[] = [
@@ -70,5 +71,44 @@ describe("Widget preview source resolution", () => {
     ).toEqual([
       { dataSourceId: "source-a", fieldKey: "cover", maximumItems: 100 },
     ]);
+  });
+
+  it("projects generic and repeating-group media fields into the preview grant", () => {
+    const mediaFields: ContentDefinitionField[] = [
+      { key: "logo", label: "Logo", control: "media_asset" },
+      {
+        key: "slides",
+        label: "Slides",
+        control: "repeating_group",
+        itemFields: [
+          { key: "posterAssetId", label: "Poster", control: "media_asset" },
+        ],
+      },
+    ];
+    const authorConfiguration = {
+      logo: "logo-asset",
+      slides: [{ posterAssetId: "poster-asset" }, { posterAssetId: "" }],
+    };
+
+    const preview = widgetPreviewMedia(mediaFields, authorConfiguration);
+
+    expect(preview).toEqual({
+      configuration: {
+        logo: "logo-asset",
+        logoVariantId: "preview",
+        slides: [
+          { posterAssetId: "poster-asset", posterVariantId: "preview" },
+          { posterAssetId: "" },
+        ],
+      },
+      media: [
+        { assetId: "logo-asset", variantId: "preview" },
+        { assetId: "poster-asset", variantId: "preview" },
+      ],
+    });
+    expect(authorConfiguration).toEqual({
+      logo: "logo-asset",
+      slides: [{ posterAssetId: "poster-asset" }, { posterAssetId: "" }],
+    });
   });
 });

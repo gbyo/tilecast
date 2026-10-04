@@ -5,7 +5,7 @@ import { Send, Trash2 } from "lucide-react";
 import { api } from "../api/client";
 import type { NotificationCategory, NotificationWebhook } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useConfirm } from "../components/ConfirmDialog";
 import { Alert, AlertAction, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -225,7 +225,9 @@ export function NotificationsPanel({ manageable }: { manageable: boolean }) {
           )}
           {sendTest.error && (
             <Alert variant="destructive">
-              <AlertDescription>{sendTest.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(sendTest.error)}
+              </AlertDescription>
             </Alert>
           )}
         </section>

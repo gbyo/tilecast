@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -62,11 +62,13 @@ export function RecordReview({
   recordId,
   csrf,
   onAfterTransition,
+  onDirtyChange,
 }: {
   form: FormDataSource;
   recordId: string;
   csrf: string;
   onAfterTransition?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = usePluginTranslation("forms", en);
   const queryClient = useQueryClient();
@@ -91,6 +93,7 @@ export function RecordReview({
       form={form}
       detail={detailQuery.data}
       csrf={csrf}
+      onDirtyChange={onDirtyChange}
       onChanged={() => {
         void queryClient.invalidateQueries({
           queryKey: ["form-record", form.id, recordId],
@@ -114,11 +117,13 @@ function RecordReviewBody({
   detail,
   csrf,
   onChanged,
+  onDirtyChange,
 }: {
   form: FormDataSource;
   detail: FormRecordDetail;
   csrf: string;
   onChanged: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = usePluginTranslation("forms", en);
   const { t: commonT } = useTranslation("common");
@@ -191,6 +196,9 @@ function RecordReviewBody({
   const dirty =
     JSON.stringify({ values, displayTitle, priority, displayAt, expiresAt }) !==
     baseline.current;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
 
   async function saveEdits(): Promise<number> {
     const payload = formValuesToPayload(schema, values);

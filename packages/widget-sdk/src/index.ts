@@ -52,12 +52,14 @@ export {
   announceEmpty,
   announceError,
   announceReady,
+  widgetInputRevision,
   WIDGET_EMPTY_EVENT,
   WIDGET_ERROR_EVENT,
   WIDGET_READY_EVENT,
   type WidgetElementEventMap,
   type WidgetEmptyDetail,
   type WidgetErrorDetail,
+  type WidgetReadyDetail,
 } from "./events.ts";
 export {
   boundedCode,

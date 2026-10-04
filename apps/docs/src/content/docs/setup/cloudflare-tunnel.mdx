@@ -1,0 +1,109 @@
+---
+title: Set up Tilecast with Cloudflare Tunnel
+description: Give Tilecast Server an HTTPS hostname that Players and browsers can reach from anywhere, without opening a port on your router.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Use this guide when Players, or the people who manage Tilecast, are away from the server. At the end, Tilecast has an HTTPS hostname such as `signage.example.org`, and Players anywhere can pair with it.
+
+A **Cloudflare Tunnel** is a small program that runs next to Tilecast Server. It opens an outbound connection to Cloudflare, and Cloudflare passes requests for your hostname back through it. Because the connection starts from your side, you don't open an inbound port on your router or firewall.
+
+Tilecast doesn't require Cloudflare. Any reverse proxy that serves HTTPS and forwards WebSocket connections works too. Tilecast includes an optional Compose profile for Cloudflare Tunnel because it's a practical way to get HTTPS for a server behind a home or office router. The [reverse-proxy Compose example](https://github.com/gbyo/tilecast/blob/main/deploy/examples/compose.reverse-proxy.yml) is the alternative.
+
+## Before you start
+
+- A Cloudflare account.
+- A domain name that you add to Cloudflare. A tunnel hostname is a name under a domain you control, such as `signage` under `example.org`. If you don't have a domain, register one first.
+- Tilecast Server's files on the host, with `deploy/docker/.env` created and a PostgreSQL password set. These are steps 1 and 2 of [Start Tilecast Server](../../installation/#start-tilecast-server). Stop before you start the containers; this guide starts them.
+- A host that stays on. See [Choose where to run Tilecast Server](../choose-a-server/).
+
+## Create the tunnel and hostname
+
+Cloudflare changes its dashboard menus from time to time. If a name below doesn't match, follow Cloudflare's [create a remotely managed tunnel](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/) guide, which is the authority.
+
+<Steps>
+
+1. In the Cloudflare dashboard, open **Networking** > **Tunnels** and select **Create a tunnel**.
+2. Name the tunnel, for example `tilecast`, and create it.
+3. When Cloudflare asks you to install a connector, choose Docker. Copy the token from the command it shows. The token is the long string after `--token`.
+4. Open the tunnel's **Routes** tab and select **Add route** > **Published application**.
+5. Enter a subdomain and select your domain. Together they form the hostname, for example `signage.example.org`.
+6. Set **Service URL** to `http://server:8080`, then add the route. `server` is the name of the server service in Tilecast's Compose file, and the tunnel container reaches it on Docker's internal network. Don't use `localhost` here.
+
+</Steps>
+
+Don't run the Docker command that Cloudflare shows. Tilecast's Compose file already defines the tunnel container.
+
+## Set the Tilecast values
+
+Open `deploy/docker/.env` and set these three values. Keep the token private, and don't commit this file.
+
+```dotenv title="deploy/docker/.env"
+TILECAST_PUBLIC_URL=https://signage.example.org
+TILECAST_COOKIE_SECURE=true
+CLOUDFLARE_TUNNEL_TOKEN=paste-the-tunnel-token-here
+```
+
+`TILECAST_PUBLIC_URL` must match the hostname you published, including `https://`. `TILECAST_COOKIE_SECURE=true` tells the browser to send the sign-in cookie only over HTTPS.
+
+## Start Tilecast with the tunnel
+
+Run the Compose file with the `tunnel` profile. This starts PostgreSQL, Tilecast Server, and the tunnel container.
+
+```sh title="Repository root · Start Tilecast with the tunnel"
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml --profile tunnel pull
+docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml --profile tunnel up -d
+```
+
+The tunnel container starts after the server reports ready. In Cloudflare's **Tunnels** page, the tunnel's status changes to healthy once it connects.
+
+The profile runs the Cloudflare `cloudflared` image with `--no-autoupdate`. Compose still publishes the server's port 8080 on the host. If nothing on your local network should use it, block it with the host firewall.
+
+## Verify the tunnel
+
+<Steps>
+
+1. From any computer, open your hostname in a browser. You should see the Tilecast setup page, or the sign-in page if the installation exists.
+2. Check readiness from the command line. Replace the hostname with yours.
+
+   ```sh title="Check server readiness"
+   curl --fail https://signage.example.org/readyz
+   ```
+
+3. On first visit to a new installation, enter your organization name and create the first Owner account. The connection is HTTPS, so the password doesn't cross the network unencrypted.
+
+</Steps>
+
+If the page doesn't load, check these in order: the tunnel shows as healthy in Cloudflare, the route's service URL is exactly `http://server:8080`, and `docker compose ... logs cloudflared` shows no token error.
+
+## Connect Players
+
+Install the Player on each display, enter the hostname on it, and pair it as usual. LAN discovery doesn't advertise a tunnel hostname, so type the full address, for example `https://signage.example.org`.
+
+Follow [Install Tilecast Player on Android TV](../../players/install-android/) or [on Linux](../../players/install-linux/), then [Pair a display](../../players/pair-a-display/). The Linux installer command uses the same hostname, as in `curl -fsSL https://signage.example.org/install.sh | sudo bash`.
+
+To confirm remote connectivity, pair one Player from a network other than the server's, then check that its status in **Screens** > **Fleet** becomes **Online**.
+
+## Don't put a Cloudflare Access login in front of the Player hostname
+
+:::caution
+Don't protect the hostname that Players use with a Cloudflare Access policy that requires a login. Players sign in to Tilecast with their own credential in an `Authorization` header. They can't open an Access login page, and they don't send Access cookies or Access service-token headers (`CF-Access-Client-Id` and `CF-Access-Client-Secret`). Access would answer a Player with a login redirect or an error instead of a Tilecast response, and pairing or reconnecting would fail.
+:::
+
+Tilecast does its own sign-in for Studio, with optional two-step verification. See [Sign-in security](../../administration/sign-in-security/).
+
+Cloudflare's other bot and security features can also affect Players. Cloudflare warns that [Bot Fight Mode](https://developers.cloudflare.com/bots/get-started/bot-fight-mode/) can challenge API and mobile app traffic. If a Player can't connect and Cloudflare's security events show challenges for it, exclude this hostname from that rule.
+
+## Know the limits
+
+- **Uploads.** Cloudflare caps the size of a single request to your hostname by plan. Its [documented limits](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/4xx-client-error/error-413/) are 100 MB on Free and Pro, 200 MB on Business, and higher on Enterprise. Studio uploads media in pieces of about 4 to 5 MiB, so the size of a media file isn't capped by that limit. Check Cloudflare's page for the current figures, because they vary by plan.
+- **Long-lived connections.** Players keep a WebSocket open for status. Cloudflare supports WebSockets on all plans and closes a connection that stays idle too long. A Player that loses its WebSocket reconnects, and its heartbeat reaches the server in the meantime. See [Cloudflare's WebSocket documentation](https://developers.cloudflare.com/network/websockets/).
+- **Your Internet connection matters.** Remote Players reach the server through Cloudflare. If the Internet connection at the server's site goes down, or the server's power fails, Players keep playing downloaded content but receive no changes.
+- **Passkeys follow the hostname.** A passkey is bound to the domain it was created for. Set your final hostname before people enroll passkeys. See [Sign-in and passkeys](../../troubleshooting/sign-in/).
+
+## Next steps
+
+- [Pair a display](../../players/pair-a-display/).
+- [Verify before you leave the screens unattended](../production-readiness/).
+- If some Players are at the server's site, consider [local Players with remote Studio](../local-players-remote-studio/) so they don't depend on the Internet.

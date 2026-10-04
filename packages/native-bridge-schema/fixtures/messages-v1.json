@@ -1,5 +1,5 @@
 {
-  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation. hapticFeedback names the semantic feedback a native host reads from an accepted system/haptic, or null when it does not know the value. share lists what a native host decodes from an accepted system/share. mediaIntake lists what a native host decodes from an accepted system/media-intake, with defaults applied. hostCapabilities lists capabilities a Studio reads from a config/get reply. deepLinkPaths lists paths that both sides accept or refuse for a deep link.",
+  "$comment": "Shared corpus for every native bridge implementation. direction names the receiver's view: frontendToNative is decoded by the native host, nativeToFrontend and reply by Studio. outcome is accept, malformed, unknownType, or unsupportedVersion. schemaValid marks a malformed case that only a decoder can detect. destinationIds lists an accepted catalog in display order. encodes names a message that a native encoder must reproduce exactly, and studioEncodes one that Studio's encoder must reproduce exactly. frontendCapabilities lists the capabilities a native host reads from an accepted frontend/ready. presentation lists what a native host decodes from an accepted presentation/open, with defaults applied. headerActionIds and headerMenuIds list the header a native host decodes from an accepted presentation/update. hostContext is the bridge context Studio reads from a config/get reply, or null when Studio refuses the negotiation. hapticFeedback names the semantic feedback a native host reads from an accepted system/haptic, or null when it does not know the value. share lists what a native host decodes from an accepted system/share. mediaIntake lists what a native host decodes from an accepted system/media-intake, with defaults applied. qrScan lists what a native host decodes from an accepted system/scan-qr. hostCapabilities lists capabilities a Studio reads from a config/get reply. deepLinkPaths lists paths that both sides accept or refuse for a deep link.",
   "schemaVersion": 1,
   "cases": [
     {
@@ -36,6 +36,7 @@
         "nativePresentations": true,
         "nativeAlerts": true,
         "nativeMediaIntake": true,
+        "systemMap": true,
         "deepLinks": true
       },
       "message": {
@@ -47,6 +48,7 @@
             "nativePresentations": true,
             "nativeAlerts": true,
             "nativeMediaIntake": true,
+            "systemMap": true,
             "deepLinks": true
           }
         }
@@ -1779,6 +1781,8 @@
             "nativeAlerts": true,
             "systemShare": true,
             "systemHaptics": true,
+            "systemQrScanner": true,
+            "systemMap": true,
             "nativeMediaIntake": true,
             "deepLinks": true
           }
@@ -1787,6 +1791,8 @@
       "hostCapabilities": {
         "systemShare": true,
         "systemHaptics": true,
+        "systemQrScanner": true,
+        "systemMap": true,
         "nativeMediaIntake": true,
         "deepLinks": true
       }
@@ -1876,6 +1882,8 @@
             "nativeAlerts": true,
             "systemShare": true,
             "systemHaptics": true,
+            "systemQrScanner": true,
+            "systemMap": false,
             "nativeMediaIntake": false,
             "deepLinks": false
           }
@@ -1884,6 +1892,8 @@
       "hostCapabilities": {
         "systemShare": true,
         "systemHaptics": true,
+        "systemQrScanner": true,
+        "systemMap": false,
         "nativeMediaIntake": false,
         "deepLinks": false
       }
@@ -2859,6 +2869,286 @@
         "payload": {
           "capabilities": { "authLifecycle": true, "nativePresentations": true }
         }
+      }
+    },
+    {
+      "name": "system/scan-qr",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "studioEncodes": "scanQr",
+      "qrScan": { "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e" },
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": { "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e" }
+      }
+    },
+    {
+      "name": "system/scan-qr without a request id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": {}
+      }
+    },
+    {
+      "name": "system/scan-qr with an oversized request id",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": {
+          "requestId": "qr-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "system/scan-qr with a request id outside the pattern",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": { "requestId": "QR 7" }
+      }
+    },
+    {
+      "name": "system/scan-qr with an unexpected property",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": { "requestId": "qr-1", "prompt": "Point the camera" }
+      }
+    },
+    {
+      "name": "system/scan-qr sent to Studio",
+      "direction": "nativeToFrontend",
+      "outcome": "unknownType",
+      "message": {
+        "version": 1,
+        "type": "system/scan-qr",
+        "payload": { "requestId": "qr-1" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "encodes": "qrScanResult",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": {
+          "requestId": "qr-7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e",
+          "outcome": "scanned",
+          "value": "https://signage.example.org/screens/pair/K7Q2XD?installation=7c1e2a94-3b6d-4c1e-8f7a-2d3e4b5c6d7e"
+        }
+      }
+    },
+    {
+      "name": "system/qr-scan-result cancelled",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": { "requestId": "qr-1", "outcome": "cancelled" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result unavailable",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": { "requestId": "qr-1", "outcome": "unavailable" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result scanned without a value",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": { "requestId": "qr-1", "outcome": "scanned" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result scanned with an empty value",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": { "requestId": "qr-1", "outcome": "scanned", "value": "" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result with an oversized value",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": {
+          "requestId": "qr-1",
+          "outcome": "scanned",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "system/qr-scan-result with an unknown outcome",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": {
+          "requestId": "qr-1",
+          "outcome": "expired",
+          "value": "https://signage.example.org/"
+        }
+      }
+    },
+    {
+      "name": "system/qr-scan-result without a request id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": { "outcome": "cancelled" }
+      }
+    },
+    {
+      "name": "system/qr-scan-result with an oversized request id",
+      "direction": "nativeToFrontend",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/qr-scan-result",
+        "payload": {
+          "requestId": "qr-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "outcome": "cancelled"
+        }
+      }
+    },
+    {
+      "name": "system/map-present",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "subtitle": "Main Campus · Lobby",
+              "latitude": 34.157,
+              "longitude": -82.027,
+              "tone": "positive",
+              "actionId": "screen-1"
+            },
+            {
+              "id": "screen-2",
+              "title": "Cafeteria",
+              "latitude": 34.158,
+              "longitude": -82.026,
+              "tone": "warning"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-present with duplicate point ids",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "latitude": 34.157,
+              "longitude": -82.027
+            },
+            {
+              "id": "screen-1",
+              "title": "Again",
+              "latitude": 34.158,
+              "longitude": -82.026
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-present with an invalid latitude",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "latitude": 91,
+              "longitude": -82.027
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-dismiss",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-dismiss",
+        "payload": { "mapId": "fleet-screens" }
+      }
+    },
+    {
+      "name": "system/map-action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-action",
+        "payload": { "mapId": "fleet-screens", "actionId": "screen-1" }
+      }
+    },
+    {
+      "name": "system/map-dismissed",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-dismissed",
+        "payload": { "mapId": "fleet-screens" }
       }
     }
   ],

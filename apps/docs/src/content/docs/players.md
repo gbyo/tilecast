@@ -38,3 +38,4 @@ Pairing does not prove that a TV will launch Tilecast after a power cut or retur
 - [Pair a display](./pair-a-display/).
 - [Update a Player](./update-a-player/).
 - [Compare Player capabilities](./capabilities/) before choosing hardware or depending on a platform-specific feature.
+- [Apple TV support](./apple-tv/) explains the tvOS limit and what Apple TV support would involve.
