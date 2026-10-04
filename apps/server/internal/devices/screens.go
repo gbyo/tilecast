@@ -17,6 +17,7 @@ import (
 // bare address and still yields NULL when no heartbeat has reported one.
 const screenSelect = `
 SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s.room_number,
+       s.map_latitude,s.map_longitude,
        l.address_line_1,l.address_line_2,l.city,l.state,l.postal_code,l.country,l.latitude,l.longitude,l.created_at,l.updated_at,
        s.platform,s.device_manufacturer,s.device_model,s.android_version,s.player_version,
        s.screen_width,s.screen_height,s.density,s.locale,s.timezone,s.available_storage_bytes,s.uptime_seconds,s.enabled,s.paired_at,
@@ -87,9 +88,10 @@ type scanner interface {
 func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, error) {
 	var screen Screen
 	var addressLine1, addressLine2, city, state, postalCode, country *string
-	var latitude, longitude *float64
+	var mapLatitude, mapLongitude, latitude, longitude *float64
 	var locationCreatedAt, locationUpdatedAt *time.Time
 	if err := row.Scan(&screen.ID, &screen.Name, &screen.Description, &screen.Location, &screen.LocationID, &screen.RoomName, &screen.RoomNumber,
+		&mapLatitude, &mapLongitude,
 		&addressLine1, &addressLine2, &city, &state, &postalCode, &country, &latitude, &longitude, &locationCreatedAt, &locationUpdatedAt,
 		&screen.Platform, &screen.DeviceManufacturer, &screen.DeviceModel, &screen.AndroidVersion, &screen.PlayerVersion, &screen.ScreenWidth, &screen.ScreenHeight, &screen.Density, &screen.Locale, &screen.Timezone, &screen.AvailableStorageBytes, &screen.UptimeSeconds, &screen.Enabled, &screen.PairedAt, &screen.LastConnectedAt, &screen.LastDisconnectedAt, &screen.LastHeartbeatAt, &screen.LastKnownIP, &screen.CreatedAt, &screen.UpdatedAt, &screen.HasActiveCredential,
 		&screen.ArchivedAt, &screen.ArchivedReason,
@@ -106,6 +108,18 @@ func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, erro
 			CreatedAt: *locationCreatedAt, UpdatedAt: *locationUpdatedAt,
 		}
 	}
+	if mapLatitude != nil && mapLongitude != nil {
+		screen.MapPositionOverride = &MapCoordinates{Latitude: *mapLatitude, Longitude: *mapLongitude}
+		screen.MapPosition = &ScreenMapPosition{
+			MapCoordinates: *screen.MapPositionOverride,
+			Source:         "screen",
+		}
+	} else if latitude != nil && longitude != nil {
+		screen.MapPosition = &ScreenMapPosition{
+			MapCoordinates: MapCoordinates{Latitude: *latitude, Longitude: *longitude},
+			Source:         "location",
+		}
+	}
 	screen.LastContactAt = latestContact(screen.LastConnectedAt, screen.LastDisconnectedAt, screen.LastHeartbeatAt)
 	screen.Status = ComputeStatus(now, presence.Connected(screen.ID), screen.Enabled, screen.HasActiveCredential, screen.LastContactAt)
 	return screen, nil
@@ -118,10 +132,13 @@ func valueOrEmpty(value *string) string {
 	return *value
 }
 
-func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name string, locationID *uuid.UUID, roomName, roomNumber, description string) (Screen, error) {
+func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name string, locationID *uuid.UUID, roomName, roomNumber string, mapPosition *MapCoordinates, updateMapPosition bool, description string) (Screen, error) {
 	name, roomName, roomNumber, description = strings.TrimSpace(name), strings.TrimSpace(roomName), strings.TrimSpace(roomNumber), strings.TrimSpace(description)
 	if len(name) < 2 || len(name) > 120 || len(roomName) > 120 || len(roomNumber) > 80 || len(description) > 1000 {
 		return Screen{}, errors.New("screen details are invalid")
+	}
+	if mapPosition != nil && (mapPosition.Latitude < -90 || mapPosition.Latitude > 90 || mapPosition.Longitude < -180 || mapPosition.Longitude > 180) {
+		return Screen{}, errors.New("map position is invalid")
 	}
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -137,7 +154,11 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 			return Screen{}, errors.New("location is invalid")
 		}
 	}
-	result, err := tx.Exec(ctx, `UPDATE screens SET name=$2,location_id=$3,room_name=$4,room_number=$5,description=$6,updated_at=now() WHERE id=$1 AND archived_at IS NULL`, id, name, locationID, roomName, roomNumber, description)
+	var mapLatitude, mapLongitude *float64
+	if mapPosition != nil {
+		mapLatitude, mapLongitude = &mapPosition.Latitude, &mapPosition.Longitude
+	}
+	result, err := tx.Exec(ctx, `UPDATE screens SET name=$2,location_id=$3,room_name=$4,room_number=$5,map_latitude=CASE WHEN $6 THEN $7 ELSE map_latitude END,map_longitude=CASE WHEN $6 THEN $8 ELSE map_longitude END,description=$9,updated_at=now() WHERE id=$1 AND archived_at IS NULL`, id, name, locationID, roomName, roomNumber, updateMapPosition, mapLatitude, mapLongitude, description)
 	if err != nil {
 		return Screen{}, fmt.Errorf("update screen: %w", err)
 	}
@@ -202,7 +223,7 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 	if result.RowsAffected() == 0 {
 		return ErrConflict
 	}
-	result, err = tx.Exec(ctx, `UPDATE screens SET archived_at=now(),archived_reason=$2,enabled=FALSE,location_id=NULL,updated_at=now() WHERE id=$1`, id, reason)
+	result, err = tx.Exec(ctx, `UPDATE screens SET archived_at=now(),archived_reason=$2,enabled=FALSE,location_id=NULL,map_latitude=NULL,map_longitude=NULL,updated_at=now() WHERE id=$1`, id, reason)
 	if err != nil {
 		return fmt.Errorf("archive screen: %w", err)
 	}

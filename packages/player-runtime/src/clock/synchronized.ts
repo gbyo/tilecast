@@ -10,6 +10,8 @@
  * `BOUNDARY_DUE` events for the playback machine.
  */
 
+import { MIN_ITEM_DWELL_MS, positiveDurationMs } from "./duration";
+
 export interface SynchronizedPlaybackMetadata {
   groupId: string;
   anchorMs: number;
@@ -59,7 +61,12 @@ export function synchronizedPlaybackPosition(
   metadata: SynchronizedPlaybackMetadata,
   nowMs: number,
 ): SynchronizedPlaybackPosition {
-  const durations = metadata.durationsMs.map((value) => Math.max(1, value));
+  // A slot below the dwell floor, or one that is not a positive number, would
+  // roll the cycle over every few milliseconds and put the screen into a
+  // remount loop. Every host sends these, so the floor lives here once.
+  const durations = metadata.durationsMs.map((value) =>
+    Math.max(MIN_ITEM_DWELL_MS, positiveDurationMs(value) ?? 0),
+  );
   if (durations.length === 0) {
     return { index: 0, offsetMs: 0, remainingMs: 1, occurrence: 0 };
   }

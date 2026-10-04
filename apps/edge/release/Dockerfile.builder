@@ -34,7 +34,7 @@ RUN rm -f /etc/apt/sources.list.d/debian.sources \
       libwebp-dev libwpe-1.0-dev libwpebackend-fdo-1.0-dev libxkbcommon-dev libxml2-utils libxslt1-dev \
       wayland-protocols libjson-glib-dev libglib2.0-dev libwireplumber-0.5-dev ffmpeg openssl jq \
     && rm -rf /var/lib/apt/lists/*
-# The Rust toolchain named by apps/edge/rust-toolchain.toml.
+# The Rust toolchain named by the root rust-toolchain.toml.
 ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
 RUN curl -fsSL https://sh.rustup.rs -o /tmp/rustup.sh && sh /tmp/rustup.sh -y --profile minimal --default-toolchain none \
     && rm /tmp/rustup.sh

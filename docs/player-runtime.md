@@ -50,8 +50,22 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
+| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      |
+
+`outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
 `info` (host name and version, engine name and version) is for diagnostics only.
+
+`RuntimeReadyV1` has optional `support` metadata with separate
+`presentationSchemas`, `declarativeCapabilities`, and `widgetComponents` fields.
+Each namespace has at most 256 entries. Versions are positive uint32 values;
+capability names are contract tokens of at most 64 ASCII characters.
+The Runtime uses its generated schema and declarative constants and its live
+Widget discovery registry. Remote web support requires the running host port.
+WPE validates and forwards this report in `renderer.ready.support` with its live
+host features. Edge checks this connected profile independently of the generated
+installed-release profile. Missing support is empty. Contract version 1 and the
+existing readiness messages without this optional member remain valid.
 
 The runtime validates the host object at start (`hostContractProblem`). A missing bridge or a different contract version shows the "Display bridge unavailable" surface instead of a black screen.
 
@@ -68,6 +82,14 @@ The playback lifecycle is explicit XState 5 state machines (`src/engine`). They 
 - **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout.
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
+
+### 3.1 Durations and the dwell floor
+
+A duration is a positive number of milliseconds or it is absent. `clock/duration.ts` is the only place that decides which, and every timer in the runtime reads durations through it. Zero, a negative number, `NaN`, and a missing value all mean "no duration". An image with no duration runs for `IMAGE_DEFAULT_MS`. A website runs for `WEBSITE_DEFAULT_MS`. A widget or layout with no duration stays until something replaces it.
+
+No duration timer completes an occurrence before `MIN_ITEM_DWELL_MS` (1000 ms) has passed since it mounted. A timer that fires earlier, from a one-millisecond duration, is delivered again when the floor passes. It is not dropped, so exactly one completion path still wins the occurrence. A Layout playlist zone reads a zero image duration as unset, and the synchronized timeline applies the floor to every slot.
+
+Before this floor, a host that sent a synchronized slot of zero or one millisecond put the screen on a cycle that rolled over every millisecond. The runtime tore down and remounted the item as fast as the renderer could paint. Each remount was recorded as a separate one-millisecond play. Studio does not accept an item duration under one second, so the floor removes only values that are already faults.
 
 The playback rules are the Electron player's, unchanged: `engine/playback-policy.ts` (playback authority, the completion arbiter, stale-callback identity, drift correction bands, the crossfade decision and outgoing-layer cleanup) moved into the runtime with its tests.
 

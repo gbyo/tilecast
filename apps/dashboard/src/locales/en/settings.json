@@ -1198,6 +1198,7 @@
     "searchPlaceholder": "Search by name or address",
     "add": "Add location",
     "saved": "Location saved.",
+    "saveFailed": "The location could not be saved.",
     "deleted": "Location deleted.",
     "deleteConflict": "This location still has screens assigned. Reassign or unassign them before deleting it.",
     "deleteFailed": "The location could not be deleted.",
@@ -1700,7 +1701,8 @@
     "noPlayers": "No Linux players are available for assignment.",
     "detailError": "Could not load this network.",
     "retry": "Try again.",
-    "save": "Save network"
+    "save": "Save network",
+    "leaveTitle": "Discard unsaved network changes?"
   },
   "notifications": {
     "categories": {

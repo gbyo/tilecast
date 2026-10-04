@@ -36,9 +36,27 @@ func (s *Service) SetPresentationReadiness(readiness playlists.PresentationReadi
 // therefore observes the same override after a reconnect or a server restart
 // without keeping a process-local presentation snapshot.
 func (s *Service) ActiveForScreen(ctx context.Context, screenID uuid.UUID) (*playlists.PresentationOverride, error) {
+	return s.ActiveForScreenAt(ctx, screenID, s.now().UTC())
+}
+
+// ActiveForScreenAt evaluates stored Quick Present state without reconciling
+// or persisting expiration. Current/future inspection supplies its instant.
+func (s *Service) ActiveForScreenAt(ctx context.Context, screenID uuid.UUID, at time.Time) (*playlists.PresentationOverride, error) {
+	return s.activeForScreenAt(ctx, s.db, screenID, at)
+}
+
+func (s *Service) ActiveForScreenAtInTx(ctx context.Context, tx pgx.Tx, screenID uuid.UUID, at time.Time) (*playlists.PresentationOverride, error) {
+	return s.activeForScreenAt(ctx, tx, screenID, at)
+}
+
+type overrideQuery interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func (s *Service) activeForScreenAt(ctx context.Context, q overrideQuery, screenID uuid.UUID, at time.Time) (*playlists.PresentationOverride, error) {
 	var item playlists.PresentationOverride
 	var contentName string
-	err := s.db.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		SELECT po.id,po.target_type,po.target_id,po.content_type,po.content_id,
 		       po.started_at,po.expires_at,po.wake_display,
 		       CASE WHEN po.content_type='playlist' THEN p.name
@@ -49,6 +67,7 @@ func (s *Service) ActiveForScreen(ctx context.Context, screenID uuid.UUID) (*pla
 		LEFT JOIN layouts l ON l.id=po.content_id AND po.content_type='layout'
 		LEFT JOIN assets a ON a.id=po.content_id AND po.content_type='asset'
 		WHERE po.stopped_at IS NULL
+		  AND po.started_at<=$2
 		  AND (po.expires_at IS NULL OR po.expires_at>$2)
 		  AND ((po.target_type='screen' AND po.target_id=$1)
 		       OR (po.target_type='group' AND EXISTS(
@@ -56,7 +75,7 @@ func (s *Service) ActiveForScreen(ctx context.Context, screenID uuid.UUID) (*pla
 				JOIN screen_groups g ON g.id=m.screen_group_id AND g.deleted_at IS NULL
 				WHERE m.screen_id=$1 AND m.screen_group_id=po.target_id)))
 		ORDER BY po.started_at DESC,po.id DESC
-		LIMIT 1`, screenID, s.now().UTC()).Scan(
+		LIMIT 1`, screenID, at.UTC()).Scan(
 		&item.ID, &item.TargetType, &item.TargetID, &item.ContentType,
 		&item.ContentID, &item.StartedAt, &item.ExpiresAt, &item.WakeDisplay,
 		&contentName,

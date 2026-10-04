@@ -13,6 +13,7 @@ export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0
 mkdir -p "$CARGO_HOME"
 ln -sf /opt/cargo/bin "$CARGO_HOME/bin" 2>/dev/null || true
 cd /src/apps/edge
-cargo fmt --all --check
-cargo clippy --locked --workspace --all-targets -- -D warnings
-cargo test --locked --workspace
+bash ci/cargo-edge.sh fmt --check
+bash ci/cargo-edge.sh clippy --all-targets -- -D warnings
+bash ci/cargo-edge.sh test
+python3 -m unittest discover -s release -p 'test_*.py'

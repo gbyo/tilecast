@@ -39,6 +39,10 @@ func (s *server) routes() chi.Router {
 	r.With(s.installRateLimit).Get("/install-presentation-network.sh", s.presentationNetworkInstallScript)
 	r.With(s.installRateLimit).Get("/install/tilecast-networkd.service", s.presentationNetworkServiceUnit)
 	r.Get("/readyz", s.ready)
+	// Browser map assets stay same-origin so Studio is not exposed to
+	// OpenFreeMap CORS/origin policy changes. The upstream host is fixed by the
+	// handler; this route cannot be used as a general-purpose proxy.
+	r.With(s.requireUser, s.requireEnrollment, s.requireScope("read")).Get("/maps/openfreemap/*", s.openFreeMapProxy)
 	r.Route("/api/v1", func(api chi.Router) {
 		api.Get("/system/health", s.health)
 		api.Get("/system/identity", s.systemIdentity)
@@ -188,6 +192,8 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}", s.deleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Delete("/users/{id}/permanent", s.permanentlyDeleteUser)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/users/{id}/security/reset", s.resetUserFactors)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("admin")).Get("/users/{id}/screen-scopes", s.getUserScreenScopes)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Put("/users/{id}/screen-scopes", s.putUserScreenScopes)
 			dashboard.With(s.requireScope("read")).Get("/me/preferences", s.getPreferences)
 			dashboard.With(s.requireCSRF, s.requireScope("write")).Patch("/me/preferences", s.updatePreferences)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Patch("/settings", s.updateSettings)
@@ -363,6 +369,7 @@ func (s *server) routes() chi.Router {
 				dashboard.With(s.requireRoles(contentManagers...), s.requireCSRF, s.requireScope("write")).Delete("/campaigns/{id}", s.archiveCampaign)
 			}
 			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playlist-assignment", s.getPlaylistAssignment)
+			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playback-plan", s.getPlaybackPlan)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Put("/screens/{id}/playlist-assignment", s.assignPlaylist)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Delete("/screens/{id}/playlist-assignment", s.unassignPlaylist)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF, s.requireScope("write")).Patch("/assets/{id}", s.updateAsset)

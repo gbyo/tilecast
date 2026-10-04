@@ -142,6 +142,49 @@ npx playwright show-report widgets/visual/playwright-report
 
 The container helper copies reports into `e2e/visual/test-results/linux-run/`.
 
+## React Doctor
+
+React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not compute a score and it does not run the supply-chain check. The local scripts pass `--no-telemetry`, which also stops crash reporting.
+
+```sh
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only the findings that your branch adds compared with the base branch. Neither command is part of `make check`, and neither fails when it finds issues.
+
+Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml`. It scans only the dashboard code that the pull request changes. It writes one sticky summary comment and inline review comments, and it adds the result to the job summary. It is advisory (`blocking: none`): findings never fail the pull request. It does not publish a commit status. The step runs on `pull_request` events only, so a release run does not scan. It uses `pull_request`, not `pull_request_target`. A pull request from a fork has a read-only token, so the action does not post comments there; its findings show in the job summary.
+
+The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
+
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
+
+## Public documentation captures
+
+The documentation generator uses the production Demo Mode installation. It
+uses the Studio visual suite's browser settings and render waits. It does not
+use regression masks or the pixel-difference contract.
+
+```sh
+make demo
+npm run docs:screenshots
+npm run docs:check
+npm run docs:build
+```
+
+Install Chromium with `npx playwright install chromium` before the first run.
+Run the generator separately from the other Demo Mode suites. Each capture
+resets the same installation. The generator refuses a non-demo server.
+
+The generator writes only named PNG files under
+`apps/docs/src/assets/screenshots/`. Each state has light and dark sources at
+2× pixel density. The docs figure selects the source for the docs theme.
+The generator hides only the Demo Mode notice.
+Review all images before commit. CI does not regenerate these source assets.
+See the [capture inventory](../e2e/docs-screenshots/README.md) for routes,
+required states, crops, and omitted states. The public screenshot policy is in
+[the docs style guide](../apps/docs/STYLE.md#product-screenshots).
+
 ## Coverage
 
 Coverage is diagnostic. There is no repository percentage gate.

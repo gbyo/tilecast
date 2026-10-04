@@ -9,7 +9,7 @@ use tilecastd::config::EdgeConfig;
 use tilecastd::daemon::{Daemon, cancel_on_signal};
 
 #[derive(Debug, Parser)]
-#[command(name = "tilecastd", version, about = "Tilecast Edge daemon")]
+#[command(name = "tilecastd", version = edge_platform::RELEASE_VERSION, about = "Tilecast Edge daemon")]
 struct Cli {
     /// Operator configuration file.
     #[arg(long, value_name = "PATH")]

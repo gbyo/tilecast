@@ -103,7 +103,7 @@ internal fun rememberActivityChild(
             contentId = item.assetId,
             playlistItemId = if (layoutPlacementId.isEmpty()) item.id else item.id.takeUnless { it.startsWith("layout-") }.orEmpty(),
             layoutPlacementId = layoutPlacementId,
-            expectedDurationMs = item.durationMs?.takeUnless { it == Long.MAX_VALUE },
+            expectedDurationMs = item.expectedDurationForActivity(),
             sourceId = attribution.sourceId,
             selectedRecordId = attribution.selectedRecordId,
             sourceCachedAt = attribution.sourceCachedAt,
@@ -118,6 +118,14 @@ internal fun rememberActivityChild(
     return tracker
 }
 
+/**
+ * The duration Proof of Play should expect, or null when the item has none.
+ * `Long.MAX_VALUE` marks indefinite content and zero is how stored data spells
+ * "no duration"; neither is an expectation the play could fall short of.
+ */
+internal fun ManifestItem.expectedDurationForActivity(): Long? =
+    durationMs?.takeIf { it > 0 && it != Long.MAX_VALUE }
+
 internal class RuntimeActivityTracker(
     private val reporter: PlaybackActivityReporter,
     private var session: PlaybackSession,
@@ -130,6 +138,10 @@ internal class RuntimeActivityTracker(
     }
 
     fun boundary(itemId: String) {
+        // A second start for the item that is already open, with no transition
+        // in between, is the renderer remounting it, not another play. A
+        // single-item playlist looping reports the transition first.
+        if (current != null && currentItemId == itemId) return
         current?.complete()
         current = null
         currentItemId = null
@@ -147,7 +159,7 @@ internal class RuntimeActivityTracker(
                 contentId = item.assetId,
                 playlistItemId = item.id,
                 layoutPlacementId = "",
-                expectedDurationMs = item.durationMs?.takeUnless { it == Long.MAX_VALUE },
+                expectedDurationMs = item.expectedDurationForActivity(),
                 sourceId = attribution.sourceId,
                 selectedRecordId = attribution.selectedRecordId,
                 sourceCachedAt = attribution.sourceCachedAt,

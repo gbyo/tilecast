@@ -5,9 +5,9 @@
 //! that do not depend on each other except through the shared primitives:
 //!
 //! * **Shared primitives** — [`ids`], [`digest`], [`time`], [`bounded`].
-//!   Strict parsing, one textual form per value.
+//!   Reexports from player-types, with the local IPC session ID retained here.
 //! * **Capabilities** — [`capability`]: the versioned capability model the
-//!   daemon uses to decide what this device can do.
+//!   daemon uses to decide what this device can do, defined in player-types.
 //! * **Local IPC** — [`ipc`]: the length-prefixed daemon ↔ renderer/CLI
 //!   protocol. It never carries credentials or server responses to a
 //!   renderer; it carries prepared, already-verified presentation state.

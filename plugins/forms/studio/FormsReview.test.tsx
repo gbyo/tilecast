@@ -373,4 +373,31 @@ describe("Central approvals inbox", () => {
     expect(router.state.location.pathname).toBe("/plugins/forms/f1");
     expect(router.state.location.search).toContain("record=rec1");
   });
+
+  it("confirms before closing the review sheet with unsaved edits", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(form(["review"]));
+    vi.spyOn(formsApi, "getFormRecord").mockResolvedValue(
+      detail({ canEdit: true }),
+    );
+    const user = userEvent.setup();
+    const router = renderReview("/plugins/forms/f1?tab=responses&record=rec1");
+
+    await user.type(await screen.findByLabelText("Display title"), " updated");
+    await user.click(screen.getByRole("button", { name: /Back to responses/ }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Leave without saving?",
+    });
+    expect(
+      within(dialog).getByText("This review has unsaved changes."),
+    ).toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(router.state.location.search).not.toContain("record="),
+    );
+  });
 });
