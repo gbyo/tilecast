@@ -11,6 +11,7 @@ import {
   CollapsibleTrigger,
 } from "../components/studio/StudioCollapsible";
 import { Skeleton } from "../components/ui/skeleton";
+import { apiErrorMessage } from "../i18n";
 
 export type ActivityResult =
   | "playing"
@@ -313,7 +314,7 @@ export function Loading() {
 export function ErrorNotice({ error }: { error: Error }) {
   return (
     <Alert variant="destructive">
-      <AlertDescription>{error.message}</AlertDescription>
+      <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
     </Alert>
   );
 }

@@ -62,6 +62,27 @@ interface OpenSession {
   startedMs: number;
 }
 
+/**
+ * An expected duration is reported only when the item has a real one. Zero is
+ * how stored data spells "no duration", and reporting it as an expectation
+ * made every indefinite item look like a play that was cut short at zero.
+ */
+export function reportableDurationMs(
+  value: number | null | undefined,
+): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function sameContent(open: ContentContext, next: ContentContext): boolean {
+  return (
+    open.contentId === next.contentId &&
+    open.playlistItemId === next.playlistItemId &&
+    open.layoutPlacementId === next.layoutPlacementId
+  );
+}
+
 export class PlaybackSessionTracker {
   private root: (OpenSession & { context: PresentationContext }) | null = null;
   private child: (OpenSession & { context: ContentContext }) | null = null;
@@ -133,7 +154,7 @@ export class PlaybackSessionTracker {
       activitySessionId: session.id,
       sessionType: "presentation",
       terminalReason: reason,
-      durationMs: Math.max(0, this.now() - session.startedMs),
+      durationMs: this.elapsedMs(session),
       presentationType: session.context.presentationType,
       presentationId: session.context.presentationId,
       presentationRevision: session.context.presentationRevision,
@@ -145,12 +166,39 @@ export class PlaybackSessionTracker {
   }
 
   /**
+   * Records that the manifest version moved while the same presentation stayed
+   * on screen. The root session is deliberately not restarted — nothing
+   * changed for the viewer — but the version it reports should be current.
+   */
+  noteManifestVersion(manifestVersion: number | undefined): void {
+    const root = this.root;
+    if (!root || root.context.manifestVersion === manifestVersion) return;
+    root.context.manifestVersion = manifestVersion;
+    // The identity ends in the version (see presentationContextFor). Keeping
+    // it current means a later re-evaluation of the same content is still
+    // recognised as the same presentation instead of restarting the session.
+    const base = root.context.key.slice(
+      0,
+      root.context.key.lastIndexOf(":") + 1,
+    );
+    root.context.key = `${base}${manifestVersion ?? ""}`;
+  }
+
+  /**
    * Opens a child session for the item now rendering, closing the previous one
-   * at its expected boundary. Starting the same item twice — a single-item
-   * playlist restarting — closes and reopens it, which is what actually
-   * happened on screen.
+   * at its expected boundary.
+   *
+   * A start for the item that is already open, with no boundary in between, is
+   * the renderer remounting the same thing — a re-evaluation that resolved to
+   * the same content — not a second play. Closing and reopening it would
+   * record a zero-length play beside the real one, so it is ignored. A
+   * single-item playlist looping is unaffected: the renderer reports the
+   * item-transition first, which closes the session.
    */
   startContent(context: ContentContext): void {
+    if (this.child && sameContent(this.child.context, context)) {
+      return;
+    }
     this.finishContent("completed", "expected_item_boundary");
     const session: OpenSession & { context: ContentContext } = {
       id: this.uuid(),
@@ -169,7 +217,7 @@ export class PlaybackSessionTracker {
       contentId: context.contentId,
       playlistItemId: context.playlistItemId,
       layoutPlacementId: context.layoutPlacementId,
-      expectedDurationMs: context.expectedDurationMs,
+      expectedDurationMs: reportableDurationMs(context.expectedDurationMs),
       presentationType: this.root?.context.presentationType,
       presentationId: this.root?.context.presentationId,
       trigger: this.root?.context.trigger,
@@ -203,12 +251,14 @@ export class PlaybackSessionTracker {
       activitySessionId: session.id,
       sessionType: this.sessionTypeFor(session.context),
       terminalReason: reason,
-      durationMs: Math.max(0, this.now() - session.startedMs),
+      durationMs: this.elapsedMs(session),
       contentType: session.context.contentType,
       contentId: session.context.contentId,
       playlistItemId: session.context.playlistItemId,
       layoutPlacementId: session.context.layoutPlacementId,
-      expectedDurationMs: session.context.expectedDurationMs,
+      expectedDurationMs: reportableDurationMs(
+        session.context.expectedDurationMs,
+      ),
       presentationType: this.root?.context.presentationType,
       presentationId: this.root?.context.presentationId,
       manifestVersion: this.root?.context.manifestVersion,
@@ -224,6 +274,14 @@ export class PlaybackSessionTracker {
    */
   shutdown(reason: TerminalReason = "process_exit"): void {
     this.stopPresentation(reason);
+  }
+
+  /**
+   * Whole milliseconds. The clock is monotonic, so it is fractional, and the
+   * server refuses a batch that carries a non-integer duration.
+   */
+  private elapsedMs(session: OpenSession): number {
+    return Math.max(0, Math.round(this.now() - session.startedMs));
   }
 
   private sessionTypeFor(context: ContentContext) {
@@ -303,7 +361,7 @@ export function contentContextFor(
     contentId: itemId,
     contentType: item?.kind ?? "media",
     playlistItemId: itemId,
-    expectedDurationMs: item?.durationMs ?? undefined,
+    expectedDurationMs: reportableDurationMs(item?.durationMs),
   };
 }
 
@@ -315,7 +373,13 @@ export function applyRendererEvent(
   items: readonly SessionItem[],
 ): void {
   if (kind === "item-started") {
-    if (itemId) sessions.startContent(contentContextFor(items, itemId));
+    // An item the player is not presenting is not on screen. The renderer can
+    // still report the start of a mount from a presentation that has since
+    // been replaced; recording it would invent a play, with a content type the
+    // player had to guess ("media"), for content nobody was shown.
+    if (itemId && items.some((candidate) => candidate.id === itemId)) {
+      sessions.startContent(contentContextFor(items, itemId));
+    }
   } else if (kind === "widget-empty") {
     sessions.finishContent("skipped", "empty_content");
   } else if (kind === "item-transition") {

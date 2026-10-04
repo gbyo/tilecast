@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check quick test watch-dashboard watch-linux
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test format helper-check quick test watch-dashboard watch-linux
 
 bootstrap:
 	npm install
@@ -16,6 +16,7 @@ build:
 
 check:
 	$(MAKE) docs-check
+	python3 scripts/ci/check-player-architecture.py
 	$(MAKE) plugins-check
 	$(MAKE) widgets-check
 	$(MAKE) data-sources-check
@@ -83,10 +84,20 @@ helper-check:
 # Tilecast Edge (apps/edge). edge-linux and the renderer end-to-end run need
 # the tilecast-edge-dev image (apps/edge/README.md).
 edge-check:
-	cd apps/edge && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
+	bash apps/edge/ci/cargo-edge.sh fmt --check
+	bash apps/edge/ci/cargo-edge.sh clippy --all-targets -- -D warnings
 
 edge-test:
-	cd apps/edge && cargo test --workspace
+	bash apps/edge/ci/cargo-edge.sh test
+
+# Portable shared Player layer, on Linux and macOS.
+player-check:
+	python3 scripts/ci/check-player-architecture.py
+	bash scripts/ci/cargo-player.sh fmt --check
+	bash scripts/ci/cargo-player.sh clippy --all-targets --all-features -- -D warnings
+
+player-test:
+	bash scripts/ci/cargo-player.sh test --all-features
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh

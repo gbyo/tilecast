@@ -98,6 +98,43 @@ test_web_capabilities (void)
   g_assert_false (tc_is_web_capability_uri (NULL));
 }
 
+static void
+test_runtime_support (void)
+{
+  const char *cases[] = {
+    "{\"presentationSchemas\":[1,2],\"declarativeCapabilities\":{\"content.text\":1},\"widgetComponents\":{\"widget.tilecast.clock\":2}}",
+    "{\"presentationSchemas\":[1,1],\"declarativeCapabilities\":{},\"widgetComponents\":{}}",
+    "{\"presentationSchemas\":[0],\"declarativeCapabilities\":{},\"widgetComponents\":{}}",
+    "{\"presentationSchemas\":[1],\"declarativeCapabilities\":{\"content.text\":0},\"widgetComponents\":{}}",
+    "{\"presentationSchemas\":[1],\"declarativeCapabilities\":{},\"widgetComponents\":{\"bad/name\":1}}",
+    "{\"presentationSchemas\":[1],\"declarativeCapabilities\":{},\"widgetComponents\":{\"widget.a\":4294967296}}",
+    "{\"presentationSchemas\":[1],\"declarativeCapabilities\":{},\"widgetComponents\":{\"widget.a\":1.5}}",
+    "{\"presentationSchemas\":[1],\"declarativeCapabilities\":{},\"widgetComponents\":{},\"unknown\":true}",
+    "{}",
+    "[]",
+  };
+  for (guint i = 0; i < G_N_ELEMENTS (cases); i++) {
+    g_autoptr (JsonParser) parser = json_parser_new ();
+    g_assert_true (json_parser_load_from_data (parser, cases[i], -1, NULL));
+    g_assert_cmpint (tc_runtime_support_valid (json_parser_get_root (parser)), ==, i == 0);
+  }
+  g_autoptr (JsonBuilder) builder = json_builder_new ();
+  json_builder_begin_object (builder);
+  json_builder_set_member_name (builder, "presentationSchemas");
+  json_builder_begin_array (builder);
+  for (guint i = 1; i <= 257; i++)
+    json_builder_add_int_value (builder, i);
+  json_builder_end_array (builder);
+  for (guint i = 0; i < 2; i++) {
+    json_builder_set_member_name (builder, i == 0 ? "declarativeCapabilities" : "widgetComponents");
+    json_builder_begin_object (builder);
+    json_builder_end_object (builder);
+  }
+  json_builder_end_object (builder);
+  g_autoptr (JsonNode) root = json_builder_get_root (builder);
+  g_assert_false (tc_runtime_support_valid (root));
+}
+
 int
 main (int argc, char **argv)
 {
@@ -108,5 +145,6 @@ main (int argc, char **argv)
   g_test_add_func ("/validate/ranges", test_ranges);
   g_test_add_func ("/validate/clean-paths", test_clean_paths);
   g_test_add_func ("/validate/web-capabilities", test_web_capabilities);
+  g_test_add_func ("/validate/runtime-support", test_runtime_support);
   return g_test_run ();
 }

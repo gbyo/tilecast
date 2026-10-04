@@ -4,7 +4,13 @@ Install the tool versions in `mise.toml`: Node.js 22, Go 1.26, and Java 17 (for 
 
 ## Toolchain versions
 
-`mise.toml` selects the versions that contributors and primary CI use. The Go version agrees with `go.work` and each `go.mod`. `apps/edge/rust-toolchain.toml` pins Rust.
+`mise.toml` selects the versions that contributors and primary CI use. The Go version agrees with `go.work` and each `go.mod`. The root `rust-toolchain.toml` pins Rust.
+
+The repository has one virtual Cargo workspace and one root `Cargo.lock`.
+Root default members are the Edge Rust packages. `--workspace` includes every
+member, including future native products. Use `make edge-check` and
+`make edge-test` for explicit Edge validation. Edge product version is
+`apps/edge/release/VERSION`, independently of Rust library versions.
 
 The production Docker builder images in `deploy/docker/Dockerfile` are a separate build environment. They can use newer, validated versions than `mise.toml`. Docker must not change the contributor baseline. To change any version, change it on purpose, and run the full checks for the affected areas.
 

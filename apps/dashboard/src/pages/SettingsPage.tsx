@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
 import { api, ApiError } from "../api/client";
+import { settingsKeys, settingsQueries } from "../data/settings";
 import { apiErrorMessage } from "../i18n";
 import type { SettingDefinition } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -51,7 +52,8 @@ export function SettingsPage() {
     auth.status?.user?.role ?? "",
   );
   const owner = auth.status?.user?.role === "owner";
-  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+  const client = useQueryClient();
+  const settings = useQuery(settingsQueries.organization());
   const [baseline, setBaseline] = useState<Record<string, unknown>>();
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [revision, setRevision] = useState(0);
@@ -84,11 +86,11 @@ export function SettingsPage() {
   const currentBaseline = baseline;
   const currentDirty = dirty.has(active);
   const organizationDirtyHere = organizationDirty.has(active);
-  const navigationWarning = useNavigationWarning(
-    dirty.size > 0,
-    "/settings",
-    t("page.leaveWarning"),
-  );
+  const navigationWarning = useNavigationWarning({
+    dirty: dirty.size > 0,
+    allowPrefix: "/settings",
+    title: t("page.leaveWarning"),
+  });
   const navigate = useNavigate();
   const { confirm, dialog: confirmDialog } = useConfirm();
   const saveOrganization = useMutation({
@@ -110,6 +112,7 @@ export function SettingsPage() {
     const oldDraft = draft;
     saveOrganization.mutate(normalizedPayload, {
       onSuccess: (data) => {
+        client.setQueryData(settingsKeys.organization, data);
         const next = { ...data.values };
         for (const definition of organizationDefinitions) {
           if (
@@ -533,5 +536,5 @@ function errorMessage(
   t: (key: "page.conflict") => string,
 ) {
   if (!error) return undefined;
-  return isConflict(error) ? t("page.conflict") : error.message;
+  return isConflict(error) ? t("page.conflict") : apiErrorMessage(error);
 }

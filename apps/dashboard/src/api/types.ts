@@ -300,6 +300,15 @@ export type PresentationNetworkTestResult = {
   timeoutSeconds: number;
 };
 
+export type MapCoordinates = {
+  latitude: number;
+  longitude: number;
+};
+
+export type ScreenMapPosition = MapCoordinates & {
+  source: "screen" | "location";
+};
+
 export type Screen = {
   id: string;
   name: string;
@@ -310,6 +319,10 @@ export type Screen = {
   locationDetails?: Location;
   roomName?: string;
   roomNumber?: string;
+  /** Exact placement for this logical screen. Omit to inherit its location. */
+  mapPositionOverride?: MapCoordinates;
+  /** Effective position after applying the screen override over location coordinates. */
+  mapPosition?: ScreenMapPosition;
   syncGroupId?: string;
   syncGroupName?: string;
   nowPlayingName?: string;
@@ -984,6 +997,13 @@ export type SystemStatus = {
   connectedScreens: number;
   serverTimezone: string;
   deployment: Record<string, unknown>;
+};
+export type SystemIdentity = {
+  product: string;
+  installationId: string;
+  organizationName: string;
+  apiVersion: string;
+  pairingEnabled: boolean;
 };
 export type BackupComponent = {
   name: string;

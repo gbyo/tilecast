@@ -7,7 +7,7 @@ description: Set the Tilecast Server address and configure HTTPS, proxies, tunne
 
 ## LAN-only installation
 
-On a trusted LAN, Tilecast can use a private HTTP address when `TILECAST_COOKIE_SECURE=false` is also set. Limit access to the Tilecast port with the host firewall.
+On a trusted LAN, Tilecast can use a private HTTP address when `TILECAST_COOKIE_SECURE=false` is also set. Limit access to the Tilecast port with the host firewall. See [Set up Tilecast on a local network](../../setup/local-network/) for choosing the address.
 
 Use HTTPS for public hostnames. Plain HTTP should not be used across an untrusted network.
 
@@ -20,7 +20,7 @@ If a reverse proxy, ingress service, or Cloudflare Tunnel provides HTTPS:
 - forward normal HTTP requests and WebSocket upgrades to Tilecast Server;
 - keep PostgreSQL private.
 
-The repository includes a reverse-proxy Compose example and an optional Cloudflare Tunnel profile.
+The repository includes a reverse-proxy Compose example and an optional Cloudflare Tunnel profile. [Set up Tilecast with Cloudflare Tunnel](../../setup/cloudflare-tunnel/) walks through the tunnel, including why you shouldn't put a Cloudflare Access login on the Player hostname.
 
 A tunnel hostname is not advertised through LAN mDNS, so enter it manually on the Player.
 
@@ -45,7 +45,7 @@ A Player needs a network route to Tilecast Server for pairing, content downloads
 
 Presentation Networks and AirPlay have additional local-network requirements. Tilecast does not bridge VLANs or provide an mDNS reflector.
 
-Before putting Players on a restricted network, test DNS, HTTPS/TLS, WebSockets, media downloads, and any Website or AirPlay traffic the deployment needs.
+Before putting Players on a restricted network, test DNS, HTTPS/TLS, WebSockets, media downloads, and any Website or AirPlay traffic the deployment needs. [Check that Players can reach the server](../../setup/network-readiness/) has the tests and a message you can send to a network administrator.
 
 ## Changing the server address
 

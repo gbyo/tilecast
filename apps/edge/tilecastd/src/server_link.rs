@@ -29,83 +29,26 @@
 //! revoked (the legacy player's rule); network errors, 5xx and disabled
 //! screens retry with backoff.
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
-use edge_protocol::Timestamp;
-use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
-use edge_server::{AuthenticatedServer, DeviceCredential};
-use edge_state::repo::binding::{self, CredentialState};
-use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, Target};
-use edge_state::repo::playback;
-
 use crate::daemon::{DaemonContext, VERSION};
 use crate::manifest::OriginSources;
-use crate::manifest_sync::{self, PreparationStatus, Prepared};
+use crate::manifest_sync::{self, Prepared};
+use edge_protocol::Timestamp;
+use edge_server::AuthenticatedServer;
+use edge_state::repo::{
+    binding,
+    manifests::{self, Binding as ManifestBinding, Stage, Target},
+    playback,
+};
+#[cfg(test)]
+use player_core::refined_server_offset as refined_offset;
+use std::sync::Arc;
 
-/// Contact cadence while connected without configuration (the reference
-/// player's heartbeat interval); configuration's `statusReportSeconds`
-/// replaces it.
-pub const CONTACT_INTERVAL: Duration = Duration::from_secs(60);
-/// Manifest and configuration reconciliation without a push (the reference
-/// player's `RECONCILE_INTERVAL_MS`); configuration's
-/// `manifestReconciliationSeconds` replaces it.
-pub const MANIFEST_INTERVAL: Duration = Duration::from_secs(300);
-/// Re-check cadence while there is nothing to do (unbound, rejected).
-pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
-/// Retry delays grow to this ceiling while the server is unreachable.
-pub const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(300);
-pub const SOCKET_LIVENESS_TIMEOUT: Duration = PLAYER_SOCKET_ACTIVITY_TIMEOUT;
-
-/// Why a pass stopped early; recorded for `tilecastctl status`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LinkState {
-    Unbound,
-    CredentialMissing,
-    CredentialRejected,
-    IdentityMismatch,
-    Connected,
-    Retrying(&'static str),
-}
-
-impl LinkState {
-    /// `unbound`, `connected`, `retrying` or `stopped` (needs an operator).
-    pub fn state_token(&self) -> &'static str {
-        match self {
-            Self::Unbound => "unbound",
-            Self::Connected => "connected",
-            Self::Retrying(_) => "retrying",
-            Self::CredentialMissing | Self::CredentialRejected | Self::IdentityMismatch => "stopped",
-        }
-    }
-
-    pub fn reason_code(&self) -> Option<&'static str> {
-        match self {
-            Self::Unbound => Some("not_bound"),
-            Self::CredentialMissing => Some("device_credential_missing"),
-            Self::CredentialRejected => Some("device_credential_rejected"),
-            Self::IdentityMismatch => Some("installation_identity_mismatch"),
-            Self::Connected => None,
-            Self::Retrying(code) => Some(code),
-        }
-    }
-}
-
-/// The reference player's reconnect backoff
-/// (`apps/player-linux/src/core/backoff.ts`): the first retry after about
-/// 2 s, doubling to [`MAX_RETRY_INTERVAL`], with full jitter above half the
-/// base delay so a fleet does not retry in step. `unit` is a random number
-/// in `[0, 1)`.
-pub const RETRY_BASE: Duration = Duration::from_secs(2);
-
-pub fn retry_delay(failures: u32, unit: f64) -> Duration {
-    let base = RETRY_BASE.as_millis() as u64;
-    let exponent = failures.max(1).saturating_sub(1).min(16);
-    let ceiling = base.saturating_mul(1 << exponent).min(MAX_RETRY_INTERVAL.as_millis() as u64);
-    let floor = (base / 2).min(ceiling);
-    let jitter = ((ceiling - floor) as f64 * unit.clamp(0.0, 1.0)) as u64;
-    Duration::from_millis(floor + jitter.min(ceiling - floor))
-}
+pub use player_core::{
+    SERVER_CONTACT_INTERVAL as CONTACT_INTERVAL, SERVER_IDLE_INTERVAL as IDLE_INTERVAL,
+    SERVER_MANIFEST_INTERVAL as MANIFEST_INTERVAL, SERVER_MAX_RETRY as MAX_RETRY_INTERVAL,
+    SERVER_RETRY_BASE as RETRY_BASE, SERVER_SOCKET_LIVENESS_TIMEOUT as SOCKET_LIVENESS_TIMEOUT,
+    ServerLinkState as LinkState, server_retry_delay as retry_delay,
+};
 
 /// A random number in `[0, 1)` for retry jitter.
 fn jitter_unit() -> f64 {
@@ -117,545 +60,120 @@ fn jitter_unit() -> f64 {
     f64::from(u32::from_le_bytes(bytes)) / (f64::from(u32::MAX) + 1.0)
 }
 
-/// A connection must stay up this long before its next failure counts as a
-/// fresh outage rather than a continuation (the reference player's
-/// `healthyResetMs`), so a flapping server is not retried every 2 s.
-pub const HEALTHY_RESET: Duration = Duration::from_secs(120);
-
-/// The failure streak of one kind of connection.
-#[derive(Debug, Default)]
-struct Backoff {
-    failures: u32,
-    connected_at: Option<Instant>,
+struct PreparationHost {
+    context: Arc<DaemonContext>,
+    server: AuthenticatedServer,
 }
 
-impl Backoff {
-    fn connected(&mut self, now: Instant) {
-        self.connected_at.get_or_insert(now);
+#[async_trait::async_trait]
+impl player_core::ManifestWorkerHost for PreparationHost {
+    async fn content_intact(&self, target: &Target) -> bool {
+        match crate::manifest::Candidate::prepare_candidate(target.document.clone(), target.binding.screen_id) {
+            Ok(candidate) => crate::manifest::verify_cached(&self.context, &candidate).await.is_ok(),
+            // Preserve the existing committed/pending policy: projection failure
+            // cannot replace that document with another preparation of itself.
+            Err(_) => true,
+        }
     }
 
-    /// Records a failure and returns the delay before the next attempt.
-    fn failed(&mut self, now: Instant) -> Duration {
-        if self.connected_at.take().is_some_and(|at| now.duration_since(at) >= HEALTHY_RESET) {
-            self.failures = 0;
-        }
-        self.failures = self.failures.saturating_add(1);
-        retry_delay(self.failures, jitter_unit())
+    async fn prepare(&self, target: &Target) -> Result<Prepared, player_core::ManifestWorkerFailure> {
+        let plan = OriginSources { server: &self.server };
+        manifest_sync::prepare_target(&self.context, &plan, target).await.map_err(|error| {
+            let kind = match &error {
+                manifest_sync::PrepareError::Manifest(crate::manifest::ManifestError::Incompatible(_)) =>
+                    player_core::ManifestFailureKind::Incompatible,
+                error if error.is_final() => player_core::ManifestFailureKind::Invalid,
+                _ => player_core::ManifestFailureKind::Retryable,
+            };
+            tracing::warn!(component = "manifest", event = "preparation_failed", manifest = %target.digest.short(),
+                state = match kind { player_core::ManifestFailureKind::Incompatible => "incompatible",
+                    player_core::ManifestFailureKind::Invalid => "invalid", player_core::ManifestFailureKind::Retryable => "failed" },
+                reason = error.reason_code(), error = %error);
+            player_core::ManifestWorkerFailure { kind, reason: error.reason_code() }
+        })
     }
 }
 
-#[derive(Debug, Default)]
-struct Link {
-    backoff: Backoff,
-    next_heartbeat: Option<Instant>,
-    socket: Option<PlayerSocket>,
-    /// Socket attempts that failed since the last open (Activity's
-    /// `connection.restored`).
-    socket_failures: u32,
-    socket_backoff: Backoff,
-    next_socket_attempt: Option<Instant>,
-    last_socket_activity: Option<Instant>,
-    next_manifest_sync: Option<Instant>,
-    manifest_dirty: bool,
-    next_config_sync: Option<Instant>,
-    config_dirty: bool,
-    /// The binding whose cached configuration is in force.
-    config_binding: Option<ManifestBinding>,
-    /// The one preparation in flight and the manifest it prepares.
-    preparation: Option<(edge_protocol::Sha256Digest, tokio::task::JoinHandle<()>)>,
-    /// Connection events for Activity, as the Electron player reports them.
-    activity: Option<crate::activity::Handle>,
+struct Host(Arc<DaemonContext>);
+
+#[async_trait::async_trait]
+impl player_core::ConfigurationHost for Host {
+    type Projection = crate::player_config::PlayerConfig;
+    fn prepare_configuration(
+        &self,
+        document: &serde_json::Value,
+        native: &player_core::NativeConfiguration,
+    ) -> Result<Self::Projection, &'static str> {
+        crate::player_config::PlayerConfig::project(document, native.clone()).map_err(|error| error.reason_code())
+    }
+    async fn install_configuration(&self, projection: Option<Self::Projection>) {
+        crate::config_sync::install(&self.0, projection).await;
+    }
 }
 
-impl Link {
-    fn socket_activity(&mut self) {
-        self.last_socket_activity = Some(Instant::now());
+#[async_trait::async_trait]
+impl player_core::ServerLinkHost for Host {
+    type Preparation = PreparationHost;
+    fn preparation_host(&self, server: &AuthenticatedServer) -> Arc<PreparationHost> {
+        Arc::new(PreparationHost { context: self.0.clone(), server: server.clone() })
     }
-
-    fn socket_liveness_remaining(&self) -> Duration {
-        self.last_socket_activity
-            .map_or(SOCKET_LIVENESS_TIMEOUT, |last| SOCKET_LIVENESS_TIMEOUT.saturating_sub(last.elapsed()))
+    fn native_configuration(&self) -> player_core::NativeConfiguration {
+        crate::config_sync::effective(&self.0).native.clone()
     }
-
-    fn socket_lost(&mut self) {
-        if self.socket.is_some()
-            && let Some(activity) = &self.activity
-        {
-            let mut event = crate::activity::Event::new("connection.lost", "connectivity");
-            event.severity = Some("warning".into());
-            event.failure_message = Some("player socket closed".into());
-            activity.record(event);
-        }
-        self.socket = None;
-        self.last_socket_activity = None;
-        self.socket_failures = self.socket_failures.saturating_add(1);
-        let now = Instant::now();
-        self.next_socket_attempt = Some(now + self.socket_backoff.failed(now));
+    fn jitter_unit(&self) -> f64 {
+        jitter_unit()
     }
-
-    fn abort_preparation(&mut self) {
-        if let Some((_, task)) = self.preparation.take() {
-            task.abort();
-        }
+    fn record_activity(&self, event: player_core::ActivityEvent) {
+        self.0.activity.record(event);
+    }
+    async fn heartbeat(&self) -> serde_json::Value {
+        build_heartbeat(&self.0).await
+    }
+    async fn presentation_protected(&self) -> bool {
+        crate::live_stream::presentation_protected(&self.0).await
     }
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    let mut link = Link { activity: Some(context.activity.clone()), ..Link::default() };
-    let mut live_frames = context.live_frames.subscribe();
-    loop {
-        if link.preparation.as_ref().is_some_and(|(_, task)| task.is_finished())
-            && let Some((_, task)) = link.preparation.take()
-        {
-            let _ = task.await;
-        }
-        let requested = context.sync_request.load(std::sync::atomic::Ordering::Acquire);
-        if requested > context.sync_done.borrow().0 {
-            link.manifest_dirty = true;
-            link.config_dirty = true;
-        }
-        let state = pass(&context, &mut link).await;
-        if requested > context.sync_done.borrow().0 {
-            context.sync_done.send_replace((requested, state == LinkState::Connected));
-        }
-        if !matches!(state, LinkState::Connected | LinkState::Retrying(_)) {
-            context.command_server.send_replace(None);
-        }
-        let contact_interval = crate::config_sync::effective(&context).sync.status_report;
-        let mut delay = match &state {
-            LinkState::Connected => {
-                link.backoff.connected(Instant::now());
-                contact_interval
-            }
-            LinkState::Retrying(_) => link.backoff.failed(Instant::now()),
-            _ => {
-                link.abort_preparation();
-                IDLE_INTERVAL
-            }
-        };
-        if state == LinkState::Connected
-            && link.socket.is_none()
-            && let Some(next) = link.next_socket_attempt
-        {
-            delay = delay.min(next.saturating_duration_since(Instant::now()));
-        }
-        *context.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state;
-        let deadline = tokio::time::sleep(delay);
-        tokio::pin!(deadline);
-        loop {
-            let remaining = link.socket_liveness_remaining();
-            let Some(socket) = link.socket.as_mut() else {
-                tokio::select! {
-                    () = context.shutdown.cancelled() => return,
-                    () = &mut deadline => break,
-                    () = context.server_wake.notified() => {
-                        link.manifest_dirty = true;
-                        link.config_dirty = true;
-                        break;
-                    }
-                }
-            };
-            tokio::select! {
-                () = context.shutdown.cancelled() => return,
-                () = &mut deadline => break,
-                () = context.server_wake.notified() => {
-                    link.manifest_dirty = true;
-                    link.config_dirty = true;
-                    break;
-                }
-                changed = live_frames.changed() => {
-                    // The latest Watch Live frame, if any. A newer frame
-                    // supersedes an unsent older one: a slow network drops
-                    // frames instead of queueing video. The socket stays
-                    // owned here; the producer never touches it.
-                    if changed.is_err() {
-                        // The frame source is gone for good: retire this arm
-                        // instead of polling the closed channel. (Unreachable
-                        // in practice; the sender lives in the shared daemon
-                        // context this task itself holds.)
-                        std::future::pending::<()>().await;
-                        continue;
-                    }
-                    let frame: Option<crate::live_stream::LiveFrame> =
-                        live_frames.borrow_and_update().as_ref().cloned();
-                    if let Some(frame) = frame {
-                        // Re-check the privacy boundary at the actual send
-                        // point. A frame may have been queued before setup,
-                        // pairing, or safe mode became active while the
-                        // socket was disconnected or backpressured.
-                        if crate::live_stream::presentation_protected(&context).await {
-                            crate::live_stream::clear_pending_frame(&context, frame.session_id);
-                            continue;
-                        }
-                        if socket.send_live_stream_frame(frame.frame).await.is_err() {
-                            link.socket_lost();
-                            break;
-                        }
-                    }
-                }
-                received = tokio::time::timeout(remaining, socket.next_event()) => {
-                    match received {
-                        Ok(Ok(PlayerSocketEvent::Closed)) | Ok(Err(_)) | Err(_) => {
-                            link.socket_lost();
-                            break;
-                        }
-                        Ok(Ok(event)) => {
-                            link.last_socket_activity = Some(Instant::now());
-                            match event {
-                                PlayerSocketEvent::Ping(timestamp) => {
-                                    sample_server_clock(&context, &timestamp).await;
-                                    if socket.send_pong(&context.now().to_string()).await.is_err() {
-                                        link.socket_lost();
-                                        break;
-                                    }
-                                }
-                                PlayerSocketEvent::ManifestChanged => {
-                                    link.manifest_dirty = true;
-                                    break;
-                                }
-                                PlayerSocketEvent::ConfigChanged => {
-                                    link.config_dirty = true;
-                                    break;
-                                }
-                                // Commands have their own task and cadence.
-                                PlayerSocketEvent::CommandsAvailable => context.command_wake.notify_one(),
-                                // A lease change only wakes the Watch Live
-                                // reconciler; the HTTP session endpoint stays
-                                // authoritative.
-                                PlayerSocketEvent::LiveStreamSessionChanged => {
-                                    context.live_stream_wake.notify_one();
-                                }
-                                PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
-                                PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Stores the server clock offset from a server timestamp (a socket ping, or
-/// a manifest's `serverTime` as the reference player's `core/clock.ts`
-/// samples it), so a restart without the server still schedules at the
-/// corrected time.
-pub(crate) async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
-    let Ok(server_time) = Timestamp::parse(timestamp) else { return };
-    let Some(db) = context.db() else { return };
-    let received_at = context.now();
-    let sample = server_time.unix_millis().saturating_sub(received_at.unix_millis());
-    // Older servers send whole-second pings: such a sample only says the
-    // offset lies in [sample, sample + 1 s).
-    let coarse = !timestamp.contains('.');
-    let _ = db
-        .run(move |c| {
-            let mut state = playback::get(c)?;
-            let stale = state
-                .server_clock_synchronized_at
-                .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
-            if let Some(offset) = refined_offset(state.server_clock_offset_ms, sample, coarse, stale) {
-                state.server_clock_offset_ms = Some(offset);
-                state.server_clock_synchronized_at = Some(received_at);
-                playback::put(c, &state, received_at)?;
-            }
-            Ok(())
-        })
-        .await;
-}
-
-/// The offset to store after a sample, or `None` to keep the current one. A
-/// precise sample replaces an offset it moves by 250 ms or more, or a stale
-/// one. A whole-second sample replaces only an offset outside its interval,
-/// with the interval's middle.
-pub(crate) fn refined_offset(current: Option<i64>, sample: i64, coarse: bool, stale: bool) -> Option<i64> {
-    if coarse {
-        return match current {
-            Some(old) if (sample..=sample.saturating_add(1_000)).contains(&old) => None,
-            _ => Some(sample.saturating_add(500)),
-        };
-    }
-    match current {
-        Some(old) if old.abs_diff(sample) < 250 && !stale => None,
-        _ => Some(sample),
-    }
-}
-
-fn server_retry(error: &ServerError) -> LinkState {
-    match error {
-        ServerError::IdentityMismatch { .. } => LinkState::IdentityMismatch,
-        ServerError::CredentialRejected => LinkState::CredentialRejected,
-        other => LinkState::Retrying(other.reason_code()),
-    }
+    let (Some(state), Some(relationship)) = (context.db(), context.server_relationship.as_ref()) else {
+        context.shutdown.cancelled().await;
+        return;
+    };
+    let host = Host(context.clone());
+    let user_agent = format!("tilecastd/{}", edge_platform::RELEASE_VERSION);
+    player_core::drive_server_link(player_core::ServerLinkServices {
+        dependencies: player_core::Dependencies { state: state.clone(), clock: context.clock.clone() },
+        relationship,
+        host: &host,
+        user_agent: &user_agent,
+        player_version: VERSION,
+        shutdown: &context.shutdown,
+        signals: player_core::ServerLinkSignals {
+            server_wake: &context.server_wake,
+            manifest_wake: &context.manifest_wake,
+            preparation: &context.preparation,
+            link_state: &context.link_state,
+            last_server_contact: &context.last_server_contact,
+            command_wake: &context.command_wake,
+            command_server: &context.command_server,
+            sync_request: &context.sync_request,
+            sync_done: &context.sync_done,
+            live_stream_wake: &context.live_stream_wake,
+            live_frames: &context.live_frames,
+            status_due: &context.status_due,
+        },
+    })
+    .await;
 }
 
 pub async fn reject_credential(context: &DaemonContext) {
-    tracing::warn!(component = "server", event = "credential_rejected");
-    if let Some(db) = context.db() {
-        let now = context.now();
-        let _ = db.run(move |c| binding::set_credential_state(c, CredentialState::Rejected, now)).await;
+    if let Some(relationship) = &context.server_relationship {
+        relationship.reject_credential().await;
+    } else {
+        // Preserve private-file cleanup in local-state recovery mode.
+        let _ = edge_server::FileCredentialStore::remove_at(&context.paths.identity_dir());
     }
-    let _ = DeviceCredential::remove(&context.paths.identity_dir());
     context.command_server.send_replace(None);
-}
-
-fn set_preparation(
-    context: &DaemonContext,
-    target: Option<edge_protocol::Sha256Digest>,
-    state: &'static str,
-    reason: Option<String>,
-) {
-    *context.preparation.lock().unwrap_or_else(|e| e.into_inner()) = PreparationStatus { target, state, reason };
-}
-
-/// Keeps exactly one preparation running, on the target. A newer target
-/// aborts an obsolete preparation; its CAS partials stay resumable and the
-/// pending write re-checks the target.
-async fn ensure_preparation(
-    context: &Arc<DaemonContext>,
-    link: &mut Link,
-    server: &AuthenticatedServer,
-    target: Option<Target>,
-) {
-    let Some(target) = target else {
-        link.abort_preparation();
-        return;
-    };
-    let digest = target.digest;
-    if link.preparation.as_ref().is_some_and(|(running, _)| *running == digest) {
-        return;
-    }
-    link.abort_preparation();
-    let Some(db) = context.db() else { return };
-    for stage in [Stage::Active, Stage::Pending] {
-        let stage_binding = target.binding.clone();
-        if db
-            .run(move |c| manifests::get_for(c, stage, &stage_binding))
-            .await
-            .ok()
-            .flatten()
-            .is_some_and(|stored| stored.digest == digest)
-        {
-            // Nothing to do while its content is whole; otherwise the
-            // preparation below repairs it in place.
-            let intact = match crate::manifest::Candidate::prepare_candidate(
-                target.document.clone(),
-                target.binding.screen_id,
-            ) {
-                Ok(candidate) => crate::manifest::verify_cached(context, &candidate).await.is_ok(),
-                Err(_) => true,
-            };
-            if intact {
-                return;
-            }
-        }
-    }
-    // A deterministic rejection of this exact manifest is not retried.
-    let known_final = {
-        let status = context.preparation.lock().unwrap_or_else(|e| e.into_inner());
-        status.target == Some(digest) && matches!(status.state, "incompatible" | "invalid")
-    };
-    if known_final {
-        return;
-    }
-    set_preparation(context, Some(digest), "preparing", None);
-    let worker_context = Arc::clone(context);
-    let worker_server = server.clone();
-    let task = tokio::spawn(async move {
-        let plan = OriginSources { server: &worker_server };
-        let result = tokio::select! {
-            () = worker_context.shutdown.cancelled() => return,
-            result = manifest_sync::prepare_target(&worker_context, &plan, &target) => result,
-        };
-        match result {
-            Ok(Prepared::Current) => set_preparation(&worker_context, Some(digest), "current", None),
-            Ok(Prepared::Repaired) => set_preparation(&worker_context, Some(digest), "repaired", None),
-            Ok(Prepared::Pending) => set_preparation(&worker_context, Some(digest), "pending", None),
-            Ok(Prepared::Superseded) => set_preparation(&worker_context, Some(digest), "superseded", None),
-            Err(error) => {
-                let state = match &error {
-                    manifest_sync::PrepareError::Manifest(crate::manifest::ManifestError::Incompatible(_)) => {
-                        "incompatible"
-                    }
-                    error if error.is_final() => "invalid",
-                    _ => "failed",
-                };
-                tracing::warn!(
-                    component = "manifest",
-                    event = "preparation_failed",
-                    manifest = %digest.short(),
-                    state,
-                    reason = error.reason_code(),
-                    error = %error
-                );
-                set_preparation(&worker_context, Some(digest), state, Some(error.reason_code().to_owned()));
-            }
-        }
-    });
-    link.preparation = Some((digest, task));
-}
-
-async fn sync_manifest(
-    context: &Arc<DaemonContext>,
-    link: &mut Link,
-    server: &AuthenticatedServer,
-    binding: ManifestBinding,
-) -> Result<(), LinkState> {
-    match manifest_sync::reconcile(context, server, &binding).await {
-        Ok(target) => {
-            ensure_preparation(context, link, server, target).await;
-            context.manifest_wake.notify_one();
-            Ok(())
-        }
-        Err(manifest_sync::SyncError::Server(ServerError::CredentialRejected)) => {
-            reject_credential(context).await;
-            Err(LinkState::CredentialRejected)
-        }
-        Err(error) => {
-            // Nothing already accepted is lost; the player keeps its committed
-            // presentation. A preparation for the persisted target continues.
-            tracing::warn!(component = "manifest", event = "reconcile_failed", reason = error.reason_code(), error = %error);
-            if !matches!(error, manifest_sync::SyncError::Server(_)) {
-                set_preparation(context, None, "invalid", Some(error.reason_code().to_owned()));
-            }
-            let persisted = manifest_sync::persisted_target(context, &binding).await;
-            ensure_preparation(context, link, server, persisted).await;
-            Ok(())
-        }
-    }
-}
-
-async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
-    let Some(db) = context.db() else {
-        return LinkState::Unbound;
-    };
-    let Ok(Some(bound)) = db.run(|c| binding::get(c)).await else {
-        return LinkState::Unbound;
-    };
-    if bound.credential_state == CredentialState::Rejected {
-        return LinkState::CredentialRejected;
-    }
-    let credential = match DeviceCredential::load(&context.paths.identity_dir()) {
-        Ok(Some(credential)) => credential,
-        Ok(None) => return LinkState::CredentialMissing,
-        Err(error) => {
-            tracing::error!(component = "server", event = "credential_unreadable", error = %error);
-            return LinkState::CredentialMissing;
-        }
-    };
-    let server = match ServerClient::new(&bound.server_url) {
-        Ok(client) => match client.verify_installation(bound.installation_id, credential).await {
-            Ok(server) => server,
-            Err(error) => {
-                if matches!(error, ServerError::IdentityMismatch { .. }) {
-                    tracing::error!(component = "server", event = "identity_mismatch", error = %error);
-                }
-                link.socket = None;
-                return server_retry(&error);
-            }
-        },
-        Err(error) => return server_retry(&error),
-    };
-    let now = context.now();
-    let _ = db.run(move |c| binding::mark_identity_verified(c, now)).await;
-    // A new relationship (or a changed server) polls commands at once; a
-    // continuing one only refreshes the handle.
-    let published = server.clone();
-    context.command_server.send_if_modified(move |current| {
-        let changed = current.as_ref().is_none_or(|existing| existing.base_url() != published.base_url());
-        *current = Some(published);
-        changed
-    });
-
-    if link.socket.is_none() && link.next_socket_attempt.is_none_or(|next| Instant::now() >= next) {
-        match server.player_socket(VERSION).await {
-            Ok(socket) => {
-                if link.socket_failures > 0
-                    && let Some(activity) = &link.activity
-                {
-                    let mut event = crate::activity::Event::new("connection.restored", "connectivity");
-                    event.result = Some("recovered".into());
-                    activity.record(event);
-                }
-                link.socket = Some(socket);
-                link.socket_activity();
-                link.socket_backoff.connected(Instant::now());
-                link.socket_failures = 0;
-                link.next_socket_attempt = None;
-                // As the reference player does on every socket open: report
-                // status and reconcile now, so any push lost while the socket
-                // was down is recovered at once.
-                link.next_heartbeat = None;
-                link.manifest_dirty = true;
-                link.config_dirty = true;
-                context.command_wake.notify_one();
-                context.live_stream_wake.notify_one();
-            }
-            Err(error) => {
-                tracing::warn!(component = "server", event = "player_socket_failed", reason = error.reason_code());
-                link.socket_lost();
-            }
-        }
-    }
-    let status_due = context.status_due.swap(false, std::sync::atomic::Ordering::AcqRel);
-    if status_due || link.next_heartbeat.is_none_or(|next| Instant::now() >= next) {
-        let heartbeat = build_heartbeat(context).await;
-        let socket_sent = match link.socket.as_mut() {
-            Some(socket) => socket.send_status(&heartbeat, VERSION).await.is_ok(),
-            None => false,
-        };
-        if !socket_sent && link.socket.is_some() {
-            link.socket_lost();
-        }
-        let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
-        match sent {
-            Ok(()) => {
-                link.next_heartbeat = Some(Instant::now() + crate::config_sync::effective(context).sync.status_report);
-                *context.last_server_contact.lock().unwrap_or_else(|e| e.into_inner()) = Some(context.now());
-            }
-            Err(ServerError::CredentialRejected) => {
-                reject_credential(context).await;
-                return LinkState::CredentialRejected;
-            }
-            Err(error) => return server_retry(&error),
-        }
-    }
-    let reconcile_interval = crate::config_sync::effective(context).sync.manifest_reconciliation;
-    if let Some(screen_id) = bound.screen_id {
-        let binding =
-            ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url.clone() };
-        if link.config_binding.as_ref() != Some(&binding) {
-            crate::config_sync::load_cached(context, &binding).await;
-            link.config_binding = Some(binding.clone());
-            link.config_dirty = true;
-        }
-        if link.config_dirty || link.next_config_sync.is_none_or(|next| Instant::now() >= next) {
-            link.config_dirty = false;
-            link.next_config_sync = Some(Instant::now() + reconcile_interval);
-            match crate::config_sync::reconcile(context, &server, &binding).await {
-                Err(ServerError::CredentialRejected) => {
-                    reject_credential(context).await;
-                    return LinkState::CredentialRejected;
-                }
-                Err(error) => {
-                    tracing::warn!(
-                        component = "config",
-                        event = "config_reconcile_failed",
-                        reason = error.reason_code()
-                    );
-                }
-                Ok(_) => {}
-            }
-        }
-        if link.manifest_dirty || link.next_manifest_sync.is_none_or(|next| Instant::now() >= next) {
-            link.manifest_dirty = false;
-            link.next_manifest_sync = Some(Instant::now() + reconcile_interval);
-            if let Err(state) = sync_manifest(context, link, &server, binding).await {
-                return state;
-            }
-        }
-    }
-    LinkState::Connected
 }
 
 /// The heartbeat `currentItemId` for a renderer item key: playlist items
@@ -835,11 +353,12 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn a_whole_second_sample_corrects_only_what_it_can_resolve() {
         // Precise samples: 250 ms or more, or a stale offset, replace it.
-        assert_eq!(refined_offset(None, -40, false, false), Some(-40));
+        assert_eq!(player_core::refined_server_offset(None, -40, false, false), Some(-40));
         assert_eq!(refined_offset(Some(-40), 100, false, false), None);
         assert_eq!(refined_offset(Some(-40), 300, false, false), Some(300));
         assert_eq!(refined_offset(Some(-40), 100, false, true), Some(100));
@@ -869,25 +388,6 @@ mod tests {
     }
 
     #[test]
-    fn a_streak_resets_only_after_a_healthy_connection() {
-        let start = Instant::now();
-        let mut backoff = Backoff::default();
-        for _ in 0..5 {
-            backoff.failed(start);
-        }
-        assert_eq!(backoff.failures, 5);
-        // A brief success does not forgive a flapping server.
-        backoff.connected(start);
-        backoff.failed(start + Duration::from_secs(10));
-        assert_eq!(backoff.failures, 6);
-        // Two healthy minutes do.
-        backoff.connected(start + Duration::from_secs(10));
-        backoff.connected(start + Duration::from_secs(60));
-        backoff.failed(start + Duration::from_secs(10) + HEALTHY_RESET);
-        assert_eq!(backoff.failures, 1);
-    }
-
-    #[test]
     fn stopped_states_name_their_reason() {
         assert_eq!(LinkState::Connected.state_token(), "connected");
         assert_eq!(LinkState::Connected.reason_code(), None);
@@ -913,18 +413,5 @@ mod tests {
         assert_eq!(heartbeat_selection_source("none"), Some("none"));
         assert_eq!(heartbeat_selection_source("quick_present"), Some("quick_present"));
         assert_eq!(heartbeat_selection_source("emergency"), None);
-    }
-
-    #[test]
-    fn socket_liveness_deadline_tracks_inbound_activity_and_clears_on_loss() {
-        let mut link = Link::default();
-        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
-        link.last_socket_activity = Some(Instant::now() - Duration::from_secs(30));
-        let remaining = link.socket_liveness_remaining();
-        assert!(remaining <= Duration::from_secs(65));
-        assert!(remaining > Duration::from_secs(64));
-        link.socket_lost();
-        assert_eq!(link.last_socket_activity, None);
-        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
     }
 }

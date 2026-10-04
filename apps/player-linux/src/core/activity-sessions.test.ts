@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ActivityEventInput } from "./activity";
-import { PlaybackSessionTracker } from "./activity-sessions";
+import {
+  applyRendererEvent,
+  PlaybackSessionTracker,
+} from "./activity-sessions";
 
 /**
  * The contract fixtures are shared with the Go server tests and the Kotlin
@@ -179,6 +182,156 @@ describe("playback session tracking", () => {
       "process_exit",
       "process_exit",
     ]);
+  });
+});
+
+describe("degenerate playback", () => {
+  const root = {
+    key: "direct:playlist-a:1",
+    presentationType: "playlist",
+    presentationId: "playlist-a",
+  };
+
+  it("ignores a second start for the item already open", () => {
+    const { events, subject, advance } = tracker();
+    subject.startPresentation(root);
+    const item = {
+      contentId: "item-1",
+      contentType: "image",
+      playlistItemId: "item-1",
+    };
+    subject.startContent(item);
+    advance(5);
+    // The renderer remounting the same item is not a second play.
+    subject.startContent(item);
+    advance(30_000);
+    subject.finishContent("completed", "expected_item_boundary");
+
+    const types = events.map((event) => event.eventType);
+    expect(types.filter((type) => type === "content.started")).toHaveLength(1);
+    expect(types.filter((type) => type === "content.completed")).toHaveLength(
+      1,
+    );
+    expect(
+      events.find((event) => event.eventType === "content.completed")
+        ?.durationMs,
+    ).toBe(30_005);
+  });
+
+  it("still records a single-item playlist looping", () => {
+    const { events, subject, advance } = tracker();
+    subject.startPresentation(root);
+    const item = {
+      contentId: "item-1",
+      contentType: "image",
+      playlistItemId: "item-1",
+    };
+    subject.startContent(item);
+    advance(10_000);
+    // A loop reports the boundary before the next lap starts.
+    subject.finishContent("completed", "expected_item_boundary");
+    subject.startContent(item);
+    advance(10_000);
+    subject.finishContent("completed", "expected_item_boundary");
+
+    expect(
+      events.filter((event) => event.eventType === "content.started"),
+    ).toHaveLength(2);
+    expect(
+      events.filter((event) => event.eventType === "content.completed"),
+    ).toHaveLength(2);
+  });
+
+  it("does not open a second session for a different zone of the same item", () => {
+    const { events, subject } = tracker();
+    subject.startPresentation(root);
+    subject.startContent({
+      contentId: "m",
+      contentType: "image",
+      layoutPlacementId: "zone-1",
+    });
+    subject.startContent({
+      contentId: "m",
+      contentType: "image",
+      layoutPlacementId: "zone-2",
+    });
+    expect(
+      events.filter((event) => event.eventType === "content.started"),
+    ).toHaveLength(2);
+  });
+
+  it("records no play for a start the player is not presenting", () => {
+    const { events, subject } = tracker();
+    subject.startPresentation(root);
+    const presented = [{ id: "item-a", kind: "image", durationMs: 4_000 }];
+    applyRendererEvent(subject, "item-started", "item-ghost", presented);
+    applyRendererEvent(subject, "item-started", "item-a", presented);
+    const started = events.filter((e) => e.eventType === "content.started");
+    expect(started).toHaveLength(1);
+    // The guess ("media") is never reported for an item the player has lost.
+    expect(started[0]?.contentType).toBe("image");
+  });
+
+  it("reports whole-millisecond durations from a fractional clock", () => {
+    const events: ActivityEventInput[] = [];
+    let clock = 1_000.25;
+    const subject = new PlaybackSessionTracker(
+      (event) => events.push(event),
+      () => clock,
+      () => "s",
+    );
+    subject.startPresentation(root);
+    subject.startContent({
+      contentId: "i",
+      contentType: "image",
+      playlistItemId: "i",
+    });
+    clock += 4_029.6638089999997;
+    subject.finishContent("completed", "expected_item_boundary");
+    subject.stopPresentation("schedule_transition", "partial");
+    for (const event of events) {
+      if (event.durationMs !== undefined) {
+        expect(Number.isInteger(event.durationMs)).toBe(true);
+      }
+    }
+    expect(
+      events.find((e) => e.eventType === "content.completed")?.durationMs,
+    ).toBe(4030);
+  });
+
+  it("omits an expected duration of zero", () => {
+    const { events, subject } = tracker();
+    subject.startPresentation(root);
+    subject.startContent({
+      contentId: "item-1",
+      contentType: "image",
+      playlistItemId: "item-1",
+      expectedDurationMs: 0,
+    });
+    subject.finishContent("completed", "expected_item_boundary");
+    for (const event of events.filter((e) =>
+      e.eventType.startsWith("content"),
+    )) {
+      expect(event.expectedDurationMs).toBeUndefined();
+    }
+  });
+
+  it("keeps the root session when only the manifest version moves", () => {
+    const { events, subject } = tracker();
+    subject.startPresentation({ ...root, manifestVersion: 1 });
+    subject.noteManifestVersion(2);
+    // The same content re-evaluated under the new version is the same root.
+    subject.startPresentation({
+      ...root,
+      key: "direct:playlist-a:2",
+      manifestVersion: 2,
+    });
+    expect(
+      events.filter((event) => event.eventType === "presentation.started"),
+    ).toHaveLength(1);
+    expect(
+      events.filter((event) => event.eventType === "presentation.stopped"),
+    ).toHaveLength(0);
   });
 });
 

@@ -46,7 +46,7 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { toast } from "../components/ui/toast";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 export const securityKey = ["me", "security"] as const;
 
@@ -691,7 +691,7 @@ function PasswordDialog({
 
 function errorNotice(error: Error | null | undefined, fallback: string) {
   if (!error) return null;
-  const message = error instanceof ApiError ? error.message : fallback;
+  const message = error instanceof ApiError ? apiErrorMessage(error) : fallback;
   return (
     <Alert variant="destructive">
       <AlertDescription role="alert">{message}</AlertDescription>

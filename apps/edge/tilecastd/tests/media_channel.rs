@@ -5,13 +5,13 @@
 use std::os::unix::fs::PermissionsExt as _;
 use std::sync::Arc;
 
+use edge_cas::space::FixedSpace;
 use edge_cas::{ContentStore, IngestMeta, LruByDomain, StorePolicy};
-use edge_platform::disk::FixedSpace;
+use edge_platform::clock::system_clock;
 use edge_protocol::Sha256Digest;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ids::SessionId;
 use edge_protocol::ipc::presentation::ContentRef;
-use edge_protocol::time::system_clock;
 use edge_state::repo::cas::{Domain, SourceKind};
 use edge_state::{OpenOptions, StateDb};
 use serde_json::{Value, json};
@@ -65,7 +65,7 @@ async fn authorized_range_reads_and_denials_use_only_verified_cas() {
     .await
     .unwrap();
 
-    let session = SessionId::new_random();
+    let session = SessionId::from_uuid(uuid::Uuid::new_v4());
     let pid = std::process::id() as i32;
     let mut registry = MediaRegistry::new();
     let renderer = RendererInstance {
