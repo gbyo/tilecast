@@ -9,6 +9,7 @@
   "actions": {
     "back": "Atrás",
     "cancel": "Cancelar",
+    "clear": "Borrar",
     "clearAll": "Borrar todo",
     "close": "Cerrar",
     "closeToast": "Cerrar notificación",
@@ -26,7 +27,8 @@
     "saveChanges": "Guardar cambios",
     "saving": "Guardando…",
     "skip": "Omitir",
-    "submit": "Enviar"
+    "submit": "Enviar",
+    "toggleOptions": "Alternar opciones"
   },
   "status": {
     "loading": "Cargando…"

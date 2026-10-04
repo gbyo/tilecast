@@ -17,6 +17,7 @@ import {
   EmptyTitle,
 } from "../components/ui/empty";
 import { useConfirm } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
 import {
   Dialog,
   DialogContent,
@@ -133,23 +134,17 @@ export function GroupsPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("groups.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("groups.subtitle")}
-          </p>
-        </div>
-        {manageable && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("groups.title")}
+        description={t("groups.subtitle")}
+        actions={
+          manageable ? (
             <Button type="button" onClick={() => setCreateOpen(true)}>
               {t("groups.create")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       {q.isError && (
         <Alert variant="destructive">
           <AlertDescription>{t("groups.loadError")}</AlertDescription>
@@ -513,72 +508,72 @@ export function GroupDetailPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {groupData.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {groupData.description || t("groups.detail.descriptionFallback")}
-          </p>
-        </div>
-        {manageable && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setEditOpen(true)}
-            >
-              {t("groups.detail.edit")}
-            </Button>
-            {editOpen && (
-              <GroupDialog
-                title={t("groups.detail.edit")}
-                action={t("common:actions.saveChanges")}
-                initial={{
-                  name: groupData.name,
-                  description: groupData.description,
-                }}
-                pending={update.isPending}
-                error={update.error?.message}
-                onClose={() => setEditOpen(false)}
-                onSave={(value) => {
-                  update.mutate(value, { onSuccess: () => setEditOpen(false) });
-                }}
-              />
-            )}
-            <Button type="button" onClick={() => setAirplayOpen(true)}>
-              {t("groups.detail.present")}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setQuickPresentOpen(true)}
-            >
-              {t("groups.detail.showNow")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={() => {
-                void confirm({
-                  title: t("groups.detail.deleteTitle", {
+      <PageHeader
+        title={groupData.name}
+        description={
+          groupData.description || t("groups.detail.descriptionFallback")
+        }
+        actions={
+          manageable ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEditOpen(true)}
+              >
+                {t("groups.detail.edit")}
+              </Button>
+              {editOpen && (
+                <GroupDialog
+                  title={t("groups.detail.edit")}
+                  action={t("common:actions.saveChanges")}
+                  initial={{
                     name: groupData.name,
-                  }),
-                  body: t("groups.detail.deleteBody"),
-                  action: t("common:actions.delete"),
-                  destructive: true,
-                }).then((ok) => {
-                  if (ok) deleteGroup.mutate();
-                });
-              }}
-            >
-              {t("groups.detail.delete")}
-            </Button>
-            {confirmDialog}
-          </div>
-        )}
-      </header>
+                    description: groupData.description,
+                  }}
+                  pending={update.isPending}
+                  error={update.error?.message}
+                  onClose={() => setEditOpen(false)}
+                  onSave={(value) => {
+                    update.mutate(value, {
+                      onSuccess: () => setEditOpen(false),
+                    });
+                  }}
+                />
+              )}
+              <Button type="button" onClick={() => setAirplayOpen(true)}>
+                {t("groups.detail.present")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setQuickPresentOpen(true)}
+              >
+                {t("groups.detail.showNow")}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  void confirm({
+                    title: t("groups.detail.deleteTitle", {
+                      name: groupData.name,
+                    }),
+                    body: t("groups.detail.deleteBody"),
+                    action: t("common:actions.delete"),
+                    destructive: true,
+                  }).then((ok) => {
+                    if (ok) deleteGroup.mutate();
+                  });
+                }}
+              >
+                {t("groups.detail.delete")}
+              </Button>
+              {confirmDialog}
+            </>
+          ) : undefined
+        }
+      />
       {mutationError && (
         <Alert variant="destructive">
           <AlertDescription>{mutationError.message}</AlertDescription>

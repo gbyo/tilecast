@@ -28,6 +28,7 @@ import type {
   CampaignSnapshot,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { PageHeader } from "../components/PageHeader";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
@@ -177,24 +178,18 @@ function CampaignLibrary() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("campaigns.library.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("campaigns.library.description")}
-          </p>
-        </div>
-        {canCreate && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("campaigns.library.title")}
+        description={t("campaigns.library.description")}
+        actions={
+          canCreate ? (
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />{" "}
               {t("campaigns.library.createButton")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       {query.isError && (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
@@ -616,60 +611,56 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {campaign.name}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("campaigns.editor.subtitle", {
-              status: campaign.status,
-              revision: campaign.draftRevision,
-            })}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void preflightRun.mutate()}
-            disabled={preflightRun.isPending}
-          >
-            {t("campaigns.editor.preflightButton")}
-          </Button>
-          {canEdit && (
-            <Button
-              type="button"
-              onClick={() => save.mutate()}
-              disabled={save.isPending}
-            >
-              <Save size={16} aria-hidden="true" />{" "}
-              {t("campaigns.editor.saveDraft")}
-            </Button>
-          )}
-          {canPublish && (
-            <Button
-              type="button"
-              onClick={() => publish.mutate()}
-              disabled={publish.isPending}
-            >
-              <Send size={16} aria-hidden="true" />{" "}
-              {t("campaigns.editor.submitPublish")}
-            </Button>
-          )}
-          {canEdit && (
+      <PageHeader
+        title={campaign.name}
+        description={t("campaigns.editor.subtitle", {
+          status: campaign.status,
+          revision: campaign.draftRevision,
+        })}
+        actions={
+          <>
             <Button
               type="button"
               variant="outline"
-              onClick={() => setConfirmingArchive(true)}
-              disabled={archive.isPending}
+              onClick={() => void preflightRun.mutate()}
+              disabled={preflightRun.isPending}
             >
-              <Archive size={16} aria-hidden="true" />{" "}
-              {t("campaigns.editor.archiveButton")}
+              {t("campaigns.editor.preflightButton")}
             </Button>
-          )}
-        </div>
-      </header>
+            {canEdit && (
+              <Button
+                type="button"
+                onClick={() => save.mutate()}
+                disabled={save.isPending}
+              >
+                <Save size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.saveDraft")}
+              </Button>
+            )}
+            {canPublish && (
+              <Button
+                type="button"
+                onClick={() => publish.mutate()}
+                disabled={publish.isPending}
+              >
+                <Send size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.submitPublish")}
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmingArchive(true)}
+                disabled={archive.isPending}
+              >
+                <Archive size={16} aria-hidden="true" />{" "}
+                {t("campaigns.editor.archiveButton")}
+              </Button>
+            )}
+          </>
+        }
+      />
       <AlertDialog
         open={confirmingArchive}
         onOpenChange={(open) => {
