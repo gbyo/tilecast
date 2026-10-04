@@ -19,7 +19,7 @@ export function ScreenPositionPicker({
   locationPosition?: MapCoordinates;
   onChange: (value?: MapCoordinates) => void;
 }) {
-  const { t } = useTranslation("screens");
+  const { t } = useTranslation(["screens", "common"]);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const valueRef = useRef(value);
