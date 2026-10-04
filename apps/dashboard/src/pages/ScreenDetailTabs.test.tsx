@@ -30,7 +30,9 @@ describe("ScreenDetailTabs", () => {
     const user = userEvent.setup();
 
     for (const label of ["Overview", "Activity", "Settings"]) {
-      expect(await screen.findByRole("tab", { name: new RegExp(`^${label}`) })).toBeTruthy();
+      expect(
+        await screen.findByRole("tab", { name: new RegExp(`^${label}`) }),
+      ).toBeTruthy();
     }
     expect(screen.queryByRole("tab", { name: "Content" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "Device" })).toBeNull();
@@ -56,8 +58,12 @@ describe("ScreenDetailTabs", () => {
   it("uses one responsive tablist instead of a separate mobile picker", async () => {
     renderTabs();
 
-    const tablist = await screen.findByRole("tablist", { name: "Screen details" });
+    const tablist = await screen.findByRole("tablist", {
+      name: "Screen details",
+    });
     expect(tablist.className).toContain("grid-cols-3");
-    expect(screen.queryByRole("combobox", { name: "Screen details" })).toBeNull();
+    expect(
+      screen.queryByRole("combobox", { name: "Screen details" }),
+    ).toBeNull();
   });
 });
