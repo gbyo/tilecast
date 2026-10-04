@@ -3,6 +3,9 @@ title: Create and reuse Widgets
 description: Choose a Widget by what the screen should show, connect a compatible Data Source, and check the result in Studio's live preview.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/widget-editor.png";
+
 import { Steps } from "@astrojs/starlight/components";
 
 A **Widget** is a reusable visual item, such as a clock, a list of announcements, or a weather forecast. Add a Widget to a Playlist or place it on a Layout.
@@ -69,6 +72,11 @@ When you connect a source, Studio chooses a field for each empty field control:
 Change any field Studio chose. If you switch to another source, Studio keeps your choices that the new source also has and fills in the rest.
 
 Some Widgets need your choices. A Table shows only the **Columns** you add. An Agenda can't place an event without a **Start field**. News and Weather read their source's fields directly and have no field controls.
+
+<Screenshot
+  src={screenshot}
+  alt="Lobby Clock editor with timezone and appearance controls beside a ready live preview at the Small zone size."
+/>
 
 ## Check the live preview
 

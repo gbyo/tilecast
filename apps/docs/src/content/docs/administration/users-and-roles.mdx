@@ -3,6 +3,9 @@ title: Manage users and roles
 description: Create local Studio accounts, choose their role, and limit which screens they can operate.
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
+import screenshot from "../../../assets/screenshots/users.png";
+
 Each person who uses Tilecast Studio should have an individual account. An **Owner** or **Administrator** can manage accounts from **Settings** > **Users**.
 
 import { Steps } from "@astrojs/starlight/components";
@@ -18,6 +21,11 @@ import { Steps } from "@astrojs/starlight/components";
 </Steps>
 
 The person signs in with that username and password. Tilecast's Studio accounts are local to the installation.
+
+<Screenshot
+  src={screenshot}
+  alt="Users page with district accounts, assigned roles, and account management controls."
+/>
 
 ## Choose a role
 

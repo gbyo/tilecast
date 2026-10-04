@@ -3,6 +3,9 @@ title: Connect a Data Source
 description: Create reusable, cached data connections for Widgets and live text in Layouts.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/data-source-providers.png";
+
 A **Data Source** connects Tilecast to structured information that a Widget or Layout can display. The source holds the data; the [Widget](../widgets/) or text binding controls how it appears. Tilecast Server fetches remote sources and caches the parsed data, and Studio shows the source's status and refresh diagnostics.
 
 Because the two are separate, one source can feed several displays. A Google Sheet of club meetings can drive a Table in the office and a Ticker in the hallway.
@@ -10,6 +13,11 @@ Because the two are separate, one source can feed several displays. A Google She
 The Data Sources library loads up to 100 matches at a time. Search by name or filter by provider, then select **Load more** to browse later results.
 
 import { Steps } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  alt="Create Data Source catalog with feed, calendar, spreadsheet, JSON, CSV, weather, and manual-data providers."
+/>
 
 ## Create a Data Source
 

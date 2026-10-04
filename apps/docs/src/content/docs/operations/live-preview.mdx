@@ -3,6 +3,9 @@ title: View a live preview or stream
 description: Check a recent Player screenshot or watch the screen while the live stream is open.
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
+import screenshot from "../../../assets/screenshots/live-preview-unavailable.png";
+
 Open a screen's **Overview** tab to use **Live preview**. Tilecast asks the Player for a still image and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
 
 ## Choose the right view
@@ -38,6 +41,11 @@ If the stream connection ends, select **Retry stream** in the window to reconnec
 Frame rate and update speed depend on the Player and network.
 
 ## When preview is unavailable
+
+<Screenshot
+  src={screenshot}
+  alt="Live preview panel reporting Capture error and Not captured for a Player that cannot provide an image."
+/>
 
 - **Watch live** works only while the screen is online.
 - Protected Player screens are not captured. AirPlay-mirrored output is also excluded.

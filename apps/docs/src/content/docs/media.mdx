@@ -3,6 +3,9 @@ title: Upload and organize media
 description: Add images and videos to the Tilecast media library and prepare them for playlists and Layouts.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/media-library.png";
+
 Tilecast Studio's **Media** library stores images and videos for reuse in Playlists and Layouts. An upload must finish processing and show **Ready** before you can add it to a presentation.
 
 Website Apps also appear in the library under **Websites**. See [Add website content](../website-content/) to create one and check its network and offline limits.
@@ -25,6 +28,11 @@ An Owner, Administrator, or Editor can upload media.
 If the browser loses its connection during an upload, select the original file again to resume it. It must have the same name and size as the file used to start that upload. Open the asset details for a failed item and select **Retry processing** when that action is available.
 
 The default maximum upload size is 10 GiB per file. An administrator can change it with `TILECAST_MAX_UPLOAD_BYTES` on the server.
+
+<Screenshot
+  src={screenshot}
+  alt="Media library with Ready images including Booster Club, Homecoming, Lunch Menu, and Welcome Back, Falcons."
+/>
 
 ## Organize the library
 

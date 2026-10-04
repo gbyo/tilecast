@@ -3,6 +3,9 @@ title: Create a recurring weekday schedule
 description: Set a Playlist or published Layout to play on selected screens or Display Groups at weekday times.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/schedule-editor.png";
+
 Create a weekly schedule to show a Playlist or Layout at the same local time on selected days. For example, use one to play a lunch menu from Monday through Friday, 10:30 to 13:00.
 
 The Schedules library loads up to 100 schedules at a time. Select **Load more** to browse later results. The presentation chooser supports server search and **Load more**, and target selectors include screens and Display Groups beyond the first page.
@@ -13,6 +16,11 @@ import { Steps } from "@astrojs/starlight/components";
 
 - An **Owner** or **Administrator** account is needed to create or change schedules.
 - Prepare a Playlist with content that is **Ready**, or publish the Layout you want to schedule. Tilecast won't save a schedule that references an empty Playlist, unready media, or an unpublished Layout.
+
+<Screenshot
+  src={screenshot}
+  alt="Morning Broadcast schedule editor with weekly timing, weekday selections, timezone, targets, and schedule summary."
+/>
 
 ## Create the schedule
 
