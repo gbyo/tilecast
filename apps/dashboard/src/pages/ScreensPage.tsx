@@ -3817,7 +3817,15 @@ export function ScreenDetailPage() {
                         label={t("detail.factWebsite")}
                         value={
                           assignment.data?.websiteState
-                            ? `${assignment.data.websiteState.replaceAll("_", " ")}${assignment.data.websiteCurrentHost ? ` · ${assignment.data.websiteCurrentHost}` : ""}`
+                            ? [
+                                assignment.data.websiteState.replaceAll(
+                                  "_",
+                                  " ",
+                                ),
+                                assignment.data.websiteCurrentHost,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
                             : t("detail.websiteInactive")
                         }
                       />
