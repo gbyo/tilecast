@@ -1,7 +1,7 @@
 //! The bounded durable outbox for Activity events and telemetry samples
 //! (migration 0004).
 
-use edge_protocol::Timestamp;
+use player_types::Timestamp;
 use rusqlite::{Connection, OptionalExtension as _, params};
 
 use super::ms;

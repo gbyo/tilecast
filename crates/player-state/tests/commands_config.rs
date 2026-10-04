@@ -1,11 +1,11 @@
 //! Command records and accepted configuration: migration from every earlier
 //! schema, the durable command lifecycle and configuration promotion.
 
-use edge_protocol::{InstallationId, ScreenId, Timestamp};
-use edge_state::repo::commands::{self, CommandResult, CommandState, ReportState};
-use edge_state::repo::config::{self, AcceptOutcome, ConfigStage};
-use edge_state::repo::manifests::Binding;
-use edge_state::{MIGRATIONS, OpenOptions, StateDb, migrate_with};
+use player_state::repo::commands::{self, CommandResult, CommandState, ReportState};
+use player_state::repo::config::{self, AcceptOutcome, ConfigStage};
+use player_state::repo::manifests::Binding;
+use player_state::{MIGRATIONS, OpenOptions, StateDb, migrate_with};
+use player_types::{InstallationId, ScreenId, Timestamp};
 use serde_json::json;
 
 const KEY: &str = "5c0b1f0e-8f1a-4c55-9a53-27f2f0b2f0aa";
@@ -31,8 +31,8 @@ fn temp_db() -> (tempfile::TempDir, std::path::PathBuf) {
 fn database_at(version: u32, path: &std::path::Path) {
     let connection = rusqlite::Connection::open(path).expect("raw open");
     let migrations: Vec<_> = MIGRATIONS.iter().filter(|m| m.version <= version).collect();
-    let owned: Vec<edge_state::Migration> =
-        migrations.iter().map(|m| edge_state::Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    let owned: Vec<player_state::Migration> =
+        migrations.iter().map(|m| player_state::Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to the earlier schema");
     for key in ["legacy-key-1", KEY] {
         connection

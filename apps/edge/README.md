@@ -49,8 +49,8 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 | Crate                   | Responsibility                                                                                                                                                          |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `edge-protocol`         | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                                                            |
-| `edge-state`            | SQLite state with embedded migrations and typed repositories.                                                                                                           |
+| `edge-protocol`         | Edge IPC v1 messages and session identity; reexports generic player-types values. No I/O.                                                                               |
+| `edge-state`            | Edge-only update, network recovery, and legacy repositories over the shared player-state database.                                                                      |
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
 | `edge-cas`              | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
@@ -63,8 +63,12 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 ### Dependency direction
 
-A crate depends only on crates above it in this list. `edge-protocol` has no
-internal dependency. Only `tilecastd` combines the server client, the content store and the state.
+Shared types and durable state live in root `crates/player-types` and
+`crates/player-state`. They never depend on Edge. The latter owns the unchanged
+embedded migrations and Core-owned repositories. `edge-state::platform` owns
+historical Edge repositories; its temporary `repo` exports preserve Edge callers.
+`edge-protocol` depends on shared types. Only `tilecastd` combines the server
+client, content store, and state.
 
 ```text
 edge-protocol

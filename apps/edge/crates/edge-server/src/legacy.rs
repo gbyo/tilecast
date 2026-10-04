@@ -33,10 +33,11 @@ use std::path::{Path, PathBuf};
 use edge_cas::{ContentStore, IngestMeta};
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_state::StateDb;
+use edge_state::platform::legacy;
 use edge_state::repo::binding::{CredentialState, ServerBinding};
 use edge_state::repo::cas::{Domain, PinReason, SourceKind};
 use edge_state::repo::daemon::PlayerIdentitySource;
-use edge_state::repo::{binding, commands, daemon, legacy, playback};
+use edge_state::repo::{binding, commands, daemon, playback};
 use serde::Deserialize;
 
 use crate::client::{ServerClient, ServerError};
