@@ -120,8 +120,8 @@ Stage 10 passed shared Rust on Linux and macOS and all Edge qualification
 at `ca164bfb` in PR #1287. Its broader PR validation is red.
 Studio has one duplicate-locator failure and five visual mismatches that also
 failed on main. iOS Core tests timed out. These checks remain unresolved.
-Stage 11 passed local checks, the full Linux daemon suite, and selected shared
-PR validation at `4f7d8cdd` in PR #1288. Edge qualification is still running.
+Stage 11 passed local checks, the full Linux daemon suite, selected shared
+PR validation, and all Edge qualification at `4f7d8cdd` in PR #1288.
 Stage 12 changes need their own checks and selected qualification.
 
 No stage is complete while its selected checks are pending or failing.

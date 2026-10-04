@@ -1,7 +1,7 @@
 # Native Player Core
 
-**Status:** Accepted extraction contract. Stages 1 through 9 are implemented
-and qualified. Stages 10 and 11 are implemented in open draft PRs.
+**Status:** Accepted extraction contract. Stages 1 through 9 and stage 11 are
+implemented and qualified. Stage 10 is implemented but has selected CI failures.
 Stage 12 hardening and the readiness review are in progress.
 Edge keeps its current behavior throughout the extraction.
 
