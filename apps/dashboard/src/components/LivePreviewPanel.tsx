@@ -42,7 +42,13 @@ const captureAgeToneClasses = {
   old: "bg-destructive/10 text-destructive",
 } as const;
 
-export function LivePreviewPanel({ screenId }: { screenId: string }) {
+export function LivePreviewPanel({
+  screenId,
+  onOpenHistory,
+}: {
+  screenId: string;
+  onOpenHistory?: () => void;
+}) {
   const auth = useAuth();
   const { t } = useTranslation(["screens", "common", "alerts"]);
   const formatLocale = useFormatLocale();
@@ -172,6 +178,12 @@ export function LivePreviewPanel({ screenId }: { screenId: string }) {
           </h2>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
+          {onOpenHistory && (
+            <Button size="sm" variant="ghost" onClick={onOpenHistory}>
+              <Clock3 aria-hidden="true" />
+              {t("preview.snapshotsTitle")}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"
