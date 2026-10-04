@@ -181,7 +181,11 @@ test("the release caller grants every called validation its permissions", () => 
   const release = workflow("server-release.yml");
   const rank = { read: 1, write: 2 };
   const granted = release.permissions;
-  assert.deepEqual(granted, { contents: "read", checks: "write" });
+  assert.deepEqual(granted, {
+    actions: "read",
+    contents: "read",
+    checks: "write",
+  });
 
   // The release job overrides with exactly what publishing needs.
   assert.deepEqual(release.jobs.release.permissions, {
