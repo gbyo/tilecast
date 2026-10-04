@@ -18,10 +18,20 @@ export async function capture(page: Page, name: string, region?: Locator) {
   await mkdir(output, { recursive: true });
   const target = region ?? page;
   if (region) await expect(region).toBeVisible();
-  await target.screenshot({
-    path: `${output}/${name}.png`,
-    animations: "disabled",
-    caret: "hide",
-  });
-  console.log(`Generated ${name}.png`);
+  for (const theme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: theme });
+    if (theme === "dark") {
+      await expect(page.locator("html")).toHaveClass(/dark/);
+    } else {
+      await expect(page.locator("html")).not.toHaveClass(/dark/);
+    }
+    await settle(page);
+    const filename = `${name}${theme === "dark" ? "-dark" : ""}.png`;
+    await target.screenshot({
+      path: `${output}/${filename}`,
+      animations: "disabled",
+      caret: "hide",
+    });
+    console.log(`Generated ${filename}`);
+  }
 }

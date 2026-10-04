@@ -153,7 +153,9 @@ Run the generator separately from the other Demo Mode suites. Each capture
 resets the same installation. The generator refuses a non-demo server.
 
 The generator writes only named PNG files under
-`apps/docs/src/assets/screenshots/`. It hides only the Demo Mode notice.
+`apps/docs/src/assets/screenshots/`. Each state has light and dark sources at
+2× pixel density. The docs figure selects the source for the docs theme.
+The generator hides only the Demo Mode notice.
 Review all images before commit. CI does not regenerate these source assets.
 See the [capture inventory](../e2e/docs-screenshots/README.md) for routes,
 required states, crops, and omitted states. The public screenshot policy is in

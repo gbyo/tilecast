@@ -1,32 +1,76 @@
 ---
-import { Image } from "astro:assets";
+import { getImage, Image } from "astro:assets";
 import type { ImageMetadata } from "astro";
 
 interface Props {
   src: ImageMetadata;
+  darkSrc: ImageMetadata;
   alt: string;
   caption?: string;
   priority?: boolean;
 }
 
-const { src, alt, caption, priority = false } = Astro.props;
+const { src, darkSrc, alt, caption, priority = false } = Astro.props;
 // Captures use 2× pixel density; retain their original CSS dimensions while
 // letting Astro generate responsive variants up to the full source resolution.
 const width = src.width / 2;
 const height = src.height / 2;
+if (src.width !== darkSrc.width || src.height !== darkSrc.height) {
+  throw new Error("Screenshot theme variants must have matching dimensions.");
+}
+const dark = await getImage({ src: darkSrc, width, height, layout: "constrained" });
 ---
 
 <figure>
-  <Image
-    src={src}
-    alt={alt}
-    width={width}
-    height={height}
-    layout="constrained"
-    priority={priority}
-  />
+  <picture data-theme-screenshot>
+    <source
+      srcset={dark.srcSet.attribute}
+      sizes={dark.attributes.sizes}
+      type="image/webp"
+      media="(prefers-color-scheme: dark)"
+    />
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      layout="constrained"
+      priority={priority}
+      loading="lazy"
+    />
+    <script is:inline>
+      // Select the saved docs theme before promoting a priority image to eager.
+      // This prevents the preload scanner from fetching the wrong theme first.
+      {
+        const picture = document.currentScript.parentElement;
+        picture.querySelector("source").media =
+          document.documentElement.dataset.theme === "dark" ? "all" : "not all";
+        const image = picture.querySelector("img");
+        if (image.fetchPriority === "high") image.loading = "eager";
+      }
+    </script>
+  </picture>
   {caption && <figcaption>{caption}</figcaption>}
 </figure>
+
+<script>
+  const syncTheme = () => {
+    const media = document.documentElement.dataset.theme === "dark"
+      ? "all"
+      : "not all";
+    document
+      .querySelectorAll<HTMLSourceElement>("[data-theme-screenshot] source")
+      .forEach((source) => {
+        source.media = media;
+      });
+  };
+  new MutationObserver(syncTheme).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  document.addEventListener("astro:page-load", syncTheme);
+  syncTheme();
+</script>
 
 <style>
   figure {

@@ -17,7 +17,8 @@ reset the same installation. Use `TILECAST_E2E_BASE_URL` or
 setup refuses a server that does not report Demo Mode.
 
 Each capture starts with a kitchen-sink reset. Chromium uses a 1440 × 1000
-viewport, scale 2, en-US, America/Chicago, light appearance, and reduced motion.
+viewport, scale 2, en-US, America/Chicago, and reduced motion. Each state is
+captured in light and dark appearance through Studio's system-theme support.
 Context captures are 2880 × 2000 pixels. The figure keeps their original CSS
 dimensions while Astro generates responsive variants up to the 2× source size.
 Only the Clock editor uses the visual suite's fixed browser Date. Other
@@ -53,7 +54,10 @@ Failures produce traces and diagnostic screenshots under `test-results/`.
 | users                    | `/settings/users`, seeded district accounts                                                                        | Users and roles                            |
 | backups                  | `/settings/operations/backups`, create and verify a real archive; Available backups crop                           | Backups                                    |
 
-File names have a `.png` extension. The Overview and Fleet assets are reused.
+Each inventory row has a light `<name>.png` and dark `<name>-dark.png` source:
+32 PNGs for 16 states. The docs figure switches with Starlight's selected theme,
+including saved overrides and live changes, using one responsive picture and
+one alt text. File names have a `.png` extension. The Overview and Fleet assets are reused.
 No duplicate files are needed for operations pages.
 
 Player Updates has no seeded verified release or deployment. Content review,
@@ -73,7 +77,9 @@ Keep harmless real timestamps when the useful context requires them.
 Build the docs and inspect the affected pages in light and dark appearance at
 desktop, tablet, and phone widths. Check that images stay within their source
 size and cannot cause horizontal page scrolling. Check the homepage image's
-position before enabling priority loading.
+position before enabling priority loading. Toggle the docs theme and check
+that the selected picture changes without changing size. A saved docs theme
+must take precedence over the browser's color-scheme preference.
 
 When UI changes, regenerate the affected assets with this command and review
 them again. Keep source captures as PNG; Astro handles responsive optimization.

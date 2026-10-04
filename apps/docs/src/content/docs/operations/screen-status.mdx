@@ -5,6 +5,7 @@ description: Read the connection status in Screens > Fleet and choose what to ch
 
 import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/fleet.png";
+import darkScreenshot from "../../../assets/screenshots/fleet-dark.png";
 
 **Screens** > **Fleet** shows the Player's current connection status. A connection status says whether Tilecast can reach the Player. It does not prove that content is playing correctly.
 
@@ -12,6 +13,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="District Fleet with Online, Stale, and Offline connection labels beside screen names and assigned content."
 />
 

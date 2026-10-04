@@ -5,6 +5,7 @@ description: Arrange media, Widgets, and published Layouts for fullscreen playba
 
 import Screenshot from "../../components/Screenshot.astro";
 import screenshot from "../../assets/screenshots/playlist-editor.png";
+import darkScreenshot from "../../assets/screenshots/playlist-editor-dark.png";
 
 A **Playlist** defines fullscreen content in playback order. A standard Playlist plays its items from top to bottom, then loops. Create one when you want to choose the sequence yourself, or use a Tag-driven Playlist to include matching Ready media automatically.
 
@@ -12,6 +13,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="Morning Announcements timeline with Welcome Back, Falcons selected and its playback settings open in the Inspector."
 />
 

@@ -5,6 +5,7 @@ description: Group screens that should share fallback content, schedules, and sy
 
 import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/display-group.png";
+import darkScreenshot from "../../../assets/screenshots/display-group-dark.png";
 
 A Display Group is a set of screens that share fallback content, schedules, and playback position. Use one for displays that should stay synchronized, such as several screens in a lobby.
 
@@ -26,6 +27,7 @@ Only screens that aren't already assigned to another Display Group appear as ava
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="Cafeteria Displays Members tab listing Cafeteria East, Cafeteria West, and Middle School Cafeteria with their locations, beside Content and Policy tabs."
 />
 

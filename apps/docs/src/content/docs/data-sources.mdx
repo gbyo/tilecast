@@ -5,6 +5,7 @@ description: Create reusable, cached data connections for Widgets and live text 
 
 import Screenshot from "../../components/Screenshot.astro";
 import screenshot from "../../assets/screenshots/data-source-providers.png";
+import darkScreenshot from "../../assets/screenshots/data-source-providers-dark.png";
 
 A **Data Source** connects Tilecast to structured information that a Widget or Layout can display. The source holds the data; the [Widget](../widgets/) or text binding controls how it appears. Tilecast Server fetches remote sources and caches the parsed data, and Studio shows the source's status and refresh diagnostics.
 
@@ -16,6 +17,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="Create Data Source catalog with feed, calendar, spreadsheet, JSON, CSV, weather, and manual-data providers."
 />
 

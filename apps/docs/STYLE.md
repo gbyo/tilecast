@@ -257,6 +257,7 @@ windows for content".
 - Capture at 2× pixel density without changing the viewport or UI scale.
   Store lossless PNG sources in `src/assets/screenshots/`. Import them into
   the docs-only `Screenshot.astro` figure so Astro optimizes responsive delivery.
+  Capture a matching light and dark pair; the figure follows the docs theme.
   Ordinary screenshots stay lazy-loaded. Use `priority` only for an image
   that actually appears above the fold.
 - When the UI changes, regenerate inaccurate images from Demo Mode. Never
@@ -274,7 +275,7 @@ npm run docs:build
 The command resets `kitchen-sink` before each capture and hides only the Demo
 Mode banner (or its compact editor badge). Run it separately from browser and visual tests, which reset the
 same installation. It overwrites only its named assets; review every image
-before committing. CI checks the docs but does not regenerate these sources.
+before committing, including both themes. CI checks the docs but does not regenerate these sources.
 See [`e2e/docs-screenshots/README.md`](../../e2e/docs-screenshots/README.md)
 for the capture inventory and review procedure.
 

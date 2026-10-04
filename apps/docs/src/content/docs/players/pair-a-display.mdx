@@ -5,6 +5,7 @@ description: Approve a Tilecast Player and enroll it as a screen.
 
 import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/pair-screen.png";
+import darkScreenshot from "../../../assets/screenshots/pair-screen-dark.png";
 
 Pairing enrolls a Player as a screen in your Tilecast installation. An Owner or Administrator must approve the request in Studio.
 
@@ -32,6 +33,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="Pair screen review showing the pending Player hardware details, pairing choices, screen-name fields, and Approve and pair control."
 />
 

@@ -5,6 +5,7 @@ description: Check a recent Player screenshot or watch the screen while the live
 
 import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/live-preview-unavailable.png";
+import darkScreenshot from "../../../assets/screenshots/live-preview-unavailable-dark.png";
 
 Open a screen's **Overview** tab to use **Live preview**. Tilecast asks the Player for a still image and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
 
@@ -44,6 +45,7 @@ Frame rate and update speed depend on the Player and network.
 
 <Screenshot
   src={screenshot}
+  darkSrc={darkScreenshot}
   alt="Live preview panel reporting Capture error and Not captured for a Player that cannot provide an image."
 />
 
