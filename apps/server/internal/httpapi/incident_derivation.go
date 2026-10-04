@@ -107,6 +107,9 @@ func incidentSignalFor(event playerActivityEventInput) (incidentSignal, bool) {
 // the same transaction as the rest of derivation, so an incident can never be
 // opened for an event that was rolled back.
 func (s *server) deriveIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {
+	if playsSuccessfully(event) {
+		return recoverPlaybackIncidentForContent(r, tx, screenID, event)
+	}
 	signal, ok := incidentSignalFor(event)
 	if !ok {
 		return nil
@@ -116,6 +119,52 @@ func (s *server) deriveIncident(r *http.Request, tx pgx.Tx, screenID uuid.UUID, 
 		return recoverIncident(r, tx, key, event, signal.ResolutionHint)
 	}
 	return openOrRepeatIncident(r, tx, screenID, key, event, signal)
+}
+
+// playsSuccessfully reports whether an event is evidence that content which
+// failed is now playing: a child session that ran to a normal end and stayed
+// on screen long enough to be a play. A renderer that fails as an item mounts
+// and plays the same item a moment later has recovered, but nothing said so —
+// no renderer.recovered, no new root presentation — so the incident stayed
+// open indefinitely and counted every repeat as another occurrence.
+func playsSuccessfully(event playerActivityEventInput) bool {
+	if canonicalActivityEventType(event.EventType) != "content.completed" {
+		return false
+	}
+	if event.ContentID == "" || event.FailureCode != "" {
+		return false
+	}
+	if event.DurationMS == nil || *event.DurationMS < minimumPlaybackSessionMS {
+		return false
+	}
+	if event.Result != "completed" && event.Result != "success" {
+		return false
+	}
+	switch contractTerminalReason(event) {
+	case terminalExpectedItemBoundary, terminalCompletedDuration:
+		return true
+	}
+	return false
+}
+
+// recoverPlaybackIncidentForContent closes the playback incident that was
+// opened for this same content. It is deliberately scoped to the content: a
+// healthy image on the same screen says nothing about the video that keeps
+// failing, and closing the incident on it would reopen it on the next failure
+// as a stream of separate one-second outages.
+func recoverPlaybackIncidentForContent(r *http.Request, tx pgx.Tx, screenID uuid.UUID, event playerActivityEventInput) error {
+	ctx := activityContextWithoutCancel(r.Context())
+	const hint = "The content played to a normal end again."
+	key := incidentDedupeKey(screenID, incidentPlayback)
+	tag, err := tx.Exec(ctx, `
+		UPDATE incidents SET status='recovered',recovered_at=$2,recovery_event_id=$3,
+			recovery_mode='automatic',resolution_reason=COALESCE(NULLIF(resolution_reason,''),$4),updated_at=now()
+		WHERE dedupe_key=$1 AND status IN('open','acknowledged') AND related_id=$5`,
+		key, event.OccurredAt, event.ID, hint, event.ContentID)
+	if err != nil || tag.RowsAffected() == 0 {
+		return err
+	}
+	return appendIncidentEvent(ctx, tx, key, event, "recovered", hint)
 }
 
 func incidentDedupeKey(screenID uuid.UUID, incidentType string) string {

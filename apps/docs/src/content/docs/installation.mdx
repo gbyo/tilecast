@@ -9,7 +9,8 @@ import { FileTree, Steps } from "@astrojs/starlight/components";
 
 ## Before you start
 
-- Choose a host that can stay on while displays need Tilecast.
+- Not sure which setup fits? The [Setup Advisor](../setup/) recommends one and links the guides in order.
+- Choose a host that can stay on while displays need Tilecast. See [Choose where to run Tilecast Server](../setup/choose-a-server/).
 - Choose the address that browsers and Players will use. Set this as `TILECAST_PUBLIC_URL`.
 - Use HTTPS before allowing access from outside a trusted local network.
 
@@ -57,7 +58,7 @@ Set up HTTPS before creating the Owner account if the installation will be reach
 
 The default Compose configuration disables LAN discovery. Enter the server address on each Player if it does not appear in the nearby-server list. Discovery can also fail across VLANs, guest Wi-Fi, access-point isolation, or Docker bridge networks.
 
-When using HTTPS behind a proxy, keep `TILECAST_PUBLIC_URL` set to the external HTTPS address. The repository includes a [reverse-proxy Compose example](https://github.com/gbyo/tilecast/blob/main/deploy/examples/compose.reverse-proxy.yml). The optional [Cloudflare Tunnel setup](https://github.com/gbyo/tilecast/blob/main/deploy/cloudflare/README.md) uses the `tunnel` Compose profile and a tunnel token.
+When using HTTPS behind a proxy, keep `TILECAST_PUBLIC_URL` set to the external HTTPS address. The repository includes a [reverse-proxy Compose example](https://github.com/gbyo/tilecast/blob/main/deploy/examples/compose.reverse-proxy.yml). The optional `tunnel` Compose profile starts a Cloudflare Tunnel. See [Set up Tilecast with Cloudflare Tunnel](../setup/cloudflare-tunnel/) for the steps, or [Set up Tilecast on a local network](../setup/local-network/) for a LAN-only installation.
 
 ## Check server readiness
 
@@ -90,5 +91,6 @@ Compose uses two named volumes. Preserve both when replacing containers or hosts
 ## Next steps
 
 - [Get started with your first display](../getting-started/).
+- [Verify before you leave the screens unattended](../setup/production-readiness/).
 - [Install Tilecast Player](../players/) on an Android TV device or Linux computer.
 - See the repository [deployment reference](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md) for all server environment settings.

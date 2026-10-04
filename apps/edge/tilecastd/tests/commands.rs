@@ -11,7 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use edge_protocol::time::{SharedClock, system_clock};
+use edge_platform::clock::system_clock;
+use edge_protocol::time::SharedClock;
 use edge_server::client::ServerError;
 use edge_server::player_api::{AcknowledgeOutcome, CommandBatch, RejectedCommand, ReportOutcome, ServerCommand};
 use edge_state::repo::commands::{self, CommandResult, CommandState, ReportState};

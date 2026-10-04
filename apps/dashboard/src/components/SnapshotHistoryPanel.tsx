@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button, buttonVariants } from "./ui/button";
 import {
@@ -37,7 +37,7 @@ export function SnapshotHistoryPanel({ screenId }: { screenId: string }) {
     return (
       <Alert variant="destructive">
         <AlertTitle>{t("snapshots.loadError")}</AlertTitle>
-        <AlertDescription>{history.error.message}</AlertDescription>
+        <AlertDescription>{apiErrorMessage(history.error)}</AlertDescription>
       </Alert>
     );
 

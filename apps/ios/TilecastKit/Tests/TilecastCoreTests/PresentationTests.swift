@@ -37,8 +37,8 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
             "context": .string("presentation"),
             "capabilities": .object([
                 "nativeNavigation": .bool(false), "authLifecycle": .bool(false), "nativePresentations": .bool(true), "nativeAlerts": .bool(true),
-                "systemShare": .bool(true), "systemHaptics": .bool(true),
-                "nativeMediaIntake": .bool(false), "deepLinks": .bool(false),
+                "systemShare": .bool(true), "systemHaptics": .bool(true), "systemQrScanner": .bool(false),
+                "systemMap": .bool(false), "nativeMediaIntake": .bool(false), "deepLinks": .bool(false),
             ]),
         ]))
     }
@@ -53,11 +53,17 @@ func openPayload(_ id: String, path: String = fixtureRoute, title: String = "Fix
         case "presentation/close": envelope(type, ["presentationId": "p-1"])
         case "presentation/navigate": envelope(type, ["presentationId": "p-1", "path": "/screens"])
         case "system/media-intake": envelope(type, ["requestId": "mi-1"])
+        case "system/map-present": envelope(type, [
+            "mapId": "fleet-screens",
+            "title": "Fleet",
+            "points": [["id": "screen-1", "title": "Lobby", "latitude": 34.157, "longitude": -82.027]],
+        ])
+        case "system/map-dismiss": envelope(type, ["mapId": "fleet-screens"])
         default: envelope(type)
         }
     }
 
-    @Test(arguments: ["navigation/catalog", "navigation/state", "auth/signed-out", "presentation/open", "system/media-intake", "system/media-intake-status"])
+    @Test(arguments: ["navigation/catalog", "navigation/state", "auth/signed-out", "presentation/open", "system/media-intake", "system/media-intake-status", "system/map-present", "system/map-dismiss"])
     func thePresentationBridgeRefusesMainPageMessages(_ type: String) {
         let message = Self.valid(type)
         _ = presentation.replyValue(to: envelope("frontend/ready", ["capabilities": ["nativePresentations": true, "authLifecycle": true]]), from: .studio)

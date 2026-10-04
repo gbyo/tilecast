@@ -45,13 +45,16 @@ func TestComponentMediaGrantsCustomAndNestedFields(t *testing.T) {
 		},
 	}
 	media := componentMedia(definition, configuration)
-	if len(media) != 2 {
-		t.Fatalf("granted %d media pairs, want the logo and the projected slide: %+v", len(media), media)
+	if len(media) != 3 {
+		t.Fatalf("granted %d media pairs, want the logo, artwork and projected slide: %+v", len(media), media)
 	}
 	if media[0].AssetID != logoAsset || media[0].VariantID != logoVariant {
 		t.Fatalf("logo grant = %+v, want asset %s variant %s", media[0], logoAsset, logoVariant)
 	}
-	if media[1].AssetID != slideAsset || media[1].VariantID != slideVariant {
-		t.Fatalf("slide grant = %+v, want asset %s variant %s", media[1], slideAsset, slideVariant)
+	if media[1].AssetID != configuration["artwork"] || media[1].VariantID != configuration["artworkVariantId"] {
+		t.Fatalf("artwork grant = %+v", media[1])
+	}
+	if media[2].AssetID != slideAsset || media[2].VariantID != slideVariant {
+		t.Fatalf("slide grant = %+v, want asset %s variant %s", media[2], slideAsset, slideVariant)
 	}
 }

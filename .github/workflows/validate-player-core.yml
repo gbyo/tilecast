@@ -1,0 +1,35 @@
+name: validate-player-core
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Shared Player Rust (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: player-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: python3 scripts/ci/check-player-architecture.py
+      - run: bash scripts/ci/cargo-player.sh fmt --check
+      - run: bash scripts/ci/cargo-player.sh clippy --all-targets --all-features -- -D warnings
+      - run: bash scripts/ci/cargo-player.sh test --all-features
+      - run: bash scripts/ci/cargo-player.sh doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings

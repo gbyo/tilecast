@@ -15,10 +15,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context as _, bail};
+use edge_cas::space::StatvfsProbe;
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
-use edge_platform::disk::StatvfsProbe;
+use edge_platform::clock::system_clock;
 use edge_platform::paths::EdgePaths;
-use edge_protocol::time::system_clock;
 use edge_server::legacy::{ImportMode, ImportOutcome, default_legacy_dir, import_legacy};
 use edge_state::{OpenOptions, StateDb};
 

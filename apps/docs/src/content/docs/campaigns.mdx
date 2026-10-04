@@ -3,11 +3,21 @@ title: Coordinate a release with a Campaign
 description: Publish Playlist or Layout schedules to selected screens and Display Groups as one reviewed release.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/campaign-editor.png";
+import darkScreenshot from "../../assets/screenshots/campaign-editor-dark.png";
+
 A **Campaign** coordinates published content, timing, and destinations in one release. Each content block becomes a schedule for its selected screens or Display Groups. Use a Campaign when several schedule changes should go live together; use [Schedules](../schedules/) to manage a schedule on its own.
 
 The Campaign library loads up to 100 Campaigns at a time. Select **Load more** to browse later results. Presentation choosers support search and **Load more**, and destination selectors include screens and Display Groups beyond the first page.
 
 import { Steps } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Homecoming Week draft with a Spirit days content block and Athletics Displays and Cafeteria Displays destinations."
+/>
 
 ## Build a Campaign draft
 
