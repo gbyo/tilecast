@@ -258,7 +258,7 @@ impl DaemonIpc {
             None => None,
         };
         let legacy = match context.db() {
-            Some(db) => db.run(|c| edge_state::repo::legacy::get(c)).await.ok().flatten(),
+            Some(db) => db.run(|c| edge_state::platform::legacy::get(c)).await.ok().flatten(),
             None => None,
         };
         let (renderer, mut presentation) = {
@@ -332,9 +332,9 @@ impl DaemonIpc {
             systemd_watchdog: context.notifier.watchdog_timeout().is_some(),
             last_legacy_import: legacy.map(|record| {
                 ShortToken::new(match record.state {
-                    edge_state::repo::legacy::ImportState::Completed => "completed",
-                    edge_state::repo::legacy::ImportState::Started => "incomplete",
-                    edge_state::repo::legacy::ImportState::Failed => "failed",
+                    edge_state::platform::legacy::ImportState::Completed => "completed",
+                    edge_state::platform::legacy::ImportState::Started => "incomplete",
+                    edge_state::platform::legacy::ImportState::Failed => "failed",
                 })
                 .expect("literal")
             }),

@@ -18,6 +18,10 @@ jobs:
           cache: npm
       - name: Validate dependency-free CI helpers
         run: node --test scripts/ci/doctor.test.mjs scripts/ci/required.test.mjs
+      - name: Validate native Player dependency direction
+        run: |
+          python3 -m unittest discover -s scripts/ci -p 'test_player_architecture.py'
+          python3 scripts/ci/check-player-architecture.py
       # Only the root tool dependencies are needed to parse workflow YAML.
       - run: npm ci --ignore-scripts --workspaces=false
       - run: npm run player-contracts:check

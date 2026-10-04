@@ -211,8 +211,11 @@ type gtfsStaticData struct {
 	StopTimes map[string]map[string]map[string]string
 }
 
-func (s *Service) refreshTransit(ctx context.Context, id uuid.UUID, c TransitSourceConfig) (TypedDatasetPayload, DataSourceDiagnostics, error) {
+func (s *Service) refreshTransit(ctx context.Context, id uuid.UUID, c TransitSourceConfig, previewDates ...string) (TypedDatasetPayload, DataSourceDiagnostics, error) {
 	now := time.Now().UTC()
+	if len(previewDates) > 0 {
+		now = previewTimeOrNow(previewDates[0], c.Timezone, now).UTC()
+	}
 	var staticBody []byte
 	var staticExpiry *time.Time
 	if id != uuid.Nil {
@@ -247,6 +250,9 @@ func (s *Service) refreshTransit(ctx context.Context, id uuid.UUID, c TransitSou
 		return TypedDatasetPayload{}, diagnostics, errors.New("GTFS Realtime trip updates are malformed")
 	}
 	departures := normalizeTransitDepartures(updates.GetEntity(), static, c, now)
+	if len(previewDates) > 0 && previewDates[0] != "" {
+		departures = transitPreviewForDate(departures, previewDates[0], c.Timezone)
+	}
 	alerts := []TypedRecord{}
 	if c.ServiceAlertsURL != "" {
 		body, _, fetchErr := s.fetchLiveSource(ctx, c.ServiceAlertsURL, "application/x-protobuf")
@@ -268,8 +274,28 @@ func (s *Service) refreshTransit(ctx context.Context, id uuid.UUID, c TransitSou
 	}}, diagnostics, nil
 }
 
-func (s *Service) RefreshTransitPreview(ctx context.Context, c TransitSourceConfig) (TypedDatasetPayload, DataSourceDiagnostics, error) {
-	return s.refreshTransit(ctx, uuid.Nil, c)
+func transitPreviewForDate(records []TypedRecord, previewDate, timezone string) []TypedRecord {
+	date, ok := previewDateAt(previewDate, timezone)
+	if !ok {
+		return records
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		location = time.UTC
+	}
+	selectedDate := date.In(location).Format("2006-01-02")
+	selected := make([]TypedRecord, 0, len(records))
+	for _, record := range records {
+		departure, err := time.Parse(time.RFC3339, record.Values["predictedTime"])
+		if err == nil && departure.In(location).Format("2006-01-02") == selectedDate {
+			selected = append(selected, record)
+		}
+	}
+	return selected
+}
+
+func (s *Service) RefreshTransitPreview(ctx context.Context, c TransitSourceConfig, previewDates ...string) (TypedDatasetPayload, DataSourceDiagnostics, error) {
+	return s.refreshTransit(ctx, uuid.Nil, c, previewDates...)
 }
 
 func parseGTFSStatic(body []byte) (gtfsStaticData, error) {
@@ -419,8 +445,11 @@ func normalizeTransitAlerts(entities []*gtfs.FeedEntity, c TransitSourceConfig, 
 	return result
 }
 
-func (s *Service) refreshCAPAlerts(ctx context.Context, c CAPAlertsSourceConfig) (TypedDatasetPayload, DataSourceDiagnostics, error) {
+func (s *Service) refreshCAPAlerts(ctx context.Context, c CAPAlertsSourceConfig, previewDates ...string) (TypedDatasetPayload, DataSourceDiagnostics, error) {
 	now := time.Now().UTC()
+	if len(previewDates) > 0 {
+		now = previewTimeOrNow(previewDates[0], "UTC", now).UTC()
+	}
 	body, category, err := s.fetchLiveSource(ctx, c.URL, "application/xml")
 	diagnostics := DataSourceDiagnostics{ParseStatus: "fetch_failed", HTTPResultCategory: &category}
 	if err != nil {
@@ -453,8 +482,8 @@ func (s *Service) refreshCAPAlerts(ctx context.Context, c CAPAlertsSourceConfig)
 	return TypedDatasetPayload{Datasets: []TypedDataset{{ID: "alerts", Kind: "records", Fields: capAlertFields(), Records: records, CachedAt: &now, StaleAt: &stale}}}, diagnostics, nil
 }
 
-func (s *Service) RefreshCAPPreview(ctx context.Context, c CAPAlertsSourceConfig) (TypedDatasetPayload, DataSourceDiagnostics, error) {
-	return s.refreshCAPAlerts(ctx, c)
+func (s *Service) RefreshCAPPreview(ctx context.Context, c CAPAlertsSourceConfig, previewDates ...string) (TypedDatasetPayload, DataSourceDiagnostics, error) {
+	return s.refreshCAPAlerts(ctx, c, previewDates...)
 }
 
 type capAlertXML struct {
@@ -509,6 +538,10 @@ func normalizeCAPDocuments(documents [][]byte, c CAPAlertsSourceConfig, now time
 		}
 		expires := parseFlexibleTime(info.Expires)
 		if !expires.IsZero() && !expires.After(now) {
+			continue
+		}
+		effective := parseFlexibleTime(info.Effective)
+		if !effective.IsZero() && effective.After(now) {
 			continue
 		}
 		area := strings.Join(info.Areas, ", ")
@@ -613,8 +646,45 @@ func (s *Service) refreshAirQuality(ctx context.Context, c AirQualitySourceConfi
 	}}, diagnostics, nil
 }
 
-func (s *Service) RefreshAirQualityPreview(ctx context.Context, c AirQualitySourceConfig) (TypedDatasetPayload, DataSourceDiagnostics, error) {
-	return s.refreshAirQuality(ctx, c)
+func (s *Service) RefreshAirQualityPreview(ctx context.Context, c AirQualitySourceConfig, previewDates ...string) (TypedDatasetPayload, DataSourceDiagnostics, error) {
+	payload, diagnostics, err := s.refreshAirQuality(ctx, c)
+	if err != nil || len(previewDates) == 0 || previewDates[0] == "" {
+		return payload, diagnostics, err
+	}
+	return airQualityPreviewForDate(payload, previewDates[0], c.Timezone), diagnostics, nil
+}
+
+func airQualityPreviewForDate(payload TypedDatasetPayload, previewDate, timezone string) TypedDatasetPayload {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		location = time.UTC
+	}
+	date, ok := previewDateAt(previewDate, timezone)
+	if !ok {
+		return payload
+	}
+	selectedDate := date.In(location).Format("2006-01-02")
+	currentDate := time.Now().In(location).Format("2006-01-02")
+	datasets := make([]TypedDataset, 0, len(payload.Datasets))
+	for _, dataset := range payload.Datasets {
+		if dataset.ID == "current" && selectedDate != currentDate {
+			continue
+		}
+		if dataset.Kind != "time_series" {
+			datasets = append(datasets, dataset)
+			continue
+		}
+		points := dataset.Points[:0]
+		for _, point := range dataset.Points {
+			if point.At.In(location).Format("2006-01-02") == selectedDate {
+				points = append(points, point)
+			}
+		}
+		dataset.Points = points
+		datasets = append(datasets, dataset)
+	}
+	payload.Datasets = datasets
+	return payload
 }
 
 func (s *Service) fetchLiveSource(ctx context.Context, rawURL, accept string) ([]byte, string, error) {

@@ -27,6 +27,7 @@ import { ContentPage } from "./pages/ContentPage";
 import { PlaylistEditorPage } from "./components/playlist-editor/PlaylistEditor";
 import { PlaylistLibraryPage } from "./pages/PlaylistLibraryPage";
 import { ActivityIncidentPresentation } from "./pages/ActivityIncidentPresentation";
+import { PairScreenPresentation } from "./pairing/PairScreenPresentation";
 import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
 import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
@@ -95,6 +96,8 @@ const settingsSearch: Partial<
  * native presentation page the root redirects to the start page.
  */
 const presentationRoutes: RouteObject[] = [
+  { path: "pair-screen", element: <PairScreenPresentation /> },
+  { path: "pair-screen/:requestId", element: <PairScreenPresentation /> },
   { path: "live-stream/:screenId", element: <LiveStreamPresentation /> },
   { path: "layout-preview/:id", element: <LayoutPreviewPage /> },
   { path: "playlist-preview/:id", element: <PlaylistPreviewPage /> },

@@ -14,6 +14,17 @@ const aggregateEnv = (validations, overrides = {}) => {
   return { ...env, ...overrides };
 };
 
+test("native Player dependency gate is part of required CI contracts", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/validate-ci-contract.yml", "utf8"),
+  );
+  const commands = workflow.jobs.validate.steps
+    .map((step) => step.run ?? "")
+    .join("\n");
+  assert.match(commands, /python3 scripts\/ci\/check-player-architecture\.py/);
+  assert.match(commands, /unittest discover.*test_player_architecture\.py/);
+});
+
 test("workflow YAML and aggregate dependencies stay complete", () => {
   for (const file of readdirSync(".github/workflows").filter((file) =>
     file.endsWith(".yml"),

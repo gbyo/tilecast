@@ -74,6 +74,43 @@ describe("DateInput", () => {
 });
 
 describe("DateTimeInput", () => {
+  it("offers future years and honors an explicit date ceiling", async () => {
+    const onChange = vi.fn();
+    const futureYear = new Date().getFullYear() + 4;
+    const { rerender } = render(
+      <DateTimeInput
+        id="inspection"
+        value=""
+        onChange={onChange}
+        aria-label="Inspection date"
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Inspection date" }),
+    );
+    expect(
+      screen.getByRole("option", { name: String(futureYear) }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    rerender(
+      <DateTimeInput
+        id="inspection"
+        value=""
+        onChange={onChange}
+        aria-label="Inspection date"
+        max={`${futureYear - 1}-12-31T23:59`}
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Inspection date" }),
+    );
+    expect(
+      screen.queryByRole("option", { name: String(futureYear) }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: String(futureYear - 1) }),
+    ).toBeInTheDocument();
+  });
   it("combines a picked date with the native time input", async () => {
     const onChange = vi.fn();
     render(

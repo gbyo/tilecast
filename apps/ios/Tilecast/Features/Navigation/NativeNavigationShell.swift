@@ -37,8 +37,8 @@ struct NativeTabNavigation: View {
     private var navigation: NativeNavigationModel { page.bridge.navigation }
 
     var body: some View {
-        // The binding's setter only asks Studio to navigate. The selection
-        // changes when Studio reports where it went.
+        // The tab bar responds optimistically to a tap. Studio's WebView is
+        // exposed only after the route acknowledgement arrives after paint.
         TabView(selection: Binding(get: { navigation.selectedTab }, set: { navigation.selectTab($0) })) {
             ForEach(navigation.primaryDestinations) { destination in
                 Tab(destination.title, image: destination.imageName, value: NavigationTab.destination(destination.id)) {
@@ -78,6 +78,15 @@ struct NativeTabNavigation: View {
             if navigation.frontendTab == tab {
                 StudioSlotView(extendsBelowTabBar: true)
                     .studioBackBar(navigation)
+                    .containerBackground(.clear, for: .navigation)
+            } else if navigation.selectedTab == tab && navigation.isTabSelectionPending {
+                // The native selection has moved, but WebKit has not yet
+                // confirmed a painted frame for this destination. Cover the
+                // persistent WebView briefly instead of exposing its stale
+                // composited frame under the new tab.
+                Color(uiColor: .systemBackground)
+                    .ignoresSafeArea()
+                    .toolbar(.hidden, for: .navigationBar)
                     .containerBackground(.clear, for: .navigation)
             } else {
                 Color.clear

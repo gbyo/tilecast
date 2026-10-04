@@ -9,7 +9,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[derive(Debug, Parser)]
 #[command(
     name = "tilecast-edge-migrate",
-    version,
+    version = edge_platform::RELEASE_VERSION,
     about = "Install Tilecast Edge and migrate from the Electron player"
 )]
 struct Cli {

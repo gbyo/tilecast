@@ -13,7 +13,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 export const oauthGrantsKey = ["me", "security", "grants"] as const;
 
@@ -110,7 +110,7 @@ export function OAuthGrantsBlock() {
         <Alert variant="destructive">
           <AlertDescription role="alert">
             {revoke.error instanceof ApiError
-              ? revoke.error.message
+              ? apiErrorMessage(revoke.error)
               : t("oauth.revokeError")}
           </AlertDescription>
         </Alert>
