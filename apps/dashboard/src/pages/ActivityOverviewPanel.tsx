@@ -31,7 +31,7 @@ import {
   humanize,
   Loading,
 } from "./ActivityShared";
-import { getActivityOverview } from "../api/domains/activity";
+import { activityQueries } from "../data/activity";
 import type { Overview } from "./ActivityShared";
 import { useActivityLinkBuilder, type ActivityTabName } from "./activityLinks";
 import {
@@ -203,24 +203,13 @@ export function OverviewTab({
   const { t } = useTranslation("activity");
   const activityLink = useActivityLinkBuilder();
   const query = useQuery({
-    queryKey: ["activity", "overview", range.from, range.to],
-    queryFn: () => getActivityOverview({ from: range.from, to: range.to }),
+    ...activityQueries.overview({ from: range.from, to: range.to }),
     refetchInterval: 30_000,
   });
   // The comparison period is fetched separately so a delta reflects the same
   // measurement over the window immediately before this one.
   const previous = useQuery({
-    queryKey: [
-      "activity",
-      "overview",
-      range.previous?.from,
-      range.previous?.to,
-    ],
-    queryFn: () =>
-      getActivityOverview({
-        from: range.previous!.from,
-        to: range.previous!.to,
-      }),
+    ...activityQueries.overview(range.previous ?? {}),
     enabled: Boolean(range.previous),
   });
 

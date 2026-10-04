@@ -7,7 +7,7 @@ import {
   useNavigate,
   type RouteObject,
 } from "react-router";
-import { api } from "@/api/client";
+import { accountQueries } from "@/data/account";
 import { useAuth } from "@/auth/AuthProvider";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { ThemeProvider } from "@/components/studio/ThemeProvider";
@@ -62,8 +62,7 @@ export function NativePresentationHost({ routes }: { routes: RouteObject[] }) {
   const enabled = isPresentationPage && signedIn;
 
   const preferences = useQuery({
-    queryKey: ["preferences"],
-    queryFn: api.preferences,
+    ...accountQueries.preferences(),
     enabled,
   });
 

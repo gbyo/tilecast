@@ -1,3 +1,13 @@
+import { PlaybackPlanPanel } from "../components/PlaybackPlanPanel";
+import {
+  canManageScreens,
+  screenKeys,
+  screenQueries,
+  SCREEN_STATUS_REFRESH_MS,
+} from "../data/screens";
+
+import { formatBytes } from "../lib/formatBytes";
+import { settingsQueries } from "../data/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -6,9 +16,7 @@ import {
   Grid2X2,
   Link2,
   List,
-  MoreHorizontal,
   Monitor,
-  Pencil,
   Play,
   RefreshCw,
   ShieldAlert,
@@ -40,43 +48,42 @@ import {
 } from "react-router";
 import type { TFunction } from "i18next";
 import { Trans, useTranslation } from "react-i18next";
-import { z } from "zod";
 import { api } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import type {
   Location,
-  PairingRequest,
   PlayerCommandType,
   ReliabilityStatus,
   Screen,
   ScreenStatus,
-  User,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import type { ApprovalForm } from "../pairing/pairingFlow";
+import {
+  LocationPicker,
+  makeApprovalSchema,
+} from "../pairing/PairingDetailsForm";
+import { PairScreenDialog } from "../pairing/PairScreenDialog";
+import { PendingPairings } from "../pairing/PendingPairings";
+import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { ScreenContentChain } from "../content/ScreenContentChain";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
 import { DashboardSearch } from "../components/DashboardListToolbar";
+import { PageHeader } from "../components/PageHeader";
 import { ScreenPresentationNetworkPanel } from "../components/ScreenPresentationNetworkPanel";
 import { QuickPresentDialog } from "../components/QuickPresentDialog";
-import { FormField } from "../components/FormField";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 
 import { previewAge } from "../components/livePreviewState";
+import { screenRowActionGroups } from "../components/screenActions";
+import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { ScreenActivityPanel } from "../components/ScreenActivityPanel";
 import { AspectRatio } from "../components/ui/aspect-ratio";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "../components/ui/combobox";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { toast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
@@ -107,13 +114,6 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -121,21 +121,11 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "../components/ui/field";
+import { Field, FieldError, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Textarea } from "../components/ui/textarea";
 import {
   Item,
-  ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
@@ -169,9 +159,6 @@ const GRID_PREVIEW_METADATA_REFRESH_MILLIS = 10_000;
 const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
 
 export type ScreensT = TFunction<"screens", undefined>;
-
-export const canManageScreens = (user?: User) =>
-  user?.role === "owner" || user?.role === "administrator";
 
 export type ScreenManageSection =
   "settings" | "health" | "maintenance" | "device";
@@ -342,16 +329,6 @@ export function normalizeScreenDetailTab(
     ? (requestedTab as ScreenDetailTab)
     : "overview";
 }
-const formatBytes = (value: number) => {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let amount = value;
-  let unit = 0;
-  while (amount >= 1024 && unit < units.length - 1) {
-    amount /= 1024;
-    unit += 1;
-  }
-  return `${amount.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
-};
 export const formatReportedStatus = (
   value: unknown,
   t: ScreensT,
@@ -464,111 +441,6 @@ export const zeroTouchReadiness = (
     return t("detail.readiness.ready");
   return t("detail.readiness.partial");
 };
-const makeCodeSchema = (t: ScreensT) =>
-  z.object({
-    code: z.string().trim().min(6, t("pair.codeRequired")).max(9),
-  });
-const makeApprovalSchema = (t: ScreensT) =>
-  z.object({
-    name: z.string().trim().min(2, t("approval.nameRequired")).max(120),
-    locationId: z.string().optional(),
-    roomName: z.string().max(120),
-    roomNumber: z.string().max(80),
-    description: z.string().max(1000),
-  });
-type CodeForm = z.infer<ReturnType<typeof makeCodeSchema>>;
-type ApprovalForm = z.infer<ReturnType<typeof makeApprovalSchema>>;
-export const pairingApprovalPayload = (
-  request: PairingRequest,
-  values: ApprovalForm,
-  destination: PairingDestination = "automatic",
-  replacementScreenId?: string,
-) => ({
-  ...values,
-  replaceExistingCredential:
-    destination === "credential_repair" ||
-    (destination === "automatic" &&
-      request.previouslyPaired &&
-      request.hasActiveCredential),
-  ...(destination === "replace_hardware"
-    ? { replaceHardware: true, replacementScreenId }
-    : {}),
-});
-type PairingDestination =
-  "automatic" | "new_screen" | "credential_repair" | "replace_hardware";
-export const pairingApprovalLabel = (
-  request: PairingRequest,
-  t: ScreensT,
-  destination: PairingDestination = "automatic",
-) =>
-  destination === "replace_hardware"
-    ? t("approval.actionReplace")
-    : destination === "credential_repair" ||
-        (destination === "automatic" &&
-          request.previouslyPaired &&
-          request.hasActiveCredential)
-      ? t("approval.actionRepair")
-      : t("approval.actionApprove");
-
-function LocationPicker({
-  locations,
-  value,
-  onChange,
-}: {
-  locations: Location[];
-  value?: string;
-  onChange: (value?: string) => void;
-}) {
-  const { t } = useTranslation("screens");
-  const selected = locations.find((location) => location.id === value);
-  const items = [
-    { value: "__unassigned__", label: t("shared.unassigned") },
-    ...locations.map((location) => {
-      const address = formatLocationAddress(location);
-      return {
-        value: location.id,
-        label: address ? `${location.name} — ${address}` : location.name,
-      };
-    }),
-  ];
-  return (
-    <Field className="gap-2">
-      <FieldLabel htmlFor="screen-location" className="text-sm font-medium">
-        {t("picker.locationLabel")}
-      </FieldLabel>
-      <Select
-        items={items}
-        value={value ?? "__unassigned__"}
-        onValueChange={(next) =>
-          onChange(next === "__unassigned__" || !next ? undefined : next)
-        }
-      >
-        <SelectTrigger id="screen-location" className="w-full">
-          <SelectValue placeholder={t("shared.unassigned")} />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {selected && formatLocationAddress(selected) && (
-        <small className="text-xs text-muted-foreground">
-          {formatLocationAddress(selected)}
-        </small>
-      )}
-      <Link
-        className="w-fit text-xs underline underline-offset-4"
-        to="/settings/locations"
-      >
-        {t("picker.createLocation")}
-      </Link>
-    </Field>
-  );
-}
-
 export function resolveScreenDetail(
   detail: Screen | null | undefined,
   listed: Screen | undefined,
@@ -606,44 +478,45 @@ export function ScreensWorkspacePage() {
   const navigate = useNavigate();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const archive =
     location.pathname === "/screens/archive" ||
     location.pathname.startsWith("/screens/archive/");
   const activeTab = archive ? "archive" : "fleet";
+  const openPairScreen = useNativePairScreen();
 
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {archive
-              ? t("archive.body")
-              : screens.isLoading
-                ? t("page.loadingInventory")
-                : screenInventorySummary(screens.data?.items ?? [], t)}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Link
-              className={buttonVariants({ variant: "default", size: "sm" })}
-              to="/screens/pair"
-            >
-              <Plus aria-hidden="true" /> {t("page.pairScreen")}
-            </Link>
-          )}
-          {manageable && !archive && (
-            <TakeoverAction screens={screens.data?.items ?? []} />
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t("page.title")}
+        description={
+          archive
+            ? t("archive.body")
+            : screens.isLoading
+              ? t("page.loadingInventory")
+              : screenInventorySummary(screens.data?.items ?? [], t)
+        }
+        actions={
+          <>
+            {manageable && (
+              <Link
+                className={buttonVariants({ variant: "default", size: "sm" })}
+                to="/screens/pair"
+                onClick={(event) =>
+                  void openPairScreen(event, ["pair-screen"], "/screens/pair")
+                }
+              >
+                <Plus aria-hidden="true" /> {t("page.pairScreen")}
+              </Link>
+            )}
+            {manageable && !archive && (
+              <TakeoverAction screens={screens.data?.items ?? []} />
+            )}
+          </>
+        }
+      />
       <Tabs
         value={activeTab}
         onValueChange={(value) =>
@@ -667,14 +540,12 @@ export function ScreensPage() {
   const auth = useAuth();
   const manageable = canManageScreens(auth.status?.user);
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const pending = useQuery({
-    queryKey: ["screens", "pairing", "pending"],
-    queryFn: api.pendingPairings,
-    refetchInterval: 10_000,
+    ...screenQueries.pendingPairings(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
     enabled: manageable,
   });
   const locations = useQuery({
@@ -686,7 +557,7 @@ export function ScreensPage() {
       <ActiveTakeoverBanners canManage={manageable} />
       {screens.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{screens.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(screens.error)}</AlertDescription>
         </Alert>
       )}
       <PendingPairings
@@ -986,8 +857,7 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
     enabled: open,
   });
   const runtimeSettings = useQuery({
-    queryKey: ["settings", "takeover-defaults"],
-    queryFn: api.settings,
+    ...settingsQueries.organization(),
     enabled: open,
   });
   const activate = useMutation({
@@ -1228,7 +1098,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
             <Alert variant="destructive">
               <CircleAlert aria-hidden="true" />
               <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-              <AlertDescription>{activate.error.message}</AlertDescription>
+              <AlertDescription>
+                {apiErrorMessage(activate.error)}
+              </AlertDescription>
             </Alert>
           )}
           <DialogFooter className="border-t border-border pt-4 sm:justify-between">
@@ -1340,7 +1212,9 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
               <Alert variant="destructive">
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("takeover.activateError")}</AlertTitle>
-                <AlertDescription>{activate.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(activate.error)}
+                </AlertDescription>
               </Alert>
             )}
             <DialogFooter>
@@ -1386,6 +1260,7 @@ export function ScreenListContent({
 }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
+  const openPairScreen = useNativePairScreen();
   const [search, setSearch] = useStoredState<string>(
     "tilecast.screens.search",
     "",
@@ -1686,6 +1561,9 @@ export function ScreenListContent({
             <Link
               className={buttonVariants({ variant: "default", size: "sm" })}
               to="/screens/pair"
+              onClick={(event) =>
+                void openPairScreen(event, ["pair-screen"], "/screens/pair")
+              }
             >
               {t("page.pairScreen")}
             </Link>
@@ -2538,6 +2416,7 @@ export function ScreenGridCard({
 }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
+  const navigate = useNavigate();
   const detailHref = `/screens/${screen.id}`;
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -2580,8 +2459,7 @@ export function ScreenGridCard({
     };
   }, [canRequestPreview, csrfToken, screen.id]);
   const preview = useQuery({
-    queryKey: ["screen-preview-card", screen.id],
-    queryFn: () => api.screenPreview(screen.id),
+    ...screenQueries.previewCard(screen.id),
     enabled: visible,
     refetchInterval: visible ? GRID_PREVIEW_METADATA_REFRESH_MILLIS : false,
   });
@@ -2675,70 +2553,18 @@ export function ScreenGridCard({
             </small>
           </span>
           <div className="shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-sm" />}
-                aria-label={t("grid.rowActions", { name: screen.name })}
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  render={<Link to={`/screens/${screen.id}`} />}
-                >
-                  <Monitor aria-hidden="true" /> {t("grid.openItem")}
-                </DropdownMenuItem>
-                {canManage && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={() =>
-                        void api.createScreenCommand(
-                          screen.id,
-                          "restart_player_process",
-                          {},
-                          csrfToken,
-                        )
-                      }
-                    >
-                      <RefreshCw aria-hidden="true" /> {t("grid.restartPlayer")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={
-                        <Link to={`/screens/${screen.id}?edit=details`} />
-                      }
-                    >
-                      <Pencil aria-hidden="true" /> {t("grid.editDetails")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link to={`/screens/${screen.id}?tab=content`} />}
-                    >
-                      {t("grid.assignContent")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      render={<Link to={`/screens/${screen.id}?present=1`} />}
-                    >
-                      <Play aria-hidden="true" /> {t("grid.showNow")}
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      render={
-                        <Link
-                          to={
-                            screen.syncGroupId
-                              ? `/groups/${screen.syncGroupId}`
-                              : "/groups"
-                          }
-                        />
-                      }
-                    >
-                      {screen.syncGroupId
-                        ? t("grid.openGroup")
-                        : t("grid.addToGroup")}
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ActionMenuButton
+              label={t("grid.rowActions", { name: screen.name })}
+              actions={screenRowActionGroups({
+                screen,
+                t,
+                navigate,
+                csrfToken,
+                canManage,
+              })}
+              variant="ghost"
+              size="icon-sm"
+            />
           </div>
         </header>
         <div className="flex flex-wrap items-center gap-2">
@@ -2764,593 +2590,12 @@ export function ScreenGridCard({
   );
 }
 
-function PendingPairings({
-  requests,
-  canManage,
-}: {
-  requests: PairingRequest[];
-  canManage: boolean;
-}) {
-  const { t } = useTranslation("screens");
-  const formatLocale = useFormatLocale();
-  if (requests.length === 0) return null;
-  return (
-    <section className="space-y-2" aria-label={t("pending.section")}>
-      <Alert>
-        <RefreshCw aria-hidden="true" />
-        <AlertTitle className="flex items-center gap-2">
-          {t("pending.title")}{" "}
-          <Badge variant="secondary">{requests.length}</Badge>
-        </AlertTitle>
-        <AlertDescription>
-          {t("pending.body", { count: requests.length })}
-        </AlertDescription>
-      </Alert>
-      <ItemGroup className="gap-1.5">
-        {requests.map((request) => (
-          <Item
-            key={request.id}
-            size="xs"
-            variant="outline"
-            render={<div role="listitem" />}
-          >
-            <ItemContent className="min-w-0">
-              <ItemTitle>
-                {request.metadata.manufacturer} {request.metadata.model}
-              </ItemTitle>
-              <ItemDescription>
-                {platformLabel(request.metadata.platform, t)} ·{" "}
-                {request.metadata.screenWidth}×{request.metadata.screenHeight} ·{" "}
-                {t("pending.expires", {
-                  time: new Date(request.expiresAt).toLocaleTimeString(
-                    formatLocale,
-                    {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    },
-                  ),
-                })}
-              </ItemDescription>
-            </ItemContent>
-            {canManage && (
-              <ItemActions>
-                <Link
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  to={`/screens/pair/request/${request.id}`}
-                >
-                  {t("pending.review")}
-                </Link>
-              </ItemActions>
-            )}
-          </Item>
-        ))}
-      </ItemGroup>
-    </section>
-  );
-}
-
 export function ScreensPairRoute() {
   return (
     <>
       <ScreensPage />
       <PairScreenDialog />
     </>
-  );
-}
-
-export function PairScreenDialog() {
-  const { code, requestId } = useParams();
-  const { t } = useTranslation(["screens", "common"]);
-  const auth = useAuth();
-  const navigate = useNavigate();
-  const [request, setRequest] = useState<PairingRequest>();
-  const [error, setError] = useState<string>();
-  const form = useForm<CodeForm>({
-    resolver: zodResolver(useMemo(() => makeCodeSchema(t), [t])),
-    defaultValues: { code: code ?? "" },
-  });
-  const lookup = async (value: CodeForm) => {
-    setError(undefined);
-    try {
-      setRequest(await api.resolvePairing(value.code));
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : t("pair.resolveError"),
-      );
-    }
-  };
-  useEffect(() => {
-    if (code && !request) void lookup({ code });
-  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
-  const pending = useQuery({
-    queryKey: ["screens", "pairing", "pending"],
-    queryFn: api.pendingPairings,
-    enabled: Boolean(requestId),
-  });
-  useEffect(() => {
-    if (requestId && pending.data)
-      setRequest(pending.data.items.find((item) => item.id === requestId));
-  }, [requestId, pending.data]);
-
-  const close = () => void navigate("/screens");
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) close();
-      }}
-    >
-      <DialogContent
-        className={
-          request
-            ? "max-h-[min(90vh,56rem)] overflow-y-auto sm:max-w-3xl"
-            : "sm:max-w-lg"
-        }
-      >
-        {!canManageScreens(auth.status?.user) ? (
-          <>
-            <DialogHeader className="pr-8">
-              <DialogTitle>{t("pair.gateTitle")}</DialogTitle>
-              <DialogDescription>{t("pair.gateBody")}</DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={close}>
-                {t("pair.backToScreens")}
-              </Button>
-            </DialogFooter>
-          </>
-        ) : request ? (
-          <ApprovalPanel
-            request={request}
-            onDone={(screenId) =>
-              void navigate(screenId ? `/screens/${screenId}` : "/screens")
-            }
-          />
-        ) : (
-          <>
-            <DialogHeader className="pr-8">
-              <DialogTitle>{t("pair.title")}</DialogTitle>
-              <DialogDescription>{t("pair.body")}</DialogDescription>
-            </DialogHeader>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <form
-              className="space-y-4"
-              onSubmit={(event) => void form.handleSubmit(lookup)(event)}
-            >
-              <FormField
-                id="pairingCode"
-                label={t("pair.codeLabel")}
-                autoComplete="off"
-                autoFocus
-                className="h-14 font-mono text-xl font-semibold tracking-[0.18em] uppercase"
-                // i18n-ignore: example pairing-code format, not prose
-                placeholder="ABC234"
-                error={form.formState.errors.code?.message}
-                {...form.register("code")}
-              />
-              <Alert>
-                <AlertTitle>{t("pair.onTvTitle")}</AlertTitle>
-                <AlertDescription>{t("pair.onTvBody")}</AlertDescription>
-              </Alert>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={close}>
-                  {t("common:actions.cancel")}
-                </Button>
-                <Button type="submit">{t("pair.findPlayer")}</Button>
-              </DialogFooter>
-            </form>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function ApprovalPanel({
-  request,
-  onDone,
-}: {
-  request: PairingRequest;
-  onDone: (screenId?: string) => void;
-}) {
-  const { t } = useTranslation("screens");
-  const { t: commonT } = useTranslation("common");
-  const formatLocale = useFormatLocale();
-  const auth = useAuth();
-  const queryClient = useQueryClient();
-  const defaultDestination: PairingDestination =
-    request.previouslyPaired && request.hasActiveCredential
-      ? "credential_repair"
-      : "new_screen";
-  const [destination, setDestination] =
-    useState<PairingDestination>(defaultDestination);
-  const [replacementScreenId, setReplacementScreenId] = useState("");
-  const [approvalError, setApprovalError] = useState("");
-  const [approvalConfirmation, setApprovalConfirmation] = useState<{
-    values: ApprovalForm;
-    title: string;
-    description: string;
-  } | null>(null);
-  const form = useForm<ApprovalForm>({
-    resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
-    defaultValues: {
-      name:
-        request.existingScreenName ??
-        `${request.metadata.manufacturer} ${request.metadata.model}`,
-      locationId: undefined,
-      roomName: "",
-      roomNumber: "",
-      description: "",
-    },
-  });
-  const locations = useQuery({
-    queryKey: ["locations"],
-    queryFn: api.locations,
-  });
-  const screens = useQuery({
-    queryKey: ["screens", "pairing-replacement-options"],
-    queryFn: api.screens,
-    enabled: destination === "replace_hardware",
-  });
-  const approve = useMutation({
-    mutationFn: (values: ApprovalForm) => {
-      if (destination === "replace_hardware" && !replacementScreenId)
-        throw new Error(t("approval.chooseScreenError"));
-      if (destination === "replace_hardware") {
-        const target = screens.data?.items.find(
-          (screen) => screen.id === replacementScreenId,
-        );
-        if (!target) throw new Error(t("approval.screenNotFound"));
-      }
-      return api.approvePairing(
-        request.id,
-        pairingApprovalPayload(
-          request,
-          values,
-          destination,
-          replacementScreenId,
-        ),
-        auth.status?.csrfToken ?? "",
-      );
-    },
-    onSuccess: async (screen) => {
-      toast.add({ title: "Screen pairing approved.", type: "success" });
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
-      await queryClient.invalidateQueries({
-        queryKey: ["screens", "pairing", "pending"],
-      });
-      onDone(screen.id);
-    },
-  });
-  const reject = useMutation({
-    mutationFn: () =>
-      api.rejectPairing(
-        request.id,
-        "Rejected by administrator",
-        auth.status?.csrfToken ?? "",
-      ),
-    onSuccess: () => {
-      toast.add({ title: "Pairing request rejected.", type: "success" });
-      onDone();
-    },
-  });
-  const requestApproval = (values: ApprovalForm) => {
-    setApprovalError("");
-    if (destination === "credential_repair") {
-      setApprovalConfirmation({
-        values,
-        title: t("approval.repairTitle", {
-          name: request.existingScreenName ?? "",
-        }),
-        description: t("approval.repairBody"),
-      });
-      return;
-    }
-    if (destination === "replace_hardware") {
-      const target = screens.data?.items.find(
-        (screen) => screen.id === replacementScreenId,
-      );
-      if (!target) {
-        setApprovalError(t("approval.chooseScreenError"));
-        return;
-      }
-      setApprovalConfirmation({
-        values,
-        title: t("approval.replaceTitle", { name: target.name }),
-        description: t("approval.replaceBody"),
-      });
-      return;
-    }
-    approve.mutate(values);
-  };
-  if (approvalConfirmation)
-    return (
-      <div className="space-y-5">
-        <DialogHeader className="pr-8">
-          <DialogTitle>{approvalConfirmation.title}</DialogTitle>
-          <DialogDescription>
-            {approvalConfirmation.description}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={approve.isPending}
-            onClick={() => setApprovalConfirmation(null)}
-          >
-            {t("approval.goBack")}
-          </Button>
-          <Button
-            type="button"
-            disabled={approve.isPending}
-            onClick={() => {
-              approve.mutate(approvalConfirmation.values);
-              setApprovalConfirmation(null);
-            }}
-          >
-            {t("approval.confirmPairing")}
-          </Button>
-        </DialogFooter>
-      </div>
-    );
-
-  const eligibleScreens = (screens.data?.items ?? []).filter(
-    (screen) => screen.id !== request.existingScreenId,
-  );
-  const selectedReplacementScreen = eligibleScreens.find(
-    (screen) => screen.id === replacementScreenId,
-  );
-  const metadata = request.metadata;
-  return (
-    <div className="space-y-5">
-      <DialogHeader className="pr-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("approval.step")}
-            </p>
-            <DialogTitle>{t("approval.title")}</DialogTitle>
-            <DialogDescription>{t("approval.body")}</DialogDescription>
-          </div>
-          <Badge variant="outline" className="shrink-0">
-            {t("approval.expires", {
-              time: new Date(request.expiresAt).toLocaleTimeString(
-                formatLocale,
-                {
-                  hour: "numeric",
-                  minute: "2-digit",
-                },
-              ),
-            })}
-          </Badge>
-        </div>
-      </DialogHeader>
-      <dl className="device-facts">
-        <div>
-          <dt>{t("approval.device")}</dt>
-          <dd>
-            {metadata.manufacturer} {metadata.model}
-          </dd>
-        </div>
-        <div>
-          <dt>{t("approval.platform")}</dt>
-          <dd>{metadata.platform}</dd>
-        </div>
-        <div>
-          <dt>{t("approval.android")}</dt>
-          <dd>{metadata.androidVersion}</dd>
-        </div>
-        <div>
-          <dt>{t("approval.player")}</dt>
-          <dd>{metadata.playerVersion}</dd>
-        </div>
-        <div>
-          <dt>{t("approval.resolution")}</dt>
-          <dd>
-            {metadata.screenWidth} × {metadata.screenHeight}
-          </dd>
-        </div>
-        <div>
-          <dt>{t("approval.locale")}</dt>
-          <dd>
-            {metadata.locale} · {metadata.timezone}
-          </dd>
-        </div>
-        {metadata.approximateAddress && (
-          <div>
-            <dt>{t("approval.network")}</dt>
-            <dd>{metadata.approximateAddress}</dd>
-          </div>
-        )}
-      </dl>
-      <FieldSet className="grid gap-3 rounded-xl border border-border p-4">
-        <FieldLegend variant="label" className="mb-0">
-          {t("approval.destination")}
-        </FieldLegend>
-        <RadioGroup
-          aria-label={t("approval.destination")}
-          value={destination}
-          onValueChange={(value) => setDestination(value as PairingDestination)}
-          className="grid gap-2"
-        >
-          <Field orientation="horizontal" className="items-start">
-            <RadioGroupItem id="pairing-destination-new" value="new_screen" />
-            <FieldContent>
-              <FieldLabel
-                htmlFor="pairing-destination-new"
-                className="font-normal"
-              >
-                {t("approval.newScreen")}
-              </FieldLabel>
-              <FieldDescription>{t("approval.newScreenHint")}</FieldDescription>
-            </FieldContent>
-          </Field>
-          {request.previouslyPaired && request.hasActiveCredential && (
-            <Field orientation="horizontal" className="items-start">
-              <RadioGroupItem
-                id="pairing-destination-repair"
-                value="credential_repair"
-              />
-              <FieldContent>
-                <FieldLabel
-                  htmlFor="pairing-destination-repair"
-                  className="font-normal"
-                >
-                  {t("approval.repair")}
-                </FieldLabel>
-                <FieldDescription>
-                  {t("approval.repairHint", {
-                    name: request.existingScreenName ?? "",
-                  })}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          )}
-          <Field orientation="horizontal" className="items-start">
-            <RadioGroupItem
-              id="pairing-destination-replace"
-              value="replace_hardware"
-            />
-            <FieldContent>
-              <FieldLabel
-                htmlFor="pairing-destination-replace"
-                className="font-normal"
-              >
-                {t("approval.replace")}
-              </FieldLabel>
-              <FieldDescription>{t("approval.replaceHint")}</FieldDescription>
-            </FieldContent>
-          </Field>
-        </RadioGroup>
-        {destination === "replace_hardware" && (
-          <Field>
-            <FieldLabel htmlFor="pairing-existing-screen">
-              {t("approval.existingScreen")}
-            </FieldLabel>
-            <Combobox
-              items={eligibleScreens}
-              value={selectedReplacementScreen ?? null}
-              itemToStringLabel={(screen: Screen) =>
-                screen.location
-                  ? screen.name + " — " + screen.location
-                  : screen.name
-              }
-              onValueChange={(value) => setReplacementScreenId(value?.id ?? "")}
-            >
-              <ComboboxInput
-                id="pairing-existing-screen"
-                aria-label={t("approval.existingScreen")}
-                placeholder={t("approval.searchScreens")}
-                showClear
-                className="w-full"
-              />
-              <ComboboxContent>
-                <ComboboxEmpty>
-                  {screens.isLoading
-                    ? commonT("status.loading")
-                    : screens.isError
-                      ? t("approval.screensLoadError")
-                      : t("approval.noMatchingScreens")}
-                </ComboboxEmpty>
-                <ComboboxList>
-                  {(screen: Screen) => (
-                    <ComboboxItem key={screen.id} value={screen}>
-                      {screen.name}
-                      {screen.location ? ` — ${screen.location}` : ""}
-                    </ComboboxItem>
-                  )}
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-            <FieldDescription>{t("approval.selectHint")}</FieldDescription>
-          </Field>
-        )}
-      </FieldSet>
-      {request.previouslyPaired && (
-        <Alert role="status">
-          <AlertTitle>
-            {t("approval.pairedBefore", {
-              name: request.existingScreenName ?? "",
-            })}
-          </AlertTitle>
-          <AlertDescription>
-            {destination === "replace_hardware"
-              ? t("approval.pairedReplaceBody")
-              : t("approval.pairedRepairBody")}
-          </AlertDescription>
-        </Alert>
-      )}
-      {(approvalError || approve.error || reject.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {approvalError || (approve.error ?? reject.error)?.message}
-          </AlertDescription>
-        </Alert>
-      )}
-      <form
-        className="grid gap-4"
-        onSubmit={(event) => void form.handleSubmit(requestApproval)(event)}
-      >
-        <FormField
-          id="screenName"
-          label={t("approval.nameLabel")}
-          error={form.formState.errors.name?.message}
-          {...form.register("name")}
-        />
-        <LocationPicker
-          locations={locations.data?.items ?? []}
-          value={form.watch("locationId")}
-          onChange={(locationId) =>
-            form.setValue("locationId", locationId, { shouldDirty: true })
-          }
-        />
-        <div className="screen-room-fields">
-          <FormField
-            id="screenRoomName"
-            label={t("approval.roomName")}
-            placeholder={t("approval.roomNamePlaceholder")}
-            {...form.register("roomName")}
-          />
-          <FormField
-            id="screenRoomNumber"
-            label={t("approval.roomNumber")}
-            placeholder={t("approval.roomNumberPlaceholder")}
-            {...form.register("roomNumber")}
-          />
-        </div>
-        <Field>
-          <FieldLabel htmlFor="screenDescription">
-            {t("approval.description")}
-          </FieldLabel>
-          <Textarea id="screenDescription" {...form.register("description")} />
-        </Field>
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            onClick={() => reject.mutate()}
-            disabled={reject.isPending || approve.isPending}
-          >
-            {t("approval.reject")}
-          </Button>
-          <Button
-            type="submit"
-            disabled={approve.isPending || reject.isPending}
-          >
-            {approve.isPending
-              ? t("approval.approving")
-              : pairingApprovalLabel(request, t, destination)}
-          </Button>
-        </div>
-      </form>
-    </div>
   );
 }
 
@@ -3379,14 +2624,12 @@ export function ScreenDetailPage() {
     if (searchParams.get("edit") === "details") setEditingDetails(true);
   }, [searchParams]);
   const query = useQuery({
-    queryKey: ["screens", id],
-    queryFn: () => api.screen(id),
-    refetchInterval: 10_000,
+    ...screenQueries.detail(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
-    refetchInterval: 10_000,
+    ...screenQueries.list(),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const detailsForm = useForm<ApprovalForm>({
     resolver: zodResolver(useMemo(() => makeApprovalSchema(t), [t])),
@@ -3417,15 +2660,14 @@ export function ScreenDetailPage() {
       api.updateScreen(id, values, auth.status?.csrfToken ?? ""),
     onSuccess: async (updated) => {
       toast.add({ title: "Screen details saved.", type: "success" });
-      queryClient.setQueryData(["screens", id], updated);
+      queryClient.setQueryData(screenQueries.detail(id).queryKey, updated);
       setEditingDetails(false);
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const assignment = useQuery({
-    queryKey: ["screens", id, "playlist-assignment"],
-    queryFn: () => api.playlistAssignment(id),
-    refetchInterval: 10_000,
+    ...screenQueries.assignment(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const playlists = useQuery({
     queryKey: ["playlists", "assignment-picker"],
@@ -3466,7 +2708,7 @@ export function ScreenDetailPage() {
     onSuccess: async () => {
       toast.add({ title: "Presentation assignment updated.", type: "success" });
       await queryClient.invalidateQueries({
-        queryKey: ["screens", id, "playlist-assignment"],
+        queryKey: screenKeys.assignment(id),
       });
     },
   });
@@ -3478,7 +2720,7 @@ export function ScreenDetailPage() {
         title: enabled ? "Screen enabled." : "Screen disabled.",
         type: "success",
       });
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const revoke = useMutation({
@@ -3491,23 +2733,20 @@ export function ScreenDetailPage() {
     onSuccess: async () => {
       toast.add({ title: "Player credential revoked.", type: "success" });
       setConfirmRevoke(false);
-      await queryClient.invalidateQueries({ queryKey: ["screens"] });
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
   const commands = useQuery({
-    queryKey: ["screens", id, "commands"],
-    queryFn: () => api.screenCommands(id),
+    ...screenQueries.commands(id),
     refetchInterval: 5_000,
     enabled: true,
   });
   const reliability = useQuery({
-    queryKey: ["screens", id, "reliability"],
-    queryFn: () => api.screenReliability(id),
-    refetchInterval: 10_000,
+    ...screenQueries.reliability(id),
+    refetchInterval: SCREEN_STATUS_REFRESH_MS,
   });
   const playerHistory = useQuery({
-    queryKey: ["screens", id, "player-history"],
-    queryFn: () => api.screenPlayerHistory(id),
+    ...screenQueries.playerHistory(id),
   });
   const screenPolicy = useQuery({
     queryKey: ["screen", id, "policy"],
@@ -3528,10 +2767,10 @@ export function ScreenDetailPage() {
         type: "success",
       });
       void queryClient.invalidateQueries({
-        queryKey: ["screens", id, "commands"],
+        queryKey: screenKeys.commands(id),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["screens", id, "reliability"],
+        queryKey: screenKeys.reliability(id),
       });
     },
   });
@@ -3631,76 +2870,90 @@ export function ScreenDetailPage() {
   };
   return (
     <div className="w-full min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {screen.name}
-            </h1>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-center gap-2">
+            {screen.name}
             <StatusLabel status={screen.status} />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {[
-              platformLabel(screen.platform, t),
-              [screen.deviceManufacturer, screen.deviceModel]
-                .filter(Boolean)
-                .join(" "),
-              screen.playerVersion
-                ? t("detail.playerVersion", {
-                    version: screen.playerVersion,
+          </span>
+        }
+        description={[
+          platformLabel(screen.platform, t),
+          [screen.deviceManufacturer, screen.deviceModel]
+            .filter(Boolean)
+            .join(" "),
+          screen.playerVersion
+            ? t("detail.playerVersion", {
+                version: screen.playerVersion,
+              })
+            : t("detail.playerVersionMissing"),
+          [screen.location, roomLabel(screen, t)].filter(Boolean).join(" · ") ||
+            t("detail.noLocation"),
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        actions={
+          <>
+            {canManageScreens(auth.status?.user) && (
+              <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
+                <Play aria-hidden="true" /> {t("detail.present")}
+              </Button>
+            )}
+            {canManageScreens(auth.status?.user) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  command.mutate({
+                    type: "restart_player_process",
+                    payload: {},
                   })
-                : t("detail.playerVersionMissing"),
-              [screen.location, roomLabel(screen, t)]
-                .filter(Boolean)
-                .join(" · ") || t("detail.noLocation"),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canManageScreens(auth.status?.user) && (
-            <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
-              <Play aria-hidden="true" /> {t("detail.present")}
-            </Button>
-          )}
-          {canManageScreens(auth.status?.user) && (
-            <Button
+                }
+              >
+                <RefreshCw aria-hidden="true" /> {t("list.restart")}
+              </Button>
+            )}
+            <ActionMenuButton
+              label={t("detail.moreActions")}
+              actions={[
+                {
+                  actions: [
+                    ...(canManageScreens(auth.status?.user)
+                      ? [
+                          {
+                            id: "edit-details",
+                            label: t("grid.editDetails"),
+                            icon: "details",
+                            onSelect: () => setEditingDetails(true),
+                          },
+                        ]
+                      : []),
+                    ...(canManageScreens(auth.status?.user) &&
+                    screen.platform.toLowerCase() === "linux"
+                      ? [
+                          {
+                            id: "airplay",
+                            label: t("detail.airplay"),
+                            icon: "airplay",
+                            onSelect: () => setAirplayOpen(true),
+                          },
+                        ]
+                      : []),
+                    {
+                      id: "view-content",
+                      label: t("detail.viewContent"),
+                      icon: "screens",
+                      onSelect: () => selectTab("content"),
+                    },
+                  ],
+                },
+              ]}
               variant="outline"
-              size="sm"
-              onClick={() =>
-                command.mutate({ type: "restart_player_process", payload: {} })
-              }
-            >
-              <RefreshCw aria-hidden="true" /> {t("list.restart")}
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="outline" size="icon-sm" />}
-              aria-label={t("detail.moreActions")}
-            >
-              <MoreHorizontal aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canManageScreens(auth.status?.user) && (
-                <DropdownMenuItem onClick={() => setEditingDetails(true)}>
-                  <Pencil aria-hidden="true" /> {t("grid.editDetails")}
-                </DropdownMenuItem>
-              )}
-              {canManageScreens(auth.status?.user) &&
-                screen.platform.toLowerCase() === "linux" && (
-                  <DropdownMenuItem onClick={() => setAirplayOpen(true)}>
-                    <Airplay aria-hidden="true" /> {t("detail.airplay")}
-                  </DropdownMenuItem>
-                )}
-              <DropdownMenuItem onClick={() => selectTab("content")}>
-                <Monitor aria-hidden="true" /> {t("detail.viewContent")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
+              size="icon-sm"
+            />
+          </>
+        }
+      />
       <AirPlayPresentDialog
         open={airplayOpen}
         targetType="screen"
@@ -3741,7 +2994,7 @@ export function ScreenDetailPage() {
                 <CircleAlert aria-hidden="true" />
                 <AlertTitle>{t("detail.saveError")}</AlertTitle>
                 <AlertDescription>
-                  {updateDetails.error.message}
+                  {apiErrorMessage(updateDetails.error)}
                 </AlertDescription>
               </Alert>
             )}
@@ -3883,14 +3136,6 @@ export function ScreenDetailPage() {
                   value={<StatusLabel status={screen.status} />}
                 />
                 <OverviewFact
-                  label={t("grid.nowPlaying")}
-                  value={
-                    assignment.data?.layoutName ??
-                    assignment.data?.playlistName ??
-                    t("detail.factNoContent")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factLocation")}
                   value={
                     [screen.location, roomLabel(screen, t)]
@@ -3919,16 +3164,6 @@ export function ScreenDetailPage() {
                   }
                 />
                 <OverviewFact
-                  label={t("detail.factNextChange")}
-                  value={
-                    assignment.data?.nextTransitionAt
-                      ? new Date(
-                          assignment.data.nextTransitionAt,
-                        ).toLocaleString(formatLocale)
-                      : t("detail.noneScheduled")
-                  }
-                />
-                <OverviewFact
                   label={t("detail.factPlayerSettings")}
                   value={
                     <Link
@@ -3943,6 +3178,7 @@ export function ScreenDetailPage() {
                   }
                 />
               </dl>
+              <PlaybackPlanPanel key={id} screenId={id} />
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
@@ -4313,7 +3549,7 @@ export function ScreenDetailPage() {
                   <CircleAlert aria-hidden="true" />
                   <AlertTitle>{t("detail.assignLoadError")}</AlertTitle>
                   <AlertDescription>
-                    {assignment.error.message}
+                    {apiErrorMessage(assignment.error)}
                   </AlertDescription>
                 </Alert>
               )}
@@ -4517,7 +3753,10 @@ export function ScreenDetailPage() {
                       <dd>
                         {screen.availableStorageBytes == null
                           ? t("shared.notReported")
-                          : formatBytes(screen.availableStorageBytes)}
+                          : formatBytes(
+                              screen.availableStorageBytes,
+                              formatLocale,
+                            )}
                       </dd>
                     </div>
                     <div>

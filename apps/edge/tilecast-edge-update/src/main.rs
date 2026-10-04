@@ -6,7 +6,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(name = "tilecast-edge-update", version, about = "The Tilecast Edge update helper")]
+#[command(name = "tilecast-edge-update", version = edge_platform::RELEASE_VERSION, about = "The Tilecast Edge update helper")]
 struct Cli {
     #[command(subcommand)]
     command: Command,

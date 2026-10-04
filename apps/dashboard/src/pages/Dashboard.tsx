@@ -8,7 +8,7 @@ import {
   useNavigate,
 } from "react-router";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api/client";
+import { accountQueries } from "@/data/account";
 import type { User } from "@/api/types";
 import { useAuth } from "@/auth/AuthProvider";
 import { AppSidebar } from "@/components/studio/AppSidebar";
@@ -88,8 +88,7 @@ export function DashboardShell() {
   const [enrolling, setEnrolling] = useState(false);
   const enrollmentFinished = useRef(false);
   const preferences = useQuery({
-    queryKey: ["preferences"],
-    queryFn: api.preferences,
+    ...accountQueries.preferences(),
     enabled: Boolean(auth.status?.authenticated),
   });
 

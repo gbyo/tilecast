@@ -16,7 +16,8 @@ edge=/src/apps/edge
 wpe_version=$(sed -n 's/^WPE_VERSION=//p' "$release/build-wpe.sh")
 wpe_sha256=$(sed -n 's/^WPE_SHA256=//p' "$release/build-wpe.sh")
 snapshot=$(sed -n 's/^ARG SNAPSHOT=//p' "$release/Dockerfile.builder")
-version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$edge/Cargo.toml" | head -1)
+version=$(python3 "$release/inputs.py" version)
+export TILECAST_EDGE_VERSION="$version"
 arch=$(uname -m)
 wpe_prefix=/opt/tilecast-edge/current/lib/wpe
 
@@ -53,7 +54,8 @@ ctest --test-dir /cache/bridge --output-on-failure
 
 # 3. The Rust binaries, without the integration-test feature.
 export CARGO_TARGET_DIR=/cache/cargo RUSTFLAGS="--remap-path-prefix=/src=. --remap-path-prefix=/opt/cargo=cargo"
-(cd "$edge" && cargo build --release --locked -p tilecastd -p tilecastctl -p tilecast-edge-migrate -p tilecast-edge-update)
+(cd /src && cargo build --release --locked --message-format=json-render-diagnostics \
+  -p tilecastd -p tilecastctl -p tilecast-edge-migrate -p tilecast-edge-update) > /cache/edge-rust-artifacts.jsonl
 if grep -q TILECAST_MIGRATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-migrate" ||
   grep -q TILECAST_UPDATE_CRASH_AT "$CARGO_TARGET_DIR/release/tilecast-edge-update"; then
   echo "a release root tool was built with the integration-test feature" >&2
@@ -75,7 +77,8 @@ stage() {
 echo '{"bomFormat":"CycloneDX","specVersion":"1.5","components":[]}' > /cache/sbom-placeholder.json
 stage /cache/sbom-placeholder.json
 python3 "$release/sbom.py" --release-tree /out/tree --version "$version" --snapshot "$snapshot" \
-  --wpe-version "$wpe_version" --wpe-sha256 "$wpe_sha256" --out /cache/sbom.cdx.json
+  --wpe-version "$wpe_version" --wpe-sha256 "$wpe_sha256" --out /cache/sbom.cdx.json \
+  --cargo-artifacts /cache/edge-rust-artifacts.jsonl
 stage /cache/sbom.cdx.json
 cp /cache/sbom.cdx.json "/out/tilecast-edge-$version-$arch.sbom.cdx.json"
 
@@ -100,7 +103,7 @@ cp "$manifest" "/out/tilecast-edge-$version-$arch.json"
 [ -f "$manifest.sig" ] && cp "$manifest.sig" "/out/tilecast-edge-$version-$arch.json.sig"
 # 7. The update envelope (M10): binds the archive to the manifest inside it,
 # signed with the same key and in the same way.
-state_schema=$(find "$edge/crates/edge-state/migrations" -name '[0-9][0-9][0-9][0-9]_*.sql' | sed 's#.*/0*\([0-9]*\)_.*#\1#' | sort -n | tail -1)
+state_schema=$(python3 "$release/inputs.py" state-schema)
 envelope="/out/tilecast-edge-update-$arch.json"
 python3 "$release/envelope.py" --tree /out/tree --archive "/out/$archive" --arch "$arch" \
   --state-schema "$state_schema" --channel "${TILECAST_EDGE_CHANNEL:-stable}" --out "$envelope"

@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { SecurityStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import {
@@ -642,7 +643,9 @@ function errorNotice(error: Error | null | undefined, t: TFunction<"auth">) {
   if (!error) return null;
   // Server failures render untouched; only the client-side fallback is ours.
   const message =
-    error instanceof ApiError ? error.message : t("errors.requestFailed");
+    error instanceof ApiError
+      ? apiErrorMessage(error)
+      : t("errors.requestFailed");
   return (
     <Alert variant="destructive">
       <AlertDescription>{message}</AlertDescription>

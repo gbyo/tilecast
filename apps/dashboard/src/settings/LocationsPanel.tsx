@@ -7,6 +7,7 @@ import type { Location, LocationInput } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
 import { DashboardSearch } from "../components/DashboardListToolbar";
+import { apiErrorMessage } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
 import {
@@ -61,6 +62,10 @@ export function formatLocationAddress(location?: Partial<Location>) {
     .join(" · ");
 }
 
+function locationErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? apiErrorMessage(error) : fallback;
+}
+
 export function LocationsPanel({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
@@ -109,9 +114,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
       setNotice(
         error instanceof ApiError && error.status === 409
           ? t("locations.deleteConflict")
-          : error instanceof Error
-            ? error.message
-            : t("locations.deleteFailed"),
+          : locationErrorMessage(error, t("locations.deleteFailed")),
       ),
   });
   const open = (location: Location | "new") => {
@@ -158,7 +161,7 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
         {query.isError && (
           <Alert variant="destructive">
             <AlertDescription>
-              {t("locations.loadError")} {query.error.message}
+              {locationErrorMessage(query.error, t("locations.loadError"))}
             </AlertDescription>
           </Alert>
         )}
@@ -350,7 +353,12 @@ export function LocationsPanel({ canManage }: { canManage: boolean }) {
               </div>
               {save.error && (
                 <Alert variant="destructive">
-                  <AlertDescription>{save.error.message}</AlertDescription>
+                  <AlertDescription>
+                    {locationErrorMessage(
+                      save.error,
+                      t("locations.saveFailed"),
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
               <DialogFooter>

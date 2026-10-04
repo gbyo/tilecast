@@ -142,6 +142,15 @@ A `WebPage` with no dialog presenter cancels every file chooser, so a Studio upl
 
 Native media intake is a separate path. When the app has a native credential, Studio asks the app to upload, and no file goes through the page.
 
+### Loading mark
+
+During server verification and Studio page loading, the app shows the animated
+Tilecast cast mark without the wordmark. Native presentation loading uses the
+same mark. SwiftUI draws the paths from
+`.github/logos/animated/tilecast-mark-cast-black.svg` with the same animation
+timing. The mark uses the current foreground color. Reduce Motion shows the
+static mark. The animation pauses while the scene is inactive.
+
 ### Recovery
 
 If the web content process ends, for example while the app is in the background, the page reloads. If the process ends more than twice in 30 seconds, the app shows an error with a retry control.
@@ -243,10 +252,11 @@ A native tap never loads a URL. The sequence is:
 2. Studio finds the identifier in its current model. If the identifier is not there, Studio refuses the request and sends its catalog and state again.
 3. Studio calls React Router's `navigate`.
 4. An unsaved-changes blocker can stop the navigation. The user decides in Studio's own dialog.
-5. Studio sends `navigation/state`. It sends the state also when the location did not change.
-6. The app moves its selection only when that state names a different destination.
+5. On iPhone, the native tab highlight changes immediately. The one Studio WebView stays associated with its last confirmed tab, and the newly selected tab masks that stale frame.
+6. When the route changes, Studio waits across a browser paint boundary before sending `navigation/state`. It also sends the state when the location did not change.
+7. The app settles the WebView onto the destination named by that state and removes the mask. If navigation was blocked, the unchanged state rolls the optimistic tab highlight back instead.
 
-The app does not change the selection when the user taps. If the user cancels an unsaved-changes dialog, the selection stays with the current page, and the editor keeps its state. Before a request, the app makes sure that the Studio page is visible, so the user can see a dialog.
+The optimistic selection is native feedback only; it never chooses a route. React Router remains authoritative, so cancelling an unsaved-changes dialog keeps the editor and its state on the current page.
 
 Forms plugin editors use `useBlocker`. The Settings and Preferences leave warnings use `useNavigationWarning`, which also uses `useBlocker` for navigation that does not start from a link. The Layout and Playlist editors save automatically and do not block navigation.
 
@@ -386,24 +396,26 @@ A confirmation must match the platform, so Studio can ask the app to show a nati
 
 `useConfirm` in Studio uses this path, so all its call sites, and the plugins that use it, get a native alert with no change. A request whose body is not plain text uses the web dialog. A confirmation written as its own `AlertDialog` is a web dialog on iOS until it moves to `useConfirm`. The media library and the media asset sheet have moved. The app shows the text that Studio sends. It has no copy of its own for any confirmation.
 
+Each `useConfirm` instance queues requests in arrival order across native alerts and web dialogs. A second request cannot replace the first request. Confirm resolves `true`. Cancel or dismissal resolves `false`. Component unmount resolves all active and queued requests as `false` and withdraws its native alert. Late responses cannot confirm another request.
+
 ### Which surfaces move to a sheet
 
 A surface is a good fit when Studio can open it by an identifier, and when the page under it does not hold unsaved state that the surface must edit. The port is mostly on the app side: the sheet, the sizing, the lifecycle, and the refetch when a sheet ends are all generic. Each surface adds only a Studio route and one call where it opens.
 
-| Surface                                             | Status | Notes                                                                                              |
-| --------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                            |
-| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                 |
-| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                        |
-| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                 |
-| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer         |
-| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first    |
-| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does            |
-| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                         |
-| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state    |
-| Create and edit forms                               | Stay   | Low value, and most save into page state                                                           |
-| Pair Screen                                         | Stay   | Milestone 5 makes it native for camera scanning. It is not a presentation port                     |
-| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state |
+| Surface                                             | Status | Notes                                                                                               |
+| --------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| Live Stream                                         | Done   | `/__native/modal/live-stream/:screenId`                                                             |
+| Layout preview                                      | Done   | Saves the draft first. Replaces a popup, which the app cannot open                                  |
+| Playlist preview                                    | Done   | Replaces a popup, which the app cannot open                                                         |
+| Media asset details                                 | Done   | `/__native/modal/asset/:id`. Widgets, websites, and archived assets stay in Studio                  |
+| Activity incident details                           | Done   | `/__native/modal/activity-incident/:id`. Actions close the sheet, as they close the Drawer          |
+| Activity proof-of-play record details               | Stay   | The API has no read by identifier, and the bridge must not carry the record. Add the read first     |
+| Update deployment status                            | Done   | `/__native/modal/update-deployment/:id`. Polls, retries, and cancels as the Drawer does             |
+| Confirmations (`useConfirm`, 13 call sites)         | Done   | Not a presentation. Native alerts, through `alert/present`                                          |
+| Playlist item inspector and Playlist details drawer | Stay   | They edit unsaved editor state in the page beneath. A separate document cannot share that state     |
+| Create and edit forms                               | Stay   | Low value, and most save into page state                                                            |
+| Pair Screen                                         | Done   | `/__native/modal/pair-screen`. React owns the workflow. The app owns only scanning and sheet chrome |
+| Security, plugin pages, content pickers, settings   | Stay   | Secrets are shown once, plugins are not known to the app, and pickers and settings hold page state  |
 
 A surface that saves data needs no code for the main page. When any sheet ends, the app sends `presentation/ended`, and Studio refetches its active queries.
 
@@ -417,6 +429,7 @@ Each integration is a separate capability in the `config/get` reply, so an older
 | ------------------- | ------------------ | ---------------------------------- | ------------------------------------------------------------- |
 | `systemHaptics`     | main, presentation | not needed                         | Standard system feedback for a semantic type                  |
 | `systemShare`       | main, presentation | not needed                         | The system share sheet                                        |
+| `systemQrScanner`   | main, presentation | not needed                         | One QR scan with the system camera. Studio handles the result |
 | `nativeMediaIntake` | main               | `nativeMediaIntake`                | System pickers and a native upload. Studio handles the result |
 | `deepLinks`         | main               | `deepLinks`                        | The app delivers a validated path from a deep link            |
 
@@ -453,6 +466,32 @@ Studio applies the same rules before it sends a request, with the same shared fi
 SwiftUI has `ShareLink`, which is a view, and no imperative share API. A request that arrives from the bridge has no view to present from. `SystemSharePresenter` in `Tilecast/Features/System/` is the one isolated UIKit adapter. It presents `UIActivityViewController` from the top view controller, so a share from a presentation sheet appears above that sheet. It supplies the title as link metadata for the preview. It builds no share interface of its own. An iPad shows the sheet in a popover. One share sheet can be open at a time; a second request gets `unavailable`.
 
 Studio uses the reply to choose. When the reply is not `ok`, Studio keeps its web behavior, for example `navigator.share` or a copy button. Use `useNativeShare()` and `useNativeShareAvailable()` in `apps/dashboard/src/native-host/useNativeSystem.ts`. No Studio surface shares content yet. The hooks and the native side are ready for the first one.
+
+### QR scanner
+
+`systemQrScanner` offers one QR scan with the system camera. The main page and the presentation page use the same request. Pair Screen is a React-owned workflow hosted in a native SwiftUI presentation. The app owns only camera scanning and presentation chrome. No pairing logic lives in Swift. Swift knows scan, cancel, and return text. Studio resolves the text, verifies the installation, and approves the screen.
+
+Studio sends `system/scan-qr` with one opaque request id, at most 128 characters. The app replies `ok` when it begins the scan. The app replies `unavailable` when the hardware cannot scan, when another scan runs, or when the page has no scanner. Studio then keeps manual code entry.
+
+The app sends `system/qr-scan-result` when the scan ends:
+
+- `scanned` carries the QR text, at most 4096 characters.
+- `cancelled` means the person dismissed the scanner.
+- `unavailable` means the scan failed after acceptance, for example when permission changed.
+
+No image data crosses the bridge. No camera frame crosses the bridge. No file URL crosses the bridge. No credential crosses the bridge.
+
+One scan runs at a time. A scan belongs to the document that requested it. A new document withdraws the scan of the main page. A presentation that ends withdraws the scan of the presentation page. A server switch ends the scan. A sign-out ends the scan. A late result resolves nothing, and it never reaches another page.
+
+The scanner is VisionKit `DataScannerViewController`, configured for QR codes only. It recognizes one item. It completes automatically on the first non-empty QR payload. It shows Cancel and one instruction. It presents full-screen above the pair sheet. The sheet stays when the scanner leaves. VisionKit and camera authorization live only in `Tilecast/Features/System/QRScanner/`.
+
+The app requests camera permission only when the person taps Scan QR code. The app never prompts at launch, sign-in, server connection, or Fleet load. When permission is denied or restricted, the app shows Camera Unavailable with an Open Settings path, and Studio keeps manual code entry.
+
+The app advertises the scanner only when the hardware supports the Data Scanner and camera authorization still permits a scan. Data Scanner needs A12 Bionic or later. Manual code entry works on every device. Pairing never requires scanning.
+
+A scanned QR is input, not authority. Scanning never changes the configured server. Scanning never bypasses installation verification. The app never loads the scanned URL. Studio extracts the pairing code and resolves it against the active Tilecast Server. The approval URL carries the installation ID as non-secret context: `/screens/pair/<code>?installation=<uuid>`. A QR from the same installation resolves even when its origin differs from the configured address, for example a LAN address against a public hostname. A QR from another installation cannot trigger a pairing lookup.
+
+Use `useNativeQrScanner()` in `apps/dashboard/src/native-host/useNativeQrScanner.ts`. It generates the request id, ignores stale results, and resolves cleanly on unmount. QR parsing lives in the pairing feature, not in the hook.
 
 ### Deep links
 
@@ -675,7 +714,7 @@ App text is in `apps/ios/Tilecast/Resources/Localizable.xcstrings`, and the loca
 | 2         | Implemented: versioned native bridge (`packages/native-bridge-schema`), capability handshake, navigation catalog, iPhone tabs, iPad sidebar                             |
 | 3         | Implemented: native API authentication, generated API client, Keychain refresh token, sign-out and revocation. It adds no native product pages                          |
 | 4         | Implemented: native presentations, shell-less Studio route, SwiftUI sheets, one reusable presentation page, fallback to web dialogs                                     |
-| 5         | Native Pair Screen with scanning and manual code entry                                                                                                                  |
+| 5         | Implemented: Pair Screen as a React workflow in a native presentation, with a generic native QR scanner and manual code entry                                           |
 | 6         | Settings contract version 2 with semantic metadata, consumed by Studio first                                                                                            |
 | 7         | Native generic settings renderer, with fallback to Studio for anything it cannot render                                                                                 |
 | 8A        | Implemented: system share, semantic haptics, deep links, and native media intake. Full-bleed Studio beneath the tab bar is not done                                     |

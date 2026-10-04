@@ -9,7 +9,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, Lightbulb, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
@@ -61,7 +60,6 @@ export function DataSourceProviderGallery({
   description,
   onChoose,
   onClose,
-  page = false,
 }: {
   providers?: DataSourceProvider[];
   // Providers this surface must never offer, whatever the catalog contains.
@@ -69,7 +67,6 @@ export function DataSourceProviderGallery({
   description?: string;
   onChoose: (provider: DataSourceProvider) => void;
   onClose: () => void;
-  page?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const definitions = useDataSourceDefinitions(providers, exclude);
@@ -105,140 +102,79 @@ export function DataSourceProviderGallery({
       unavailable: null as string | null,
     };
   };
-  const dialogRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (page) return;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        onClose();
-      }
-    };
-    addEventListener("keydown", escape);
-    return () => removeEventListener("keydown", escape);
-  }, [page, onClose]);
-  // As a modal, the gallery has to take focus and keep it: opening it from a Widget editor
-  // otherwise leaves the caret behind in the form underneath, where Tab walks controls the
-  // author cannot see. Matches the Drawer primitive's handling.
-  useEffect(() => {
-    if (page) return;
-    const previousFocus = document.activeElement as HTMLElement | null;
-    dialogRef.current
-      ?.querySelector<HTMLElement>("button, [href], input, select, textarea")
-      ?.focus();
-    return () => previousFocus?.focus();
-  }, [page]);
-  const trapTab = (event: ReactKeyboardEvent<HTMLElement>) => {
-    if (page || event.key !== "Tab") return;
-    const focusable = Array.from(
-      dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-      ) ?? [],
-    );
-    if (!focusable.length) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  };
+  // The gallery is plain content: the /data-sources/new route renders it as a page
+  // and ConnectDataFlow hosts it inside the shared Dialog, which owns overlay,
+  // Escape, focus trap, and focus restoration.
   return (
-    <div
-      className={
-        page
-          ? "grid w-full min-w-0 gap-5"
-          : "fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4"
-      }
-      role={page ? undefined : "presentation"}
-    >
-      <section
-        ref={dialogRef}
-        className={
-          page
-            ? "grid w-full min-w-0 gap-5"
-            : "mx-auto grid w-full max-w-3xl gap-5 rounded-xl bg-background p-5"
-        }
-        role={page ? undefined : "dialog"}
-        aria-modal={page ? undefined : true}
-        aria-labelledby="data-source-gallery-title"
-        onKeyDown={trapTab}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h2
-              id="data-source-gallery-title"
-              className="text-xl font-semibold"
-            >
-              {t("dataSources.createFlow.galleryTitle")}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {description ??
-                t("dataSources.createFlow.galleryDescription", {
-                  count: definitions.offered.length,
-                })}
-            </p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("common:actions.close")}
-            onClick={onClose}
-          >
-            <X size={18} aria-hidden="true" />
-          </Button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {definitions.offered.map((definition) => {
-            const provenance = sourceInfo(definition);
-            const disabled = provenance?.unavailable != null;
-            return (
-              <Button
-                type="button"
-                key={definition.id}
-                variant="outline"
-                className="h-auto flex-col items-start gap-1 p-4 text-left"
-                disabled={disabled}
-                aria-describedby={
-                  disabled
-                    ? `data-source-availability-${definition.id}`
-                    : undefined
-                }
-                onClick={() => onChoose(definition.id)}
-              >
-                {sourceIcon(definition.id, definition, 30)}
-                <strong className="text-sm">{definition.name}</strong>
-                <span className="text-xs font-normal text-muted-foreground">
-                  {galleryDescriptionText(definition)}
-                </span>
-                {provenance?.badge && (
-                  <span className="text-xs font-normal text-muted-foreground">
-                    {provenance.badge}
-                  </span>
-                )}
-                {disabled && provenance?.unavailable && (
-                  <small
-                    id={`data-source-availability-${definition.id}`}
-                    className="text-xs font-normal text-muted-foreground"
-                  >
-                    {provenance.unavailable}
-                  </small>
-                )}
-              </Button>
-            );
-          })}
-        </div>
-        {!definitions.isLoading && definitions.offered.length === 0 && (
+    <section className="grid w-full min-w-0 gap-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold">
+            {t("dataSources.createFlow.galleryTitle")}
+          </h2>
           <p className="text-sm text-muted-foreground">
-            {t("dataSources.createFlow.noProviders")}
+            {description ??
+              t("dataSources.createFlow.galleryDescription", {
+                count: definitions.offered.length,
+              })}
           </p>
-        )}
-      </section>
-    </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t("common:actions.close")}
+          onClick={onClose}
+        >
+          <X size={18} aria-hidden="true" />
+        </Button>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {definitions.offered.map((definition) => {
+          const provenance = sourceInfo(definition);
+          const disabled = provenance?.unavailable != null;
+          return (
+            <Button
+              type="button"
+              key={definition.id}
+              variant="outline"
+              className="h-auto flex-col items-start gap-1 p-4 text-left"
+              disabled={disabled}
+              aria-describedby={
+                disabled
+                  ? `data-source-availability-${definition.id}`
+                  : undefined
+              }
+              onClick={() => onChoose(definition.id)}
+            >
+              {sourceIcon(definition.id, definition, 30)}
+              <strong className="text-sm">{definition.name}</strong>
+              <span className="text-xs font-normal text-muted-foreground">
+                {galleryDescriptionText(definition)}
+              </span>
+              {provenance?.badge && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {provenance.badge}
+                </span>
+              )}
+              {disabled && provenance?.unavailable && (
+                <small
+                  id={`data-source-availability-${definition.id}`}
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {provenance.unavailable}
+                </small>
+              )}
+            </Button>
+          );
+        })}
+      </div>
+      {!definitions.isLoading && definitions.offered.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {t("dataSources.createFlow.noProviders")}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -415,7 +351,6 @@ export function ConnectDataFlow({
             description={dialogDescription}
             onChoose={onChooseProvider}
             onClose={onClose}
-            page
           />
         ) : (
           <DataSourceCreateShell

@@ -1,9 +1,12 @@
+import { screenQueries } from "../data/screens";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateTime } from "../lib/dateTime";
 import { Archive, MonitorOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { archivedScreens, type ArchivedScreen } from "../api/archivedScreens";
-import { useFormatLocale } from "../i18n";
+import type { ArchivedScreen } from "../api/archivedScreens";
+import { ApiError } from "../api/client";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { buttonVariants } from "../components/ui/button";
@@ -28,25 +31,23 @@ export function ArchivedScreensPage() {
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
   const archived = useQuery({
-    queryKey: ["screens", "archive"],
-    queryFn: archivedScreens,
+    ...screenQueries.archive(),
   });
 
   const screens = archived.data?.items ?? [];
   const formatDate = (value?: string) =>
-    value
-      ? new Date(value).toLocaleString(formatLocale, {
-          dateStyle: "medium",
-          timeStyle: "short",
-        })
-      : t("shared.unknown");
+    formatDateTime(value, formatLocale, t("shared.unknown"));
 
   return (
     <div className="screens-page w-full min-w-0 space-y-4">
       <PageHeader title={t("archive.title")} description={t("archive.body")} />
       {archived.isError && (
         <Alert variant="destructive">
-          <AlertDescription>{archived.error.message}</AlertDescription>
+          <AlertDescription>
+            {archived.error instanceof ApiError
+              ? apiErrorMessage(archived.error)
+              : t("archive.loadError")}
+          </AlertDescription>
         </Alert>
       )}
 

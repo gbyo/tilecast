@@ -11,8 +11,10 @@ import { Link } from "react-router";
 import { Check, Inbox, Undo2 } from "lucide-react";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { ContentReviewItem, ContentReviewState } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -118,7 +120,7 @@ export function ContentReviewPage() {
       toast.add({
         title:
           err instanceof Error
-            ? err.message
+            ? apiErrorMessage(err)
             : t("contentReview.toast.decisionFailed"),
         type: "error",
       }),
@@ -213,24 +215,18 @@ export function ContentReviewPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("contentReview.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("contentReview.description")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("contentReview.title")}
+        description={t("contentReview.description")}
+        actions={
           <Link
             className={buttonVariants({ variant: "outline" })}
             to="/content-review/submissions"
           >
             {t("contentReview.openInbox")}
           </Link>
-        </div>
-      </header>
+        }
+      />
 
       {queue.data && !queue.data.required && (
         <Alert>
@@ -285,7 +281,7 @@ export function ContentReviewPage() {
         </div>
       ) : queue.error ? (
         <Alert variant="destructive">
-          <AlertDescription>{queue.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(queue.error)}</AlertDescription>
         </Alert>
       ) : !items.length ? (
         <Empty>
@@ -392,7 +388,7 @@ export function ContentReviewPage() {
 
       {decide.error && (
         <Alert variant="destructive">
-          <AlertDescription>{decide.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(decide.error)}</AlertDescription>
         </Alert>
       )}
 

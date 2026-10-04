@@ -15,6 +15,7 @@ import type {
   WidgetRegistry,
 } from "./definition.ts";
 import {
+  setWidgetInputRevision,
   WIDGET_EMPTY_EVENT,
   WIDGET_ERROR_EVENT,
   WIDGET_READY_EVENT,
@@ -83,10 +84,12 @@ export class WidgetMount {
   private resources: WidgetResources;
   private context: WidgetContext;
   private disposed = false;
+  private generation = 0;
 
-  private readonly onReady = () => this.settle({ state: "ready" });
+  private readonly onReady = (event: Event) =>
+    this.settleEvent(event, { state: "ready" });
   private readonly onEmpty = (event: Event) =>
-    this.settle({
+    this.settleEvent(event, {
       state: "empty",
       reason: boundedCode(
         (event as CustomEvent<{ reason?: unknown }>).detail?.reason,
@@ -94,7 +97,7 @@ export class WidgetMount {
       ),
     });
   private readonly onError = (event: Event) =>
-    this.settle({
+    this.settleEvent(event, {
       state: "error",
       code: boundedCode(
         (event as CustomEvent<{ code?: unknown }>).detail?.code,
@@ -106,7 +109,7 @@ export class WidgetMount {
     this.component = options.component;
     this.resources = options.resources;
     this.context = options.context;
-    this.mount();
+    this.mount(this.beginRevision());
   }
 
   get state(): WidgetMountState {
@@ -129,6 +132,7 @@ export class WidgetMount {
     context?: WidgetContext;
   }): void {
     if (this.disposed) return;
+    const revision = this.beginRevision();
     const component = next.component ?? this.component;
     const remount =
       component.type !== this.component.type ||
@@ -139,10 +143,10 @@ export class WidgetMount {
     this.context = next.context ?? this.context;
     if (remount) {
       this.teardownElement();
-      this.mount();
+      this.mount(revision);
       return;
     }
-    this.assign();
+    this.assign(revision);
   }
 
   dispose(): void {
@@ -151,22 +155,22 @@ export class WidgetMount {
     this.teardownElement();
   }
 
-  private mount(): void {
+  private mount(revision: number): void {
     const { registry, container } = this.options;
     const definition = registry.lookup(
       this.component.type,
       this.component.version,
     );
-    if (!definition) return this.settle(error("widget_unsupported"));
+    if (!definition) return this.settle(error("widget_unsupported"), revision);
     if (
       this.options.requireAdoptedStyleSheets &&
       !supportsAdoptedStyleSheets()
     ) {
-      return this.settle(error("widget_styles_unsupported"));
+      return this.settle(error("widget_styles_unsupported"), revision);
     }
     const defined = customElements.get(definition.tagName);
     if (defined && defined !== definition.element) {
-      return this.settle(error("widget_tag_conflict"));
+      return this.settle(error("widget_tag_conflict"), revision);
     }
     if (!defined) customElements.define(definition.tagName, definition.element);
     this.definition = definition;
@@ -183,12 +187,13 @@ export class WidgetMount {
     node.addEventListener(WIDGET_EMPTY_EVENT, this.onEmpty);
     node.addEventListener(WIDGET_ERROR_EVENT, this.onError);
     this.node = node;
-    if (!this.assign()) return;
+    setWidgetInputRevision(node, revision);
+    if (!this.assign(revision)) return;
     container.appendChild(node);
   }
 
   /** Validate, resolve and assign. Returns false when the mount failed. */
-  private assign(): boolean {
+  private assign(revision: number): boolean {
     const definition = this.definition!;
     const node = this.node!;
     let parsed;
@@ -202,7 +207,7 @@ export class WidgetMount {
     }
     if (!parsed.ok) {
       this.teardownElement();
-      this.settle(error("widget_config_invalid"));
+      this.settle(error("widget_config_invalid"), revision);
       return false;
     }
     let resolution;
@@ -213,12 +218,12 @@ export class WidgetMount {
     }
     if (resolution.state === "error") {
       this.teardownElement();
-      this.settle(error(boundedCode(resolution.code, "widget_error")));
+      this.settle(
+        error(boundedCode(resolution.code, "widget_error")),
+        revision,
+      );
       return false;
     }
-    // Lifecycle events for these inputs settle the state again; until then
-    // the previous state stands, so an in-place update never flickers.
-    this.armTimeout();
     node.context = this.context;
     node.config = parsed.config;
     node.data = resolution.state === "ready" ? resolution.data : null;
@@ -226,25 +231,44 @@ export class WidgetMount {
       resolution.state === "empty"
         ? boundedCode(resolution.reason, "no_content")
         : null;
+    this.armTimeout(revision);
     return true;
   }
 
-  private armTimeout(): void {
+  private armTimeout(revision: number): void {
     this.timer?.cancel();
-    if (this.current.state !== "pending") return;
+    if (revision !== this.generation || this.current.state !== "pending")
+      return;
     this.timer = this.context.clock.after(
       this.options.readyTimeoutMs ?? DEFAULT_READY_TIMEOUT_MS,
       () => {
         this.timer = null;
-        if (this.current.state === "pending") {
-          this.settle(error("widget_ready_timeout"));
+        if (revision === this.generation && this.current.state === "pending") {
+          this.settle(error("widget_ready_timeout"), revision);
         }
       },
     );
   }
 
-  private settle(next: WidgetMountState): void {
+  private beginRevision(): number {
+    const revision = ++this.generation;
+    this.timer?.cancel();
+    this.timer = null;
+    if (this.node) setWidgetInputRevision(this.node, revision);
+    this.settle({ state: "pending" }, revision);
+    return revision;
+  }
+
+  private settleEvent(event: Event, next: WidgetMountState): void {
+    const revision = (event as CustomEvent<{ revision?: unknown }>).detail
+      ?.revision;
+    if (!Number.isSafeInteger(revision) || revision !== this.generation) return;
+    this.settle(next, revision);
+  }
+
+  private settle(next: WidgetMountState, revision?: number): void {
     if (this.disposed) return;
+    if (revision !== undefined && revision !== this.generation) return;
     if (next.state !== "pending") {
       this.timer?.cancel();
       this.timer = null;

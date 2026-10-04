@@ -34,7 +34,7 @@ struct StudioShell: View {
         .
       nativeAlert(from: host.page?.alerts, for: .main)
         .sheet(isPresented: $managingServers) { ServerListView() }
-        .sheet(isPresented: $addingServer) { AddServerView() }
+        .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
         .sheet(item: presentation) { presentation in
             if let coordinator = host.page?.presentations {
                 PresentationSheet(coordinator: coordinator, presentation: presentation)
@@ -92,9 +92,18 @@ struct StudioShell: View {
                 Label("Choose a Server", systemImage: "server.rack")
                     .font(.geist(.title2).weight(.bold))
             }
-        case .verifying(let server):
-            ProgressView("Connecting to \(server.displayName)…")
+        case .starting:
+            TilecastLoadingMark()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        case .verifying(let server):
+            VStack(spacing: 16) {
+                TilecastLoadingMark().accessibilityHidden(true)
+                Text("Connecting to \(server.displayName)…")
+                    .font(.geist(.body))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("studio.connecting")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .unavailable(let server, let error):
             ServerUnavailableView(server: server, error: error)
         case .identityChanged(let server, let found):

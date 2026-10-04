@@ -150,11 +150,13 @@ public enum NativeBridgeProtocol {
         case alertPresent(NativeAlert)
         /// Either page withdraws an alert it presented.
         case alertCancel(alertID: String)
+        /// Either page asks to scan one QR code.
+        case systemScanQR(QRScanRequest)
 
         /// The bridge context allowed to send this message.
         var context: Context? {
             switch self {
-            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel: nil
+            case .configGet, .frontendReady, .systemHaptic, .systemShare, .alertPresent, .alertCancel, .systemScanQR: nil
             case .navigationCatalog, .navigationState, .navigationChrome, .authSignedOut, .presentationOpen,
                  .mediaIntakeStatus, .mediaIntake: .main
             case .presentationReady, .presentationUpdate, .presentationClose, .presentationNavigate: .presentation
@@ -223,6 +225,7 @@ public enum NativeBridgeProtocol {
         case "navigation/chrome": message = navigationChrome(payload).map(FrontendMessage.navigationChrome)
         case "alert/present": message = alertPresent(payload).map(FrontendMessage.alertPresent)
         case "alert/cancel": message = opaqueID(payload["alertId"]).map { .alertCancel(alertID: $0) }
+        case "system/scan-qr": message = scanQR(payload).map(FrontendMessage.systemScanQR)
         default: return .unknownType(type, id: requestID)
         }
         guard let message else { return .malformed(type: type, id: requestID) }
@@ -246,8 +249,10 @@ public enum NativeBridgeProtocol {
     }
 
     /// What the app offers each kind of page. Only the main page publishes
-    /// navigation and follows the auth lifecycle.
-    static func configPayload(context: Context) -> [String: JSONValue] {
+    /// navigation and follows the auth lifecycle. The scanner is offered to
+    /// both pages when the hardware can scan; Studio keeps manual entry
+    /// otherwise.
+    static func configPayload(context: Context, scannerAvailable: Bool = false) -> [String: JSONValue] {
         [
             "protocolVersion": .number(Double(version)),
             "context": .string(context.rawValue),
@@ -257,6 +262,7 @@ public enum NativeBridgeProtocol {
                 "nativePresentations": .bool(true),
                 "systemShare": .bool(true),
                 "systemHaptics": .bool(true),
+                "systemQrScanner": .bool(scannerAvailable),
                 "nativeMediaIntake": .bool(context == .main),
                 "deepLinks": .bool(context == .main),
                 "nativeAlerts": .bool(true),
@@ -309,6 +315,23 @@ public enum NativeBridgeProtocol {
         message("alert/action", ["alertId": .string(alertID), "actionId": .string(actionID)])
     }
 
+    /// Tells the page that asked how its QR scan ended. Only a scan
+    /// carries a value, and only a bounded one: the center normalizes
+    /// before this encodes.
+    static func qrScanResult(requestID: String, outcome: QRScanOutcome) -> JSONValue {
+        var payload: [String: JSONValue] = ["requestId": .string(requestID)]
+        switch outcome {
+        case .scanned(let value):
+            payload["outcome"] = .string("scanned")
+            payload["value"] = .string(value)
+        case .cancelled:
+            payload["outcome"] = .string("cancelled")
+        case .unavailable:
+            payload["outcome"] = .string("unavailable")
+        }
+        return message("system/qr-scan-result", payload)
+    }
+
     /// Relays a presentation's navigation to the main page's router.
     static func openPath(_ path: String) -> JSONValue {
         message("navigation/open-path", ["path": .string(path)])
@@ -354,6 +377,14 @@ public enum NativeBridgeProtocol {
     private static func hapticFeedback(_ payload: [String: JSONValue]) -> HapticFeedback?? {
         guard let token = payload["feedback"]?.string, isToken(token, 32) else { return nil }
         return .some(HapticFeedback(rawValue: token))
+    }
+
+    /// A scan request carries only its id, at the longer bound the
+    /// schema sets. Anything else in the payload refuses it.
+    private static func scanQR(_ payload: [String: JSONValue]) -> QRScanRequest? {
+        guard Set(payload.keys).isSubset(of: ["requestId"]),
+              let id = payload["requestId"]?.string, isIdentifier(id, maximumLength: QRScanRequest.maximumIDLength) else { return nil }
+        return QRScanRequest(requestID: id)
     }
 
     static let maximumMediaKinds = 4

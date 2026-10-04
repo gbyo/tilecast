@@ -35,6 +35,7 @@ function volatileRegions(scope: Page | Locator) {
     scope.getByRole("button", { name: /^Notifications,/ }),
     scope.locator("p").filter({ hasText: /last contact|Paired \d/ }),
     scope.getByText(/^Updated (?:just now|\d)/),
+    scope.locator("p").filter({ hasText: /^Requested: .* · Evaluated:/ }),
     scope.locator("p").filter({ hasText: /Last signed in/ }),
     scope
       .locator("dt")
@@ -54,6 +55,18 @@ function volatileRegions(scope: Page | Locator) {
       .getByRole("region", { name: "Pending pairing requests" })
       .locator('[data-slot="item-description"]'),
   ];
+}
+
+export async function snapshotRegion(
+  page: Page,
+  region: Locator,
+  name: string,
+) {
+  await settle(page);
+  await expect(region).toHaveScreenshot(`${name}.png`, {
+    mask: volatileRegions(region),
+    maskColor: "#808080",
+  });
 }
 
 export async function snapshot(
