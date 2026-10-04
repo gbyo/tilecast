@@ -165,6 +165,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
 import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
@@ -2935,13 +2936,21 @@ export function WebsiteEditor({
     setInput((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    addEventListener("beforeunload", handler);
-    return () => removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  // The host navigates synchronously inside onSaved, so the post-save
+  // departure consumes a pass instead of racing the dirty reset.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("media.website.discardTitle"),
+    body: t("media.website.discardDescription"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
   const diagnostics = useQuery({
     queryKey: ["assets", asset?.id, "website-diagnostics"],
     queryFn: () => api.websiteDiagnostics(asset!.id),
@@ -2966,6 +2975,7 @@ export function WebsiteEditor({
         type: "success",
       });
       setDirty(false);
+      departing.current = true;
       onSaved(value);
     },
   });
@@ -3376,6 +3386,7 @@ export function WebsiteEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {navigationDialog}
     </div>
   );
   if (page) {

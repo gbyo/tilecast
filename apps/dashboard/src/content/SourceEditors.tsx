@@ -27,6 +27,7 @@ import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "../components/ui/toast";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import {
   Select,
   SelectContent,
@@ -1298,13 +1299,21 @@ export function YouTubeSourceEditor({
     setConfiguration((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    addEventListener("beforeunload", warn);
-    return () => removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  // The host navigates synchronously inside onSaved, so the post-save
+  // departure consumes a pass instead of racing the dirty reset.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("widgets.editors.youtube.discardTitle"),
+    body: t("widgets.editors.youtube.discardHint"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -1323,6 +1332,7 @@ export function YouTubeSourceEditor({
         type: "success",
       });
       setDirty(false);
+      departing.current = true;
       void queryClient.invalidateQueries({ queryKey: ["assets"] });
       onSaved(saved);
     },
@@ -1690,6 +1700,7 @@ export function YouTubeSourceEditor({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        {navigationDialog}
       </section>
     </div>
   );
