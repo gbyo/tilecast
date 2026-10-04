@@ -9,8 +9,10 @@ import { z } from "zod";
 import {
   ApiError,
   PluginPage,
+  apiErrorMessage,
   useConfirm,
   useFormatLocale,
+  useNavigationWarning,
   usePluginTranslation,
   useStudioSession,
   type PluginT,
@@ -255,7 +257,7 @@ export function EmergencyAlertsPage() {
     reset,
     setValue,
     watch,
-    formState: { errors: ruleErrors },
+    formState: { errors: ruleErrors, isDirty: ruleFormDirty },
   } = useForm<NWSAlertRuleInput>({
     resolver: zodResolver(ruleSchema),
     defaultValues: emptyRule,
@@ -308,6 +310,47 @@ export function EmergencyAlertsPage() {
   const submitRule = handleSubmit((input) =>
     saveRule.mutate({ ...input, eventNames: labels(eventNamesText) }),
   );
+  // The event-names field lives outside react-hook-form, so it gets its own
+  // baseline from the rule being edited; monitor settings compare against the
+  // loaded settings once they hydrate.
+  const editingRule = editing
+    ? settings.data?.rules.find((rule) => rule.id === editing)
+    : undefined;
+  const eventNamesBaseline = editingRule
+    ? toInput(editingRule).eventNames.join(", ")
+    : emptyRule.eventNames.join(", ");
+  const monitorBaseline = settings.data?.monitor;
+  const monitorDirty =
+    monitorInitialized &&
+    monitorBaseline !== undefined &&
+    (enabled !== monitorBaseline.enabled ||
+      JSON.stringify(areas) !== JSON.stringify(monitorBaseline.areas) ||
+      JSON.stringify(zones) !== JSON.stringify(monitorBaseline.zones) ||
+      pollInterval !== monitorBaseline.pollIntervalSeconds);
+  const ruleDirty = ruleFormDirty || eventNamesText !== eventNamesBaseline;
+  const navigationDialog = useNavigationWarning({
+    dirty: ruleDirty || monitorDirty,
+    title: t("leaveTitle"),
+    body: t("leaveBody"),
+  });
+  const cancelEdit = () => {
+    setEditing(undefined);
+    reset(emptyRule);
+    setEventNamesText(emptyRule.eventNames.join(", "));
+  };
+  const requestCancelEdit = () => {
+    if (!ruleDirty) {
+      cancelEdit();
+      return;
+    }
+    void confirm({
+      title: t("leaveTitle"),
+      body: t("leaveBody"),
+      action: commonT("actions.discardChanges"),
+    }).then((ok) => {
+      if (ok) cancelEdit();
+    });
+  };
   const removeRule = useMutation({
     mutationFn: (id: string) => api.deleteNWSAlertRule(id, session.csrfToken),
     onSuccess: refresh,
@@ -316,6 +359,7 @@ export function EmergencyAlertsPage() {
   return (
     <>
       {confirmDialog}
+      {navigationDialog}
       <PluginPage
         pluginId="emergency_alerts"
         title={t("title")}
@@ -981,11 +1025,7 @@ export function EmergencyAlertsPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => {
-                        setEditing(undefined);
-                        reset(emptyRule);
-                        setEventNamesText(emptyRule.eventNames.join(", "));
-                      }}
+                      onClick={requestCancelEdit}
                     >
                       {commonT("actions.cancel")}
                     </Button>
@@ -1123,9 +1163,9 @@ const dateText = (value: string | undefined, locale: string, never: string) =>
   value ? new Date(value).toLocaleString(locale) : never;
 const errorText = (error: unknown) =>
   error instanceof ApiError
-    ? error.message
+    ? apiErrorMessage(error)
     : error instanceof Error
-      ? error.message
+      ? apiErrorMessage(error)
       : "";
 export const emergencyPlaylistLabel = (
   playlist: Pick<Playlist, "name" | "itemCount">,

@@ -3,6 +3,7 @@
 //! pairing protocol, and a scripted renderer on the real IPC socket.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use edge_server::{FileCredentialStore, FilePairingStore};
 use std::convert::Infallible;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -18,8 +19,6 @@ use edge_protocol::ipc::event::{Event, RendererInfo, RendererKind, RendererPlatf
 use edge_protocol::ipc::method::{Method, SubmitServerUrlParams};
 use edge_protocol::ipc::presentation::PresentationDocument;
 use edge_protocol::{InstallationId, ScreenId, Timestamp};
-use edge_server::DeviceCredential;
-use edge_server::pairing::PairingSession;
 use edge_state::repo::binding::{self, CredentialState};
 use edge_state::repo::daemon as daemon_repo;
 use http_body_util::{BodyExt as _, Full};
@@ -193,6 +192,7 @@ impl Renderer {
                                         refresh_millihertz: None,
                                     }),
                                     remote_web: None,
+                                    support: None,
                                 }))
                                 .await;
                         }
@@ -235,8 +235,8 @@ struct Player {
 impl Harness {
     async fn new() -> Self {
         let fake = Arc::new(FakeServer {
-            installation: InstallationId::new_random(),
-            screen: ScreenId::new_random(),
+            installation: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+            screen: ScreenId::from_uuid(uuid::Uuid::new_v4()),
             pairing_enabled: AtomicBool::new(true),
             pairing: Mutex::new(Pairing::default()),
             authenticated: AtomicUsize::new(0),
@@ -358,7 +358,7 @@ async fn a_clean_machine_pairs_is_approved_and_connects_without_legacy_state() {
     let bound = db.run(|c| binding::get(c)).await.unwrap().expect("binding");
     assert_eq!((bound.installation_id, bound.screen_id), (harness.fake.installation, Some(harness.fake.screen)));
     assert_eq!(bound.credential_state, CredentialState::Stored);
-    assert!(DeviceCredential::load(&harness.identity()).unwrap().is_some());
+    assert!(FileCredentialStore::read_at(&harness.identity()).unwrap().is_some());
     assert!(!harness.identity().join("pairing-session").exists(), "temporary secrets are cleared");
     wait_for("authenticated contact", || (harness.fake.authenticated.load(Ordering::SeqCst) > 0).then_some(())).await;
     assert_eq!(harness.fake.pairing.lock().unwrap().polls_with_code, 0, "the visible code never polls");
@@ -392,13 +392,13 @@ async fn a_session_survives_a_restart_and_a_saved_token_enrolls_after_a_crash() 
     // The approving poll happened and the process died before enrolling: the
     // token was saved first, so the next start enrolls with it even though
     // the server will never hand it out again.
-    let session = PairingSession::load(&harness.identity()).unwrap().unwrap();
-    session.with_enrollment_token(TOKEN.to_owned()).save(&harness.identity()).unwrap();
+    let session = FilePairingStore::read_at(&harness.identity()).unwrap().unwrap();
+    FilePairingStore::write_at(&session.with_enrollment_token(TOKEN.to_owned()), &harness.identity()).unwrap();
     harness.set_status("claimed");
     let player = harness.start().await;
     wait_for("enrollment with the saved token", || (harness.fake.pairing.lock().unwrap().enrolled == 1).then_some(()))
         .await;
-    wait_for("the credential", || DeviceCredential::load(&harness.identity()).unwrap()).await;
+    wait_for("the credential", || FileCredentialStore::read_at(&harness.identity()).unwrap()).await;
     player.stop().await;
 }
 

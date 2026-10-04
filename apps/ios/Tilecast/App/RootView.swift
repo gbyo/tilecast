@@ -19,6 +19,7 @@ struct RootView: View {
 
 /// First run: no servers are configured yet.
 struct WelcomeView: View {
+    @Environment(StudioHost.self) private var host
     @State private var addingServer = false
 
     var body: some View {
@@ -37,7 +38,7 @@ struct WelcomeView: View {
             }
         }
         .sheet(isPresented: $addingServer) {
-            AddServerView()
+            AddServerView(directory: host.directory)
         }
     }
 }

@@ -90,8 +90,7 @@ struct PresentationSheet: View {
             case .ready:
                 EmptyView()
             case .loading:
-                ProgressView()
-                    .controlSize(.large)
+                TilecastLoadingMark()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(.background)
                     .accessibilityIdentifier("presentation.loading")

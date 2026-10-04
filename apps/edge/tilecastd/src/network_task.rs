@@ -58,7 +58,7 @@ pub async fn run(context: Arc<DaemonContext>) {
             _ = ticker.tick() => false,
         };
         if configuration {
-            let section = crate::config_sync::effective(&context).presentation_network.clone();
+            let section = crate::config_sync::effective(&context).platform.presentation_network.clone();
             let provisioner = ServerProvisioner::new(&context);
             context.network.apply_configuration(section.as_ref(), &provisioner, context.now()).await;
         } else {

@@ -248,6 +248,8 @@ impl PresentationDocument {
 
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum PresentationError {
+    #[error("invalid renderer requirements")]
+    InvalidRequirements,
     #[error("presentation has too many items")]
     TooManyItems,
     #[error("presentation lists too many content objects")]

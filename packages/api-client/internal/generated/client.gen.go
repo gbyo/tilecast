@@ -2238,6 +2238,396 @@ func (e PersonalAccessTokenScopes) Valid() bool {
 	}
 }
 
+// Defines values for PlaybackPlanBasis.
+const (
+	CurrentConfiguration             PlaybackPlanBasis = "current_configuration"
+	HistoricalExpectationUnavailable PlaybackPlanBasis = "historical_expectation_unavailable"
+	RecordedExpectation              PlaybackPlanBasis = "recorded_expectation"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanBasis enum.
+func (e PlaybackPlanBasis) Valid() bool {
+	switch e {
+	case CurrentConfiguration:
+		return true
+	case HistoricalExpectationUnavailable:
+		return true
+	case RecordedExpectation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCandidateSource.
+const (
+	PlaybackPlanCandidateSourceAssignment   PlaybackPlanCandidateSource = "assignment"
+	PlaybackPlanCandidateSourceQuickPresent PlaybackPlanCandidateSource = "quick_present"
+	PlaybackPlanCandidateSourceSchedule     PlaybackPlanCandidateSource = "schedule"
+	PlaybackPlanCandidateSourceTakeover     PlaybackPlanCandidateSource = "takeover"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCandidateSource enum.
+func (e PlaybackPlanCandidateSource) Valid() bool {
+	switch e {
+	case PlaybackPlanCandidateSourceAssignment:
+		return true
+	case PlaybackPlanCandidateSourceQuickPresent:
+		return true
+	case PlaybackPlanCandidateSourceSchedule:
+		return true
+	case PlaybackPlanCandidateSourceTakeover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCandidateStatus.
+const (
+	PlaybackPlanCandidateStatusInactive   PlaybackPlanCandidateStatus = "inactive"
+	PlaybackPlanCandidateStatusSelected   PlaybackPlanCandidateStatus = "selected"
+	PlaybackPlanCandidateStatusSuperseded PlaybackPlanCandidateStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCandidateStatus enum.
+func (e PlaybackPlanCandidateStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanCandidateStatusInactive:
+		return true
+	case PlaybackPlanCandidateStatusSelected:
+		return true
+	case PlaybackPlanCandidateStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCapabilitiesReason.
+const (
+	PlaybackPlanCapabilitiesReasonManifestV13CapabilitiesNotReported PlaybackPlanCapabilitiesReason = "manifest_v13_capabilities_not_reported"
+	PlaybackPlanCapabilitiesReasonNoSelectedContent                  PlaybackPlanCapabilitiesReason = "no_selected_content"
+	PlaybackPlanCapabilitiesReasonNoWidgetPresentationRequirements   PlaybackPlanCapabilitiesReason = "no_widget_presentation_requirements"
+	PlaybackPlanCapabilitiesReasonPlayerCapabilitiesNotReported      PlaybackPlanCapabilitiesReason = "player_capabilities_not_reported"
+	PlaybackPlanCapabilitiesReasonPresentationRequirementsInvalid    PlaybackPlanCapabilitiesReason = "presentation_requirements_invalid"
+	PlaybackPlanCapabilitiesReasonReportedRequirementsSupported      PlaybackPlanCapabilitiesReason = "reported_requirements_supported"
+	PlaybackPlanCapabilitiesReasonSelectedContentNotFound            PlaybackPlanCapabilitiesReason = "selected_content_not_found"
+	PlaybackPlanCapabilitiesReasonSelectedContentNotPublished        PlaybackPlanCapabilitiesReason = "selected_content_not_published"
+	PlaybackPlanCapabilitiesReasonWidgetRequirementsUnsupported      PlaybackPlanCapabilitiesReason = "widget_requirements_unsupported"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCapabilitiesReason enum.
+func (e PlaybackPlanCapabilitiesReason) Valid() bool {
+	switch e {
+	case PlaybackPlanCapabilitiesReasonManifestV13CapabilitiesNotReported:
+		return true
+	case PlaybackPlanCapabilitiesReasonNoSelectedContent:
+		return true
+	case PlaybackPlanCapabilitiesReasonNoWidgetPresentationRequirements:
+		return true
+	case PlaybackPlanCapabilitiesReasonPlayerCapabilitiesNotReported:
+		return true
+	case PlaybackPlanCapabilitiesReasonPresentationRequirementsInvalid:
+		return true
+	case PlaybackPlanCapabilitiesReasonReportedRequirementsSupported:
+		return true
+	case PlaybackPlanCapabilitiesReasonSelectedContentNotFound:
+		return true
+	case PlaybackPlanCapabilitiesReasonSelectedContentNotPublished:
+		return true
+	case PlaybackPlanCapabilitiesReasonWidgetRequirementsUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCapabilitiesStatus.
+const (
+	PlaybackPlanCapabilitiesStatusBlocked       PlaybackPlanCapabilitiesStatus = "blocked"
+	PlaybackPlanCapabilitiesStatusNotApplicable PlaybackPlanCapabilitiesStatus = "not_applicable"
+	PlaybackPlanCapabilitiesStatusSupported     PlaybackPlanCapabilitiesStatus = "supported"
+	PlaybackPlanCapabilitiesStatusUnavailable   PlaybackPlanCapabilitiesStatus = "unavailable"
+	PlaybackPlanCapabilitiesStatusUnknown       PlaybackPlanCapabilitiesStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCapabilitiesStatus enum.
+func (e PlaybackPlanCapabilitiesStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanCapabilitiesStatusBlocked:
+		return true
+	case PlaybackPlanCapabilitiesStatusNotApplicable:
+		return true
+	case PlaybackPlanCapabilitiesStatusSupported:
+		return true
+	case PlaybackPlanCapabilitiesStatusUnavailable:
+		return true
+	case PlaybackPlanCapabilitiesStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCapabilityEvidenceReason.
+const (
+	PlaybackPlanCapabilityEvidenceReasonManifestV13CapabilitiesNotReported PlaybackPlanCapabilityEvidenceReason = "manifest_v13_capabilities_not_reported"
+	PlaybackPlanCapabilityEvidenceReasonNoWidgetPresentationRequirements   PlaybackPlanCapabilityEvidenceReason = "no_widget_presentation_requirements"
+	PlaybackPlanCapabilityEvidenceReasonPlayerCapabilitiesNotReported      PlaybackPlanCapabilityEvidenceReason = "player_capabilities_not_reported"
+	PlaybackPlanCapabilityEvidenceReasonReportedRequirementsSupported      PlaybackPlanCapabilityEvidenceReason = "reported_requirements_supported"
+	PlaybackPlanCapabilityEvidenceReasonWidgetRequirementsUnsupported      PlaybackPlanCapabilityEvidenceReason = "widget_requirements_unsupported"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCapabilityEvidenceReason enum.
+func (e PlaybackPlanCapabilityEvidenceReason) Valid() bool {
+	switch e {
+	case PlaybackPlanCapabilityEvidenceReasonManifestV13CapabilitiesNotReported:
+		return true
+	case PlaybackPlanCapabilityEvidenceReasonNoWidgetPresentationRequirements:
+		return true
+	case PlaybackPlanCapabilityEvidenceReasonPlayerCapabilitiesNotReported:
+		return true
+	case PlaybackPlanCapabilityEvidenceReasonReportedRequirementsSupported:
+		return true
+	case PlaybackPlanCapabilityEvidenceReasonWidgetRequirementsUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanCapabilityEvidenceStatus.
+const (
+	PlaybackPlanCapabilityEvidenceStatusBlocked       PlaybackPlanCapabilityEvidenceStatus = "blocked"
+	PlaybackPlanCapabilityEvidenceStatusNotApplicable PlaybackPlanCapabilityEvidenceStatus = "not_applicable"
+	PlaybackPlanCapabilityEvidenceStatusSupported     PlaybackPlanCapabilityEvidenceStatus = "supported"
+	PlaybackPlanCapabilityEvidenceStatusUnknown       PlaybackPlanCapabilityEvidenceStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanCapabilityEvidenceStatus enum.
+func (e PlaybackPlanCapabilityEvidenceStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanCapabilityEvidenceStatusBlocked:
+		return true
+	case PlaybackPlanCapabilityEvidenceStatusNotApplicable:
+		return true
+	case PlaybackPlanCapabilityEvidenceStatusSupported:
+		return true
+	case PlaybackPlanCapabilityEvidenceStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanScheduleCandidateStatus.
+const (
+	PlaybackPlanScheduleCandidateStatusInactive   PlaybackPlanScheduleCandidateStatus = "inactive"
+	PlaybackPlanScheduleCandidateStatusSelected   PlaybackPlanScheduleCandidateStatus = "selected"
+	PlaybackPlanScheduleCandidateStatusSuperseded PlaybackPlanScheduleCandidateStatus = "superseded"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanScheduleCandidateStatus enum.
+func (e PlaybackPlanScheduleCandidateStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanScheduleCandidateStatusInactive:
+		return true
+	case PlaybackPlanScheduleCandidateStatusSelected:
+		return true
+	case PlaybackPlanScheduleCandidateStatusSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanSelectionContentType.
+const (
+	PlaybackPlanSelectionContentTypeAsset    PlaybackPlanSelectionContentType = "asset"
+	PlaybackPlanSelectionContentTypeLayout   PlaybackPlanSelectionContentType = "layout"
+	PlaybackPlanSelectionContentTypePlaylist PlaybackPlanSelectionContentType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanSelectionContentType enum.
+func (e PlaybackPlanSelectionContentType) Valid() bool {
+	switch e {
+	case PlaybackPlanSelectionContentTypeAsset:
+		return true
+	case PlaybackPlanSelectionContentTypeLayout:
+		return true
+	case PlaybackPlanSelectionContentTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanSelectionSource.
+const (
+	PlaybackPlanSelectionSourceAssignment   PlaybackPlanSelectionSource = "assignment"
+	PlaybackPlanSelectionSourceQuickPresent PlaybackPlanSelectionSource = "quick_present"
+	PlaybackPlanSelectionSourceSchedule     PlaybackPlanSelectionSource = "schedule"
+	PlaybackPlanSelectionSourceTakeover     PlaybackPlanSelectionSource = "takeover"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanSelectionSource enum.
+func (e PlaybackPlanSelectionSource) Valid() bool {
+	switch e {
+	case PlaybackPlanSelectionSourceAssignment:
+		return true
+	case PlaybackPlanSelectionSourceQuickPresent:
+		return true
+	case PlaybackPlanSelectionSourceSchedule:
+		return true
+	case PlaybackPlanSelectionSourceTakeover:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanSelectionReason.
+const (
+	ActiveQuickPresent        PlaybackPlanSelectionReason = "active_quick_present"
+	ActiveTakeover            PlaybackPlanSelectionReason = "active_takeover"
+	AssignedFallback          PlaybackPlanSelectionReason = "assigned_fallback"
+	NoActiveQuickPresent      PlaybackPlanSelectionReason = "no_active_quick_present"
+	NoActiveTakeover          PlaybackPlanSelectionReason = "no_active_takeover"
+	NoAssignment              PlaybackPlanSelectionReason = "no_assignment"
+	ScheduleDisabled          PlaybackPlanSelectionReason = "schedule_disabled"
+	ScheduleEarlierStart      PlaybackPlanSelectionReason = "schedule_earlier_start"
+	ScheduleHighestPrecedence PlaybackPlanSelectionReason = "schedule_highest_precedence"
+	ScheduleLessSpecific      PlaybackPlanSelectionReason = "schedule_less_specific"
+	ScheduleLowerPriority     PlaybackPlanSelectionReason = "schedule_lower_priority"
+	ScheduleNotActive         PlaybackPlanSelectionReason = "schedule_not_active"
+	ScheduleStableIdTiebreak  PlaybackPlanSelectionReason = "schedule_stable_id_tiebreak"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanSelectionReason enum.
+func (e PlaybackPlanSelectionReason) Valid() bool {
+	switch e {
+	case ActiveQuickPresent:
+		return true
+	case ActiveTakeover:
+		return true
+	case AssignedFallback:
+		return true
+	case NoActiveQuickPresent:
+		return true
+	case NoActiveTakeover:
+		return true
+	case NoAssignment:
+		return true
+	case ScheduleDisabled:
+		return true
+	case ScheduleEarlierStart:
+		return true
+	case ScheduleHighestPrecedence:
+		return true
+	case ScheduleLessSpecific:
+		return true
+	case ScheduleLowerPriority:
+		return true
+	case ScheduleNotActive:
+		return true
+	case ScheduleStableIdTiebreak:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanSynchronizationStatus.
+const (
+	PlaybackPlanSynchronizationStatusCurrent     PlaybackPlanSynchronizationStatus = "current"
+	PlaybackPlanSynchronizationStatusNotReported PlaybackPlanSynchronizationStatus = "not_reported"
+	PlaybackPlanSynchronizationStatusOutOfDate   PlaybackPlanSynchronizationStatus = "out_of_date"
+	PlaybackPlanSynchronizationStatusPreparing   PlaybackPlanSynchronizationStatus = "preparing"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanSynchronizationStatus enum.
+func (e PlaybackPlanSynchronizationStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanSynchronizationStatusCurrent:
+		return true
+	case PlaybackPlanSynchronizationStatusNotReported:
+		return true
+	case PlaybackPlanSynchronizationStatusOutOfDate:
+		return true
+	case PlaybackPlanSynchronizationStatusPreparing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanWidgetCapabilitiesReason.
+const (
+	PlaybackPlanWidgetCapabilitiesReasonComponentCapabilitiesNotReported    PlaybackPlanWidgetCapabilitiesReason = "component_capabilities_not_reported"
+	PlaybackPlanWidgetCapabilitiesReasonNoPresentationRequirements          PlaybackPlanWidgetCapabilitiesReason = "no_presentation_requirements"
+	PlaybackPlanWidgetCapabilitiesReasonPlayerCapabilitiesNotReported       PlaybackPlanWidgetCapabilitiesReason = "player_capabilities_not_reported"
+	PlaybackPlanWidgetCapabilitiesReasonPresentationRequirementsUnsupported PlaybackPlanWidgetCapabilitiesReason = "presentation_requirements_unsupported"
+	PlaybackPlanWidgetCapabilitiesReasonReportedRequirementsSupported       PlaybackPlanWidgetCapabilitiesReason = "reported_requirements_supported"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanWidgetCapabilitiesReason enum.
+func (e PlaybackPlanWidgetCapabilitiesReason) Valid() bool {
+	switch e {
+	case PlaybackPlanWidgetCapabilitiesReasonComponentCapabilitiesNotReported:
+		return true
+	case PlaybackPlanWidgetCapabilitiesReasonNoPresentationRequirements:
+		return true
+	case PlaybackPlanWidgetCapabilitiesReasonPlayerCapabilitiesNotReported:
+		return true
+	case PlaybackPlanWidgetCapabilitiesReasonPresentationRequirementsUnsupported:
+		return true
+	case PlaybackPlanWidgetCapabilitiesReasonReportedRequirementsSupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanWidgetCapabilitiesSelectedRenderer.
+const (
+	PlaybackPlanWidgetCapabilitiesSelectedRendererCompatibility PlaybackPlanWidgetCapabilitiesSelectedRenderer = "compatibility"
+	PlaybackPlanWidgetCapabilitiesSelectedRendererComponent     PlaybackPlanWidgetCapabilitiesSelectedRenderer = "component"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanWidgetCapabilitiesSelectedRenderer enum.
+func (e PlaybackPlanWidgetCapabilitiesSelectedRenderer) Valid() bool {
+	switch e {
+	case PlaybackPlanWidgetCapabilitiesSelectedRendererCompatibility:
+		return true
+	case PlaybackPlanWidgetCapabilitiesSelectedRendererComponent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlaybackPlanWidgetCapabilitiesStatus.
+const (
+	PlaybackPlanWidgetCapabilitiesStatusBlocked   PlaybackPlanWidgetCapabilitiesStatus = "blocked"
+	PlaybackPlanWidgetCapabilitiesStatusSupported PlaybackPlanWidgetCapabilitiesStatus = "supported"
+	PlaybackPlanWidgetCapabilitiesStatusUnknown   PlaybackPlanWidgetCapabilitiesStatus = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the PlaybackPlanWidgetCapabilitiesStatus enum.
+func (e PlaybackPlanWidgetCapabilitiesStatus) Valid() bool {
+	switch e {
+	case PlaybackPlanWidgetCapabilitiesStatusBlocked:
+		return true
+	case PlaybackPlanWidgetCapabilitiesStatusSupported:
+		return true
+	case PlaybackPlanWidgetCapabilitiesStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlayerCommandState.
 const (
 	PlayerCommandStateAcknowledged PlayerCommandState = "acknowledged"
@@ -3648,6 +4038,24 @@ func (e ScreenHealth) Valid() bool {
 	}
 }
 
+// Defines values for ScreenMapPositionSource.
+const (
+	ScreenMapPositionSourceLocation ScreenMapPositionSource = "location"
+	ScreenMapPositionSourceScreen   ScreenMapPositionSource = "screen"
+)
+
+// Valid indicates whether the value is a known member of the ScreenMapPositionSource enum.
+func (e ScreenMapPositionSource) Valid() bool {
+	switch e {
+	case ScreenMapPositionSourceLocation:
+		return true
+	case ScreenMapPositionSourceScreen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenPlaylistAssignmentPresentationType.
 const (
 	ScreenPlaylistAssignmentPresentationTypeLayout   ScreenPlaylistAssignmentPresentationType = "layout"
@@ -3719,22 +4127,40 @@ func (e ScreenPlaylistAssignmentSynchronizationStatus) Valid() bool {
 
 // Defines values for ScreenPreviewMetadataStatus.
 const (
-	Available    ScreenPreviewMetadataStatus = "available"
-	CaptureError ScreenPreviewMetadataStatus = "capture_error"
-	Loading      ScreenPreviewMetadataStatus = "loading"
-	Unavailable  ScreenPreviewMetadataStatus = "unavailable"
+	ScreenPreviewMetadataStatusAvailable    ScreenPreviewMetadataStatus = "available"
+	ScreenPreviewMetadataStatusCaptureError ScreenPreviewMetadataStatus = "capture_error"
+	ScreenPreviewMetadataStatusLoading      ScreenPreviewMetadataStatus = "loading"
+	ScreenPreviewMetadataStatusUnavailable  ScreenPreviewMetadataStatus = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the ScreenPreviewMetadataStatus enum.
 func (e ScreenPreviewMetadataStatus) Valid() bool {
 	switch e {
-	case Available:
+	case ScreenPreviewMetadataStatusAvailable:
 		return true
-	case CaptureError:
+	case ScreenPreviewMetadataStatusCaptureError:
 		return true
-	case Loading:
+	case ScreenPreviewMetadataStatusLoading:
 		return true
-	case Unavailable:
+	case ScreenPreviewMetadataStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScreenScopeType.
+const (
+	ScreenScopeTypeGroup    ScreenScopeType = "group"
+	ScreenScopeTypeLocation ScreenScopeType = "location"
+)
+
+// Valid indicates whether the value is a known member of the ScreenScopeType enum.
+func (e ScreenScopeType) Valid() bool {
+	switch e {
+	case ScreenScopeTypeGroup:
+		return true
+	case ScreenScopeTypeLocation:
 		return true
 	default:
 		return false
@@ -7665,6 +8091,12 @@ type ManifestSchedule struct {
 // ManifestScheduleType defines model for ManifestSchedule.Type.
 type ManifestScheduleType string
 
+// MapCoordinates defines model for MapCoordinates.
+type MapCoordinates struct {
+	Latitude  float32 `json:"latitude"`
+	Longitude float32 `json:"longitude"`
+}
+
 // MediaDiagnostics defines model for MediaDiagnostics.
 type MediaDiagnostics struct {
 	AvailableStorageBytes int  `json:"availableStorageBytes"`
@@ -7949,6 +8381,198 @@ type PersonalAccessTokenCreated struct {
 type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
 }
+
+// PlaybackPlan Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+type PlaybackPlan struct {
+	At          time.Time               `json:"at"`
+	Basis       PlaybackPlanBasis       `json:"basis"`
+	Current     *PlaybackPlanCurrent    `json:"current,omitempty"`
+	EvaluatedAt time.Time               `json:"evaluatedAt"`
+	Historical  *PlaybackPlanHistorical `json:"historical,omitempty"`
+	ScreenId    openapi_types.UUID      `json:"screenId"`
+}
+
+// PlaybackPlanBasis defines model for PlaybackPlan.Basis.
+type PlaybackPlanBasis string
+
+// PlaybackPlanCandidate defines model for PlaybackPlanCandidate.
+type PlaybackPlanCandidate struct {
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// Name Current schedule candidate name, when available.
+	Name   *string                     `json:"name,omitempty"`
+	Reason PlaybackPlanSelectionReason `json:"reason"`
+
+	// Schedule Scheduling authority evidence remains available when a temporary presentation supersedes the schedule.
+	Schedule       *PlaybackPlanScheduleCandidate `json:"schedule,omitempty"`
+	ScheduleReason *PlaybackPlanSelectionReason   `json:"scheduleReason,omitempty"`
+	Source         PlaybackPlanCandidateSource    `json:"source"`
+	Status         PlaybackPlanCandidateStatus    `json:"status"`
+}
+
+// PlaybackPlanCandidateSource defines model for PlaybackPlanCandidate.Source.
+type PlaybackPlanCandidateSource string
+
+// PlaybackPlanCandidateStatus defines model for PlaybackPlanCandidate.Status.
+type PlaybackPlanCandidateStatus string
+
+// PlaybackPlanCapabilities defines model for PlaybackPlanCapabilities.
+type PlaybackPlanCapabilities struct {
+	// Evidence Widget presentation requirements and reported support. No Data Source configuration or content payload is returned. Media decoder, network, readiness, and actual rendering behavior are outside this evidence.
+	Evidence *PlaybackPlanCapabilityEvidence `json:"evidence,omitempty"`
+	Reason   PlaybackPlanCapabilitiesReason  `json:"reason"`
+	Status   PlaybackPlanCapabilitiesStatus  `json:"status"`
+}
+
+// PlaybackPlanCapabilitiesReason defines model for PlaybackPlanCapabilities.Reason.
+type PlaybackPlanCapabilitiesReason string
+
+// PlaybackPlanCapabilitiesStatus defines model for PlaybackPlanCapabilities.Status.
+type PlaybackPlanCapabilitiesStatus string
+
+// PlaybackPlanCapabilityEvidence Widget presentation requirements and reported support. No Data Source configuration or content payload is returned. Media decoder, network, readiness, and actual rendering behavior are outside this evidence.
+type PlaybackPlanCapabilityEvidence struct {
+	NativeCapabilities  map[string]int                       `json:"nativeCapabilities"`
+	Reason              PlaybackPlanCapabilityEvidenceReason `json:"reason"`
+	Reported            bool                                 `json:"reported"`
+	RequiresManifestV13 bool                                 `json:"requiresManifestV13"`
+	SchemaVersions      []int                                `json:"schemaVersions"`
+	ScreenId            openapi_types.UUID                   `json:"screenId"`
+	Status              PlaybackPlanCapabilityEvidenceStatus `json:"status"`
+	WebRuntimeVersion   int                                  `json:"webRuntimeVersion"`
+	Widgets             []PlaybackPlanWidgetCapabilities     `json:"widgets"`
+}
+
+// PlaybackPlanCapabilityEvidenceReason defines model for PlaybackPlanCapabilityEvidence.Reason.
+type PlaybackPlanCapabilityEvidenceReason string
+
+// PlaybackPlanCapabilityEvidenceStatus defines model for PlaybackPlanCapabilityEvidence.Status.
+type PlaybackPlanCapabilityEvidenceStatus string
+
+// PlaybackPlanCurrent defines model for PlaybackPlanCurrent.
+type PlaybackPlanCurrent struct {
+	Candidates   []PlaybackPlanCandidate  `json:"candidates"`
+	Capabilities PlaybackPlanCapabilities `json:"capabilities"`
+
+	// NextEvaluationAt Next reevaluation boundary, not a guarantee that selected content changes.
+	NextEvaluationAt *time.Time             `json:"nextEvaluationAt,omitempty"`
+	Selected         *PlaybackPlanSelection `json:"selected,omitempty"`
+
+	// Synchronization Latest reported manifest synchronization; not content readiness or proof of playback.
+	Synchronization PlaybackPlanSynchronization `json:"synchronization"`
+}
+
+// PlaybackPlanError defines model for PlaybackPlanError.
+type PlaybackPlanError struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// PlaybackPlanHistorical defines model for PlaybackPlanHistorical.
+type PlaybackPlanHistorical struct {
+	Expectation *PlaybackPlanRecordedExpectation `json:"expectation,omitempty"`
+}
+
+// PlaybackPlanPresentationRequirements defines model for PlaybackPlanPresentationRequirements.
+type PlaybackPlanPresentationRequirements struct {
+	Capabilities  map[string]int `json:"capabilities"`
+	SchemaVersion int            `json:"schemaVersion"`
+
+	// Supported Null until the Player reports its presentation profile.
+	Supported *bool `json:"supported"`
+}
+
+// PlaybackPlanRecordedExpectation defines model for PlaybackPlanRecordedExpectation.
+type PlaybackPlanRecordedExpectation struct {
+	ContentId            *string            `json:"contentId,omitempty"`
+	ContentType          *string            `json:"contentType,omitempty"`
+	End                  *time.Time         `json:"end,omitempty"`
+	ManifestVersion      *int64             `json:"manifestVersion,omitempty"`
+	PresentationId       string             `json:"presentationId"`
+	PresentationRevision string             `json:"presentationRevision"`
+	PresentationType     string             `json:"presentationType"`
+	ScheduleId           *string            `json:"scheduleId,omitempty"`
+	Source               string             `json:"source"`
+	Start                time.Time          `json:"start"`
+	SupersededAt         *time.Time         `json:"supersededAt,omitempty"`
+	SupersededReason     *string            `json:"supersededReason,omitempty"`
+	Timezone             string             `json:"timezone"`
+	WindowId             openapi_types.UUID `json:"windowId"`
+}
+
+// PlaybackPlanScheduleCandidate Scheduling authority evidence remains available when a temporary presentation supersedes the schedule.
+type PlaybackPlanScheduleCandidate struct {
+	End         *time.Time                          `json:"end,omitempty"`
+	Priority    int                                 `json:"priority"`
+	Reason      PlaybackPlanSelectionReason         `json:"reason"`
+	ScheduleId  openapi_types.UUID                  `json:"scheduleId"`
+	Specificity int                                 `json:"specificity"`
+	Start       *time.Time                          `json:"start,omitempty"`
+	Status      PlaybackPlanScheduleCandidateStatus `json:"status"`
+}
+
+// PlaybackPlanScheduleCandidateStatus defines model for PlaybackPlanScheduleCandidate.Status.
+type PlaybackPlanScheduleCandidateStatus string
+
+// PlaybackPlanSelection defines model for PlaybackPlanSelection.
+type PlaybackPlanSelection struct {
+	ContentId   openapi_types.UUID               `json:"contentId"`
+	ContentType PlaybackPlanSelectionContentType `json:"contentType"`
+
+	// Name Current selected content name; absent for a missing resource.
+	Name   *string                     `json:"name,omitempty"`
+	Reason PlaybackPlanSelectionReason `json:"reason"`
+
+	// Revision Current playlist or published Layout revision; absent for assets, missing resources, and unpublished Layouts.
+	Revision *int64 `json:"revision,omitempty"`
+
+	// ScheduleName Current selected schedule name, when a schedule selects the content.
+	ScheduleName *string                     `json:"scheduleName,omitempty"`
+	SelectionId  *openapi_types.UUID         `json:"selectionId,omitempty"`
+	Source       PlaybackPlanSelectionSource `json:"source"`
+}
+
+// PlaybackPlanSelectionContentType defines model for PlaybackPlanSelection.ContentType.
+type PlaybackPlanSelectionContentType string
+
+// PlaybackPlanSelectionSource defines model for PlaybackPlanSelection.Source.
+type PlaybackPlanSelectionSource string
+
+// PlaybackPlanSelectionReason defines model for PlaybackPlanSelectionReason.
+type PlaybackPlanSelectionReason string
+
+// PlaybackPlanSynchronization Latest reported manifest synchronization; not content readiness or proof of playback.
+type PlaybackPlanSynchronization struct {
+	ActiveManifestVersion  *int64                            `json:"activeManifestVersion,omitempty"`
+	ManifestVersion        int64                             `json:"manifestVersion"`
+	PendingManifestVersion *int64                            `json:"pendingManifestVersion,omitempty"`
+	Status                 PlaybackPlanSynchronizationStatus `json:"status"`
+}
+
+// PlaybackPlanSynchronizationStatus defines model for PlaybackPlanSynchronization.Status.
+type PlaybackPlanSynchronizationStatus string
+
+// PlaybackPlanWidgetCapabilities defines model for PlaybackPlanWidgetCapabilities.
+type PlaybackPlanWidgetCapabilities struct {
+	AssetId          openapi_types.UUID                              `json:"assetId"`
+	Compatibility    *PlaybackPlanPresentationRequirements           `json:"compatibility,omitempty"`
+	Component        *PlaybackPlanPresentationRequirements           `json:"component,omitempty"`
+	Name             string                                          `json:"name"`
+	Reason           PlaybackPlanWidgetCapabilitiesReason            `json:"reason"`
+	SelectedRenderer *PlaybackPlanWidgetCapabilitiesSelectedRenderer `json:"selectedRenderer,omitempty"`
+	Status           PlaybackPlanWidgetCapabilitiesStatus            `json:"status"`
+}
+
+// PlaybackPlanWidgetCapabilitiesReason defines model for PlaybackPlanWidgetCapabilities.Reason.
+type PlaybackPlanWidgetCapabilitiesReason string
+
+// PlaybackPlanWidgetCapabilitiesSelectedRenderer defines model for PlaybackPlanWidgetCapabilities.SelectedRenderer.
+type PlaybackPlanWidgetCapabilitiesSelectedRenderer string
+
+// PlaybackPlanWidgetCapabilitiesStatus defines model for PlaybackPlanWidgetCapabilities.Status.
+type PlaybackPlanWidgetCapabilitiesStatus string
 
 // PlayerActivityBatchResult defines model for PlayerActivityBatchResult.
 type PlayerActivityBatchResult struct {
@@ -9176,6 +9800,8 @@ type Screen struct {
 	Location                  string              `json:"location"`
 	LocationDetails           *ScreenLocation     `json:"locationDetails,omitempty"`
 	LocationId                *openapi_types.UUID `json:"locationId,omitempty"`
+	MapPosition               *ScreenMapPosition  `json:"mapPosition,omitempty"`
+	MapPositionOverride       *MapCoordinates     `json:"mapPositionOverride,omitempty"`
 	Name                      string              `json:"name"`
 	NowPlayingName            *string             `json:"nowPlayingName,omitempty"`
 	NowPlayingType            *string             `json:"nowPlayingType,omitempty"`
@@ -9356,6 +9982,16 @@ type ScreenLocation struct {
 	UpdatedAt    time.Time          `json:"updatedAt"`
 }
 
+// ScreenMapPosition defines model for ScreenMapPosition.
+type ScreenMapPosition struct {
+	Latitude  float32                 `json:"latitude"`
+	Longitude float32                 `json:"longitude"`
+	Source    ScreenMapPositionSource `json:"source"`
+}
+
+// ScreenMapPositionSource defines model for ScreenMapPosition.Source.
+type ScreenMapPositionSource string
+
 // ScreenPlaylistAssignment defines model for ScreenPlaylistAssignment.
 type ScreenPlaylistAssignment struct {
 	ActiveConfigRevision          *int64                                        `json:"activeConfigRevision,omitempty"`
@@ -9442,6 +10078,22 @@ type ScreenPreviewMetadata struct {
 
 // ScreenPreviewMetadataStatus defines model for ScreenPreviewMetadata.Status.
 type ScreenPreviewMetadataStatus string
+
+// ScreenScope defines model for ScreenScope.
+type ScreenScope struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name *string            `json:"name,omitempty"`
+	Type ScreenScopeType    `json:"type"`
+}
+
+// ScreenScopeType defines model for ScreenScope.Type.
+type ScreenScopeType string
+
+// ScreenScopeList defines model for ScreenScopeList.
+type ScreenScopeList struct {
+	Scopes     []ScreenScope `json:"scopes"`
+	WholeFleet bool          `json:"wholeFleet"`
+}
 
 // ScreenSnapshot defines model for ScreenSnapshot.
 type ScreenSnapshot struct {
@@ -11818,11 +12470,12 @@ type RejectPairingJSONBody struct {
 
 // UpdateScreenJSONBody defines parameters for UpdateScreen.
 type UpdateScreenJSONBody struct {
-	Description *string             `json:"description,omitempty"`
-	LocationId  *openapi_types.UUID `json:"locationId,omitempty"`
-	Name        *string             `json:"name,omitempty"`
-	RoomName    *string             `json:"roomName,omitempty"`
-	RoomNumber  *string             `json:"roomNumber,omitempty"`
+	Description         *string             `json:"description,omitempty"`
+	LocationId          *openapi_types.UUID `json:"locationId,omitempty"`
+	MapPositionOverride *MapCoordinates     `json:"mapPositionOverride,omitempty"`
+	Name                *string             `json:"name,omitempty"`
+	RoomName            *string             `json:"roomName,omitempty"`
+	RoomNumber          *string             `json:"roomNumber,omitempty"`
 }
 
 // CancelPlayerCommandParams defines parameters for CancelPlayerCommand.
@@ -11844,6 +12497,12 @@ type EndLiveStreamParams struct {
 // RenewLiveStreamParams defines parameters for RenewLiveStream.
 type RenewLiveStreamParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// GetScreenPlaybackPlanParams defines parameters for GetScreenPlaybackPlan.
+type GetScreenPlaybackPlanParams struct {
+	// At One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected.
+	At *time.Time `form:"at,omitempty" json:"at,omitempty"`
 }
 
 // RemovePlaylistAssignmentParams defines parameters for RemovePlaylistAssignment.
@@ -12068,6 +12727,16 @@ type UpdateUserJSONBodyRole string
 
 // PermanentlyDeleteUserParams defines parameters for PermanentlyDeleteUser.
 type PermanentlyDeleteUserParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutUserScreenScopesJSONBody defines parameters for PutUserScreenScopes.
+type PutUserScreenScopesJSONBody struct {
+	Scopes []ScreenScope `json:"scopes"`
+}
+
+// PutUserScreenScopesParams defines parameters for PutUserScreenScopes.
+type PutUserScreenScopesParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
@@ -12476,6 +13145,9 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// PutUserScreenScopesJSONRequestBody defines body for PutUserScreenScopes for application/json ContentType.
+type PutUserScreenScopesJSONRequestBody PutUserScreenScopesJSONBody
 
 // CreateWidgetJSONRequestBody defines body for CreateWidget for application/json ContentType.
 type CreateWidgetJSONRequestBody = WidgetInput
@@ -15783,6 +16455,11 @@ type ClientInterface interface {
 	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetScreenPlaybackPlan performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
+	//
+	// Inspect expected presentation selection for one Screen. Requires the read scope and access to the Screen. Omit at to use captured server time. Instants before captured server time use recorded expected playback windows. Historical gaps do not use current configuration. Current and future instants evaluate current configuration in one read-only snapshot. Reported capability and synchronization evidence describes current state, including for future predictions. This endpoint does not prove actual play.
+	GetScreenPlaybackPlan(ctx context.Context, id ResourceID, params *GetScreenPlaybackPlanParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListScreenPlayerHistory performs a GET /api/v1/screens/{id}/player-history (the `ListScreenPlayerHistory` operationId) request.
 	//
 	// List screen player history. Requires an authenticated dashboard user.
@@ -16282,6 +16959,23 @@ type ClientInterface interface {
 	//
 	// Permanently removes an inactive user account. Account-owned preferences, sessions, grants, and security credentials are removed; retained records keep their history with user attribution cleared.
 	PermanentlyDeleteUser(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+	//
+	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResetUserSecurity performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
 	//
@@ -22948,6 +23642,21 @@ func (c *Client) RenewLiveStream(ctx context.Context, id ResourceID, sessionId o
 	return c.Client.Do(req)
 }
 
+// GetScreenPlaybackPlan performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
+//
+// Inspect expected presentation selection for one Screen. Requires the read scope and access to the Screen. Omit at to use captured server time. Instants before captured server time use recorded expected playback windows. Historical gaps do not use current configuration. Current and future instants evaluate current configuration in one read-only snapshot. Reported capability and synchronization evidence describes current state, including for future predictions. This endpoint does not prove actual play.
+func (c *Client) GetScreenPlaybackPlan(ctx context.Context, id ResourceID, params *GetScreenPlaybackPlanParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScreenPlaybackPlanRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListScreenPlayerHistory performs a GET /api/v1/screens/{id}/player-history (the `ListScreenPlayerHistory` operationId) request.
 //
 // List screen player history. Requires an authenticated dashboard user.
@@ -24228,6 +24937,53 @@ func (c *Client) UpdateUser(ctx context.Context, id openapi_types.UUID, params *
 // Permanently removes an inactive user account. Account-owned preferences, sessions, grants, and security credentials are removed; retained records keep their history with user attribution cleared.
 func (c *Client) PermanentlyDeleteUser(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPermanentlyDeleteUserRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+//
+// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+func (c *Client) GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserScreenScopesRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *Client) PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserScreenScopesRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *Client) PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserScreenScopesRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -39402,6 +40158,67 @@ func NewRenewLiveStreamRequest(server string, id ResourceID, sessionId openapi_t
 	return req, nil
 }
 
+// NewGetScreenPlaybackPlanRequest constructs an http.Request for the GetScreenPlaybackPlan method
+func NewGetScreenPlaybackPlanRequest(server string, id ResourceID, params *GetScreenPlaybackPlanParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/playback-plan", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.At != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "at", *params.At, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListScreenPlayerHistoryRequest constructs an http.Request for the ListScreenPlayerHistory method
 func NewListScreenPlayerHistoryRequest(server string, id openapi_types.UUID) (*http.Request, error) {
 	var err error
@@ -41950,6 +42767,100 @@ func NewPermanentlyDeleteUserRequest(server string, id openapi_types.UUID, param
 	if err != nil {
 		return nil, err
 	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetUserScreenScopesRequest constructs an http.Request for the GetUserScreenScopes method
+func NewGetUserScreenScopesRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/screen-scopes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutUserScreenScopesRequest calls the generic PutUserScreenScopes builder with application/json body
+func NewPutUserScreenScopesRequest(server string, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutUserScreenScopesRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewPutUserScreenScopesRequestWithBody constructs an http.Request for the PutUserScreenScopes method, with any body, and a specified content type
+func NewPutUserScreenScopesRequestWithBody(server string, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/screen-scopes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	if params != nil {
 
@@ -45399,6 +46310,13 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error)
 
+	// GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
+	//
+	// Inspect expected presentation selection for one Screen. Requires the read scope and access to the Screen. Omit at to use captured server time. Instants before captured server time use recorded expected playback windows. Historical gaps do not use current configuration. Current and future instants evaluate current configuration in one read-only snapshot. Reported capability and synchronization evidence describes current state, including for future predictions. This endpoint does not prove actual play.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetScreenPlaybackPlanWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackPlanParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackPlanResponse, error)
+
 	// ListScreenPlayerHistoryWithResponse performs a GET /api/v1/screens/{id}/player-history (the `ListScreenPlayerHistory` operationId) request.
 	//
 	// List screen player history. Requires an authenticated dashboard user.
@@ -46004,6 +46922,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	PermanentlyDeleteUserWithResponse(ctx context.Context, id openapi_types.UUID, params *PermanentlyDeleteUserParams, reqEditors ...RequestEditorFn) (*PermanentlyDeleteUserResponse, error)
+
+	// GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+	//
+	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error)
+
+	// PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
+
+	// PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
 
 	// ResetUserSecurityWithResponse performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
 	//
@@ -59144,6 +60083,67 @@ func (r RenewLiveStreamResponse) ContentType() string {
 	return ""
 }
 
+type GetScreenPlaybackPlanResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+		Data PlaybackPlan `json:"data"`
+	}
+	// JSON400 the response for an HTTP 400 `application/json` response
+	JSON400 *PlaybackPlanError
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PlaybackPlanError
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPlaybackPlanResponse) GetJSON200() *struct {
+	// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+	Data PlaybackPlan `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetJSON400 returns the response for an HTTP 400 `application/json` response
+func (r GetScreenPlaybackPlanResponse) GetJSON400() *PlaybackPlanError {
+	return r.JSON400
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r GetScreenPlaybackPlanResponse) GetJSON409() *PlaybackPlanError {
+	return r.JSON409
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScreenPlaybackPlanResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScreenPlaybackPlanResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScreenPlaybackPlanResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScreenPlaybackPlanResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListScreenPlayerHistoryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -61776,6 +62776,96 @@ func (r PermanentlyDeleteUserResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r PermanentlyDeleteUserResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetUserScreenScopesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenScopeList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetUserScreenScopesResponse) GetJSON200() *struct {
+	Data ScreenScopeList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetUserScreenScopesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserScreenScopesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserScreenScopesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserScreenScopesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutUserScreenScopesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data ScreenScopeList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutUserScreenScopesResponse) GetJSON200() *struct {
+	Data ScreenScopeList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PutUserScreenScopesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutUserScreenScopesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutUserScreenScopesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutUserScreenScopesResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -67749,6 +68839,19 @@ func (c *ClientWithResponses) RenewLiveStreamWithResponse(ctx context.Context, i
 	return ParseRenewLiveStreamResponse(rsp)
 }
 
+// GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
+//
+// Inspect expected presentation selection for one Screen. Requires the read scope and access to the Screen. Omit at to use captured server time. Instants before captured server time use recorded expected playback windows. Historical gaps do not use current configuration. Current and future instants evaluate current configuration in one read-only snapshot. Reported capability and synchronization evidence describes current state, including for future predictions. This endpoint does not prove actual play.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetScreenPlaybackPlanWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackPlanParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackPlanResponse, error) {
+	rsp, err := c.GetScreenPlaybackPlan(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScreenPlaybackPlanResponse(rsp)
+}
+
 // ListScreenPlayerHistoryWithResponse performs a GET /api/v1/screens/{id}/player-history (the `ListScreenPlayerHistory` operationId) request.
 //
 // List screen player history. Requires an authenticated dashboard user.
@@ -68827,6 +69930,45 @@ func (c *ClientWithResponses) PermanentlyDeleteUserWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParsePermanentlyDeleteUserResponse(rsp)
+}
+
+// GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
+//
+// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error) {
+	rsp, err := c.GetUserScreenScopes(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserScreenScopesResponse(rsp)
+}
+
+// PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
+	rsp, err := c.PutUserScreenScopesWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserScreenScopesResponse(rsp)
+}
+
+// PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+func (c *ClientWithResponses) PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
+	rsp, err := c.PutUserScreenScopes(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserScreenScopesResponse(rsp)
 }
 
 // ResetUserSecurityWithResponse performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
@@ -77666,6 +78808,58 @@ func ParseRenewLiveStreamResponse(rsp *http.Response) (*RenewLiveStreamResponse,
 	return response, nil
 }
 
+// ParseGetScreenPlaybackPlanResponse parses an HTTP response from a GetScreenPlaybackPlanWithResponse call
+func ParseGetScreenPlaybackPlanResponse(rsp *http.Response) (*GetScreenPlaybackPlanResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScreenPlaybackPlanResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+			Data PlaybackPlan `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest PlaybackPlanError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PlaybackPlanError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListScreenPlayerHistoryResponse parses an HTTP response from a ListScreenPlayerHistoryWithResponse call
 func ParseListScreenPlayerHistoryResponse(rsp *http.Response) (*ListScreenPlayerHistoryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79588,6 +80782,86 @@ func ParsePermanentlyDeleteUserResponse(rsp *http.Response) (*PermanentlyDeleteU
 	response := &PermanentlyDeleteUserResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetUserScreenScopesResponse parses an HTTP response from a GetUserScreenScopesWithResponse call
+func ParseGetUserScreenScopesResponse(rsp *http.Response) (*GetUserScreenScopesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserScreenScopesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenScopeList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePutUserScreenScopesResponse parses an HTTP response from a PutUserScreenScopesWithResponse call
+func ParsePutUserScreenScopesResponse(rsp *http.Response) (*PutUserScreenScopesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutUserScreenScopesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data ScreenScopeList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	}
 
 	return response, nil

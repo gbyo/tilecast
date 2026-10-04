@@ -35,6 +35,7 @@ jobs:
       cli: ${{ steps.paths.outputs.cli }}
       sources: ${{ steps.paths.outputs.sources }}
       ci: ${{ steps.paths.outputs.ci }}
+      player_core: ${{ steps.paths.outputs.player_core }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,6 +62,11 @@ jobs:
     if: needs.changes.outputs.ci == 'true'
     uses: ./.github/workflows/validate-ci-contract.yml
 
+  player_core_ci:
+    needs: changes
+    if: needs.changes.outputs.player_core == 'true'
+    uses: ./.github/workflows/validate-player-core.yml
+
   android_ci:
     needs: changes
     if: needs.changes.outputs.android == 'true'
@@ -79,6 +85,13 @@ jobs:
   dashboard_ci:
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
+    # React Doctor comments on the pull request; existing test reporting keeps
+    # `checks: write`. Fork and Dependabot pull requests get a read-only token.
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     uses: ./.github/workflows/ci-dashboard.yml
 
   linux_player_ci:
@@ -127,6 +140,7 @@ jobs:
     needs:
       - changes
       - ci_contract
+      - player_core_ci
       - android_ci
       - ios_ci
       - linux_player_ci
@@ -146,6 +160,8 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           CI_CONTRACT_SELECTED: ${{ needs.changes.outputs.ci == 'true' }}
           CI_CONTRACT_RESULT: ${{ needs.ci_contract.result }}
+          PLAYER_CORE_CI_SELECTED: ${{ needs.changes.outputs.player_core == 'true' }}
+          PLAYER_CORE_CI_RESULT: ${{ needs.player_core_ci.result }}
           ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
           ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
           IOS_CI_SELECTED: ${{ needs.changes.outputs.ios == 'true' }}
@@ -190,6 +206,7 @@ jobs:
             return 1
           }
           check ci_contract "$CI_CONTRACT_SELECTED" "$CI_CONTRACT_RESULT"
+          check player_core_ci "$PLAYER_CORE_CI_SELECTED" "$PLAYER_CORE_CI_RESULT"
           check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
           check ios_ci "$IOS_CI_SELECTED" "$IOS_CI_RESULT"
           check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
