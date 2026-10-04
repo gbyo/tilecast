@@ -209,7 +209,7 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
 
     // Cancel keeps us on the builder.
-    await user.click(screen.getByRole("button", { name: "Stay on page" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Screens page")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Save draft" }),
@@ -220,7 +220,7 @@ describe("Form Data Source Studio", () => {
       await router.navigate("/screens");
     });
     await user.click(
-      await screen.findByRole("button", { name: "Leave without saving" }),
+      await screen.findByRole("button", { name: "Discard changes" }),
     );
     expect(await screen.findByText("Screens page")).toBeInTheDocument();
   });
@@ -311,6 +311,9 @@ describe("Form Data Source Studio", () => {
     expect(
       await screen.findByText("Leave without saving?"),
     ).toBeInTheDocument();
+
+    // Cancel keeps us on the builder tab.
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(
       screen.getByRole("button", { name: "Save draft" }),
     ).toBeInTheDocument();
