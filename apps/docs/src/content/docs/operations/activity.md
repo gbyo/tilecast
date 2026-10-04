@@ -34,6 +34,12 @@ Expected windows are not reconstructed from today's schedules. Compliance has no
 
 ## Follow an incident
 
+Content Health lists stale Data Sources, including sources that no Widget uses.
+A stale source opens a content incident only when a Widget uses it. That check
+includes nested Data Source selections and sources owned by an App. IDs written
+in an ordinary text field do not establish a dependency. Deleted Widgets and
+deleted sources do not create new stale-source incidents.
+
 An incident represents a continuing condition, not every repeated error. Tilecast updates the same incident while the condition continues. When the condition ends on its own, it is marked recovered and remains in the report as history; it does not stay in the active list. A person can resolve an active incident, which is recorded separately from automatic recovery.
 
 A playback incident recovers on its own when the content that failed plays through to a normal end again. A different item playing fine on the same screen doesn't close it.
