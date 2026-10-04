@@ -341,9 +341,7 @@ describe("screen detail tabs", () => {
       ),
     ).toBeVisible();
 
-    await user.click(
-      screen.getByRole("button", { name: "Apply assignment" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Apply assignment" }));
 
     expect(await screen.findByText("Assignment was not changed")).toBeVisible();
     expect(
