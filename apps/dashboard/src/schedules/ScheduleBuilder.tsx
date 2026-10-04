@@ -243,7 +243,6 @@ export function ScheduleEditorPage() {
   const save = useMutation(scheduleMutations.save(client, csrf, id));
   const remove = useMutation(scheduleMutations.remove(client, csrf, id ?? ""));
 
-
   if (id && existing.isLoading)
     return (
       <div className="grid gap-2" aria-label={t("editor.loading")}>
