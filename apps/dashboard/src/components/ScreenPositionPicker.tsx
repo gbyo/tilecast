@@ -23,6 +23,11 @@ export function ScreenPositionPicker({
   const mapRef = useRef<MapLibreMap | null>(null);
   const markerRef = useRef<Marker | null>(null);
   const onChangeRef = useRef(onChange);
+  const easedRef = useRef<{
+    map: MapLibreMap;
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [mapGeneration, setMapGeneration] = useState(0);
 
   onChangeRef.current = onChange;
@@ -65,11 +70,22 @@ export function ScreenPositionPicker({
       return;
     }
 
-    map.easeTo({
-      center: [longitude, latitude],
-      zoom: Math.max(map.getZoom(), 15),
-      duration: 250,
-    });
+    // The map reports itself after mount, which re-runs this effect with the
+    // same coordinates; only ease when the map or the position changed.
+    const eased = easedRef.current;
+    if (
+      !eased ||
+      eased.map !== map ||
+      eased.latitude !== latitude ||
+      eased.longitude !== longitude
+    ) {
+      easedRef.current = { map, latitude, longitude };
+      map.easeTo({
+        center: [longitude, latitude],
+        zoom: Math.max(map.getZoom(), 15),
+        duration: 250,
+      });
+    }
 
     if (!markerRef.current) {
       const marker = new Marker({ draggable: true })
