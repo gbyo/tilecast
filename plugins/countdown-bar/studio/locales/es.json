@@ -59,7 +59,9 @@
     "startingSoonLabel": "Pronto (naranja), minutos antes",
     "urgentLabel": "Urgente (rojo), segundos antes",
     "pulseLabel": "Pulso y ampliación, segundos finales",
-    "pulseHint": "La barra y el texto crecen un 25 % durante esta etapa final."
+    "pulseHint": "La barra y el texto crecen un 25 % durante esta etapa final.",
+    "leaveTitle": "¿Salir sin guardar?",
+    "leaveBody": "Esta cuenta atrás tiene cambios sin guardar."
   },
   "validation": {
     "timezone": "Escribe una zona horaria IANA como America/Chicago.",

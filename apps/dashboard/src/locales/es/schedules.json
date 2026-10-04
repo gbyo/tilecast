@@ -39,7 +39,6 @@
     "descriptionLabel": "Descripción",
     "descriptionHint": "Nota interna opcional visible en Studio.",
     "save": "Guardar programación",
-    "discardAction": "Descartar",
     "deleteTitle": "¿Eliminar {{name}}?",
     "discardTitle": "¿Descartar los cambios sin guardar de la programación?",
     "presentationLabel": "Presentación",

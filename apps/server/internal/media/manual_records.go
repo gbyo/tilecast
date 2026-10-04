@@ -186,7 +186,7 @@ func manualRecordsNumber(raw string) float64 {
 
 // ManualRecordsPreview projects an unsaved manual_records configuration into the same
 // payload the Player receives, so Studio previews match stored behavior.
-func (s *Service) ManualRecordsPreview(ctx context.Context, provider string, raw json.RawMessage) (TypedDatasetPayload, error) {
+func (s *Service) ManualRecordsPreview(ctx context.Context, provider string, raw json.RawMessage, previewDates ...string) (TypedDatasetPayload, error) {
 	definition, ok := s.definitions.DataSource(provider)
 	if !ok || definition.AdapterID != "manual_records" {
 		return TypedDatasetPayload{}, errors.New("data source provider is not a manual record table")
@@ -203,5 +203,9 @@ func (s *Service) ManualRecordsPreview(ctx context.Context, provider string, raw
 	if err != nil {
 		return TypedDatasetPayload{}, err
 	}
-	return manualRecordsPayload(definition, config, time.Now()).Payload, nil
+	now := time.Now()
+	if len(previewDates) > 0 {
+		now = previewTimeOrNow(previewDates[0], "UTC", now)
+	}
+	return manualRecordsPayload(definition, config, now).Payload, nil
 }

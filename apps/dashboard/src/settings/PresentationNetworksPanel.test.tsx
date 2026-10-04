@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PresentationNetworksPanel } from "./PresentationNetworksPanel";
@@ -51,9 +58,12 @@ function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([
+    { path: "*", element: <PresentationNetworksPanel canManage /> },
+  ]);
   return render(
     <QueryClientProvider client={client}>
-      <PresentationNetworksPanel canManage />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
 }
@@ -131,5 +141,68 @@ describe("PresentationNetworksPanel assignment picker", () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("n1", ["s1"], "tok"),
     );
+  });
+});
+
+function renderPanelWithRoutes() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const router = createMemoryRouter(
+    [
+      { path: "/", element: <PresentationNetworksPanel canManage /> },
+      { path: "/elsewhere", element: <p>Elsewhere</p> },
+    ],
+    { initialEntries: ["/"] },
+  );
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { ...view, router };
+}
+
+describe("PresentationNetworksPanel unsaved changes", () => {
+  it("confirms before Cancel discards a dirty network draft", async () => {
+    mockLists();
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add network" }),
+    );
+    await user.type(screen.getByLabelText("Display name"), "Staff Wi-Fi");
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved network changes?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Display name")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("warns before a programmatic navigation with a dirty draft", async () => {
+    mockLists();
+    const user = userEvent.setup();
+    const { router } = renderPanelWithRoutes();
+
+    await user.click(
+      await screen.findByRole("button", { name: "Add network" }),
+    );
+    await user.type(screen.getByLabelText("Display name"), "Staff Wi-Fi");
+    // The open dialog inerts background links, so departures from here
+    // arrive programmatically (command palette, shortcuts, native hosts).
+    void router.navigate("/elsewhere");
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved network changes?",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
   });
 });

@@ -320,8 +320,8 @@ mod tests {
 
     #[test]
     fn tokens_are_random_instance_bound_and_not_digests() {
-        let session = SessionId::new_random();
-        let other = SessionId::new_random();
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
+        let other = SessionId::from_uuid(uuid::Uuid::new_v4());
         let reference = content(&"a".repeat(64));
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn prepared_active_draining_and_retired_lifetime() {
-        let session = SessionId::new_random();
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
         let one = registry.prepare(session, 1, 0, &[content(&"a".repeat(64))]).unwrap();
@@ -364,7 +364,7 @@ mod tests {
 
     #[test]
     fn conflict_is_atomic_and_failed_activation_preserves_current() {
-        let session = SessionId::new_random();
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
         let first = content(&"a".repeat(64));
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn abandoned_prepared_grants_expire_before_activation() {
-        let session = SessionId::new_random();
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
         let issued = registry.prepare(session, 1, 100, &[content(&"a".repeat(64))]).unwrap();

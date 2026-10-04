@@ -10,13 +10,13 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { api } from "../api/client";
-import { hasNextPage } from "../api/pagination";
+import { playlistQueries } from "../data/playlists";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
+import { PageHeader } from "../components/PageHeader";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -212,12 +212,7 @@ export function PlaylistLibraryPage() {
   const [sort, setSort] = useState<PlaylistLibrarySort>("updated");
   const [view, setView] = useState<"grid" | "list">(storedPlaylistView);
   const [creating, setCreating] = useState(false);
-  const query = useInfiniteQuery({
-    queryKey: ["playlists", "library", search],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.playlistPage(search, pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const query = useInfiniteQuery(playlistQueries.pages(search));
 
   useEffect(() => {
     if (searchParams.get("create") === "1") setCreating(true);
@@ -282,24 +277,18 @@ export function PlaylistLibraryPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("library.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("library.subtitle")}
-          </p>
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("library.title")}
+        description={t("library.subtitle")}
+        actions={
+          canManage ? (
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               {t("library.create")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{

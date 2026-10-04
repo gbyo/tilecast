@@ -1,20 +1,21 @@
 [package]
 name = "edge-state"
-description = "Tilecast Edge durable state: SQLite metadata with embedded migrations."
-version.workspace = true
+description = "Edge-only historical repositories over Player state."
+version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+player-state.workspace = true
 edge-protocol.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt"] }
 tracing.workspace = true
-uuid.workspace = true
+uuid = { workspace = true, features = ["v4"] }
 
 [dev-dependencies]
 edge-protocol = { workspace = true, features = ["test-util"] }

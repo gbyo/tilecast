@@ -19,7 +19,11 @@ vi.mock("react-router", () => ({
 import { useNavigationWarning } from "./useNavigationWarning";
 
 function Harness() {
-  useNavigationWarning(true, "/settings", "Leave with unsaved changes?");
+  useNavigationWarning({
+    dirty: true,
+    allowPrefix: "/settings",
+    title: "Leave with unsaved changes?",
+  });
   return (
     <div>
       <a href="/outside">Same tab</a>
@@ -73,8 +77,64 @@ describe("useNavigationWarning", () => {
     expect(allowed).toBe(false);
     expect(mocks.confirm).toHaveBeenCalledWith({
       title: "Leave with unsaved changes?",
+      body: undefined,
       action: "Discard changes",
     });
     expect(mocks.navigate).toHaveBeenCalledWith("/outside");
+  });
+
+  it("passes the dialog body through to the confirmation", async () => {
+    mocks.confirm.mockResolvedValue(false);
+    function BodyHarness() {
+      useNavigationWarning({
+        dirty: true,
+        allowPrefix: "/settings",
+        title: "Leave with unsaved changes?",
+        body: "The workflow has unsaved changes.",
+      });
+      return <a href="/outside">Same tab</a>;
+    }
+    const { getByRole } = render(<BodyHarness />);
+    getByRole("link", { name: "Same tab" }).dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    await Promise.resolve();
+
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      title: "Leave with unsaved changes?",
+      body: "The workflow has unsaved changes.",
+      action: "Discard changes",
+    });
+    expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+
+  it("lets destinations the predicate allows pass without asking", () => {
+    function PredicateHarness() {
+      useNavigationWarning({
+        dirty: true,
+        title: "Leave with unsaved changes?",
+        shouldBlock: (_current, next) => next.search !== "?tab=safe",
+      });
+      return (
+        <div>
+          <a href="/forms/1?tab=safe">Safe tab</a>
+          <a href="/forms/1?tab=other">Other tab</a>
+        </div>
+      );
+    }
+    const { getByRole } = render(<PredicateHarness />);
+
+    const safeAllowed = getByRole("link", { name: "Safe tab" }).dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    expect(safeAllowed).toBe(true);
+    expect(mocks.confirm).not.toHaveBeenCalled();
+
+    mocks.confirm.mockResolvedValue(false);
+    const otherAllowed = getByRole("link", { name: "Other tab" }).dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+    expect(otherAllowed).toBe(false);
+    expect(mocks.confirm).toHaveBeenCalledTimes(1);
   });
 });
