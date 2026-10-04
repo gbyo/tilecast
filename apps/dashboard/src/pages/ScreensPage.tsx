@@ -3714,8 +3714,8 @@ export function ScreenDetailPage() {
         <ScreenDetailPanel
           open={diagnosticsOpen}
           onOpenChange={(open) => setDetailPanel("diagnostics", open)}
-          title={t("detail.tabDevice")}
-          description={t("detail.deviceBody")}
+          title={t("detail.diagnosticsTitle")}
+          description={t("detail.diagnosticsBody")}
         >
           <Tabs
             value={manageSection}
