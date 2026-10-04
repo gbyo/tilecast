@@ -40,6 +40,11 @@ Dependency Explorer is not a plugin: it has no installation and no instances, an
 
 It maps Data Sources, media, Widgets, Layouts, playlists, Campaigns, schedules, sync groups, and screens. Edges point from a dependency to its consumer. Following them forward answers where a change can appear; following them backward answers what feeds a presentation or screen. Every resource links to its canonical Studio surface.
 
+Widget Data Source edges use the release definition catalog, as playback projection does.
+The reader follows declared Data Source fields in nested repeating groups and App source ownership.
+It excludes deleted sources, deleted Widgets, duplicate references, and IDs in ordinary text fields.
+Legacy Widgets retain their `dataSourceId` playback contract.
+
 The explorer uses progressive disclosure so it stays readable with hundreds or thousands of resources:
 
 - **Overview.** With nothing selected it draws one node per resource type, with its count, in three labelled stages — Sources (Data Sources, Widgets, media), Presentations (Layouts, playlists, Campaigns), and Delivery (schedules, Display Groups, screens) — and one edge per type pair. Selecting a type highlights its edges with their relationship counts and lists its resources in the inspector without adding them to the graph.
