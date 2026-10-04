@@ -2989,10 +2989,12 @@ export function ScreenDetailPage() {
         requestedTab === "reliability" ||
         requestedTab === "commands" ||
         requestedTab === "manage" ||
-        requestedTab === "snapshots"
+        requestedTab === "snapshots" ||
+        requestedTab === "content"
       ) {
         next.delete("tab");
       }
+      next.delete("focus");
       next.set("panel", panel);
       if (panel === "diagnostics") next.set("section", section);
       else next.delete("section");
@@ -3004,11 +3006,13 @@ export function ScreenDetailPage() {
         requestedTab === "reliability" ||
         requestedTab === "commands" ||
         requestedTab === "manage" ||
-        requestedTab === "snapshots"
+        requestedTab === "snapshots" ||
+        requestedTab === "content"
       ) {
         next.delete("tab");
       }
     }
+    next.delete("focus");
     setSearchParams(next);
   };
   const openDiagnostics = (section: ScreenManageSection = "device") =>
