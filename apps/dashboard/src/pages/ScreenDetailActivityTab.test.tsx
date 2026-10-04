@@ -147,7 +147,9 @@ describe("screen detail navigation", () => {
     expect(
       within(diagnostics).getByRole("tab", { name: "Health" }).getAttribute("aria-selected"),
     ).toBe("true");
-    expect(\n      await screen.findByRole("heading", { name: "Health & recovery" }),\n    ).toBeTruthy();
+    expect(
+      await screen.findByRole("heading", { name: "Health & recovery" }),
+    ).toBeTruthy();
   });
 
   it("shows only the selected primary workspace", async () => {
