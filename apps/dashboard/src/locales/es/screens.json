@@ -880,6 +880,7 @@
     "mapPositionNone": "No hay ninguna posición disponible.",
     "mapPositionUseLocation": "Usar ubicación",
     "mapPositionClear": "Borrar posición",
+    "mapPositionPlaceCenter": "Colocar en el centro del mapa",
     "mapPositionAriaLabel": "Elegir la posición de la pantalla en el mapa",
     "mapPositionHint": "Haz clic en el mapa o arrastra el marcador para establecer una posición exacta."
   },

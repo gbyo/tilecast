@@ -860,6 +860,7 @@
     "mapPositionNone": "No position is available yet.",
     "mapPositionUseLocation": "Use location",
     "mapPositionClear": "Clear position",
+    "mapPositionPlaceCenter": "Place at map center",
     "mapPositionAriaLabel": "Choose screen position on map",
     "mapPositionHint": "Click the map or drag the marker to set an exact screen position."
   },
