@@ -193,6 +193,9 @@
       setup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,
+      // Edge shows the pulse logo outside active hours; other hosts omit this
+      // and keep the Cast logo.
+      outsideHoursLogo: "pulse",
     }),
     subscribe(listener) {
       listeners.add(listener);

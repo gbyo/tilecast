@@ -39,6 +39,9 @@ export type RemoteWebMechanism =
    */
   | "host-view";
 
+/** The animated Tilecast logo that bounces outside active hours. */
+export type OutsideHoursLogoV1 = "cast" | "pulse";
+
 export interface RuntimeCapabilitiesV1 {
   /** Remote websites and YouTube, or `null` when they cannot be isolated. */
   readonly remoteWeb: RemoteWebMechanism | null;
@@ -48,6 +51,11 @@ export interface RuntimeCapabilitiesV1 {
   readonly setup: boolean;
   /** `discovery.list` and `discovered-server` messages are available. */
   readonly discovery: boolean;
+  /**
+   * The animated logo for the "Bouncing logo" display. Absent, or any value
+   * the runtime does not know, means `"cast"`.
+   */
+  readonly outsideHoursLogo?: OutsideHoursLogoV1;
 }
 
 /** Diagnostics only. Behavior must never branch on these values. */
