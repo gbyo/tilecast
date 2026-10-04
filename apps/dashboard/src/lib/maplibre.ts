@@ -14,8 +14,7 @@ setWorkerUrl(maplibreWorkerUrl);
 const OPENFREEMAP_ORIGIN = "https://tiles.openfreemap.org";
 const OPENFREEMAP_PROXY_PREFIX = "/maps/openfreemap";
 
-export const OPENFREEMAP_STYLE_URL =
-  `${OPENFREEMAP_PROXY_PREFIX}/styles/liberty`;
+export const OPENFREEMAP_STYLE_URL = `${OPENFREEMAP_PROXY_PREFIX}/styles/liberty`;
 
 export function proxyOpenFreeMapURL(url: string): string {
   const prefix = `${OPENFREEMAP_ORIGIN}/`;
@@ -24,10 +23,7 @@ export function proxyOpenFreeMapURL(url: string): string {
 }
 
 export function createTilecastMap(
-  options: Omit<
-    MapOptions,
-    "style" | "attributionControl" | "transformRequest"
-  >,
+  options: Omit<MapOptions, "style" | "attributionControl" | "transformRequest">,
 ) {
   const map = new MapLibreMap({
     ...options,
@@ -35,10 +31,7 @@ export function createTilecastMap(
     attributionControl: {},
     transformRequest: (url) => {
       const proxied = proxyOpenFreeMapURL(url);
-      if (
-        proxied !== url ||
-        proxied.startsWith(`${OPENFREEMAP_PROXY_PREFIX}/`)
-      ) {
+      if (proxied !== url || proxied.startsWith(`${OPENFREEMAP_PROXY_PREFIX}/`)) {
         return { url: proxied, credentials: "same-origin" };
       }
       return { url };
