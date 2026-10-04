@@ -54,9 +54,9 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
 | `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client adapters.                                                                                |
+| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client adapters.                                                                               |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
-| `tilecastd`             | Linux composition, lifecycle, IPC, Runtime projection, renderer adapter, hardware providers, and `import-legacy`.                                                         |
+| `tilecastd`             | Linux composition, lifecycle, IPC, Runtime projection, renderer adapter, hardware providers, and `import-legacy`.                                                       |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
 | `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
 | `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |

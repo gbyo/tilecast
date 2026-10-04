@@ -55,14 +55,14 @@ Moving the legacy bridge into Core would violate that boundary.
 
 The architectural scenarios have these implementation destinations:
 
-| Change | Destination |
-| ------ | ----------- |
-| New Runtime transition | Runtime or Presentation Model; Core payload passes through |
+| Change                          | Destination                                                |
+| ------------------------------- | ---------------------------------------------------------- |
+| New Runtime transition          | Runtime or Presentation Model; Core payload passes through |
 | New Website presentation option | Runtime or Presentation Model; Core payload passes through |
-| New Layout visual property | Runtime or Presentation Model; Core payload passes through |
-| Replace WPE | Renderer adapter and host lifecycle |
-| Add a WKWebView host | macOS adapter and platform composition |
-| Change local media grants | Edge resource adapter |
+| New Layout visual property      | Runtime or Presentation Model; Core payload passes through |
+| Replace WPE                     | Renderer adapter and host lifecycle                        |
+| Add a WKWebView host            | macOS adapter and platform composition                     |
+| Change local media grants       | Edge resource adapter                                      |
 
 A new resource field still needs a declared binding and verified object.
 A new renderer requirement still needs explicit semantic metadata.
@@ -86,32 +86,32 @@ Display-sleep and cursor policy stay in the platform composition.
 These checks exercise the implementations after extraction. Passing an older
 stage does not qualify a later changed head.
 
-| Requirement | Implementation and evidence |
-| ----------- | --------------------------- |
-| Five shared crates; no Edge dependency | Root workspace; `check-player-architecture.py`; dependency-direction tests |
-| No I/O in generic values | `player-types`; host-supplied clocks and IDs |
-| SQLite durability and migration compatibility | `player-state` state tests and migration baseline; unchanged shipped migration bytes |
-| Verified CAS, resume, pins, eviction, crash recovery | `player-cas` tests; Linux `SpaceProbe`; secure no-follow opening on Linux and macOS |
-| Identity before credentials; redacted secrets | `player-client` identity gate and credential tests; Core pairing and relationship tests |
-| Private credential persistence | Edge file stores; existing owner-only and atomic-write tests |
-| Native schedule and temporary-presentation precedence | Core selection tests and shared schedule corpus |
-| Command redelivery and restart guarantees | Core and Edge command integration tests |
-| Manifest replacement and target-bound preparation | Core manifest and worker tests; Edge slow-preparation and repair tests |
-| Configuration ownership and revision acceptance | Core configuration tests; opaque host projection; Edge Runtime/platform projections |
-| Offline restart, pending promotion, and verified pins | Core offline driver tests; Edge playback suite |
-| Semantic activation and explicit evidence | Core renderer coordination and tracking tests; unknown-field preservation tests |
-| Independent packaged and connected support | Core profile tests; Runtime readiness and WPE forwarding tests |
-| Renderer recovery and safe mode | Core recovery tests; Edge disconnect, stall, and safe-mode integration tests |
-| Protected capture, preview, Watch Live | Core broker and lease tests; Edge capture and playback integration tests |
-| Activity persistence and proof of play | Core Activity worker and parity tests; real-server parity qualification |
-| Telemetry cadence and bounded outbox | Core telemetry tests; Edge measured gauges |
-| Truthful optional hardware support | Core display/network decision tests; Edge CEC/DDC and network tests |
-| Edge IPC and media security | Unchanged IPC golden fixtures; Unix credentials, UID/PID, lineage, grant, and verified-CAS tests |
-| Edge updater, migration, sandbox, and rollback | Existing helper crash matrices; packaged systemd migration/update qualification |
-| Release version, dependency closure, and reproducibility | Root workspace release contract tests; Edge SBOM and release tests |
-| Conservative affected-area selection | Registration, exclusion, and nested-workspace tests; unknown crates select all relevant consumers |
-| Linux and macOS shared builds | Shared Rust CI on both hosts from each extraction stage |
-| Runtime and independent Player agreement | Runtime/Electron/WPE conformance; Android and Activity fixtures at their existing owners |
+| Requirement                                              | Implementation and evidence                                                                       |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Five shared crates; no Edge dependency                   | Root workspace; `check-player-architecture.py`; dependency-direction tests                        |
+| No I/O in generic values                                 | `player-types`; host-supplied clocks and IDs                                                      |
+| SQLite durability and migration compatibility            | `player-state` state tests and migration baseline; unchanged shipped migration bytes              |
+| Verified CAS, resume, pins, eviction, crash recovery     | `player-cas` tests; Linux `SpaceProbe`; secure no-follow opening on Linux and macOS               |
+| Identity before credentials; redacted secrets            | `player-client` identity gate and credential tests; Core pairing and relationship tests           |
+| Private credential persistence                           | Edge file stores; existing owner-only and atomic-write tests                                      |
+| Native schedule and temporary-presentation precedence    | Core selection tests and shared schedule corpus                                                   |
+| Command redelivery and restart guarantees                | Core and Edge command integration tests                                                           |
+| Manifest replacement and target-bound preparation        | Core manifest and worker tests; Edge slow-preparation and repair tests                            |
+| Configuration ownership and revision acceptance          | Core configuration tests; opaque host projection; Edge Runtime/platform projections               |
+| Offline restart, pending promotion, and verified pins    | Core offline driver tests; Edge playback suite                                                    |
+| Semantic activation and explicit evidence                | Core renderer coordination and tracking tests; unknown-field preservation tests                   |
+| Independent packaged and connected support               | Core profile tests; Runtime readiness and WPE forwarding tests                                    |
+| Renderer recovery and safe mode                          | Core recovery tests; Edge disconnect, stall, and safe-mode integration tests                      |
+| Protected capture, preview, Watch Live                   | Core broker and lease tests; Edge capture and playback integration tests                          |
+| Activity persistence and proof of play                   | Core Activity worker and parity tests; real-server parity qualification                           |
+| Telemetry cadence and bounded outbox                     | Core telemetry tests; Edge measured gauges                                                        |
+| Truthful optional hardware support                       | Core display/network decision tests; Edge CEC/DDC and network tests                               |
+| Edge IPC and media security                              | Unchanged IPC golden fixtures; Unix credentials, UID/PID, lineage, grant, and verified-CAS tests  |
+| Edge updater, migration, sandbox, and rollback           | Existing helper crash matrices; packaged systemd migration/update qualification                   |
+| Release version, dependency closure, and reproducibility | Root workspace release contract tests; Edge SBOM and release tests                                |
+| Conservative affected-area selection                     | Registration, exclusion, and nested-workspace tests; unknown crates select all relevant consumers |
+| Linux and macOS shared builds                            | Shared Rust CI on both hosts from each extraction stage                                           |
+| Runtime and independent Player agreement                 | Runtime/Electron/WPE conformance; Android and Activity fixtures at their existing owners          |
 
 ## Qualification status
 

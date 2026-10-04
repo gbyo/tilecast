@@ -54,13 +54,13 @@ and socket delivery. Stage 8 completion requires selected qualification for
 the final code commit. The renderer extraction's qualification ledger is in
 [PR #1224](https://github.com/gbyo/tilecast/pull/1224).
 
-| Your change                                                                                                 | Implementation owner                                                    |
-| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget                                  |
-| Pure playback defaults, item availability, or zone decisions shared by Studio and Runtime                   | Presentation Model as that work lands                                   |
-| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core                                                             |
-| CEC/DDC, NetworkManager, systemd, Linux credential files, WPE hosting, or Edge rollback                     | Linux Edge                                                              |
-| A rule that independently implemented Players must agree on                                                 | A fixture at the rule's existing contract owner                         |
+| Your change                                                                                                 | Implementation owner                            |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Transitions, Widget visuals, Layout execution, or media surfaces                                            | Player Runtime and the relevant Widget          |
+| Pure playback defaults, item availability, or zone decisions shared by Studio and Runtime                   | Presentation Model as that work lands           |
+| Pairing, native offline selection, manifest reconciliation, command redelivery, or renderer recovery policy | Player Core                                     |
+| CEC/DDC, NetworkManager, systemd, Linux credential files, WPE hosting, or Edge rollback                     | Linux Edge                                      |
+| A rule that independently implemented Players must agree on                                                 | A fixture at the rule's existing contract owner |
 
 For example, a command redelivery fix belongs in shared native behavior. A
 CEC adapter fix stays in Edge. A transition changes Player Runtime. A manifest
