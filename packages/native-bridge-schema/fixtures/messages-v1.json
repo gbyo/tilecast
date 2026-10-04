@@ -36,6 +36,7 @@
         "nativePresentations": true,
         "nativeAlerts": true,
         "nativeMediaIntake": true,
+        "systemMap": true,
         "deepLinks": true
       },
       "message": {
@@ -47,6 +48,7 @@
             "nativePresentations": true,
             "nativeAlerts": true,
             "nativeMediaIntake": true,
+            "systemMap": true,
             "deepLinks": true
           }
         }
@@ -1780,6 +1782,7 @@
             "systemShare": true,
             "systemHaptics": true,
             "systemQrScanner": true,
+            "systemMap": true,
             "nativeMediaIntake": true,
             "deepLinks": true
           }
@@ -1789,6 +1792,7 @@
         "systemShare": true,
         "systemHaptics": true,
         "systemQrScanner": true,
+        "systemMap": true,
         "nativeMediaIntake": true,
         "deepLinks": true
       }
@@ -1879,6 +1883,7 @@
             "systemShare": true,
             "systemHaptics": true,
             "systemQrScanner": true,
+            "systemMap": false,
             "nativeMediaIntake": false,
             "deepLinks": false
           }
@@ -1888,6 +1893,7 @@
         "systemShare": true,
         "systemHaptics": true,
         "systemQrScanner": true,
+        "systemMap": false,
         "nativeMediaIntake": false,
         "deepLinks": false
       }
@@ -3033,6 +3039,116 @@
           "requestId": "qr-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           "outcome": "cancelled"
         }
+      }
+    },
+    {
+      "name": "system/map-present",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "subtitle": "Main Campus · Lobby",
+              "latitude": 34.157,
+              "longitude": -82.027,
+              "tone": "positive",
+              "actionId": "screen-1"
+            },
+            {
+              "id": "screen-2",
+              "title": "Cafeteria",
+              "latitude": 34.158,
+              "longitude": -82.026,
+              "tone": "warning"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-present with duplicate point ids",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "schemaValid": true,
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "latitude": 34.157,
+              "longitude": -82.027
+            },
+            {
+              "id": "screen-1",
+              "title": "Again",
+              "latitude": 34.158,
+              "longitude": -82.026
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-present with an invalid latitude",
+      "direction": "frontendToNative",
+      "outcome": "malformed",
+      "message": {
+        "version": 1,
+        "type": "system/map-present",
+        "payload": {
+          "mapId": "fleet-screens",
+          "title": "Fleet",
+          "points": [
+            {
+              "id": "screen-1",
+              "title": "Lobby",
+              "latitude": 91,
+              "longitude": -82.027
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "system/map-dismiss",
+      "direction": "frontendToNative",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-dismiss",
+        "payload": { "mapId": "fleet-screens" }
+      }
+    },
+    {
+      "name": "system/map-action",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-action",
+        "payload": { "mapId": "fleet-screens", "actionId": "screen-1" }
+      }
+    },
+    {
+      "name": "system/map-dismissed",
+      "direction": "nativeToFrontend",
+      "outcome": "accept",
+      "message": {
+        "version": 1,
+        "type": "system/map-dismissed",
+        "payload": { "mapId": "fleet-screens" }
       }
     }
   ],

@@ -4038,6 +4038,24 @@ func (e ScreenHealth) Valid() bool {
 	}
 }
 
+// Defines values for ScreenMapPositionSource.
+const (
+	ScreenMapPositionSourceLocation ScreenMapPositionSource = "location"
+	ScreenMapPositionSourceScreen   ScreenMapPositionSource = "screen"
+)
+
+// Valid indicates whether the value is a known member of the ScreenMapPositionSource enum.
+func (e ScreenMapPositionSource) Valid() bool {
+	switch e {
+	case ScreenMapPositionSourceLocation:
+		return true
+	case ScreenMapPositionSourceScreen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenPlaylistAssignmentPresentationType.
 const (
 	ScreenPlaylistAssignmentPresentationTypeLayout   ScreenPlaylistAssignmentPresentationType = "layout"
@@ -8073,6 +8091,12 @@ type ManifestSchedule struct {
 // ManifestScheduleType defines model for ManifestSchedule.Type.
 type ManifestScheduleType string
 
+// MapCoordinates defines model for MapCoordinates.
+type MapCoordinates struct {
+	Latitude  float32 `json:"latitude"`
+	Longitude float32 `json:"longitude"`
+}
+
 // MediaDiagnostics defines model for MediaDiagnostics.
 type MediaDiagnostics struct {
 	AvailableStorageBytes int  `json:"availableStorageBytes"`
@@ -9776,6 +9800,8 @@ type Screen struct {
 	Location                  string              `json:"location"`
 	LocationDetails           *ScreenLocation     `json:"locationDetails,omitempty"`
 	LocationId                *openapi_types.UUID `json:"locationId,omitempty"`
+	MapPosition               *ScreenMapPosition  `json:"mapPosition,omitempty"`
+	MapPositionOverride       *MapCoordinates     `json:"mapPositionOverride,omitempty"`
 	Name                      string              `json:"name"`
 	NowPlayingName            *string             `json:"nowPlayingName,omitempty"`
 	NowPlayingType            *string             `json:"nowPlayingType,omitempty"`
@@ -9955,6 +9981,16 @@ type ScreenLocation struct {
 	State        string             `json:"state"`
 	UpdatedAt    time.Time          `json:"updatedAt"`
 }
+
+// ScreenMapPosition defines model for ScreenMapPosition.
+type ScreenMapPosition struct {
+	Latitude  float32                 `json:"latitude"`
+	Longitude float32                 `json:"longitude"`
+	Source    ScreenMapPositionSource `json:"source"`
+}
+
+// ScreenMapPositionSource defines model for ScreenMapPosition.Source.
+type ScreenMapPositionSource string
 
 // ScreenPlaylistAssignment defines model for ScreenPlaylistAssignment.
 type ScreenPlaylistAssignment struct {
@@ -12431,11 +12467,12 @@ type RejectPairingJSONBody struct {
 
 // UpdateScreenJSONBody defines parameters for UpdateScreen.
 type UpdateScreenJSONBody struct {
-	Description *string             `json:"description,omitempty"`
-	LocationId  *openapi_types.UUID `json:"locationId,omitempty"`
-	Name        *string             `json:"name,omitempty"`
-	RoomName    *string             `json:"roomName,omitempty"`
-	RoomNumber  *string             `json:"roomNumber,omitempty"`
+	Description         *string             `json:"description,omitempty"`
+	LocationId          *openapi_types.UUID `json:"locationId,omitempty"`
+	MapPositionOverride *MapCoordinates     `json:"mapPositionOverride,omitempty"`
+	Name                *string             `json:"name,omitempty"`
+	RoomName            *string             `json:"roomName,omitempty"`
+	RoomNumber          *string             `json:"roomNumber,omitempty"`
 }
 
 // CancelPlayerCommandParams defines parameters for CancelPlayerCommand.

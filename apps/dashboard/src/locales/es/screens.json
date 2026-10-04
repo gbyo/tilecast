@@ -374,7 +374,17 @@
     "healthFraction": "{{online}} de {{total}} en línea",
     "healthAttention_one": "{{count}} requiere atención",
     "healthAttention_other": "{{count}} requieren atención",
-    "healthAttention_many": "{{count}} de requieren atención"
+    "healthAttention_many": "{{count}} de requieren atención",
+    "mapView": "Vista de mapa",
+    "mapEmptyTitle": "No hay pantallas para mostrar en el mapa",
+    "mapEmptyBody": "Añade coordenadas a una ubicación o establece una posición exacta en una pantalla.",
+    "mapUnmapped": "Pantallas sin posición en el mapa: {{count}}",
+    "mapAriaLabel": "Mapa de la flota",
+    "mapInherited": "Desde la ubicación",
+    "mapOpenScreen": "Abrir pantalla",
+    "mapNativeTitle": "Mapa nativo",
+    "mapNativeBody": "Tilecast muestra estas pantallas en el mapa del sistema.",
+    "mapOpenNative": "Abrir mapa"
   },
   "grid": {
     "openScreen": "Abrir {{name}}",
@@ -863,7 +873,15 @@
       "copyFail": "Falló el acceso al portapapeles. Selecciona y copia los comandos manualmente.",
       "copiedNote": "Comandos copiados.",
       "last": "Ejecuta ambos comandos, vuelve a abrir Tilecast Player y elige Verificar de nuevo. El comando de habilitación conserva otros servicios de accesibilidad."
-    }
+    },
+    "mapPosition": "Posición en el mapa",
+    "mapPositionCustom": "Usando una posición exacta para esta pantalla.",
+    "mapPositionInherited": "Usando la posición de la ubicación asignada.",
+    "mapPositionNone": "No hay ninguna posición disponible.",
+    "mapPositionUseLocation": "Usar ubicación",
+    "mapPositionClear": "Borrar posición",
+    "mapPositionAriaLabel": "Elegir la posición de la pantalla en el mapa",
+    "mapPositionHint": "Haz clic en el mapa o arrastra el marcador para establecer una posición exacta."
   },
   "preview": {
     "snapshotsTitle": "Historial de capturas",

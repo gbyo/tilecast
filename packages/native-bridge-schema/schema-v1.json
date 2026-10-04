@@ -142,6 +142,10 @@
               "description": "Studio handles system/media-intake-completed. A host sends it only to a Studio that reported this.",
               "type": "boolean"
             },
+            "systemMap": {
+              "description": "Studio handles system/map-action and system/map-dismissed for a generic native map presentation.",
+              "type": "boolean"
+            },
             "deepLinks": {
               "description": "Studio handles navigation/open-path that a host sends for a deep link, and refuses the reserved authentication paths.",
               "type": "boolean"
@@ -213,6 +217,10 @@
               "description": "The host can scan one QR code with the system camera for system/scan-qr, and reports the bounded text with system/qr-scan-result. Both contexts.",
               "type": "boolean"
             },
+            "systemMap": {
+              "description": "The host can present bounded geographic points with its native map UI. Main page only.",
+              "type": "boolean"
+            },
             "nativeMediaIntake": {
               "description": "The host can choose media with system pickers and upload it with its own credential. Main page only. system/media-intake-status reports whether it can start now.",
               "type": "boolean"
@@ -263,6 +271,55 @@
       "minLength": 1,
       "maxLength": 64,
       "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "systemMapTone": {
+      "description": "Semantic marker styling. The host chooses the platform color.",
+      "enum": ["default", "positive", "warning", "critical", "muted"]
+    },
+    "systemMapPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "latitude", "longitude"],
+      "properties": {
+        "id": { "$ref": "#/$defs/actionId" },
+        "title": { "$ref": "#/$defs/title" },
+        "subtitle": { "$ref": "#/$defs/title" },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "tone": { "$ref": "#/$defs/systemMapTone" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
+    },
+    "systemMapPayload": {
+      "description": "A complete generic native-map snapshot. The host learns only bounded labels, coordinates, semantic tones, and opaque actions.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId", "title", "points"],
+      "properties": {
+        "mapId": { "$ref": "#/$defs/actionId" },
+        "title": { "$ref": "#/$defs/title" },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 500,
+          "items": { "$ref": "#/$defs/systemMapPoint" }
+        }
+      }
+    },
+    "systemMapIdPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId"],
+      "properties": { "mapId": { "$ref": "#/$defs/actionId" } }
+    },
+    "systemMapActionPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mapId", "actionId"],
+      "properties": {
+        "mapId": { "$ref": "#/$defs/actionId" },
+        "actionId": { "$ref": "#/$defs/actionId" }
+      }
     },
     "presentationAction": {
       "type": "object",
@@ -455,7 +512,9 @@
                 "system/share",
                 "system/media-intake-status",
                 "system/media-intake",
-                "system/scan-qr"
+                "system/scan-qr",
+                "system/map-present",
+                "system/map-dismiss"
               ]
             }
           }
@@ -615,6 +674,22 @@
               "payload": { "$ref": "#/$defs/systemQrScanPayload" }
             }
           }
+        },
+        {
+          "description": "Main page only. Present or update a bounded set of geographic points in the host's native map.",
+          "if": { "properties": { "type": { "const": "system/map-present" } } },
+          "then": {
+            "properties": { "payload": { "$ref": "#/$defs/systemMapPayload" } }
+          }
+        },
+        {
+          "description": "Main page only. Withdraw the matching native map if it is still active.",
+          "if": { "properties": { "type": { "const": "system/map-dismiss" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
+            }
+          }
         }
       ]
     },
@@ -636,7 +711,9 @@
                 "alert/action",
                 "navigation/back",
                 "system/media-intake-completed",
-                "system/qr-scan-result"
+                "system/qr-scan-result",
+                "system/map-action",
+                "system/map-dismissed"
               ]
             }
           }
@@ -748,6 +825,26 @@
           "then": {
             "properties": {
               "payload": { "$ref": "#/$defs/qrScanResultPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The user chose an opaque action exposed by a native map point.",
+          "if": { "properties": { "type": { "const": "system/map-action" } } },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapActionPayload" }
+            }
+          }
+        },
+        {
+          "description": "Main page only. The native map was dismissed by the user.",
+          "if": {
+            "properties": { "type": { "const": "system/map-dismissed" } }
+          },
+          "then": {
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
             }
           }
         }
