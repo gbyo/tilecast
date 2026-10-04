@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureCollection, Point } from "geojson";
 import {
   GeoJSONSource,
@@ -9,8 +9,13 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { ExternalLink, MapPinned } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type { Screen } from "../api/types";
+import { useNativeHost } from "../native-host/NativeHostProvider";
+import {
+  validateSystemMap,
+  type SystemMapTone,
+} from "../native-host/protocol";
 import { Badge } from "./ui/badge";
 import { Button, buttonVariants } from "./ui/button";
 import {
@@ -27,6 +32,15 @@ const CLUSTER_LAYER_ID = "fleet-screen-clusters";
 const CLUSTER_COUNT_LAYER_ID = "fleet-screen-cluster-count";
 const SCREEN_LAYER_ID = "fleet-screen-points";
 const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const NATIVE_MAP_ID = "fleet-screens";
+
+function nativeTone(status: Screen["status"]): SystemMapTone {
+  if (status === "online" || status === "recent") return "positive";
+  if (status === "stale") return "warning";
+  if (status === "offline") return "critical";
+  if (status === "disabled" || status === "revoked") return "muted";
+  return "default";
+}
 
 type ScreenFeatureProperties = {
   screenId: string;
@@ -82,11 +96,14 @@ function fitScreens(map: MapLibreMap, screens: Screen[]) {
 
 export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   const { t } = useTranslation(["screens", "common"]);
+  const navigate = useNavigate();
+  const nativeHost = useNativeHost();
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const dataRef = useRef(featureCollection(screens));
   const screensRef = useRef(screens);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [nativeMapDismissed, setNativeMapDismissed] = useState(false);
 
   const mapped = useMemo(
     () => screens.filter((screen) => screen.mapPosition),
@@ -106,12 +123,58 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     [mapped],
   );
   const selected = screens.find((screen) => screen.id === selectedId);
+  const nativeMapAvailable =
+    nativeHost.status === "ready" &&
+    nativeHost.context === "main" &&
+    nativeHost.capabilities.systemMap;
+  const nativePayload = useMemo(
+    () =>
+      validateSystemMap({
+        mapId: NATIVE_MAP_ID,
+        title: t("page.title"),
+        points: mapped.flatMap((screen) => {
+          const position = screen.mapPosition;
+          if (!position) return [];
+          return [
+            {
+              id: screen.id,
+              title: screen.name,
+              subtitle:
+                [screen.location, screen.roomName, screen.roomNumber]
+                  .filter(Boolean)
+                  .join(" · ") || undefined,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              tone: nativeTone(screen.status),
+              actionId: screen.id,
+            },
+          ];
+        }),
+      }),
+    [mapped, t],
+  );
+
+  const presentNativeMap = useCallback(async () => {
+    if (!nativeMapAvailable || !nativePayload) return false;
+    const reply = await nativeHost.send("system/map-present", nativePayload);
+    if (reply?.ok === true) {
+      setNativeMapDismissed(false);
+      return true;
+    }
+    return false;
+  }, [nativeHost, nativeMapAvailable, nativePayload]);
 
   dataRef.current = data;
   screensRef.current = screens;
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current || mapped.length === 0) return;
+    if (
+      !containerRef.current ||
+      mapRef.current ||
+      mapped.length === 0 ||
+      nativeMapAvailable
+    )
+      return;
     const map = new MapLibreMap({
       container: containerRef.current,
       style: OPENFREEMAP_STYLE_URL,
@@ -220,7 +283,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [hasMappedScreens]);
+  }, [hasMappedScreens, nativeMapAvailable]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -240,6 +303,39 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     }
   }, [screens, selectedId]);
 
+  useEffect(() => {
+    if (!nativeMapAvailable) return;
+    const unsubscribeAction = nativeHost.subscribe(
+      "system/map-action",
+      ({ mapId, actionId }) => {
+        if (mapId !== NATIVE_MAP_ID) return false;
+        if (screensRef.current.some((screen) => screen.id === actionId)) {
+          void navigate(`/screens/${actionId}`);
+        }
+        return true;
+      },
+    );
+    const unsubscribeDismissed = nativeHost.subscribe(
+      "system/map-dismissed",
+      ({ mapId }) => {
+        if (mapId !== NATIVE_MAP_ID) return false;
+        setNativeMapDismissed(true);
+        return true;
+      },
+    );
+    return () => {
+      unsubscribeAction();
+      unsubscribeDismissed();
+      void nativeHost.send("system/map-dismiss", { mapId: NATIVE_MAP_ID });
+    };
+  }, [nativeHost, nativeMapAvailable, navigate]);
+
+  useEffect(() => {
+    if (nativeMapAvailable && !nativeMapDismissed && nativePayload) {
+      void nativeHost.send("system/map-present", nativePayload);
+    }
+  }, [nativeHost, nativeMapAvailable, nativeMapDismissed, nativePayload]);
+
   if (mapped.length === 0) {
     return (
       <Empty className="min-h-72 border-y border-dashed px-5 py-8">
@@ -251,6 +347,32 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
           <EmptyDescription>{t("list.mapEmptyBody")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
+    );
+  }
+
+  if (nativeMapAvailable) {
+    return (
+      <div className="grid min-h-72 place-items-center rounded-xl border border-border bg-muted/30 px-5 py-8 text-center">
+        <div className="grid max-w-md justify-items-center gap-3">
+          <span className="grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
+            <MapPinned aria-hidden="true" />
+          </span>
+          <div>
+            <div className="font-medium">{t("list.mapNativeTitle")}</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("list.mapNativeBody")}
+            </p>
+          </div>
+          <Button type="button" onClick={() => void presentNativeMap()}>
+            {t("list.mapOpenNative")}
+          </Button>
+          {unmappedCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {t("list.mapUnmapped", { count: unmappedCount })}
+            </p>
+          )}
+        </div>
+      </div>
     );
   }
 
