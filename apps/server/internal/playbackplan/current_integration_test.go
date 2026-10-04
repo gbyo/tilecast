@@ -131,6 +131,7 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 		t.Fatalf("Quick Present changed: stopped=%v err=%v", stopped, err)
 	}
 	t.Run("snapshot_survives_concurrent_configuration_change", func(t *testing.T) {
+		exec(`INSERT INTO screen_player_status(screen_id,active_manifest_version,pending_manifest_version) VALUES($1,6,7)`, screen)
 		exec := func(sql string, args ...any) {
 			t.Helper()
 			if _, err := pool.Exec(ctx, sql, args...); err != nil {
@@ -147,6 +148,8 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 			// These writes use another connection, after the inspector's first read.
 			exec(`UPDATE screen_playlist_assignments SET playlist_id=$2 WHERE screen_id=$1`, screen, override)
 			exec(`UPDATE schedules SET enabled=FALSE WHERE id=$1`, scheduleID)
+			exec(`UPDATE playlists SET name='Changed after first read',revision=15 WHERE id=$1`, scheduled)
+			exec(`UPDATE screen_player_status SET active_manifest_version=99,pending_manifest_version=NULL,presentation_schema_versions='{1}',native_presentation_capabilities='{}' WHERE screen_id=$1`, screen)
 			exec(`INSERT INTO takeovers(id,organization_id,name,playlist_id,status,activated_at,expires_at,created_at) VALUES($1,$2,'Concurrent Takeover',$3,'active',$4,$5,$4)`, newTakeover, org, takeover, inspectionAt, end)
 			exec(`INSERT INTO takeover_screen_states(takeover_id,screen_id,manifest_version,state) VALUES($1,$2,7,'pending')`, newTakeover, screen)
 		}}
@@ -157,10 +160,19 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 		if got.ScheduleExplanation.Resolution.Winner.Schedule.Specificity != 1 {
 			t.Fatal("transactional reader lost direct target specificity")
 		}
+		if got.Selected.Name != "Plan content" || got.Selected.Revision == nil || *got.Selected.Revision != 14 {
+			t.Fatalf("mixed current metadata snapshot: selected=%#v", got.Selected)
+		}
+		if got.Synchronization.Status != "preparing" || got.Capabilities.Evidence.Reported {
+			t.Fatalf("mixed reported state snapshot: synchronization=%#v capabilities=%#v", got.Synchronization, got.Capabilities)
+		}
 		snapshot := NewSnapshotCurrent(pool, assignments, schedules, quick)
 		fresh, err := snapshot.At(ctx, screen, inspectionAt)
 		if err != nil || fresh.Selected == nil || fresh.Selected.Source != "takeover" || *fresh.Selected.SelectionID != newTakeover {
 			t.Fatalf("fresh snapshot missed committed change: selected=%#v err=%v", fresh.Selected, err)
+		}
+		if fresh.Synchronization.Status != "out_of_date" || !fresh.Capabilities.Evidence.Reported || len(fresh.Capabilities.Evidence.SchemaVersions) != 1 {
+			t.Fatalf("fresh snapshot missed reported state: synchronization=%#v capabilities=%#v", fresh.Synchronization, fresh.Capabilities)
 		}
 		exec(`UPDATE takeovers SET status='cancelled' WHERE id=$1`, newTakeover)
 		fallbackPlan, err := snapshot.At(ctx, screen, inspectionAt)
@@ -176,6 +188,32 @@ func TestCurrentComposesStoredSelectionWithoutWrites(t *testing.T) {
 		}
 		if _, err := snapshot.At(ctx, uuid.New(), inspectionAt); !errors.Is(err, ErrNotFound) {
 			t.Fatalf("missing Screen error=%v", err)
+		}
+	})
+	t.Run("selected_content_limits_do_not_replace_selection", func(t *testing.T) {
+		exec := func(sql string, args ...any) {
+			t.Helper()
+			if _, err := pool.Exec(ctx, sql, args...); err != nil {
+				t.Fatal(err)
+			}
+		}
+		snapshot := NewSnapshotCurrent(pool, assignments, schedules, quick)
+		exec(`UPDATE playlists SET deleted_at=now() WHERE id=$1`, override)
+		missing, err := snapshot.At(ctx, screen, end)
+		if err != nil || missing.Selected == nil || missing.Selected.ContentID != override || missing.Selected.Name != "" || missing.Selected.Revision != nil || missing.Capabilities.Status != "unavailable" || missing.Capabilities.Reason != "selected_content_not_found" {
+			t.Fatalf("missing selected root: plan=%#v err=%v", missing, err)
+		}
+		layout := uuid.New()
+		exec(`INSERT INTO layouts(id,organization_id,name,orientation,canvas_width,canvas_height,draft_document,created_by) VALUES($1,$2,'Unpublished plan layout','landscape',1920,1080,'{}'::jsonb,$3)`, layout, org, owner.User.ID)
+		exec(`UPDATE screen_playlist_assignments SET playlist_id=NULL,layout_id=$2 WHERE screen_id=$1`, screen, layout)
+		unpublished, err := snapshot.At(ctx, screen, end)
+		if err != nil || unpublished.Selected == nil || unpublished.Selected.ContentID != layout || unpublished.Selected.Name != "Unpublished plan layout" || unpublished.Selected.Revision != nil || unpublished.Capabilities.Reason != "selected_content_not_published" {
+			t.Fatalf("unpublished root: plan=%#v err=%v", unpublished, err)
+		}
+		exec(`DELETE FROM screen_playlist_assignments WHERE screen_id=$1`, screen)
+		empty, err := snapshot.At(ctx, screen, end)
+		if err != nil || empty.Selected != nil || empty.Capabilities.Status != "not_applicable" || empty.Capabilities.Reason != "no_selected_content" {
+			t.Fatalf("empty assignment: plan=%#v err=%v", empty, err)
 		}
 	})
 }

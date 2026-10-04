@@ -365,6 +365,7 @@ func (s *server) routes() chi.Router {
 				dashboard.With(s.requireRoles(contentManagers...), s.requireCSRF, s.requireScope("write")).Delete("/campaigns/{id}", s.archiveCampaign)
 			}
 			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playlist-assignment", s.getPlaylistAssignment)
+			dashboard.With(s.requireScreenScope, s.requireScope("read")).Get("/screens/{id}/playback-plan", s.getPlaybackPlan)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Put("/screens/{id}/playlist-assignment", s.assignPlaylist)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScreenScope, s.requireScope("write")).Delete("/screens/{id}/playlist-assignment", s.unassignPlaylist)
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF, s.requireScope("write")).Patch("/assets/{id}", s.updateAsset)
