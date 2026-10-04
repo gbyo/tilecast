@@ -37,6 +37,72 @@ test("the fleet shows every seeded screen in its computed status", async ({
   }
 });
 
+test("the fleet map renders through the production MapLibre bundle", async ({
+  page,
+}) => {
+  const screenResponse = await page.request.get(
+    `/api/v1/screens/${ids.cafeteriaEast}`,
+  );
+  expect(screenResponse.ok(), await screenResponse.text()).toBe(true);
+  const screen = (await screenResponse.json()) as {
+    data: {
+      name: string;
+      locationId?: string;
+      roomName?: string;
+      roomNumber?: string;
+      description?: string;
+    };
+  };
+
+  const updateResponse = await page.request.patch(
+    `/api/v1/screens/${ids.cafeteriaEast}`,
+    {
+      headers: { "X-CSRF-Token": await csrfToken(page.request) },
+      data: {
+        name: screen.data.name,
+        locationId: screen.data.locationId,
+        roomName: screen.data.roomName ?? "",
+        roomNumber: screen.data.roomNumber ?? "",
+        description: screen.data.description ?? "",
+        mapPositionOverride: {
+          latitude: 39.7817,
+          longitude: -89.6501,
+        },
+      },
+    },
+  );
+  expect(updateResponse.ok(), await updateResponse.text()).toBe(true);
+
+  // Keep this browser test deterministic and independent of OpenFreeMap
+  // availability. The production MapLibre bundle, worker, WebGL renderer, and
+  // Tilecast fleet GeoJSON source still run; only the third-party style
+  // document is replaced with a minimal valid style.
+  await page.route("https://tiles.openfreemap.org/styles/liberty", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        version: 8,
+        sources: {},
+        layers: [
+          {
+            id: "background",
+            type: "background",
+            paint: { "background-color": "#f8f4f0" },
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.goto("/screens");
+  await page.getByRole("button", { name: "Map view" }).click();
+
+  const map = page.locator('[data-map-state="ready"]');
+  await expect(map).toBeVisible({ timeout: 15_000 });
+  await expect(map.locator(".maplibregl-canvas")).toBeVisible();
+  await expect(page.getByText("Map couldn't load")).toHaveCount(0);
+});
+
 test("a seeded screen opens by its stable ID", async ({ page }) => {
   await page.goto(`/screens/${ids.cafeteriaEast}`);
   await expect(
