@@ -157,27 +157,30 @@ impl ServerRelationship {
 
     /// Persist the policy-clock sample so cached scheduling survives a restart.
     pub async fn sample_clock(&self, timestamp: &str) {
-        let Ok(server_time) = Timestamp::parse(timestamp) else { return };
-        let received_at = self.dependencies.clock.now();
-        let sample = server_time.unix_millis().saturating_sub(received_at.unix_millis());
-        let coarse = !timestamp.contains('.');
-        let _ = self
-            .dependencies
-            .state
-            .run(move |connection| {
-                let mut state = playback::get(connection)?;
-                let stale = state
-                    .server_clock_synchronized_at
-                    .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
-                if let Some(offset) = refined_server_offset(state.server_clock_offset_ms, sample, coarse, stale) {
-                    state.server_clock_offset_ms = Some(offset);
-                    state.server_clock_synchronized_at = Some(received_at);
-                    playback::put(connection, &state, received_at)?;
-                }
-                Ok(())
-            })
-            .await;
+        sample_server_clock(&self.dependencies, timestamp).await;
     }
+}
+
+pub(crate) async fn sample_server_clock(dependencies: &Dependencies, timestamp: &str) {
+    let Ok(server_time) = Timestamp::parse(timestamp) else { return };
+    let received_at = dependencies.clock.now();
+    let sample = server_time.unix_millis().saturating_sub(received_at.unix_millis());
+    let coarse = !timestamp.contains('.');
+    let _ = dependencies
+        .state
+        .run(move |connection| {
+            let mut state = playback::get(connection)?;
+            let stale = state
+                .server_clock_synchronized_at
+                .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
+            if let Some(offset) = refined_server_offset(state.server_clock_offset_ms, sample, coarse, stale) {
+                state.server_clock_offset_ms = Some(offset);
+                state.server_clock_synchronized_at = Some(received_at);
+                playback::put(connection, &state, received_at)?;
+            }
+            Ok(())
+        })
+        .await;
 }
 
 pub fn refined_server_offset(current: Option<i64>, sample: i64, coarse: bool, stale: bool) -> Option<i64> {

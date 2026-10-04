@@ -22,75 +22,35 @@ use std::sync::Arc;
 
 use edge_protocol::Sha256Digest;
 use edge_server::AuthenticatedServer;
-use edge_server::client::{ManifestFetch, ServerError};
 use edge_state::repo::cas::PinReason;
 use edge_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
 
 use crate::daemon::DaemonContext;
-use crate::manifest::{self, Candidate, ManifestError, PreparationError, SourcePlan, manifest_digest};
+use crate::manifest::{self, Candidate, ManifestError, PreparationError, SourcePlan};
 
-#[derive(Debug, thiserror::Error)]
-pub enum SyncError {
-    #[error(transparent)]
-    Server(#[from] ServerError),
-    #[error("the server manifest is invalid: {0}")]
-    Invalid(ManifestError),
-    #[error("the server manifest version is older than the committed presentation")]
-    Regressed,
-    #[error("local state failed")]
-    State,
+pub use player_core::ManifestSyncError as SyncError;
+
+fn coordinator(context: &DaemonContext) -> Option<player_core::ManifestCoordinator> {
+    let db = context.db()?;
+    Some(
+        player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: context.clock.clone() })
+            .manifests(),
+    )
 }
 
-impl SyncError {
-    pub fn reason_code(&self) -> &'static str {
-        match self {
-            Self::Server(error) => error.reason_code(),
-            Self::Invalid(error) => error.reason_code(),
-            Self::Regressed => "manifest_version_regressed",
-            Self::State => "state_error",
-        }
-    }
-}
-
-/// Fetches the server's current manifest for this screen and records it as
-/// the target when it is valid. Returns the target to prepare, if any.
+/// Core records the latest validated manifest as the binding's target.
 pub async fn reconcile(
     context: &DaemonContext,
     server: &AuthenticatedServer,
     binding: &Binding,
 ) -> Result<Option<Target>, SyncError> {
-    let db = context.db().ok_or(SyncError::State)?;
-    let target_binding = binding.clone();
-    let current = db.run(move |c| manifests::target(c, &target_binding)).await.map_err(|_| SyncError::State)?;
-    let fetched = server.player_manifest(current.as_ref().map(|target| target.etag.as_str())).await?;
-    let ManifestFetch::Modified { document, etag } = fetched else { return Ok(current) };
-    if let Some(server_time) = document.get("serverTime").and_then(serde_json::Value::as_str) {
-        crate::server_link::sample_server_clock(context, server_time).await;
-    }
-    let digest = manifest_digest(&document);
-    if current.as_ref().is_some_and(|target| target.digest == digest) {
-        return Ok(current);
-    }
-    let candidate = Candidate::parse(document.clone(), binding.screen_id, digest).map_err(SyncError::Invalid)?;
-    let target = Target {
-        binding: binding.clone(),
-        digest,
-        version: candidate.version,
-        etag,
-        document,
-        fetched_at: context.now(),
-    };
-    let stored = target.clone();
-    db.run(move |c| manifests::put_target(c, &stored)).await.map_err(|_| SyncError::Regressed)?;
-    tracing::info!(component = "manifest", event = "target", manifest = %digest.short(), version = target.version);
-    Ok(Some(target))
+    let core = coordinator(context).ok_or(SyncError::State)?;
+    core.reconcile(server, binding).await
 }
 
 /// The persisted target, for restarts before the server is reachable.
 pub async fn persisted_target(context: &DaemonContext, binding: &Binding) -> Option<Target> {
-    let db = context.db()?;
-    let binding = binding.clone();
-    db.run(move |c| manifests::target(c, &binding)).await.ok().flatten()
+    coordinator(context)?.persisted_target(binding).await
 }
 
 #[derive(Debug, thiserror::Error)]

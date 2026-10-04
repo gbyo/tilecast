@@ -131,7 +131,7 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-Server reconciliation, manifest preparation, offline activation,
+The server socket loop, manifest preparation, offline activation,
 configuration ownership projections, and telemetry policy remain to be extracted.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Edge still drives the
@@ -142,11 +142,19 @@ The configuration host validates a bounded document and supplies its projection.
 Core carries that projection without interpreting Runtime or Linux settings.
 Edge still validates and applies its existing configuration fields.
 The separate Core, Runtime, and platform projections remain to be completed.
+Core now owns conditional manifest fetches, stable manifest identity,
+binding-scoped target persistence, and native resource-claim validation.
+Runtime-owned fields in the manifest stay opaque. Edge still owns renderer
+projection and compatibility checks and drives preparation and activation.
 Core tests cover identity order, saved claims, storage failure, session
 retirement, polling outcomes, reset suppression, and the enrollment retry budget.
 The four existing Edge pairing integration tests pass after orchestration moves.
 Core clock tests use SQLite to check precision and persistence after reopening.
-Linux playback integration remains to be run for these stage-9 changes.
+The first stage-9 CI run passed 39 of 40 Linux playback tests. The clock
+sampling test failed on a timestamp rewrite with a final offset change of 9 ms.
+The sampling rule is unchanged. The same test passed in isolation in Linux
+Docker, and all 40 playback tests then passed locally in that image.
+The CI qualification gate remains unqualified until the current head passes.
 
 ## Core foundation
 

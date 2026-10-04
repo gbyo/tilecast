@@ -4,6 +4,8 @@ mod capture;
 mod commands;
 mod configuration;
 mod live_stream;
+mod manifest_resources;
+mod manifests;
 mod origin;
 mod pairing;
 mod preview;
@@ -31,6 +33,8 @@ pub use commands::{
 };
 pub use configuration::{ConfigurationCoordinator, ConfigurationHost, ConfigurationOutcome, PreparedConfiguration};
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
+pub use manifest_resources::{ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError};
+pub use manifests::{ManifestCoordinator, ManifestSyncError, manifest_digest};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
 pub use pairing::{
     PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
@@ -90,6 +94,10 @@ impl PlayerCore {
 
     pub fn configuration(&self) -> ConfigurationCoordinator {
         ConfigurationCoordinator::new(self.dependencies.clone())
+    }
+
+    pub fn manifests(&self) -> ManifestCoordinator {
+        ManifestCoordinator::new(self.dependencies.clone())
     }
 
     /// Construct the durable coordinator with the host's fixed command handlers.
