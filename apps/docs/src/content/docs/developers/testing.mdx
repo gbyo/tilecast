@@ -35,14 +35,16 @@ The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/t
 
 ## Check React code
 
-React Doctor reviews Studio's React code for patterns that ESLint misses, such as writing to a ref during render or an effect that never cleans up. It runs on your machine and sends no scores or crash reports.
+React Doctor reviews Studio's React code for patterns that ESLint misses, such as writing to a ref during render or an effect that never cleans up. It runs on your machine and sends no score or crash reports.
 
 ```sh title="Repository root · React Doctor"
 npm run doctor
 npm run doctor:changed
 ```
 
-`npm run doctor` scans all of Studio and lists every existing finding. `npm run doctor:changed` shows only the findings your branch adds. Pull request CI runs the changed scan and fails on new errors. Warnings are advice and do not fail a pull request. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
+`npm run doctor` scans all of Studio and lists every existing finding. `npm run doctor:changed` shows only the findings your branch adds. Neither command fails when it finds issues.
+
+On a pull request, React Doctor comments on the code you changed: one summary comment and inline comments on the affected lines. It does not block pull requests yet, so a finding never fails CI. Pull requests from forks do not get comments, because GitHub gives them a read-only token. Their findings appear in the job summary instead. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
 
 ## Understand affected checks
 

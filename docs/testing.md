@@ -137,14 +137,20 @@ The container helper copies reports into `e2e/visual/test-results/linux-run/`.
 
 ## React Doctor
 
-React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not send scores or crash reports, and it does not run the supply-chain check.
+React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not compute a score and it does not run the supply-chain check. The local scripts pass `--no-telemetry`, which also stops crash reporting.
 
 ```sh
 npm run doctor
 npm run doctor:changed
 ```
 
-`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only findings that your branch adds compared with the base branch. Pull request CI runs the changed scope against the pull request base and fails on new errors. Warnings do not fail the job. A release run has no base branch, so it skips this step.
+`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only the findings that your branch adds compared with the base branch. Neither command is part of `make check`, and neither fails when it finds issues.
+
+Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml`. It scans only the dashboard code that the pull request changes. It writes one sticky summary comment and inline review comments, and it adds the result to the job summary. It is advisory (`blocking: none`): findings never fail the pull request. It does not publish a commit status. The step runs on `pull_request` events only, so a release run does not scan. It uses `pull_request`, not `pull_request_target`. A pull request from a fork has a read-only token, so the action does not post comments there; its findings show in the job summary.
+
+The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
+
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
 
 ## Public documentation captures
 

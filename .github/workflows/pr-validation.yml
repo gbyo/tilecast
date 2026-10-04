@@ -85,6 +85,13 @@ jobs:
   dashboard_ci:
     needs: changes
     if: needs.changes.outputs.dashboard == 'true'
+    # React Doctor comments on the pull request; existing test reporting keeps
+    # `checks: write`. Fork and Dependabot pull requests get a read-only token.
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     uses: ./.github/workflows/ci-dashboard.yml
 
   linux_player_ci:
