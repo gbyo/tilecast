@@ -177,6 +177,10 @@ export { Brand } from "../components/Brand";
 export { useDesktopLayout } from "../hooks/use-desktop-layout";
 export { DateInput, DateTimeInput } from "../components/date-picker";
 export { useConfirm } from "../components/ConfirmDialog";
+export {
+  useNavigationWarning,
+  type NavigationLocation,
+} from "../settings/useNavigationWarning";
 export { toast } from "../components/ui/toast";
 export { scheduleWeekdays } from "../schedules/scheduleBuilderModel";
 export { useOrganizationRegionalProfile } from "../settings/regionalProfile";

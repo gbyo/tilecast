@@ -169,11 +169,11 @@ function UnsavedEditor() {
 }
 
 function UnsavedSettings() {
-  const dialog = useNavigationWarning(
-    true,
-    "/settings",
-    "Leave with unsaved changes?",
-  );
+  const dialog = useNavigationWarning({
+    dirty: true,
+    allowPrefix: "/settings",
+    title: "Leave with unsaved changes?",
+  });
   return (
     <>
       <h1>Settings form</h1>

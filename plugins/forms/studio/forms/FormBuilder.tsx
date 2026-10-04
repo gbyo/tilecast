@@ -1,13 +1,10 @@
 import {
   Fragment,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useBlocker } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,6 +25,7 @@ import { formsApi } from "../api";
 import {
   ApiError,
   useDesktopLayout,
+  useNavigationWarning,
   usePluginTranslation,
 } from "@tilecast/studio";
 import en from "../locales/en.json";
@@ -110,8 +108,17 @@ export function FormBuilder({
   const desktop = useDesktopLayout();
 
   const dirty = JSON.stringify(draft) !== baseline;
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
+  // Any change to the path, query string, or hash unmounts this editor, so
+  // all three count as leaving the current view.
+  const navigationWarning = useNavigationWarning({
+    dirty,
+    title: t("builder.leave.title"),
+    body: t("builder.leave.body"),
+    shouldBlock: (currentLocation, nextLocation) =>
+      currentLocation.pathname !== nextLocation.pathname ||
+      currentLocation.search !== nextLocation.search ||
+      currentLocation.hash !== nextLocation.hash,
+  });
 
   const publishedKeys = useMemo(() => publishedOutputKeys(form), [form]);
 
@@ -121,28 +128,6 @@ export function FormBuilder({
   const publishedSchema = form.publishedRevision?.schema;
   const hasPublishableChanges =
     !publishedSchema || !schemasEquivalent(draft, publishedSchema);
-
-  // Block in-app navigation while there are unsaved schema changes so edits are not lost. Any
-  // change to the path, query string, or hash counts as leaving the current view.
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty &&
-      (currentLocation.pathname !== nextLocation.pathname ||
-        currentLocation.search !== nextLocation.search ||
-        currentLocation.hash !== nextLocation.hash),
-  );
-
-  // Warn on browser refresh/close while there are unsaved schema changes.
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
 
   const saveDraft = useMutation({
     mutationFn: () => formsApi.updateFormDraft(form.id, draft, csrf),
@@ -170,7 +155,7 @@ export function FormBuilder({
       // not any edits the user makes while the request is in flight.
       const schema = draft;
       const snapshot = JSON.stringify(schema);
-      if (dirtyRef.current) {
+      if (snapshot !== baseline) {
         await formsApi.updateFormDraft(form.id, schema, csrf);
         // The draft is now saved server-side; mark it saved even if publishing then fails.
         setBaseline(snapshot);
@@ -602,20 +587,7 @@ export function FormBuilder({
         </div>
       )}
 
-      {blocker.state === "blocked" && (
-        <Alert>
-          <AlertTitle>{t("builder.leave.title")}</AlertTitle>
-          <AlertDescription>{t("builder.leave.body")}</AlertDescription>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => blocker.reset?.()}>
-              {t("builder.leave.stay")}
-            </Button>
-            <Button variant="default" onClick={() => blocker.proceed?.()}>
-              {t("builder.leave.leave")}
-            </Button>
-          </div>
-        </Alert>
-      )}
+      {navigationWarning}
 
       {saveError && (
         <Alert variant="destructive">
