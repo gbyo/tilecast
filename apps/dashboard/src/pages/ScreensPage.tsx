@@ -3007,7 +3007,13 @@ export function ScreenDetailPage() {
       }
     }
     next.delete("focus");
-    setSearchParams(next);
+    setSearchParams(next, {
+      replace:
+        !open ||
+        requestedPanel === panel ||
+        legacyDiagnosticsOpen ||
+        requestedTab === "snapshots",
+    });
   };
   const openDiagnostics = (section: ScreenManageSection = "device") =>
     setDetailPanel("diagnostics", true, section);
