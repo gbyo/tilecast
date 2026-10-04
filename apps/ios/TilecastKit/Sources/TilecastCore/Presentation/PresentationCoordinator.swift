@@ -46,10 +46,13 @@ public final class PresentationCoordinator {
 
     /// Where a presentation page's alerts show.
     @ObservationIgnored public let alerts: NativeAlertCenter
+    /// Where a presentation page's QR scan runs.
+    @ObservationIgnored public let scanners: QRScanCenter
 
-    init(mainBridge: StudioBridge, alerts: NativeAlertCenter, makePage: @escaping @MainActor () -> PresentationPage) {
+    init(mainBridge: StudioBridge, alerts: NativeAlertCenter, scanners: QRScanCenter, makePage: @escaping @MainActor () -> PresentationPage) {
         self.mainBridge = mainBridge
         self.alerts = alerts
+        self.scanners = scanners
         self.makePage = makePage
         mainBridge.onPresentationOpen = { [weak self] request in self?.open(request) ?? false }
         mainBridge.onStateChange = { [weak self] in self?.mainStudioChanged() }
@@ -86,6 +89,7 @@ public final class PresentationCoordinator {
     private func buildPage() -> PresentationPage {
         let page = makePage()
         page.bridge.alerts = alerts
+        page.bridge.scanners = scanners
         pagesBuilt += 1
         page.onEvent = { [weak self, weak page] event in
             guard let self, let page else { return }
@@ -198,6 +202,8 @@ public final class PresentationCoordinator {
         relayEnded(ended.id)
         // An alert the presentation asked for goes with it.
         alerts.withdraw(context: .presentation)
+        // So does its scan: a result must never reach a newer presentation.
+        scanners.withdraw(context: .presentation)
         guard let page else { return }
         if page.phase == .ready {
             // Transient work in the page, such as a stream lease, ends now.

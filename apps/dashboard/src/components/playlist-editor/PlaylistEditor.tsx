@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { playlistKeys, playlistQueries } from "../../data/playlists";
 import { PanelsTopLeft } from "lucide-react";
 import {
   useEffect,
@@ -21,6 +22,7 @@ import {
 } from "../ui/alert-dialog";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
+import { useNavigationWarning } from "../../settings/useNavigationWarning";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -59,6 +61,7 @@ import type {
   PlaylistBulkItemUpdateInput,
 } from "../../api/types";
 import { api } from "../../api/client";
+import { apiErrorMessage } from "../../i18n";
 import { toast } from "../ui/toast";
 import { useAuth } from "../../auth/AuthProvider";
 import { ContentPicker, type ContentPickerResult } from "../content-picker";
@@ -105,10 +108,7 @@ export function PlaylistEditorPage() {
   const navigate = useNavigate();
   const client = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = useQuery({
-    queryKey: ["playlists", id],
-    queryFn: () => api.playlist(id),
-  });
+  const query = useQuery(playlistQueries.detail(id));
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -160,19 +160,24 @@ export function PlaylistEditorPage() {
   }, [metadataDirty, query.data, tagRuleDirty]);
 
   const dirty = metadataDirty || tagRuleDirty;
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirty) {
-        event.preventDefault();
-        event.returnValue = "";
+  // Selection and return-flow state live outside the path, so only a path
+  // change can strand unsaved metadata. A deleted playlist arms a pass the
+  // post-delete navigation consumes.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("editor.leaveTitle"),
+    shouldBlock: (current, next) => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
       }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+      return current.pathname !== next.pathname;
+    },
+  });
 
   const update = (playlist: Playlist) =>
-    client.setQueryData(["playlists", id], playlist);
+    client.setQueryData(playlistQueries.detail(id).queryKey, playlist);
 
   const save = useMutation({
     mutationFn: () => api.updatePlaylist(id, { name, description }, csrf),
@@ -182,7 +187,7 @@ export function PlaylistEditorPage() {
       setMetadataDirty(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const saveTagRule = useMutation({
@@ -203,7 +208,7 @@ export function PlaylistEditorPage() {
       setTagRuleDirty(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const publish = useMutation({
@@ -220,8 +225,8 @@ export function PlaylistEditorPage() {
           : t("editor.toasts.submitted"),
         type: "success",
       });
-      void client.invalidateQueries({ queryKey: ["playlists", id] });
-      void client.invalidateQueries({ queryKey: ["playlists"] });
+      void client.invalidateQueries({ queryKey: playlistKeys.detail(id) });
+      void client.invalidateQueries({ queryKey: playlistKeys.all });
       void client.invalidateQueries({ queryKey: ["content-submissions"] });
       void client.invalidateQueries({
         queryKey: ["content-history", "playlist", id],
@@ -240,6 +245,9 @@ export function PlaylistEditorPage() {
     mutationFn: () => api.deletePlaylist(id, csrf),
     onSuccess: () => {
       toast.add({ title: t("editor.toasts.deleted"), type: "success" });
+      setMetadataDirty(false);
+      setTagRuleDirty(false);
+      departing.current = true;
       void navigate("/playlists");
     },
   });
@@ -256,7 +264,7 @@ export function PlaylistEditorPage() {
       update(playlist);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const deleteItem = useMutation({
@@ -267,7 +275,7 @@ export function PlaylistEditorPage() {
       setItemInspectorOpen(false);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const reorder = useMutation({
@@ -276,7 +284,7 @@ export function PlaylistEditorPage() {
       update(playlist);
       setEditorError("");
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const bulkUpdate = useMutation({
@@ -296,7 +304,7 @@ export function PlaylistEditorPage() {
         type: "success",
       });
     },
-    onError: (error) => setEditorError(error.message),
+    onError: (error) => setEditorError(apiErrorMessage(error)),
   });
 
   const add = async (selected: Asset[]): Promise<ContentPickerResult> => {
@@ -332,7 +340,9 @@ export function PlaylistEditorPage() {
           id: asset.id,
           name: asset.name,
           message:
-            error instanceof Error ? error.message : t("editor.addItemError"),
+            error instanceof Error
+              ? apiErrorMessage(error)
+              : t("editor.addItemError"),
         });
       }
     }
@@ -360,7 +370,9 @@ export function PlaylistEditorPage() {
         setAddFailure(result.failures[0]?.message ?? "");
       } catch (error) {
         setAddFailure(
-          error instanceof Error ? error.message : t("editor.widgetAddError"),
+          error instanceof Error
+            ? apiErrorMessage(error)
+            : t("editor.widgetAddError"),
         );
       }
     })();
@@ -394,7 +406,9 @@ export function PlaylistEditorPage() {
       toast.add({ title: t("editor.toasts.layoutAdded"), type: "success" });
     } catch (error) {
       setAddFailure(
-        error instanceof Error ? error.message : t("editor.layoutAddError"),
+        error instanceof Error
+          ? apiErrorMessage(error)
+          : t("editor.layoutAddError"),
       );
     }
   };
@@ -579,6 +593,7 @@ export function PlaylistEditorPage() {
 
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-5">
+      {navigationDialog}
       <div ref={setChrome} className="grid grid-cols-[minmax(0,1fr)] gap-5">
         <PlaylistEditorHeader
           playlist={playlist}
@@ -608,7 +623,9 @@ export function PlaylistEditorPage() {
             ))}
             {publish.error && (
               <Alert variant="destructive">
-                <AlertDescription>{publish.error.message}</AlertDescription>
+                <AlertDescription>
+                  {apiErrorMessage(publish.error)}
+                </AlertDescription>
               </Alert>
             )}
             {editorError && (

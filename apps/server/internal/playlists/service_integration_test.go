@@ -100,6 +100,13 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	}
 	notifier := &testNotifier{}
 	service := NewService(pool, notifier)
+	if _, readErr := service.ReadAssignment(ctx, screenID); !errors.Is(readErr, ErrNotFound) {
+		t.Fatalf("assignment without manifest state: err=%v", readErr)
+	}
+	var manifestStates int
+	if err = pool.QueryRow(ctx, `SELECT count(*) FROM screen_manifest_state WHERE screen_id=$1`, screenID).Scan(&manifestStates); err != nil || manifestStates != 0 {
+		t.Fatalf("read initialized manifest state: count=%d err=%v", manifestStates, err)
+	}
 	tagPlaylist, err := service.Create(ctx, owner.User.ID, "Tagged announcements", "", "tag")
 	if err != nil {
 		t.Fatal(err)
@@ -233,6 +240,19 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	}
 	if takeoverManifest.LegacyTakeover == nil || takeoverManifest.LegacyTakeover.ID != takeoverID || takeoverManifest.LegacyTakeover.PlaylistID != playlist.ID {
 		t.Fatalf("legacy takeover manifest=%#v", takeoverManifest.LegacyTakeover)
+	}
+	for _, inspection := range []struct {
+		at         time.Time
+		wantActive bool
+	}{{takeoverManifest.Takeover.ActivatedAt.Add(-time.Microsecond), false}, {takeoverManifest.Takeover.ActivatedAt, true}, {takeoverManifest.Takeover.ExpiresAt, false}} {
+		got, lookupErr := service.ActiveTakeoverAt(ctx, screenID, inspection.at)
+		if lookupErr != nil || (got != nil) != inspection.wantActive {
+			t.Fatalf("inspect Takeover at %s: takeover=%#v err=%v", inspection.at, got, lookupErr)
+		}
+	}
+	var takeoverStatus string
+	if err = pool.QueryRow(ctx, `SELECT status FROM takeovers WHERE id=$1`, takeoverID).Scan(&takeoverStatus); err != nil || takeoverStatus != "active" {
+		t.Fatalf("future inspection changed Takeover: status=%s err=%v", takeoverStatus, err)
 	}
 	if _, err = pool.Exec(ctx, `DELETE FROM takeovers WHERE id=$1`, takeoverID); err != nil {
 		t.Fatal(err)

@@ -91,7 +91,6 @@ func (s *Service) CreatePairing(ctx context.Context, installationID string, meta
 	}
 	now := s.now().UTC()
 	result := PairingCreated{ID: uuid.New(), PollSecret: pollSecret, ExpiresAt: now.Add(PairingLifetime), ServerTime: now, PollingInterval: int(PollingInterval.Seconds()), Organization: identity.OrganizationName}
-	result.ApprovalURL = s.publicURL + "/screens/pair/"
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -112,7 +111,7 @@ func (s *Service) CreatePairing(ctx context.Context, installationID string, meta
 		)
 		if err == nil && tag.RowsAffected() == 1 {
 			result.Code = code
-			result.ApprovalURL += code
+			result.ApprovalURL = approvalURLForPairing(s.publicURL, code, identity.InstallationID)
 			if err := tx.Commit(ctx); err != nil {
 				return PairingCreated{}, fmt.Errorf("commit pairing creation: %w", err)
 			}
@@ -124,6 +123,14 @@ func (s *Service) CreatePairing(ctx context.Context, installationID string, meta
 		result.ID = uuid.New()
 	}
 	return PairingCreated{}, errors.New("could not allocate a unique pairing code")
+}
+
+// approvalURLForPairing builds the Studio approval link the player shows as a
+// QR code. The installation ID is non-secret context, not a credential: it
+// lets Studio recognize the same installation behind a different hostname
+// alias. No private pairing secret may ever appear in this URL.
+func approvalURLForPairing(publicURL, code, installationID string) string {
+	return strings.TrimRight(publicURL, "/") + "/screens/pair/" + code + "?installation=" + installationID
 }
 
 func validateMetadata(metadata DeviceMetadata) error {
@@ -340,14 +347,27 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 		screenID = *input.ReplacementScreenID
 		pairingMode = "hardware_replacement"
 	} else {
-		err = tx.QueryRow(ctx, `SELECT s.id,EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL) FROM screens s WHERE s.organization_id=$1 AND s.player_installation_id=$2`, organizationID, metadata.PlayerInstallationID).Scan(&existingID, &activeCredential)
+		var archivedAt *time.Time
+		err = tx.QueryRow(ctx, `SELECT s.id,EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),s.archived_at FROM screens s WHERE s.organization_id=$1 AND s.player_installation_id=$2`, organizationID, metadata.PlayerInstallationID).Scan(&existingID, &activeCredential, &archivedAt)
 		if err == nil {
 			if activeCredential && !input.ReplaceExistingCredential {
 				return Screen{}, ErrPairingRecovery
 			}
 			screenID = existingID
 			pairingMode = "credential_repair"
-			_, err = tx.Exec(ctx, `UPDATE screens SET name=$2,description=$3,location_id=$4,room_name=$5,room_number=$6,platform=$7,device_manufacturer=$8,device_model=$9,android_version=$10,player_version=$11,screen_width=$12,screen_height=$13,density=$14,locale=$15,timezone=$16,enabled=TRUE,paired_at=now(),updated_at=now() WHERE id=$1`, screenID, input.Name, input.Description, input.LocationID, input.RoomName, input.RoomNumber, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
+			// Credential repair keeps the logical screen: name, description,
+			// location, and room are preserved by construction, and the
+			// approval's logical fields are ignored on this branch. Only the
+			// physical metadata the player reports is refreshed.
+			//
+			// Restoring an archived screen is the exception: revocation
+			// already tore its logical state down, so the approval
+			// re-provisions it instead of preserving a tombstone.
+			if archivedAt != nil {
+				_, err = tx.Exec(ctx, `UPDATE screens SET name=$2,description=$3,location_id=$4,room_name=$5,room_number=$6,platform=$7,device_manufacturer=$8,device_model=$9,android_version=$10,player_version=$11,screen_width=$12,screen_height=$13,density=$14,locale=$15,timezone=$16,enabled=TRUE,paired_at=now(),updated_at=now() WHERE id=$1`, screenID, input.Name, input.Description, input.LocationID, input.RoomName, input.RoomNumber, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
+			} else {
+				_, err = tx.Exec(ctx, `UPDATE screens SET platform=$2,device_manufacturer=$3,device_model=$4,android_version=$5,player_version=$6,screen_width=$7,screen_height=$8,density=$9,locale=$10,timezone=$11,enabled=TRUE,paired_at=now(),updated_at=now() WHERE id=$1`, screenID, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
+			}
 		} else if errors.Is(err, pgx.ErrNoRows) {
 			_, err = tx.Exec(ctx, `INSERT INTO screens (id,organization_id,player_installation_id,name,description,location_id,room_name,room_number,platform,device_manufacturer,device_model,android_version,player_version,screen_width,screen_height,density,locale,timezone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, screenID, organizationID, metadata.PlayerInstallationID, input.Name, input.Description, input.LocationID, input.RoomName, input.RoomNumber, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
 		}

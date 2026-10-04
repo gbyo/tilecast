@@ -114,6 +114,10 @@ export function DateInput({
               (max ? parseDatePart(max) : undefined) ??
               new Date()
             }
+            startMonth={minDate}
+            endMonth={
+              maxDate ?? new Date(new Date().getFullYear() + 10, 11, 31)
+            }
             disabled={[
               ...(minDate ? [{ before: minDate }] : []),
               ...(maxDate ? [{ after: maxDate }] : []),
@@ -237,7 +241,7 @@ export function DateTimeInput({
             datePart ? `${datePart}T${event.target.value || "00:00"}` : "",
           )
         }
-        className="w-28"
+        className="w-36 shrink-0"
       />
     </span>
   );

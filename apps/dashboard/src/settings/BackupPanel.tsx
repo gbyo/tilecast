@@ -1,8 +1,10 @@
+import { formatBytes } from "../lib/formatBytes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatDateTime } from "../lib/dateTime";
 import { useTranslation } from "react-i18next";
 import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -111,7 +113,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
     return (
       <Alert variant="destructive">
         <AlertDescription>
-          {t("backups.loadError")} {query.error.message}
+          {t("backups.loadError")} {apiErrorMessage(query.error)}
         </AlertDescription>
       </Alert>
     );
@@ -154,10 +156,10 @@ export function BackupPanel({ owner }: { owner: boolean }) {
           {data?.lastSuccessful && (
             <p className="text-sm text-muted-foreground">
               {t("backups.lastSuccessful")}{" "}
-              {formatDate(data.lastSuccessful.createdAt, locale)}
+              {formatDateTime(data.lastSuccessful.createdAt, locale)}
               {data.schedule.nextRunAt
                 ? t("backups.nextScheduled", {
-                    date: formatDate(data.schedule.nextRunAt, locale),
+                    date: formatDateTime(data.schedule.nextRunAt, locale),
                   })
                 : ""}
             </p>
@@ -197,8 +199,8 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {archive.fileName}
                     </ItemTitle>
                     <ItemDescription>
-                      {formatDate(archive.createdAt, locale)} ·{" "}
-                      {formatBytes(archive.sizeBytes)} · {archive.kind}
+                      {formatDateTime(archive.createdAt, locale)} ·{" "}
+                      {formatBytes(archive.sizeBytes, locale)} · {archive.kind}
                     </ItemDescription>
                     <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
@@ -286,7 +288,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       {title(job.kind)}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      {formatDate(job.createdAt, locale)} · {job.trigger}
+                      {formatDateTime(job.createdAt, locale)} · {job.trigger}
                     </small>
                   </span>
                   <span className="text-sm text-muted-foreground">
@@ -325,21 +327,4 @@ function JobProgress({ job }: { job: BackupJob }) {
 class CancelledAction extends Error {}
 function title(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-function formatDate(value: string, locale: string) {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let amount = value / 1024;
-  let unit = units[0];
-  for (let index = 1; index < units.length && amount >= 1024; index++) {
-    amount /= 1024;
-    unit = units[index];
-  }
-  return `${amount.toFixed(amount >= 10 ? 1 : 2)} ${unit}`;
 }

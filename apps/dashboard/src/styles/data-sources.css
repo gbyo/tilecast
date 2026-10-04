@@ -63,17 +63,6 @@
 }
 
 /* Widget authoring keeps the configuration grouped and the live result in view. */
-.widget-editor > .source-editor__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
-  gap: var(--tc-space-4) var(--tc-space-5);
-  align-items: start;
-}
-
-.widget-editor > .source-editor__body > :not(.widget-editor__preview) {
-  grid-column: 1;
-}
-
 .widget-editor__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
@@ -191,11 +180,6 @@
   max-height: calc(100dvh - 56px - var(--tc-space-8));
 }
 
-.widget-editor > .source-editor__body > .widget-editor__preview {
-  grid-column: 2;
-  grid-row: 1 / span 999;
-}
-
 .widget-editor__preview > header {
   display: grid;
   gap: 2px;
@@ -224,15 +208,6 @@
 }
 
 @media (max-width: 900px) {
-  .widget-editor > .source-editor__body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .widget-editor > .source-editor__body > * {
-    width: 100%;
-  }
-
   .widget-editor__layout {
     grid-template-columns: 1fr;
   }
@@ -300,9 +275,18 @@
 }
 
 .v2-editor__preview {
+  position: sticky;
+  top: var(--tc-space-4);
   display: grid;
   gap: var(--tc-space-3);
   min-width: 0;
+  max-height: calc(100dvh - var(--tc-space-8));
+  overflow: auto;
+}
+
+.app-editor-route .v2-editor__preview {
+  top: calc(56px + var(--tc-space-4));
+  max-height: calc(100dvh - 56px - var(--tc-space-8));
 }
 
 .v2-editor__preview-bar {
@@ -385,7 +369,14 @@
     grid-template-columns: 1fr;
   }
 
-  .v2-editor__preview {
+  .v2-editor__preview,
+  .app-editor-route .v2-editor__preview {
     order: -1;
+    z-index: 2;
+    max-height: 40dvh;
+    overflow: auto;
+    padding-bottom: var(--tc-space-3);
+    background: var(--tc-bg-canvas);
+    border-bottom: 1px solid var(--tc-border-default);
   }
 }

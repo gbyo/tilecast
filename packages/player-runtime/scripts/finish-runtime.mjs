@@ -19,7 +19,12 @@ const copy = (from, to) => {
   fs.copyFileSync(from, path.join(out, to));
 };
 
-for (const name of ["index.html", "tilecast-logo-white.svg"]) {
+for (const name of [
+  "index.html",
+  "tilecast-logo-white.svg",
+  "tilecast-logo-cast-white.svg",
+  "tilecast-logo-pulse-white.svg",
+]) {
   copy(path.join(root, "static", name), name);
 }
 

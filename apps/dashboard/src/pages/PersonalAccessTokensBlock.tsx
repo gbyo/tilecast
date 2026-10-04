@@ -1,4 +1,5 @@
 import { useDeferredValue, useState } from "react";
+import { copyText } from "../lib/clipboard";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
@@ -18,7 +19,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Spinner } from "../components/ui/spinner";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 
 export const personalAccessTokensKey = ["me", "security", "pats"] as const;
 
@@ -81,12 +82,13 @@ export function PersonalAccessTokensBlock() {
 
   const copyToken = async () => {
     if (!created) return;
-    try {
-      await navigator.clipboard.writeText(created.token);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
+    const label = t("pat.tokenLabel");
+    setCopied(
+      await copyText(created.token, {
+        success: t("common:clipboard.copied", { label }),
+        failure: t("common:clipboard.copyFailed", { label }),
+      }),
+    );
   };
 
   if (created) {
@@ -214,7 +216,7 @@ export function PersonalAccessTokensBlock() {
         <Alert variant="destructive" className="mt-3 max-w-xl">
           <AlertDescription role="alert">
             {create.error instanceof ApiError
-              ? create.error.message
+              ? apiErrorMessage(create.error)
               : t("pat.createError")}
           </AlertDescription>
         </Alert>
@@ -280,7 +282,7 @@ export function PersonalAccessTokensBlock() {
         <Alert variant="destructive" className="mt-3 max-w-xl">
           <AlertDescription role="alert">
             {revoke.error instanceof ApiError
-              ? revoke.error.message
+              ? apiErrorMessage(revoke.error)
               : t("pat.revokeError")}
           </AlertDescription>
         </Alert>

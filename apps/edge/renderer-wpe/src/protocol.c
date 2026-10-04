@@ -70,6 +70,10 @@ tc_protocol_send_ready (TcHost *host)
   for (guint i = 0; remote_web && REMOTE_WEB_FEATURES[i] != NULL; i++)
     json_builder_add_string_value (builder, REMOTE_WEB_FEATURES[i]);
   json_builder_end_array (builder);
+  if (host->runtime_support != NULL) {
+    json_builder_set_member_name (builder, "support");
+    json_builder_add_value (builder, json_node_copy (host->runtime_support));
+  }
   json_builder_set_member_name (builder, "remoteWeb");
   json_builder_begin_object (builder);
   json_builder_set_member_name (builder, "available");
