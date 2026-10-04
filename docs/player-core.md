@@ -131,10 +131,13 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-The server socket loop and offline activation remain to be extracted.
+Offline activation remains to be extracted.
 Core now owns server relationship verification, credential rejection,
-retry backoff, and persisted policy-clock samples. Edge still drives the
-server socket and reconciliation loop.
+retry backoff, and persisted policy-clock samples. Core now drives the server
+socket, reconnect and liveness timers, heartbeat fallback, push handling,
+configuration and manifest reconciliation, and command/Watch Live wakes.
+Edge supplies heartbeat projection, renderer privacy checks, Activity delivery,
+and retry jitter. Socket credentials still pass the public identity gate.
 Core owns conditional configuration fetches, binding-scoped acceptance,
 revision ordering, current/previous persistence, and refusal reporting.
 Core validates the bounded configuration envelope and projects cache limits,

@@ -110,8 +110,9 @@ Core coordinates activation identity, profile checks, and recovery timing.
 Edge keeps Runtime projection inputs and constructs status payloads.
 Core owns pairing orchestration and server identity, credential-rejection,
 retry, and persisted clock-sampling policy. Edge supplies private stores,
-device metadata, and status surfaces. The server socket and reconciliation
-loop remain in Edge until their extraction is complete.
+device metadata, and status surfaces. Core drives the server socket,
+heartbeat fallback, push handling, and reconciliation loop. Edge supplies
+heartbeat projection, privacy checks, Activity delivery, and retry jitter.
 Core owns configuration acceptance, manifest target reconciliation, and native
 manifest resource-claim validation and verified preparation, repair, and pinning.
 Runtime presentation fields stay opaque.

@@ -29,38 +29,26 @@
 //! revoked (the legacy player's rule); network errors, 5xx and disabled
 //! screens retry with backoff.
 
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
-use edge_protocol::Timestamp;
-use edge_server::AuthenticatedServer;
-use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerError};
-use edge_state::repo::binding;
-use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, Target};
-use edge_state::repo::playback;
-#[cfg(test)]
-use player_core::refined_server_offset as refined_offset;
-
 use crate::daemon::{DaemonContext, VERSION};
 use crate::manifest::OriginSources;
 use crate::manifest_sync::{self, Prepared};
-
-/// Contact cadence while connected without configuration (the reference
-/// player's heartbeat interval); configuration's `statusReportSeconds`
-/// replaces it.
-pub const CONTACT_INTERVAL: Duration = Duration::from_secs(60);
-/// Manifest and configuration reconciliation without a push (the reference
-/// player's `RECONCILE_INTERVAL_MS`); configuration's
-/// `manifestReconciliationSeconds` replaces it.
-pub const MANIFEST_INTERVAL: Duration = Duration::from_secs(300);
-/// Re-check cadence while there is nothing to do (unbound, rejected).
-pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
-pub use player_core::{
-    SERVER_MAX_RETRY as MAX_RETRY_INTERVAL, SERVER_RETRY_BASE as RETRY_BASE, ServerLinkState as LinkState,
-    server_retry_delay as retry_delay,
+use edge_protocol::Timestamp;
+use edge_server::AuthenticatedServer;
+use edge_state::repo::{
+    binding,
+    manifests::{self, Binding as ManifestBinding, Stage, Target},
+    playback,
 };
-use player_core::{ServerBackoff as Backoff, ServerLinkState};
-pub const SOCKET_LIVENESS_TIMEOUT: Duration = PLAYER_SOCKET_ACTIVITY_TIMEOUT;
+#[cfg(test)]
+use player_core::refined_server_offset as refined_offset;
+use std::sync::Arc;
+
+pub use player_core::{
+    SERVER_CONTACT_INTERVAL as CONTACT_INTERVAL, SERVER_IDLE_INTERVAL as IDLE_INTERVAL,
+    SERVER_MANIFEST_INTERVAL as MANIFEST_INTERVAL, SERVER_MAX_RETRY as MAX_RETRY_INTERVAL,
+    SERVER_RETRY_BASE as RETRY_BASE, SERVER_SOCKET_LIVENESS_TIMEOUT as SOCKET_LIVENESS_TIMEOUT,
+    ServerLinkState as LinkState, server_retry_delay as retry_delay,
+};
 
 /// A random number in `[0, 1)` for retry jitter.
 fn jitter_unit() -> f64 {
@@ -70,232 +58,6 @@ fn jitter_unit() -> f64 {
         return 0.5;
     }
     f64::from(u32::from_le_bytes(bytes)) / (f64::from(u32::MAX) + 1.0)
-}
-
-#[derive(Debug, Default)]
-struct Link {
-    backoff: Backoff,
-    next_heartbeat: Option<Instant>,
-    socket: Option<PlayerSocket>,
-    /// Socket attempts that failed since the last open (Activity's
-    /// `connection.restored`).
-    socket_failures: u32,
-    socket_backoff: Backoff,
-    next_socket_attempt: Option<Instant>,
-    last_socket_activity: Option<Instant>,
-    next_manifest_sync: Option<Instant>,
-    manifest_dirty: bool,
-    next_config_sync: Option<Instant>,
-    config_dirty: bool,
-    /// The binding whose cached configuration is in force.
-    config_binding: Option<ManifestBinding>,
-    /// The one preparation in flight and the manifest it prepares.
-    preparation: Option<player_core::ManifestPreparationCoordinator>,
-    /// Connection events for Activity, as the Electron player reports them.
-    activity: Option<crate::activity::Handle>,
-}
-
-impl Link {
-    fn socket_activity(&mut self) {
-        self.last_socket_activity = Some(Instant::now());
-    }
-
-    fn socket_liveness_remaining(&self) -> Duration {
-        self.last_socket_activity
-            .map_or(SOCKET_LIVENESS_TIMEOUT, |last| SOCKET_LIVENESS_TIMEOUT.saturating_sub(last.elapsed()))
-    }
-
-    fn socket_lost(&mut self) {
-        if self.socket.is_some()
-            && let Some(activity) = &self.activity
-        {
-            let mut event = crate::activity::Event::new("connection.lost", "connectivity");
-            event.severity = Some("warning".into());
-            event.failure_message = Some("player socket closed".into());
-            activity.record(event);
-        }
-        self.socket = None;
-        self.last_socket_activity = None;
-        self.socket_failures = self.socket_failures.saturating_add(1);
-        let now = Instant::now();
-        self.next_socket_attempt = Some(now + self.socket_backoff.failed(now, jitter_unit()));
-    }
-
-    fn abort_preparation(&mut self) {
-        if let Some(preparation) = &mut self.preparation {
-            preparation.abort();
-        }
-    }
-}
-
-pub async fn run(context: Arc<DaemonContext>) {
-    let preparation = context.db().map(|state| {
-        player_core::ManifestPreparationCoordinator::new(
-            player_core::Dependencies { state: state.clone(), clock: context.clock.clone() },
-            context.preparation.clone(),
-        )
-    });
-    let mut link = Link { activity: Some(context.activity.clone()), preparation, ..Link::default() };
-    let mut live_frames = context.live_frames.subscribe();
-    loop {
-        if let Some(preparation) = &mut link.preparation {
-            preparation.reap().await;
-        }
-        let requested = context.sync_request.load(std::sync::atomic::Ordering::Acquire);
-        if requested > context.sync_done.borrow().0 {
-            link.manifest_dirty = true;
-            link.config_dirty = true;
-        }
-        let state = pass(&context, &mut link).await;
-        if requested > context.sync_done.borrow().0 {
-            context.sync_done.send_replace((requested, state == LinkState::Connected));
-        }
-        if !matches!(state, LinkState::Connected | LinkState::Retrying(_)) {
-            context.command_server.send_replace(None);
-        }
-        let contact_interval = crate::config_sync::effective(&context).native.sync.status_report;
-        let mut delay = match &state {
-            LinkState::Connected => {
-                link.backoff.connected(Instant::now());
-                contact_interval
-            }
-            LinkState::Retrying(_) => link.backoff.failed(Instant::now(), jitter_unit()),
-            _ => {
-                link.abort_preparation();
-                IDLE_INTERVAL
-            }
-        };
-        if state == LinkState::Connected
-            && link.socket.is_none()
-            && let Some(next) = link.next_socket_attempt
-        {
-            delay = delay.min(next.saturating_duration_since(Instant::now()));
-        }
-        *context.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state;
-        let deadline = tokio::time::sleep(delay);
-        tokio::pin!(deadline);
-        loop {
-            let remaining = link.socket_liveness_remaining();
-            let Some(socket) = link.socket.as_mut() else {
-                tokio::select! {
-                    () = context.shutdown.cancelled() => return,
-                    () = &mut deadline => break,
-                    () = context.server_wake.notified() => {
-                        link.manifest_dirty = true;
-                        link.config_dirty = true;
-                        break;
-                    }
-                }
-            };
-            tokio::select! {
-                () = context.shutdown.cancelled() => return,
-                () = &mut deadline => break,
-                () = context.server_wake.notified() => {
-                    link.manifest_dirty = true;
-                    link.config_dirty = true;
-                    break;
-                }
-                changed = live_frames.changed() => {
-                    // The latest Watch Live frame, if any. A newer frame
-                    // supersedes an unsent older one: a slow network drops
-                    // frames instead of queueing video. The socket stays
-                    // owned here; the producer never touches it.
-                    if changed.is_err() {
-                        // The frame source is gone for good: retire this arm
-                        // instead of polling the closed channel. (Unreachable
-                        // in practice; the sender lives in the shared daemon
-                        // context this task itself holds.)
-                        std::future::pending::<()>().await;
-                        continue;
-                    }
-                    let frame: Option<crate::live_stream::LiveFrame> =
-                        live_frames.borrow_and_update().as_ref().cloned();
-                    if let Some(frame) = frame {
-                        // Re-check the privacy boundary at the actual send
-                        // point. A frame may have been queued before setup,
-                        // pairing, or safe mode became active while the
-                        // socket was disconnected or backpressured.
-                        if crate::live_stream::presentation_protected(&context).await {
-                            crate::live_stream::clear_pending_frame(&context, frame.session_id);
-                            continue;
-                        }
-                        if socket.send_live_stream_frame(frame.frame).await.is_err() {
-                            link.socket_lost();
-                            break;
-                        }
-                    }
-                }
-                received = tokio::time::timeout(remaining, socket.next_event()) => {
-                    match received {
-                        Ok(Ok(PlayerSocketEvent::Closed)) | Ok(Err(_)) | Err(_) => {
-                            link.socket_lost();
-                            break;
-                        }
-                        Ok(Ok(event)) => {
-                            link.last_socket_activity = Some(Instant::now());
-                            match event {
-                                PlayerSocketEvent::Ping(timestamp) => {
-                                    sample_server_clock(&context, &timestamp).await;
-                                    if socket.send_pong(&context.now().to_string()).await.is_err() {
-                                        link.socket_lost();
-                                        break;
-                                    }
-                                }
-                                PlayerSocketEvent::ManifestChanged => {
-                                    link.manifest_dirty = true;
-                                    break;
-                                }
-                                PlayerSocketEvent::ConfigChanged => {
-                                    link.config_dirty = true;
-                                    break;
-                                }
-                                // Commands have their own task and cadence.
-                                PlayerSocketEvent::CommandsAvailable => context.command_wake.notify_one(),
-                                // A lease change only wakes the Watch Live
-                                // reconciler; the HTTP session endpoint stays
-                                // authoritative.
-                                PlayerSocketEvent::LiveStreamSessionChanged => {
-                                    context.live_stream_wake.notify_one();
-                                }
-                                PlayerSocketEvent::Hello | PlayerSocketEvent::Other => {}
-                                PlayerSocketEvent::Closed => unreachable!("closed events are handled above"),
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Stores the server clock offset from a server timestamp (a socket ping, or
-/// a manifest's `serverTime` as the reference player's `core/clock.ts`
-/// samples it), so a restart without the server still schedules at the
-/// corrected time.
-pub(crate) async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
-    if let Some(relationship) = &context.server_relationship {
-        relationship.sample_clock(timestamp).await;
-    }
-}
-
-pub async fn reject_credential(context: &DaemonContext) {
-    if let Some(relationship) = &context.server_relationship {
-        relationship.reject_credential().await;
-    } else {
-        // Preserve private-file cleanup in local-state recovery mode.
-        let _ = edge_server::FileCredentialStore::remove_at(&context.paths.identity_dir());
-    }
-    context.command_server.send_replace(None);
-}
-
-fn set_preparation(
-    context: &DaemonContext,
-    target: Option<edge_protocol::Sha256Digest>,
-    state: &'static str,
-    reason: Option<String>,
-) {
-    *context.preparation.lock().unwrap_or_else(|error| error.into_inner()) =
-        player_core::ManifestPreparationStatus { target, state, reason };
 }
 
 struct PreparationHost {
@@ -332,163 +94,86 @@ impl player_core::ManifestWorkerHost for PreparationHost {
     }
 }
 
-async fn ensure_preparation(
-    context: &Arc<DaemonContext>,
-    link: &mut Link,
-    server: &AuthenticatedServer,
-    target: Option<Target>,
-) {
-    if let Some(preparation) = &mut link.preparation {
-        preparation
-            .ensure(
-                target,
-                Arc::new(PreparationHost { context: context.clone(), server: server.clone() }),
-                &context.shutdown,
-            )
-            .await;
+struct Host(Arc<DaemonContext>);
+
+#[async_trait::async_trait]
+impl player_core::ConfigurationHost for Host {
+    type Projection = crate::player_config::PlayerConfig;
+    fn prepare_configuration(
+        &self,
+        document: &serde_json::Value,
+        native: &player_core::NativeConfiguration,
+    ) -> Result<Self::Projection, &'static str> {
+        crate::player_config::PlayerConfig::project(document, native.clone()).map_err(|error| error.reason_code())
+    }
+    async fn install_configuration(&self, projection: Option<Self::Projection>) {
+        crate::config_sync::install(&self.0, projection).await;
     }
 }
 
-async fn sync_manifest(
-    context: &Arc<DaemonContext>,
-    link: &mut Link,
-    server: &AuthenticatedServer,
-    binding: ManifestBinding,
-) -> Result<(), LinkState> {
-    match manifest_sync::reconcile(context, server, &binding).await {
-        Ok(target) => {
-            ensure_preparation(context, link, server, target).await;
-            context.manifest_wake.notify_one();
-            Ok(())
-        }
-        Err(manifest_sync::SyncError::Server(ServerError::CredentialRejected)) => {
-            reject_credential(context).await;
-            Err(LinkState::CredentialRejected)
-        }
-        Err(error) => {
-            // Nothing already accepted is lost; the player keeps its committed
-            // presentation. A preparation for the persisted target continues.
-            tracing::warn!(component = "manifest", event = "reconcile_failed", reason = error.reason_code(), error = %error);
-            if !matches!(error, manifest_sync::SyncError::Server(_)) {
-                set_preparation(context, None, "invalid", Some(error.reason_code().to_owned()));
-            }
-            let persisted = manifest_sync::persisted_target(context, &binding).await;
-            ensure_preparation(context, link, server, persisted).await;
-            Ok(())
-        }
+#[async_trait::async_trait]
+impl player_core::ServerLinkHost for Host {
+    type Preparation = PreparationHost;
+    fn preparation_host(&self, server: &AuthenticatedServer) -> Arc<PreparationHost> {
+        Arc::new(PreparationHost { context: self.0.clone(), server: server.clone() })
+    }
+    fn native_configuration(&self) -> player_core::NativeConfiguration {
+        crate::config_sync::effective(&self.0).native.clone()
+    }
+    fn jitter_unit(&self) -> f64 {
+        jitter_unit()
+    }
+    fn record_activity(&self, event: player_core::ActivityEvent) {
+        self.0.activity.record(event);
+    }
+    async fn heartbeat(&self) -> serde_json::Value {
+        build_heartbeat(&self.0).await
+    }
+    async fn presentation_protected(&self) -> bool {
+        crate::live_stream::presentation_protected(&self.0).await
     }
 }
 
-async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
-    let Some(relationship) = &context.server_relationship else { return LinkState::Unbound };
-    let (bound, server) = match relationship.verify(&format!("tilecastd/{}", edge_platform::RELEASE_VERSION)).await {
-        Ok(verified) => verified,
-        Err(error) => {
-            if matches!(error, player_core::ServerRelationshipError::Identity(_)) {
-                link.socket = None;
-            }
-            return error.state();
-        }
+pub async fn run(context: Arc<DaemonContext>) {
+    let (Some(state), Some(relationship)) = (context.db(), context.server_relationship.as_ref()) else {
+        context.shutdown.cancelled().await;
+        return;
     };
-    // A new relationship (or a changed server) polls commands at once; a
-    // continuing one only refreshes the handle.
-    let published = server.clone();
-    context.command_server.send_if_modified(move |current| {
-        let changed = current.as_ref().is_none_or(|existing| existing.base_url() != published.base_url());
-        *current = Some(published);
-        changed
-    });
+    let host = Host(context.clone());
+    let user_agent = format!("tilecastd/{}", edge_platform::RELEASE_VERSION);
+    player_core::drive_server_link(player_core::ServerLinkServices {
+        dependencies: player_core::Dependencies { state: state.clone(), clock: context.clock.clone() },
+        relationship,
+        host: &host,
+        user_agent: &user_agent,
+        player_version: VERSION,
+        shutdown: &context.shutdown,
+        signals: player_core::ServerLinkSignals {
+            server_wake: &context.server_wake,
+            manifest_wake: &context.manifest_wake,
+            preparation: &context.preparation,
+            link_state: &context.link_state,
+            last_server_contact: &context.last_server_contact,
+            command_wake: &context.command_wake,
+            command_server: &context.command_server,
+            sync_request: &context.sync_request,
+            sync_done: &context.sync_done,
+            live_stream_wake: &context.live_stream_wake,
+            live_frames: &context.live_frames,
+            status_due: &context.status_due,
+        },
+    })
+    .await;
+}
 
-    if link.socket.is_none() && link.next_socket_attempt.is_none_or(|next| Instant::now() >= next) {
-        match server.player_socket(VERSION).await {
-            Ok(socket) => {
-                if link.socket_failures > 0
-                    && let Some(activity) = &link.activity
-                {
-                    let mut event = crate::activity::Event::new("connection.restored", "connectivity");
-                    event.result = Some("recovered".into());
-                    activity.record(event);
-                }
-                link.socket = Some(socket);
-                link.socket_activity();
-                link.socket_backoff.connected(Instant::now());
-                link.socket_failures = 0;
-                link.next_socket_attempt = None;
-                // As the reference player does on every socket open: report
-                // status and reconcile now, so any push lost while the socket
-                // was down is recovered at once.
-                link.next_heartbeat = None;
-                link.manifest_dirty = true;
-                link.config_dirty = true;
-                context.command_wake.notify_one();
-                context.live_stream_wake.notify_one();
-            }
-            Err(error) => {
-                tracing::warn!(component = "server", event = "player_socket_failed", reason = error.reason_code());
-                link.socket_lost();
-            }
-        }
+pub async fn reject_credential(context: &DaemonContext) {
+    if let Some(relationship) = &context.server_relationship {
+        relationship.reject_credential().await;
+    } else {
+        // Preserve private-file cleanup in local-state recovery mode.
+        let _ = edge_server::FileCredentialStore::remove_at(&context.paths.identity_dir());
     }
-    let status_due = context.status_due.swap(false, std::sync::atomic::Ordering::AcqRel);
-    if status_due || link.next_heartbeat.is_none_or(|next| Instant::now() >= next) {
-        let heartbeat = build_heartbeat(context).await;
-        let socket_sent = match link.socket.as_mut() {
-            Some(socket) => socket.send_status(&heartbeat, VERSION).await.is_ok(),
-            None => false,
-        };
-        if !socket_sent && link.socket.is_some() {
-            link.socket_lost();
-        }
-        let sent = if socket_sent { Ok(()) } else { server.player_heartbeat(&heartbeat).await };
-        match sent {
-            Ok(()) => {
-                link.next_heartbeat =
-                    Some(Instant::now() + crate::config_sync::effective(context).native.sync.status_report);
-                *context.last_server_contact.lock().unwrap_or_else(|e| e.into_inner()) = Some(context.now());
-            }
-            Err(ServerError::CredentialRejected) => {
-                reject_credential(context).await;
-                return LinkState::CredentialRejected;
-            }
-            Err(error) => return ServerLinkState::from_error(&error),
-        }
-    }
-    let reconcile_interval = crate::config_sync::effective(context).native.sync.manifest_reconciliation;
-    if let Some(screen_id) = bound.screen_id {
-        let binding =
-            ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url.clone() };
-        if link.config_binding.as_ref() != Some(&binding) {
-            crate::config_sync::load_cached(context, &binding).await;
-            link.config_binding = Some(binding.clone());
-            link.config_dirty = true;
-        }
-        if link.config_dirty || link.next_config_sync.is_none_or(|next| Instant::now() >= next) {
-            link.config_dirty = false;
-            link.next_config_sync = Some(Instant::now() + reconcile_interval);
-            match crate::config_sync::reconcile(context, &server, &binding).await {
-                Err(ServerError::CredentialRejected) => {
-                    reject_credential(context).await;
-                    return LinkState::CredentialRejected;
-                }
-                Err(error) => {
-                    tracing::warn!(
-                        component = "config",
-                        event = "config_reconcile_failed",
-                        reason = error.reason_code()
-                    );
-                }
-                Ok(_) => {}
-            }
-        }
-        if link.manifest_dirty || link.next_manifest_sync.is_none_or(|next| Instant::now() >= next) {
-            link.manifest_dirty = false;
-            link.next_manifest_sync = Some(Instant::now() + reconcile_interval);
-            if let Err(state) = sync_manifest(context, link, &server, binding).await {
-                return state;
-            }
-        }
-    }
-    LinkState::Connected
+    context.command_server.send_replace(None);
 }
 
 /// The heartbeat `currentItemId` for a renderer item key: playlist items
@@ -668,6 +353,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
 
     #[test]
     fn a_whole_second_sample_corrects_only_what_it_can_resolve() {
@@ -727,18 +413,5 @@ mod tests {
         assert_eq!(heartbeat_selection_source("none"), Some("none"));
         assert_eq!(heartbeat_selection_source("quick_present"), Some("quick_present"));
         assert_eq!(heartbeat_selection_source("emergency"), None);
-    }
-
-    #[test]
-    fn socket_liveness_deadline_tracks_inbound_activity_and_clears_on_loss() {
-        let mut link = Link::default();
-        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
-        link.last_socket_activity = Some(Instant::now() - Duration::from_secs(30));
-        let remaining = link.socket_liveness_remaining();
-        assert!(remaining <= Duration::from_secs(65));
-        assert!(remaining > Duration::from_secs(64));
-        link.socket_lost();
-        assert_eq!(link.last_socket_activity, None);
-        assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
     }
 }

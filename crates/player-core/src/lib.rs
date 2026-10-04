@@ -20,6 +20,7 @@ mod renderer_profile;
 mod renderer_resources;
 mod renderer_tracking;
 mod schedule;
+mod server_driver;
 mod server_link;
 mod supervisor;
 mod telemetry;
@@ -78,6 +79,10 @@ pub use renderer_profile::{
 pub use renderer_resources::{ObjectBinding, ResourceError, RuntimePayload};
 pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticRendererProgress};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
+pub use server_driver::{
+    SERVER_CONTACT_INTERVAL, SERVER_IDLE_INTERVAL, SERVER_MANIFEST_INTERVAL, SERVER_SOCKET_LIVENESS_TIMEOUT,
+    ServerLinkHost, ServerLinkServices, ServerLinkSignals, drive_server_link,
+};
 pub use server_link::{
     SERVER_HEALTHY_RESET, SERVER_MAX_RETRY, SERVER_RETRY_BASE, ServerBackoff, ServerLinkState, ServerRelationship,
     ServerRelationshipError, refined_server_offset, server_retry_delay,
