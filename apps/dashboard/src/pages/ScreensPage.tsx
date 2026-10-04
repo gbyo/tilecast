@@ -4784,7 +4784,47 @@ export function ScreenDetailPage() {
         </ScreenDetailPanel>
 
         {tab === "settings" && (
-          <TabsContent value="settings" className="min-w-0 outline-none">
+          <TabsContent
+            value="settings"
+            className="min-w-0 space-y-4 outline-none"
+          >
+            <Card size="sm">
+              <CardHeader>
+                <CardTitle>{t("detail.editTitle")}</CardTitle>
+                <CardDescription>{t("detail.editBody")}</CardDescription>
+                {canManageScreens(auth.status?.user) && (
+                  <CardAction>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingDetails(true)}
+                    >
+                      {t("grid.editDetails")}
+                    </Button>
+                  </CardAction>
+                )}
+              </CardHeader>
+              <CardContent>
+                <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <OverviewFact
+                    label={t("approval.nameLabel")}
+                    value={screen.name}
+                  />
+                  <OverviewFact
+                    label={t("detail.factLocation")}
+                    value={
+                      [screen.location, roomLabel(screen, t)]
+                        .filter(Boolean)
+                        .join(" · ") || t("shared.notSet")
+                    }
+                  />
+                  <OverviewFact
+                    label={t("approval.description")}
+                    value={screen.description || t("shared.notSet")}
+                  />
+                </dl>
+              </CardContent>
+            </Card>
             <PlayerPolicyEditor
               target="screen"
               id={id}
@@ -4793,6 +4833,14 @@ export function ScreenDetailPage() {
           </TabsContent>
         )}
       </Tabs>
+      <ScreenDetailPanel
+        open={snapshotsOpen}
+        onOpenChange={(open) => setDetailPanel("snapshots", open)}
+        title={t("preview.snapshotsTitle")}
+        description={t("preview.snapshotsBody")}
+      >
+        <SnapshotHistoryPanel screenId={id} />
+      </ScreenDetailPanel>
       <Dialog
         open={pendingDestination !== null}
         onOpenChange={(open) => {
