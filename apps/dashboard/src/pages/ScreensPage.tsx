@@ -2703,7 +2703,7 @@ export function ScreenDetailPage() {
     )
       return;
     const frame = window.requestAnimationFrame(() => {
-      document.getElementById("screen-content")?.scrollIntoView({
+      document.getElementById("screen-content")?.scrollIntoView?.({
         block: "start",
         behavior: "smooth",
       });
@@ -3011,7 +3011,7 @@ export function ScreenDetailPage() {
     next.set("focus", "content");
     setSearchParams(next);
     window.requestAnimationFrame(() => {
-      document.getElementById("screen-content")?.scrollIntoView({
+      document.getElementById("screen-content")?.scrollIntoView?.({
         block: "start",
         behavior: "smooth",
       });
