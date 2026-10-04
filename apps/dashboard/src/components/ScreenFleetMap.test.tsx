@@ -8,7 +8,13 @@ import type { Screen } from "../api/types";
 import type { NativeHost } from "../native-host/NativeHostProvider";
 import { ScreenFleetMap } from "./ScreenFleetMap";
 
-const maplibre = vi.hoisted(() => ({ constructed: 0 }));
+const maplibre = vi.hoisted(() => ({
+  constructed: 0,
+  handlers: new Map<string, () => void>(),
+  addSource: vi.fn(),
+  addLayer: vi.fn(),
+  resize: vi.fn(),
+}));
 
 vi.mock("maplibre-gl", () => {
   class Map {
@@ -16,7 +22,14 @@ vi.mock("maplibre-gl", () => {
       maplibre.constructed += 1;
     }
     addControl = vi.fn();
-    on = vi.fn();
+    addSource = maplibre.addSource;
+    addLayer = maplibre.addLayer;
+    on = vi.fn((event: string, layerOrHandler: unknown) => {
+      if (typeof layerOrHandler === "function") {
+        maplibre.handlers.set(event, layerOrHandler as () => void);
+      }
+    });
+    resize = maplibre.resize;
     remove = vi.fn();
     isStyleLoaded = vi.fn(() => false);
     getSource = vi.fn();
@@ -72,10 +85,34 @@ function renderMap() {
 describe("ScreenFleetMap native presentation", () => {
   beforeEach(() => {
     maplibre.constructed = 0;
+    maplibre.handlers.clear();
   });
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it("adds fleet overlays as soon as the style is ready", () => {
+    hostState.current = {
+      status: "unavailable",
+      context: "browser",
+      capabilities: {} as NativeHost["capabilities"],
+      send: vi.fn(),
+      subscribe: () => () => undefined,
+    } as NativeHost;
+
+    renderMap();
+    expect(maplibre.constructed).toBe(1);
+    expect(maplibre.addSource).not.toHaveBeenCalled();
+
+    maplibre.handlers.get("style.load")?.();
+
+    expect(maplibre.addSource).toHaveBeenCalledWith(
+      "fleet-screens",
+      expect.objectContaining({ type: "geojson" }),
+    );
+    expect(maplibre.addLayer).toHaveBeenCalled();
+    expect(maplibre.resize).toHaveBeenCalled();
   });
 
   it("keeps the native map when the host accepts the presentation", async () => {
