@@ -2608,6 +2608,7 @@ export function ScreenDetailPage() {
   const [pendingDestination, setPendingDestination] =
     useState<ScreenTabDestination | null>(null);
   const [selectedPresentation, setSelectedPresentation] = useState("");
+  const [presentationTouched, setPresentationTouched] = useState(false);
   const [airplayOpen, setAirplayOpen] = useState(false);
   const [quickPresentOpen, setQuickPresentOpen] = useState(
     () => searchParams.get("present") === "1",
@@ -2682,8 +2683,8 @@ export function ScreenDetailPage() {
       : "";
   const assignmentDirty = selectedPresentation !== persistedPresentation;
   useEffect(() => {
-    setSelectedPresentation(persistedPresentation);
-  }, [persistedPresentation]);
+    if (!presentationTouched) setSelectedPresentation(persistedPresentation);
+  }, [persistedPresentation, presentationTouched]);
   const assign = useMutation({
     mutationFn: () => {
       const [type, presentationId] = selectedPresentation.split(":");
@@ -2703,6 +2704,7 @@ export function ScreenDetailPage() {
     },
     onSuccess: async (updated) => {
       toast.add({ title: "Presentation assignment updated.", type: "success" });
+      setPresentationTouched(false);
       queryClient.setQueryData(screenKeys.assignment(id), updated);
       await Promise.all([
         queryClient.invalidateQueries({
@@ -3332,8 +3334,10 @@ export function ScreenDetailPage() {
                         })),
                       ]}
                       value={selectedPresentation || "__none__"}
+                      disabled={assign.isPending}
                       onValueChange={(value) => {
                         assign.reset();
+                        setPresentationTouched(true);
                         setSelectedPresentation(
                           value === "__none__" ? "" : (value ?? ""),
                         );
@@ -3379,7 +3383,9 @@ export function ScreenDetailPage() {
                     </Select>
                   </div>
                   <Button
-                    disabled={assign.isPending || !assignmentDirty}
+                    disabled={
+                      assign.isPending || !presentationTouched || !assignmentDirty
+                    }
                     onClick={() => assign.mutate()}
                   >
                     {assign.isPending
@@ -3389,7 +3395,10 @@ export function ScreenDetailPage() {
                         : t("detail.applyAssignment")}
                   </Button>
                 </div>
-                {assignmentDirty && !assign.isPending && !assign.isError && (
+                {presentationTouched &&
+                  assignmentDirty &&
+                  !assign.isPending &&
+                  !assign.isError && (
                   <p className="text-sm text-muted-foreground" role="status">
                     {t("detail.assignmentPendingHint")}
                   </p>
