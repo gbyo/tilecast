@@ -3317,7 +3317,7 @@ export function ScreenDetailPage() {
               {canManageScreens(auth.status?.user) ? (
                 <>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                  <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                     <Select
                       items={[
                         {
@@ -3384,7 +3384,9 @@ export function ScreenDetailPage() {
                   </div>
                   <Button
                     disabled={
-                      assign.isPending || !presentationTouched || !assignmentDirty
+                      assign.isPending ||
+                      !presentationTouched ||
+                      !assignmentDirty
                     }
                     onClick={() => assign.mutate()}
                   >
@@ -3399,10 +3401,10 @@ export function ScreenDetailPage() {
                   assignmentDirty &&
                   !assign.isPending &&
                   !assign.isError && (
-                  <p className="text-sm text-muted-foreground" role="status">
-                    {t("detail.assignmentPendingHint")}
-                  </p>
-                )}
+                    <p className="text-sm text-muted-foreground" role="status">
+                      {t("detail.assignmentPendingHint")}
+                    </p>
+                  )}
                 {assign.isError && (
                   <Alert variant="destructive">
                     <CircleAlert aria-hidden="true" />
