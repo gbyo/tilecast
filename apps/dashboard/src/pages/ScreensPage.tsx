@@ -2918,23 +2918,28 @@ export function ScreenDetailPage() {
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
   const requestedTab = searchParams.get("tab") ?? "overview";
   const requestedSection = searchParams.get("section");
+  const requestedPanel = searchParams.get("panel");
   const tab = normalizeScreenDetailTab(requestedTab, requestedSection);
   const manageSection = normalizeScreenManageSection(
     requestedTab,
     requestedSection,
   );
+  const legacyDiagnosticsOpen =
+    requestedTab === "device" ||
+    requestedTab === "reliability" ||
+    requestedTab === "commands" ||
+    (requestedTab === "manage" && requestedSection !== "settings");
+  const diagnosticsOpen =
+    requestedPanel === "diagnostics" || legacyDiagnosticsOpen;
+  const snapshotsOpen =
+    requestedPanel === "snapshots" || requestedTab === "snapshots";
+
   const commitDestination = (destination: ScreenTabDestination) => {
     const next = new URLSearchParams(searchParams);
     if (destination.tab === "overview") next.delete("tab");
     else next.set("tab", destination.tab);
+    next.delete("panel");
     next.delete("section");
-    if (
-      destination.tab === "device" &&
-      destination.section &&
-      destination.section !== "device"
-    ) {
-      next.set("section", destination.section);
-    }
     setSearchParams(next);
     setPendingDestination(null);
     setPolicyDirty(false);
@@ -2950,6 +2955,46 @@ export function ScreenDetailPage() {
       return;
     }
     commitDestination(destination);
+  };
+  const setDetailPanel = (
+    panel: "diagnostics" | "snapshots",
+    open: boolean,
+    section: ScreenManageSection = manageSection,
+  ) => {
+    const next = new URLSearchParams(searchParams);
+    if (open) {
+      if (
+        requestedTab === "device" ||
+        requestedTab === "reliability" ||
+        requestedTab === "commands" ||
+        requestedTab === "manage" ||
+        requestedTab === "snapshots"
+      ) {
+        next.delete("tab");
+      }
+      next.set("panel", panel);
+      if (panel === "diagnostics") next.set("section", section);
+      else next.delete("section");
+    } else {
+      next.delete("panel");
+      if (panel === "diagnostics") next.delete("section");
+      if (
+        requestedTab === "device" ||
+        requestedTab === "reliability" ||
+        requestedTab === "commands" ||
+        requestedTab === "manage" ||
+        requestedTab === "snapshots"
+      ) {
+        next.delete("tab");
+      }
+    }
+    setSearchParams(next);
+  };
+  const openDiagnostics = (section: ScreenManageSection = "device") =>
+    setDetailPanel("diagnostics", true, section);
+  const setDiagnosticsSection = (section: string) => {
+    if (!screenManageSections.includes(section as ScreenManageSection)) return;
+    openDiagnostics(section as ScreenManageSection);
   };
   return (
     <div className="w-full min-w-0 space-y-5">
