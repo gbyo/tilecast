@@ -20,7 +20,6 @@ import { Badge } from "./ui/badge";
 import { Button, buttonVariants } from "./ui/button";
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
@@ -33,6 +32,15 @@ const CLUSTER_COUNT_LAYER_ID = "fleet-screen-cluster-count";
 const SCREEN_LAYER_ID = "fleet-screen-points";
 const OPENFREEMAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const NATIVE_MAP_ID = "fleet-screens";
+
+const statusLabelKeys = {
+  online: "status.online",
+  recent: "status.recent",
+  stale: "status.stale",
+  offline: "status.offline",
+  disabled: "status.disabled",
+  revoked: "status.revoked",
+} as const satisfies Record<Screen["status"], string>;
 
 function nativeTone(status: Screen["status"]): SystemMapTone {
   if (status === "online" || status === "recent") return "positive";
@@ -142,7 +150,8 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
               subtitle:
                 [screen.location, screen.roomName, screen.roomNumber]
                   .filter(Boolean)
-                  .join(" · ") || undefined,
+                  .join(" · ")
+                  .slice(0, 200) || undefined,
               latitude: position.latitude,
               longitude: position.longitude,
               tone: nativeTone(screen.status),
@@ -154,15 +163,17 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     [mapped, t],
   );
 
+  const nativeMapUsable = nativeMapAvailable && nativePayload !== null;
+
   const presentNativeMap = useCallback(async () => {
-    if (!nativeMapAvailable || !nativePayload) return false;
+    if (!nativeMapUsable || !nativePayload) return false;
     const reply = await nativeHost.send("system/map-present", nativePayload);
     if (reply?.ok === true) {
       setNativeMapDismissed(false);
       return true;
     }
     return false;
-  }, [nativeHost, nativeMapAvailable, nativePayload]);
+  }, [nativeHost, nativeMapUsable, nativePayload]);
 
   dataRef.current = data;
   screensRef.current = screens;
@@ -172,7 +183,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
       !containerRef.current ||
       mapRef.current ||
       mapped.length === 0 ||
-      nativeMapAvailable
+      nativeMapUsable
     )
       return;
     const map = new MapLibreMap({
@@ -283,7 +294,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
       map.remove();
       mapRef.current = null;
     };
-  }, [hasMappedScreens, nativeMapAvailable]);
+  }, [hasMappedScreens, nativeMapUsable]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -304,7 +315,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
   }, [screens, selectedId]);
 
   useEffect(() => {
-    if (!nativeMapAvailable) return;
+    if (!nativeMapUsable) return;
     const unsubscribeAction = nativeHost.subscribe(
       "system/map-action",
       ({ mapId, actionId }) => {
@@ -328,13 +339,13 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
       unsubscribeDismissed();
       void nativeHost.send("system/map-dismiss", { mapId: NATIVE_MAP_ID });
     };
-  }, [nativeHost, nativeMapAvailable, navigate]);
+  }, [nativeHost, nativeMapUsable, navigate]);
 
   useEffect(() => {
-    if (nativeMapAvailable && !nativeMapDismissed && nativePayload) {
+    if (nativeMapUsable && !nativeMapDismissed && nativePayload) {
       void nativeHost.send("system/map-present", nativePayload);
     }
-  }, [nativeHost, nativeMapAvailable, nativeMapDismissed, nativePayload]);
+  }, [nativeHost, nativeMapUsable, nativeMapDismissed, nativePayload]);
 
   if (mapped.length === 0) {
     return (
@@ -350,7 +361,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
     );
   }
 
-  if (nativeMapAvailable) {
+  if (nativeMapUsable) {
     return (
       <div className="grid min-h-72 place-items-center rounded-xl border border-border bg-muted/30 px-5 py-8 text-center">
         <div className="grid max-w-md justify-items-center gap-3">
@@ -389,8 +400,20 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
         <div
           ref={containerRef}
           className="h-[min(68vh,42rem)] min-h-96 w-full"
-          aria-label={t("list.mapAriaLabel")}
+          aria-hidden="true"
         />
+        <div className="sr-only">
+          <h2>{t("list.mapAriaLabel")}</h2>
+          <ul>
+            {mapped.map((screen) => (
+              <li key={screen.id}>
+                <Link to={`/screens/${screen.id}`}>
+                  {screen.name} · {t(statusLabelKeys[screen.status])}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
         {selected && (
           <div className="absolute bottom-3 left-3 right-3 z-10 max-w-sm rounded-xl border border-border bg-background/95 p-3 shadow-lg backdrop-blur sm:right-auto">
             <div className="flex items-start justify-between gap-3">
@@ -413,16 +436,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Badge variant="outline">
-                {t(
-                  {
-                    online: "status.online",
-                    recent: "status.recent",
-                    stale: "status.stale",
-                    offline: "status.offline",
-                    disabled: "status.disabled",
-                    revoked: "status.revoked",
-                  }[selected.status],
-                )}
+                {t(statusLabelKeys[selected.status])}
               </Badge>
               {selected.mapPosition?.source === "location" && (
                 <Badge variant="secondary">{t("list.mapInherited")}</Badge>
