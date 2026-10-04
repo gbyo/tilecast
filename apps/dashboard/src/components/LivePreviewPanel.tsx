@@ -173,7 +173,7 @@ export function LivePreviewPanel({
   }, [preview.data?.capturedAt]);
 
   return (
-    <Card aria-label={t("livePreview.title")} className="min-w-0">
+    <Card role="region" aria-label={t("livePreview.title")} className="min-w-0">
       <CardHeader>
         <CardTitle>{t("livePreview.title")}</CardTitle>
         <CardDescription>{t("livePreview.onDemand")}</CardDescription>
@@ -287,7 +287,7 @@ export function LivePreviewPanel({
           className="size-4 text-emerald-700 dark:text-emerald-400"
           aria-hidden="true"
         />
-        <span className="ml-2">{t("livePreview.protectedNote")}</span>
+        <span className="ms-2">{t("livePreview.protectedNote")}</span>
       </CardFooter>
       {csrfToken && (
         <LiveStreamDialog
