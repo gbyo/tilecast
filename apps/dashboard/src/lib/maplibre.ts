@@ -23,7 +23,10 @@ export function proxyOpenFreeMapURL(url: string): string {
 }
 
 export function createTilecastMap(
-  options: Omit<MapOptions, "style" | "attributionControl" | "transformRequest">,
+  options: Omit<
+    MapOptions,
+    "style" | "attributionControl" | "transformRequest"
+  >,
 ) {
   const map = new MapLibreMap({
     ...options,
@@ -31,7 +34,10 @@ export function createTilecastMap(
     attributionControl: {},
     transformRequest: (url) => {
       const proxied = proxyOpenFreeMapURL(url);
-      if (proxied !== url || proxied.startsWith(`${OPENFREEMAP_PROXY_PREFIX}/`)) {
+      if (
+        proxied !== url ||
+        proxied.startsWith(`${OPENFREEMAP_PROXY_PREFIX}/`)
+      ) {
         return { url: proxied, credentials: "same-origin" };
       }
       return { url };
