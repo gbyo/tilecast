@@ -108,7 +108,10 @@ Core correlates renderer command results and owns startup Website data-clear
 retry policy. Edge maps wire results and user-facing failure text.
 Core coordinates activation identity, profile checks, and recovery timing.
 Edge keeps Runtime projection inputs and constructs status payloads.
-Server reconciliation remains in Edge until its extraction stage.
+Core owns pairing orchestration and server identity, credential-rejection,
+retry, and persisted clock-sampling policy. Edge supplies private stores,
+device metadata, and status surfaces. The server socket and reconciliation
+loop remain in Edge until their extraction is complete.
 
 - Presentation appearance and execution belong in Presentation Model and Player Runtime.
 - Behavior shared by full native Players belongs in Player Core after extraction.

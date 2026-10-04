@@ -1,7 +1,8 @@
 # Native Player Core
 
 **Status:** Accepted extraction contract. The five shared crates and Core
-foundation are implemented. Renderer and reconciliation extraction remains.
+foundation and renderer stage are implemented and qualified.
+Reconciliation extraction remains.
 Edge keeps its current behavior throughout the extraction.
 
 This document defines ownership for native Player work. It supplements
@@ -126,15 +127,26 @@ owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
 
 Stage 9 is incomplete. Core now owns pairing eligibility, persistent Player
-identity creation, session creation, and enrollment retry and storage order.
+identity creation, session creation, enrollment retry and storage order,
+session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
-Edge still owns pairing surfaces, session renewal, reset suppression, and the
-pairing loop. Server reconciliation, manifest preparation, offline activation,
-configuration projections, and telemetry policy remain to be extracted.
-Six Core tests cover identity order, saved claims, storage failure, session
-retirement, polling outcomes, and the enrollment retry budget.
-The existing Edge pairing integration tests have not yet been run for this
-stage-9 change.
+Edge still constructs pairing surfaces and supplies wake and shutdown signals.
+Server reconciliation, manifest preparation, offline activation,
+configuration ownership projections, and telemetry policy remain to be extracted.
+Core now owns server relationship verification, credential rejection,
+retry backoff, and persisted policy-clock samples. Edge still drives the
+server socket and reconciliation loop.
+Core owns conditional configuration fetches, binding-scoped acceptance,
+revision ordering, current/previous persistence, and refusal reporting.
+The configuration host validates a bounded document and supplies its projection.
+Core carries that projection without interpreting Runtime or Linux settings.
+Edge still validates and applies its existing configuration fields.
+The separate Core, Runtime, and platform projections remain to be completed.
+Core tests cover identity order, saved claims, storage failure, session
+retirement, polling outcomes, reset suppression, and the enrollment retry budget.
+The four existing Edge pairing integration tests pass after orchestration moves.
+Core clock tests use SQLite to check precision and persistence after reopening.
+Linux playback integration remains to be run for these stage-9 changes.
 
 ## Core foundation
 

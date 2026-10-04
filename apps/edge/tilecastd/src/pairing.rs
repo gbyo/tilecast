@@ -19,18 +19,14 @@
 //! A screen whose credential the server rejected starts pairing again with
 //! its bound server; the existing protocol reuses its screen record.
 
-use edge_server::{FileCredentialStore, FilePairingStore};
 use std::sync::Arc;
-use std::time::Duration;
 
 use edge_protocol::PlayerId;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::presentation::PresentationDocument;
-use edge_server::client::{ServerClient, ServerError};
-use edge_server::pairing::{DeviceMetadata, PairingSession};
-use edge_server::url_policy::normalize_server_url;
-use edge_state::repo::binding::{CredentialState, ServerBinding};
-use player_core::{PAIRING_RETRY as RETRY, PairingCoordinator, PairingError, PairingOutcome as Outcome};
+use edge_server::client::ServerError;
+use edge_server::pairing::DeviceMetadata;
+use player_core::{PairingCoordinator, PairingError, PairingStatus};
 
 use crate::daemon::{DaemonContext, VERSION};
 use crate::presentation::ActivationSource;
@@ -47,18 +43,8 @@ fn set_view(context: &DaemonContext, state: &'static str, code: Option<String>, 
     *context.pairing.lock().unwrap_or_else(|e| e.into_inner()) = PairingView { state, code, reason };
 }
 
-fn coordinator(context: &DaemonContext) -> Result<PairingCoordinator, &'static str> {
-    let db = context.db().ok_or("This screen's local state is unavailable.")?;
-    let core =
-        player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: context.clock.clone() });
-    Ok(core.pairing(
-        Arc::new(FileCredentialStore::new(context.paths.identity_dir())),
-        Arc::new(FilePairingStore::new(context.paths.identity_dir())),
-    ))
-}
-
-async fn may_pair(context: &DaemonContext) -> Result<Option<ServerBinding>, &'static str> {
-    coordinator(context)?.may_pair().await.map_err(|error| pairing_message(&error))
+fn coordinator(context: &DaemonContext) -> Result<&PairingCoordinator, &'static str> {
+    context.pairing_coordinator.as_ref().ok_or("This screen's local state is unavailable.")
 }
 
 fn pairing_message(error: &PairingError) -> &'static str {
@@ -110,17 +96,16 @@ fn user_message(error: &ServerError) -> &'static str {
 /// Creates a session for `url` and shows its code. Returns a message for the
 /// setup surface on failure.
 pub async fn begin(context: &DaemonContext, url: &str) -> Result<(), &'static str> {
-    may_pair(context).await?;
-    context.pairing_suppressed.store(false, std::sync::atomic::Ordering::Release);
-    let normalized =
-        normalize_server_url(url).map_err(|_| "That address is not allowed. Public servers need https://.")?;
-    let client = ServerClient::new(&normalized, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
-        .map_err(|e| user_message(&e))?;
-    let session = create_session(context, &client).await?;
-    tracing::info!(component = "pairing", event = "session_created", server = %client.base_url());
-    show(context, &session).await;
+    coordinator(context)?
+        .begin(url, &user_agent(), &Metadata(context))
+        .await
+        .map_err(|error| pairing_message(&error))?;
     context.pairing_wake.notify_one();
     Ok(())
+}
+
+fn user_agent() -> String {
+    format!("tilecastd/{}", edge_platform::RELEASE_VERSION)
 }
 
 struct Metadata<'a>(&'a DaemonContext);
@@ -140,33 +125,53 @@ impl player_core::PairingMetadataProvider for Metadata<'_> {
     }
 }
 
-async fn create_session(context: &DaemonContext, client: &ServerClient) -> Result<PairingSession, &'static str> {
-    coordinator(context)?.create_session(client, &Metadata(context)).await.map_err(|error| pairing_message(&error))
+#[async_trait::async_trait]
+impl player_core::PairingHost for Metadata<'_> {
+    async fn show_pairing(&self, status: PairingStatus) {
+        let context = self.0;
+        match status {
+            PairingStatus::Paired => set_view(context, "paired", None, None),
+            PairingStatus::Enrolled => {
+                set_view(context, "paired", None, None);
+                activate(context, crate::daemon::status_surface(context, true)).await;
+                context.server_wake.notify_one();
+                context.manifest_wake.notify_one();
+            }
+            PairingStatus::Setup => {
+                set_view(context, "unpaired", None, None);
+                activate(context, PresentationDocument::Setup {}).await;
+            }
+            PairingStatus::Reset => {
+                set_view(context, "unpaired", None, Some("reset".to_owned()));
+                activate(context, PresentationDocument::Setup {}).await;
+            }
+            PairingStatus::AddressRejected => activate(context, PresentationDocument::Setup {}).await,
+            PairingStatus::Waiting { code, approval_url, organization_name } => {
+                set_view(context, "waiting", Some(code.clone()), None);
+                activate(
+                    context,
+                    PresentationDocument::Pairing {
+                        code: SafeText::lossy(&code),
+                        approval_url: SafeText::lossy(&approval_url),
+                        organization_name: organization_name.as_deref().map(SafeText::lossy),
+                    },
+                )
+                .await;
+            }
+            PairingStatus::Renewing { reason } => set_view(context, "renewing", None, Some(reason)),
+        }
+    }
 }
 
 /// Abandons a session in progress and returns to the setup surface.
 pub async fn reset(context: &DaemonContext) {
-    // A screen with a rejected credential would otherwise pair again at once.
-    context.pairing_suppressed.store(true, std::sync::atomic::Ordering::Release);
-    take_renewal(context);
-    let _ = FilePairingStore::remove_at(&context.paths.identity_dir());
-    set_view(context, "unpaired", None, Some("reset".to_owned()));
-    show_setup(context).await;
+    if let Ok(core) = coordinator(context) {
+        core.reset(&Metadata(context)).await;
+    } else {
+        let _ = edge_server::FilePairingStore::remove_at(&context.paths.identity_dir());
+        player_core::PairingHost::show_pairing(&Metadata(context), PairingStatus::Reset).await;
+    }
     context.pairing_wake.notify_one();
-}
-
-async fn show(context: &DaemonContext, session: &PairingSession) {
-    set_view(context, "waiting", Some(session.code.clone()), None);
-    let document = PresentationDocument::Pairing {
-        code: SafeText::lossy(&session.code),
-        approval_url: SafeText::lossy(&session.approval_url),
-        organization_name: session.organization_name.as_deref().map(SafeText::lossy),
-    };
-    activate(context, document).await;
-}
-
-async fn show_setup(context: &DaemonContext) {
-    activate(context, PresentationDocument::Setup {}).await;
 }
 
 async fn activate(context: &DaemonContext, document: PresentationDocument) {
@@ -178,103 +183,13 @@ async fn activate(context: &DaemonContext, document: PresentationDocument) {
     let _ = engine.activate(document, Vec::new(), None, ActivationSource::StatusSurface, now);
 }
 
-async fn step(context: &DaemonContext, session: PairingSession) -> Outcome {
-    let Ok(client) = ServerClient::new(&session.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION))
-    else {
-        return Outcome::Replace("server_url_rejected".to_owned());
-    };
-    let Ok(core) = coordinator(context) else { return Outcome::Retry };
-    core.step(&client, session).await
-}
-
-/// The pairing task. Idle while the installation holds a credential.
+/// Edge supplies lifecycle cancellation and its private platform adapters.
 pub async fn run(context: Arc<DaemonContext>) {
-    if context.config.dev.fixture.is_some() || context.db().is_none() {
+    if context.config.dev.fixture.is_some() {
         return;
     }
-    let identity_dir = context.paths.identity_dir();
-    loop {
-        let mut delay = None;
-        match may_pair(&context).await {
-            Err(_) => set_view(&context, "paired", None, None),
-            Ok(bound) => match FilePairingStore::read_at(&identity_dir) {
-                Ok(Some(session)) => {
-                    show(&context, &session).await;
-                    let interval = Duration::from_secs(u64::from(session.polling_interval_seconds));
-                    let server_url = session.server_url.clone();
-                    match step(&context, session).await {
-                        Outcome::Enrolled => {
-                            set_view(&context, "paired", None, None);
-                            let surface = crate::daemon::status_surface(&context, true);
-                            activate(&context, surface).await;
-                            context.server_wake.notify_one();
-                            context.manifest_wake.notify_one();
-                        }
-                        Outcome::Retry => delay = Some(interval),
-                        Outcome::Replace(reason) => {
-                            tracing::info!(component = "pairing", event = "session_ended", reason = reason.as_str());
-                            let _ = FilePairingStore::remove_at(&identity_dir);
-                            set_view(&context, "renewing", None, Some(reason));
-                            match ServerClient::new(
-                                &server_url,
-                                &format!("tilecastd/{}", edge_platform::RELEASE_VERSION),
-                            ) {
-                                Ok(client) => {
-                                    // Show and poll the new session at once.
-                                    delay = Some(Duration::ZERO);
-                                    if let Err(message) = create_session(&context, &client).await {
-                                        tracing::warn!(component = "pairing", event = "renewal_failed", message);
-                                        // Keep the address so the next pass tries again.
-                                        delay = Some(RETRY);
-                                        renew_later(&context, &server_url);
-                                    }
-                                }
-                                Err(_) => show_setup(&context).await,
-                            }
-                        }
-                    }
-                }
-                Ok(None) => match bound.filter(|record| record.credential_state != CredentialState::Stored) {
-                    // A rejected credential pairs again with its own server.
-                    Some(record) if !context.pairing_suppressed.load(std::sync::atomic::Ordering::Acquire) => {
-                        if begin(&context, &record.server_url).await.is_err() {
-                            delay = Some(RETRY * 6);
-                        }
-                    }
-                    _ => {
-                        if let Some(url) = take_renewal(&context) {
-                            if begin(&context, &url).await.is_err() {
-                                renew_later(&context, &url);
-                                delay = Some(RETRY);
-                            }
-                        } else {
-                            set_view(&context, "unpaired", None, None);
-                            show_setup(&context).await;
-                        }
-                    }
-                },
-                Err(error) => {
-                    tracing::error!(component = "pairing", event = "session_unreadable", error = %error);
-                    let _ = FilePairingStore::remove_at(&identity_dir);
-                    delay = Some(RETRY);
-                }
-            },
-        }
-        let wait = delay.unwrap_or(Duration::from_secs(3600));
-        tokio::select! {
-            () = context.shutdown.cancelled() => return,
-            () = context.pairing_wake.notified() => {}
-            () = tokio::time::sleep(wait) => {}
-        }
-    }
-}
-
-fn renew_later(context: &DaemonContext, url: &str) {
-    *context.pairing_renewal.lock().unwrap_or_else(|e| e.into_inner()) = Some(url.to_owned());
-}
-
-fn take_renewal(context: &DaemonContext) -> Option<String> {
-    context.pairing_renewal.lock().unwrap_or_else(|e| e.into_inner()).take()
+    let Ok(core) = coordinator(&context) else { return };
+    core.run(&user_agent(), &Metadata(&context), &context.pairing_wake, &context.shutdown).await;
 }
 
 /// The pairing state for `tilecastctl status`.

@@ -1,5 +1,8 @@
 //! Native pairing policy. Hosts own private stores, device facts, and surfaces.
-use std::sync::Arc;
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -43,11 +46,35 @@ pub trait PairingMetadataProvider: Send + Sync {
     async fn metadata(&self, player: PlayerId) -> DeviceMetadata;
 }
 
+/// Semantic pairing state. Hosts construct their own Runtime status payloads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PairingStatus {
+    Paired,
+    Enrolled,
+    Setup,
+    AddressRejected,
+    Reset,
+    Waiting { code: String, approval_url: String, organization_name: Option<String> },
+    Renewing { reason: String },
+}
+
+#[async_trait]
+pub trait PairingHost: PairingMetadataProvider {
+    async fn show_pairing(&self, status: PairingStatus);
+}
+
+#[derive(Debug, Default)]
+struct Control {
+    suppressed: AtomicBool,
+    renewal: Mutex<Option<String>>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PairingCoordinator {
     dependencies: Dependencies,
     credentials: Arc<dyn CredentialStore>,
     sessions: Arc<dyn PairingStore>,
+    control: Arc<Control>,
 }
 
 impl PairingCoordinator {
@@ -56,7 +83,124 @@ impl PairingCoordinator {
         credentials: Arc<dyn CredentialStore>,
         sessions: Arc<dyn PairingStore>,
     ) -> Self {
-        Self { dependencies, credentials, sessions }
+        Self { dependencies, credentials, sessions, control: Arc::new(Control::default()) }
+    }
+
+    pub async fn begin(&self, url: &str, user_agent: &str, host: &impl PairingHost) -> Result<(), PairingError> {
+        self.may_pair().await?;
+        self.control.suppressed.store(false, Ordering::Release);
+        let client = ServerClient::new(url, user_agent)?;
+        let session = self.create_session(&client, host).await?;
+        tracing::info!(component = "pairing", event = "session_created", server = %client.base_url());
+        self.show_session(host, &session).await;
+        Ok(())
+    }
+
+    pub async fn reset(&self, host: &impl PairingHost) {
+        self.control.suppressed.store(true, Ordering::Release);
+        self.take_renewal();
+        let _ = self.sessions.remove();
+        host.show_pairing(PairingStatus::Reset).await;
+    }
+
+    async fn show_session(&self, host: &impl PairingHost, session: &PairingSession) {
+        host.show_pairing(PairingStatus::Waiting {
+            code: session.code.clone(),
+            approval_url: session.approval_url.clone(),
+            organization_name: session.organization_name.clone(),
+        })
+        .await;
+    }
+
+    fn renew_later(&self, url: &str) {
+        *self.control.renewal.lock().unwrap_or_else(|error| error.into_inner()) = Some(url.to_owned());
+    }
+
+    fn take_renewal(&self) -> Option<String> {
+        self.control.renewal.lock().unwrap_or_else(|error| error.into_inner()).take()
+    }
+
+    /// Run one reconciliation pass; return the existing protocol's next delay.
+    pub async fn reconcile(&self, user_agent: &str, host: &impl PairingHost) -> Duration {
+        let mut delay = None;
+        match self.may_pair().await {
+            Err(_) => host.show_pairing(PairingStatus::Paired).await,
+            Ok(bound) => match self.sessions.load() {
+                Ok(Some(session)) => {
+                    self.show_session(host, &session).await;
+                    let interval = Duration::from_secs(u64::from(session.polling_interval_seconds));
+                    let server_url = session.server_url.clone();
+                    let outcome = match ServerClient::new(&server_url, user_agent) {
+                        Ok(client) => self.step(&client, session).await,
+                        Err(_) => PairingOutcome::Replace("server_url_rejected".to_owned()),
+                    };
+                    match outcome {
+                        PairingOutcome::Enrolled => host.show_pairing(PairingStatus::Enrolled).await,
+                        PairingOutcome::Retry => delay = Some(interval),
+                        PairingOutcome::Replace(reason) => {
+                            tracing::info!(component = "pairing", event = "session_ended", reason = reason.as_str());
+                            let _ = self.sessions.remove();
+                            host.show_pairing(PairingStatus::Renewing { reason }).await;
+                            match ServerClient::new(&server_url, user_agent) {
+                                Ok(client) => {
+                                    delay = Some(Duration::ZERO);
+                                    if self.create_session(&client, host).await.is_err() {
+                                        tracing::warn!(
+                                            component = "pairing",
+                                            event = "renewal_failed",
+                                            reason = "session_creation_failed"
+                                        );
+                                        delay = Some(PAIRING_RETRY);
+                                        self.renew_later(&server_url);
+                                    }
+                                }
+                                Err(_) => host.show_pairing(PairingStatus::AddressRejected).await,
+                            }
+                        }
+                    }
+                }
+                Ok(None) => match bound.filter(|record| record.credential_state != CredentialState::Stored) {
+                    Some(record) if !self.control.suppressed.load(Ordering::Acquire) => {
+                        if self.begin(&record.server_url, user_agent, host).await.is_err() {
+                            delay = Some(PAIRING_RETRY * 6);
+                        }
+                    }
+                    _ => {
+                        if let Some(url) = self.take_renewal() {
+                            if self.begin(&url, user_agent, host).await.is_err() {
+                                self.renew_later(&url);
+                                delay = Some(PAIRING_RETRY);
+                            }
+                        } else {
+                            host.show_pairing(PairingStatus::Setup).await;
+                        }
+                    }
+                },
+                Err(error) => {
+                    tracing::error!(component = "pairing", event = "session_unreadable", error = %error);
+                    let _ = self.sessions.remove();
+                    delay = Some(PAIRING_RETRY);
+                }
+            },
+        }
+        delay.unwrap_or(Duration::from_secs(3600))
+    }
+
+    pub async fn run(
+        &self,
+        user_agent: &str,
+        host: &impl PairingHost,
+        wake: &tokio::sync::Notify,
+        shutdown: &tokio_util::sync::CancellationToken,
+    ) {
+        loop {
+            let wait = self.reconcile(user_agent, host).await;
+            tokio::select! {
+                () = shutdown.cancelled() => return,
+                () = wake.notified() => {}
+                () = tokio::time::sleep(wait) => {}
+            }
+        }
     }
 
     /// A binding alone is insufficient: there must also be a usable credential.
@@ -367,6 +511,81 @@ mod tests {
         (dir, pairing, stores, api)
     }
     use crate::PlayerCore as PlayerCoreForTest;
+
+    #[derive(Debug, Default)]
+    struct Sessions(Mutex<Option<PairingSession>>);
+
+    impl PairingStore for Sessions {
+        fn load(&self) -> Result<Option<PairingSession>, PairingFileError> {
+            Ok(self.0.lock().unwrap().clone())
+        }
+        fn save(&self, session: &PairingSession) -> Result<(), PairingFileError> {
+            *self.0.lock().unwrap() = Some(session.clone());
+            Ok(())
+        }
+        fn remove(&self) -> Result<(), PairingFileError> {
+            self.0.lock().unwrap().take();
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct Host(Mutex<Vec<PairingStatus>>);
+
+    #[async_trait]
+    impl PairingMetadataProvider for Host {
+        async fn metadata(&self, _: PlayerId) -> DeviceMetadata {
+            panic!("a rejected address must not collect device metadata")
+        }
+    }
+
+    #[async_trait]
+    impl PairingHost for Host {
+        async fn show_pairing(&self, status: PairingStatus) {
+            self.0.lock().unwrap().push(status);
+        }
+    }
+
+    #[tokio::test]
+    async fn reset_suppresses_repair_until_an_explicit_pairing_attempt() {
+        let (_dir, core, stores, _) = fixture();
+        let sessions = Arc::new(Sessions(Mutex::new(Some(session()))));
+        let core = PairingCoordinator::new(core.dependencies, stores.clone(), sessions.clone());
+        let now = core.dependencies.clock.now();
+        stores
+            .state
+            .run(move |connection| {
+                binding::put(
+                    connection,
+                    &ServerBinding {
+                        server_url: "http://public.example.org".to_owned(),
+                        installation_id: installation(),
+                        organization_name: None,
+                        screen_id: None,
+                        screen_name: None,
+                        credential_state: CredentialState::Rejected,
+                        identity_verified_at: None,
+                        bound_at: now,
+                    },
+                    now,
+                )
+            })
+            .await
+            .unwrap();
+        let host = Host::default();
+        core.renew_later("https://unused.example.org");
+        core.reset(&host).await;
+        assert!(sessions.load().unwrap().is_none());
+        assert!(core.take_renewal().is_none());
+        assert_eq!(core.reconcile("test", &host).await, Duration::from_secs(3600));
+        assert_eq!(*host.0.lock().unwrap(), vec![PairingStatus::Reset, PairingStatus::Setup]);
+        assert!(matches!(
+            core.begin("http://public.example.org", "test", &host).await,
+            Err(PairingError::Server(ServerError::Url(_)))
+        ));
+        assert_eq!(core.reconcile("test", &host).await, Duration::from_secs(30));
+        assert!(stores.state.run(|connection| daemon::player_identity(connection)).await.unwrap().is_none());
+    }
 
     #[tokio::test]
     async fn public_identity_precedes_metadata_and_persistent_player_identity() {

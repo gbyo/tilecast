@@ -115,8 +115,8 @@ pub struct DaemonContext {
     /// Pairing of a fresh installation (`pairing`).
     pub pairing: std::sync::Mutex<crate::pairing::PairingView>,
     pub pairing_wake: tokio::sync::Notify,
-    pub pairing_suppressed: std::sync::atomic::AtomicBool,
-    pub pairing_renewal: std::sync::Mutex<Option<String>>,
+    pub pairing_coordinator: Option<player_core::PairingCoordinator>,
+    pub server_relationship: Option<player_core::ServerRelationship>,
     /// Set by `restart_player_process` before it cancels the daemon.
     pub restart_requested: std::sync::atomic::AtomicBool,
     pub shutdown: CancellationToken,
@@ -340,6 +340,16 @@ impl Daemon {
             StateMode::Normal(db) => Some(db.clone()),
             StateMode::Recovery { .. } => None,
         };
+        let pairing_coordinator = network_db.as_ref().map(|db| {
+            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() }).pairing(
+                Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())),
+                Arc::new(edge_server::FilePairingStore::new(paths.identity_dir())),
+            )
+        });
+        let server_relationship = network_db.as_ref().map(|db| {
+            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() })
+                .server_relationship(Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())))
+        });
         let context = Arc::new(DaemonContext {
             config,
             paths,
@@ -367,8 +377,8 @@ impl Daemon {
             sync_done: tokio::sync::watch::Sender::new((0, false)),
             pairing: std::sync::Mutex::new(Default::default()),
             pairing_wake: tokio::sync::Notify::new(),
-            pairing_suppressed: std::sync::atomic::AtomicBool::new(false),
-            pairing_renewal: std::sync::Mutex::new(None),
+            pairing_coordinator,
+            server_relationship,
             restart_requested: std::sync::atomic::AtomicBool::new(false),
             shutdown: CancellationToken::new(),
             activity,

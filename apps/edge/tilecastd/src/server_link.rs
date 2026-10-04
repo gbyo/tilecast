@@ -29,16 +29,17 @@
 //! revoked (the legacy player's rule); network errors, 5xx and disabled
 //! screens retry with backoff.
 
-use edge_server::FileCredentialStore;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use edge_protocol::Timestamp;
 use edge_server::AuthenticatedServer;
-use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerClient, ServerError};
-use edge_state::repo::binding::{self, CredentialState};
+use edge_server::client::{PLAYER_SOCKET_ACTIVITY_TIMEOUT, PlayerSocket, PlayerSocketEvent, ServerError};
+use edge_state::repo::binding;
 use edge_state::repo::manifests::{self, Binding as ManifestBinding, Stage, Target};
 use edge_state::repo::playback;
+#[cfg(test)]
+use player_core::refined_server_offset as refined_offset;
 
 use crate::daemon::{DaemonContext, VERSION};
 use crate::manifest::OriginSources;
@@ -54,59 +55,12 @@ pub const CONTACT_INTERVAL: Duration = Duration::from_secs(60);
 pub const MANIFEST_INTERVAL: Duration = Duration::from_secs(300);
 /// Re-check cadence while there is nothing to do (unbound, rejected).
 pub const IDLE_INTERVAL: Duration = Duration::from_secs(300);
-/// Retry delays grow to this ceiling while the server is unreachable.
-pub const MAX_RETRY_INTERVAL: Duration = Duration::from_secs(300);
+pub use player_core::{
+    SERVER_MAX_RETRY as MAX_RETRY_INTERVAL, SERVER_RETRY_BASE as RETRY_BASE, ServerLinkState as LinkState,
+    server_retry_delay as retry_delay,
+};
+use player_core::{ServerBackoff as Backoff, ServerLinkState};
 pub const SOCKET_LIVENESS_TIMEOUT: Duration = PLAYER_SOCKET_ACTIVITY_TIMEOUT;
-
-/// Why a pass stopped early; recorded for `tilecastctl status`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum LinkState {
-    Unbound,
-    CredentialMissing,
-    CredentialRejected,
-    IdentityMismatch,
-    Connected,
-    Retrying(&'static str),
-}
-
-impl LinkState {
-    /// `unbound`, `connected`, `retrying` or `stopped` (needs an operator).
-    pub fn state_token(&self) -> &'static str {
-        match self {
-            Self::Unbound => "unbound",
-            Self::Connected => "connected",
-            Self::Retrying(_) => "retrying",
-            Self::CredentialMissing | Self::CredentialRejected | Self::IdentityMismatch => "stopped",
-        }
-    }
-
-    pub fn reason_code(&self) -> Option<&'static str> {
-        match self {
-            Self::Unbound => Some("not_bound"),
-            Self::CredentialMissing => Some("device_credential_missing"),
-            Self::CredentialRejected => Some("device_credential_rejected"),
-            Self::IdentityMismatch => Some("installation_identity_mismatch"),
-            Self::Connected => None,
-            Self::Retrying(code) => Some(code),
-        }
-    }
-}
-
-/// The reference player's reconnect backoff
-/// (`apps/player-linux/src/core/backoff.ts`): the first retry after about
-/// 2 s, doubling to [`MAX_RETRY_INTERVAL`], with full jitter above half the
-/// base delay so a fleet does not retry in step. `unit` is a random number
-/// in `[0, 1)`.
-pub const RETRY_BASE: Duration = Duration::from_secs(2);
-
-pub fn retry_delay(failures: u32, unit: f64) -> Duration {
-    let base = RETRY_BASE.as_millis() as u64;
-    let exponent = failures.max(1).saturating_sub(1).min(16);
-    let ceiling = base.saturating_mul(1 << exponent).min(MAX_RETRY_INTERVAL.as_millis() as u64);
-    let floor = (base / 2).min(ceiling);
-    let jitter = ((ceiling - floor) as f64 * unit.clamp(0.0, 1.0)) as u64;
-    Duration::from_millis(floor + jitter.min(ceiling - floor))
-}
 
 /// A random number in `[0, 1)` for retry jitter.
 fn jitter_unit() -> f64 {
@@ -116,33 +70,6 @@ fn jitter_unit() -> f64 {
         return 0.5;
     }
     f64::from(u32::from_le_bytes(bytes)) / (f64::from(u32::MAX) + 1.0)
-}
-
-/// A connection must stay up this long before its next failure counts as a
-/// fresh outage rather than a continuation (the reference player's
-/// `healthyResetMs`), so a flapping server is not retried every 2 s.
-pub const HEALTHY_RESET: Duration = Duration::from_secs(120);
-
-/// The failure streak of one kind of connection.
-#[derive(Debug, Default)]
-struct Backoff {
-    failures: u32,
-    connected_at: Option<Instant>,
-}
-
-impl Backoff {
-    fn connected(&mut self, now: Instant) {
-        self.connected_at.get_or_insert(now);
-    }
-
-    /// Records a failure and returns the delay before the next attempt.
-    fn failed(&mut self, now: Instant) -> Duration {
-        if self.connected_at.take().is_some_and(|at| now.duration_since(at) >= HEALTHY_RESET) {
-            self.failures = 0;
-        }
-        self.failures = self.failures.saturating_add(1);
-        retry_delay(self.failures, jitter_unit())
-    }
 }
 
 #[derive(Debug, Default)]
@@ -191,7 +118,7 @@ impl Link {
         self.last_socket_activity = None;
         self.socket_failures = self.socket_failures.saturating_add(1);
         let now = Instant::now();
-        self.next_socket_attempt = Some(now + self.socket_backoff.failed(now));
+        self.next_socket_attempt = Some(now + self.socket_backoff.failed(now, jitter_unit()));
     }
 
     fn abort_preparation(&mut self) {
@@ -228,7 +155,7 @@ pub async fn run(context: Arc<DaemonContext>) {
                 link.backoff.connected(Instant::now());
                 contact_interval
             }
-            LinkState::Retrying(_) => link.backoff.failed(Instant::now()),
+            LinkState::Retrying(_) => link.backoff.failed(Instant::now(), jitter_unit()),
             _ => {
                 link.abort_preparation();
                 IDLE_INTERVAL
@@ -342,61 +269,18 @@ pub async fn run(context: Arc<DaemonContext>) {
 /// samples it), so a restart without the server still schedules at the
 /// corrected time.
 pub(crate) async fn sample_server_clock(context: &DaemonContext, timestamp: &str) {
-    let Ok(server_time) = Timestamp::parse(timestamp) else { return };
-    let Some(db) = context.db() else { return };
-    let received_at = context.now();
-    let sample = server_time.unix_millis().saturating_sub(received_at.unix_millis());
-    // Older servers send whole-second pings: such a sample only says the
-    // offset lies in [sample, sample + 1 s).
-    let coarse = !timestamp.contains('.');
-    let _ = db
-        .run(move |c| {
-            let mut state = playback::get(c)?;
-            let stale = state
-                .server_clock_synchronized_at
-                .is_none_or(|at| received_at.unix_millis() - at.unix_millis() > 300_000);
-            if let Some(offset) = refined_offset(state.server_clock_offset_ms, sample, coarse, stale) {
-                state.server_clock_offset_ms = Some(offset);
-                state.server_clock_synchronized_at = Some(received_at);
-                playback::put(c, &state, received_at)?;
-            }
-            Ok(())
-        })
-        .await;
-}
-
-/// The offset to store after a sample, or `None` to keep the current one. A
-/// precise sample replaces an offset it moves by 250 ms or more, or a stale
-/// one. A whole-second sample replaces only an offset outside its interval,
-/// with the interval's middle.
-pub(crate) fn refined_offset(current: Option<i64>, sample: i64, coarse: bool, stale: bool) -> Option<i64> {
-    if coarse {
-        return match current {
-            Some(old) if (sample..=sample.saturating_add(1_000)).contains(&old) => None,
-            _ => Some(sample.saturating_add(500)),
-        };
-    }
-    match current {
-        Some(old) if old.abs_diff(sample) < 250 && !stale => None,
-        _ => Some(sample),
-    }
-}
-
-fn server_retry(error: &ServerError) -> LinkState {
-    match error {
-        ServerError::IdentityMismatch { .. } => LinkState::IdentityMismatch,
-        ServerError::CredentialRejected => LinkState::CredentialRejected,
-        other => LinkState::Retrying(other.reason_code()),
+    if let Some(relationship) = &context.server_relationship {
+        relationship.sample_clock(timestamp).await;
     }
 }
 
 pub async fn reject_credential(context: &DaemonContext) {
-    tracing::warn!(component = "server", event = "credential_rejected");
-    if let Some(db) = context.db() {
-        let now = context.now();
-        let _ = db.run(move |c| binding::set_credential_state(c, CredentialState::Rejected, now)).await;
+    if let Some(relationship) = &context.server_relationship {
+        relationship.reject_credential().await;
+    } else {
+        // Preserve private-file cleanup in local-state recovery mode.
+        let _ = edge_server::FileCredentialStore::remove_at(&context.paths.identity_dir());
     }
-    let _ = FileCredentialStore::remove_at(&context.paths.identity_dir());
     context.command_server.send_replace(None);
 }
 
@@ -527,38 +411,16 @@ async fn sync_manifest(
 }
 
 async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
-    let Some(db) = context.db() else {
-        return LinkState::Unbound;
-    };
-    let Ok(Some(bound)) = db.run(|c| binding::get(c)).await else {
-        return LinkState::Unbound;
-    };
-    if bound.credential_state == CredentialState::Rejected {
-        return LinkState::CredentialRejected;
-    }
-    let credential = match FileCredentialStore::read_at(&context.paths.identity_dir()) {
-        Ok(Some(credential)) => credential,
-        Ok(None) => return LinkState::CredentialMissing,
+    let Some(relationship) = &context.server_relationship else { return LinkState::Unbound };
+    let (bound, server) = match relationship.verify(&format!("tilecastd/{}", edge_platform::RELEASE_VERSION)).await {
+        Ok(verified) => verified,
         Err(error) => {
-            tracing::error!(component = "server", event = "credential_unreadable", error = %error);
-            return LinkState::CredentialMissing;
+            if matches!(error, player_core::ServerRelationshipError::Identity(_)) {
+                link.socket = None;
+            }
+            return error.state();
         }
     };
-    let server = match ServerClient::new(&bound.server_url, &format!("tilecastd/{}", edge_platform::RELEASE_VERSION)) {
-        Ok(client) => match client.verify_installation(bound.installation_id, credential).await {
-            Ok(server) => server,
-            Err(error) => {
-                if matches!(error, ServerError::IdentityMismatch { .. }) {
-                    tracing::error!(component = "server", event = "identity_mismatch", error = %error);
-                }
-                link.socket = None;
-                return server_retry(&error);
-            }
-        },
-        Err(error) => return server_retry(&error),
-    };
-    let now = context.now();
-    let _ = db.run(move |c| binding::mark_identity_verified(c, now)).await;
     // A new relationship (or a changed server) polls commands at once; a
     // continuing one only refreshes the handle.
     let published = server.clone();
@@ -618,7 +480,7 @@ async fn pass(context: &Arc<DaemonContext>, link: &mut Link) -> LinkState {
                 reject_credential(context).await;
                 return LinkState::CredentialRejected;
             }
-            Err(error) => return server_retry(&error),
+            Err(error) => return ServerLinkState::from_error(&error),
         }
     }
     let reconcile_interval = crate::config_sync::effective(context).sync.manifest_reconciliation;
@@ -840,7 +702,7 @@ mod tests {
     #[test]
     fn a_whole_second_sample_corrects_only_what_it_can_resolve() {
         // Precise samples: 250 ms or more, or a stale offset, replace it.
-        assert_eq!(refined_offset(None, -40, false, false), Some(-40));
+        assert_eq!(player_core::refined_server_offset(None, -40, false, false), Some(-40));
         assert_eq!(refined_offset(Some(-40), 100, false, false), None);
         assert_eq!(refined_offset(Some(-40), 300, false, false), Some(300));
         assert_eq!(refined_offset(Some(-40), 100, false, true), Some(100));
@@ -867,25 +729,6 @@ mod tests {
             let unit = jitter_unit();
             assert!((0.0..1.0).contains(&unit), "{unit}");
         }
-    }
-
-    #[test]
-    fn a_streak_resets_only_after_a_healthy_connection() {
-        let start = Instant::now();
-        let mut backoff = Backoff::default();
-        for _ in 0..5 {
-            backoff.failed(start);
-        }
-        assert_eq!(backoff.failures, 5);
-        // A brief success does not forgive a flapping server.
-        backoff.connected(start);
-        backoff.failed(start + Duration::from_secs(10));
-        assert_eq!(backoff.failures, 6);
-        // Two healthy minutes do.
-        backoff.connected(start + Duration::from_secs(10));
-        backoff.connected(start + Duration::from_secs(60));
-        backoff.failed(start + Duration::from_secs(10) + HEALTHY_RESET);
-        assert_eq!(backoff.failures, 1);
     }
 
     #[test]

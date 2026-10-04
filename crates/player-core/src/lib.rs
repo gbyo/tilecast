@@ -2,6 +2,7 @@
 mod activity;
 mod capture;
 mod commands;
+mod configuration;
 mod live_stream;
 mod origin;
 mod pairing;
@@ -14,6 +15,7 @@ mod renderer_profile;
 mod renderer_resources;
 mod renderer_tracking;
 mod schedule;
+mod server_link;
 mod supervisor;
 
 pub use activity::{
@@ -27,9 +29,13 @@ pub use commands::{
     CommandApi, Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, REPORT_BEFORE_DISRUPTION_TIMEOUT,
     drive_commands,
 };
+pub use configuration::{ConfigurationCoordinator, ConfigurationHost, ConfigurationOutcome, PreparedConfiguration};
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use origin::{InvalidDownloadPath, OriginBlobSource};
-pub use pairing::{PAIRING_RETRY, PairingCoordinator, PairingError, PairingMetadataProvider, PairingOutcome};
+pub use pairing::{
+    PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
+    PairingStatus,
+};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
@@ -53,6 +59,10 @@ pub use renderer_profile::{
 pub use renderer_resources::{ObjectBinding, ResourceError, RuntimePayload};
 pub use renderer_tracking::{RendererProgressDecision, RendererTracker, SemanticRendererProgress};
 pub use schedule::{DisplayPolicy, ScheduleError, Selection, Source, resolve, resolve_display_policy};
+pub use server_link::{
+    SERVER_HEALTHY_RESET, SERVER_MAX_RETRY, SERVER_RETRY_BASE, ServerBackoff, ServerLinkState, ServerRelationship,
+    ServerRelationshipError, refined_server_offset, server_retry_delay,
+};
 pub use supervisor::{
     Expectation, HealAction, ProgressEvidence, SupervisorConfig, SupervisorState, is_content_evidence, is_meaningful,
 };
@@ -78,6 +88,10 @@ impl PlayerCore {
         Self { dependencies }
     }
 
+    pub fn configuration(&self) -> ConfigurationCoordinator {
+        ConfigurationCoordinator::new(self.dependencies.clone())
+    }
+
     /// Construct the durable coordinator with the host's fixed command handlers.
     pub fn commands<H: Handlers>(&self, handlers: H) -> Coordinator<H> {
         Coordinator::new(self.dependencies.state.clone(), self.dependencies.clock.clone(), handlers)
@@ -90,6 +104,13 @@ impl PlayerCore {
         sessions: std::sync::Arc<dyn player_client::PairingStore>,
     ) -> PairingCoordinator {
         PairingCoordinator::new(self.dependencies.clone(), credentials, sessions)
+    }
+
+    pub fn server_relationship(
+        &self,
+        credentials: std::sync::Arc<dyn player_client::CredentialStore>,
+    ) -> ServerRelationship {
+        ServerRelationship::new(self.dependencies.clone(), credentials)
     }
 
     /// Resolve native selection at the host's current wall-clock instant.

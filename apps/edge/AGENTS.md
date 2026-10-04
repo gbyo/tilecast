@@ -30,6 +30,10 @@ fixed command handlers, the migration hold, renderer signal adapters, and
 Activity outbox delivery until their extraction stages.
 The root Cargo workspace migration is qualified. Remaining shared behavior
 extraction follows the contract.
+Core owns pairing orchestration and server relationship, credential-rejection,
+retry, and persisted clock-sampling policy. Edge supplies private stores,
+device metadata, and status surfaces. The server socket and reconciliation
+loop remain in Edge until their extraction is complete.
 
 ## Fixed decisions
 
