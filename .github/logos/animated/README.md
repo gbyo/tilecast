@@ -31,3 +31,7 @@ update these too.
 The bouncing logo that shows outside active hours uses `cast`. The Player
 Runtime bundles a copy at `packages/player-runtime/static/`, and the Android
 player redraws it in `TilecastCastLogo.kt`. Update both with the source file.
+
+Tilecast Edge uses `pulse` for the same display. The runtime also bundles
+`tilecast-logo-pulse-white.svg`, and the Edge bridge selects it with the
+`outsideHoursLogo` host capability. Other players keep `cast`.
