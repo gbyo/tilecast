@@ -12,10 +12,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import type { Screen } from "../api/types";
 import { useNativeHost } from "../native-host/NativeHostProvider";
-import {
-  validateSystemMap,
-  type SystemMapTone,
-} from "../native-host/protocol";
+import { validateSystemMap, type SystemMapTone } from "../native-host/protocol";
 import { Badge } from "./ui/badge";
 import { Button, buttonVariants } from "./ui/button";
 import {
@@ -85,7 +82,7 @@ function fitScreens(map: MapLibreMap, screens: Screen[]) {
   const positioned = screens.filter((screen) => screen.mapPosition);
   if (positioned.length === 0) return;
   if (positioned.length === 1) {
-    const position = positioned[0].mapPosition;
+    const position = positioned[0]?.mapPosition;
     if (!position) return;
     map.easeTo({
       center: [position.longitude, position.latitude],
@@ -191,7 +188,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
       style: OPENFREEMAP_STYLE_URL,
       center: [0, 0],
       zoom: 1,
-      attributionControl: true,
+      attributionControl: {},
     });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
@@ -211,15 +208,7 @@ export function ScreenFleetMap({ screens }: { screens: Screen[] }) {
         filter: ["has", "point_count"],
         paint: {
           "circle-color": "#2563eb",
-          "circle-radius": [
-            "step",
-            ["get", "point_count"],
-            18,
-            10,
-            22,
-            50,
-            28,
-          ],
+          "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 50, 28],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
         },

@@ -686,7 +686,9 @@
           "description": "Main page only. Withdraw the matching native map if it is still active.",
           "if": { "properties": { "type": { "const": "system/map-dismiss" } } },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/systemMapIdPayload" } }
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
+            }
           }
         }
       ]
@@ -830,14 +832,20 @@
           "description": "Main page only. The user chose an opaque action exposed by a native map point.",
           "if": { "properties": { "type": { "const": "system/map-action" } } },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/systemMapActionPayload" } }
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapActionPayload" }
+            }
           }
         },
         {
           "description": "Main page only. The native map was dismissed by the user.",
-          "if": { "properties": { "type": { "const": "system/map-dismissed" } } },
+          "if": {
+            "properties": { "type": { "const": "system/map-dismissed" } }
+          },
           "then": {
-            "properties": { "payload": { "$ref": "#/$defs/systemMapIdPayload" } }
+            "properties": {
+              "payload": { "$ref": "#/$defs/systemMapIdPayload" }
+            }
           }
         }
       ]

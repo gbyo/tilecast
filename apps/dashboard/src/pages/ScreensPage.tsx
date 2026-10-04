@@ -1854,7 +1854,10 @@ export function ScreenListContent({
                   value={groupBy}
                   onChange={setGroupBy}
                   options={[
-                    { value: "location", label: t("list.groupOptions.location") },
+                    {
+                      value: "location",
+                      label: t("list.groupOptions.location"),
+                    },
                     { value: "status", label: t("list.groupOptions.status") },
                     { value: "sync", label: t("list.groupOptions.sync") },
                     { value: "none", label: t("list.groupOptions.none") },
@@ -1867,12 +1870,18 @@ export function ScreenListContent({
                   onChange={setSort}
                   options={[
                     { value: "name-asc", label: t("list.sortOptions.nameAsc") },
-                    { value: "name-desc", label: t("list.sortOptions.nameDesc") },
+                    {
+                      value: "name-desc",
+                      label: t("list.sortOptions.nameDesc"),
+                    },
                     {
                       value: "location-asc",
                       label: t("list.sortOptions.locationAsc"),
                     },
-                    { value: "status-asc", label: t("list.sortOptions.status") },
+                    {
+                      value: "status-asc",
+                      label: t("list.sortOptions.status"),
+                    },
                     {
                       value: "contact-desc",
                       label: t("list.sortOptions.contactDesc"),
@@ -1881,7 +1890,10 @@ export function ScreenListContent({
                       value: "contact-asc",
                       label: t("list.sortOptions.contactAsc"),
                     },
-                    { value: "added-desc", label: t("list.sortOptions.addedDesc") },
+                    {
+                      value: "added-desc",
+                      label: t("list.sortOptions.addedDesc"),
+                    },
                     {
                       value: "platform-asc",
                       label: t("list.sortOptions.platform"),
@@ -2630,8 +2642,9 @@ export function ScreenDetailPage() {
   const queryClient = useQueryClient();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
-  const [mapPositionOverride, setMapPositionOverride] =
-    useState<MapCoordinates | undefined>();
+  const [mapPositionOverride, setMapPositionOverride] = useState<
+    MapCoordinates | undefined
+  >();
   const [policyDirty, setPolicyDirty] = useState(false);
   const [pendingDestination, setPendingDestination] =
     useState<ScreenTabDestination | null>(null);

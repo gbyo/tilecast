@@ -41,11 +41,9 @@ export function ScreenPositionPicker({
     const map = new MapLibreMap({
       container: containerRef.current,
       style: OPENFREEMAP_STYLE_URL,
-      center: initial
-        ? [initial.longitude, initial.latitude]
-        : [0, 0],
+      center: initial ? [initial.longitude, initial.latitude] : [0, 0],
       zoom: initial ? 17 : 1,
-      attributionControl: true,
+      attributionControl: {},
     });
     mapRef.current = map;
     map.addControl(new NavigationControl({ showCompass: false }), "top-right");
