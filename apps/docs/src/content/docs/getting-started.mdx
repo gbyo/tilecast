@@ -3,6 +3,10 @@ title: Getting started
 description: The shortest path from a new Tilecast installation to a paired display.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/fleet.png";
+import darkScreenshot from "../../assets/screenshots/fleet-dark.png";
+
 import { LinkButton, Steps } from "@astrojs/starlight/components";
 
 Follow this path to start Tilecast Server and pair one display. After that, use Studio to assign content.
@@ -33,6 +37,12 @@ Use an HTTPS address when a Player connects over the public internet. A private 
 A pairing code expires after ten minutes. If it expires before approval, request a new code from the Player.
 
 The Android Player opens a required commissioning checklist after its first enrollment. Finish that checklist before expecting normal playback; the [Android Player guide](../players/install-android/) explains the steps.
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Tilecast Studio Fleet listing district screens with their locations, assigned content, and connection-status labels."
+/>
 
 ## Next steps
 

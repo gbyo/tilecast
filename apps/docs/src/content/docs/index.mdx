@@ -62,7 +62,18 @@ hero:
       variant: minimal
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/studio-overview.png";
+import darkScreenshot from "../../assets/screenshots/studio-overview-dark.png";
+
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Tilecast Studio Overview with fleet status, screens needing attention, assigned presentations, and upcoming schedules."
+  priority
+/>
 
 ## Where to start
 

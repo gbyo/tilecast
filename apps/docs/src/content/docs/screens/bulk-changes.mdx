@@ -3,6 +3,10 @@ title: Bulk screen changes
 description: Preview a supported change across several screens before applying it.
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
+import screenshot from "../../../assets/screenshots/bulk-change-review.png";
+import darkScreenshot from "../../../assets/screenshots/bulk-change-review-dark.png";
+
 import { Steps } from "@astrojs/starlight/components";
 
 Open **Screens** > **Bulk changes** when you need to make the same supported change to several screens.
@@ -14,6 +18,12 @@ Choose the target screens and an available action, then review the preview befor
 If a Display Group adds more screens to the target, the preview shows the actual screens that will be affected.
 
 For Player commands, the preview also shows screens that cannot receive the command because of their platform or available features.
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Bulk change preview listing the actual affected screens, including Cafeteria West added through its Display Group, before applying."
+/>
 
 ## Apply a bulk change
 
