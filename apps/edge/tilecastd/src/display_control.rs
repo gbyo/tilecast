@@ -579,12 +579,7 @@ pub async fn run(context: Arc<DaemonContext>) {
     let display = Arc::clone(&context.display);
     let mut last_probe: Option<Instant> = None;
     let mut last_power = Instant::now();
-    let mut policy = context.db().map(|state| {
-        player_core::DisplayPolicyCoordinator::new(player_core::Dependencies {
-            state: state.clone(),
-            clock: context.clock.clone(),
-        })
-    });
+    let mut policy = context.core.as_ref().map(player_core::PlayerCore::display_policy);
     loop {
         let mut changed = false;
         if last_probe.is_none_or(|at| at.elapsed() >= PROBE_INTERVAL) {

@@ -1,5 +1,6 @@
 //! Shared native Player behavior. Hosts supply services and platform handlers.
 mod activity;
+mod activity_driver;
 mod capture;
 mod commands;
 mod configuration;
@@ -34,6 +35,9 @@ pub use activity::{
     PresentationContext as ActivityPresentationContext, Presented as ActivityPresented,
     RendererSignal as ActivityRendererSignal, Signal as ActivitySignal, Tracker as ActivityTracker,
     reason as activity_reason,
+};
+pub use activity_driver::{
+    ActivityServices, FLUSH_INTERVAL as ACTIVITY_FLUSH_INTERVAL, Handle as ActivityHandle, drive_activity,
 };
 pub use capture::{CaptureBroker, CaptureError, CaptureState, RENDERER_CAPTURE_TIMEOUT};
 pub use commands::{
@@ -143,6 +147,22 @@ impl PlayerCore {
         ManifestCoordinator::new(self.dependencies.clone())
     }
 
+    pub fn offline_activation(&self, store: Option<player_cas::ContentStore>) -> OfflineActivationCoordinator {
+        OfflineActivationCoordinator::new(self.dependencies.clone(), store)
+    }
+
+    pub fn display_policy(&self) -> DisplayPolicyCoordinator {
+        DisplayPolicyCoordinator::new(self.dependencies.clone())
+    }
+
+    pub async fn run_activity(&self, services: ActivityServices<'_>) {
+        drive_activity(self.dependencies.clone(), services).await;
+    }
+
+    pub async fn run_telemetry(&self, host: &impl TelemetryHost, shutdown: &tokio_util::sync::CancellationToken) {
+        drive_telemetry(self.dependencies.clone(), host, shutdown).await;
+    }
+
     /// Construct the durable coordinator with the host's fixed command handlers.
     pub fn commands<H: Handlers>(&self, handlers: H) -> Coordinator<H> {
         Coordinator::new(self.dependencies.state.clone(), self.dependencies.clock.clone(), handlers)
@@ -170,7 +190,7 @@ impl PlayerCore {
     }
 
     /// Drive command delivery for the current verified server relationship.
-    pub async fn run<H, A>(
+    pub async fn run_commands<H, A>(
         &self,
         coordinator: &Coordinator<H>,
         server: tokio::sync::watch::Receiver<Option<A>>,

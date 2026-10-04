@@ -95,11 +95,6 @@ impl player_core::TelemetryHost for Measurements<'_> {
 /// Edge supplies current renderer state and Linux measurements; Core owns the
 /// sampling cadence, counters, and bounded offline queue.
 pub async fn run(context: Arc<DaemonContext>) {
-    let Some(state) = context.db().cloned() else { return };
-    player_core::drive_telemetry(
-        player_core::Dependencies { state, clock: context.clock.clone() },
-        &Measurements(&context),
-        &context.shutdown,
-    )
-    .await;
+    let Some(core) = context.core.as_ref() else { return };
+    core.run_telemetry(&Measurements(&context), &context.shutdown).await;
 }

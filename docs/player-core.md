@@ -72,7 +72,7 @@ It may consume generic values from `player-types`. Do not rename the entire
 wire crate. Preserve IPC golden fixtures when semantic values move.
 
 Expose a small Core composition API, such as `PlayerCore::new(dependencies)`
-and `PlayerCore::run(...)`. Keep scheduling, reconciliation, command delivery,
+and its domain drivers. Keep scheduling, reconciliation, command delivery,
 Activity, and supervision modules internal unless a consumer needs an API.
 `tilecastd` becomes the Linux composition root. It constructs shared services
 and connects Edge providers, lifecycle, migration, and update integrations.
@@ -144,7 +144,7 @@ Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Core now drives the server
 socket, reconnect and liveness timers, heartbeat fallback, push handling,
 configuration and manifest reconciliation, and command/Watch Live wakes.
-Edge supplies heartbeat projection, renderer privacy checks, Activity delivery,
+Edge supplies heartbeat projection, renderer privacy checks, Activity signals,
 and retry jitter. Socket credentials still pass the public identity gate.
 Core owns conditional configuration fetches, binding-scoped acceptance,
 revision ordering, current/previous persistence, and refusal reporting.
@@ -179,11 +179,15 @@ The CI qualification gate remains unqualified until the current head passes.
 `crates/player-core` implements native schedule selection, command idempotency,
 and Activity session semantics. Its implementation modules are private.
 `PlayerCore::new(Dependencies)` receives durable state and a host clock.
-Hosts supply fixed command handlers. `PlayerCore::run` drives command delivery.
+Hosts supply fixed command handlers. `PlayerCore::run_commands` drives command delivery.
 Edge supplies its migration hold outside Core.
 Activity consumes semantic signals and injected clocks and IDs.
 The persisted session encoding and parity fixtures remain unchanged.
-Edge retains renderer signal adapters and outbox delivery in this stage.
+Core drives durable Activity reporting, restart closure, overflow reporting,
+and bounded shutdown flushing. Edge retains renderer signal projection and
+supplies clocks, IDs, and timezone observations. Edge constructs one PlayerCore
+with shared durable dependencies. It connects the narrow host services to
+domain drivers and keeps Linux lifecycle and hardware tasks separate.
 Core owns the renderer recovery ladder and meaningful-evidence rules.
 Core tracks acceptance, errors, and evidence by connection and activation.
 It refuses stale observations and bounds evidence logs and content-item sets.

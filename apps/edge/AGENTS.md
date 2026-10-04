@@ -34,7 +34,7 @@ Core owns pairing orchestration and server relationship, credential-rejection,
 retry, and persisted clock-sampling policy. Edge supplies private stores,
 device metadata, and status surfaces. Core drives the server socket,
 heartbeat fallback, push handling, and reconciliation loop. Edge supplies
-heartbeat projection, privacy checks, Activity delivery, and retry jitter.
+heartbeat projection, privacy checks, Activity signals, and retry jitter.
 Core owns configuration acceptance, manifest target reconciliation, and native
 manifest resource-claim validation and verified preparation, repair, and pinning.
 Runtime presentation fields stay opaque.
@@ -52,6 +52,9 @@ power-readback result semantics. Edge keeps CEC/DDC, input address conversion,
 probes, and readback. Core owns non-secret Presentation Network assignment
 validation and revision decisions. Edge keeps provisioning credentials, helper
 calls, NetworkManager, and radio recovery.
+Core owns durable Activity reporting, restart closure, overflow reporting, and
+bounded shutdown flushing. Edge supplies Runtime signal projection, clocks,
+IDs, and timezone observations and constructs one shared PlayerCore instance.
 
 ## Fixed decisions
 

@@ -4,15 +4,15 @@ use std::sync::{Arc, Mutex};
 
 use edge_ipc::SessionHandle;
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, Identify, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState, PresentationClear,
-    PreviewRequest, ProjectionContext, RendererCommand, RendererCommandKind, RendererConfigure, RendererMediaRef,
-    RendererShutdown, SyncTiming,
+    ActivationRef, Event, EvidenceKind, Identify, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState,
+    PresentationClear, PreviewRequest, ProjectionContext, RendererCommand, RendererCommandKind, RendererConfigure,
+    RendererMediaRef, RendererShutdown, SyncTiming,
 };
-use edge_protocol::ipc::presentation::{PresentationDocument, parse_content_uri};
+use edge_protocol::ipc::presentation::{ItemKind, PresentationDocument, parse_content_uri};
 use edge_protocol::{Sha256Digest, bounded::SafeText};
 use player_core::{
-    ObjectBinding, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererMetadata, RendererPort,
-    RendererPortError, RuntimePayload, SemanticRendererCommand, VerifiedContentRef,
+    Expectation, ObjectBinding, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererMetadata,
+    RendererPort, RendererPortError, RuntimePayload, SemanticRendererCommand, VerifiedContentRef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -149,7 +149,7 @@ pub(crate) fn metadata(
     }
     let expectations = match document {
         PresentationDocument::Playing { items, .. } => {
-            items.iter().rev().map(|item| (item.id.clone(), crate::supervisor::expectation_for(item.kind))).collect()
+            items.iter().rev().map(|item| (item.id.clone(), expectation_for(item.kind))).collect()
         }
         _ => Default::default(),
     };
@@ -392,6 +392,35 @@ impl RendererPort for EdgeRendererPort {
         deadline_ms: u32,
     ) -> Result<(), RendererPortError> {
         self.send(Event::RendererShutdown(RendererShutdown { reason: reason.clone(), deadline_ms }))
+    }
+}
+
+pub fn evidence(kind: EvidenceKind) -> player_core::ProgressEvidence {
+    use player_core::ProgressEvidence as Semantic;
+    match kind {
+        EvidenceKind::ItemStarted => Semantic::ItemStarted,
+        EvidenceKind::ItemTransition => Semantic::ItemTransition,
+        EvidenceKind::VideoProgress => Semantic::VideoProgress,
+        EvidenceKind::ImageShown => Semantic::ImageShown,
+        EvidenceKind::WidgetShown => Semantic::WidgetShown,
+        EvidenceKind::WidgetAlive => Semantic::WidgetAlive,
+        EvidenceKind::WidgetEmpty => Semantic::WidgetEmpty,
+        EvidenceKind::LayoutShown => Semantic::LayoutShown,
+        EvidenceKind::LayoutAlive => Semantic::LayoutAlive,
+        EvidenceKind::LayoutZoneRendered => Semantic::LayoutZoneRendered,
+        EvidenceKind::WebsiteLoaded => Semantic::WebsiteLoaded,
+        EvidenceKind::WebsiteAlive => Semantic::WebsiteAlive,
+        EvidenceKind::SurfaceShown => Semantic::SurfaceShown,
+        EvidenceKind::FrameChanged => Semantic::FrameChanged,
+    }
+}
+
+pub fn expectation_for(kind: ItemKind) -> Expectation {
+    match kind {
+        ItemKind::Image => Expectation::Still,
+        ItemKind::Video => Expectation::Video,
+        ItemKind::Website | ItemKind::Widget | ItemKind::Youtube => Expectation::Website,
+        ItemKind::Layout => Expectation::Layout,
     }
 }
 
