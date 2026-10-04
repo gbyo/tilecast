@@ -33,6 +33,17 @@ A failed visual job includes expected, actual, and diff images, an HTML report, 
 
 The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md) gives the exact environment, masks, tolerance, baseline commands, and artifact paths.
 
+## Check React code
+
+React Doctor reviews Studio's React code for patterns that ESLint misses, such as writing to a ref during render or an effect that never cleans up. It runs on your machine and sends no scores or crash reports.
+
+```sh title="Repository root · React Doctor"
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans all of Studio and lists every existing finding. `npm run doctor:changed` shows only the findings your branch adds. Pull request CI runs the changed scan and fails on new errors. Warnings are advice and do not fail a pull request. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
+
 ## Understand affected checks
 
 Run `npm run test:ci` to test the CI dependency graph. Inspect a branch's selected areas with:

@@ -30,6 +30,15 @@ jobs:
             eslint-${{ runner.os }}-
       - run: npm run format:check
       - run: npm run lint
+      # Only findings that a pull request adds fail this step. Existing
+      # findings stay visible with `npm run doctor`. Release runs have no base.
+      - name: React Doctor
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --prune --depth=200 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          npm run doctor:changed --workspace @tilecast/dashboard -- --base "origin/${BASE_REF}"
       - name: Test
         working-directory: apps/dashboard
         run: |

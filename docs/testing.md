@@ -135,6 +135,17 @@ npx playwright show-report widgets/visual/playwright-report
 
 The container helper copies reports into `e2e/visual/test-results/linux-run/`.
 
+## React Doctor
+
+React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not send scores or crash reports, and it does not run the supply-chain check.
+
+```sh
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only findings that your branch adds compared with the base branch. Pull request CI runs the changed scope against the pull request base and fails on new errors. Warnings do not fail the job. A release run has no base branch, so it skips this step.
+
 ## Coverage
 
 Coverage is diagnostic. There is no repository percentage gate.

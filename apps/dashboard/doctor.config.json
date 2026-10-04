@@ -1,0 +1,5 @@
+{
+  "noScore": true,
+  "supplyChain": { "enabled": false },
+  "blocking": "error"
+}

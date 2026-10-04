@@ -27,6 +27,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "npm run lint --workspace @tilecast/dashboard",
+    "doctor": "npm run doctor --workspace @tilecast/dashboard",
+    "doctor:changed": "npm run doctor:changed --workspace @tilecast/dashboard",
     "openapi:lint": "redocly lint docs/openapi.yaml",
     "openapi:compat": "./scripts/ci/openapi-compat.sh",
     "test": "npm run test --workspace @tilecast/dashboard",
