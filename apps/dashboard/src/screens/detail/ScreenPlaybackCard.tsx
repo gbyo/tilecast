@@ -242,21 +242,32 @@ function DefaultContentSection({
         ? api.assignLayout(screenId, change.choice.layout.id, csrfToken)
         : api.assignPlaylist(screenId, change.choice.playlist.id, csrfToken);
     },
-    onSuccess: async () => {
+    // Failures surface on the card itself, so any open picker or scope
+    // confirmation closes: the server message must stay visible, and the
+    // previous default stays selected until an explicit retry succeeds.
+    onError: () => {
+      setPending(null);
+      setPickerOpen(false);
+    },
+    onSuccess: async (updated) => {
       toast.add({
         title: t("playback.assignmentUpdated"),
         type: "success",
       });
       setPending(null);
       setPickerOpen(false);
-      await queryClient.invalidateQueries({
-        queryKey: screenKeys.assignment(screenId),
-      });
-      // Expected now, Default, and Next stay coherent: the prefix covers both
-      // the polling current-state key and any specified-instant keys.
-      await queryClient.invalidateQueries({
-        queryKey: [...screenKeys.detail(screenId), "playback-plan"],
-      });
+      queryClient.setQueryData(screenKeys.assignment(screenId), updated);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: screenKeys.assignment(screenId),
+        }),
+        queryClient.invalidateQueries({ queryKey: screenKeys.list() }),
+        // Expected now, Default, and Next stay coherent: the prefix covers
+        // both the polling current-state key and specified-instant keys.
+        queryClient.invalidateQueries({
+          queryKey: [...screenKeys.detail(screenId), "playback-plan"],
+        }),
+      ]);
     },
   });
 

@@ -737,6 +737,8 @@
     "playlistsGroup": "Плейлисты",
     "layoutsGroup": "Опубликованные макеты",
     "applyAssignment": "Применить назначение",
+    "assignmentPendingHint": "Этот выбор ещё не сохранён. Примените назначение, чтобы отправить его на экран.",
+    "assignmentSaveError": "Назначение не изменено",
     "directFallback": "Прямой резерв",
     "noFallbackAssigned": "Резерв не назначен",
     "currentSelection": "Текущий выбор",

@@ -717,6 +717,8 @@
     "playlistsGroup": "Listas de reproducción",
     "layoutsGroup": "Diseños publicados",
     "applyAssignment": "Aplicar asignación",
+    "assignmentPendingHint": "Esta selección aún no se ha guardado. Aplica la asignación para enviarla a la pantalla.",
+    "assignmentSaveError": "No se cambió la asignación",
     "directFallback": "Alternativo directo",
     "noFallbackAssigned": "Ningún alternativo asignado",
     "currentSelection": "Selección actual",

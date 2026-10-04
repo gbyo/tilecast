@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
+import { ApiError } from "../../api/errors";
 import type { ScreenGroup } from "../../api/types";
 import { ScreenPlaybackCard } from "./ScreenPlaybackCard";
 import {
@@ -278,6 +279,51 @@ describe("ScreenPlaybackCard default content", () => {
     expect(
       screen.queryByText(/Change default content for/),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed change explicit with the server message", async () => {
+    const interaction = userEvent.setup();
+    vi.spyOn(api, "assignPlaylist").mockRejectedValue(
+      new ApiError(
+        'Playlist "Evening News" is empty',
+        422,
+        "presentation_not_ready",
+      ),
+    );
+    vi.spyOn(api, "playlistPage").mockResolvedValue({
+      items: [{ id: "playlist-2", name: "Evening News", itemCount: 0 }],
+      total: 1,
+      page: 1,
+      pageSize: 50,
+    } as never);
+    vi.spyOn(api, "layoutPage").mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 50,
+    });
+    renderCard({
+      assignment: assignmentFixture({
+        playlistId: "playlist-9",
+        playlistName: "Morning Announcements",
+      }),
+    });
+
+    await interaction.click(
+      screen.getByRole("button", { name: "Change default" }),
+    );
+    await interaction.click(
+      await screen.findByRole("button", { name: /Evening News/ }),
+    );
+    await interaction.click(
+      screen.getByRole("button", { name: "Set default" }),
+    );
+    expect(
+      await screen.findByText("Default content failed to update"),
+    ).toBeVisible();
+    expect(screen.getByText('Playlist "Evening News" is empty')).toBeVisible();
+    // The previous default stays selected; nothing silently switched.
+    expect(screen.getByText("Morning Announcements")).toBeVisible();
   });
 
   it("removes a standalone default from the overflow menu", async () => {
