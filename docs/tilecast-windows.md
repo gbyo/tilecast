@@ -116,8 +116,12 @@ The Publisher is the Windows signing identity. The package version is
 a version quad mapped from the release version name and channel: `0.2.0`
 stable maps to `0.2.0.2`, `0.2.0` beta maps to `0.2.0.1`. The revision
 is 1 for a beta release and 2 for a stable release. The mapping is
-monotonic: a beta release precedes the stable release of the same
-version, and a newer version always maps higher. The
+monotonic: a newer version always maps higher, and Windows orders a beta
+package below the stable package of the same version. The update version
+code does not include the channel. The server needs a version code that is
+higher than every imported release of the same family and architecture.
+Therefore a beta cannot be followed by a stable release of the same version
+name. Publish the stable release with a higher patch version. The
 `tilecast-msix-version` helper is the single implementation. The
 release build fails when the version name or channel is invalid.
 

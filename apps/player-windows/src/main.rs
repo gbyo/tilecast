@@ -1,7 +1,9 @@
 //! `tilecast-windows`: the Tilecast Player for Windows.
 //!
 //! `run` starts the player with its window: pairing, the server link,
-//! verified content preparation, and the WebView2 Runtime renderer.
+//! verified content preparation, and the WebView2 Runtime renderer. It is
+//! also what no subcommand means, because the MSIX Start-menu entry and
+//! logon startup task cannot pass arguments.
 //! `--headless` runs without a window (pairing stays on stdout), and
 //! `status` inspects the local state.
 
@@ -23,8 +25,10 @@ struct Cli {
     /// Reads this configuration file instead of the default beside the state.
     #[arg(long, global = true)]
     config: Option<PathBuf>,
+    /// Without a subcommand the player runs: the Start-menu entry and the
+    /// logon startup task of the MSIX package launch it with no arguments.
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -222,9 +226,10 @@ async fn reset_pairing(cli: &Cli) -> anyhow::Result<()> {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
-        Command::Run { pair, headless } => run(&cli, pair.clone(), *headless).await,
-        Command::Status => status(&cli).await,
-        Command::ResetPairing => reset_pairing(&cli).await,
+        None => run(&cli, None, false).await,
+        Some(Command::Run { pair, headless }) => run(&cli, pair.clone(), *headless).await,
+        Some(Command::Status) => status(&cli).await,
+        Some(Command::ResetPairing) => reset_pairing(&cli).await,
     }
 }
 
@@ -234,6 +239,15 @@ mod tests {
 
     fn args(words: &[&str]) -> Vec<std::ffi::OsString> {
         words.iter().map(std::ffi::OsString::from).collect()
+    }
+
+    #[test]
+    fn no_arguments_means_run() {
+        // The MSIX Start-menu entry and logon startup task pass no arguments.
+        let cli = Cli::try_parse_from(["tilecast-windows"]).expect("parses without a subcommand");
+        assert!(cli.command.is_none());
+        let cli = Cli::try_parse_from(["tilecast-windows", "status"]).expect("parses");
+        assert!(matches!(cli.command, Some(Command::Status)));
     }
 
     #[test]

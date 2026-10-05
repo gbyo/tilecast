@@ -1,14 +1,14 @@
 //! Windows secure file opening. The interface is owned by player-cas.
 //!
-//! Windows has no `O_NOFOLLOW`: a link can only be refused by inspecting it
-//! before opening. This adapter refuses reparse points (symlinks, junctions,
-//! mount points) via a pre-open attribute check, then requires the opened
-//! handle to be a regular file within the bound. A same-user attacker racing
-//! the check could still swap the path between the check and the open —
-//! unlike on Unix, that race cannot be closed from user space. Two facts
-//! bound it: the state directory inherits the user profile's user-only ACLs,
-//! and every object the store serves was hashed against its digest, so
-//! swapped bytes fail verification rather than playing.
+//! Windows has no `O_NOFOLLOW`, but `FILE_FLAG_OPEN_REPARSE_POINT` makes the
+//! open return the link itself instead of following it. The adapter opens
+//! with that flag, then requires the opened handle to be a regular file
+//! (not a reparse point: symlink, junction, mount point) within the bound.
+//! The check runs on the handle that is read, so swapping the path after the
+//! open cannot change what is read. A pre-open attribute check still refuses
+//! an existing link early. As defense in depth, every object the store
+//! serves was hashed against its digest, and the state directory inherits
+//! the user profile's user-only ACLs.
 //!
 //! Directory junctions deserve a note: only the final component is checked,
 //! as on Unix. Parent directories of the store are created by the player and
@@ -17,6 +17,33 @@
 use player_cas::open::{RegularOpen, SecureOpener};
 use std::fs::File;
 use std::path::Path;
+
+/// Opens `path` read-only. On Windows a reparse point is opened as itself
+/// rather than followed, so the caller can refuse it from the handle.
+fn open_without_following(path: &Path) -> std::io::Result<File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
+    options.open(path)
+}
+
+/// Whether an opened handle's attributes mark a reparse point.
+#[cfg(windows)]
+fn is_reparse_point(metadata: &std::fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0400;
+    metadata.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_point(metadata: &std::fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowsSecureOpener;
@@ -35,9 +62,9 @@ impl SecureOpener for WindowsSecureOpener {
         if metadata.file_type().is_symlink() {
             return Ok(RegularOpen::Refused);
         }
-        let file: File = std::fs::OpenOptions::new().read(true).open(path)?;
+        let file = open_without_following(path)?;
         let metadata = file.metadata()?;
-        if !metadata.is_file() || metadata.len() > max_bytes {
+        if is_reparse_point(&metadata) || !metadata.is_file() || metadata.len() > max_bytes {
             return Ok(RegularOpen::Refused);
         }
         Ok(RegularOpen::Opened(file, metadata.len()))

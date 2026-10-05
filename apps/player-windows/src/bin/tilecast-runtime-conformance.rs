@@ -47,8 +47,14 @@ struct Options {
     timeout_secs: u64,
 }
 
+/// `--name value` or `--name=value`. A runner that accepted only one
+/// spelling would silently fall back to a default for the other.
 fn option_value(args: &[String], name: &str) -> Option<String> {
-    args.iter().position(|arg| arg == &format!("--{name}")).and_then(|index| args.get(index + 1).cloned())
+    let flag = format!("--{name}");
+    let prefix = format!("--{name}=");
+    args.iter().enumerate().find_map(|(index, arg)| {
+        if arg == &flag { args.get(index + 1).cloned() } else { arg.strip_prefix(&prefix).map(str::to_owned) }
+    })
 }
 
 fn parse_options(args: &[String]) -> Result<Options, String> {
@@ -81,7 +87,7 @@ fn parse_options(args: &[String]) -> Result<Options, String> {
     })
 }
 
-/// A checkpoint name becomes a filename; the Electron runner's rule.
+/// A checkpoint or fixture name becomes a path segment; the Electron runner's rule.
 fn checkpoint_name_is_safe(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 64
@@ -265,6 +271,10 @@ async fn run_fixture(options: &Options) -> Result<i32, (i32, String)> {
     let fixture: serde_json::Value =
         serde_json::from_str(&fixture_text).map_err(|error| (EXIT_INPUT, format!("fixture: {error}")))?;
     let fixture_name = fixture.get("name").and_then(|name| name.as_str()).unwrap_or("fixture").to_owned();
+    // The name joins the scratch path that is removed recursively at the end.
+    if !checkpoint_name_is_safe(&fixture_name) {
+        return Err((EXIT_INPUT, "the fixture name is not a safe path segment".to_string()));
+    }
     let host_source =
         std::fs::read_to_string(&options.host_script).map_err(|error| (EXIT_INPUT, format!("host script: {error}")))?;
     if host_source.len() > 1024 * 1024 {
@@ -525,6 +535,21 @@ mod tests {
             ]))
             .is_err()
         );
+    }
+
+    #[test]
+    fn size_accepts_both_spellings() {
+        let base = ["x", "--runtime-dir", "r", "--host-script", "h", "--fixture", "f", "--cas-root", "c", "--out", "o"];
+        let with = |extra: &[&str]| {
+            let mut words: Vec<&str> = base.to_vec();
+            words.extend_from_slice(extra);
+            parse_options(&args(&words)).expect("parses")
+        };
+        let spaced = with(&["--size", "1920x1080"]);
+        let joined = with(&["--size=1920x1080"]);
+        assert_eq!((spaced.width, spaced.height), (1920, 1080));
+        assert_eq!((joined.width, joined.height), (1920, 1080));
+        assert_eq!((with(&[]).width, with(&[]).height), (1280, 720));
     }
 
     #[test]

@@ -72,9 +72,11 @@ impl std::fmt::Display for MsixVersion {
 /// [`version_code`], so the server, the player, and the package share
 /// one ordering.
 ///
-/// Monotonic within a channel, and a beta always sorts below the
-/// stable release of the same core, so a beta-to-stable move is an
-/// upgrade Windows accepts. `None` fails the release build closed: an
+/// Monotonic within a channel, and Windows orders a beta package below
+/// the stable package of the same core. That ordering only governs the
+/// package: the update version code ignores the channel, so the server
+/// and the player refuse a stable release whose core equals an imported
+/// beta. Promote a beta by releasing a higher patch version. `None` fails the release build closed: an
 /// invalid version name, an unknown channel, or a major above 65535
 /// (every MSIX part must fit 16 bits, and `0.0.0.0` is reserved, which
 /// the nonzero revision rules out).
@@ -115,6 +117,10 @@ pub const MAX_ATTEMPTS: u32 = 12;
 const PASS_INTERVAL: Duration = Duration::from_secs(10);
 const JOB_FILE: &str = "update-job.json";
 const PROGRESS_BYTES: u64 = 8 * 1024 * 1024;
+
+/// Serializes the job file's replace (a newly accepted command) against
+/// its compare-and-remove, so a finishing job cannot delete a newer one.
+static JOB_FILE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// The `installationMode` values the server sends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -235,6 +241,7 @@ pub fn accept(paths: &WindowsPaths, command: &ServerCommand, own_code: u64) -> C
     };
     let path = job_path(paths);
     let tmp = path.with_extension("json.tmp");
+    let _guard = JOB_FILE_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
     if std::fs::write(&tmp, &document).is_err() || std::fs::rename(&tmp, &path).is_err() {
         let _ = std::fs::remove_file(&tmp);
         return CommandResult::failed("state_unavailable", "The update job cannot be recorded.");
@@ -256,8 +263,14 @@ fn load_job(paths: &WindowsPaths) -> Option<PendingJob> {
     serde_json::from_slice(&bytes).ok()
 }
 
-fn clear_job(paths: &WindowsPaths) {
-    let _ = std::fs::remove_file(job_path(paths));
+/// Removes the job file only while it still records `job`. A newer
+/// command replaces the file, and the task for the older job must not
+/// delete the newer acceptance when it finishes.
+fn clear_job(paths: &WindowsPaths, job: &PendingJob) {
+    let _guard = JOB_FILE_LOCK.lock().unwrap_or_else(|poison| poison.into_inner());
+    if load_job(paths).is_some_and(|current| current.command_id == job.command_id) {
+        let _ = std::fs::remove_file(job_path(paths));
+    }
 }
 
 /// The update coordinator: resumes a recorded job at startup, runs one
@@ -287,7 +300,7 @@ enum Pass {
 
 async fn execute(context: &DaemonContext, job: &PendingJob) -> Pass {
     if job.expected_version_code <= own_version_code() {
-        clear_job(&context.paths);
+        clear_job(&context.paths, job);
         return Pass::Done;
     }
     if job.mode == Mode::MaintenanceWindow
@@ -320,7 +333,7 @@ async fn execute(context: &DaemonContext, job: &PendingJob) -> Pass {
                     if let Some(server) = server {
                         fail(context, &server, job, "update_unavailable", &detail).await;
                     } else {
-                        clear_job(&context.paths);
+                        clear_job(&context.paths, job);
                     }
                     return Pass::Done;
                 }
@@ -392,7 +405,7 @@ async fn pass(context: &DaemonContext, job: &PendingJob) -> Pass {
         return Pass::Done;
     };
     if report(&server, job.deployment_id, "downloading", 0, None, None).await.is_closed() {
-        clear_job(&context.paths);
+        clear_job(&context.paths, job);
         return Pass::Done;
     }
     let staged = match download(context, &server, &metadata, job).await {
@@ -400,7 +413,7 @@ async fn pass(context: &DaemonContext, job: &PendingJob) -> Pass {
         Err(pass) => return pass,
     };
     if report(&server, job.deployment_id, "verifying", metadata.artifact_size_bytes, None, None).await.is_closed() {
-        clear_job(&context.paths);
+        clear_job(&context.paths, job);
         return Pass::Done;
     }
     let identity = match crate::msix::read_identity(&staged) {
@@ -435,7 +448,7 @@ async fn pass(context: &DaemonContext, job: &PendingJob) -> Pass {
     if report(&server, job.deployment_id, "ready", metadata.artifact_size_bytes, None, None).await.is_closed()
         || report(&server, job.deployment_id, "installing", metadata.artifact_size_bytes, None, None).await.is_closed()
     {
-        clear_job(&context.paths);
+        clear_job(&context.paths, job);
         return Pass::Done;
     }
     let path = staged.clone();
@@ -448,7 +461,7 @@ async fn pass(context: &DaemonContext, job: &PendingJob) -> Pass {
         }
         Err(_) => return Pass::Retry("deployment was interrupted".to_string()),
     }
-    clear_job(&context.paths);
+    clear_job(&context.paths, job);
     let _ = std::fs::remove_file(&staged);
     report(&server, job.deployment_id, "reconnecting", metadata.artifact_size_bytes, None, None).await;
     tracing::info!(
@@ -565,7 +578,7 @@ async fn download(
                     if report(server, job.deployment_id, "downloading", received, None, None).await.is_closed() {
                         drop(file);
                         let _ = std::fs::remove_file(&part);
-                        clear_job(&context.paths);
+                        clear_job(&context.paths, job);
                         return Err(Pass::Done);
                     }
                 }
@@ -589,7 +602,7 @@ async fn download(
     }
     if report(server, job.deployment_id, "downloaded", received, None, None).await.is_closed() {
         let _ = std::fs::remove_file(&staged);
-        clear_job(&context.paths);
+        clear_job(&context.paths, job);
         return Err(Pass::Done);
     }
     Ok(staged)
@@ -674,7 +687,7 @@ async fn fail(
         }
         tokio::time::sleep(PASS_INTERVAL).await;
     }
-    clear_job(&context.paths);
+    clear_job(&context.paths, job);
     let staged = staging_dir(&context.paths).join(format!("{}.msix", job.release_id.simple()));
     let _ = std::fs::remove_file(&staged);
     let _ = std::fs::remove_file(staged.with_extension("msix.part"));
@@ -822,6 +835,22 @@ mod tests {
         let result = accept(&windows, &command(payload), own_version_code());
         assert_eq!(result.code.as_str(), "update_not_needed");
         assert!(std::fs::read(job_path(&windows)).is_err(), "no job is recorded");
+    }
+
+    #[test]
+    fn a_finished_job_never_clears_a_newer_one() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let windows = crate::paths::WindowsPaths::new(dir.path().join("state"), dir.path().join("run"));
+        std::fs::create_dir_all(&windows.state_dir).expect("state dir");
+        let older = parse_command(&command(job_payload())).expect("older job");
+        let mut newer = parse_command(&command(job_payload())).expect("newer job");
+        newer.command_id = uuid::Uuid::new_v4();
+        std::fs::write(job_path(&windows), serde_json::to_vec(&newer).expect("json")).expect("record newer");
+        clear_job(&windows, &older);
+        let kept = load_job(&windows).expect("the newer job survives");
+        assert_eq!(kept.command_id, newer.command_id);
+        clear_job(&windows, &newer);
+        assert!(load_job(&windows).is_none());
     }
 
     #[test]

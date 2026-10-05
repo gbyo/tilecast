@@ -1185,7 +1185,15 @@ pub async fn run(context: Arc<DaemonContext>) {
         context.shutdown.cancelled().await;
         return;
     };
-    let runtime = match crate::runtime_files::RuntimeFiles::load(&context.paths.runtime_dir) {
+    // The Runtime artifact ships beside the executable (or in
+    // `TILECAST_RUNTIME_DIR` for development); `paths.runtime_dir` is only
+    // the per-start scratch directory under %TEMP%.
+    let Some(runtime_dir) = crate::runtime_files::runtime_dir() else {
+        tracing::warn!(component = "presentation", event = "runtime_unavailable", error = "no runtime artifact found");
+        context.shutdown.cancelled().await;
+        return;
+    };
+    let runtime = match crate::runtime_files::RuntimeFiles::load(&runtime_dir) {
         Ok(runtime) => runtime,
         Err(error) => {
             tracing::warn!(component = "presentation", event = "runtime_unavailable", error = %error);

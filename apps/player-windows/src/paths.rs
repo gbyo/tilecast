@@ -8,7 +8,7 @@
 //!     partial\<hash>.part                   resumable downloads
 //!     updates\                              staged release artifacts
 //!     diagnostics\                          bounded local diagnostics
-//! %TEMP%\Tilecast\Tilecast Player\          runtime files (recreated every start)
+//! %TEMP%\Tilecast\Tilecast Player\          scratch files (recreated every start)
 //! ```
 //!
 //! The MSIX package directory is read-only and is replaced on every update,

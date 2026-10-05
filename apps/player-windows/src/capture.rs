@@ -46,13 +46,7 @@ impl CaptureBroker {
         max_bytes: u32,
     ) -> Result<CapturedFrame, CaptureError> {
         let _slot = self.slot.lock().await;
-        {
-            let engine = context.presentation.lock().unwrap_or_else(|poison| poison.into_inner());
-            let Some(active) = engine.current() else {
-                return Err(CaptureError::NothingShown);
-            };
-            active.renderer_metadata.capture_state.check(false)?;
-        }
+        presentation_capture_check(context)?;
         let raw = context.main_window.load(Ordering::Acquire);
         if raw == 0 {
             return Err(CaptureError::RendererNotReady);
@@ -75,6 +69,10 @@ impl CaptureBroker {
             "readback" => CaptureError::Invalid,
             _ => CaptureError::RendererUnavailable,
         })?;
+        // The screen can change to pairing, setup, or safe mode while the
+        // compositor produces the frame. Check again before the pixels leave
+        // this function so no caller can upload a protected surface.
+        presentation_capture_check(context)?;
         let request = RendererCaptureRequest { request_id: uuid::Uuid::new_v4(), max_width, max_height, max_bytes };
         let (jpeg, width, height) =
             encode_jpeg_fit(&captured, max_width, max_height, max_bytes).ok_or(CaptureError::Invalid)?;
@@ -85,15 +83,20 @@ impl CaptureBroker {
     }
 }
 
+/// Why the active presentation must not be captured right now, if it must
+/// not: nothing shown, or a setup, pairing, or safe-mode surface.
+fn presentation_capture_check(context: &DaemonContext) -> Result<(), CaptureError> {
+    let engine = context.presentation.lock().unwrap_or_else(|poison| poison.into_inner());
+    let Some(active) = engine.current() else {
+        return Err(CaptureError::NothingShown);
+    };
+    active.renderer_metadata.capture_state.check(false)
+}
+
 /// `true` when the active presentation must never be captured (setup,
-/// pairing, safe mode, or nothing shown).
+/// pairing, or safe mode).
 pub fn presentation_protected(context: &DaemonContext) -> bool {
-    context
-        .presentation
-        .lock()
-        .unwrap_or_else(|poison| poison.into_inner())
-        .current()
-        .is_some_and(|active| active.renderer_metadata.capture_state.check(false).is_err())
+    matches!(presentation_capture_check(context), Err(CaptureError::ProtectedState))
 }
 
 /// Scales a BGRA frame into the requested bounds (never up) and encodes

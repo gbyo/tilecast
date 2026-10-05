@@ -265,7 +265,8 @@ if (engine === "android") {
           path.join(mediaDir, "cas"),
           "--out",
           dir,
-          `--size=${fixture.viewport.width}x${fixture.viewport.height}`,
+          "--size",
+          `${fixture.viewport.width}x${fixture.viewport.height}`,
         ],
         { env, stdio: "inherit" },
       );

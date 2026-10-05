@@ -42,11 +42,20 @@ def sdk_tool(name):
     return candidates[-1]
 
 
-def run(argv):
-    print(f"stage: {' '.join(argv)}")
+def run(argv, secrets=()):
+    """Runs a tool. Any value in `secrets` is replaced in everything the
+    script prints, so a signing password never reaches stdout or the logs."""
+
+    def redact(text):
+        for secret in secrets:
+            if secret:
+                text = text.replace(secret, "***")
+        return text
+
+    print(f"stage: {redact(' '.join(argv))}")
     result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode != 0:
-        sys.exit(f"stage: {' '.join(argv[:2])} failed: {result.stderr.strip()}")
+        sys.exit(f"stage: {' '.join(argv[:2])} failed: {redact(result.stderr.strip())}")
     return result.stdout
 
 
@@ -124,7 +133,7 @@ def main():
         run([
             sdk_tool("signtool.exe"), "sign", "/fd", "SHA256", "/f", args.pfx,
             "/p", args.pfx_password, artifact,
-        ])
+        ], secrets=(args.pfx_password,))
     else:
         print("stage: no PFX; the package is unsigned", file=sys.stderr)
 

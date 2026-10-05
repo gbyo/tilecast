@@ -2129,11 +2129,21 @@ fn remote_reload(cell: &SharedHost, surface_id: &str) {
     }
 }
 
+/// The cookie hosts a `first_party` surface keeps: its allowlist.
+fn first_party_keep_hosts(surface: &RemoteSurface) -> Vec<String> {
+    match &surface.spec.content {
+        crate::remote_web::SurfaceContent::Page(page) if surface.profile_name == PROFILE_FIRST_PARTY => {
+            page.allowed_hosts.clone()
+        }
+        _ => Vec::new(),
+    }
+}
+
 /// Destroys a remote view and releases its data per policy: unique
 /// profiles clear wholesale, `first_party` strips non-allowlist cookies,
 /// shared persistent profiles keep the engine's normal rules.
 fn remote_destroy(cell: &SharedHost, surface_id: &str) {
-    let removed = match take_host(cell) {
+    let (removed, keep_hosts) = match take_host(cell) {
         Some(mut host) => {
             let removed = host.remote_views.remove(surface_id);
             if !host.remote_views.values().any(|surface| {
@@ -2144,12 +2154,25 @@ fn remote_destroy(cell: &SharedHost, surface_id: &str) {
                 crate::win32::stop_poll_timer(host.window.hwnd(), YOUTUBE_TIMER_ID);
                 host.youtube_polling = false;
             }
+            // The first-party profile is shared: the strip keeps the hosts
+            // of every surface still open on it, not only this surface's.
+            let mut keep_hosts: Vec<String> = host.remote_views.values().flat_map(first_party_keep_hosts).collect();
+            if let Some(surface) = &removed {
+                keep_hosts.extend(first_party_keep_hosts(surface));
+            }
             put_host(cell, host);
-            removed
+            (removed, keep_hosts)
         }
-        None => None,
+        None => (None, Vec::new()),
     };
     let Some(surface) = removed else { return };
+    release_remote_surface(cell, surface_id, surface, keep_hosts);
+}
+
+/// Closes a removed surface's view and releases its browsing data. Shared
+/// by a normal destroy and by the renderer-failure path, so no way of
+/// ending a surface leaves its data behind.
+fn release_remote_surface(cell: &SharedHost, surface_id: &str, surface: RemoteSurface, keep_hosts: Vec<String>) {
     if matches!(surface.spec.content, crate::remote_web::SurfaceContent::YouTube(_))
         && let Some((_, wrappers)) = remote_dirs(cell)
     {
@@ -2179,11 +2202,7 @@ fn remote_destroy(cell: &SharedHost, surface_id: &str) {
         return;
     }
     if first_party {
-        let allowlist = match &surface.spec.content {
-            crate::remote_web::SurfaceContent::Page(page) => page.allowed_hosts.clone(),
-            crate::remote_web::SurfaceContent::YouTube(_) => Vec::new(),
-        };
-        strip_surface_cookies(&view, allowlist, surface.hosts, move || {
+        strip_surface_cookies(&view, keep_hosts, surface.hosts, move || {
             crate::win32::destroy_remote_child(child);
         });
         return;
@@ -2226,24 +2245,29 @@ fn clear_profile_then(
     }
 }
 
-/// Deletes every cookie of a released `first_party` surface that does
-/// not belong to its allowlist, enumerating the hosts it navigated.
-/// Then runs `done`: the view is already closed either way.
+/// Deletes every cookie of the `first_party` profile that does not belong
+/// to `keep_hosts`. Cookies are enumerated profile-wide, because a
+/// third-party subresource can set one without any frame navigating to its
+/// host. The navigated hosts are only the fallback when the profile-wide
+/// query is unavailable. Then runs `done`: the view is already closed
+/// either way.
 fn strip_surface_cookies(
     view: &ICoreWebView2,
-    allowlist: Vec<String>,
+    keep_hosts: Vec<String>,
     hosts: Vec<String>,
     done: impl FnOnce() + 'static,
 ) {
     struct Strip {
         manager: ICoreWebView2CookieManager,
-        allowlist: Vec<String>,
-        hosts: VecDeque<String>,
+        keep_hosts: Vec<String>,
+        /// Queries still to run: `None` is the whole profile, `Some` one
+        /// host. A successful whole-profile query makes the rest moot.
+        queries: VecDeque<Option<String>>,
         done: Option<Box<dyn FnOnce()>>,
     }
     fn strip_next(strip: Rc<RefCell<Strip>>) {
-        let next = strip.borrow_mut().hosts.pop_front();
-        let Some(host) = next else {
+        let next = strip.borrow_mut().queries.pop_front();
+        let Some(query) = next else {
             if let Some(done) = strip.borrow_mut().done.take() {
                 done();
             }
@@ -2252,11 +2276,15 @@ fn strip_surface_cookies(
         let manager = strip.borrow().manager.clone();
         let for_call = manager.clone();
         let again = Rc::clone(&strip);
+        let whole_profile = query.is_none();
         let handler = GetCookiesCompletedHandler::create(Box::new(
             move |result: windows::core::Result<()>, list: Option<ICoreWebView2CookieList>| {
                 // SAFETY: the STA thread owns the manager, list, and
                 // cookies for this completion.
                 if let (Ok(()), Some(list)) = (result, list) {
+                    if whole_profile {
+                        again.borrow_mut().queries.clear();
+                    }
                     let mut count = 0u32;
                     if unsafe { list.Count(&mut count) }.is_ok() {
                         for index in 0..count {
@@ -2265,8 +2293,8 @@ fn strip_surface_cookies(
                             if unsafe { cookie.Domain(&mut domain) }.is_err() {
                                 continue;
                             }
-                            let allowlist = again.borrow().allowlist.clone();
-                            if !crate::remote_web::cookie_belongs_to_hosts(&pwstr_to_string(domain), &allowlist) {
+                            let keep_hosts = again.borrow().keep_hosts.clone();
+                            if !crate::remote_web::cookie_belongs_to_hosts(&pwstr_to_string(domain), &keep_hosts) {
                                 unsafe {
                                     let _ = manager.DeleteCookie(&cookie);
                                 }
@@ -2278,9 +2306,14 @@ fn strip_surface_cookies(
                 Ok(())
             },
         ));
+        // An empty URI asks for every cookie of the profile.
+        let uri = match &query {
+            Some(host) => HSTRING::from(format!("https://{host}")),
+            None => HSTRING::new(),
+        };
         // SAFETY: the STA thread owns the manager; the handler is
         // AddRef'd by the call.
-        if unsafe { for_call.GetCookies(&HSTRING::from(format!("https://{host}")), &handler) }.is_err() {
+        if unsafe { for_call.GetCookies(&uri, &handler) }.is_err() {
             strip_next(strip);
         }
     }
@@ -2291,11 +2324,8 @@ fn strip_surface_cookies(
         done();
         return;
     };
-    if hosts.is_empty() {
-        done();
-        return;
-    }
-    strip_next(Rc::new(RefCell::new(Strip { manager, allowlist, hosts: hosts.into(), done: Some(Box::new(done)) })));
+    let queries = std::iter::once(None).chain(hosts.into_iter().map(Some)).collect();
+    strip_next(Rc::new(RefCell::new(Strip { manager, keep_hosts, queries, done: Some(Box::new(done)) })));
 }
 
 /// The Runtime proved content after the remote process ended: rebuild
@@ -2505,21 +2535,21 @@ fn remote_clear_data(cell: &SharedHost, reply: Option<tokio::sync::oneshot::Send
 /// The views close (their controllers are dead); the environment stays
 /// for the re-creates the Runtime sends after recovery.
 fn remote_process_failed(cell: &SharedHost) {
+    let mut released: Vec<(String, RemoteSurface)> = Vec::new();
     if let Some(mut host) = take_host(cell) {
-        for (_, surface) in host.remote_views.drain() {
-            if let Some(controller) = surface.controller {
-                // SAFETY: the STA thread owns the controller.
-                unsafe {
-                    let _ = controller.Close();
-                }
-            }
-            crate::win32::destroy_remote_child(surface.child);
-        }
+        released.extend(host.remote_views.drain());
         if host.youtube_polling {
             crate::win32::stop_poll_timer(host.window.hwnd(), YOUTUBE_TIMER_ID);
             host.youtube_polling = false;
         }
         put_host(cell, host);
+    }
+    // Every drained surface goes through the normal release, so unique
+    // profiles clear and the first-party profile is stripped. The recovery
+    // keeps this environment and does not run the startup sweep.
+    let keep_hosts: Vec<String> = released.iter().flat_map(|(_, surface)| first_party_keep_hosts(surface)).collect();
+    for (surface_id, surface) in released {
+        release_remote_surface(cell, &surface_id, surface, keep_hosts.clone());
     }
     emit_remote(cell, None, "process-terminated", None);
 }
