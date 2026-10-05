@@ -23,6 +23,7 @@ import {
   ShieldOff,
   Search,
   SlidersHorizontal,
+  TriangleAlert,
   Wifi,
   WifiOff,
   X,
@@ -83,7 +84,12 @@ import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 
-import { previewAge } from "../components/livePreviewState";
+import {
+  livePreviewState,
+  previewAge,
+  previewRailState,
+} from "../components/livePreviewState";
+import { PreviewFreshnessRail } from "../components/PreviewFreshnessRail";
 import { screenRowActionGroups } from "../components/screenActions";
 import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetMap } from "../components/ScreenFleetMap";
@@ -2542,58 +2548,79 @@ export function ScreenGridCard({
     );
     return () => window.clearInterval(interval);
   }, [preview.data?.capturedAt, visible]);
+  const previewState = livePreviewState(screen, preview.data, now);
+  const railState = previewRailState(
+    previewState,
+    preview.data?.capturedAt,
+    now,
+  );
+  const captureFailed = previewState === "capture-error";
   const portrait = screen.screenHeight > screen.screenWidth;
   return (
     <article
       ref={ref}
       className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
-      <Link
-        to={detailHref}
-        aria-label={t("grid.openScreen", { name: screen.name })}
-        className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
-      >
-        <AspectRatio
-          ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
-          className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+      <div className="relative flow-root">
+        <Link
+          to={detailHref}
+          aria-label={t("grid.openScreen", { name: screen.name })}
+          className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
         >
-          {preview.isLoading && visible ? (
-            <Skeleton
-              className="absolute inset-0 min-h-32"
-              aria-label={t("grid.loadingPreview")}
-            />
-          ) : image ? (
-            <>
-              <img
-                className="h-full w-full object-contain"
-                src={image}
-                alt={t("grid.previewAlt", { name: screen.name })}
+          <AspectRatio
+            ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
+            className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+          >
+            {preview.isLoading && visible ? (
+              <Skeleton
+                className="absolute inset-0 min-h-32"
+                aria-label={t("grid.loadingPreview")}
               />
-              {age && (
-                <Badge
-                  variant="secondary"
-                  className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
-                  aria-label={t("grid.snapshotCaptured", { age: age.label })}
-                  title={t("grid.snapshotTitle", {
-                    date: new Date(
-                      preview.data?.capturedAt ?? "",
-                    ).toLocaleString(formatLocale),
-                  })}
-                >
-                  {age.label}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
-              <Monitor className="size-6" aria-hidden="true" />
-              {screen.status === "offline"
-                ? t("grid.offline")
-                : t("grid.unavailable")}
-            </span>
-          )}
-        </AspectRatio>
-      </Link>
+            ) : image ? (
+              <>
+                <img
+                  className="h-full w-full object-contain"
+                  src={image}
+                  alt={t("grid.previewAlt", { name: screen.name })}
+                />
+                {age && (
+                  <Badge
+                    variant="secondary"
+                    className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
+                    aria-label={t("grid.snapshotCaptured", { age: age.label })}
+                    title={t("grid.snapshotTitle", {
+                      date: new Date(
+                        preview.data?.capturedAt ?? "",
+                      ).toLocaleString(formatLocale),
+                    })}
+                  >
+                    {age.label}
+                  </Badge>
+                )}
+                {captureFailed && (
+                  <Badge
+                    variant="secondary"
+                    className="pointer-events-none absolute bottom-2 left-2 gap-1 border-white/10 bg-black/60 text-white"
+                  >
+                    <TriangleAlert aria-hidden="true" />
+                    {t("livePreview.states.captureError.label")}
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
+                <Monitor className="size-6" aria-hidden="true" />
+                {captureFailed
+                  ? t("livePreview.states.captureError.label")
+                  : screen.status === "offline"
+                    ? t("grid.offline")
+                    : t("grid.unavailable")}
+              </span>
+            )}
+          </AspectRatio>
+        </Link>
+        <PreviewFreshnessRail state={railState} screenId={screen.id} />
+      </div>
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (

@@ -13,6 +13,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
+import type { WireScreenPreview as ScreenPreviewMetadata } from "../api/domains/screens";
 import { i18n } from "../i18n";
 import type { PowerAssistResults, Screen, User } from "../api/types";
 import { canManageScreens } from "../data/screens";
@@ -422,6 +423,151 @@ describe("screen management", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Open screen" }),
     ).toBeTruthy();
+  });
+
+  describe("preview freshness rail", () => {
+    const seconds = (value: number) =>
+      new Date(Date.now() - value * 1_000).toISOString();
+
+    async function renderCard(
+      status: Screen["status"],
+      preview: Partial<ScreenPreviewMetadata>,
+    ) {
+      const item = {
+        id: "screen-rail",
+        name: "Atrium",
+        screenWidth: 1920,
+        screenHeight: 1080,
+        status,
+        lastContactAt: new Date().toISOString(),
+      } as Screen;
+      vi.spyOn(api, "renewScreenPreview").mockResolvedValue({
+        active: true,
+        captureIntervalSeconds: 20,
+        captureNow: true,
+      });
+      vi.spyOn(api, "screenPreview").mockResolvedValue({
+        screenId: item.id,
+        status: "available",
+        imageAvailable: true,
+        ...preview,
+      } as ScreenPreviewMetadata);
+      vi.stubGlobal(
+        "IntersectionObserver",
+        class {
+          constructor(
+            private readonly callback: IntersectionObserverCallback,
+          ) {}
+          observe(target: Element) {
+            this.callback(
+              [{ isIntersecting: true, target } as IntersectionObserverEntry],
+              this as unknown as IntersectionObserver,
+            );
+          }
+          disconnect() {}
+          unobserve() {}
+          takeRecords() {
+            return [];
+          }
+        },
+      );
+      const { container } = render(
+        <QueryClientProvider
+          client={
+            new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }
+        >
+          <MemoryRouter>
+            <ScreenGridCard
+              screen={item}
+              csrfToken="csrf-token"
+              selected={false}
+              canManage={false}
+              showLocation
+              onSelect={vi.fn()}
+            />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      );
+      await waitFor(() =>
+        expect(api.screenPreview).toHaveBeenCalledWith(item.id),
+      );
+      // The rail renders from the first frame; wait for the metadata to settle.
+      await waitFor(() =>
+        expect(
+          screen.queryByLabelText("Loading preview"),
+        ).not.toBeInTheDocument(),
+      );
+      const rail = container.querySelector(".screen-preview-rail");
+      expect(rail).toHaveAttribute("aria-hidden", "true");
+      return rail as HTMLElement;
+    }
+
+    it.each([
+      ["fresh", 20, "online", "none"],
+      ["aging", 80, "online", "aging"],
+      ["late aging", 115, "online", "aging"],
+      ["old", 150, "online", "overdue"],
+    ] as const)(
+      "marks a %s capture as %s",
+      async (_name, age, status, expected) => {
+        const capturedAt = seconds(age);
+        const rail = await renderCard(status, {
+          capturedAt,
+          updatedAt: capturedAt,
+        });
+        expect(rail).toHaveAttribute("data-state", expected);
+        expect(screen.getByLabelText(/^Snapshot captured/)).toBeInTheDocument();
+        expect(rail).not.toHaveAttribute("role");
+      },
+    );
+
+    it("goes straight to the failure state for an explicit capture error", async () => {
+      const capturedAt = seconds(10);
+      const rail = await renderCard("online", {
+        status: "capture_error",
+        capturedAt,
+        updatedAt: capturedAt,
+      });
+      expect(rail).toHaveAttribute("data-state", "error");
+      expect(screen.getByText("Capture error")).toBeInTheDocument();
+      expect(
+        screen.getByAltText("Latest preview from Atrium"),
+      ).toBeInTheDocument();
+    });
+
+    it("names a capture error that has no image", async () => {
+      const rail = await renderCard("online", {
+        status: "capture_error",
+        imageAvailable: false,
+      });
+      expect(rail).toHaveAttribute("data-state", "error");
+      expect(screen.getByText("Capture error")).toBeInTheDocument();
+      expect(screen.queryByText("Preview unavailable")).not.toBeInTheDocument();
+    });
+
+    it("does not treat an unavailable preview as a failure", async () => {
+      const rail = await renderCard("online", {
+        status: "unavailable",
+        imageAvailable: false,
+        captureFailureStatus: "sensitive_screen",
+      });
+      expect(rail).toHaveAttribute("data-state", "none");
+      expect(screen.getByText("Preview unavailable")).toBeInTheDocument();
+      expect(screen.queryByText("Capture error")).not.toBeInTheDocument();
+    });
+
+    it.each(["offline", "disabled", "revoked"] as const)(
+      "stays still for a %s player even when its last capture is old",
+      async (status) => {
+        const capturedAt = seconds(600);
+        const rail = await renderCard(status, {
+          capturedAt,
+          updatedAt: capturedAt,
+        });
+        expect(rail).toHaveAttribute("data-state", "none");
+      },
+    );
   });
 
   it("moves screens to a location without resending their map positions", async () => {

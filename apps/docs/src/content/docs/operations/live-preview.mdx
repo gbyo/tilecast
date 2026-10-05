@@ -53,6 +53,7 @@ Frame rate and update speed depend on the Player and network.
 - Protected Player screens are not captured. AirPlay-mirrored output is also excluded.
 - An offline Player cannot send a new screenshot, so the last preview may be stale.
 - A stale Player with no cached screenshot shows **Offline** in the preview panel. If a cached screenshot exists, it remains visible as stale.
+- On the Screens grid, a thin line under each preview shows how current the image is. Nothing shows while the image is fresh (45 seconds or less). An amber line with a moving segment means the image is between 45 seconds and 2 minutes old and Tilecast is waiting for another capture. A still red line means the image is more than 2 minutes old, or the Player reported a capture error. The age badge and **Capture error** label say the same in text. The line does not move when the system or Studio is set to reduce motion, and it does not show for offline, disabled, or revoked Players or for protected Player screens.
 - Some Player or device states do not allow capture. Studio shows the preview as unavailable or reports a capture error.
 
 Live preview shows a recent image; it does not prove that scheduled content played.
