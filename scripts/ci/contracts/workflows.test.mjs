@@ -14,6 +14,17 @@ const aggregateEnv = (validations, overrides = {}) => {
   return { ...env, ...overrides };
 };
 
+test("native Player dependency gate is part of required CI contracts", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/validate-ci-contract.yml", "utf8"),
+  );
+  const commands = workflow.jobs.validate.steps
+    .map((step) => step.run ?? "")
+    .join("\n");
+  assert.match(commands, /python3 scripts\/ci\/check-player-architecture\.py/);
+  assert.match(commands, /unittest discover.*test_player_architecture\.py/);
+});
+
 test("workflow YAML and aggregate dependencies stay complete", () => {
   for (const file of readdirSync(".github/workflows").filter((file) =>
     file.endsWith(".yml"),
@@ -99,6 +110,51 @@ test("reusable jobs resolve to a workflow_call contract", () => {
       if (!job.uses?.startsWith("./")) continue;
       const called = parse(readFileSync(job.uses, "utf8"));
       assert.ok(Object.hasOwn(called.on, "workflow_call"), job.uses);
+    }
+  }
+});
+
+test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
+  for (const [file, reportArg] of [
+    ["ci-dashboard.yml", "--junit"],
+    ["ci-server.yml", "--go-json"],
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+    const job = workflow.jobs.validate;
+    assert.equal(job.permissions.actions, "read", file);
+    const summary = job.steps.find((step) =>
+      /timing-summary\.mjs/.test(step.run ?? ""),
+    );
+    assert.ok(summary, `${file}: missing timing summary`);
+    assert.equal(summary.if, "always()", file);
+    assert.match(summary.run, new RegExp(`${reportArg} `), file);
+  }
+
+  for (const file of [
+    "pr-validation.yml",
+    "ci-heavy.yml",
+    "server-release.yml",
+  ]) {
+    const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
+    assert.equal(workflow.permissions.actions, "read", file);
+  }
+});
+
+test("PR reusable validations receive every required permission from their calling job", () => {
+  const workflow = parse(
+    readFileSync(".github/workflows/pr-validation.yml", "utf8"),
+  );
+  const rank = { none: 0, read: 1, write: 2 };
+  for (const [name, job] of Object.entries(workflow.jobs)) {
+    if (!job.uses?.startsWith("./.github/workflows/")) continue;
+    const called = parse(readFileSync(job.uses, "utf8"));
+    const grant = job.permissions ?? workflow.permissions;
+    for (const [scope, level] of Object.entries(called.permissions ?? {})) {
+      assert.ok(
+        (rank[grant[scope]] ?? 0) >= rank[level],
+        `${name}: ${job.uses} requires ${scope}:${level}; calling job grants ${grant[scope] ?? "none"}`,
+      );
     }
   }
 });

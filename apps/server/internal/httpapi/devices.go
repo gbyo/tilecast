@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -198,6 +199,20 @@ func (s *server) listPendingPairings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": requests, "total": len(requests)}})
 }
 
+type optionalMapCoordinates struct {
+	Value *devices.MapCoordinates
+	Set   bool
+}
+
+func (value *optionalMapCoordinates) UnmarshalJSON(data []byte) error {
+	value.Set = true
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		value.Value = nil
+		return nil
+	}
+	return json.Unmarshal(data, &value.Value)
+}
+
 type approvePairingRequest struct {
 	Name                      string     `json:"name"`
 	LocationID                *uuid.UUID `json:"locationId"`
@@ -207,6 +222,17 @@ type approvePairingRequest struct {
 	ReplaceExistingCredential bool       `json:"replaceExistingCredential"`
 	ReplaceHardware           bool       `json:"replaceHardware"`
 	ReplacementScreenID       *uuid.UUID `json:"replacementScreenId"`
+}
+
+// updateScreenRequest carries the screen fields an update may change. The map
+// position is update-only: a pairing approval does not accept it.
+type updateScreenRequest struct {
+	Name                string                 `json:"name"`
+	LocationID          *uuid.UUID             `json:"locationId"`
+	RoomName            string                 `json:"roomName"`
+	RoomNumber          string                 `json:"roomNumber"`
+	MapPositionOverride optionalMapCoordinates `json:"mapPositionOverride"`
+	Description         string                 `json:"description"`
 }
 
 func (s *server) approvePairing(w http.ResponseWriter, r *http.Request) {
@@ -309,7 +335,7 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body approvePairingRequest
+	var body updateScreenRequest
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -320,7 +346,7 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.Description)
+	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.MapPositionOverride.Value, body.MapPositionOverride.Set, body.Description)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
 		return

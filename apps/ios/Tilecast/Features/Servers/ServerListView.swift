@@ -32,7 +32,7 @@ struct ServerListView: View {
                     Button("Add Server", systemImage: "plus") { addingServer = true }
                 }
             }
-            .sheet(isPresented: $addingServer) { AddServerView() }
+            .sheet(isPresented: $addingServer) { AddServerView(directory: host.directory) }
             .alert("Rename Server", isPresented: renamingPresented, presenting: renaming) { server in
                 TextField("Name", text: $newName)
                 Button("Rename") { host.directory.rename(server.id, to: newName) }
@@ -73,7 +73,7 @@ struct ServerListView: View {
                 }
                 Spacer()
                 if server.id == host.directory.activeServerID {
-                    Image(systemName: "checkmark")
+                    Image(AppIcon.current)
                         .foregroundStyle(.tint)
                         .accessibilityLabel("Current server")
                 }

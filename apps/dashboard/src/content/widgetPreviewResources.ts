@@ -9,7 +9,8 @@
  * Grants come from the component presentation (`dataSources`), so a Widget
  * cannot probe for unrelated manifest content.
  */
-import { useQueries } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useQueries, type UseQueryResult } from "@tanstack/react-query";
 import {
   createWidgetResources,
   type WidgetCacheState,
@@ -74,11 +75,46 @@ function widgetDateSelection(
   };
 }
 
+const DECIMAL_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const INTEGER = /^[+-]?\d+$/;
+const ASSET_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATETIME =
+  /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+function isValidDate(raw: string): boolean {
+  if (!DATE.test(raw)) return false;
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === raw
+  );
+}
+
+function isValidDateTime(raw: string): boolean {
+  const match = DATETIME.exec(raw);
+  return Boolean(
+    match && isValidDate(match[1]!) && Number.isFinite(Date.parse(raw)),
+  );
+}
+
+function isValidUrl(raw: string): boolean {
+  if (/\s/.test(raw)) return false;
+  try {
+    const parsed = new URL(raw);
+    return Boolean(parsed.protocol && parsed.host);
+  } catch {
+    return false;
+  }
+}
+
 function typedValue(fieldType: string, raw: string): WidgetValue {
+  if (raw === "") return { kind: "null" };
   switch (fieldType) {
     case "integer": {
-      const integer = Number.parseInt(raw, 10);
-      return Number.isFinite(integer)
+      const integer = Number(raw);
+      return INTEGER.test(raw) && Number.isSafeInteger(integer)
         ? { kind: "integer", integer }
         : { kind: "text", text: raw };
     }
@@ -86,7 +122,8 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
     case "percent":
     case "currency": {
       const number = Number(raw);
-      if (!Number.isFinite(number)) return { kind: "text", text: raw };
+      if (!DECIMAL_NUMBER.test(raw) || !Number.isFinite(number))
+        return { kind: "text", text: raw };
       // The currency code travels in the field metadata, never in the
       // value: formatWidgetValue renders value.text before any numeric
       // branch, so stamping it here would hide the amount.
@@ -95,21 +132,36 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
       return { kind: "number", number };
     }
     case "boolean":
-      return raw === "true"
+      return ["1", "t", "T", "TRUE", "True", "true"].includes(raw)
         ? { kind: "boolean", boolean: true }
-        : raw === "false"
+        : ["0", "f", "F", "FALSE", "False", "false"].includes(raw)
           ? { kind: "boolean", boolean: false }
           : { kind: "text", text: raw };
     case "date":
-      return { kind: "date", date: raw };
+      return isValidDate(raw)
+        ? { kind: "date", date: raw }
+        : { kind: "text", text: raw };
     case "datetime":
-      return { kind: "datetime", datetime: raw };
-    case "duration":
-      return { kind: "duration", text: raw };
+      return isValidDateTime(raw)
+        ? { kind: "datetime", datetime: raw }
+        : { kind: "text", text: raw };
+    case "duration": {
+      const durationSeconds = Number(raw);
+      return /^[+-]?\d+$/.test(raw) &&
+        Number.isSafeInteger(durationSeconds) &&
+        durationSeconds >= 0
+        ? { kind: "duration", durationSeconds }
+        : { kind: "text", text: raw };
+    }
     case "url":
-      return { kind: "url", url: raw };
+      return isValidUrl(raw)
+        ? { kind: "url", url: raw }
+        : { kind: "text", text: raw };
     case "asset":
-      return { kind: "asset", assetId: raw };
+      return ASSET_ID.test(raw) &&
+        raw.toLowerCase() !== "00000000-0000-0000-0000-000000000000"
+        ? { kind: "asset", assetId: raw.toLowerCase() }
+        : { kind: "text", text: raw };
     default:
       return { kind: "text", text: raw };
   }
@@ -292,33 +344,41 @@ export function previewToDataDocument(
     "date",
     preview.configuration.dateSelection,
   );
+  const fieldSchema = preview.fieldSchema;
   return {
     schemaVersion: 1,
     datasets: [
       {
         id: "records",
         kind: "records",
-        records: data.records.map((record) => ({
-          id: record.id,
-          values: {
-            title: { kind: "text", text: record.title },
-            ...(record.subtitle
-              ? { subtitle: { kind: "text", text: record.subtitle } }
-              : null),
-            ...(record.date
-              ? { date: { kind: "text", text: record.date } }
-              : null),
-            ...(record.author
-              ? { author: { kind: "text", text: record.author } }
-              : null),
+        fields: widgetFields(fieldSchema),
+        records: data.records.map((record) => {
+          const values: Record<string, string> = {
+            title: record.title,
+            ...(record.subtitle ? { subtitle: record.subtitle } : null),
+            ...(record.date ? { date: record.date } : null),
+            ...(record.author ? { author: record.author } : null),
             ...(record.description
-              ? {
-                  description: { kind: "text", text: record.description },
-                }
+              ? { description: record.description }
               : null),
-            ...recordValues(record.values ?? {}, undefined),
-          },
-        })),
+            ...(record.source ? { source: record.source } : null),
+            ...(record.imageUrl ? { imageUrl: record.imageUrl } : null),
+            ...(record.link ? { link: record.link } : null),
+            ...(record.values ?? {}),
+          };
+          const declared = fieldSchema
+            ? new Set(fieldSchema.map((field) => field.key))
+            : null;
+          const declaredValues = declared
+            ? Object.fromEntries(
+                Object.entries(values).filter(([key]) => declared.has(key)),
+              )
+            : values;
+          return {
+            id: record.id,
+            values: recordValues(declaredValues, fieldSchema),
+          };
+        }),
         cache: widgetCache(data),
         ...(dateSelection
           ? { timezone: dateSelection.timezone, dateSelection }
@@ -362,42 +422,65 @@ export function useWidgetPreviewResources(
    */
   previewDate?: string,
 ): PreviewResources {
-  const previews = useQueries({
+  // Callers can build equivalent grant arrays on every render. TanStack's
+  // combine memoization keeps resources stable until inputs or query results
+  // change, so reporting readiness cannot start another input revision.
+  const inputKey = JSON.stringify({
+    dataSourceIds,
+    declaredDataSources,
+    declaredMedia,
+  });
+  const combine = useCallback(
+    (
+      previews: UseQueryResult<
+        Awaited<ReturnType<typeof api.previewSavedDataSource>>
+      >[],
+    ): PreviewResources => {
+      const { dataSourceIds, declaredDataSources, declaredMedia } = JSON.parse(
+        inputKey,
+      ) as {
+        dataSourceIds: string[];
+        declaredDataSources: string[];
+        declaredMedia: { assetId: string; variantId: string }[];
+      };
+      const documents = new Map<string, WidgetDataDocument>();
+      const failedIds: string[] = [];
+      // Only failures inside the presentation's grants count.
+      const granted = new Set(declaredDataSources);
+      previews.forEach((preview, index) => {
+        const id = dataSourceIds[index];
+        if (!id || preview.isLoading) return;
+        if (preview.isError || !preview.data) {
+          if (granted.has(id)) failedIds.push(id);
+          return;
+        }
+        const document = previewToDataDocument(preview.data);
+        if (document) documents.set(id, document);
+        else if (granted.has(id)) failedIds.push(id);
+      });
+      const media = new Map(
+        declaredMedia.map((ref) => [
+          `${ref.assetId}/${ref.variantId}`,
+          api.assetPreviewUrl(ref.assetId),
+        ]),
+      );
+      return {
+        resources: createWidgetResources(
+          { documents, media },
+          { dataSources: declaredDataSources, media: declaredMedia },
+        ),
+        loading: previews.some((preview) => preview.isLoading),
+        failedIds,
+      };
+    },
+    [inputKey],
+  );
+  return useQueries({
     queries: dataSourceIds.map((id) => ({
       queryKey: ["widget-v2-source-preview", id, previewDate ?? null],
       queryFn: () => api.previewSavedDataSource(id, previewDate),
       retry: false,
     })),
+    combine,
   });
-  const documents = new Map<string, WidgetDataDocument>();
-  const failedIds: string[] = [];
-  // Only failures inside the presentation's grants count: a connected source
-  // the Widget cannot see is invisible to it, while a granted source that
-  // cannot be loaded must surface as an error, never as an empty Widget.
-  const granted = new Set(declaredDataSources);
-  previews.forEach((preview, index) => {
-    const id = dataSourceIds[index];
-    if (!id || preview.isLoading) return;
-    if (preview.isError || !preview.data) {
-      if (granted.has(id)) failedIds.push(id);
-      return;
-    }
-    const document = previewToDataDocument(preview.data);
-    if (document) documents.set(id, document);
-    else if (granted.has(id)) failedIds.push(id);
-  });
-  const media = new Map(
-    declaredMedia.map((ref) => [
-      `${ref.assetId}/${ref.variantId}`,
-      api.assetPreviewUrl(ref.assetId),
-    ]),
-  );
-  return {
-    resources: createWidgetResources(
-      { documents, media },
-      { dataSources: [...declaredDataSources], media: [...declaredMedia] },
-    ),
-    loading: previews.some((preview) => preview.isLoading),
-    failedIds,
-  };
 }

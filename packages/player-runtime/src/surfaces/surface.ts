@@ -15,13 +15,19 @@ export interface MediaSurface {
    * Load until the surface has something to show. Resolves when it can be
    * swapped in; rejects with a reason when it cannot be shown at all.
    */
-  prepare(): Promise<void>;
+  prepare(): Promise<void | SurfaceReadiness>;
   /** Begin playback now that the surface is visible. */
   activate(): Promise<void>;
   pause(): void;
   seek(seconds: number): Promise<void>;
   /** Release every decoder, timer and listener. Idempotent. */
   dispose(): void;
+}
+
+/** Optional state reported when a surface is ready to show. */
+export interface SurfaceReadiness {
+  /** The fullscreen Widget rendered its declared empty state. */
+  empty?: boolean;
 }
 
 /** Surfaces that loop in place (a single-video playlist). */
@@ -52,6 +58,8 @@ export interface SurfaceSink {
    * failure is reported for the Layout item with the zone's identity.
    */
   zoneFailed(zoneId: string, message: string): void;
+  /** A fullscreen component changed from ready to empty after activation. */
+  widgetEmpty(): void;
 }
 
 export interface SurfaceEnvironment {

@@ -12,13 +12,20 @@
 
 > This document is the Edge 1 design. It is prescriptive. The implementation state and the verification ledger are in [`tilecast-edge-next.md`](tilecast-edge-next.md). Work that is not part of Edge 1 is recorded in [`tilecast-edge-future.md`](tilecast-edge-future.md) and is not a requirement here.
 
+> [`player-core.md`](player-core.md) defines the accepted extraction of shared
+> native Player behavior. `tilecastd` remains the Linux process authority and
+> becomes the composition root for that behavior. The extraction preserves
+> the process, privilege, persistence, IPC, media, and update guarantees here.
+> The shared crates now implement native coordination. Presentation execution remains in
+> Player Runtime; pure presentation decisions belong in Presentation Model.
+
 ---
 
 ## 1. Decision
 
 Tilecast Edge 1 is a reliable Linux signage player. It replaces the Electron Linux Player with two processes:
 
-- `tilecastd`, an unprivileged Rust daemon that owns everything except drawing pixels;
+- `tilecastd`, an unprivileged Rust daemon that composes Player Core with Linux services and the Edge renderer adapter;
 - `tilecast-renderer-wpe`, a small C/GLib host for WPE WebKit. It hosts the shared Tilecast Player Runtime, which draws what `tilecastd` sends and reports what happened on screen.
 
 ```text
@@ -27,6 +34,8 @@ Tilecast Server
  HTTPS / WebSocket
       │
   tilecastd
+      │
+ Player Core
       │
  ┌────┴────┐
 SQLite    CAS
@@ -209,7 +218,7 @@ The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neu
 - **Handshake:** the client sends `hello` with a role and a version range. The daemon picks the highest common version or rejects. Roles are `renderer`, `tilecastctl` and `session_bridge` (§4.4); administrative methods also need the daemon's own UID or root, and only the daemon's UID may take `session_bridge`.
 - **Messages:** requests and responses (client to daemon only), events in either direction with a per-direction sequence, and `goodbye`.
 - **Strictness:** every frame rejects unknown members; every string and list has an explicit bound.
-- **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when the renderer supports every feature it needs.
+- **Reconnect:** the daemon is the source of truth. On connect it sends `renderer.configure`. After `renderer.ready` it sends the current activation, with its original identifier, only when both packaged and connected profiles cover its requirements. The optional `support` report carries live Runtime presentation schemas, declarative capabilities, and discovered Widget versions. WPE forwards these separately from its host features. Missing live support is empty.
 
 What never crosses the socket: the device credential, Presentation Network secrets, raw server responses, arbitrary filesystem paths from a client, executables, shell fragments and media bytes.
 
@@ -290,7 +299,7 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 - WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo.
 - Platforms: `drm` on dedicated signage (no compositor), `wayland` on development machines and existing kiosk compositors, `headless` in CI.
-- A small C11/GLib host. Presentation policy and business logic stay in `tilecastd`.
+- A small C11/GLib host. Native coordination stays in Player Core. Presentation execution stays in Player Runtime.
 
 ### 10.2 Trusted runtime
 

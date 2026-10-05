@@ -14,8 +14,15 @@ A required-property entry names a property the handler already rejected when
 missing or outside the new enum, so documenting it cannot break a working
 client. A schema-restatement entry names a schema rewritten without `not`
 for the Swift generator that accepts and rejects exactly the same requests.
-A new finding that is not listed here describes a real behavior change and
-must be fixed, not appended.
+Negotiated manifest-version entries name versions that the Server sends only
+after the Player reports the required presentation schema and capability.
+Older Player profiles retain their previous versions. PostgreSQL coverage in
+`TestClockComponentChosenForEachPlayer` and
+`TestEmptyComponentPolicyPreservesOlderPlayerAutoSkip` verifies that boundary.
+Other new findings describe behavior changes and must be fixed.
+
+GET /api/v1/player/manifest added the new `16.00` enum value to the `data/schemaVersion` response property for the response status `200`: correct the released component version; only Players with presentation schema 2 and the required Widget capability receive it.
+GET /api/v1/player/manifest added the new `17.00` enum value to the `data/schemaVersion` response property for the response status `200`: schema 3 is explicitly negotiated; older Players keep schema 2 or the compatibility presentation.
 
 POST /api/v1/layouts added required request body: createLayout always decoded a details body.
 PATCH /api/v1/layouts/{id} added required request body: updateLayout always decoded a details body.

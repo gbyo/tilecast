@@ -1,4 +1,6 @@
+import { contentQueries } from "../data/content";
 import { cn } from "cn";
+import { layoutKeys, layoutQueries } from "../data/layouts";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
 import {
   Alert,
@@ -6,7 +8,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from "../components/ui/alert";
-import { Button } from "../components/ui/button";
+import { Button, buttonVariants } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Toggle } from "../components/ui/toggle";
 import {
@@ -196,7 +198,7 @@ import {
   useNativePresentationAvailable,
   useOpenNativePresentation,
 } from "../native-presentation/openNativePresentation";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { api, ApiError } from "../api/client";
 import type {
   Asset,
@@ -333,14 +335,6 @@ export function createContentPlacement(
     widgetId: isApp ? asset.id : undefined,
     assetId: isApp ? undefined : asset.id,
     variantId,
-    overrides: isApp
-      ? {
-          fit: "contain",
-          alignment: "center",
-          fallbackVisibility: "show",
-          muted: true,
-        }
-      : undefined,
     playback: !isApp
       ? {
           fit: "contain",
@@ -635,11 +629,7 @@ export function LayoutEditorPage() {
   );
   const canSubmit = canPublish || auth.status?.user?.role === "contributor";
   const queryClient = useQueryClient();
-  const layoutQuery = useQuery({
-    queryKey: ["layout", id],
-    queryFn: () => api.layout(id),
-    enabled: Boolean(id),
-  });
+  const layoutQuery = useQuery(layoutQueries.detail(id));
   const contentQuery = useQuery({
     queryKey: ["layout-content-library"],
     queryFn: () =>
@@ -692,8 +682,7 @@ export function LayoutEditorPage() {
       ),
   });
   const revisions = useQuery({
-    queryKey: ["layout-revisions", id],
-    queryFn: () => api.layoutRevisions(id),
+    ...layoutQueries.revisions(id),
     enabled: false,
   });
   // One capture-readiness coordinator per editor instance. Live V2 zones on
@@ -701,8 +690,7 @@ export function LayoutEditorPage() {
   // instead of racing Widget loads with an arbitrary delay.
   const captureCoordinator = useMemo(() => new LayoutCaptureCoordinator(), []);
   const definitionsQuery = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: () => api.contentDefinitions(),
+    ...contentQueries.definitions(),
   });
   // Placement ids whose V2 Widgets a thumbnail must wait for: visible,
   // directly placed Widgets with a migrated component. Playlist zones join
@@ -1172,8 +1160,7 @@ export function LayoutEditorPage() {
           .uploadLayoutPreview(id, revision, image, csrf)
           .catch(() => undefined);
         if (cancelled) return;
-        void queryClient.invalidateQueries({ queryKey: ["layout", id] });
-        void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+        void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       } finally {
         if (!cancelled) initialPreviewAttemptedRef.current = true;
       }
@@ -1270,7 +1257,7 @@ export function LayoutEditorPage() {
           revisionRef.current = draftRevision;
           setServerRevision(draftRevision);
           savedChangeVersionRef.current = savedVersion;
-          void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+          void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
         },
       );
       setSaveState("saved");
@@ -1312,7 +1299,7 @@ export function LayoutEditorPage() {
             // server draft is already safely persisted, so do not report this as a
             // draft-save failure or prevent publishing.
             .catch(() => undefined);
-          void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+          void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
         })();
       }
       return true;
@@ -1357,8 +1344,7 @@ export function LayoutEditorPage() {
           : t("editor.toastSubmitted"),
         type: "success",
       });
-      void queryClient.invalidateQueries({ queryKey: ["layout", id] });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["content-submissions"] });
       void queryClient.invalidateQueries({
         queryKey: ["content-history", "layout", id],
@@ -1374,8 +1360,7 @@ export function LayoutEditorPage() {
       ),
     onSuccess: () => {
       toast.add({ title: t("editor.toastRenamed"), type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layout", id] });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
   });
   const restore = useMutation({
@@ -2311,9 +2296,12 @@ export function LayoutEditorPage() {
           <EmptyTitle>{t("editor.unavailableTitle")}</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <Button variant="secondary" onClick={() => void navigate("/layouts")}>
+          <Link
+            className={buttonVariants({ variant: "secondary" })}
+            to="/layouts"
+          >
             {t("editor.unavailableBack")}
-          </Button>
+          </Link>
         </EmptyContent>
       </Empty>
     );

@@ -40,6 +40,7 @@ import type {
   RenderNode,
 } from "./render-tree";
 import {
+  defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
 } from "./playback-defaults";
@@ -401,13 +402,7 @@ function buildZoneItems(
     const settings = resolvePlaybackItemSettings(
       item,
       playback,
-      fallbackDurationMsFor(
-        kind,
-        Number.isFinite(Number(playback?.defaultImageDurationSeconds)) &&
-          Number(playback?.defaultImageDurationSeconds) > 0
-          ? Number(playback?.defaultImageDurationSeconds) * 1_000
-          : 10_000,
-      ),
+      fallbackDurationMsFor(kind, defaultImageDurationMsForPlayback(playback)),
     );
     items.push({
       id: item.id,
@@ -417,14 +412,13 @@ function buildZoneItems(
       fit: placement.playback?.fit || settings.fitMode,
       muted: placement.playback?.muted ?? !settings.audioEnabled,
       volume: settings.volume,
+      videoStartOffsetMs: item.videoStartOffsetMs ?? null,
+      videoEndOffsetMs: item.videoEndOffsetMs ?? null,
       // The playlist-zone loop is a zone policy, not an item video setting.
       // zoneEntry enables native looping only for a single-item looping zone.
       loop: false,
       radius: placement.playback?.cornerRadius ?? 0,
-      transition:
-        item.transition === "fade" || item.transition === "crossfade"
-          ? item.transition
-          : "none",
+      transition: settings.transition,
     });
   }
   if (items.length === 1 && items[0]!.kind === "video") {

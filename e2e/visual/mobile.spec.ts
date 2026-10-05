@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
+import { inspectFuturePlayback } from "../support/playback-plan";
+import { snapshotRegion } from "./support";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 
@@ -20,6 +22,23 @@ async function expectNoPageOverflow(page: Page) {
     .toBe(true);
 }
 
+test("mobile playback explanation keeps evidence and instant controls inside the viewport", async ({
+  page,
+}) => {
+  await page.goto(`/screens/${ids.cafeteriaEast}`);
+  const { panel } = await inspectFuturePlayback(page);
+  await expect(panel.getByText("Selection precedence")).toBeVisible();
+  await expect(
+    panel.getByRole("link", { name: "View Player-confirmed Activity" }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+  const time = panel.getByLabel("Inspect an instant time");
+  const timeBounds = await time.boundingBox();
+  expect(timeBounds).not.toBeNull();
+  expect(timeBounds!.width).toBeGreaterThanOrEqual(144);
+  await snapshotRegion(page, panel, "screen-playback-explanation-mobile");
+});
+
 test("mobile overview keeps uptime rows inside the viewport", async ({
   page,
 }) => {
@@ -38,18 +57,19 @@ test("mobile overview keeps uptime rows inside the viewport", async ({
   await expectNoPageOverflow(page);
 });
 
-test("mobile activity keeps the long tab strip contained", async ({ page }) => {
+test("mobile activity picks reports from a menu and keeps filters on screen", async ({
+  page,
+}) => {
   await page.goto("/activity");
   await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
 
-  const tabs = page.getByRole("tablist");
-  await expect
-    .poll(() =>
-      tabs.evaluate((element) => element.scrollWidth > element.clientWidth),
-    )
-    .toBe(true);
+  // Narrow screens replace the report tab strip with one native menu, so no
+  // strip can overflow.
+  await expect(page.getByRole("tablist")).toHaveCount(0);
+  const reports = page.getByRole("combobox", { name: "Activity reports" });
+  await reports.selectOption({ label: "Proof of Play" });
+  await expect(page).toHaveURL(/tab=proof/);
 
-  await tabs.getByRole("tab", { name: "Proof of Play", exact: true }).click();
   // The trigger shows "More filters" but announces the popover it opens.
   await page.getByRole("button", { name: "Advanced filters" }).click();
   const filters = page.locator('[data-slot="popover-content"]');
@@ -60,9 +80,11 @@ test("mobile activity keeps the long tab strip contained", async ({ page }) => {
   expect(filterBounds!.x + filterBounds!.width).toBeLessThanOrEqual(375);
   await page.keyboard.press("Escape");
 
-  const lastTab = tabs.getByRole("tab").last();
-  await lastTab.click();
-  await expect(lastTab).toHaveAttribute("aria-selected", "true");
+  const last = await reports.locator("option").last().textContent();
+  await reports.selectOption({ label: last!.trim() });
+  await expect(reports).toHaveValue(
+    (await reports.locator("option").last().getAttribute("value"))!,
+  );
   await expectNoPageOverflow(page);
 });
 

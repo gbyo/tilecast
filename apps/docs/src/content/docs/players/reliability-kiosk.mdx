@@ -13,6 +13,8 @@ A running Player process is not enough on its own. Tilecast also checks whether 
 
 For example, a frozen video can still have a responsive process, while a still image can be healthy even though the picture is not changing.
 
+Players report connection status through WebSocket status messages with an HTTP heartbeat fallback. Render progress is reported separately through telemetry, so a Linux Player can keep reporting contact while content plays. The [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md) defines the exact boundary.
+
 If playback repeatedly fails, the Player works through its recovery steps and can enter safe mode instead of restarting forever.
 
 ## Platform behavior

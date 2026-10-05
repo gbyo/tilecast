@@ -5,6 +5,12 @@ description: Build and test the Tilecast iOS and iPadOS app, and decide whether 
 
 The Tilecast iOS app is a native home for Tilecast Studio. It handles the things an iPhone or iPad does better than a browser tab, such as switching between servers and native tabs, and it shows your server's own Studio for everything else. The app isn't in the App Store yet. You can build it from source with Xcode.
 
+While the app connects to a server or loads Studio, it shows the animated Tilecast
+mark without the wordmark. Native sheets use the same loading mark. It adapts to
+light and dark appearance and stays still when Reduce Motion is enabled. See the
+[iOS hosting contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#loading-mark)
+for the rendering behavior.
+
 ## Where a feature belongs
 
 Build a new feature in Studio. The app loads Studio from each server, so a new page, a new editor, or a plugin page works in the app as soon as the server is updated, with no Swift changes and no app release.
@@ -12,6 +18,8 @@ Build a new feature in Studio. The app loads Studio from each server, so a new p
 Native code is for app chrome, system features like the camera or Share sheet, and a few small, stable workflows. The full rules are in the [iOS app architecture](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md).
 
 ## Navigation comes from Studio
+
+Use Studio's shared `useConfirm` hook for confirmations. It queues overlapping requests in order and uses native iOS alerts for plain text, with the shared web dialog as a fallback. Leaving the component cancels its active and queued requests. See the [alert contract](https://github.com/gbyo/tilecast/blob/main/docs/ios-app.md#alerts) for the exact lifecycle.
 
 Once you sign in, the app replaces Studio's sidebar with native navigation: tabs on iPhone, and a sidebar on iPad. Studio still draws everything else, including its top bar with breadcrumbs, search, notifications, and your account menu.
 
@@ -73,6 +81,13 @@ Tabs and the iPad sidebar show the same Lucide icons as Studio's sidebar. The ic
 ```sh title="apps/ios/TilecastKit · Core tests on the Mac"
 swift test
 ```
+
+On the iOS simulator, select **TilecastHostTests** in the **Tilecast** scheme.
+It compiles the same Core tests inside the app so real WebKit pages receive
+application events. The scheme starts with in-memory server profiles and
+credentials. A regression test fails if the iOS bridge suite runs without an
+application host. The separate UI tests still exercise native controls with their
+loopback fixture server.
 
 To try Photos and Files upload by hand, follow [Test media intake by hand](https://github.com/gbyo/tilecast/blob/main/apps/ios/README.md#test-media-intake-by-hand). The automated tests replace the pickers with generated files.
 

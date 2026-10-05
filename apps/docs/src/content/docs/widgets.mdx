@@ -3,6 +3,10 @@ title: Create and reuse Widgets
 description: Choose a Widget by what the screen should show, connect a compatible Data Source, and check the result in Studio's live preview.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/widget-editor.png";
+import darkScreenshot from "../../assets/screenshots/widget-editor-dark.png";
+
 import { Steps } from "@astrojs/starlight/components";
 
 A **Widget** is a reusable visual item, such as a clock, a list of announcements, or a weather forecast. Add a Widget to a Playlist or place it on a Layout.
@@ -70,6 +74,12 @@ Change any field Studio chose. If you switch to another source, Studio keeps you
 
 Some Widgets need your choices. A Table shows only the **Columns** you add. An Agenda can't place an event without a **Start field**. News and Weather read their source's fields directly and have no field controls.
 
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Lobby Clock editor with timezone and appearance controls beside a ready live preview at the Small zone size."
+/>
+
 ## Check the live preview
 
 The preview in the Widget editor uses the same Widget renderer as current Linux and Tilecast Edge Players. What you see there is what those screens show.
@@ -112,7 +122,7 @@ In a Layout, the **Widgets** section opens the Apps picker. Add the Widget to th
 
 ## When a Widget has no current data
 
-Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**, which the screen shows when the source returns nothing to display. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. Preview the result before publishing.
+Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**. A fullscreen Widget that declares an empty state as eligible may be skipped in a local Playlist when it has nothing to show. If every Widget in the Playlist is empty, the Player waits 30 seconds before trying again. Layout zones and synchronized playback keep their timeline. See the [Widgets V2 contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the Player rules.
 
 ## Next steps
 
