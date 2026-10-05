@@ -137,12 +137,10 @@ describe("MyAccountPage", () => {
     await screen.findByRole("heading", { name: "Sign-in security" });
 
     const nav = screen.getByRole("navigation", { name: "Account sections" });
-    expect(
-      nav.querySelector('a[href="/account/security"]'),
-    ).toHaveAttribute("aria-current", "page");
-    expect(
-      nav.querySelector('a[href="/account/preferences"]'),
-    ).not.toHaveAttribute("aria-current");
+    const securityLink = nav.querySelector('a[href="/account/security"]');
+    const preferencesLink = nav.querySelector('a[href="/account/preferences"]');
+    expect(securityLink).toHaveAttribute("aria-current", "page");
+    expect(preferencesLink).not.toHaveAttribute("aria-current");
   });
 
   it("mounts only the selected account page", async () => {
