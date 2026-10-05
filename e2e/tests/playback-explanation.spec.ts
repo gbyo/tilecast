@@ -13,8 +13,10 @@ test("Screen explanation follows server selection and preserves historical gaps"
   const { panel, inspected } = await inspectFuturePlayback(page);
   const plan = (await inspected.json()).data;
   expect(plan.basis).toBe("current_configuration");
+  // The selected presentation name appears twice by design: once in the
+  // selection-precedence candidate list and once as the content-path link.
   await expect(
-    panel.getByText(plan.current.selected.name, { exact: true }),
+    panel.getByText(plan.current.selected.name, { exact: true }).first(),
   ).toBeVisible();
   await expect(panel.getByText("Selection precedence")).toBeVisible();
   await expect(

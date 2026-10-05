@@ -43,6 +43,75 @@ afterEach(() => {
 });
 
 describe("screen details opened for editing", () => {
+  it("offers Archive screen in the detail action menu and returns to the fleet", async () => {
+    const item = {
+      id: "screen-1",
+      name: "Lobby",
+      description: "",
+      location: "Main entrance",
+      platform: "android-tv",
+      deviceManufacturer: "Google",
+      deviceModel: "ADT-3",
+      playerVersion: "0.2.0",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      enabled: true,
+      pairedAt: new Date().toISOString(),
+      lastContactAt: new Date().toISOString(),
+      status: "online",
+      hasActiveCredential: true,
+    } as Screen;
+    vi.spyOn(api, "screen").mockResolvedValue(item);
+    vi.spyOn(api, "screens").mockResolvedValue({ items: [item], total: 1 });
+    vi.spyOn(api, "locations").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "screenReliability").mockResolvedValue({} as never);
+    vi.spyOn(api, "screenCommands").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "screenPlayerHistory").mockResolvedValue({
+      items: [],
+      total: 0,
+    });
+    vi.spyOn(api, "screenPolicy").mockResolvedValue({ values: {} } as never);
+    const revoke = vi.spyOn(api, "revokeScreen").mockResolvedValue();
+
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter initialEntries={["/screens/screen-1"]}>
+          <Routes>
+            <Route path="/screens/:id" element={<ScreenDetailPage />} />
+            <Route path="/screens" element={<div>Fleet destination</div>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const interaction = userEvent.setup();
+    await interaction.click(
+      await screen.findByRole("button", { name: "More screen actions" }),
+    );
+    await interaction.click(
+      await screen.findByRole("menuitem", { name: "Archive screen…" }),
+    );
+    expect(
+      screen.getByRole("alertdialog", { name: "Archive Lobby?" }),
+    ).toBeInTheDocument();
+
+    await interaction.click(
+      screen.getByRole("button", { name: "Archive screen" }),
+    );
+    await waitFor(() =>
+      expect(revoke).toHaveBeenCalledWith(
+        "screen-1",
+        "Archived in Tilecast Studio",
+        "csrf",
+      ),
+    );
+    expect(await screen.findByText("Fleet destination")).toBeInTheDocument();
+  });
+
   it("keeps the saved map position when editing opens before the screen loads", async () => {
     let resolveScreen: (value: Screen) => void = () => undefined;
     vi.spyOn(api, "screen").mockReturnValue(
