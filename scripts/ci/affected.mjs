@@ -212,6 +212,46 @@ const rules = [
   ],
 ];
 
+const linuxReleaseContractRules = [
+  // Changes to the CI contract itself must exercise the full package path.
+  /^\.github\/workflows\//,
+  /^scripts\/ci\//,
+  /^(?:package\.json|package-lock\.json|Makefile)$/,
+  /^scripts\/(?:build-linux-player-release\.sh|verify-linux-player-release\.mjs)$/,
+  /^apps\/player-linux\/src\/core\/(?:autostart|identifiers|self-update)\.ts$/,
+  /^packages\/player-runtime\//,
+];
+
+export function linuxReleaseContractRequired(paths, { full = false } = {}) {
+  if (full) return true;
+
+  return paths.some((path) => {
+    if (/^apps\/player-linux\/README\.md$/.test(path)) return false;
+    if (
+      /^apps\/player-linux\/(?:conformance|helper)\//.test(path) ||
+      /^packages\/player-runtime\/(?:README\.md|conformance\/)/.test(path) ||
+      /^packages\/player-runtime\/.*\.test\.(?:[cm]?ts|tsx)$/.test(path)
+    )
+      return false;
+    if (linuxReleaseContractRules.some((pattern) => pattern.test(path)))
+      return true;
+
+    if (/^apps\/player-linux\//.test(path)) {
+      // Normal TypeScript implementation and test changes use the fast build.
+      // Update and installation code is kept on the packaged release contract.
+      if (/^apps\/player-linux\/src\//.test(path)) {
+        if (/\.test\.(?:[cm]?ts|tsx)$/.test(path)) return false;
+        if (/\.(?:[cm]?ts|tsx)$/.test(path)) return false;
+      }
+      // Package configuration and non-source files include Electron Builder
+      // inputs and any present or future static assets.
+      return true;
+    }
+
+    return false;
+  });
+}
+
 export function affected(
   paths,
   { full = false, fullEdge = false, cwd = repoRoot } = {},
@@ -282,7 +322,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       process.env.GITHUB_OUTPUT,
       Object.entries(result)
         .map(([key, value]) => `${key}=${value}\n`)
-        .join(""),
+        .join("") +
+        `linux_release_contract=${linuxReleaseContractRequired(paths, { full: args.includes("--full") })}\n`,
     );
   }
   console.log(JSON.stringify(result, null, 2));

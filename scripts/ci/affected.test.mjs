@@ -12,7 +12,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { affected, areas, changedPaths } from "./affected.mjs";
+import { fileURLToPath } from "node:url";
+import {
+  affected,
+  areas,
+  changedPaths,
+  linuxReleaseContractRequired,
+} from "./affected.mjs";
 
 const selected = (paths) =>
   Object.entries(affected(paths))
@@ -387,6 +393,66 @@ test("full run and empty diff", () => {
     Object.fromEntries(areas.map((area) => [area, true])),
   );
   assert.deepEqual(selected([]), []);
+});
+test("Linux release contract is limited to package, update, and CI inputs", () => {
+  for (const path of [
+    "apps/player-linux/src/core/player.ts",
+    "apps/player-linux/src/core/player.test.ts",
+    "apps/player-linux/src/main/runtime-messages.ts",
+    "apps/player-linux/conformance/runner.cjs",
+    "apps/player-linux/README.md",
+    "packages/player-runtime/src/engine/player-machine.test.ts",
+    "packages/player-runtime/conformance/run.mjs",
+  ])
+    assert.equal(linuxReleaseContractRequired([path]), false, path);
+
+  for (const path of [
+    "apps/player-linux/package.json",
+    "apps/player-linux/electron-builder.config.cjs",
+    "apps/player-linux/src/assets/loading.png",
+    "apps/player-linux/src/core/self-update.ts",
+    "apps/player-linux/src/core/autostart.ts",
+    "apps/player-linux/src/core/identifiers.ts",
+    "packages/player-runtime/src/engine/player-machine.ts",
+    "scripts/build-linux-player-release.sh",
+    "scripts/verify-linux-player-release.mjs",
+    "package-lock.json",
+    ".github/workflows/validate-linux.yml",
+    "scripts/ci/affected.mjs",
+  ])
+    assert.equal(linuxReleaseContractRequired([path]), true, path);
+
+  assert.equal(linuxReleaseContractRequired([], { full: true }), true);
+  assert.equal(
+    linuxReleaseContractRequired(["packages/player-runtime/README.md"]),
+    false,
+  );
+});
+test("Linux release selection is exported for the workflow caller", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "tilecast-linux-output-"));
+  const output = join(cwd, "github-output");
+  const run = (path) =>
+    execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("./affected.mjs", import.meta.url)),
+        path,
+        "--github-output",
+      ],
+      { env: { ...process.env, GITHUB_OUTPUT: output }, encoding: "utf8" },
+    );
+  try {
+    run("apps/player-linux/src/core/player.ts");
+    assert.match(
+      readFileSync(output, "utf8"),
+      /linux_release_contract=false\n/,
+    );
+    writeFileSync(output, "");
+    run("apps/player-linux/package.json");
+    assert.match(readFileSync(output, "utf8"), /linux_release_contract=true\n/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 test("main expands relevant Edge changes, while docs stay inexpensive", () => {
   assert.equal(

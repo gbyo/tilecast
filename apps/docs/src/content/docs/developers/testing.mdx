@@ -64,6 +64,8 @@ Dashboard CI scans changed Studio TypeScript files against the PR base and fails
 
 Run `npm run test:ci` when you change the scanner or its CI integration. Its Git-fixture tests check baseline comparison, duplicate text, new files, ignore comments, and missing comparison refs.
 
+Linux Player changes always run the Player tests and TypeScript build. Pull requests also build and verify an AppImage when package metadata, build inputs, release or update code, installation code, packaged assets, dependencies, the shared Player Runtime, or CI contract files change. Linux Player changes on `main` run the full package contract. See the [exact Linux Player validation contract](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#linux-player-validation).
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.

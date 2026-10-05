@@ -114,6 +114,43 @@ test("reusable jobs resolve to a workflow_call contract", () => {
   }
 });
 
+test("Linux release packaging is path-gated on PRs and full on main", () => {
+  const pr = parse(readFileSync(".github/workflows/pr-validation.yml", "utf8"));
+  const linux = parse(
+    readFileSync(".github/workflows/validate-linux.yml", "utf8"),
+  );
+  assert.equal(
+    pr.jobs.changes.outputs.linux_release_contract,
+    "${{ steps.paths.outputs.linux_release_contract }}",
+  );
+  assert.equal(
+    pr.jobs.linux_player_ci.with.release_contract,
+    "${{ github.event_name != 'pull_request' || needs.changes.outputs.linux_release_contract == 'true' }}",
+  );
+  assert.equal(linux.on.workflow_call.inputs.release_contract.type, "boolean");
+  assert.equal(
+    linux.jobs.release_contract.if,
+    "${{ inputs.release_contract }}",
+  );
+  assert.ok(linux.jobs.release_contract.needs.includes("validate"));
+  assert.ok(
+    linux.jobs.validate.steps.some((step) =>
+      /player:linux:test/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(
+    linux.jobs.validate.steps.some((step) =>
+      /player:linux:build/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(
+    linux.jobs.release_contract.steps.some((step) =>
+      /build-linux-player-release\.sh/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(pr.jobs.required.needs.includes("linux_player_ci"));
+});
+
 test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
   for (const [file, reportArg] of [
     ["ci-dashboard.yml", "--junit"],
