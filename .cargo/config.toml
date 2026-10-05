@@ -1,0 +1,14 @@
+# Android native libraries must be 16 KB page-size compatible (docs in
+# apps/player-android/README.md). NDK r28+ aligns 64-bit code to 16 KB by
+# default, but 32-bit ARM still defaults to 4 KB, so every Android target
+# gets the explicit maximum page size. Larger ELF alignment is harmless on
+# 4 KB kernels. These flags apply only to Android triples; no other target
+# or crate is affected.
+[target.aarch64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+[target.armv7-linux-androideabi]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]
+
+[target.x86_64-linux-android]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=16384"]

@@ -17,6 +17,7 @@ members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/player-android/native",
     "apps/player-windows",
 ]
 default-members = [
@@ -67,11 +68,15 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 http-body-util = "0.1"
 hyper = { version = "1", features = ["http1", "server", "client"] }
 hyper-util = { version = "0.1", features = ["tokio", "http1", "server", "client-legacy"] }
+# Android platform host only: the shared Player crates never depend on JNI.
+jni = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-manual-roots-no-provider", "stream", "json", "http2"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 rustix = { version = "1", features = ["fs"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 rustls-native-certs = "0.8"
+# Android target only: platform TrustManager decisions for Rust networking.
+rustls-platform-verifier = "0.7"
 # Release archives (M10): pure Rust readers, used only by the root tools.
 ruzstd = "0.9"
 tar = { version = "0.4", default-features = false }

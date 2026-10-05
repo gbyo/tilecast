@@ -23,6 +23,11 @@ tokio-tungstenite.workspace = true
 tracing.workspace = true
 uuid = { workspace = true, features = ["v4"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# Platform TrustManager decisions for Rust networking on Android. Linux and
+# macOS keep the static root configuration below.
+rustls-platform-verifier.workspace = true
+
 [dev-dependencies]
 player-types = { workspace = true, features = ["test-util"] }
 hyper.workspace = true

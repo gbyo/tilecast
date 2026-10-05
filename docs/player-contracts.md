@@ -26,7 +26,8 @@ The Server URL fixture intentionally records only the product-wide policy floor:
 
 ## Boundaries
 
-This does **not** create a cross-language runtime library or FFI layer. Native
+This does **not** create a cross-language runtime library. A native host may
+own a narrow platform bridge to Core, such as the Android JNI host. Native
 process lifecycle, kiosk integration, media transport, and OS APIs remain
 platform-owned. Portable native state, verified content, and Server transport
 move to the shared Rust layer through the Player Core extraction sequence.

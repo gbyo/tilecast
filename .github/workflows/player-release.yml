@@ -163,6 +163,31 @@ jobs:
           npm ci
           npm run build --workspace @tilecast/player-runtime
 
+      # The release build compiles the native Player Core host with cargo-ndk.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk*
+            target
+          key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
+      - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore pinned NDK
+        id: ndk-cache
+        uses: actions/cache@v6
+        with:
+          # Must match tilecastNdkVersion in app/build.gradle.kts.
+          path: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          key: android-ndk-29.0.14206865
+      - name: Install pinned NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "ndk;29.0.14206865"
+
       - name: Build, sign, verify, and create release assets
         env:
           TILECAST_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/tilecast-signing/player.jks

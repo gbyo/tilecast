@@ -42,6 +42,30 @@ jobs:
       - run: npm ci
       # The APK packages the exact shared Player Runtime artifact.
       - run: npm run build --workspace @tilecast/player-runtime
+      # The Gradle build compiles the native Player Core host with cargo-ndk.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk*
+            target
+          key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
+      - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore pinned NDK
+        id: ndk-cache
+        uses: actions/cache@v6
+        with:
+          # Must match tilecastNdkVersion in app/build.gradle.kts.
+          path: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          key: android-ndk-29.0.14206865
+      - name: Install pinned NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "ndk;29.0.14206865"
       - name: Guard the single presentation implementation
         # The shared runtime is authoritative: a legacy composition path, an
         # exemption list, or a second native renderer must fail loudly here,
@@ -58,6 +82,8 @@ jobs:
       - name: Verify configuration cache reuse
         working-directory: apps/player-android
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --configuration-cache-problems=fail
+      - name: Validate 16 KB native-library alignment
+        run: python3 apps/player-android/ci/check-native-alignment.py apps/player-android/app/build/outputs/apk/debug/app-debug.apk
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0
@@ -88,6 +114,31 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The Android engine builds the APK, which compiles the native Player
+      # Core host with cargo-ndk.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk*
+            target
+          key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
+      - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore pinned NDK
+        id: ndk-cache
+        uses: actions/cache@v6
+        with:
+          # Must match tilecastNdkVersion in app/build.gradle.kts.
+          path: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          key: android-ndk-29.0.14206865
+      - name: Install pinned NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "ndk;29.0.14206865"
       - name: Build the shared runtime and Electron reference host
         # The Linux Player workspace prebuilds Player Runtime, then emits the
         # runtime-protocol module imported by the Electron conformance runner.
@@ -174,3 +225,98 @@ jobs:
             ${{ runner.temp }}/conformance/*/summary.json
             ${{ runner.temp }}/conformance/*/*/result.json
           if-no-files-found: ignore
+
+  core-host-boot:
+    name: Android Core host boot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk*
+            target
+          key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
+      - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore pinned NDK
+        id: ndk-cache
+        uses: actions/cache@v6
+        with:
+          # Must match tilecastNdkVersion in app/build.gradle.kts.
+          path: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          key: android-ndk-29.0.14206865
+      - name: Install pinned NDK
+        if: steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "ndk;29.0.14206865"
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # The profile is versioned deliberately. Bump v1 when the cached system
+      # image or AVD configuration changes in an incompatible way.
+      - name: Restore Core host AVD
+        id: avd-cache
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: android-corehost-avd-v1-${{ runner.os }}-api34-google_apis-x86_64-nexus6
+      - name: Create Core host AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          avd-name: tilecast-corehost
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "Generated Android Core host AVD snapshot."
+      # Proves the APK containing the native host boots on an emulator and
+      # the host opens Core state on-device. The device test drives the
+      # host directly.
+      - name: Core host device test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: Nexus 6
+          avd-name: tilecast-corehost
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell getprop sys.boot_completed | grep -q 1
+            # One line: the runner executes each script line in its own
+            # shell, so a bare cd does not persist to the next line.
+            # One boot smoke, not the whole package: the qualification
+            # suite is long and runs before merge, not on every push.
+            cd apps/player-android && ./gradlew :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=org.tilecast.player.core.PlayerCoreHostDeviceTest"

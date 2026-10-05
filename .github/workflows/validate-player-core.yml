@@ -42,3 +42,29 @@ jobs:
       - run: bash scripts/ci/cargo-player.sh doc --no-deps --all-features
         env:
           RUSTDOCFLAGS: -D warnings
+
+  android-host:
+    name: Android Player Rust
+    # The Android platform host crate is Unix-only (statvfs, O_NOFOLLOW);
+    # it runs on Android and builds on Linux, never on the shared-crates
+    # OS matrix above. The Android-target cross-compile is proven by the
+    # cargo-ndk build inside the Gradle build in ci-android.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: player-android-rust-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: bash scripts/ci/cargo-player-android.sh fmt --check
+      - run: bash scripts/ci/cargo-player-android.sh clippy --all-targets -- -D warnings
+      - run: bash scripts/ci/cargo-player-android.sh test
+      - run: bash scripts/ci/cargo-player-android.sh doc --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
