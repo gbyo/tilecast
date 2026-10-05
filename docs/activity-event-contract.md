@@ -78,6 +78,13 @@ Child intervals are summed into content exposure, which may legitimately exceed 
 
 "Interrupted plays" counts sessions whose terminal reason is in the _no_ column. A scheduled changeover, a Takeover, and a normal item boundary all end playback early and are exactly what was asked for, so they are excluded. `unknown` is excluded too: absence of evidence is not evidence of an interruption, and counting it would classify every pre-version-2 record as a fault.
 
+`connection.restored` records network recovery. It does not prove that the Player
+process restarted or that playback stopped. The Server leaves open playback
+sessions unchanged. A reporting gap beyond the three-minute grace closes open
+sessions at the last confirmed heartbeat. A `player.connected`,
+`playback.session_restarted`, or `boot.recovery` event retains its existing
+behavior.
+
 ## Event vocabulary
 
 Both players emit the version 2 name. The version 1 column is what the server still accepts.

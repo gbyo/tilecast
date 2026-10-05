@@ -1,3 +1,5 @@
+import { useFormatLocale } from "../i18n";
+import { formatBytes } from "../lib/formatBytes";
 import { ClipboardPaste, Link, RotateCcw, UploadCloud } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -92,11 +94,6 @@ export function inspectCsv(content: string): CsvInspection {
   };
 }
 
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(bytes < 1024 * 100 ? 1 : 0)} KB`;
-}
-
 // The local inspection here summarizes the chosen file immediately. The mapping itself is
 // filled from the Server's detection, which parses exactly as a refresh will.
 export function CsvSourceInput({
@@ -109,6 +106,7 @@ export function CsvSourceInput({
   onChange: (patch: Partial<StructuredSourceConfig>) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const inputId = useId();
   const urlId = useId();
   const pasteId = useId();
@@ -255,7 +253,7 @@ export function CsvSourceInput({
               ? t("widgets.csv.uploaded.stored")
               : t("widgets.csv.uploaded.summary", {
                   count: inspection?.rowCount ?? 0,
-                  size: formatBytes(fileSize),
+                  size: formatBytes(fileSize, locale),
                   columns: inspection?.columns?.length ?? 0,
                 })}
           </AlertDescription>

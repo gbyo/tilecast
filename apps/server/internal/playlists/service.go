@@ -388,26 +388,38 @@ func (s *Service) SetTagRule(ctx context.Context, id, userID uuid.UUID, input Ta
 
 // reachableDataSources reports the Data Sources a playlist reaches through its items.
 //
-// A Widget references a Source whenever one of its configuration values is that Source's ID, the
-// same rule the deletion check uses — matching any value rather than a fixed key covers Widgets
-// that expose several Data Source selectors under arbitrary keys, and Source IDs are unique so it
-// cannot collide with an unrelated value. A Layout placed in the playlist contributes its own
-// stored dependencies, which already include Sources reached only through a text binding.
+// Widget dependencies use the same injected catalog traversal as manifest projection,
+// including Data Source selectors in repeating groups and App-managed sources. A Layout
+// contributes its stored dependencies, including Sources reached through a text binding.
 //
 // Embedded Layouts contribute their draft dependencies, matching what Studio shows for a Layout
 // assigned to a screen directly; the two legs would otherwise disagree about the same Layout.
 func (s *Service) reachableDataSources(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	widgets, err := s.db.Query(ctx, `SELECT DISTINCT w.provider,w.configuration FROM playlist_items i JOIN widgets w ON w.asset_id=i.asset_id WHERE i.playlist_id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+	sourceIDs := []uuid.UUID{}
+	for widgets.Next() {
+		var provider string
+		var configuration json.RawMessage
+		if err = widgets.Scan(&provider, &configuration); err != nil {
+			widgets.Close()
+			return nil, err
+		}
+		sourceIDs = append(sourceIDs, s.widgetDataSourceIDs(provider, configuration)...)
+	}
+	widgets.Close()
+	if err = widgets.Err(); err != nil {
+		return nil, err
+	}
 	rows, err := s.db.Query(ctx, `
-		SELECT ds.id FROM playlist_items i
-		JOIN widgets w ON w.asset_id=i.asset_id
-		CROSS JOIN LATERAL jsonb_each_text(w.configuration) field
-		JOIN data_sources ds ON ds.id::text=field.value AND ds.deleted_at IS NULL
-		WHERE i.playlist_id=$1
+		SELECT ds.id FROM data_sources ds WHERE ds.id=ANY($2::uuid[]) AND ds.deleted_at IS NULL
 		UNION
 		SELECT ds.id FROM playlist_items i
 		JOIN layout_draft_dependencies d ON d.layout_id=i.layout_id AND d.dependency_type='data_source'
 		JOIN data_sources ds ON ds.id=d.dependency_id AND ds.deleted_at IS NULL
-		WHERE i.playlist_id=$1`, id)
+		WHERE i.playlist_id=$1 ORDER BY id`, id, uniqueUUIDs(sourceIDs))
 	if err != nil {
 		return nil, err
 	}
@@ -1456,15 +1468,40 @@ func (s *Service) Assignment(ctx context.Context, screenID uuid.UUID) (Assignmen
 	if err != nil {
 		return Assignment{}, err
 	}
+	return s.ReadAssignment(ctx, screenID)
+}
+
+// ReadAssignment reads the existing assignment state without initializing a
+// manifest row. Inspectors must not change the installation they explain.
+func (s *Service) ReadAssignment(ctx context.Context, screenID uuid.UUID) (Assignment, error) {
+	a, err := s.readAssignmentState(ctx, s.db, screenID)
+	if err != nil {
+		return Assignment{}, err
+	}
+	return s.assignmentDetails(ctx, screenID, a)
+}
+
+// ReadAssignmentStateInTx reads selection and synchronization state from the
+// caller's snapshot. It excludes ancillary group/schedule display details.
+func (s *Service) ReadAssignmentStateInTx(ctx context.Context, tx pgx.Tx, screenID uuid.UUID) (Assignment, error) {
+	return s.readAssignmentState(ctx, tx, screenID)
+}
+
+func (s *Service) readAssignmentState(ctx context.Context, q presentationQuery, screenID uuid.UUID) (Assignment, error) {
 	var a Assignment
 	a.ScreenID = screenID
-	err = s.db.QueryRow(ctx, `SELECT COALESCE(ga.playlist_id,pa.playlist_id),p.name,p.revision,COALESCE(ga.layout_id,pa.layout_id),l.name,lr.revision,CASE WHEN COALESCE(ga.layout_id,pa.layout_id) IS NOT NULL THEN 'layout' WHEN COALESCE(ga.playlist_id,pa.playlist_id) IS NOT NULL THEN 'playlist' END,ms.manifest_version,ps.active_manifest_version,ps.pending_manifest_version,ps.download_queue_count,ps.downloaded_bytes,ps.required_bytes,ps.cache_used_bytes,ps.cache_limit_bytes,ps.current_item_id,ps.current_asset_id,ps.playback_state,ps.last_sync_error,ps.last_playback_error,ps.current_schedule_id,ps.current_playlist_id,ps.selection_source,ps.next_transition_at,ps.device_clock_offset_seconds,ps.schedule_evaluation_error,ps.schedule_manifest_version,ps.current_website_asset_id,ps.website_state,ps.website_load_started_at,ps.website_load_completed_at,ps.website_failure_category,ps.website_blocked_navigation_count,ps.website_current_host,ps.website_fallback_shown,ps.website_renderer_recovery_count FROM screen_manifest_state ms LEFT JOIN screen_group_memberships gm ON gm.screen_id=ms.screen_id LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=gm.screen_group_id LEFT JOIN screen_playlist_assignments pa ON pa.screen_id=ms.screen_id LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,pa.playlist_id) LEFT JOIN layouts l ON l.id=COALESCE(ga.layout_id,pa.layout_id) LEFT JOIN layout_revisions lr ON lr.id=l.published_revision_id LEFT JOIN screen_player_status ps ON ps.screen_id=ms.screen_id WHERE ms.screen_id=$1`, screenID).Scan(&a.PlaylistID, &a.PlaylistName, &a.PlaylistRevision, &a.LayoutID, &a.LayoutName, &a.LayoutRevision, &a.PresentationType, &a.ManifestVersion, &a.PlayerActiveManifestVersion, &a.PlayerPendingManifestVersion, &a.DownloadQueueCount, &a.DownloadedBytes, &a.RequiredBytes, &a.CacheUsedBytes, &a.CacheLimitBytes, &a.CurrentItemID, &a.CurrentAssetID, &a.PlaybackState, &a.LastSyncError, &a.LastPlaybackError, &a.CurrentScheduleID, &a.CurrentPlaylistID, &a.SelectionSource, &a.NextTransitionAt, &a.DeviceClockOffsetSeconds, &a.ScheduleEvaluationError, &a.ScheduleManifestVersion, &a.CurrentWebsiteAssetID, &a.WebsiteState, &a.WebsiteLoadStartedAt, &a.WebsiteLoadCompletedAt, &a.WebsiteFailureCategory, &a.WebsiteBlockedNavigationCount, &a.WebsiteCurrentHost, &a.WebsiteFallbackShown, &a.WebsiteRendererRecoveryCount)
+	err := q.QueryRow(ctx, `SELECT COALESCE(ga.playlist_id,pa.playlist_id),p.name,p.revision,COALESCE(ga.layout_id,pa.layout_id),l.name,lr.revision,CASE WHEN COALESCE(ga.layout_id,pa.layout_id) IS NOT NULL THEN 'layout' WHEN COALESCE(ga.playlist_id,pa.playlist_id) IS NOT NULL THEN 'playlist' END,ms.manifest_version,ps.active_manifest_version,ps.pending_manifest_version,ps.download_queue_count,ps.downloaded_bytes,ps.required_bytes,ps.cache_used_bytes,ps.cache_limit_bytes,ps.current_item_id,ps.current_asset_id,ps.playback_state,ps.last_sync_error,ps.last_playback_error,ps.current_schedule_id,ps.current_playlist_id,ps.selection_source,ps.next_transition_at,ps.device_clock_offset_seconds,ps.schedule_evaluation_error,ps.schedule_manifest_version,ps.current_website_asset_id,ps.website_state,ps.website_load_started_at,ps.website_load_completed_at,ps.website_failure_category,ps.website_blocked_navigation_count,ps.website_current_host,ps.website_fallback_shown,ps.website_renderer_recovery_count FROM screen_manifest_state ms LEFT JOIN screen_group_memberships gm ON gm.screen_id=ms.screen_id LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=gm.screen_group_id LEFT JOIN screen_playlist_assignments pa ON pa.screen_id=ms.screen_id LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,pa.playlist_id) LEFT JOIN layouts l ON l.id=COALESCE(ga.layout_id,pa.layout_id) LEFT JOIN layout_revisions lr ON lr.id=l.published_revision_id LEFT JOIN screen_player_status ps ON ps.screen_id=ms.screen_id WHERE ms.screen_id=$1`, screenID).Scan(&a.PlaylistID, &a.PlaylistName, &a.PlaylistRevision, &a.LayoutID, &a.LayoutName, &a.LayoutRevision, &a.PresentationType, &a.ManifestVersion, &a.PlayerActiveManifestVersion, &a.PlayerPendingManifestVersion, &a.DownloadQueueCount, &a.DownloadedBytes, &a.RequiredBytes, &a.CacheUsedBytes, &a.CacheLimitBytes, &a.CurrentItemID, &a.CurrentAssetID, &a.PlaybackState, &a.LastSyncError, &a.LastPlaybackError, &a.CurrentScheduleID, &a.CurrentPlaylistID, &a.SelectionSource, &a.NextTransitionAt, &a.DeviceClockOffsetSeconds, &a.ScheduleEvaluationError, &a.ScheduleManifestVersion, &a.CurrentWebsiteAssetID, &a.WebsiteState, &a.WebsiteLoadStartedAt, &a.WebsiteLoadCompletedAt, &a.WebsiteFailureCategory, &a.WebsiteBlockedNavigationCount, &a.WebsiteCurrentHost, &a.WebsiteFallbackShown, &a.WebsiteRendererRecoveryCount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Assignment{}, ErrNotFound
 	}
 	if err != nil {
 		return Assignment{}, err
 	}
+	return a, nil
+}
+
+func (s *Service) assignmentDetails(ctx context.Context, screenID uuid.UUID, a Assignment) (Assignment, error) {
+	var err error
 	_ = s.db.QueryRow(ctx, `SELECT active_takeover_id,takeover_state,takeover_preparation_progress,playback_disabled,last_command_id,last_command_state,last_command_result,last_command_completed_at FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&a.ActiveTakeoverID, &a.TakeoverState, &a.TakeoverPreparationProgress, &a.PlaybackDisabled, &a.LastCommandID, &a.LastCommandState, &a.LastCommandResult, &a.LastCommandCompletedAt)
 	_ = s.db.QueryRow(ctx, `SELECT active_config_revision,configuration_error FROM screen_player_status WHERE screen_id=$1`, screenID).Scan(&a.ActiveConfigRevision, &a.ConfigurationError)
 	a.Groups = []AssignmentGroup{}
@@ -1502,17 +1539,23 @@ func (s *Service) Assignment(ctx context.Context, screenID uuid.UUID) (Assignmen
 		a.RelevantSchedules = append(a.RelevantSchedules, x)
 	}
 	scheduleRows.Close()
-	a.SynchronizationStatus = "not_reported"
+	a.SynchronizationStatus = AssignmentSynchronizationStatus(a)
+	return a, nil
+}
+
+// AssignmentSynchronizationStatus is the shared interpretation of manifest
+// versions. It describes synchronization, not successful playback.
+func AssignmentSynchronizationStatus(a Assignment) string {
 	if a.PlayerActiveManifestVersion != nil {
 		if *a.PlayerActiveManifestVersion == a.ManifestVersion {
-			a.SynchronizationStatus = "current"
+			return "current"
 		} else if a.PlayerPendingManifestVersion != nil && *a.PlayerPendingManifestVersion == a.ManifestVersion {
-			a.SynchronizationStatus = "preparing"
+			return "preparing"
 		} else {
-			a.SynchronizationStatus = "out_of_date"
+			return "out_of_date"
 		}
 	}
-	return a, nil
+	return "not_reported"
 }
 
 func (s *Service) projectSpanVideo(ctx context.Context, screenID, assetID, sourceVariantID uuid.UUID, asset *ManifestAsset, enabled bool) (uuid.UUID, error) {
@@ -1679,13 +1722,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	if assignment.LayoutID != nil {
 		layoutIDs = append(layoutIDs, *assignment.LayoutID)
 	}
-	var takeover ManifestTakeover
-	if takeoverErr := s.db.QueryRow(ctx, `SELECT e.id,e.playlist_id,e.activated_at,e.expires_at FROM takeovers e JOIN takeover_screen_states es ON es.takeover_id=e.id WHERE es.screen_id=$1 AND e.status='active' AND e.expires_at>now() AND es.state NOT IN ('restored','cancelled','expired') ORDER BY e.activated_at DESC,e.id DESC LIMIT 1`, screenID).Scan(&takeover.ID, &takeover.PlaylistID, &takeover.ActivatedAt, &takeover.ExpiresAt); takeoverErr == nil {
-		manifest.Takeover = &takeover
-		manifest.LegacyTakeover = &takeover
-		playlistIDs = append([]uuid.UUID{takeover.PlaylistID}, playlistIDs...)
-	} else if !errors.Is(takeoverErr, pgx.ErrNoRows) {
+	takeover, takeoverErr := s.ActiveTakeoverAt(ctx, screenID, now)
+	if takeoverErr != nil {
 		return Manifest{}, "", takeoverErr
+	}
+	if takeover != nil {
+		manifest.Takeover = takeover
+		manifest.LegacyTakeover = takeover
+		playlistIDs = append([]uuid.UUID{takeover.PlaylistID}, playlistIDs...)
 	}
 	if s.scheduling != nil {
 		records, loadErr := s.scheduling.Relevant(ctx, screenID)
@@ -2419,56 +2463,8 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 	return err
 }
 
-// widgetDataSourceIDs returns every Data Source a widget consumes. Release-defined
-// widgets may declare more than one data_source configuration field, so every such
-// field is inspected; legacy widgets keep their single dataSourceId behavior. The
-// injected definition catalog is the single source of truth for release-defined widgets.
 func (s *Service) widgetDataSourceIDs(provider string, configuration json.RawMessage) []uuid.UUID {
-	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
-		var values map[string]json.RawMessage
-		ids := []uuid.UUID{}
-		if json.Unmarshal(configuration, &values) == nil {
-			// An App recipe's author schema intentionally hides its managed source. The
-			// compiled configuration still carries the explicit relationship so normal
-			// manifest dependency resolution, invalidation, and usage tracking see it.
-			if definition.Recipe != nil {
-				var id uuid.UUID
-				if json.Unmarshal(values["managedDataSourceId"], &id) == nil && id != uuid.Nil {
-					ids = append(ids, id)
-				}
-			}
-			for _, field := range definition.ConfigurationSchema.Fields {
-				if field.Control != "data_source" {
-					continue
-				}
-				var id uuid.UUID
-				if json.Unmarshal(values[field.Key], &id) == nil && id != uuid.Nil && !containsUUID(ids, id) {
-					ids = append(ids, id)
-				}
-			}
-		}
-		return ids
-	}
-	switch provider {
-	case "ticker", "menu", "list", "table", "agenda", "metric", "cards", "weather", "spotlight", "stat_grid", "chart", "progress", "timeline":
-		var c struct {
-			DataSourceID uuid.UUID `json:"dataSourceId"`
-		}
-		_ = json.Unmarshal(configuration, &c)
-		if c.DataSourceID != uuid.Nil {
-			return []uuid.UUID{c.DataSourceID}
-		}
-	}
-	return nil
-}
-
-func containsUUID(ids []uuid.UUID, wanted uuid.UUID) bool {
-	for _, id := range ids {
-		if id == wanted {
-			return true
-		}
-	}
-	return false
+	return s.definitions.WidgetDataSourceIDs(provider, configuration)
 }
 
 // legacyWidgetAssetReferences are the historical media pairs for providers without a

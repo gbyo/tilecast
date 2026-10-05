@@ -11,12 +11,13 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use edge_protocol::time::{SharedClock, system_clock};
+use edge_platform::clock::system_clock;
+use edge_protocol::time::SharedClock;
 use edge_server::client::ServerError;
 use edge_server::player_api::{AcknowledgeOutcome, CommandBatch, RejectedCommand, ReportOutcome, ServerCommand};
 use edge_state::repo::commands::{self, CommandResult, CommandState, ReportState};
 use edge_state::{OpenOptions, StateDb};
-use tilecastd::commands::{Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, drive};
+use player_core::{Coordinator, Handlers, POLL_INTERVAL, PassOutcome, Plan, drive_commands as drive};
 use tokio::sync::{Notify, watch};
 use tokio_util::sync::CancellationToken;
 
@@ -54,7 +55,7 @@ struct FakeApi {
 }
 
 #[async_trait]
-impl tilecastd::commands::CommandApi for FakeApi {
+impl player_core::CommandApi for FakeApi {
     async fn fetch(&self) -> Result<CommandBatch, ServerError> {
         let running = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
         self.max_in_flight.fetch_max(running, Ordering::SeqCst);
@@ -442,7 +443,7 @@ async fn unsupported_and_malformed_commands_get_typed_results_without_running() 
 async fn a_revoked_credential_stops_the_pass() {
     struct Revoked;
     #[async_trait]
-    impl tilecastd::commands::CommandApi for Revoked {
+    impl player_core::CommandApi for Revoked {
         async fn fetch(&self) -> Result<CommandBatch, ServerError> {
             Err(ServerError::CredentialRejected)
         }

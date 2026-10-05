@@ -6,6 +6,55 @@ Read [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md) and
 change. The architecture document is binding. If a change must deviate from
 it, stop and write the complete tradeoff first.
 
+Read [`docs/player-core.md`](../../docs/player-core.md) for native Player
+ownership and extraction order. It supplements the Linux architecture without
+changing process, privilege, wire, persistence, or update guarantees. Shared
+values are implemented in `crates/player-types`, and durable state in
+`crates/player-state`. Historical Edge-only repositories use
+`edge-state::platform`. Verified storage lives in `crates/player-cas`;
+`edge-cas::space` supplies Linux free-space providers.
+`crates/player-client` owns portable server transport. `edge-server` owns
+file stores and Electron import. `crates/player-core` owns native selection,
+command delivery, Activity sessions, the CAS origin adapter, renderer recovery
+decisions, meaningful-evidence rules, and connection-bound acceptance and
+evidence tracking. Core coordinates activation generations, profile checks,
+recovery timing, and recovery Activity events. Edge keeps Runtime projection
+inputs and constructs status payloads. Edge keeps
+renderer transport and decoding. Core owns capture serialization and periodic
+preview policy and Watch Live lease and frame coordination. Edge owns media
+transport, its expiry clock, display-sleep policy, and cursor configuration.
+Runtime presentation data stays opaque to Core. Edge keeps
+wire command-result conversion; Core owns result correlation and startup
+Website data-clear retry policy. Edge also keeps
+fixed command handlers, the migration hold, and renderer signal adapters.
+The root Cargo workspace migration is qualified. Remaining shared behavior
+extraction follows the contract.
+Core owns pairing orchestration and server relationship, credential-rejection,
+retry, and persisted clock-sampling policy. Edge supplies private stores,
+device metadata, and status surfaces. Core drives the server socket,
+heartbeat fallback, push handling, and reconciliation loop. Edge supplies
+heartbeat projection, privacy checks, Activity signals, and retry jitter.
+Core owns configuration acceptance, manifest target reconciliation, and native
+manifest resource-claim validation and verified preparation, repair, and pinning.
+Runtime presentation fields stay opaque.
+Core owns native configuration values and active-hours policy. Edge separates
+Runtime configuration projection from its Linux platform configuration.
+Core owns manifest preparation-worker supervision and target-bound cancellation.
+Core owns telemetry sampling, interval counters, serialization, and bounded
+offline queue policy. Edge supplies semantic observations and measured gauges.
+Core owns offline manifest state, native activation gates, trial deadlines,
+evidence requirements for promotion, and verified pin lifetime. Core drives the
+offline activation loop. Edge supplies Runtime projection, opaque comparison
+keys, and status surfaces.
+Core owns Display Control payload validation, scheduled policy retry, and
+power-readback result semantics. Edge keeps CEC/DDC, input address conversion,
+probes, and readback. Core owns non-secret Presentation Network assignment
+validation and revision decisions. Edge keeps provisioning credentials, helper
+calls, NetworkManager, and radio recovery.
+Core owns durable Activity reporting, restart closure, overflow reporting, and
+bounded shutdown flushing. Edge supplies Runtime signal projection, clocks,
+IDs, and timezone observations and constructs one shared PlayerCore instance.
+
 ## Fixed decisions
 
 - Edge 1 is a Linux signage player. The Tilecast Server is the only
@@ -29,9 +78,12 @@ it, stop and write the complete tradeoff first.
 - The transition is one way: legacy Electron installation, one-time verified
   import (`tilecastd import-legacy`), Edge plus WPE. Do not add shadow modes,
   dual runtimes or a second credential.
-- Everything that is not visual rendering belongs in `tilecastd`, except
-  what only the tilecast account's user session can reach (PipeWire and
-  WirePlumber). That belongs in `tilecast-session-bridge`, which sends
+- `tilecastd` remains the Linux composition root and process authority. Shared
+  native Player behavior moves to Player Core in the documented extraction
+  sequence. Presentation behavior stays in Presentation Model and Player Runtime.
+  Linux lifecycle, providers, IPC, media transport, legacy import, and updates
+  remain Edge-owned. What only the tilecast account's user session can reach
+  (PipeWire and WirePlumber) belongs in `tilecast-session-bridge`, which sends
   bounded Tilecast concepts over the `session_bridge` IPC role and never
   audio samples, device names or PipeWire object IDs.
 - Prefer the Linux facility to Tilecast code: kernel CEC and i2c-dev (no
@@ -99,10 +151,17 @@ The ones most often relevant here:
 
 ## Engineering conventions
 
-- Rust 1.98, edition 2024, workspace lints. `unsafe_code` is denied.
-- Format with `cargo fmt` (`max_width = 120`). Run
-  `cargo clippy --workspace --all-targets -- -D warnings`.
+- Rust 1.98, edition 2024, root workspace lints. `unsafe_code` is denied.
+- Format with `cargo fmt` (`max_width = 120`). Run `make edge-check` and
+  `make edge-test` from the repository root. These select Edge packages.
+  `--workspace` also includes future native products.
+- Edge release version is `apps/edge/release/VERSION`. Do not read it from
+  root package metadata. Keep one root lockfile and toolchain.
 - Keep the dependency direction in [`README.md`](README.md).
+- Shared Player crates must not depend on Edge or its wire layer. Run
+  `python3 scripts/ci/check-player-architecture.py` from the repository root.
+- Preserve SQLite migration bytes. Shared physical schema compatibility does
+  not give Core ownership of historical Edge repositories.
 - Keep comments for behavior that the code does not show.
 - Prefer real components and small fakes over mocks: tests run real sockets
   and real SQLite on loopback and temporary directories.

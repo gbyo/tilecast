@@ -1,7 +1,7 @@
+import { screenQueries } from "../data/screens";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
-import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import {
   useNativePresentation,
@@ -23,8 +23,7 @@ export function LiveStreamPresentation() {
   const { t } = useTranslation(["alerts", "common", "screens"]);
   const presentation = useNativePresentation();
   const screen = useQuery({
-    queryKey: ["screens", screenId],
-    queryFn: () => api.screen(screenId),
+    ...screenQueries.detail(screenId),
     enabled: Boolean(screenId),
   });
   const screenName =

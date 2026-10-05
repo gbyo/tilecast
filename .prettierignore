@@ -1,6 +1,7 @@
 .claude/worktrees/
 .muse/worktrees/
-# Cargo build output of the Edge workspace.
+# Cargo build output of the root workspace and older Edge checkouts.
+target/
 apps/edge/target/
 **/coverage/
 e2e/**/test-results/

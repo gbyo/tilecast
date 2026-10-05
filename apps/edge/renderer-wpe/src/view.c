@@ -14,6 +14,7 @@
  *     body; nothing is concatenated into JavaScript source.
  */
 #include "host.h"
+#include "validate.h"
 #include "remote-web.h"
 
 #include <string.h>
@@ -63,6 +64,7 @@ tc_view_reload_runtime (TcHost *host)
   /* The document that owned the remote web surfaces is going away. */
   tc_remote_web_reset (host);
   host->runtime_ready = FALSE;
+  g_clear_pointer (&host->runtime_support, json_node_unref);
   webkit_web_view_load_uri (host->view, RUNTIME_URI);
 }
 
@@ -142,6 +144,14 @@ forward_page_message (TcHost *host, JsonObject *message)
 {
   const char *type = json_object_get_string_member_with_default (message, "type", "");
   if (g_strcmp0 (type, "runtime.ready") == 0) {
+    host->runtime_ready = FALSE;
+    g_clear_pointer (&host->runtime_support, json_node_unref);
+    JsonNode *support = json_object_get_member (message, "support");
+    if (support != NULL && !JSON_NODE_HOLDS_NULL (support)) {
+      if (!tc_runtime_support_valid (support))
+        return;
+      host->runtime_support = json_node_copy (support);
+    }
     host->runtime_ready = TRUE;
     tc_protocol_send_ready (host);
     if (host->current_plugins_json != NULL)

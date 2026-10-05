@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { formsApi } from "./api";
 import { Alert, AlertDescription, AlertTitle } from "@tilecast/studio/ui/alert";
-import { Button } from "@tilecast/studio/ui/button";
+import { Button, buttonVariants } from "@tilecast/studio/ui/button";
 import { Field, FieldDescription, FieldGroup } from "@tilecast/studio/ui/field";
 import {
   Questionnaire,
@@ -343,13 +343,12 @@ export function CreateFormDataSourcePage() {
           </QuestionnaireActions>
         </Questionnaire>
         <div className="flex justify-start">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => void navigate("/plugins/forms")}
+          <Link
+            className={buttonVariants({ variant: "ghost" })}
+            to="/plugins/forms"
           >
             {commonT("actions.back")}
-          </Button>
+          </Link>
         </div>
       </div>
     </section>
