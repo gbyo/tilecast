@@ -59,6 +59,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": "http://localhost:8080",
+      // Same-origin OpenFreeMap proxy used by MapLibre (see src/lib/maplibre.ts).
+      "/maps": "http://localhost:8080",
       "/healthz": "http://localhost:8080",
       "/readyz": "http://localhost:8080",
     },

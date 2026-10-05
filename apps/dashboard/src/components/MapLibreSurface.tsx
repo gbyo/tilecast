@@ -140,12 +140,18 @@ export function MapLibreSurface({
       data-map-state={phase}
       aria-busy={phase === "loading" ? true : undefined}
     >
-      <div
-        ref={containerRef}
-        className="absolute inset-0"
-        aria-label={ariaLabel}
-        aria-hidden={ariaHidden || undefined}
-      />
+      {/* MapLibre's stylesheet sets `position: relative` on its container, and
+          that unlayered rule beats Tailwind's `absolute inset-0`. Sizing the
+          container directly collapses it to zero height, so the wrapper owns
+          the positioning and the container only fills it. */}
+      <div className="absolute inset-0">
+        <div
+          ref={containerRef}
+          className="h-full w-full"
+          aria-label={ariaLabel}
+          aria-hidden={ariaHidden || undefined}
+        />
+      </div>
       {phase === "loading" && (
         <div
           className="absolute inset-0 z-10 grid place-items-center bg-background/80"
