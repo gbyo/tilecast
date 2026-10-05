@@ -14881,6 +14881,11 @@ components:
       properties:
         configuration:
           { $ref: "#/components/schemas/StructuredPlayerPreviewConfig" }
+        fieldSchema:
+          type: array
+          description: >-
+            Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives.
+          items: { $ref: "#/components/schemas/DataSourceField" }
         diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
     CalendarPreviewFields:
       type: object

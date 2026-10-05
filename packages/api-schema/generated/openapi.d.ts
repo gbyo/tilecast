@@ -9803,6 +9803,8 @@ export interface components {
     };
     StructuredPreview: {
       configuration: components["schemas"]["StructuredPlayerPreviewConfig"];
+      /** @description Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives. */
+      fieldSchema?: components["schemas"]["DataSourceField"][];
       diagnostics: components["schemas"]["DataSourceDiagnostics"];
     };
     CalendarPreviewFields: {
