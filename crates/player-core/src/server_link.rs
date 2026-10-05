@@ -77,7 +77,7 @@ pub fn server_retry_delay(failures: u32, unit: f64) -> Duration {
 }
 
 #[derive(Debug, Default)]
-pub struct ServerBackoff {
+pub(crate) struct ServerBackoff {
     failures: u32,
     connected_at: Option<Instant>,
 }
