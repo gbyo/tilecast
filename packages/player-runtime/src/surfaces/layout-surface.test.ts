@@ -41,6 +41,7 @@ afterEach(() => {
 });
 
 const sink: SurfaceSink = {
+  widgetEmpty() {},
   ended() {},
   failed() {},
   resumed() {},

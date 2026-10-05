@@ -2175,7 +2175,8 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
-	components := make([]*WidgetPresentation, len(manifest.Widgets))
+	componentsV2 := make([]*WidgetPresentation, len(manifest.Widgets))
+	componentsV3 := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	organizationTimezone := s.orgTimezone(ctx)
@@ -2185,11 +2186,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
 		}
 		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, s.compatibilityConfiguration(widget.Provider, widget.Configuration, organizationTimezone), allowPrivateHTTP)
-		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
+		componentsV2[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, componentPresentationSchemaLegacy)
+		if err == nil {
+			componentsV3[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, contentdefs.ComponentPresentationSchemaVersion)
+		}
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
 		}
-		if compiled[index] == nil && components[index] == nil {
+		if compiled[index] == nil && componentsV2[index] == nil && componentsV3[index] == nil {
 			canCompileV13 = false
 			break
 		}
@@ -2200,19 +2204,32 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	useV13 := false
 	usesComponents := false
+	usesComponentEmptyPolicy := false
 	if playerCapabilities.Reported && canCompileV13 {
 		// Each Widget gets its first-class component when this Player renders
 		// that exact type and version, and its compatibility presentation
 		// otherwise (docs/widgets-v2.md §7). Persisted Widgets never change.
 		for index := range compiled {
-			if components[index] != nil {
-				if supported, _ := presentationSupported(components[index], playerCapabilities); supported {
-					compiled[index] = components[index]
+			if component := componentsV3[index]; component != nil {
+				if supported, _ := presentationSupported(component, playerCapabilities); supported {
+					compiled[index] = component
+					usesComponents = true
+					usesComponentEmptyPolicy = true
+					continue
+				}
+			}
+			if component := componentsV2[index]; component != nil {
+				if supported, _ := presentationSupported(component, playerCapabilities); supported {
+					compiled[index] = component
 					usesComponents = true
 					continue
 				}
-				if compiled[index] == nil {
-					compiled[index] = components[index]
+			}
+			if compiled[index] == nil {
+				if componentsV2[index] != nil {
+					compiled[index] = componentsV2[index]
+				} else {
+					compiled[index] = componentsV3[index]
 				}
 			}
 			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, compiled[index], playerCapabilities); err != nil {
@@ -2225,8 +2242,12 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	if !useV13 {
 		for index := range manifest.Widgets {
-			if index < len(components) && components[index] != nil && compiled[index] == nil {
-				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, components[index], playerCapabilities))
+			component := componentsV2[index]
+			if component == nil {
+				component = componentsV3[index]
+			}
+			if component != nil && compiled[index] == nil {
+				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, component, playerCapabilities))
 			}
 		}
 	}
@@ -2255,7 +2276,13 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if usesComponents {
+	if usesComponentEmptyPolicy {
+		// v17 adds the component empty policy to the v16 manifest contract.
+		manifest.SchemaVersion = ManifestSchemaComponentEmptyPolicy
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if usesComponents {
 		// v16 includes every v15 feature. Crossfade still depends on the
 		// Player's version, exactly as it does for v14.
 		manifest.SchemaVersion = ManifestSchemaComponents

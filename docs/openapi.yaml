@@ -14276,7 +14276,10 @@ components:
           assets,
         ]
       properties:
-        schemaVersion: { type: integer, enum: [11, 12, 13, 14, 15] }
+        schemaVersion:
+          type: integer
+          enum: [11, 12, 13, 14, 15, 16, 17]
+          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
         manifestVersion: { type: integer, format: int64, minimum: 1 }
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }

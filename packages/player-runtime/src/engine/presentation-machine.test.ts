@@ -1,7 +1,11 @@
 import { createActor } from "xstate";
 import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
-import type { EvidenceKind, RuntimeItem } from "../host/contract";
+import type {
+  EvidenceKind,
+  RuntimeItem,
+  RuntimeWidgetComponentPayload,
+} from "../host/contract";
 import { presentationMachine } from "./presentation-machine";
 import { specFromYouTube } from "../remote-web/spec";
 
@@ -45,8 +49,35 @@ function harness(items: RuntimeItem[], synchronized = false) {
   const stage = () => actor.getSnapshot().context.stage;
   const mount = () => stage()!.mount;
   const state = () => String(actor.getSnapshot().value);
-  const ready = () => actor.send({ type: "SURFACE_READY", mount: mount() });
+  const ready = (empty = false) =>
+    actor.send({
+      type: "SURFACE_READY",
+      mount: mount(),
+      ...(empty ? { empty: true } : {}),
+    });
   return { actor, clock, log, stage, mount, state, ready };
+}
+
+function componentItem(
+  id: string,
+  empty: RuntimeWidgetComponentPayload["component"]["empty"],
+): RuntimeItem {
+  return item(id, {
+    kind: "widget",
+    widget: {
+      component: {
+        type: "tilecast.test",
+        version: 1,
+        config: {},
+        dataSources: [],
+        media: [],
+        empty,
+      },
+      documents: {},
+      media: {},
+      regional: { locale: "en", timeZone: "UTC", hourCycle: "h23" },
+    },
+  });
 }
 
 describe("presentation machine", () => {
@@ -243,6 +274,109 @@ describe("presentation machine", () => {
     expect(
       h.log.filter((entry) => entry.startsWith("widget-empty")),
     ).toHaveLength(4);
+  });
+
+  it("skips an empty skip-eligible component in local fullscreen playback", () => {
+    const h = harness([componentItem("empty", "skip-eligible"), item("next")]);
+    h.ready(true);
+    expect(h.state()).toBe("skipping");
+    expect(h.stage()).toMatchObject({
+      phase: "skipping",
+      item: { id: "empty" },
+    });
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("next");
+    expect(h.log).toContain("widget-empty:empty");
+    expect(h.log).not.toContain("widget-shown:empty");
+  });
+
+  it("advances when a shown skip-eligible component later becomes empty", () => {
+    const h = harness([
+      componentItem("changing", "skip-eligible"),
+      item("next"),
+    ]);
+    h.ready();
+    h.actor.send({ type: "WIDGET_EMPTY", mount: h.mount() });
+    expect(h.state()).toBe("skipping");
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("next");
+    expect(h.log).toContain("widget-empty:changing");
+  });
+
+  it("pauses an empty component lap and ignores replaced mount signals", () => {
+    const h = harness([
+      componentItem("x", "skip-eligible"),
+      componentItem("y", "skip-eligible"),
+    ]);
+    const firstMount = h.mount();
+    h.ready(true);
+    h.clock.flush();
+    expect(h.stage()!.item.id).toBe("y");
+    h.actor.send({ type: "WIDGET_EMPTY", mount: firstMount });
+    expect(h.state()).toBe("preparing");
+    h.ready(true);
+    h.clock.advance(29_999);
+    expect(h.state()).toBe("skipping");
+    expect(h.stage()!.item.id).toBe("y");
+    h.clock.advance(1);
+    expect(h.stage()!.item.id).toBe("x");
+    expect(h.state()).toBe("preparing");
+    h.actor.send({ type: "WIDGET_EMPTY", mount: firstMount });
+    expect(h.state()).toBe("preparing");
+    expect(
+      h.log.filter((entry) => entry.startsWith("widget-empty:")),
+    ).toHaveLength(2);
+    h.actor.stop();
+  });
+
+  it("renders empty components declared render and in synchronized playback", () => {
+    const render = harness([componentItem("render", "render"), item("next")]);
+    render.ready(true);
+    expect(render.state()).toBe("showing");
+    expect(render.log).toContain("widget-shown:render");
+    expect(render.log).not.toContain("widget-empty:render");
+
+    const synchronized = harness(
+      [componentItem("shared", "skip-eligible"), item("next")],
+      true,
+    );
+    synchronized.ready(true);
+    expect(synchronized.state()).toBe("showing");
+    expect(synchronized.stage()!.item.id).toBe("shared");
+    expect(synchronized.log).toContain("widget-shown:shared");
+    expect(synchronized.log).not.toContain("widget-empty:shared");
+  });
+
+  it("does not skip a Layout when one of its zones is empty", () => {
+    const h = harness([
+      item("layout", {
+        kind: "layout",
+        layout: {
+          canvasWidth: 1920,
+          canvasHeight: 1080,
+          background: "#000",
+          zones: [
+            {
+              id: "zone",
+              x: 0,
+              y: 0,
+              width: 1920,
+              height: 1080,
+              layer: 0,
+              opacity: 1,
+              component: componentItem("zone-widget", "skip-eligible")
+                .widget as RuntimeWidgetComponentPayload,
+            },
+          ],
+        },
+      }),
+      item("next"),
+    ]);
+    h.ready(true);
+    expect(h.state()).toBe("showing");
+    expect(h.stage()!.item.id).toBe("layout");
+    expect(h.log).toContain("layout-shown:layout");
+    expect(h.log).not.toContain("widget-empty:layout");
   });
 
   it("bounds a website from mount and falls back or advances on failure", () => {
