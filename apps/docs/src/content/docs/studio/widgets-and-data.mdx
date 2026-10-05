@@ -1,0 +1,25 @@
+---
+title: Widgets and data
+description: Show clocks, notices, and live values by pairing a Widget with a Data Source.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+A **Widget** decides how information looks on a screen. A **Data Source** holds the information. Because the two are separate, one Data Source can feed several Widgets on different displays.
+
+<CardGrid>
+  <LinkCard
+    title="Create and reuse Widgets"
+    description="Choose a Widget by what the screen should show, and check the result in Studio's live preview."
+    href="../../widgets/"
+  />
+  <LinkCard
+    title="Connect a Data Source"
+    description="Create reusable, cached data connections from a feed, file, calendar, or Manual Table."
+    href="../../data-sources/"
+  />
+</CardGrid>
+
+To fill a Manual Table from a system that owns the data, such as a room booking or menu system, see [Replace Manual Table rows](../../integrations/manual-table/). To see every Widget and Data Source definition that ships with your Tilecast version, see the [content definition reference](../../reference/content-definitions/).
+
+Use a Widget in a [Playlist](../../playlists/) or a [Layout](../../layouts/) to put it on a screen.

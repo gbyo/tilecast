@@ -3,10 +3,9 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightLlmsTxt from "starlight-llms-txt";
 import starlightPageContextAction from "starlight-page-context-action";
-import starlightOpenAPIPlugin, {
-  createOpenAPISidebarGroup,
-} from "starlight-openapi";
-import { pluginPageMarkdown, pluginSidebarItems } from "./plugin-docs.mjs";
+import starlightOpenAPIPlugin from "starlight-openapi";
+import { pluginPageMarkdown } from "./plugin-docs.mjs";
+import { redirects } from "./redirects.mjs";
 
 const repository = "https://github.com/gbyo/tilecast";
 
@@ -47,6 +46,8 @@ export default defineConfig({
   // without a slash. Match that locally so relative content links resolve
   // the same way in development and in production.
   trailingSlash: "always",
+  // Compatibility aliases for retired public paths. See redirects.mjs.
+  redirects,
   vite: {
     // Astro's prerender entry imports `cookie` by bare name from `dist/`.
     // In this npm workspace that name resolves to the root `cookie@0` that
@@ -79,16 +80,14 @@ export default defineConfig({
         }),
         // Generates endpoint reference pages from the canonical OpenAPI
         // description. docs/openapi.yaml stays the single source of truth;
-        // no copy is maintained inside apps/docs.
+        // no copy is maintained inside apps/docs. No `sidebar.group` is
+        // set, on purpose: the pages exist at /reference/api/endpoints/ but
+        // do not add their 380 or so routes to the global sidebar. The
+        // Reference group links to the overview page, which lists them.
         starlightOpenAPIPlugin([
           {
             base: "reference/api/endpoints",
             schema: "../../docs/openapi.yaml",
-            sidebar: {
-              label: "Endpoints",
-              collapsed: true,
-              operations: { badges: true, labels: "summary" },
-            },
           },
         ]),
         // Adds Copy page and View as Markdown actions above the table of
@@ -145,319 +144,141 @@ export default defineConfig({
 })(window, document, "clarity", "script", "ysr2mieho2");`,
         },
       ],
-      // Keep the top-level order task-first and arrange each section around
-      // the reader's work rather than the filesystem or Studio's own menu.
+      // The sidebar is a curated task map, not a table of contents. Each
+      // group lists a section hub first, then a few direct links. Deeper
+      // pages stay published and searchable, and their hub pages link them.
+      // See README.md before you add an entry.
       sidebar: [
         { label: "Home", slug: "index" },
-        { label: "Setup Advisor", slug: "setup" },
-        { slug: "getting-started" },
-        { slug: "installation" },
         {
-          label: "Hosting and networking",
+          label: "Start here",
           collapsed: true,
           items: [
+            { slug: "getting-started" },
+            { label: "Find the right setup", slug: "setup" },
+            { label: "Install Tilecast", slug: "installation" },
             { slug: "setup/choose-a-server" },
-            { slug: "setup/local-network" },
-            { slug: "setup/cloudflare-tunnel" },
-            { slug: "setup/local-players-remote-studio" },
             { slug: "setup/network-readiness" },
-            { slug: "setup/production-readiness" },
+            {
+              label: "Production checklist",
+              slug: "setup/production-readiness",
+            },
           ],
         },
         {
-          label: "Tilecast Studio",
+          label: "Create & publish",
           collapsed: true,
           items: [
             { label: "Overview", slug: "studio" },
+            { label: "Media & websites", slug: "studio/media-and-websites" },
+            { label: "Widgets & data", slug: "studio/widgets-and-data" },
+            { label: "Playlists", slug: "playlists" },
+            { label: "Layouts", slug: "layouts" },
+            { label: "Schedules", slug: "schedules" },
+            { label: "Campaigns", slug: "campaigns" },
+            { label: "Review & forms", slug: "studio/review-and-forms" },
+          ],
+        },
+        {
+          label: "Screens & players",
+          collapsed: true,
+          items: [
+            { label: "Overview", slug: "players" },
+            { label: "Install and pair", slug: "players/install-and-pair" },
+            { label: "Groups & walls", slug: "screens/groups-and-walls" },
+            { label: "Playback behavior", slug: "screens/explain-playback" },
             {
-              label: "Create content",
-              collapsed: true,
-              items: [
-                { slug: "media" },
-                { slug: "website-content" },
-                { slug: "data-sources" },
-                { slug: "widgets" },
-              ],
+              label: "Reliability, power & accessibility",
+              slug: "players/reliability-power-accessibility",
             },
+            { label: "Display control", slug: "screens/display-control" },
+            { label: "Player updates", slug: "players/update-a-player" },
             {
-              label: "Build presentations",
-              collapsed: true,
-              items: [
-                { slug: "playlists" },
-                { slug: "layouts" },
-                { slug: "campaigns" },
-                { slug: "schedules" },
-              ],
-            },
-            {
-              label: "Review and collect",
-              collapsed: true,
-              items: [
-                { slug: "studio/content-review" },
-                { slug: "studio/content-submissions" },
-                { slug: "studio/forms" },
-                { slug: "studio/forms-approvals" },
-                ...pluginSidebarItems("review-and-collect"),
-              ],
+              label: "Tilecast Edge",
+              slug: "edge",
+              badge: { text: "Preview", variant: "caution" },
             },
           ],
         },
         {
-          label: "Players",
+          label: "Manage Tilecast",
           collapsed: true,
           items: [
-            { slug: "players" },
-            {
-              label: "Install and connect",
-              collapsed: true,
-              items: [
-                { slug: "players/install-android" },
-                { slug: "players/install-linux" },
-                { slug: "players/install-windows" },
-                { slug: "players/pair-a-display" },
-                { slug: "screens/pair-and-replace" },
-              ],
-            },
-            {
-              label: "Manage screens",
-              collapsed: true,
-              items: [
-                { slug: "screens/explain-playback" },
-                { slug: "screens/archive" },
-                { slug: "screens/bulk-changes" },
-              ],
-            },
-            {
-              label: "Groups and walls",
-              collapsed: true,
-              items: [
-                { slug: "screens/display-groups" },
-                { slug: "screens/span-video-walls" },
-              ],
-            },
-            {
-              label: "Reliability and behavior",
-              collapsed: true,
-              items: [
-                { slug: "players/reliability-kiosk" },
-                { slug: "players/active-hours-power" },
-                { slug: "players/accessibility" },
-              ],
-            },
-            { slug: "players/update-a-player" },
-            { slug: "players/capabilities" },
-            { slug: "players/apple-tv" },
-          ],
-        },
-        {
-          label: "Tilecast Edge",
-          badge: { text: "Preview", variant: "caution" },
-          collapsed: true,
-          items: [
-            { label: "Overview", slug: "edge" },
-            {
-              label: "Get Edge running",
-              collapsed: true,
-              items: [
-                { slug: "edge/requirements" },
-                { slug: "edge/install" },
-                { slug: "edge/migrate" },
-                { slug: "edge/pairing" },
-              ],
-            },
-            {
-              label: "Operate Edge",
-              collapsed: true,
-              items: [
-                { slug: "edge/compatibility" },
-                { slug: "edge/updates" },
-                { slug: "edge/offline-resilience" },
-                { slug: "edge/hardware" },
-                { slug: "edge/monitoring" },
-                { slug: "edge/troubleshooting" },
-              ],
-            },
-            {
-              label: "Understand Edge",
-              collapsed: true,
-              items: [{ slug: "edge/security" }, { slug: "edge/capabilities" }],
-            },
-          ],
-        },
-        {
-          label: "Administration",
-          collapsed: true,
-          items: [
-            { slug: "administration" },
-            {
-              label: "Organization",
-              collapsed: true,
-              items: [
-                { slug: "administration/organization" },
-                { slug: "administration/language-regional" },
-                { slug: "administration/branding" },
-                { slug: "administration/locations" },
-              ],
-            },
-            {
-              label: "Accounts and access",
-              collapsed: true,
-              items: [
-                { slug: "administration/users-and-roles" },
-                { slug: "administration/sign-in-security" },
-                { slug: "administration/account" },
-              ],
-            },
-            {
-              label: "Player and installation",
-              collapsed: true,
-              items: [
-                { slug: "administration/player-policies" },
-                { slug: "administration/content-settings" },
-                { slug: "administration/networking" },
-                { slug: "administration/server-updates" },
-                { slug: "administration/presentation-networks" },
-                { slug: "administration/player-updates" },
-                { slug: "administration/backups" },
-              ],
-            },
-            {
-              label: "System and data",
-              collapsed: true,
-              items: [
-                { slug: "operations/data-retention" },
-                { slug: "operations/snapshot-history" },
-                { slug: "administration/system" },
-                { slug: "administration/import-export" },
-                { slug: "administration/dependency-graph" },
-              ],
-            },
-          ],
-        },
-        {
-          label: "Operations",
-          collapsed: true,
-          items: [
-            { slug: "operations" },
-            {
-              label: "Monitor screens",
-              collapsed: true,
-              items: [
-                { slug: "operations/overview" },
-                { slug: "operations/activity" },
-                { slug: "operations/screen-status" },
-                { slug: "operations/live-preview" },
-              ],
-            },
+            { label: "Overview", slug: "manage" },
+            { label: "Fleet health & Activity", slug: "operations/activity" },
+            { label: "Live preview", slug: "operations/live-preview" },
             {
               label: "Temporary presentations",
-              collapsed: true,
-              items: [
-                { slug: "operations/quick-present" },
-                { slug: "operations/airplay-present" },
-                { slug: "operations/takeover" },
-              ],
+              slug: "operations/temporary-presentations",
+            },
+            { label: "Users & access", slug: "administration/users-and-roles" },
+            {
+              label: "Organization settings",
+              slug: "administration/organization",
             },
             {
-              label: "Device actions",
-              collapsed: true,
-              items: [
-                { slug: "screens/display-control" },
-                { slug: "operations/player-commands" },
-              ],
+              label: "Networking & remote access",
+              slug: "administration/networking",
             },
             {
-              label: "Plugins and alerts",
-              collapsed: true,
-              items: [
-                { slug: "operations/plugins" },
-                // Pages each plugin declares in its tilecast.plugin.json.
-                ...pluginSidebarItems("plugins"),
-              ],
+              label: "Backups & server updates",
+              slug: "administration/backups",
             },
+            { label: "Data & retention", slug: "operations/data-retention" },
           ],
         },
         {
-          label: "Integrations",
+          label: "Automate & extend",
           collapsed: true,
           items: [
-            { slug: "integrations" },
+            { label: "Overview", slug: "integrations" },
+            { label: "CLI", slug: "integrations/cli" },
+            { label: "MCP", slug: "integrations/mcp" },
             {
-              label: "Automate as a user",
-              collapsed: true,
-              items: [
-                { label: "Command-line interface", slug: "integrations/cli" },
-                { label: "MCP", slug: "integrations/mcp" },
-                {
-                  label: "Personal access tokens",
-                  slug: "integrations/personal-access-tokens",
-                },
-              ],
+              label: "API access & tokens",
+              slug: "integrations/personal-access-tokens",
             },
             {
               label: "Connect other systems",
-              collapsed: true,
-              items: [
-                { label: "Integration tokens", slug: "integrations/tokens" },
-                { slug: "integrations/manual-table" },
-                { slug: "integrations/fleet-health" },
-                { slug: "integrations/notifications" },
-              ],
+              slug: "integrations/connect-other-systems",
             },
+            // Each plugin's own guide is linked from this page, so a plugin
+            // needs no entry here. See the plugin test in plugin-docs.test.mjs.
+            { label: "Plugins", slug: "operations/plugins" },
           ],
         },
-        {
-          label: "Troubleshooting",
-          collapsed: true,
-          items: [
-            { slug: "troubleshooting" },
-            { slug: "troubleshooting/server" },
-            { slug: "troubleshooting/pairing-connectivity" },
-            { slug: "troubleshooting/playback" },
-            { slug: "troubleshooting/media" },
-            { slug: "troubleshooting/websites" },
-            { slug: "troubleshooting/player-updates" },
-            { slug: "troubleshooting/display-control" },
-            { slug: "troubleshooting/airplay-networks" },
-            { slug: "troubleshooting/sign-in" },
-          ],
-        },
+        { slug: "troubleshooting" },
         {
           label: "Developers",
           collapsed: true,
           items: [
-            { slug: "developers" },
-            { slug: "developers/demo-mode" },
-            { slug: "developers/testing" },
-            { slug: "developers/player-ownership" },
-            { slug: "developers/ios-app" },
+            { label: "Overview", slug: "developers" },
+            { label: "Development setup", slug: "developers/setup" },
+            { label: "Architecture", slug: "developers/architecture" },
+            { label: "Testing & CI", slug: "developers/testing" },
             {
-              label: "Plugin development",
-              collapsed: true,
-              items: [
-                { slug: "developers/plugins" },
-                { slug: "developers/plugins/create" },
-                { slug: "developers/plugins/manifest" },
-                { slug: "developers/plugins/server" },
-                { slug: "developers/plugins/studio" },
-                { slug: "developers/plugins/player" },
-                { slug: "developers/plugins/data-sources" },
-                { slug: "developers/plugins/static-content" },
-                { slug: "developers/plugins/testing" },
-              ],
+              label: "Player development",
+              slug: "developers/player-development",
             },
+            { label: "Plugin development", slug: "developers/plugins" },
+            { label: "iOS development", slug: "developers/ios-app" },
           ],
         },
         {
           label: "Reference",
           collapsed: true,
           items: [
-            { slug: "reference" },
-            { slug: "reference/api" },
-            { slug: "reference/content-definitions" },
-            // Generated OpenAPI endpoint pages were already on main. Keep
-            // them under Reference without adding or editing their content.
-            createOpenAPISidebarGroup(),
+            { label: "Overview", slug: "reference" },
+            { label: "HTTP API", slug: "reference/api" },
+            // The endpoint pages are generated by starlight-openapi below.
+            // The plugin builds them without a sidebar group, so this link
+            // is the one entry point. The overview page lists every route.
+            { label: "API endpoints", link: "/reference/api/endpoints/" },
+            {
+              label: "Content definitions",
+              slug: "reference/content-definitions",
+            },
+            { label: "Capability reference", slug: "players/capabilities" },
           ],
         },
         { slug: "privacy" },

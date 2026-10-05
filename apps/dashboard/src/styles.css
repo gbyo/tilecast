@@ -22,6 +22,12 @@ html[data-reduced-motion="true"] *::after {
   animation-duration: 0.01ms !important;
   transition-duration: 0.01ms !important;
 }
+/* The duration override above would leave an infinite pulse strobing, so
+   skeletons stop outright. The system preference is handled by the
+   motion-reduce variant on the component. */
+html[data-reduced-motion="true"] [data-slot="skeleton"] {
+  animation: none;
+}
 
 /* Takeover styling lives in styles/screens.css alongside the rest of
    the Screens page. */

@@ -1,0 +1,68 @@
+---
+title: Development setup
+description: Run Tilecast Server and Studio from source, check your changes, and work on the public docs.
+---
+
+import { LinkButton, Steps } from "@astrojs/starlight/components";
+
+## Run the server and Studio locally
+
+You need Go, Node.js with npm, and a PostgreSQL database. Use the versions in [`mise.toml`](https://github.com/gbyo/tilecast/blob/main/mise.toml): Node.js 22 and Go 1.26 (Android work also needs Java 17, the Rust toolchain from `rust-toolchain.toml`, `cargo-ndk`, and the pinned Android NDK — see the [Android player development guide](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md)). The Docker image is built with its own, possibly newer, builder versions, so it does not change what you install. Run `make doctor` to see what is missing. From the repository root:
+
+<Steps>
+
+1. Install workspace and Go dependencies:
+
+   ```sh title="Repository root · Install dependencies"
+   make bootstrap
+   ```
+
+2. Set `TILECAST_DATABASE_URL` to a development database Tilecast can use:
+
+   ```sh title="Set the development database"
+   export TILECAST_DATABASE_URL='postgres://localhost:5432/tilecast?sslmode=disable'
+   ```
+
+3. Start the Go server in one terminal:
+
+   ```sh title="Terminal 1 · Start the server"
+   make dev-server
+   ```
+
+4. Start the Vite development server in a second terminal:
+
+   ```sh title="Terminal 2 · Start Studio"
+   make dev-dashboard
+   ```
+
+</Steps>
+
+To explore Studio with sample data instead of an empty database, [run a demo installation](../demo-mode/).
+
+The Go server applies pending migrations during startup. Complete the one-time Owner setup in Studio when using a new database. Vite reloads dashboard changes; restart the Go server after changing server code. Server settings are read from `TILECAST_*` environment variables; [`deploy/docker/.env.example`](https://github.com/gbyo/tilecast/blob/main/deploy/docker/.env.example) lists the deployment settings.
+
+The repository's [development setup guide](https://github.com/gbyo/tilecast/blob/main/docs/development.md) covers local database and migration workflows in more detail.
+
+## Check and build changes
+
+From the repository root, `make check` runs the repository's documented format, lint, test, and static checks. `make build` builds the dashboard bundle, server binary, and Android debug APK. Security reports follow the private process in the repository's [Security Policy](https://github.com/gbyo/tilecast/blob/main/SECURITY.md).
+
+<LinkButton
+  href="https://github.com/gbyo/tilecast/blob/main/CONTRIBUTING.md"
+  variant="secondary"
+  icon="external"
+>
+  Read the contribution guide
+</LinkButton>
+
+## Work on the public docs
+
+The docs site is an npm workspace. Run these commands from the repository root:
+
+```sh title="Repository root · Docs commands"
+npm run docs:dev
+npm run docs:check
+npm run docs:build
+```
+
+Follow the [documentation style guide](https://github.com/gbyo/tilecast/blob/main/apps/docs/STYLE.md). The docs build also checks internal links.

@@ -64,7 +64,7 @@ The scaffold creates a matching conformance test. Keep it.
 
 ## Don't add central registration
 
-You should not need to add the plugin ID to Tilecast Server startup, Studio routing, the Player runtime, or the docs sidebar. Those paths use generated registries or build-time discovery.
+You should not need to add the plugin ID to Tilecast Server startup, Studio routing, or the Player runtime. Those paths use generated registries or build-time discovery. The docs sidebar doesn't list plugin pages, so a plugin that publishes a docs page links it from the plugin catalog page instead.
 
 If the plugin needs a core fact that no Host service exposes, treat that as a Plugin API design change instead of reading a core table directly.
 

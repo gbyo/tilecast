@@ -1,0 +1,28 @@
+---
+title: Player development
+description: Choose where Player code belongs, then build and test the Android Player and Tilecast Edge.
+---
+
+Before changing Player behavior, [choose its implementation owner](../player-ownership/). The native Player extraction contract keeps shared behavior separate from Linux integration and presentation execution. It does not change the current Edge process or security boundaries.
+
+## Work on the Android Player
+
+The Android Player is a native Kotlin and Jetpack Compose app in `apps/player-android`. The [Android Player development guide](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md) covers Android build and device workflows, including the Rust toolchain, `cargo-ndk`, and the pinned Android NDK.
+
+## Work on Tilecast Edge
+
+Tilecast Edge lives in `apps/edge`. Its software milestones M1 to M10 and the M11 remote-web implementation are merged; physical WPE and hardware qualification is next, and no signed release is published yet. Read [`apps/edge/README.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/README.md) and [`apps/edge/AGENTS.md`](https://github.com/gbyo/tilecast/blob/main/apps/edge/AGENTS.md) first. From the repository root:
+
+```sh
+make edge-check
+make edge-test
+```
+
+The Rust workspace, lockfile, toolchain pin, and formatter settings live at the
+repository root. These commands select Edge packages explicitly; Cargo's
+`--workspace` also includes future native products. The Edge release version
+comes from `apps/edge/release/VERSION`, separately from Rust library versions.
+The release SBOM uses packages from the actual shipped-binary build, so another
+native product's dependencies won't appear merely because they share a lockfile.
+
+The renderer and the session bridge are C projects built with CMake on Linux. The session bridge needs GLib, json-glib, GStreamer, and WirePlumber 0.5 development packages. Hardware tests never touch a real TV or monitor: test daemons use empty device directories, the HDMI-CEC test in CI uses the kernel's `vivid` virtual driver, and the session bridge test uses a real PipeWire with a virtual microphone. The [hardware capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) says what each feature needs and how it is tested.

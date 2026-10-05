@@ -552,8 +552,13 @@ manifests in `apps/docs/plugin-docs.mjs`. One Astro `glob()` loader loads the
 Starlight pages and the plugin pages together, because a collection loader
 owns all entries of its collection. Core pages keep the IDs that Starlight's
 own loader gives. A plugin page uses the slug from its manifest, so a moved
-page keeps its public URL. The sidebar lists plugin pages in the group that
-the page names. The edit link goes to the plugin-owned source file.
+page keeps its public URL. The edit link goes to the plugin-owned source file.
+
+The docs sidebar does not list plugin pages. The `sidebar.group` value stays
+valid and does not change where a page appears. The plugin catalog page
+`apps/docs/src/content/docs/operations/plugins.mdx` must link to each plugin
+page. The test in `apps/docs/plugin-docs.test.mjs` fails when a declared page
+has no link there.
 
 ## Conformance
 

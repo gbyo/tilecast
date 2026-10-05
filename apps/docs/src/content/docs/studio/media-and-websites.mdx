@@ -1,0 +1,27 @@
+---
+title: Media and websites
+description: Add images, videos, and public websites that Playlists and Layouts can show.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Media and websites are the content you place in a Playlist or Layout. Choose by what the screen should show.
+
+<CardGrid>
+  <LinkCard
+    title="Upload and organize media"
+    description="Add images and videos to the media library and prepare them for Playlists and Layouts."
+    href="../../media/"
+  />
+  <LinkCard
+    title="Add website content"
+    description="Save a website as a Website App and use it in a Playlist or Layout."
+    href="../../website-content/"
+  />
+</CardGrid>
+
+Media is prepared on Tilecast Server and stored on each Player, so it can keep playing if the network drops. A website is remote content, so the Player needs its own network connection to show it.
+
+When an upload never becomes ready, or a website stays blank, see [Media uploads and processing](../../troubleshooting/media/) and [Websites](../../troubleshooting/websites/).
+
+When your content is ready, [build a Playlist](../../playlists/) or [build a Layout](../../layouts/) to put it on a screen.

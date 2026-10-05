@@ -25,6 +25,7 @@ import {
   LastDayCard,
   type QueryStatus,
 } from "../components/overview/LastDayCard";
+import { LoadReveal } from "../components/overview/LoadReveal";
 import { NeedsAttention } from "../components/overview/NeedsAttention";
 import { OnAirSection } from "../components/overview/OnAirSection";
 import {
@@ -175,49 +176,57 @@ export function OperationsDashboard() {
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-4">
       <h1 className="sr-only">{t("operations.title")}</h1>
-      {screens.isLoading && <OverviewRecapSkeleton />}
-      {!screens.isLoading && !screens.isError && recap && (
-        <OverviewRecap recap={recap} />
-      )}
+      {/* Each slot reveals when its own query resolves, so the page settles
+          in whatever order the data arrives. A failed load is resolved
+          content too: the alert takes the recap's place. */}
+      <LoadReveal
+        loading={screens.isLoading}
+        skeleton={<OverviewRecapSkeleton />}
+        variant="deliberate"
+      >
+        {screens.isError ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("operations.loadFailed")}</AlertTitle>
+            <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
+          </Alert>
+        ) : (
+          recap && <OverviewRecap recap={recap} />
+        )}
+      </LoadReveal>
 
-      {screens.isError && (
-        <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
-          <AlertTitle>{t("operations.loadFailed")}</AlertTitle>
-          <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
-        </Alert>
-      )}
-
-      {emptyInstallation ? (
-        <Empty className="min-h-0 rounded-xl border border-dashed bg-card px-6 py-8">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <MonitorCheck aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle>{t("operations.emptyTitle")}</EmptyTitle>
-            <EmptyDescription>
-              {t("operations.emptyDescription")}
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            {canPair ? (
-              <Link
-                className={buttonVariants({ variant: "default" })}
-                to="/screens/pair"
-              >
-                {t("operations.pairScreen")}
-              </Link>
-            ) : (
-              <p className="text-muted-foreground">
-                {t("operations.pairHint")}
-              </p>
-            )}
-          </EmptyContent>
-        </Empty>
-      ) : (
-        <>
-          {screens.isLoading && <FleetStatusSkeleton />}
-          {!screens.isLoading && !screens.isError && (
+      <LoadReveal
+        loading={screens.isLoading}
+        skeleton={<FleetStatusSkeleton />}
+      >
+        {emptyInstallation ? (
+          <Empty className="min-h-0 rounded-xl border border-dashed bg-card px-6 py-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <MonitorCheck aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>{t("operations.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("operations.emptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              {canPair ? (
+                <Link
+                  className={buttonVariants({ variant: "default" })}
+                  to="/screens/pair"
+                >
+                  {t("operations.pairScreen")}
+                </Link>
+              ) : (
+                <p className="text-muted-foreground">
+                  {t("operations.pairHint")}
+                </p>
+              )}
+            </EmptyContent>
+          </Empty>
+        ) : (
+          !screens.isError && (
             <FleetStatus
               summary={summary}
               attentionCount={attention.length}
@@ -225,8 +234,12 @@ export function OperationsDashboard() {
               confirmed={confirmed}
               trend={uptime.data?.buckets}
             />
-          )}
+          )
+        )}
+      </LoadReveal>
 
+      {!emptyInstallation && (
+        <>
           {/* One DOM order at every width. Once the content area (not the
               window) is wide enough, the page is a primary column (attention,
               then uptime beside the last-day figures) and a supporting rail

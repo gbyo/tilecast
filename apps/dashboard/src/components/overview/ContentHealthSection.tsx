@@ -15,6 +15,7 @@ import {
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
 import { listBleed, rowBleed } from "./layout";
+import { LoadReveal } from "./LoadReveal";
 import { RailSection } from "./RailSection";
 
 /**
@@ -94,46 +95,54 @@ export function ContentHealthSection({
       title={t("operations.content.title")}
       action={{ label: t("operations.content.details"), to: destination }}
     >
-      {isLoading ? (
-        <div role="status" aria-label={t("operations.content.loading")}>
-          <Skeleton className="h-11 w-full" />
-        </div>
-      ) : isError || !report ? (
-        <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
-          <AlertTitle>{t("operations.content.failed")}</AlertTitle>
-        </Alert>
-      ) : rows.length === 0 ? (
-        <p className="flex items-start gap-2 py-1 text-sm text-muted-foreground">
-          <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {t("operations.content.healthy")}
-        </p>
-      ) : (
-        <ItemGroup className={listBleed}>
-          {rows.map((row) => (
-            <Item
-              key={row.key}
-              size="xs"
-              render={<Link to={destination} />}
-              className={rowBleed}
-            >
-              <ItemContent className="min-w-0 gap-0">
-                <ItemTitle className="max-w-full">{row.title}</ItemTitle>
-                <ItemDescription className="line-clamp-1">
-                  {row.detail}
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <Badge variant={row.variant}>{row.count}</Badge>
-                <ChevronRight
-                  className="size-4 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              </ItemActions>
-            </Item>
-          ))}
-        </ItemGroup>
-      )}
+      <LoadReveal
+        loading={isLoading}
+        skeleton={
+          <div role="status" aria-label={t("operations.content.loading")}>
+            <Skeleton className="h-11 w-full" />
+          </div>
+        }
+      >
+        {isError || !report ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("operations.content.failed")}</AlertTitle>
+          </Alert>
+        ) : rows.length === 0 ? (
+          <p className="flex items-start gap-2 py-1 text-sm text-muted-foreground">
+            <CircleCheck
+              className="mt-0.5 size-4 shrink-0"
+              aria-hidden="true"
+            />
+            {t("operations.content.healthy")}
+          </p>
+        ) : (
+          <ItemGroup className={listBleed}>
+            {rows.map((row) => (
+              <Item
+                key={row.key}
+                size="xs"
+                render={<Link to={destination} />}
+                className={rowBleed}
+              >
+                <ItemContent className="min-w-0 gap-0">
+                  <ItemTitle className="max-w-full">{row.title}</ItemTitle>
+                  <ItemDescription className="line-clamp-1">
+                    {row.detail}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <Badge variant={row.variant}>{row.count}</Badge>
+                  <ChevronRight
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </ItemActions>
+              </Item>
+            ))}
+          </ItemGroup>
+        )}
+      </LoadReveal>
     </RailSection>
   );
 }

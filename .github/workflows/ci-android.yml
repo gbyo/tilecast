@@ -44,9 +44,7 @@ jobs:
       - run: npm run build --workspace @tilecast/player-runtime
       # The Gradle build compiles the native Player Core host with cargo-ndk.
       - uses: dtolnay/rust-toolchain@stable
-      - name: Restore Rust dependency and cargo-ndk caches
-        id: rust-cache
-        uses: actions/cache@v6
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -55,13 +53,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      # The cache restores the cargo-ndk binaries without cargo's install
-      # receipts, so an unconditional install fails on an exact cache hit
-      # ("binary already exists in destination"). The key pins the version,
-      # and failed jobs do not save, so a hit always carries 4.1.2.
-      - name: Install cargo-ndk
-        if: steps.rust-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
@@ -125,9 +117,7 @@ jobs:
       # The Android engine builds the APK, which compiles the native Player
       # Core host with cargo-ndk.
       - uses: dtolnay/rust-toolchain@stable
-      - name: Restore Rust dependency and cargo-ndk caches
-        id: rust-cache
-        uses: actions/cache@v6
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -136,13 +126,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      # The cache restores the cargo-ndk binaries without cargo's install
-      # receipts, so an unconditional install fails on an exact cache hit
-      # ("binary already exists in destination"). The key pins the version,
-      # and failed jobs do not save, so a hit always carries 4.1.2.
-      - name: Install cargo-ndk
-        if: steps.rust-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
@@ -262,9 +246,7 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
-      - name: Restore Rust dependency and cargo-ndk caches
-        id: rust-cache
-        uses: actions/cache@v6
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -273,13 +255,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      # The cache restores the cargo-ndk binaries without cargo's install
-      # receipts, so an unconditional install fails on an exact cache hit
-      # ("binary already exists in destination"). The key pins the version,
-      # and failed jobs do not save, so a hit always carries 4.1.2.
-      - name: Install cargo-ndk
-        if: steps.rust-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6

@@ -1,0 +1,54 @@
+---
+title: Install and pair
+description: Choose the Tilecast Player for your display, install it, and approve it in Studio.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Install Tilecast Player on the display, then approve it in Studio. Pairing gives the Player its own credential and adds it to your installation as a screen.
+
+## Install a Player
+
+Choose the guide for the display's platform. If you are not sure which platform your hardware supports, compare the [Player capability matrix](../capabilities/) first.
+
+<CardGrid>
+  <LinkCard
+    title="Android TV, Google TV, and Fire TV"
+    description="Install the signed APK, pair the TV, and complete its required commissioning checklist."
+    href="../install-android/"
+  />
+  <LinkCard
+    title="Linux"
+    description="Install the verified Linux AppImage from Tilecast Server and pair the display."
+    href="../install-linux/"
+  />
+  <LinkCard
+    title="Windows"
+    description="Install the signed Windows Player package and check the WebView2 Runtime. Physical qualification is still in progress."
+    href="../install-windows/"
+  />
+  <LinkCard
+    title="Tilecast Edge"
+    description="Preview. The service-based Linux Player, still being qualified on physical hardware."
+    href="../../edge/"
+  />
+</CardGrid>
+
+[Apple TV support](../apple-tv/) explains why Tilecast Player doesn't run on Apple TV.
+
+## Pair or replace a screen
+
+<CardGrid>
+  <LinkCard
+    title="Pair a display"
+    description="Approve a Tilecast Player and enroll it as a screen."
+    href="../pair-a-display/"
+  />
+  <LinkCard
+    title="Pair or replace a screen"
+    description="Repair a Player's credential, or move a screen to replacement hardware while keeping its assignments."
+    href="../../screens/pair-and-replace/"
+  />
+</CardGrid>
+
+If a Player can't find or reach the server, see [Check that Players can reach the server](../../setup/network-readiness/) and [Pairing and connectivity](../../troubleshooting/pairing-connectivity/).
