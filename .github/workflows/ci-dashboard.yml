@@ -55,7 +55,7 @@ jobs:
           npm run i18n:scan -- --check --base "$BASE_SHA" "${files[@]}"
           npm run architecture:scan -- --check --base "$BASE_SHA" "${files[@]}"
       - name: Restore ESLint cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/dashboard/.cache/eslint
           key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/dashboard/eslint.config.js', 'apps/dashboard/tsconfig*.json') }}
@@ -159,7 +159,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: dashboard-vitest-shard-*
           path: apps/dashboard
