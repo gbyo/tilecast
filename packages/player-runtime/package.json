@@ -38,14 +38,15 @@
   ],
   "scripts": {
     "build": "npm run build:node && npm run build:runtime && npm run build:conformance",
-    "build:node": "tsc -p tsconfig.node.json",
+    "build:node": "npm run build --workspace @tilecast/presentation-model && tsc -p tsconfig.node.json",
     "build:runtime": "vite build && node scripts/finish-runtime.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "npm test --workspace @tilecast/presentation-model && vitest run",
     "conformance": "node conformance/run.mjs",
     "build:conformance": "vite build --config vite.conformance.config.ts"
   },
   "dependencies": {
+    "@tilecast/presentation-model": "*",
     "qrcode-generator": "^2.0.4",
     "@tilecast/widget-sdk": "*",
     "@tilecast/widget-kit": "*"

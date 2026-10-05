@@ -21,7 +21,7 @@ import {
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
-import { playbackDefaultsFromSettings } from "@tilecast/player-runtime/playback-settings";
+import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
 
 const canvas = {
   width: 1920,

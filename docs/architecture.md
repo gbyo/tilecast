@@ -78,6 +78,13 @@ Playback supports either a fullscreen playlist or a published Layout. Layouts re
 
 ## Scheduling and Display Groups
 
+`packages/presentation-model` owns deterministic availability and item-default
+decisions shared by Studio and Player Runtime. Runtime compatibility modules
+re-export those functions. Studio's settings adapter stays in Studio. The
+model has no mounting, storage, telemetry, or host APIs. See
+[Presentation Model](presentation-model.md) for the current boundary and
+shared fixtures.
+
 Display Groups own synchronized fallback content and schedule targeting. Existing
 groups migrate to `display_mode=mirror`, which is the current synchronized
 behavior. A screen belongs to zero or one group; PostgreSQL enforces the

@@ -1,0 +1,246 @@
+{
+  "item": {
+    "assetType": "image",
+    "durationMs": null,
+    "fitMode": "contain",
+    "transition": "none",
+    "audioEnabled": true,
+    "volume": 0.5
+  },
+  "availability": [
+    {
+      "name": "open window",
+      "at": "2026-10-02T12:00:00Z",
+      "window": {},
+      "available": true,
+      "next": null
+    },
+    {
+      "name": "future asset",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "availableFrom": "2026-10-02T13:00:00Z" },
+      "available": false,
+      "next": "2026-10-02T13:00:00.000Z"
+    },
+    {
+      "name": "expired asset",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "expiresAt": "2026-10-02T11:00:00Z" },
+      "available": false,
+      "next": null
+    },
+    {
+      "name": "future playlist item",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "availableFrom": "2026-10-03T00:00:00Z" },
+      "available": false,
+      "next": "2026-10-03T00:00:00.000Z"
+    },
+    {
+      "name": "expired playlist item",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "expiresAt": "2026-10-01T00:00:00Z" },
+      "available": false,
+      "next": null
+    },
+    {
+      "name": "inclusive start",
+      "at": "2026-10-02T12:00:00Z",
+      "window": {
+        "availableFrom": "2026-10-02T12:00:00Z",
+        "expiresAt": "2026-10-02T13:00:00Z"
+      },
+      "available": true,
+      "next": "2026-10-02T13:00:00.000Z"
+    },
+    {
+      "name": "exclusive expiration",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "expiresAt": "2026-10-02T12:00:00Z" },
+      "available": false,
+      "next": null
+    },
+    {
+      "name": "malformed bound",
+      "at": "2026-10-02T12:00:00Z",
+      "window": { "availableFrom": "invalid" },
+      "available": false,
+      "next": null
+    },
+    {
+      "name": "spring DST offset transition",
+      "at": "2026-03-08T07:00:00Z",
+      "window": {
+        "availableFrom": "2026-03-08T01:30:00-05:00",
+        "expiresAt": "2026-03-08T03:30:00-04:00"
+      },
+      "available": true,
+      "next": "2026-03-08T07:30:00.000Z"
+    },
+    {
+      "name": "fall DST repeated hour",
+      "at": "2026-11-01T05:45:00Z",
+      "window": {
+        "availableFrom": "2026-11-01T01:30:00-04:00",
+        "expiresAt": "2026-11-01T01:30:00-05:00"
+      },
+      "available": true,
+      "next": "2026-11-01T06:30:00.000Z"
+    }
+  ],
+  "settings": [
+    {
+      "name": "default image duration",
+      "item": {},
+      "playback": {},
+      "expected": {
+        "durationMs": 10000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "explicit image duration",
+      "item": { "durationMs": 7500 },
+      "playback": {},
+      "expected": {
+        "durationMs": 7500,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "player defaults override image fields",
+      "item": { "durationMs": 7500, "usePlayerDefaults": true },
+      "playback": {
+        "defaultImageDurationSeconds": 23,
+        "defaultFitMode": "cover",
+        "defaultTransition": "fade",
+        "defaultAudioEnabled": false,
+        "defaultVolume": 0.25
+      },
+      "expected": {
+        "durationMs": 23000,
+        "fitMode": "cover",
+        "transition": "fade",
+        "audioEnabled": false,
+        "volume": 0.25
+      }
+    },
+    {
+      "name": "explicit fields override player defaults",
+      "item": {
+        "durationMs": 15000,
+        "fitMode": "stretch",
+        "transition": "crossfade",
+        "volume": 0.8
+      },
+      "playback": {
+        "defaultImageDurationSeconds": 23,
+        "defaultFitMode": "cover",
+        "defaultTransition": "fade",
+        "defaultAudioEnabled": false,
+        "defaultVolume": 0.25
+      },
+      "expected": {
+        "durationMs": 15000,
+        "fitMode": "stretch",
+        "transition": "crossfade",
+        "audioEnabled": true,
+        "volume": 0.8
+      }
+    },
+    {
+      "name": "invalid presentation enums",
+      "item": { "fitMode": "invalid", "transition": "invalid" },
+      "playback": {},
+      "expected": {
+        "durationMs": 10000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "volume upper bound",
+      "item": { "volume": 2 },
+      "playback": {},
+      "expected": {
+        "durationMs": 10000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 1
+      }
+    },
+    {
+      "name": "volume lower bound",
+      "item": { "volume": -1 },
+      "playback": {},
+      "expected": {
+        "durationMs": 10000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0
+      }
+    },
+    {
+      "name": "natural video duration",
+      "item": { "assetType": "video" },
+      "playback": {},
+      "expected": {
+        "durationMs": null,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "explicit video slot duration",
+      "item": {
+        "assetType": "video",
+        "durationMs": 12000,
+        "usePlayerDefaults": true
+      },
+      "playback": { "defaultImageDurationSeconds": 23 },
+      "expected": {
+        "durationMs": 12000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "website fallback duration",
+      "item": { "assetType": "website" },
+      "playback": {},
+      "expected": {
+        "durationMs": 60000,
+        "fitMode": "contain",
+        "transition": "none",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    },
+    {
+      "name": "widget fallback duration",
+      "item": { "assetType": "widget", "transition": "fade" },
+      "playback": {},
+      "expected": {
+        "durationMs": 30000,
+        "fitMode": "contain",
+        "transition": "fade",
+        "audioEnabled": true,
+        "volume": 0.5
+      }
+    }
+  ]
+}

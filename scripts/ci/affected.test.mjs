@@ -157,6 +157,31 @@ test("runtime semantics select both renderers but no migration", () => {
     "runtime",
   ]);
 });
+test("the Presentation Model selects Studio and production runtime consumers", () => {
+  assert.deepEqual(
+    selected(["packages/presentation-model/src/availability.ts"]),
+    [
+      "container",
+      "dashboard",
+      "e2e",
+      "edge_conformance",
+      "edge_runtime",
+      "edge_wpe",
+      "linux",
+      "runtime",
+    ],
+  );
+  assert.deepEqual(selected(["packages/presentation-model/package.json"]), [
+    "container",
+    "dashboard",
+    "e2e",
+    "edge_conformance",
+    "edge_runtime",
+    "edge_wpe",
+    "linux",
+    "runtime",
+  ]);
+});
 test("Widgets reach the catalog, Studio and production hosts", () => {
   const result = affected(["widgets/clock/runtime.ts"]);
   for (const area of [
