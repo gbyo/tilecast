@@ -104,7 +104,9 @@ bash scripts/ci/cargo-player-android.sh test
 ```
 
 The device test `PlayerCoreHostDeviceTest` starts the host on an emulator
-and checks the status snapshot. CI runs it in the Core host boot job:
+and checks the status snapshot. Extended validation runs it in the Core host
+boot job every night. PR validation does not run it, so run it yourself before
+you merge a change to the Core host:
 
 ```sh
 cd apps/player-android

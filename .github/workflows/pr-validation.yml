@@ -75,6 +75,7 @@ jobs:
     uses: ./.github/workflows/ci-android.yml
     with:
       conformance: false
+      host_boot: false
 
   server_ci:
     needs: changes

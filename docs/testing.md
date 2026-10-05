@@ -7,7 +7,7 @@
 CI has two tiers. Use the tier to decide where a check belongs.
 
 - **Pull request checks** are fast and deterministic. They fail only because of the change under review. They are the lint, format, type, build, and unit-test checks, the Demo Mode functional suite, and the documentation build. Only these checks can block a merge.
-- **Extended validation** checks are slow, need a special runner, or depend on the environment more than on the change. They are the Studio screenshot comparison, iOS CI, Android emulator conformance, and WebView2 conformance. They run every night and on demand. They never block a PR.
+- **Extended validation** checks are slow, need a special runner, or depend on the environment more than on the change. They are the Studio screenshot comparison, iOS CI, Android emulator conformance, the Android Core host boot test, and WebView2 conformance. They run every night and on demand. They never block a PR.
 
 Add a check to the PR tier only when a contributor can reproduce a failure on an ordinary machine. A check that fails for reasons outside the change belongs in Extended validation.
 
@@ -253,11 +253,11 @@ Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD sna
 
 `Extended validation` runs every night at 03:17 UTC and on demand. It is not part of PR validation, and it has no aggregate check. A failure appears on the run for `main`. It does not block a PR.
 
-| Job                   | What it runs                                   |
-| --------------------- | ---------------------------------------------- |
-| `studio_visual`       | The Studio screenshot comparison in Demo Mode  |
-| `ios_ci`              | The iOS build, unit, WebKit, and UI tests      |
-| `android_conformance` | The Android runtime conformance on an emulator |
+| Job                | What it runs                                                               |
+| ------------------ | -------------------------------------------------------------------------- |
+| `studio_visual`    | The Studio screenshot comparison in Demo Mode                              |
+| `ios_ci`           | The iOS build, unit, WebKit, and UI tests                                  |
+| `android_emulator` | The Android runtime conformance and the Core host boot test on an emulator |
 
 To run these checks on your branch, open Actions, choose `Extended validation`, and run it on that branch. Run `make demo` and `npm run test:visual` locally to reproduce the screenshot comparison. For iOS, use the commands in [the iOS README](../apps/ios/README.md). The WebView2 conformance check lives in `Windows Player CI`. It runs on `main`, every week, and on demand. It does not run on PRs.
 
