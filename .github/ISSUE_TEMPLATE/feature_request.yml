@@ -1,23 +1,73 @@
-name: Feature request
-description: Propose a focused Tilecast improvement
-title: "[Feature]: "
-labels: [enhancement]
+name: "✨ Feature request"
+description: Propose a focused improvement to Tilecast
+labels: ["enhancement"]
 body:
-  - type: textarea
-    id: problem
+  - type: markdown
     attributes:
-      {
-        label: Problem,
-        description: What operational problem should Tilecast solve?,
-      }
-    validations: { required: true }
-  - type: textarea
-    id: proposal
-    attributes: { label: Proposed behavior }
-    validations: { required: true }
+      value: |
+        The most useful feature requests start with the user problem and desired outcome. You do not need to design the implementation.
   - type: dropdown
     id: area
     attributes:
       label: Area
-      options: [Server, Dashboard, Android player, Deployment, Documentation]
-    validations: { required: true }
+      description: Which parts of Tilecast would this affect?
+      multiple: true
+      options:
+        - Studio (web)
+        - Server / API
+        - iPhone / iPad app
+        - Android / Google TV / Fire TV Player
+        - Linux Player / Tilecast Edge
+        - Web Player
+        - Layouts / Widgets / plugins
+        - Playlists / schedules / publishing
+        - Media library
+        - Data Sources
+        - Authentication / permissions
+        - CLI / MCP / integrations
+        - Installation / deployment
+        - Documentation
+        - Something else / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the task, limitation, or friction independently of a particular implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a good outcome look like?
+      description: Describe what a user should be able to do after this is implemented.
+    validations:
+      required: true
+  - type: textarea
+    id: current-workflow
+    attributes:
+      label: How do you handle this today?
+      description: Include any workaround or existing workflow, if there is one.
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested approach
+      description: Optional. Share a UI idea, API shape, workflow, or implementation direction if you have one.
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or compatibility notes
+      description: Optional. Mention offline behavior, self-hosting, older players, migrations, accessibility, security, or integrations when they materially affect the request.
+  - type: upload
+    id: attachments
+    attributes:
+      label: Mockups or examples
+      description: Add mockups, screenshots, diagrams, or other examples if they help explain the request.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help?
+      options:
+        - label: I would be willing to test this before release.
+        - label: I would be willing to work on this.
