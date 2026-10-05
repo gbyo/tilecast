@@ -189,15 +189,38 @@
       "waiting": "Waiting"
     },
     "toolbar": {
-      "allStatuses": "All statuses",
+      "clearFilters": "Clear filters",
       "collectionOption": "{{name}} ({{count}})",
-      "filterByStatus": "Filter by status",
+      "facets": {
+        "collection": "Collection",
+        "folder": "Folder",
+        "status": "Status",
+        "tag": "Tag"
+      },
+      "filterAny": "Any",
+      "filters": "Filters",
+      "filtersActive": "Filters, {{count}} active",
+      "filtersDescription": "Narrow the library by status, folder, collection, or tag.",
+      "filtersDone": "Done",
+      "filtersReset": "Reset",
+      "filtersTitle": "Filter media",
       "folderOption": "{{name}} ({{count}})",
+      "groupLabel": "Search and filter media",
+      "noCollections": "No collections yet",
+      "noFolders": "No folders yet",
+      "noMatchingCollections": "No matching collections",
+      "noMatchingFolders": "No matching folders",
+      "noMatchingTags": "No matching tags",
+      "noTags": "No tags yet",
       "search": "Search media",
-      "sortMedia": "Sort media",
+      "sortButtonLabel": "Sort media: {{value}}",
+      "sortMenuTitle": "Sort by",
       "tagOption": "{{name}} ({{count}})",
-      "typeFilters": "Content type filters",
-      "viewLabel": "View"
+      "typeFilters": "Media type",
+      "viewGrid": "Grid",
+      "viewLabel": "View",
+      "viewList": "List",
+      "viewOptions": "View options"
     },
     "type": {
       "image": "Image",

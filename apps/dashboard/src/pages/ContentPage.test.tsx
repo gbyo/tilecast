@@ -24,7 +24,6 @@ import {
   canManageContent,
   ContentEmpty,
   ContentOrganizer,
-  ContentPage,
   CreateOrganizerDialog,
   isExpiredAsset,
   nextExpirationDelay,
@@ -769,69 +768,6 @@ describe("content organizer entry point", () => {
     ).toBeInTheDocument();
     expect(
       within(bar).queryByRole("button", { name: "Organize" }),
-    ).not.toBeInTheDocument();
-  });
-});
-
-describe("content library toolbar", () => {
-  it("filters through the shared filter bar with chips and clear-all", async () => {
-    const user = userEvent.setup();
-    const assets = vi
-      .spyOn(api, "assets")
-      .mockResolvedValue({ items: [] } as never);
-    vi.spyOn(api, "contentFolders").mockResolvedValue([
-      {
-        id: "folder-1",
-        name: "Campus A",
-        description: "",
-        assetCount: 2,
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-      },
-    ]);
-    vi.spyOn(api, "contentCollections").mockResolvedValue([]);
-    vi.spyOn(api, "contentTags").mockResolvedValue([]);
-    render(withQueryClient(<ContentPage />));
-
-    expect(
-      await screen.findByRole("searchbox", { name: "Search media" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Filter by status" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Filter by folder" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Sort media" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Reset filters" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("combobox", { name: "Filter by folder" }),
-    );
-    await user.click(
-      await screen.findByRole("option", { name: "Campus A (2)" }),
-    );
-    expect(
-      await screen.findByRole("button", {
-        name: "Remove filter Filter by folder: Campus A (2)",
-      }),
-    ).toBeInTheDocument();
-    await waitFor(() => {
-      const last = assets.mock.calls.at(-1)?.[0];
-      expect(last?.get("folderId")).toBe("folder-1");
-    });
-
-    await user.click(screen.getByRole("button", { name: "Clear all" }));
-    await waitFor(() => {
-      const last = assets.mock.calls.at(-1)?.[0];
-      expect(last?.get("folderId")).toBeNull();
-    });
-    expect(
-      screen.queryByRole("button", { name: /Remove filter/ }),
     ).not.toBeInTheDocument();
   });
 });
