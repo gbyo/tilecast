@@ -49,7 +49,7 @@ function UserMenuItems({ user, onSignOut, disabled = false }: UserMenuProps) {
         <ClipboardList aria-hidden="true" />
         {t("userMenu.myForms")}
       </DropdownMenuItem>
-      <DropdownMenuItem render={<Link to="/account" />}>
+      <DropdownMenuItem render={<Link to="/account/preferences" />}>
         <UserRound aria-hidden="true" />
         {t("userMenu.myAccount")}
       </DropdownMenuItem>
