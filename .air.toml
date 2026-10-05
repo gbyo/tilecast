@@ -1,0 +1,16 @@
+root = "."
+tmp_dir = ".tilecast-dev/air"
+
+[build]
+cmd = "go build -o .tilecast-dev/air/tilecast-server ./apps/server/cmd/tilecast-server"
+entrypoint = ["./.tilecast-dev/air/tilecast-server"]
+include_dir = ["apps/server", "plugins", "packages/plugin-sdk/go", "packages/api-client", "widgets", "data-sources"]
+include_ext = ["go", "sql", "yaml", "yml", "json", "html", "css", "js", "tmpl"]
+exclude_dir = [".git", "node_modules", "dist", "build", ".tilecast-dev", "apps/cli", "apps/dashboard", "apps/docs", "apps/edge", "apps/ios", "apps/player-android"]
+delay = 500
+stop_on_error = true
+send_interrupt = true
+kill_delay = "1s"
+
+[log]
+time = true

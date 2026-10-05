@@ -18,6 +18,12 @@ npm run test:visual
 
 The functional suite exercises authoring, publishing, settings, previews, manifest delivery, and player commands. The visual suite compares 22 selected Studio states, including dark-mode editors and the shared Widget renderer in a Layout preview. Both use the real Studio bundle, server, and PostgreSQL schema.
 
+## Iterate locally
+
+Run `make dev` from the repository root to start local PostgreSQL, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. Run `make dev-down` to remove the stopped local database container and network; its volume remains. The first run downloads the pinned Go watcher. Install FFmpeg and FFprobe for media processing.
+
+Run `make quick` to test changed Studio, Player Runtime, Linux Player, Android, and Go packages. It also checks documentation and CI workflow contracts when those files change. The default comparison is `origin/main`; set `TILECAST_DEV_BASE` to compare another ref. `make watch-dashboard` and `make watch-linux` start Vitest watch mode. Run `make test` for the full dashboard, extension SDK, Player Runtime, Linux Player, Go, CLI, and helper unit suites. `make check` also runs Android unit tests and merge-grade checks.
+
 ## Review screenshot changes
 
 Linux Chromium is the committed baseline. On macOS, use the Linux Docker helper so you do not need a separate set of macOS screenshots:

@@ -48,6 +48,14 @@ Every Linux Player change runs its unit tests and TypeScript build. Pull request
 
 Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
 
+## Local iteration
+
+Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
+
+Run `make quick` to run tests selected from changed paths. It uses Vitest's changed-file mode for Studio, Linux Player, and Player Runtime tests. It runs Go tests for changed packages. It also checks Android unit tests, CI contracts, or documentation when those paths change. Set `TILECAST_DEV_BASE` when the comparison ref is not `origin/main`.
+
+Use `make test` for the full unit suites. Use `make check` for merge-grade validation. The quick command does not replace either command.
+
 ## Required checks
 
 Require these stable check names in the branch ruleset:
