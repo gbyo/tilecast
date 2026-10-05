@@ -2247,12 +2247,15 @@ name = "tilecast-player-android-native"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
  "jni",
  "player-cas",
  "player-client",
  "player-core",
  "player-state",
  "player-types",
+ "ring",
+ "rusqlite",
  "rustix",
  "rustls-platform-verifier",
  "serde",

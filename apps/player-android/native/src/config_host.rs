@@ -638,6 +638,11 @@ impl AndroidConfigHost {
         self.effective().map(|config| config.native.revision)
     }
 
+    /// The shared verified store handle, cloned for sibling hosts.
+    pub fn cas(&self) -> ContentStore {
+        self.cas.clone()
+    }
+
     /// The native policy in force, or the defaults before any install.
     /// The server-link driver reads this for reconciliation cadence.
     pub fn native_configuration(&self) -> NativeConfiguration {

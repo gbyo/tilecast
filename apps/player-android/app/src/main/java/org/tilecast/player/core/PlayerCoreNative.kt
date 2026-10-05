@@ -33,4 +33,9 @@ internal object PlayerCoreNative {
      */
     external fun nativeQualifyCas(filesDir: String): String?
     external fun nativeSyncConfig(handle: Long): String?
+    external fun nativeSyncManifest(handle: Long): String?
+    external fun nativeImportLegacy(handle: Long): String?
+    external fun nativeActivatePresentation(handle: Long, json: String): String?
+    external fun nativeRendererReport(handle: Long, json: String): Int
+    external fun nativeRendererRecovery(handle: Long, json: String): String?
 }

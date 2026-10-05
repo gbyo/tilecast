@@ -84,6 +84,10 @@ impl Facts {
 pub trait MetadataSource: Send + Sync + std::fmt::Debug {
     fn device_metadata_json(&self) -> Result<String, MetadataError>;
     fn pairing_status(&self, json: &str);
+    /// Device uptime in whole seconds since boot. The app sandbox
+    /// cannot read the kernel uptime file, so this stays a live
+    /// Android measurement rather than a collected fact.
+    fn device_uptime_seconds(&self) -> Option<i64>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -114,6 +118,10 @@ impl MetadataSource for JvmMetadataSource {
     fn pairing_status(&self, json: &str) {
         let _ = self.jvm.call_void(method::pairing_status(), json);
     }
+
+    fn device_uptime_seconds(&self) -> Option<i64> {
+        self.jvm.call_long(method::device_uptime_seconds()).ok().filter(|up| *up >= 0)
+    }
 }
 
 /// In-memory facts and a status sink for host tests.
@@ -122,6 +130,7 @@ pub struct MemMetadataSource {
     facts: std::sync::Mutex<String>,
     statuses: std::sync::Mutex<Vec<String>>,
     fail: std::sync::Mutex<bool>,
+    uptime: std::sync::Mutex<Option<i64>>,
 }
 
 impl MemMetadataSource {
@@ -130,7 +139,13 @@ impl MemMetadataSource {
             facts: std::sync::Mutex::new(facts.to_owned()),
             statuses: std::sync::Mutex::new(Vec::new()),
             fail: std::sync::Mutex::new(false),
+            uptime: std::sync::Mutex::new(None),
         }
+    }
+
+    pub fn with_uptime(self, uptime: i64) -> Self {
+        *self.uptime.lock().unwrap_or_else(|error| error.into_inner()) = Some(uptime);
+        self
     }
 
     pub fn statuses(&self) -> Vec<String> {
@@ -152,6 +167,13 @@ impl MetadataSource for MemMetadataSource {
 
     fn pairing_status(&self, json: &str) {
         self.statuses.lock().unwrap_or_else(|error| error.into_inner()).push(json.to_owned());
+    }
+
+    fn device_uptime_seconds(&self) -> Option<i64> {
+        if *self.fail.lock().unwrap_or_else(|error| error.into_inner()) {
+            return None;
+        }
+        *self.uptime.lock().unwrap_or_else(|error| error.into_inner())
     }
 }
 
@@ -178,11 +200,18 @@ pub fn status_json(status: &PairingStatus) -> String {
 pub struct AndroidPairingHost {
     meta: Arc<dyn MetadataSource>,
     wake: Arc<tokio::sync::Notify>,
+    server_wake: Arc<tokio::sync::Notify>,
+    manifest_wake: Arc<tokio::sync::Notify>,
 }
 
 impl AndroidPairingHost {
-    pub fn new(meta: Arc<dyn MetadataSource>, wake: Arc<tokio::sync::Notify>) -> Self {
-        Self { meta, wake }
+    pub fn new(
+        meta: Arc<dyn MetadataSource>,
+        wake: Arc<tokio::sync::Notify>,
+        server_wake: Arc<tokio::sync::Notify>,
+        manifest_wake: Arc<tokio::sync::Notify>,
+    ) -> Self {
+        Self { meta, wake, server_wake, manifest_wake }
     }
 }
 
@@ -210,9 +239,13 @@ impl CorePairingHost for AndroidPairingHost {
         let json = status_json(&status);
         let _ = tokio::task::spawn_blocking(move || meta.pairing_status(&json)).await;
         // Enrollment lands the credential and binding, but Core's next pass
-        // is an hour out. Wake the loop so it projects Paired immediately.
+        // is an hour out. Wake the loop so it projects Paired immediately,
+        // and wake the server link so it verifies and reports at once
+        // instead of sleeping through its idle interval.
         if matches!(status, PairingStatus::Enrolled) {
             self.wake.notify_one();
+            self.server_wake.notify_one();
+            self.manifest_wake.notify_one();
         }
     }
 }
@@ -263,7 +296,8 @@ mod tests {
     async fn host_serves_facts_and_records_status() {
         let meta = Arc::new(MemMetadataSource::with_facts(r#"{"model":"Stick"}"#));
         let wake = Arc::new(tokio::sync::Notify::new());
-        let host = AndroidPairingHost::new(meta.clone(), wake);
+        let link = Arc::new(tokio::sync::Notify::new());
+        let host = AndroidPairingHost::new(meta.clone(), wake, link.clone(), link);
         let facts = host.metadata(player()).await;
         assert_eq!(facts.model, "Stick");
         host.show_pairing(PairingStatus::Setup).await;
@@ -277,10 +311,18 @@ mod tests {
     async fn enrollment_wakes_the_driver_loop() {
         let meta = Arc::new(MemMetadataSource::with_facts("{}"));
         let wake = Arc::new(tokio::sync::Notify::new());
-        let host = AndroidPairingHost::new(meta, wake.clone());
+        let server_wake = Arc::new(tokio::sync::Notify::new());
+        let manifest_wake = Arc::new(tokio::sync::Notify::new());
+        let host = AndroidPairingHost::new(meta, wake.clone(), server_wake.clone(), manifest_wake.clone());
         let notified = wake.notified();
         tokio::pin!(notified);
         notified.as_mut().enable();
+        let server = server_wake.notified();
+        tokio::pin!(server);
+        server.as_mut().enable();
+        let manifest = manifest_wake.notified();
+        tokio::pin!(manifest);
+        manifest.as_mut().enable();
         host.show_pairing(PairingStatus::Setup).await;
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(50), &mut notified).await.is_err(),
@@ -288,5 +330,11 @@ mod tests {
         );
         host.show_pairing(PairingStatus::Enrolled).await;
         tokio::time::timeout(std::time::Duration::from_secs(1), notified).await.expect("enrollment wakes the loop");
+        tokio::time::timeout(std::time::Duration::from_secs(1), server)
+            .await
+            .expect("enrollment wakes the server link");
+        tokio::time::timeout(std::time::Duration::from_secs(1), manifest)
+            .await
+            .expect("enrollment wakes manifest preparation");
     }
 }

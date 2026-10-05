@@ -12,10 +12,15 @@ import org.tilecast.player.security.CredentialStore
 class PlayerCoreHostTest {
     private class FakeBridge(
         var handle: Long = 1L,
-        var statusPayload: String? = """{"bridge":2,"ok":true,"stateDb":"/files/player-core/state.db","casDir":"/files/player-core/cas","paired":false}""",
+        var statusPayload: String? = """{"bridge":3,"ok":true,"stateDb":"/files/player-core/state.db","casDir":"/files/player-core/cas","paired":false}""",
         var versionPayload: String? = "0.1.0",
         var beginPayload: String? = """{"ok":true}""",
         var syncPayload: String? = """{"ok":true,"outcome":"unchanged","revision":7}""",
+        var manifestPayload: String? = """{"ok":true,"outcome":"prepared","version":8}""",
+        var importPayload: String? = """{"status":"complete","roomVersion":5,"identityImported":true,"bindingImported":true,"configRevision":7,"manifestVersion":12,"mediaImported":1,"mediaSkipped":0,"notes":[]}""",
+        var activatePayload: String? = """{"ok":true,"activationId":"a1","generation":3,"queued":true}""",
+        var reportCode: Int = 0,
+        var recoveryPayload: String? = """{"ok":true,"wasActive":true}""",
     ) : CoreBridge {
         var openedWith: String? = null
         var openedAgent: String? = null
@@ -25,6 +30,11 @@ class PlayerCoreHostTest {
         var begins = mutableListOf<String>()
         var syncs = 0
         var openError: Throwable? = null
+        var manifestSyncs = 0
+        var imports = 0
+        var activations = mutableListOf<String>()
+        var reports = mutableListOf<String>()
+        var recoveries = mutableListOf<String>()
         override fun version(): String? = versionPayload
         override fun open(filesDir: String, userAgent: String, handler: CoreBridgeHandler): Long {
             openError?.let { throw it }
@@ -48,6 +58,26 @@ class PlayerCoreHostTest {
         override fun syncConfig(handle: Long): String? {
             syncs++
             return syncPayload
+        }
+        override fun syncManifest(handle: Long): String? {
+            manifestSyncs++
+            return manifestPayload
+        }
+        override fun importLegacy(handle: Long): String? {
+            imports++
+            return importPayload
+        }
+        override fun activatePresentation(handle: Long, json: String): String? {
+            activations += json
+            return activatePayload
+        }
+        override fun rendererReport(handle: Long, json: String): Int {
+            reports += json
+            return reportCode
+        }
+        override fun rendererRecovery(handle: Long, json: String): String? {
+            recoveries += json
+            return recoveryPayload
         }
         override fun close(handle: Long): Int {
             closed++
@@ -77,6 +107,10 @@ class PlayerCoreHostTest {
         screenHeight = 1080,
         locale = "en-US",
         timezone = "UTC",
+        androidSdk = 34,
+        playerVersionCode = 25L,
+        installerSource = null,
+        installPermissionStatus = "granted",
     )
 
     private fun handlerFactory(dir: File, credentials: FakeCredentials = FakeCredentials()): CoreHandlerFactory =
@@ -94,7 +128,7 @@ class PlayerCoreHostTest {
         assertTrue(ready is CoreHostState.Ready)
         ready as CoreHostState.Ready
         assertEquals("0.1.0", ready.version)
-        assertEquals(2, ready.status.bridge)
+        assertEquals(3, ready.status.bridge)
         assertTrue(ready.status.ok)
         assertFalse(ready.status.paired)
         assertFalse(ready.coreRunning)
@@ -220,6 +254,96 @@ class PlayerCoreHostTest {
         host.stop()
     }
 
+    @Test fun syncManifestNeedsAReadyHostAndParsesVersions() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        assertEquals(CoreManifestResult(false, null, null, code = "host_not_ready"), host.syncManifest())
+        assertEquals(0, bridge.manifestSyncs)
+        host.start()
+        assertEquals(CoreManifestResult(true, "prepared", 8L), host.syncManifest())
+        assertEquals(1, bridge.manifestSyncs)
+        host.stop()
+    }
+
+    @Test fun importLegacyNeedsAReadyHostAndParsesOutcome() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        assertEquals("host_not_ready", host.importLegacy().code)
+        assertEquals(0, bridge.imports)
+        host.start()
+        val result = host.importLegacy()
+        assertEquals(true, result.ok)
+        assertEquals("complete", result.status)
+        assertEquals(5L, result.roomVersion)
+        assertEquals(true, result.identityImported)
+        assertEquals(true, result.bindingImported)
+        assertEquals(7L, result.configRevision)
+        assertEquals(12L, result.manifestVersion)
+        assertEquals(1, result.mediaImported)
+        assertEquals(0, result.mediaSkipped)
+        assertEquals(1, bridge.imports)
+        host.stop()
+    }
+
+    @Test fun importLegacyParsesSkippedAndFailed() {
+        assertEquals(true, CoreImportResult.parse("""{"status":"nothing_to_import","notes":[]}""").ok)
+        assertEquals(true, CoreImportResult.parse("""{"status":"skipped_core_owned","notes":[]}""").ok)
+        assertEquals(false, CoreImportResult.parse("""{"status":"failed","notes":["x"]}""").ok)
+        assertEquals(listOf("x"), CoreImportResult.parse("""{"status":"failed","notes":["x"]}""").notes)
+        assertEquals("bad_handle", CoreImportResult.parse("""{"ok":false,"code":"bad_handle"}""").code)
+    }
+
+    @Test fun startCoreOnlyImportsBeforeDriversStart() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        host.startCoreOnly()
+        assertEquals(1, bridge.imports)
+        assertEquals(1, bridge.coreStarts)
+        host.stop()
+    }
+
+    @Test fun refreshStatusPullsLinkFields() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        host.refreshStatus()
+        host.start()
+        bridge.statusPayload =
+            """{"bridge":2,"ok":true,"paired":true,"configRevision":7,"linkState":"connected","lastServerContactAt":"2026-10-05T00:00:00Z"}"""
+        host.refreshStatus()
+        val ready = host.state.value as CoreHostState.Ready
+        assertEquals("connected", ready.status.linkState)
+        assertEquals("2026-10-05T00:00:00Z", ready.status.lastServerContactAt)
+        assertEquals(7L, ready.status.configRevision)
+        assertEquals(null, ready.status.linkReason)
+        host.stop()
+    }
+
+    @Test fun platformCommandResultBuildsEnvelope() {
+        assertEquals(
+            """{"ok":true,"code":"screen_identified","message":"shown"}""",
+            PlatformCommandExecutor.result(true, "screen_identified", "shown"),
+        )
+        val unavailable = PlatformCommandExecutor.UNAVAILABLE.execute("""{"type":"identify_screen"}""")
+        assertTrue(unavailable.contains("platform_unavailable"))
+    }
+
+    @Test fun manifestParsingIsLenient() {
+        assertEquals(CoreManifestResult(false, null, null, code = "null_result"), CoreManifestResult.parse(null))
+        assertEquals(CoreManifestResult(false, null, null, code = "result_unparseable"), CoreManifestResult.parse("nope"))
+        assertEquals(
+            CoreManifestResult(true, "failed", 8L, reason = "presentation_incompatible_plugin"),
+            CoreManifestResult.parse("""{"ok":true,"outcome":"failed","reason":"presentation_incompatible_plugin","version":8}"""),
+        )
+        assertEquals(
+            CoreManifestResult(false, null, null, code = "not_paired"),
+            CoreManifestResult.parse("""{"ok":false,"code":"not_paired"}"""),
+        )
+    }
+
     @Test fun syncParsingIsLenient() {
         assertEquals(CoreSyncResult(false, null, null, code = "null_result"), CoreSyncResult.parse(null))
         assertEquals(CoreSyncResult(false, null, null, code = "result_unparseable"), CoreSyncResult.parse("nope"))
@@ -250,6 +374,45 @@ class PlayerCoreHostTest {
             CorePairingState.parse("""{"state":"waiting","code":"C","approvalUrl":"U"}"""),
         )
         assertEquals(CorePairingState.Unknown, CorePairingState.parse("""{"state":"waiting"}"""))
+    }
+
+    @Test fun rendererCallsNeedAReadyHostAndParse() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        val idleActivate = host.activatePresentation("""{"envelope":{}}""")
+        assertFalse(idleActivate.ok)
+        assertEquals("host_not_ready", idleActivate.code)
+        assertEquals(CoreReportCode.BAD_HANDLE, host.rendererReport("""{"type":"ready"}"""))
+        val idleRecovery = host.rendererRecovery("""{"action":"retry"}""")
+        assertFalse(idleRecovery.ok)
+        assertEquals("host_not_ready", idleRecovery.code)
+        host.start()
+        val activated = host.activatePresentation("""{"envelope":{}}""")
+        assertTrue(activated.ok)
+        assertEquals("a1", activated.activationId)
+        assertEquals(3L, activated.generation)
+        assertTrue(activated.queued)
+        assertEquals(listOf("""{"envelope":{}}"""), bridge.activations)
+        assertEquals(0, host.rendererReport("""{"type":"ready"}"""))
+        assertEquals(listOf("""{"type":"ready"}"""), bridge.reports)
+        val recovered = host.rendererRecovery("""{"action":"clear_safe_mode"}""")
+        assertTrue(recovered.ok)
+        assertEquals(true, recovered.wasActive)
+        assertEquals(listOf("""{"action":"clear_safe_mode"}"""), bridge.recoveries)
+        host.stop()
+    }
+
+    @Test fun activateParsingIsLenient() {
+        assertEquals(
+            CoreActivateResult(true, "a", 1L, false, "web"),
+            CoreActivateResult.parse("""{"ok":true,"activationId":"a","generation":1,"queued":false,"incompatibleReason":"web"}"""),
+        )
+        assertEquals("result_unparseable", CoreActivateResult.parse("{nope").code)
+        assertEquals("null_result", CoreActivateResult.parse(null).code)
+        assertEquals(true, CoreRecoveryResult.parse("""{"ok":true,"action":"reload"}""").ok)
+        assertEquals("reload", CoreRecoveryResult.parse("""{"ok":true,"action":"reload"}""").action)
+        assertEquals("result_unparseable", CoreRecoveryResult.parse("{nope").code)
     }
 
     @Test fun handlerRoundTripsStores() {

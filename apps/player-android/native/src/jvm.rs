@@ -100,6 +100,14 @@ impl Jvm {
         })
     }
 
+    /// Calls `long method()`. A thrown exception becomes an error; the
+    /// caller falls back to its own measurement.
+    pub fn call_long(&self, method: &JNIStr) -> Result<i64, JvmError> {
+        self.with_env(|env, handler| {
+            env.call_method(handler, method, jni_sig!(() -> jlong), &[])?.j().map_err(|_| JvmError::Call)
+        })
+    }
+
     /// Calls `void method(String)`. Best effort: the caller already holds
     /// the durable state, so a failed surface update never fails the pass.
     pub fn call_void(&self, method: &JNIStr, arg: &str) -> Result<(), JvmError> {
@@ -141,5 +149,14 @@ pub mod method {
     }
     pub fn pairing_status() -> &'static JNIStr {
         jni_str!("onPairingStatus")
+    }
+    pub fn execute_platform_command() -> &'static JNIStr {
+        jni_str!("executePlatformCommand")
+    }
+    pub fn device_uptime_seconds() -> &'static JNIStr {
+        jni_str!("deviceUptimeSeconds")
+    }
+    pub fn renderer_request() -> &'static JNIStr {
+        jni_str!("rendererRequest")
     }
 }

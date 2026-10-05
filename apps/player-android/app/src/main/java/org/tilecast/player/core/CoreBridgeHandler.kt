@@ -2,6 +2,7 @@ package org.tilecast.player.core
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import java.io.File
 import java.util.Locale
 import java.util.TimeZone
@@ -24,6 +25,10 @@ data class DeviceFacts(
     val screenHeight: Int,
     val locale: String,
     val timezone: String,
+    val androidSdk: Int,
+    val playerVersionCode: Long,
+    val installerSource: String?,
+    val installPermissionStatus: String,
 ) {
     fun toJson(): String = buildJsonObject {
         put("platform", platform)
@@ -35,11 +40,22 @@ data class DeviceFacts(
         put("screenHeight", screenHeight)
         put("locale", locale)
         put("timezone", timezone)
+        put("androidSdk", androidSdk)
+        put("playerVersionCode", playerVersionCode)
+        installerSource?.let { put("installerSource", it) }
+        put("installPermissionStatus", installPermissionStatus)
     }.toString()
 
     companion object {
         fun collect(context: Context): DeviceFacts {
             val metrics = context.resources.displayMetrics
+            val installer = if (Build.VERSION.SDK_INT >= 30) {
+                runCatching {
+                    context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
+                }.getOrNull()
+            } else {
+                null
+            }
             return DeviceFacts(
                 platform = if (Build.MANUFACTURER.equals("Amazon", ignoreCase = true)) "fire-tv" else "android-tv",
                 manufacturer = Build.MANUFACTURER ?: "Unknown",
@@ -50,6 +66,15 @@ data class DeviceFacts(
                 screenHeight = metrics.heightPixels,
                 locale = Locale.getDefault().toLanguageTag(),
                 timezone = TimeZone.getDefault().id,
+                androidSdk = Build.VERSION.SDK_INT,
+                playerVersionCode = BuildConfig.VERSION_CODE.toLong(),
+                installerSource = installer,
+                installPermissionStatus =
+                    if (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) {
+                        "granted"
+                    } else {
+                        "required"
+                    },
             )
         }
     }
@@ -68,6 +93,8 @@ class CoreBridgeHandler(
     private val pairingFile: File,
     private val facts: DeviceFacts,
     private val pairingSink: (String) -> Unit,
+    var executor: PlatformCommandExecutor = PlatformCommandExecutor.UNAVAILABLE,
+    var rendererAdapter: CoreRendererAdapter = CoreRendererAdapterRefusing,
 ) {
     fun credentialLoad(): String? = runCatching { credentials.read() }.getOrNull()
 
@@ -106,7 +133,51 @@ class CoreBridgeHandler(
 
     fun deviceMetadata(): String = facts.toJson()
 
+    /** Device uptime in whole seconds since boot. A live measurement: the app sandbox cannot read the kernel uptime file. */
+    fun deviceUptimeSeconds(): Long = SystemClock.elapsedRealtime() / 1000
+
     fun onPairingStatus(json: String) {
         runCatching { pairingSink(json) }
+    }
+
+    fun executePlatformCommand(json: String): String =
+        runCatching { executor.execute(json) }
+            .getOrElse { PlatformCommandExecutor.result(false, "platform_failed") }
+
+    /** One semantic renderer operation from Core. Answers fast; slow work completes through reports. */
+    fun rendererRequest(json: String): Int =
+        runCatching { rendererAdapter.handle(json) }
+            .getOrDefault(CoreRendererRequestCode.NOT_READY)
+}
+
+/** No renderer is attached (production until the PR3 cutover wires the stage). */
+internal object CoreRendererAdapterRefusing : CoreRendererAdapter {
+    override fun handle(envelope: String): Int = CoreRendererRequestCode.NOT_READY
+}
+
+/**
+ * Executes platform-owned commands Core cannot run itself: renderer,
+ * OS, and update-installer effects. The request is
+ * `{"type": str, "payload": object}`; the answer is the result
+ * envelope `{"ok": bool, "code": str, "message": str}`. Called on a
+ * Core worker thread; never block on the UI thread.
+ */
+fun interface PlatformCommandExecutor {
+    fun execute(requestJson: String): String
+
+    companion object {
+        /** Pre-cutover production answer: the command driver only runs
+         * in Core-only mode, so this is unreachable until PR3 wires the
+         * real effects as the old brain is removed. */
+        val UNAVAILABLE = PlatformCommandExecutor {
+            """{"ok":false,"code":"platform_unavailable","message":"The platform executor is not wired yet."}"""
+        }
+
+        fun result(ok: Boolean, code: String, message: String = ""): String =
+            buildJsonObject {
+                put("ok", ok)
+                put("code", code)
+                put("message", message)
+            }.toString()
     }
 }

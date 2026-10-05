@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex};
 use player_cas::open::{RegularOpen, SecureOpener};
 use player_cas::space::SpaceProbe;
 use player_cas::{ContentStore, LruByDomain, StorePolicy};
-use player_core::{ConfigurationOutcome, Dependencies, PairingError, PlayerCore};
+use player_core::{ConfigurationOutcome, Dependencies, ManifestPrepared, PairingError, PlayerCore};
 use player_state::repo::binding;
 use player_state::{OpenOptions, StateDb};
 use player_types::Timestamp;
@@ -25,8 +25,10 @@ use player_types::time::{SharedClock, WallClock};
 use crate::config_host::AndroidConfigHost;
 use crate::drivers::Drivers;
 use crate::jvm::Jvm;
+use crate::manifest_host::{AndroidManifestHost, PrepareError};
 use crate::pairing_host::{JvmMetadataSource, MetadataSource};
 use crate::paths::{CorePaths, core_paths};
+use crate::renderer::{AndroidRendererPort, JvmRendererPlatform, PresentationEngine, RendererSnapshot};
 use crate::stores::{JvmCredentialStore, JvmPairingStore, JvmStoreCalls, StoreCalls};
 
 /// Matches the Android media cache budget (`MEDIA_CACHE_BYTES`): 8 GiB of
@@ -168,8 +170,12 @@ pub struct AndroidHost {
     core: PlayerCore,
     _jvm: Option<Arc<Jvm>>,
     credentials: Arc<dyn player_client::CredentialStore>,
-    config: AndroidConfigHost,
+    config: Arc<AndroidConfigHost>,
+    cas: ContentStore,
     drivers: Drivers,
+    renderer: Arc<tokio::sync::Mutex<PresentationEngine>>,
+    renderer_broker: Arc<player_core::CaptureBroker>,
+    renderer_snapshot: Arc<Mutex<RendererSnapshot>>,
 }
 
 impl std::fmt::Debug for AndroidHost {
@@ -179,10 +185,13 @@ impl std::fmt::Debug for AndroidHost {
 }
 
 impl AndroidHost {
+    #[allow(clippy::too_many_arguments)]
     fn open(
         paths: CorePaths,
         calls: Arc<dyn StoreCalls>,
         meta: Arc<dyn MetadataSource>,
+        platform: Arc<dyn crate::commands::PlatformCommands>,
+        renderer_platform: Arc<dyn crate::renderer::RendererPlatform>,
         user_agent: String,
         jvm: Option<Arc<Jvm>>,
     ) -> Result<Self, HostError> {
@@ -202,7 +211,7 @@ impl AndroidHost {
                 paths.cas_dir.clone(),
                 paths.partial_dir.clone(),
                 state.clone(),
-                clock,
+                clock.clone(),
                 Arc::new(StatvfsProbe),
                 Arc::new(AndroidSecureOpener),
                 policy,
@@ -212,9 +221,58 @@ impl AndroidHost {
         let credentials: Arc<dyn player_client::CredentialStore> =
             Arc::new(JvmCredentialStore::new(Arc::clone(&calls)));
         let pairing = core.pairing(Arc::clone(&credentials), Arc::new(JvmPairingStore::new(calls)));
-        let config = AndroidConfigHost::new(paths.installed_config.clone(), cas);
-        let drivers = Drivers::new(pairing, meta, user_agent);
-        Ok(Self { paths, runtime, state, core, _jvm: jvm, credentials, config, drivers })
+        let config = Arc::new(AndroidConfigHost::new(paths.installed_config.clone(), cas.clone()));
+        let signals = Arc::new(crate::server_link::LinkSignals::default());
+        let renderer_snapshot = Arc::new(Mutex::new(RendererSnapshot::default()));
+        let renderer = Arc::new(tokio::sync::Mutex::new(PresentationEngine::new(
+            AndroidRendererPort::new(renderer_platform, cas.clone()),
+            clock.clone(),
+            renderer_snapshot.clone(),
+            signals.manifest_wake.clone(),
+            signals.manifest_item_boundary.clone(),
+            clock.now(),
+        )));
+        let renderer_broker = Arc::new(player_core::CaptureBroker::default());
+        let drivers = Drivers::new(
+            pairing,
+            Arc::clone(&meta),
+            user_agent,
+            crate::drivers::ServerLinkDeps {
+                core: core.clone(),
+                state: state.clone(),
+                config: Arc::clone(&config),
+                cas: cas.clone(),
+                credentials: Arc::clone(&credentials),
+                meta,
+                platform,
+                commands: Arc::new(std::sync::Mutex::new(None)),
+                state_dir: paths.root.clone(),
+                renderer_engine: renderer.clone(),
+                renderer_broker: renderer_broker.clone(),
+                renderer_snapshot: renderer_snapshot.clone(),
+                signals: signals.clone(),
+            },
+        );
+        // The engine reports through the same Activity channel the
+        // reporting driver drains.
+        let activity = drivers.activity();
+        runtime.block_on(async {
+            renderer.lock().await.set_activity(activity);
+        });
+        Ok(Self {
+            paths,
+            runtime,
+            state,
+            cas: cas.clone(),
+            core,
+            _jvm: jvm,
+            credentials,
+            config,
+            drivers,
+            renderer,
+            renderer_broker,
+            renderer_snapshot,
+        })
     }
 
     /// The coarse status snapshot shared with Kotlin (bridge contract v1).
@@ -226,13 +284,33 @@ impl AndroidHost {
             .ok()
             .flatten()
             .is_some_and(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
+        let signals = self.drivers.link_signals();
+        let link = signals.link_state.lock().unwrap_or_else(|error| error.into_inner()).clone();
+        let last_contact = *signals.last_server_contact.lock().unwrap_or_else(|error| error.into_inner());
+        let renderer = self.renderer_snapshot.lock().unwrap_or_else(|error| error.into_inner()).clone();
         serde_json::json!({
-            "bridge": 2,
+            "bridge": 3,
             "ok": true,
             "stateDb": self.paths.state_db.to_string_lossy(),
             "casDir": self.paths.cas_dir.to_string_lossy(),
             "paired": paired,
             "configRevision": self.config.accepted_revision(),
+            "linkState": link.state_token(),
+            "linkReason": link.reason_code(),
+            "lastServerContactAt": last_contact.map(|at| at.to_string()),
+            "renderer": {
+                "state": renderer.state,
+                "connected": renderer.connected,
+                "ready": renderer.ready,
+                "generation": renderer.generation,
+                "accepted": renderer.accepted,
+                "evidence": renderer.evidence,
+                "playing": renderer.playing,
+                "safeMode": renderer.safe_mode,
+                "incompatibleReason": renderer.incompatible_reason,
+                "lastError": renderer.last_error,
+                "currentItemId": renderer.current_item_id,
+            },
         })
     }
 
@@ -259,7 +337,7 @@ impl AndroidHost {
     pub fn start_drivers(&self) {
         if let Some(binding) = self.config_binding() {
             let coordinator = self.core.configuration();
-            let config = &self.config;
+            let config = self.config.as_ref();
             self.runtime.block_on(async move { coordinator.load_cached(&binding, config).await });
         }
         self.drivers.start(&self.runtime);
@@ -274,7 +352,7 @@ impl AndroidHost {
         let credential = self.credentials.load().ok().flatten().ok_or(HostError::NotPaired)?;
         let user_agent = self.user_agent().to_owned();
         let coordinator = self.core.configuration();
-        let config = &self.config;
+        let config = self.config.as_ref();
         let outcome = self.runtime.block_on(async move {
             let client = player_client::ServerClient::new(&binding.server_url, &user_agent)
                 .map_err(|_| HostError::SyncFailed)?;
@@ -308,6 +386,84 @@ impl AndroidHost {
         })
     }
 
+    /// One legacy Room/cache import into Core state. Idempotent: the
+    /// marker short-circuits repeats, and a crash mid-run retries to
+    /// completion. Kotlin calls this once at startup, off the main
+    /// thread, before starting Core drivers.
+    pub fn import_legacy(&self) -> serde_json::Value {
+        let files_dir = self.paths.root.parent().unwrap_or(&self.paths.root).to_path_buf();
+        let deps = crate::legacy_import::ImportDeps {
+            state: self.state.clone(),
+            core: self.core.clone(),
+            cas: self.cas.clone(),
+            config: Arc::clone(&self.config),
+            credentials: Arc::clone(&self.credentials),
+            clock: Arc::new(SystemClock),
+            files_dir,
+            core_root: self.paths.root.clone(),
+        };
+        let outcome = self.runtime.block_on(crate::legacy_import::import_legacy(&deps));
+        outcome.marker_json()
+    }
+
+    /// One manifest reconciliation against the bound server: fetch the
+    /// validated target, then prepare its verified content through the
+    /// renderer profile. Test tooling and (later) the manifest worker
+    /// call this directly; Kotlin calls it off the main thread.
+    pub fn sync_manifest(&self) -> Result<serde_json::Value, HostError> {
+        fn rejected(error: &player_client::ServerError) -> bool {
+            matches!(error, player_client::ServerError::CredentialRejected)
+        }
+        let binding = self.config_binding().ok_or(HostError::NotPaired)?;
+        let credential = self.credentials.load().ok().flatten().ok_or(HostError::NotPaired)?;
+        let user_agent = self.user_agent().to_owned();
+        let core = self.core.clone();
+        let cas = self.config.cas();
+        let manifest_wake = self.drivers.link_signals().manifest_wake.clone();
+        self.runtime.block_on(async move {
+            let client = player_client::ServerClient::new(&binding.server_url, &user_agent)
+                .map_err(|_| HostError::SyncFailed)?;
+            let server =
+                client.verify_installation(binding.installation_id, credential).await.map_err(|error| {
+                    if rejected(&error) { HostError::CredentialRejected } else { HostError::SyncFailed }
+                })?;
+            let host = AndroidManifestHost::new(core.clone(), cas, server);
+            let target = host.reconcile(&binding).await.map_err(|error| match &error {
+                player_core::ManifestSyncError::Server(server) if rejected(server) => {
+                    HostError::CredentialRejected
+                }
+                _ => HostError::SyncFailed,
+            })?;
+            let Some(target) = target else {
+                let version = core.manifests().persisted_target(&binding).await.map(|target| target.version);
+                return Ok(serde_json::json!({"ok": true, "outcome": "unchanged", "version": version}));
+            };
+            let version = target.version;
+            let prepared = host.prepare_target(&target).await;
+            // A new target may need selection now; notify after the
+            // store is updated so the driver's tick sees it.
+            manifest_wake.notify_one();
+            match prepared {
+                Ok(ManifestPrepared::Current) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "current", "version": version}))
+                }
+                Ok(ManifestPrepared::Repaired) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "repaired", "version": version}))
+                }
+                Ok(ManifestPrepared::Pending) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "prepared", "version": version}))
+                }
+                Ok(ManifestPrepared::Superseded) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "superseded", "version": version}))
+                }
+                Err(PrepareError::State) => Err(HostError::SyncFailed),
+                Err(error) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "failed", "reason": error.reason_code(), "version": version}))
+                }
+            }
+        })
+    }
+
     /// Begins a pairing session against `url`, blocking the caller while
     /// the session is created. Kotlin calls this off the main thread.
     pub fn begin_pairing(&self, url: &str) -> Result<(), HostError> {
@@ -329,8 +485,173 @@ impl AndroidHost {
         self.drivers.wake_pairing();
     }
 
+    /// Issues a presentation activation from a projected host message.
+    /// Refusals (unknown media, unverified content, oversized
+    /// projections) are ordinary outcomes with a machine reason, never
+    /// host errors. Kotlin calls this off the main thread.
+    pub fn activate_presentation(&self, json: &str) -> serde_json::Value {
+        let outcome = self.runtime.block_on(async {
+            let mut engine = self.renderer.lock().await;
+            let now = engine.clock().now();
+            engine.activate(json, now).await
+        });
+        match outcome {
+            Ok(outcome) => serde_json::json!({
+                "ok": true,
+                "activationId": outcome.activation_id,
+                "generation": outcome.generation,
+                "queued": outcome.queued,
+                "incompatibleReason": outcome.incompatible_reason,
+            }),
+            Err(error) => serde_json::json!({"ok": true, "outcome": "refused", "reason": error.code()}),
+        }
+    }
+
+    /// One renderer report: connection, readiness, acceptance,
+    /// evidence, errors, and capture answers. Stale generations and
+    /// unknown activations are ignored, never errors. Kotlin calls
+    /// this off the main thread.
+    pub fn renderer_report(&self, json: &str) -> i32 {
+        use renderer_report::{APPLIED, IGNORED, MALFORMED};
+        if json.is_empty() || json.len() > 8 * 1024 * 1024 {
+            return MALFORMED;
+        }
+        let report: serde_json::Value = match serde_json::from_str(json) {
+            Ok(report) => report,
+            Err(_) => return MALFORMED,
+        };
+        let kind = report.get("type").and_then(serde_json::Value::as_str).unwrap_or("");
+        if kind == "capture" {
+            return if crate::renderer::complete_capture(&self.renderer_broker, json) { APPLIED } else { IGNORED };
+        }
+        let Some(generation) = report.get("generation").and_then(serde_json::Value::as_i64) else {
+            return MALFORMED;
+        };
+        let activation = report.get("activationId").and_then(serde_json::Value::as_str).unwrap_or("");
+        let activation_generation = report.get("activationGeneration").and_then(serde_json::Value::as_u64).unwrap_or(0);
+        self.runtime.block_on(async {
+            let mut engine = self.renderer.lock().await;
+            let now = engine.clock().now();
+            let applied = match kind {
+                "connected" => {
+                    engine.renderer_connected(generation, now);
+                    true
+                }
+                "disconnected" => {
+                    engine.renderer_disconnected(generation);
+                    true
+                }
+                "ready" => match report.get("report") {
+                    Some(profile) => engine.renderer_ready(generation, profile).await,
+                    None => return MALFORMED,
+                },
+                "accepted" => engine.accepted(generation, activation, activation_generation),
+                "rejected" => engine.rejected(
+                    generation,
+                    activation,
+                    activation_generation,
+                    report.get("code").and_then(serde_json::Value::as_str),
+                ),
+                "progress" => {
+                    let Some(kind) = report.get("kind").and_then(serde_json::Value::as_str) else {
+                        return MALFORMED;
+                    };
+                    engine
+                        .progress(
+                            generation,
+                            activation,
+                            activation_generation,
+                            kind,
+                            report.get("itemId").and_then(serde_json::Value::as_str),
+                            report.get("zoneId").and_then(serde_json::Value::as_str),
+                            now,
+                        )
+                        .0
+                }
+                "error" => {
+                    let (Some(code), Some(message)) = (
+                        report.get("code").and_then(serde_json::Value::as_str),
+                        report.get("message").and_then(serde_json::Value::as_str),
+                    ) else {
+                        return MALFORMED;
+                    };
+                    engine.item_error(
+                        generation,
+                        activation,
+                        activation_generation,
+                        code,
+                        report.get("itemId").and_then(serde_json::Value::as_str),
+                        message,
+                    )
+                }
+                _ => return MALFORMED,
+            };
+            if applied { APPLIED } else { IGNORED }
+        })
+    }
+
+    /// Renderer recovery controls for commands and tests: `retry` runs
+    /// the next ladder rung at once, `clear_safe_mode` leaves safe
+    /// mode, and `clear` withdraws the current activation. Kotlin
+    /// calls this off the main thread.
+    pub fn renderer_recovery(&self, json: &str) -> serde_json::Value {
+        let action = serde_json::from_str::<serde_json::Value>(json)
+            .ok()
+            .and_then(|report| report.get("action").and_then(serde_json::Value::as_str).map(str::to_owned));
+        match action.as_deref() {
+            Some("retry") => {
+                let action = self.runtime.block_on(async {
+                    let mut engine = self.renderer.lock().await;
+                    let now = engine.clock().now();
+                    engine.retry_recovery(now).await
+                });
+                serde_json::json!({"ok": true, "action": heal_token(action)})
+            }
+            Some("clear_safe_mode") => {
+                let was = self.runtime.block_on(async {
+                    let mut engine = self.renderer.lock().await;
+                    let now = engine.clock().now();
+                    engine.clear_safe_mode(now)
+                });
+                serde_json::json!({"ok": true, "wasActive": was})
+            }
+            Some("clear") => {
+                let reason = serde_json::from_str::<serde_json::Value>(json)
+                    .ok()
+                    .and_then(|report| report.get("reason").and_then(serde_json::Value::as_str).map(str::to_owned))
+                    .unwrap_or_else(|| "cleared".to_owned());
+                self.runtime.block_on(async {
+                    self.renderer.lock().await.clear(&reason);
+                });
+                serde_json::json!({"ok": true})
+            }
+            _ => serde_json::json!({"ok": true, "outcome": "refused", "reason": "unknown_action"}),
+        }
+    }
+
     fn user_agent(&self) -> &str {
         self.drivers.user_agent()
+    }
+}
+
+/// The `rendererReport` answer codes, shared with Kotlin.
+pub mod renderer_report {
+    /// The report applied to the live connection and activation.
+    pub const APPLIED: i32 = 0;
+    /// A stale generation, unknown activation, or unanswerable
+    /// capture: received and dropped.
+    pub const IGNORED: i32 = 1;
+    /// The envelope itself was unreadable.
+    pub const MALFORMED: i32 = 2;
+}
+
+fn heal_token(action: player_core::HealAction) -> &'static str {
+    match action {
+        player_core::HealAction::None => "none",
+        player_core::HealAction::Reactivate => "reactivate",
+        player_core::HealAction::ReloadRenderer => "reload",
+        player_core::HealAction::RestartRenderer => "restart",
+        player_core::HealAction::EnterSafeMode => "safe_mode",
     }
 }
 
@@ -353,7 +674,10 @@ fn validated(user_agent: &str) -> Result<String, HostError> {
 pub fn open_host(files_dir: &Path, jvm: Arc<Jvm>, user_agent: &str) -> Result<i64, HostError> {
     let calls: Arc<dyn StoreCalls> = Arc::new(JvmStoreCalls::new(jvm.clone()));
     let meta: Arc<dyn MetadataSource> = Arc::new(JvmMetadataSource::new(jvm.clone()));
-    open_host_with(files_dir, calls, meta, user_agent, Some(jvm))
+    let platform: Arc<dyn crate::commands::PlatformCommands> =
+        Arc::new(crate::commands::JvmPlatformCommands::new(jvm.clone()));
+    let renderer: Arc<dyn crate::renderer::RendererPlatform> = Arc::new(JvmRendererPlatform::new(jvm.clone()));
+    open_host_with(files_dir, calls, meta, platform, renderer, user_agent, Some(jvm))
 }
 
 /// Opens the process host against abstract stores. Production uses
@@ -362,6 +686,8 @@ pub fn open_host_with(
     files_dir: &Path,
     calls: Arc<dyn StoreCalls>,
     meta: Arc<dyn MetadataSource>,
+    platform: Arc<dyn crate::commands::PlatformCommands>,
+    renderer: Arc<dyn crate::renderer::RendererPlatform>,
     user_agent: &str,
     jvm: Option<Arc<Jvm>>,
 ) -> Result<i64, HostError> {
@@ -373,7 +699,7 @@ pub fn open_host_with(
     if live.is_some() {
         return Err(HostError::AlreadyLive);
     }
-    let host = AndroidHost::open(core_paths(files_dir), calls, meta, user_agent, jvm)?;
+    let host = AndroidHost::open(core_paths(files_dir), calls, meta, platform, renderer, user_agent, jvm)?;
     *live = Some(Arc::new(host));
     Ok(LIVE_HANDLE)
 }
@@ -423,7 +749,14 @@ mod tests {
     fn rejects_relative_files_dir() {
         let calls: Arc<dyn StoreCalls> = Arc::new(crate::stores::MemStoreCalls::default());
         let meta: Arc<dyn MetadataSource> = Arc::new(crate::pairing_host::MemMetadataSource::with_facts("{}"));
-        assert!(matches!(open_host_with(Path::new("relative"), calls, meta, "ua", None), Err(HostError::FilesDir)));
+        let platform: Arc<dyn crate::commands::PlatformCommands> =
+            Arc::new(crate::commands::MemPlatformCommands::with_result("{}"));
+        let renderer: Arc<dyn crate::renderer::RendererPlatform> =
+            Arc::new(crate::renderer::MemRendererPlatform::default());
+        assert!(matches!(
+            open_host_with(Path::new("relative"), calls, meta, platform, renderer, "ua", None),
+            Err(HostError::FilesDir)
+        ));
     }
 
     #[test]
