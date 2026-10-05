@@ -555,10 +555,7 @@
       "playingLoading": "Loading confirmed playback",
       "attentionLoading": "Loading screens that need attention",
       "loading": "Loading fleet status",
-      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault.",
-      "onlineDetail": "Connected now",
-      "playingDetail": "Confirmed by the Player",
-      "attentionDetail": "Needs review"
+      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault."
     },
     "recap": {
       "single": {
