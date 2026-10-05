@@ -12,6 +12,7 @@ import {
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { playlistQueries } from "../data/playlists";
 import type {
   Asset,
   ContentDefinitionField,
@@ -49,16 +50,26 @@ it("shows future content and removes expired content without refetching", async 
     defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity } },
   });
   client.setQueryData(["settings"], { values: {} });
-  client.setQueryData(["playlists", "p1", "popup-preview"], {
+  client.setQueryData(playlistQueries.detail("p1").queryKey, {
     id: "p1",
     name: "Availability rotation",
+    description: "",
     revision: 1,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    itemCount: 1,
+    warnings: [],
+    layoutUsage: [],
     items: [
       {
         id: "image",
         assetId: "image",
+        position: 0,
         assetType: "image",
         assetStatus: "ready",
+        assetName: "Future image",
+        deliveryPolicy: "download",
+        thumbnailUrl: "",
         durationMs: 10000,
         fitMode: "contain",
         transition: "none",
