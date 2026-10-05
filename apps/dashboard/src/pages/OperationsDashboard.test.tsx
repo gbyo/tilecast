@@ -132,6 +132,19 @@ function renderPage() {
 
 const region = (name: string | RegExp) => screen.findByRole("region", { name });
 
+/** The one-sentence recap, once it has rendered. */
+const recap = () => screen.findByTestId("overview-recap");
+
+function fleetScreens(online: number, total: number) {
+  return Array.from({ length: total }, (_, index) =>
+    screenFixture({
+      id: `s${index}`,
+      name: `Screen ${String(index).padStart(2, "0")}`,
+      status: index < online ? "online" : "offline",
+    }),
+  );
+}
+
 beforeEach(() => {
   role = "owner";
 });
@@ -142,7 +155,217 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+describe("Overview recap", () => {
+  it("has one page heading, named Overview, and no visible subtitle", async () => {
+    mockAll();
+    renderPage();
+    await recap();
+    const h1 = screen.getAllByRole("heading", { level: 1 });
+    expect(h1).toHaveLength(1);
+    expect(h1[0]).toHaveTextContent("Overview");
+    expect(h1[0]).toHaveClass("sr-only");
+    expect(
+      screen.queryByText(/Player health, what’s on air/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("is a paragraph, not a heading, so it never competes with the page title", async () => {
+    mockAll();
+    renderPage();
+    const sentence = await recap();
+    expect(sentence.tagName).toBe("P");
+    expect(
+      screen.queryByRole("heading", { name: /screen.* online/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("answers conversationally when most of the fleet is online", async () => {
+    // Seven of ten online, three offline, and an update failure on one online
+    // screen: four screens need attention.
+    const screens = fleetScreens(7, 10);
+    screens[0] = { ...screens[0]!, updateError: "install_failed" };
+    mockAll({ screens });
+    renderPage();
+    expect(await recap()).toHaveTextContent(
+      "Most of your fleet is online, but 4 screens need attention.",
+    );
+  });
+
+  it("says nothing needs attention only by saying nothing about it", async () => {
+    mockAll({ screens: fleetScreens(2, 2) });
+    renderPage();
+    expect(await recap()).toHaveTextContent(/^All 2 screens are online\.$/);
+  });
+
+  it("adds attention to a fully online fleet", async () => {
+    const screens = fleetScreens(10, 10);
+    screens[3] = { ...screens[3]!, updateError: "install_failed" };
+    screens[4] = { ...screens[4]!, updateError: "install_failed" };
+    mockAll({ screens });
+    renderPage();
+    expect(await recap()).toHaveTextContent(
+      "All 10 screens are online, but 2 need attention.",
+    );
+  });
+
+  it("reports healthy playback when every screen is confirmed", async () => {
+    mockAll({ screens: fleetScreens(10, 10) });
+    vi.mocked(activity.getActivityOverview).mockResolvedValue(
+      overview(
+        {},
+        {
+          measured: 10,
+          online: 10,
+          healthy: 10,
+          impaired: 0,
+          offline: 0,
+          unmeasured: 0,
+        },
+      ) as never,
+    );
+    renderPage();
+    expect(
+      await screen.findByText(/reporting healthy playback/),
+    ).toHaveTextContent(
+      "All 10 screens are online and reporting healthy playback.",
+    );
+  });
+
+  it("calls out online screens that confirm no healthy playback", async () => {
+    mockAll({ screens: fleetScreens(10, 10) });
+    vi.mocked(activity.getActivityOverview).mockResolvedValue(
+      overview(
+        {},
+        {
+          measured: 10,
+          online: 10,
+          healthy: 0,
+          impaired: 4,
+          offline: 0,
+          unmeasured: 6,
+        },
+      ) as never,
+    );
+    renderPage();
+    expect(
+      await screen.findByText(/none is reporting healthy/),
+    ).toHaveTextContent(
+      "All 10 screens are online, but none is reporting healthy playback.",
+    );
+  });
+
+  it("omits playback when analytics are unavailable instead of reading zero", async () => {
+    mockAll({ screens: fleetScreens(10, 10) });
+    vi.mocked(activity.getActivityOverview).mockRejectedValue(new Error("x"));
+    renderPage();
+    const status = await screen.findByTestId("fleet-status");
+    await within(status).findByText("Unavailable");
+    expect(await recap()).toHaveTextContent(/^All 10 screens are online\.$/);
+  });
+
+  it("states the connection only while incidents are still loading", async () => {
+    mockAll({ screens: fleetScreens(7, 10) });
+    vi.mocked(activity.listIncidents).mockImplementation(never);
+    renderPage();
+    expect(await recap()).toHaveTextContent(/^Most of your fleet is online\.$/);
+  });
+
+  it("calls proven issues a minimum when incidents fail to load", async () => {
+    const screens = fleetScreens(7, 10);
+    screens[0] = { ...screens[0]!, updateError: "install_failed" };
+    screens[1] = { ...screens[1]!, updateError: "install_failed" };
+    mockAll({ screens });
+    vi.mocked(activity.listIncidents).mockRejectedValue(new Error("nope"));
+    renderPage();
+    expect(await screen.findByText(/at least/)).toHaveTextContent(
+      "Most of your fleet is online, but at least 5 screens need attention.",
+    );
+  });
+
+  it("does not claim a clean fleet when incidents fail and no issue is known", async () => {
+    mockAll({
+      screens: fleetScreens(7, 10).map((s) => ({
+        ...s,
+        status: "online" as const,
+      })),
+    });
+    vi.mocked(activity.listIncidents).mockRejectedValue(new Error("nope"));
+    renderPage();
+    await screen.findByText(/Incident details could not be loaded/);
+    expect(await recap()).toHaveTextContent(/^All 10 screens are online\.$/);
+  });
+
+  it("describes a partly online fleet with exact counts", async () => {
+    mockAll({ screens: fleetScreens(6, 10) });
+    renderPage();
+    expect(await recap()).toHaveTextContent(
+      "6 of 10 screens are online, and 4 need attention.",
+    );
+  });
+
+  it("says only a few screens are online when under a third are", async () => {
+    mockAll({ screens: fleetScreens(3, 10) });
+    renderPage();
+    expect(await recap()).toHaveTextContent(
+      "Only 3 of 10 screens are online, and 7 need attention.",
+    );
+  });
+
+  it("says no screens are online when none are", async () => {
+    mockAll({ screens: fleetScreens(0, 6) });
+    renderPage();
+    expect(await recap()).toHaveTextContent(
+      "No screens are online, and 6 need attention.",
+    );
+  });
+
+  it("shows no recap for an installation with no screens, but keeps the page title", async () => {
+    mockAll({ screens: [] });
+    renderPage();
+    await screen.findByText("No screens paired yet");
+    expect(screen.queryByTestId("overview-recap")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Overview" }),
+    ).toBeInTheDocument();
+  });
+
+  it("holds a one-line placeholder while screens load", async () => {
+    mockAll();
+    vi.spyOn(api, "screens").mockImplementation(never);
+    renderPage();
+    await screen.findByRole("status", { name: "Loading fleet status" });
+    expect(screen.queryByTestId("overview-recap")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Overview" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not invent a recap when the screen list fails", async () => {
+    mockAll();
+    vi.spyOn(api, "screens").mockRejectedValue(new Error("x"));
+    renderPage();
+    await screen.findByText("Player status could not be loaded");
+    expect(screen.queryByTestId("overview-recap")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Overview" }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Overview fleet status", () => {
+  it("names the Fleet status region with a stable heading, not a second recap", async () => {
+    mockAll({ screens: fleetScreens(7, 10) });
+    renderPage();
+    const status = await screen.findByTestId("fleet-status");
+    expect(status).toHaveAccessibleName("Fleet status");
+    expect(
+      within(status).getByRole("heading", { level: 2, name: "Fleet status" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /need attention|are online/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("collapses a healthy fleet into one headline and no attention section", async () => {
     mockAll({
       screens: [
@@ -151,9 +374,7 @@ describe("Overview fleet status", () => {
       ],
     });
     renderPage();
-    expect(
-      await screen.findByRole("heading", { name: "All 2 screens are online" }),
-    ).toBeInTheDocument();
+    expect(await recap()).toHaveTextContent("All 2 screens are online.");
     expect(
       screen.queryByRole("region", { name: "Needs attention" }),
     ).not.toBeInTheDocument();
@@ -172,11 +393,9 @@ describe("Overview fleet status", () => {
       ],
     });
     renderPage();
-    expect(
-      await screen.findByRole("heading", {
-        name: "2 of 4 screens need attention",
-      }),
-    ).toBeInTheDocument();
+    expect(await recap()).toHaveTextContent(
+      "Only 1 of 4 screens is online, and 2 need attention.",
+    );
     const attention = await region("Needs attention");
     expect(within(attention).getByText("Library")).toBeInTheDocument();
     expect(within(attention).getByText("Offline")).toBeInTheDocument();
@@ -201,9 +420,9 @@ describe("Overview fleet status", () => {
       within(attention).getByText("Player update failed"),
     ).toBeInTheDocument();
     expect(within(attention).queryByText("Online")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "1 of 1 screens needs attention" }),
-    ).toBeInTheDocument();
+    expect(await recap()).toHaveTextContent(
+      "Your screen is online, but it needs attention.",
+    );
   });
 
   it("adds playback problems from active incidents", async () => {
@@ -224,9 +443,7 @@ describe("Overview fleet status", () => {
     expect(
       await screen.findByText(/Incident details could not be loaded/),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Your screen is online" }),
-    ).toBeInTheDocument();
+    expect(await recap()).toHaveTextContent("Your screen is online.");
   });
 
   it("shows the Player-confirmed playing count, not a guess", async () => {
@@ -238,17 +455,6 @@ describe("Overview fleet status", () => {
         name: /Playing: 3 of 4 screens in service/,
       }),
     ).toHaveAttribute("href", "/activity");
-  });
-
-  it("keeps fleet figures visually compact without redundant detail copy", async () => {
-    mockAll();
-    renderPage();
-    const status = await screen.findByTestId("fleet-status");
-    expect(within(status).queryByText("Connected now")).not.toBeInTheDocument();
-    expect(
-      within(status).queryByText("Confirmed by the Player"),
-    ).not.toBeInTheDocument();
-    expect(within(status).queryByText("Needs review")).not.toBeInTheDocument();
   });
 
   it("draws a trend line per figure only from measured uptime hours", async () => {
@@ -664,7 +870,7 @@ describe("Overview layout order", () => {
       .getAllByRole("heading", { level: 2 })
       .map((heading) => heading.textContent);
     expect(order).toEqual([
-      "1 of 1 screens needs attention",
+      "Fleet status",
       "Needs attention",
       "On air now",
       "Coming up",

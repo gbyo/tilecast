@@ -526,7 +526,6 @@
   },
   "operations": {
     "title": "Resumen",
-    "subtitle": "Salud del reproductor, lo que está al aire y lo que requiere atención.",
     "statusLabel": "Estado actual",
     "loadFailed": "No se pudo cargar el estado del reproductor",
     "emptyTitle": "Aún no hay pantallas vinculadas",
@@ -565,13 +564,6 @@
     "noDeployments": "Aún no hay implementaciones. Las versiones publicadas aparecen en el centro de actualizaciones.",
     "fleet": {
       "label": "Estado de la flota",
-      "allOnline_one": "Tu pantalla está en línea",
-      "allOnline_many": "Todas las {{count}} pantallas están en línea",
-      "allOnline_other": "Todas las {{count}} pantallas están en línea",
-      "needAttention_one": "{{count}} de {{total}} pantallas requiere atención",
-      "needAttention_many": "{{count}} de {{total}} pantallas requieren atención",
-      "needAttention_other": "{{count}} de {{total}} pantallas requieren atención",
-      "someOnline": "{{online}} de {{total}} pantallas en línea",
       "liveNote": "Estado en vivo, actualizado cada 10 segundos.",
       "online": "En línea",
       "playing": "Reproduciendo",
@@ -582,10 +574,83 @@
       "playingLoading": "Cargando la reproducción confirmada",
       "attentionLoading": "Cargando las pantallas que requieren atención",
       "loading": "Cargando el estado de la flota",
-      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales.",
-      "onlineDetail": "Conectadas ahora",
-      "playingDetail": "Confirmado por el reproductor",
-      "attentionDetail": "Requiere revisión"
+      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales."
+    },
+    "recap": {
+      "single": {
+        "online": "Tu pantalla está en línea.",
+        "onlineAttention": "Tu pantalla está en línea, pero requiere atención.",
+        "notOnline": "Tu pantalla no está en línea.",
+        "notOnlineAttention": "Tu pantalla no está en línea y requiere atención.",
+        "healthyPlayback": "Tu pantalla está en línea y notifica una reproducción correcta.",
+        "noHealthyPlayback": "Tu pantalla está en línea, pero no notifica una reproducción correcta."
+      },
+      "allOnlineHealthyPlayback_one": "Todas las {{count}} pantallas están en línea y notifican una reproducción correcta.",
+      "allOnlineHealthyPlayback_many": "Todas las {{count}} pantallas están en línea y notifican una reproducción correcta.",
+      "allOnlineHealthyPlayback_other": "Todas las {{count}} pantallas están en línea y notifican una reproducción correcta.",
+      "allOnlineNoHealthyPlayback_one": "Todas las {{count}} pantallas están en línea, pero ninguna notifica una reproducción correcta.",
+      "allOnlineNoHealthyPlayback_many": "Todas las {{count}} pantallas están en línea, pero ninguna notifica una reproducción correcta.",
+      "allOnlineNoHealthyPlayback_other": "Todas las {{count}} pantallas están en línea, pero ninguna notifica una reproducción correcta.",
+      "allOnline": {
+        "plain_one": "Todas las {{count}} pantallas están en línea.",
+        "plain_many": "Todas las {{count}} pantallas están en línea.",
+        "plain_other": "Todas las {{count}} pantallas están en línea.",
+        "attention_one": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_many": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_many": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "Todas las {{count}} pantallas están en línea, pero $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "mostOnline": {
+        "plain": "La mayor parte de tu flota está en línea.",
+        "attention": "La mayor parte de tu flota está en línea, pero $t(operations.recap.parts.attentionScreens, {\"count\": {{attention}} }).",
+        "atLeast": "La mayor parte de tu flota está en línea, pero $t(operations.recap.parts.atLeastScreens, {\"count\": {{attention}} })."
+      },
+      "someOnline": {
+        "plain_one": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea.",
+        "plain_many": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea.",
+        "plain_other": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea.",
+        "attention_one": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_many": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_many": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "{{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "fewOnline": {
+        "plain_one": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea.",
+        "plain_many": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea.",
+        "plain_other": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea.",
+        "attention_one": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_many": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) está en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_many": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "Solo {{count}} de $t(operations.recap.parts.screens, {\"count\": {{total}} }) están en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "noneOnline": {
+        "plain": "Ninguna pantalla está en línea.",
+        "attention": "Ninguna pantalla está en línea, y $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast": "Ninguna pantalla está en línea, y $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "parts": {
+        "attention_one": "{{count}} requiere atención",
+        "attention_many": "{{count}} requieren atención",
+        "attention_other": "{{count}} requieren atención",
+        "attentionScreens_one": "{{count}} pantalla requiere atención",
+        "attentionScreens_many": "{{count}} pantallas requieren atención",
+        "attentionScreens_other": "{{count}} pantallas requieren atención",
+        "atLeast_one": "al menos {{count}} requiere atención",
+        "atLeast_many": "al menos {{count}} requieren atención",
+        "atLeast_other": "al menos {{count}} requieren atención",
+        "atLeastScreens_one": "al menos {{count}} pantalla requiere atención",
+        "atLeastScreens_many": "al menos {{count}} pantallas requieren atención",
+        "atLeastScreens_other": "al menos {{count}} pantallas requieren atención",
+        "screens_one": "{{count}} pantalla",
+        "screens_many": "{{count}} de pantallas",
+        "screens_other": "{{count}} pantallas"
+      }
     },
     "attention": {
       "title": "Requieren atención",

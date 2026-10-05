@@ -8,8 +8,8 @@ type ScreensT = TFunction<"screens", undefined>;
 
 /**
  * The row actions shared by the screen grid cards and the fleet table:
- * open, restart, edit details, assign content, show now, and the sync
- * group link. Both surfaces render the same list through ActionMenu so
+ * open, restart, edit details, assign content, show now, sync group, and
+ * archive. Both surfaces render the same list through ActionMenu so
  * the browser dropdown and the native menu stay identical; the grid
  * keeps its own trigger label and hides management actions from viewers.
  */
@@ -19,12 +19,14 @@ export function screenRowActionGroups({
   navigate,
   csrfToken,
   canManage,
+  onArchive,
 }: {
   screen: Screen;
   t: ScreensT;
   navigate: NavigateFunction;
   csrfToken: string;
   canManage: boolean;
+  onArchive?: () => void;
 }): StudioActionGroup[] {
   const primary: StudioActionGroup["actions"] = [
     {
@@ -80,5 +82,17 @@ export function screenRowActionGroups({
         },
       ]
     : [];
-  return [{ actions: primary }, { actions: group }];
+  const destructive: StudioActionGroup["actions"] =
+    canManage && onArchive
+      ? [
+          {
+            id: "archive",
+            label: t("detail.archiveMenuAction"),
+            icon: "archive",
+            role: "destructive",
+            onSelect: onArchive,
+          },
+        ]
+      : [];
+  return [{ actions: primary }, { actions: group }, { actions: destructive }];
 }

@@ -509,7 +509,6 @@
   },
   "operations": {
     "title": "Overview",
-    "subtitle": "Player health, what’s on air, and what needs attention.",
     "statusLabel": "Current status",
     "loadFailed": "Player status could not be loaded",
     "emptyTitle": "No screens paired yet",
@@ -546,11 +545,6 @@
     "noDeployments": "No deployments yet. Published player releases appear in the update center.",
     "fleet": {
       "label": "Fleet status",
-      "allOnline_one": "Your screen is online",
-      "allOnline_other": "All {{count}} screens are online",
-      "needAttention_one": "{{count}} of {{total}} screens needs attention",
-      "needAttention_other": "{{count}} of {{total}} screens need attention",
-      "someOnline": "{{online}} of {{total}} screens online",
       "liveNote": "Live status, refreshed every 10 seconds.",
       "online": "Online",
       "playing": "Playing",
@@ -561,10 +555,67 @@
       "playingLoading": "Loading confirmed playback",
       "attentionLoading": "Loading screens that need attention",
       "loading": "Loading fleet status",
-      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault.",
-      "onlineDetail": "Connected now",
-      "playingDetail": "Confirmed by the Player",
-      "attentionDetail": "Needs review"
+      "scopeNote": "Online is the live connection. Playing is confirmed by the Player, with no current fault."
+    },
+    "recap": {
+      "single": {
+        "online": "Your screen is online.",
+        "onlineAttention": "Your screen is online, but it needs attention.",
+        "notOnline": "Your screen isn’t online.",
+        "notOnlineAttention": "Your screen isn’t online, and it needs attention.",
+        "healthyPlayback": "Your screen is online and reporting healthy playback.",
+        "noHealthyPlayback": "Your screen is online, but it isn’t reporting healthy playback."
+      },
+      "allOnlineHealthyPlayback_one": "All {{count}} screens are online and reporting healthy playback.",
+      "allOnlineHealthyPlayback_other": "All {{count}} screens are online and reporting healthy playback.",
+      "allOnlineNoHealthyPlayback_one": "All {{count}} screens are online, but none is reporting healthy playback.",
+      "allOnlineNoHealthyPlayback_other": "All {{count}} screens are online, but none is reporting healthy playback.",
+      "allOnline": {
+        "plain_one": "All {{count}} screens are online.",
+        "plain_other": "All {{count}} screens are online.",
+        "attention_one": "All {{count}} screens are online, but $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "All {{count}} screens are online, but $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "All {{count}} screens are online, but $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "All {{count}} screens are online, but $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "mostOnline": {
+        "plain": "Most of your fleet is online.",
+        "attention": "Most of your fleet is online, but $t(operations.recap.parts.attentionScreens, {\"count\": {{attention}} }).",
+        "atLeast": "Most of your fleet is online, but $t(operations.recap.parts.atLeastScreens, {\"count\": {{attention}} })."
+      },
+      "someOnline": {
+        "plain_one": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online.",
+        "plain_other": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online.",
+        "attention_one": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online, and $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online, and $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online, and $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "{{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online, and $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "fewOnline": {
+        "plain_one": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online.",
+        "plain_other": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online.",
+        "attention_one": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online, and $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "attention_other": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online, and $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast_one": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) is online, and $t(operations.recap.parts.atLeast, {\"count\": {{attention}} }).",
+        "atLeast_other": "Only {{count}} of $t(operations.recap.parts.screens, {\"count\": {{total}} }) are online, and $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "noneOnline": {
+        "plain": "No screens are online.",
+        "attention": "No screens are online, and $t(operations.recap.parts.attention, {\"count\": {{attention}} }).",
+        "atLeast": "No screens are online, and $t(operations.recap.parts.atLeast, {\"count\": {{attention}} })."
+      },
+      "parts": {
+        "attention_one": "{{count}} needs attention",
+        "attention_other": "{{count}} need attention",
+        "attentionScreens_one": "{{count}} screen needs attention",
+        "attentionScreens_other": "{{count}} screens need attention",
+        "atLeast_one": "at least {{count}} needs attention",
+        "atLeast_other": "at least {{count}} need attention",
+        "atLeastScreens_one": "at least {{count}} screen needs attention",
+        "atLeastScreens_other": "at least {{count}} screens need attention",
+        "screens_one": "{{count}} screen",
+        "screens_other": "{{count}} screens"
+      }
     },
     "attention": {
       "title": "Needs attention",
