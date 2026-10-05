@@ -96,7 +96,7 @@ When a feature is translated, accessibility labels, descriptions, status text, a
 
 If Tilecast prevents you from completing a task or makes a task unnecessarily difficult because of an accessibility barrier, please report it.
 
-Open a [UI/UX issue](https://github.com/gbyo/tilecast/issues/new?template=ui_ux_issue.md) or a regular [GitHub issue](https://github.com/gbyo/tilecast/issues/new).
+Open a [UI/UX issue](https://github.com/gbyo/tilecast/issues/new?template=ui_ux_issue.yml) or a regular [GitHub issue](https://github.com/gbyo/tilecast/issues/new).
 
 Include whatever information you are comfortable providing. Helpful details include:
 
