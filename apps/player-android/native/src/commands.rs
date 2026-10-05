@@ -144,6 +144,8 @@ pub struct AndroidCommandHandlers {
     signals: Arc<LinkSignals>,
     platform: Arc<dyn PlatformCommands>,
     status: CommandStatus,
+    engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
+    renderer: Arc<std::sync::Mutex<crate::renderer::RendererSnapshot>>,
 }
 
 impl AndroidCommandHandlers {
@@ -156,8 +158,10 @@ impl AndroidCommandHandlers {
         signals: Arc<LinkSignals>,
         platform: Arc<dyn PlatformCommands>,
         status: CommandStatus,
+        engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
+        renderer: Arc<std::sync::Mutex<crate::renderer::RendererSnapshot>>,
     ) -> Self {
-        Self { state, clock, cas, config, signals, platform, status }
+        Self { state, clock, cas, config, signals, platform, status, engine, renderer }
     }
 
     fn record(&self, id: &str, state: &str, result: &str, completed_at: &str) {
@@ -219,8 +223,23 @@ impl AndroidCommandHandlers {
         }
     }
 
+    /// Sends a playback command to a ready renderer. The renderer's
+    /// evidence, not this answer, shows its effect.
+    async fn renderer_command(
+        &self,
+        command: player_core::SemanticRendererCommand,
+        code: &'static str,
+        message: &'static str,
+    ) -> CommandResult {
+        if self.engine.lock().await.renderer_command(command) {
+            CommandResult::ok(code, message)
+        } else {
+            CommandResult::failed("renderer_not_ready", "No renderer is connected.")
+        }
+    }
+
     async fn platform(&self, command: &ServerCommand) -> CommandResult {
-        let request = serde_json::json!({"type": command.command_type, "payload": command.payload});
+        let request = serde_json::json!({"id": command.id, "type": command.command_type, "payload": command.payload});
         let platform = self.platform.clone();
         let answer = tokio::task::spawn_blocking(move || platform.execute(&request.to_string()))
             .await
@@ -233,13 +252,44 @@ impl AndroidCommandHandlers {
         platform_result(&answer)
     }
 
+    /// Whether the current activation is a takeover: Power Assist
+    /// sleep and update installation defer while one is on screen.
+    async fn takeover_active(&self) -> bool {
+        self.engine
+            .lock()
+            .await
+            .current_activation()
+            .and_then(|active| active.identity)
+            .is_some_and(|identity| identity.takeover_id.is_some())
+    }
+
+    /// The identify overlay text: the screen name, its configured
+    /// location, and the short screen id, as the legacy player showed.
+    async fn identify_text(&self) -> String {
+        let bound = self.state.run(|connection| player_state::repo::binding::get(connection)).await.ok().flatten();
+        let playback = self.config.effective().map(|config| config.runtime.playback.clone()).unwrap_or_default();
+        let mut text =
+            bound.as_ref().and_then(|bound| bound.screen_name.clone()).unwrap_or_else(|| "Tilecast screen".to_owned());
+        if playback.identify_shows_location && !playback.screen_location.is_empty() {
+            text.push('\n');
+            text.push_str(&playback.screen_location);
+        }
+        if let Some(id) = bound.as_ref().and_then(|bound| bound.screen_id.map(|id| id.to_string())) {
+            // Canonical UUIDs are ASCII; the short id is the last 8 chars.
+            let short = id.get(id.len().saturating_sub(8)..).unwrap_or(&id);
+            text.push('\n');
+            text.push_str(short);
+        }
+        text
+    }
+
     async fn self_test(&self) -> CommandResult {
         let mut results = Vec::new();
         let state_ok = self.state.run(|connection| Ok(connection.execute_batch("SELECT 1")?)).await.is_ok();
         results.push(if state_ok { "state:ok" } else { "state:failed" });
         results.push(if self.cas.usage().await.is_ok() { "cache:ok" } else { "cache:failed" });
-        // No renderer adapter exists until PR2b-5c; the probe names that.
-        results.push("renderer:unconnected");
+        let snapshot = self.renderer.lock().unwrap_or_else(|error| error.into_inner()).clone();
+        results.push(if snapshot.connected && snapshot.ready { "renderer:connected" } else { "renderer:unconnected" });
         let link = self.signals.link_state.lock().unwrap_or_else(|error| error.into_inner()).state_token();
         results.push(match link {
             "connected" => "server:connected",
@@ -285,6 +335,8 @@ impl player_core::Handlers for AndroidCommandHandlers {
 
     async fn run(&self, command: &ServerCommand) -> CommandResult {
         self.record(&command.id.to_string(), "running", "", "");
+        // Renderer commands run against the engine: only true OS
+        // effects (power, updates, restarts) cross to Kotlin.
         let result = match command.command_type.as_str() {
             "sync_now" | "resynchronize_player" => self.synchronize().await,
             "disable_playback" => match self.set_playback_disabled(true).await {
@@ -297,6 +349,87 @@ impl player_core::Handlers for AndroidCommandHandlers {
             },
             "clear_media_cache" => self.clear_media_cache().await,
             "run_player_self_test" => self.self_test().await,
+            "reload_playback" | "recreate_playback_session" => {
+                let code = if command.command_type == "reload_playback" {
+                    "playback_reloaded"
+                } else {
+                    "playback_session_recreated"
+                };
+                let now = self.clock.now();
+                if self.engine.lock().await.reload_current(now).await {
+                    CommandResult::ok(code, "")
+                } else {
+                    CommandResult::failed("reload_failed", "No presentation is active.")
+                }
+            }
+            "retry_current_item" => {
+                self.renderer_command(
+                    player_core::SemanticRendererCommand::RetryItem,
+                    "current_item_retried",
+                    "The current item was restarted.",
+                )
+                .await
+            }
+            "skip_current_item" => {
+                self.renderer_command(
+                    player_core::SemanticRendererCommand::SkipItem,
+                    "current_item_skipped",
+                    "The player advanced to the next item.",
+                )
+                .await
+            }
+            "clear_website_data" => {
+                self.renderer_command(
+                    player_core::SemanticRendererCommand::ClearWebsiteData,
+                    "website_data_cleared",
+                    "Website data was cleared.",
+                )
+                .await
+            }
+            "recreate_renderer" => {
+                if self.engine.lock().await.restart_renderer("command") {
+                    CommandResult::ok("renderer_recreated", "The playback renderer is being recreated.")
+                } else {
+                    CommandResult::failed("renderer_not_ready", "No renderer is connected.")
+                }
+            }
+            "retry_player_recovery" => {
+                let now = self.clock.now();
+                let action = self.engine.lock().await.retry_recovery(now).await;
+                CommandResult::ok("player_recovery_retried", &format!("Recovery ran: {action:?}."))
+            }
+            "exit_safe_mode" => {
+                let now = self.clock.now();
+                let was = self.engine.lock().await.clear_safe_mode(now);
+                CommandResult::ok(
+                    "safe_mode_exited",
+                    if was { "Safe mode was cleared." } else { "Safe mode was not active." },
+                )
+            }
+            "identify_screen" => {
+                let seconds = command
+                    .payload
+                    .get("durationSeconds")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(30)
+                    .clamp(1, 300) as u32;
+                let name = self.identify_text().await;
+                if self.engine.lock().await.identify(&name, seconds) {
+                    CommandResult::ok("screen_identified", "Identification is showing on screen.")
+                } else {
+                    CommandResult::failed("renderer_not_ready", "No renderer is connected.")
+                }
+            }
+            "power_assist_sleep" => {
+                if self.takeover_active().await {
+                    CommandResult::failed(
+                        "power_assist_deferred_takeover",
+                        "Power Assist sleep was delayed by takeover playback.",
+                    )
+                } else {
+                    self.platform(command).await
+                }
+            }
             _ => self.platform(command).await,
         };
         let completed_at = self.clock.now().to_string();
@@ -321,7 +454,8 @@ impl player_core::Handlers for AndroidCommandHandlers {
         // The result is durable; the process restart is the execution.
         // A missed upcall still restarts nothing twice: the coordinator
         // never calls disrupt twice for one idempotency key.
-        let request = serde_json::json!({"type": command.command_type, "payload": command.payload}).to_string();
+        let request =
+            serde_json::json!({"id": command.id, "type": command.command_type, "payload": command.payload}).to_string();
         let _ = self.platform.execute(&request);
     }
 }
@@ -345,7 +479,12 @@ mod tests {
     async fn scratch(
         dir: &std::path::Path,
         platform_result: &str,
-    ) -> (AndroidCommandHandlers, Arc<MemPlatformCommands>, CommandStatus) {
+    ) -> (
+        AndroidCommandHandlers,
+        Arc<MemPlatformCommands>,
+        CommandStatus,
+        Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
+    ) {
         std::fs::create_dir_all(dir).expect("scratch dir");
         let db = StateDb::open(dir.join("state.db"), OpenOptions::default()).expect("state");
         let clock = std::sync::Arc::new(crate::host::SystemClock);
@@ -364,6 +503,18 @@ mod tests {
         let config = Arc::new(AndroidConfigHost::new(dir.join("installed-config.json"), store.clone()));
         let platform = Arc::new(MemPlatformCommands::with_result(platform_result));
         let status: CommandStatus = Arc::new(Mutex::new(None));
+        let snapshot = Arc::new(Mutex::new(crate::renderer::RendererSnapshot::default()));
+        let engine = Arc::new(tokio::sync::Mutex::new(crate::renderer::PresentationEngine::new(
+            crate::renderer::AndroidRendererPort::new(
+                Arc::new(crate::renderer::MemRendererPlatform::default()),
+                store.clone(),
+            ),
+            std::sync::Arc::new(crate::host::SystemClock),
+            snapshot.clone(),
+            Arc::new(tokio::sync::Notify::new()),
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            player_types::Timestamp::from_unix_millis(1_700_000_000_000).expect("test clock"),
+        )));
         let handlers = AndroidCommandHandlers::new(
             db,
             clock,
@@ -372,14 +523,16 @@ mod tests {
             Arc::new(LinkSignals::default()),
             platform.clone(),
             status.clone(),
+            engine.clone(),
+            snapshot,
         );
-        (handlers, platform, status)
+        (handlers, platform, status, engine)
     }
 
     #[tokio::test]
     async fn plan_routes_disruptive_runnable_and_unknown() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
+        let (handlers, _, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
         assert!(matches!(handlers.plan(&command("restart_player_process")), player_core::Plan::Disruptive));
         for known in [
             "sync_now",
@@ -421,7 +574,7 @@ mod tests {
     #[tokio::test]
     async fn playback_disable_round_trip_persists_and_records() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, platform, status) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
+        let (handlers, platform, status, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
         let disabled = handlers.run(&command("disable_playback")).await;
         assert!(disabled.success);
         assert_eq!(disabled.code, "playback_disabled");
@@ -440,27 +593,85 @@ mod tests {
     #[tokio::test]
     async fn platform_commands_cross_with_type_and_payload() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, platform, status) =
-            scratch(dir.path(), r#"{"ok":true,"code":"screen_identified","message":"shown"}"#).await;
-        let mut identify = command("identify_screen");
-        identify.payload.insert("durationSeconds".to_owned(), serde_json::json!(30));
-        let result = handlers.run(&identify).await;
+        let (handlers, platform, status, _) =
+            scratch(dir.path(), r#"{"ok":true,"code":"wake_sent","message":"sent"}"#).await;
+        let result = handlers.run(&command("power_assist_wake")).await;
         assert!(result.success);
-        assert_eq!(result.code, "screen_identified");
+        assert_eq!(result.code, "wake_sent");
         let requests = platform.requests();
         assert_eq!(requests.len(), 1);
         let request: serde_json::Value = serde_json::from_str(&requests[0]).expect("request json");
-        assert_eq!(request["type"], "identify_screen");
-        assert_eq!(request["payload"]["durationSeconds"], 30);
+        assert_eq!(request["type"], "power_assist_wake");
         let last = status.lock().expect("lock").clone().expect("recorded");
-        assert_eq!(last.result, "screen_identified");
+        assert_eq!(last.result, "wake_sent");
+    }
+
+    #[tokio::test]
+    async fn renderer_commands_never_reach_the_platform() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (handlers, platform, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
+        // No renderer is connected and nothing is active: every
+        // renderer command answers from the engine, honestly refused.
+        for (command_type, code) in [
+            ("retry_current_item", "renderer_not_ready"),
+            ("skip_current_item", "renderer_not_ready"),
+            ("identify_screen", "renderer_not_ready"),
+            ("clear_website_data", "renderer_not_ready"),
+            ("reload_playback", "reload_failed"),
+            ("recreate_playback_session", "reload_failed"),
+            ("recreate_renderer", "renderer_not_ready"),
+        ] {
+            let result = handlers.run(&command(command_type)).await;
+            assert!(!result.success, "{command_type}");
+            assert_eq!(result.code, code, "{command_type}");
+        }
+        // Recovery controls always answer: safe mode simply was not on.
+        let retried = handlers.run(&command("retry_player_recovery")).await;
+        assert!(retried.success);
+        assert_eq!(retried.code, "player_recovery_retried");
+        let exited = handlers.run(&command("exit_safe_mode")).await;
+        assert!(exited.success);
+        assert_eq!(exited.code, "safe_mode_exited");
+        assert!(platform.requests().is_empty(), "no platform upcalls");
+    }
+
+    #[tokio::test]
+    async fn takeover_defers_power_assist_sleep() {
+        use player_types::Sha256Digest;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (handlers, platform, _, engine) =
+            scratch(dir.path(), r#"{"ok":true,"code":"sleep_sent","message":"sent"}"#).await;
+        // No takeover: sleep crosses to the platform.
+        let awake = handlers.run(&command("power_assist_sleep")).await;
+        assert!(awake.success);
+        assert_eq!(awake.code, "sleep_sent");
+        // A takeover activation defers sleep without an upcall.
+        let request = serde_json::json!({
+            "envelope": {"presentation": {"state": "playing", "items": []}},
+            "content": [],
+            "source": "server_manifest",
+            "identity": {
+                "manifest": Sha256Digest::of(b"manifest").to_hex(),
+                "manifestVersion": 8,
+                "selectionSource": "takeover",
+                "playlistId": "33333333-3333-3333-3333-333333333333",
+                "takeoverId": "55555555-5555-5555-5555-555555555555",
+            },
+            "clockOffsetMs": 0,
+        });
+        let now = player_types::Timestamp::from_unix_millis(1_700_000_000_000).expect("time");
+        engine.lock().await.activate(&request.to_string(), now).await.expect("activate");
+        let deferred = handlers.run(&command("power_assist_sleep")).await;
+        assert!(!deferred.success);
+        assert_eq!(deferred.code, "power_assist_deferred_takeover");
+        assert_eq!(platform.requests().len(), 1, "only the first sleep crossed");
     }
 
     #[tokio::test]
     async fn unreadable_platform_answers_fail_closed() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, _, _) = scratch(dir.path(), "not json").await;
-        let result = handlers.run(&command("identify_screen")).await;
+        let (handlers, _, _, _) = scratch(dir.path(), "not json").await;
+        let result = handlers.run(&command("power_assist_wake")).await;
         assert!(!result.success);
         assert_eq!(result.code, "platform_failed");
     }
@@ -468,7 +679,7 @@ mod tests {
     #[tokio::test]
     async fn self_test_names_state_cache_and_link() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
+        let (handlers, _, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
         let result = handlers.run(&command("run_player_self_test")).await;
         assert!(result.success, "{result:?}");
         assert_eq!(result.code, "self_test_passed");
@@ -481,7 +692,7 @@ mod tests {
     #[tokio::test]
     async fn disruption_prepares_only_the_process_restart() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let (handlers, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
+        let (handlers, _, _, _) = scratch(dir.path(), r#"{"ok":true,"code":"ok","message":""}"#).await;
         let initiated = handlers.prepare_disruption(&command("restart_player_process")).await.expect("restart");
         assert_eq!(initiated.code, "process_restart_requested");
         assert!(handlers.prepare_disruption(&command("sync_now")).await.is_err());

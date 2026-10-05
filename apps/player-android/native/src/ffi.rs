@@ -10,11 +10,14 @@
 //! | `nativeStartCore(handle)` | `0` started, `1` bad handle, `2` not live |
 //! | `nativeBeginPairing(handle, url)` | Always a JSON envelope (errors inside) |
 //! | `nativeResetPairing(handle)` | `0` reset, `1` bad handle, `2` not live |
+//! | `nativeResetServer(handle)` | `0` reset, `1` bad handle, `2` not live |
 //! | `nativeClose(handle)` | `0` closed, `1` bad handle, `2` not live |
 //! | `nativeInitTls(context)` | `0` ready, `1` failed, `2` non-Android |
 //! | `nativeQualifyCas(filesDir)` | CAS checklist JSON (instrumented tests only) |
 //! | `nativeSyncConfig(handle)` | One config reconcile as a JSON envelope |
 //! | `nativeSyncManifest(handle)` | One manifest sync as a JSON envelope |
+//! | `nativeFetchIdentity(handle, url)` | Public server identity as a JSON envelope |
+//! | `nativeBackgroundLiveness(handle)` | One background liveness ping as a JSON envelope |
 //! | `nativeActivatePresentation(handle, json)` | Activation outcome as a JSON envelope |
 //! | `nativeRendererReport(handle, json)` | `0` applied, `1` ignored, `2` malformed, `3` bad handle |
 //! | `nativeRendererRecovery(handle, json)` | Recovery outcome as a JSON envelope |
@@ -178,6 +181,17 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeRese
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeResetServer<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> i32 {
+    unowned
+        .with_env(|_env| -> errors::Result<i32> { Ok(lifecycle_code(handle, |host| host.reset_server())) })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeStatus<'local>(
     mut unowned: EnvUnowned<'local>,
     _this: JObject<'local>,
@@ -235,6 +249,23 @@ fn sync_manifest_json(handle: i64) -> String {
     }
 }
 
+fn identity_json(handle: i64, url: &str) -> String {
+    if url.is_empty() || url.len() > MAX_URL_CHARS {
+        return serde_json::json!({"ok": false, "code": "server_url_rejected"}).to_string();
+    }
+    match with_host(handle, |host| host.fetch_identity(url)) {
+        Ok(report) => report.to_string(),
+        Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+fn liveness_json(handle: i64) -> String {
+    match with_host(handle, |host| host.background_liveness()) {
+        Ok(Ok(report)) => report.to_string(),
+        Ok(Err(error)) | Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
 fn import_legacy_json(handle: i64) -> String {
     match with_host(handle, |host| host.import_legacy()) {
         Ok(outcome) => outcome.to_string(),
@@ -264,6 +295,34 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeSync
     unowned
         .with_env(|env| -> errors::Result<JObject<'local>> {
             Ok(JObject::from(env.new_string(sync_manifest_json(handle))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeFetchIdentity<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+    url: JString<'local>,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            let url = url.try_to_string(env).unwrap_or_default();
+            Ok(JObject::from(env.new_string(identity_json(handle, &url))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeBackgroundLiveness<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            Ok(JObject::from(env.new_string(liveness_json(handle))?))
         })
         .resolve::<errors::ThrowRuntimeExAndDefault>()
 }
@@ -300,6 +359,20 @@ fn recovery_json(handle: i64, json: &str) -> String {
     }
     match with_host(handle, |host| host.renderer_recovery(json)) {
         Ok(outcome) => outcome.to_string(),
+        Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+fn observations_stored(handle: i64, json: &str) -> i32 {
+    if json.is_empty() || json.len() > crate::observations::MAX_OBSERVATIONS_BYTES {
+        return -1;
+    }
+    with_host(handle, |host| host.report_observations(json)).unwrap_or(-1)
+}
+
+fn effective_config_json(handle: i64) -> String {
+    match with_host(handle, |host| host.effective_config()) {
+        Ok(value) => value.to_string(),
         Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
     }
 }
@@ -345,6 +418,34 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeRend
         .with_env(|env| -> errors::Result<JObject<'local>> {
             let json = json.try_to_string(env).unwrap_or_default();
             Ok(JObject::from(env.new_string(recovery_json(handle, &json))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeReportObservations<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+    json: JString<'local>,
+) -> i32 {
+    unowned
+        .with_env(|env| -> errors::Result<i32> {
+            let json = json.try_to_string(env).unwrap_or_default();
+            Ok(observations_stored(handle, &json))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeConfigJson<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            Ok(JObject::from(env.new_string(effective_config_json(handle))?))
         })
         .resolve::<errors::ThrowRuntimeExAndDefault>()
 }

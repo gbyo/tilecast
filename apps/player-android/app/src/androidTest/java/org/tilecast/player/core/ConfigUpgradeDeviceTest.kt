@@ -201,7 +201,7 @@ class ConfigUpgradeDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)

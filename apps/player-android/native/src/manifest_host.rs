@@ -14,17 +14,20 @@
 //! below serves
 //! test tooling (and later background paths) with the same coordinator.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, Mutex};
 
 use player_cas::ContentStore;
 use player_client::AuthenticatedServer;
 use player_core::{
-    ManifestOriginSources, ManifestPreparationError, ManifestPrepared, ManifestWorkerFailure, ManifestWorkerHost,
-    NativeManifest, NativeManifestError, PlayerCore, RendererRequirement,
+    ConnectedRendererProfile, ManifestOriginSources, ManifestPreparationError, ManifestPrepared, ManifestWorkerFailure,
+    ManifestWorkerHost, NativeManifest, NativeManifestError, PlayerCore, RendererRequirement, RendererSupport,
 };
 use player_state::repo::manifests::Target;
 use player_types::ScreenId;
+use player_types::Timestamp;
 use player_types::bounded::ShortToken;
+use player_types::time::SharedClock;
 use serde_json::Value;
 
 pub mod profile {
@@ -228,9 +231,51 @@ fn span_viewport(document: &Value) -> Result<(), Incompatibility> {
     Ok(())
 }
 
+/// Manifest facts the heartbeat and status share: what the last
+/// successful preparation staged. Updated only on success, so a failed
+/// sync never clears the content the player still holds.
+#[derive(Debug, Clone, Default)]
+pub struct ManifestFacts {
+    /// The direct-fallback playlist the server assigned, if any.
+    pub assigned_playlist_id: Option<String>,
+    /// The staged fallback presentation the player can show offline.
+    pub cached_fallback_available: bool,
+    /// When the last preparation succeeded.
+    pub last_successful_sync: Option<Timestamp>,
+}
+
+/// Shared manifest facts, written by preparation and read by the
+/// heartbeat, status, and commissioning display.
+pub type SharedManifestFacts = Arc<Mutex<ManifestFacts>>;
+
+/// The connected profile before any renderer proves itself: the release
+/// features, schema 1, and the legacy declarative table, with no Widget
+/// components. Mirrors the legacy fresh-process advertisement.
+pub fn fresh_connected() -> ConnectedRendererProfile {
+    let token = |name: &str| ShortToken::new(name).expect("generated capability name");
+    ConnectedRendererProfile(
+        RendererSupport::new(
+            profile::FEATURES.iter().map(|name| token(name)).collect(),
+            BTreeSet::from([1]),
+            profile::native_capabilities().into_iter().map(|(name, version)| (token(name), version)).collect(),
+            BTreeMap::new(),
+        )
+        .expect("bounded fresh-process profile"),
+    )
+}
+
 /// Everything in `document` this renderer cannot safely provide. An empty
-/// list means compatible.
-pub fn incompatibilities(document: &Value, assets: &[player_core::ManifestAsset]) -> Vec<Incompatibility> {
+/// list means compatible. The packaged release and the live connection
+/// both have to accept a requirement: release metadata cannot substitute
+/// for an actual advertisement.
+pub fn incompatibilities(
+    document: &Value,
+    assets: &[player_core::ManifestAsset],
+    connected: &ConnectedRendererProfile,
+) -> Vec<Incompatibility> {
+    if connected.presentation_schemas().is_empty() {
+        return vec![Incompatibility::Requirement("renderer support".to_owned())];
+    }
     let packaged = profile::packaged();
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
@@ -268,7 +313,10 @@ pub fn incompatibilities(document: &Value, assets: &[player_core::ManifestAsset]
                                 RendererRequirement::Declarative { name, version }
                             }
                         });
-                    if requirement.as_ref().is_none_or(|required| packaged.check(required).is_err()) {
+                    if requirement
+                        .as_ref()
+                        .is_none_or(|required| packaged.check_connected(connected, required).is_err())
+                    {
                         push(Incompatibility::WidgetCapability(name.chars().take(64).collect()));
                     }
                 }
@@ -331,13 +379,39 @@ pub fn incompatibilities(document: &Value, assets: &[player_core::ManifestAsset]
 
 /// Validates a server manifest and its compatibility with this renderer.
 /// Nothing is fetched here.
-pub fn prepare_candidate(document: Value, expected_screen: ScreenId) -> Result<NativeManifest, ManifestError> {
+pub fn prepare_candidate(
+    document: Value,
+    expected_screen: ScreenId,
+    connected: &ConnectedRendererProfile,
+) -> Result<NativeManifest, ManifestError> {
     let digest = player_core::manifest_digest(&document);
     let candidate = NativeManifest::parse(document, expected_screen, digest)?;
-    if let Some(reason) = incompatibilities(&candidate.document, &candidate.assets).into_iter().next() {
+    if let Some(reason) = incompatibilities(&candidate.document, &candidate.assets, connected).into_iter().next() {
         return Err(ManifestError::Incompatible(reason));
     }
     Ok(candidate)
+}
+
+/// The staged-manifest facts a successful preparation reports: the
+/// assigned direct-fallback playlist, whether its presentation is on
+/// disk, and when the sync succeeded. Mirrors the legacy reliability
+/// preferences the commissioning display reads.
+fn manifest_facts(document: &Value, now: Timestamp) -> ManifestFacts {
+    let fallback = document.get("directFallbackPlaylist").filter(|value| !value.is_null());
+    let assigned_playlist_id = fallback
+        .and_then(|playlist| playlist.get("id"))
+        .and_then(Value::as_str)
+        .map(|id| id.chars().take(128).collect());
+    let playlist_items = fallback
+        .and_then(|playlist| playlist.get("items"))
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let layout = document.get("directFallbackLayout").is_some_and(|value| !value.is_null());
+    ManifestFacts {
+        assigned_playlist_id,
+        cached_fallback_available: playlist_items || layout,
+        last_successful_sync: Some(now),
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -374,11 +448,28 @@ pub struct AndroidManifestHost {
     core: PlayerCore,
     cas: ContentStore,
     server: AuthenticatedServer,
+    engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
+    clock: SharedClock,
+    facts: SharedManifestFacts,
 }
 
 impl AndroidManifestHost {
-    pub fn new(core: PlayerCore, cas: ContentStore, server: AuthenticatedServer) -> Self {
-        Self { core, cas, server }
+    pub fn new(
+        core: PlayerCore,
+        cas: ContentStore,
+        server: AuthenticatedServer,
+        engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
+        clock: SharedClock,
+        facts: SharedManifestFacts,
+    ) -> Self {
+        Self { core, cas, server, engine, clock, facts }
+    }
+
+    /// The connected profile compatibility checks use: the live
+    /// renderer's advertisement, or the fresh-process fallback before
+    /// any renderer proves itself.
+    async fn connected(&self) -> ConnectedRendererProfile {
+        self.engine.lock().await.advertised_support().unwrap_or_else(fresh_connected)
     }
 
     /// Core records the latest validated manifest as the binding's target.
@@ -392,12 +483,23 @@ impl AndroidManifestHost {
     /// Prepares the persisted target through the native coordinator:
     /// compatibility first, then verified content, then pending storage.
     pub async fn prepare_target(&self, target: &Target) -> Result<ManifestPrepared, PrepareError> {
-        let candidate = prepare_candidate(target.document.clone(), target.binding.screen_id)?;
+        let connected = self.connected().await;
+        let candidate = prepare_candidate(target.document.clone(), target.binding.screen_id, &connected)?;
         let plan = ManifestOriginSources { server: &self.server };
-        self.core.manifests().prepare_target(&self.cas, &plan, target, &candidate).await.map_err(|error| match error {
-            ManifestPreparationError::State => PrepareError::State,
-            other => PrepareError::Fetch(other),
-        })
+        let prepared =
+            self.core.manifests().prepare_target(&self.cas, &plan, target, &candidate).await.map_err(|error| {
+                match error {
+                    ManifestPreparationError::State => PrepareError::State,
+                    other => PrepareError::Fetch(other),
+                }
+            })?;
+        // A superseded preparation staged nothing for this document;
+        // every other success publishes the staged-manifest facts.
+        if !matches!(prepared, ManifestPrepared::Superseded) {
+            let facts = manifest_facts(&target.document, self.clock.now());
+            *self.facts.lock().unwrap_or_else(|error| error.into_inner()) = facts;
+        }
+        Ok(prepared)
     }
 }
 
@@ -413,7 +515,7 @@ fn worker_failure(error: &PrepareError) -> ManifestWorkerFailure {
 #[async_trait::async_trait]
 impl ManifestWorkerHost for AndroidManifestHost {
     async fn content_intact(&self, target: &Target) -> bool {
-        match prepare_candidate(target.document.clone(), target.binding.screen_id) {
+        match prepare_candidate(target.document.clone(), target.binding.screen_id, &self.connected().await) {
             Ok(candidate) => candidate.verify_content(&self.cas).await.is_ok(),
             // Preserve the committed/pending policy: projection failure
             // cannot replace that document with another preparation of itself.
@@ -470,14 +572,34 @@ mod tests {
         NativeManifest::parse(document, screen(), digest).expect("parse")
     }
 
+    /// The connected profile of a fully proven renderer: everything
+    /// the packaged release offers. Existing checks run against this so
+    /// they keep testing packaged behavior.
+    fn full_connected() -> ConnectedRendererProfile {
+        let token = |name: &str| ShortToken::new(name).expect("generated capability name");
+        ConnectedRendererProfile(
+            RendererSupport::new(
+                profile::FEATURES.iter().map(|name| token(name)).collect(),
+                profile::PRESENTATION_SCHEMAS.iter().copied().collect(),
+                profile::native_capabilities().into_iter().map(|(name, version)| (token(name), version)).collect(),
+                profile::WIDGET_COMPONENTS.iter().map(|(name, version)| (token(name), *version)).collect(),
+            )
+            .expect("bounded full profile"),
+        )
+    }
+
     fn check(document: Value) -> Vec<Incompatibility> {
+        check_as(document, &full_connected())
+    }
+
+    fn check_as(document: Value, connected: &ConnectedRendererProfile) -> Vec<Incompatibility> {
         let candidate = candidate_of(document.clone());
-        incompatibilities(&candidate.document, &candidate.assets)
+        incompatibilities(&candidate.document, &candidate.assets, connected)
     }
 
     #[test]
     fn compatible_manifest_passes() {
-        let candidate = prepare_candidate(manifest(), screen()).expect("candidate");
+        let candidate = prepare_candidate(manifest(), screen(), &full_connected()).expect("candidate");
         assert_eq!(candidate.required_downloads.len(), 1);
         assert_eq!(candidate.version, 8);
     }
@@ -567,14 +689,23 @@ mod tests {
     #[test]
     fn foreign_and_broken_manifests_keep_their_reason_codes() {
         let other = ScreenId::from_uuid(uuid::Uuid::from_u128(0xBEAD));
-        assert_eq!(prepare_candidate(manifest(), other).expect_err("wrong screen"), ManifestError::Screen);
+        assert_eq!(
+            prepare_candidate(manifest(), other, &full_connected()).expect_err("wrong screen"),
+            ManifestError::Screen
+        );
         assert_eq!(ManifestError::Screen.reason_code(), "manifest_wrong_screen");
         let mut document = manifest();
         document["assets"][0]["downloadPath"] = json!("https://evil.example/x");
-        assert_eq!(prepare_candidate(document, screen()).expect_err("bad path"), ManifestError::Asset);
+        assert_eq!(
+            prepare_candidate(document, screen(), &full_connected()).expect_err("bad path"),
+            ManifestError::Asset
+        );
         let mut document = manifest();
         document["playlist"]["items"][0]["deliveryPolicy"] = json!("pigeon");
-        assert_eq!(prepare_candidate(document, screen()).expect_err("bad policy"), ManifestError::DeliveryPolicy);
+        assert_eq!(
+            prepare_candidate(document, screen(), &full_connected()).expect_err("bad policy"),
+            ManifestError::DeliveryPolicy
+        );
     }
 
     #[test]
@@ -676,6 +807,28 @@ mod tests {
         (core, store)
     }
 
+    /// A live engine, clock, and facts slot for host construction.
+    /// The engine has no connection, so compatibility checks use the
+    /// fresh-process fallback unless the test connects a renderer.
+    fn engine_parts(
+        store: &ContentStore,
+    ) -> (std::sync::Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>, SharedClock, SharedManifestFacts)
+    {
+        let clock: SharedClock = std::sync::Arc::new(crate::host::SystemClock);
+        let platform = std::sync::Arc::new(crate::renderer::MemRendererPlatform::default());
+        let snapshot = std::sync::Arc::new(Mutex::new(crate::renderer::RendererSnapshot::default()));
+        let engine = crate::renderer::PresentationEngine::new(
+            crate::renderer::AndroidRendererPort::new(platform, store.clone()),
+            clock.clone(),
+            snapshot,
+            std::sync::Arc::new(tokio::sync::Notify::new()),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            clock.now(),
+        );
+        let facts: SharedManifestFacts = std::sync::Arc::new(Mutex::new(ManifestFacts::default()));
+        (std::sync::Arc::new(tokio::sync::Mutex::new(engine)), clock, facts)
+    }
+
     async fn verified(base: &str) -> player_client::AuthenticatedServer {
         let client = player_client::ServerClient::new(base, "tilecast-android-test").expect("client");
         let credential = format!("tc_device_{}.{}", "a".repeat(26), "b".repeat(40));
@@ -702,7 +855,8 @@ mod tests {
         let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
         let (base, task) = canned_server(manifest(), unreachable).await;
         let server = verified(&base).await;
-        let host = AndroidManifestHost::new(core, store, server);
+        let (engine, clock, facts) = engine_parts(&store);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
         let binding = binding(base);
 
         // First sync discovers the pending target and prepares it.
@@ -739,7 +893,8 @@ mod tests {
         let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
         let (base, task) = canned_server(document, unreachable).await;
         let server = verified(&base).await;
-        let host = AndroidManifestHost::new(core, store, server);
+        let (engine, clock, facts) = engine_parts(&store);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
         let binding = binding(base);
 
         // Fetch validates structure; preparation enforces the renderer profile.
@@ -752,6 +907,76 @@ mod tests {
         // No object was committed for the rejected document.
         let digest = player_types::Sha256Digest::of(&payload());
         assert!(host.cas.open_verified(&digest).await.expect("open").is_none());
+        task.abort();
+    }
+
+    #[test]
+    fn unproven_renderer_rejects_widget_components_but_allows_schema_1() {
+        // Schema-1 image content prepares before any renderer proves itself.
+        assert!(check_as(manifest(), &fresh_connected()).is_empty());
+        // A Widget component the packaged release supports still waits
+        // for the live renderer to advertise it.
+        let mut document = manifest();
+        document["widgets"] = json!([{
+            "assetId": "0c3e1d2f-7a55-4b1e-9c33-6f0d2e8a4b91",
+            "presentation": {"kind": "component",
+                "requiredCapabilities": {"widget.tilecast.clock": 2}},
+        }]);
+        let found = check_as(document.clone(), &fresh_connected());
+        assert_eq!(found, vec![Incompatibility::WidgetCapability("widget.tilecast.clock".to_owned())]);
+        assert!(check_as(document, &full_connected()).is_empty());
+    }
+
+    #[test]
+    fn unsupported_runtime_rejects_everything() {
+        let empty = ConnectedRendererProfile(RendererSupport::default());
+        assert_eq!(check_as(manifest(), &empty), vec![Incompatibility::Requirement("renderer support".to_owned())]);
+    }
+
+    #[tokio::test]
+    async fn successful_prepare_publishes_manifest_facts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (core, store) = scratch_parts(dir.path()).await;
+        let mut document = manifest();
+        let fallback_id = "f001ba11-0000-4000-8000-000000000001";
+        document["directFallbackPlaylist"] = json!({"id": fallback_id, "items": [{
+            "id": ITEM, "assetId": ASSET, "variantId": VARIANT,
+            "assetType": "image", "deliveryPolicy": "automatic", "durationMs": 10000,
+            "fitMode": "cover", "transition": "fade", "audioEnabled": true, "volume": 0.8
+        }]});
+        let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
+        let (base, task) = canned_server(document, unreachable).await;
+        let server = verified(&base).await;
+        let (engine, clock, facts) = engine_parts(&store);
+        let seen = facts.clone();
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
+        host.prepare_target(&target).await.expect("prepare");
+        let facts = seen.lock().expect("facts");
+        assert_eq!(facts.assigned_playlist_id.as_deref(), Some(fallback_id));
+        assert!(facts.cached_fallback_available);
+        assert!(facts.last_successful_sync.is_some());
+        task.abort();
+    }
+
+    #[tokio::test]
+    async fn failed_prepare_keeps_the_previous_facts() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (core, store) = scratch_parts(dir.path()).await;
+        let mut document = manifest();
+        document["plugins"] = json!([{"id": "p1", "type": "brand_bug", "version": 1, "config": {}}]);
+        let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
+        let (base, task) = canned_server(document, unreachable).await;
+        let server = verified(&base).await;
+        let (engine, clock, facts) = engine_parts(&store);
+        let seen = facts.clone();
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
+        host.prepare_target(&target).await.expect_err("incompatible");
+        let facts = seen.lock().expect("facts");
+        assert_eq!(facts.assigned_playlist_id, None);
+        assert!(!facts.cached_fallback_available);
+        assert_eq!(facts.last_successful_sync, None);
         task.abort();
     }
 }

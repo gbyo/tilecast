@@ -10,8 +10,7 @@ import org.junit.Test
 /**
  * Proves the native Player Core host loads, initializes platform TLS trust,
  * opens Core state, starts its drivers, and answers pairing commands on a
- * real device. Production does not start the host yet; this test drives the
- * Core-only mode directly.
+ * real device: the same start path production uses.
  */
 class PlayerCoreHostDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -20,7 +19,7 @@ class PlayerCoreHostDeviceTest {
         CoreTestFixtures.resetCoreFiles(context)
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             val state = host.state.value
             assertTrue("expected Ready, was $state", state is CoreHostState.Ready)
             state as CoreHostState.Ready
@@ -48,6 +47,10 @@ class PlayerCoreHostDeviceTest {
             val begin = host.beginPairing("http://127.0.0.1:9")
             assertFalse("begin against a dead server must fail, was $begin", begin.ok)
             assertTrue(host.resetPairing())
+            // Identity fetch fails closed; liveness needs a binding.
+            assertEquals("unreachable", host.fetchIdentity("http://127.0.0.1:9").code)
+            assertEquals("invalid_url", host.fetchIdentity("not a url").code)
+            assertEquals("not_paired", host.backgroundLiveness().code)
         } finally {
             host.stop()
         }

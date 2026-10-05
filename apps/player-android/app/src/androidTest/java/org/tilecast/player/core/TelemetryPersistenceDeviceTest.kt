@@ -189,7 +189,7 @@ class TelemetryPersistenceDeviceTest {
         val host = PlayerCoreHost.get(context)
         try {
             val driverStarted = System.currentTimeMillis()
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
@@ -208,7 +208,7 @@ class TelemetryPersistenceDeviceTest {
             val restartAt = Instant.now().toString()
             host.stop()
             stub.start()
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             withTimeout(90_000) {
                 while (stub.samples.isEmpty()) delay(500)

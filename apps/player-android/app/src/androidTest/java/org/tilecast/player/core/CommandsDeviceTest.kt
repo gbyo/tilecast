@@ -25,11 +25,12 @@ import org.tilecast.player.security.KeystoreCredentialStore
 
 /**
  * Qualifies Core command delivery on-device: a stub server delivers a
- * pure-state command and a platform command, the coordinator
- * acknowledges, runs, and reports both, the platform command crosses
- * JNI to the executor, and a restart re-polls without re-executing
- * settled commands. Reports repeat while the stub keeps delivering
- * (the server deduplicates them); executions must not.
+ * pure-state command, a native renderer command, and a platform
+ * command. The coordinator acknowledges, runs, and reports all three;
+ * only the platform command crosses JNI to the executor. A restart
+ * re-polls without re-executing settled commands. Reports repeat
+ * while the stub keeps delivering (the server deduplicates them);
+ * executions must not.
  */
 class CommandsDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -45,6 +46,8 @@ class CommandsDeviceTest {
         val disableKey = UUID.randomUUID().toString()
         val identifyId = UUID.randomUUID().toString()
         val identifyKey = UUID.randomUUID().toString()
+        val wakeId = UUID.randomUUID().toString()
+        val wakeKey = UUID.randomUUID().toString()
         val assetId = UUID.randomUUID().toString()
         val variantId = UUID.randomUUID().toString()
         val reports = CopyOnWriteArrayList<Pair<String, JSONObject>>()
@@ -190,7 +193,9 @@ class CommandsDeviceTest {
                          "idempotencyKey":"$disableKey","payload":{},"state":"delivered"},
                         {"id":"$identifyId","type":"identify_screen",
                          "idempotencyKey":"$identifyKey","payload":{"durationSeconds":30},
-                         "state":"delivered"}]}}""",
+                         "state":"delivered"},
+                        {"id":"$wakeId","type":"power_assist_wake",
+                         "idempotencyKey":"$wakeKey","payload":{},"state":"delivered"}]}}""",
                 )
             }
             if (method == "POST" && path.endsWith("/acknowledge")) {
@@ -229,6 +234,14 @@ class CommandsDeviceTest {
         }
     }
 
+    private class RecordingAdapter : CoreRendererAdapter {
+        val requests = CopyOnWriteArrayList<JSONObject>()
+        override fun handle(envelope: String): Int {
+            runCatching { requests += JSONObject(envelope) }
+            return CoreRendererRequestCode.QUEUED
+        }
+    }
+
     @Test fun commandsRunOnceAndSurviveRestart() = runBlocking {
         CoreTestFixtures.resetCoreFiles(context)
         val stub = StubServer()
@@ -241,29 +254,50 @@ class CommandsDeviceTest {
         credentials.clear()
         val executed = CopyOnWriteArrayList<String>()
         val host = PlayerCoreHost.get(context)
+        val adapter = RecordingAdapter()
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             host.setPlatformExecutorForTesting(PlatformCommandExecutor { request ->
                 executed += request
-                PlatformCommandExecutor.result(true, "screen_identified", "shown")
+                PlatformCommandExecutor.result(true, "device_wake_requested", "sent")
             })
+            // The scripted renderer is ready before pairing, so the
+            // native identify command finds it when deliveries arrive.
+            host.attachRendererAdapter(adapter)
+            assertEquals(
+                CoreReportCode.APPLIED,
+                host.rendererReport("""{"type":"connected","generation":1}"""),
+            )
+            assertEquals(
+                CoreReportCode.APPLIED,
+                host.rendererReport(
+                    """{"type":"ready","generation":1,"report":{"features":["status-surfaces-v1","image"],""" +
+                        """"support":{"presentationSchemas":[1,2]}}}""",
+                ),
+            )
 
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
             awaitPaired(host)
 
-            awaitReports(stub, 2)
+            awaitReports(stub, 3)
             val byId = stub.reports.associate { it.first to it.second }
             val disable = byId[stub.disableId] ?: throw AssertionError("missing disable report: ${stub.reports}")
             assertTrue(disable.getBoolean("success"))
             assertEquals("playback_disabled", disable.getString("code"))
+            // Identify runs natively against the ready renderer: it
+            // reports success without ever crossing to the executor.
             val identify = byId[stub.identifyId] ?: throw AssertionError("missing identify report")
             assertTrue(identify.getBoolean("success"))
             assertEquals("screen_identified", identify.getString("code"))
+            val wake = byId[stub.wakeId] ?: throw AssertionError("missing wake report")
+            assertTrue(wake.getBoolean("success"))
+            assertEquals("device_wake_requested", wake.getString("code"))
             assertEquals(1, executed.size)
             val request = JSONObject(executed.first())
-            assertEquals("identify_screen", request.getString("type"))
-            assertEquals(30, request.getJSONObject("payload").getInt("durationSeconds"))
+            assertEquals("power_assist_wake", request.getString("type"))
+            assertEquals(stub.wakeId, request.getString("id"))
+            assertTrue(adapter.requests.any { it.optString("op") == "command" })
 
             // A restart re-polls the same deliveries but executes nothing
             // twice. Reports repeat (stored results re-sent); the
@@ -271,19 +305,23 @@ class CommandsDeviceTest {
             host.stop()
             host.setPlatformExecutorForTesting(PlatformCommandExecutor { request ->
                 executed += request
-                PlatformCommandExecutor.result(true, "screen_identified", "shown")
+                PlatformCommandExecutor.result(true, "device_wake_requested", "sent")
             })
             val pollsBefore = stub.polls.get()
-            host.startCoreOnly()
+            host.startDrivers()
             withTimeout(60_000) {
                 while (stub.polls.get() < pollsBefore + 2) delay(200)
             }
             delay(2_000)
             assertEquals(1, executed.size)
-            assertTrue(stub.reports.size >= 2)
+            assertTrue(stub.reports.size >= 3)
             for ((id, report) in stub.reports) {
                 assertTrue("report for $id: $report", report.getBoolean("success"))
-                val expected = if (id == stub.disableId) "playback_disabled" else "screen_identified"
+                val expected = when (id) {
+                    stub.disableId -> "playback_disabled"
+                    stub.identifyId -> "screen_identified"
+                    else -> "device_wake_requested"
+                }
                 assertEquals(expected, report.getString("code"))
             }
         } finally {

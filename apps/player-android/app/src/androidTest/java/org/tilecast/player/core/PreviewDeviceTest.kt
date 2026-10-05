@@ -307,9 +307,9 @@ class PreviewDeviceTest {
         val host = PlayerCoreHost.get(context)
         val adapter = RecordingAdapter()
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(adapter)
+            host.attachRendererAdapter(adapter)
             assertEquals(
                 CoreReportCode.APPLIED,
                 host.rendererReport("""{"type":"connected","generation":1}"""),

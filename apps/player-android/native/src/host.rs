@@ -172,6 +172,7 @@ pub struct AndroidHost {
     credentials: Arc<dyn player_client::CredentialStore>,
     config: Arc<AndroidConfigHost>,
     cas: ContentStore,
+    clock: SharedClock,
     drivers: Drivers,
     renderer: Arc<tokio::sync::Mutex<PresentationEngine>>,
     renderer_broker: Arc<player_core::CaptureBroker>,
@@ -268,6 +269,7 @@ impl AndroidHost {
             _jvm: jvm,
             credentials,
             config,
+            clock,
             drivers,
             renderer,
             renderer_broker,
@@ -278,25 +280,64 @@ impl AndroidHost {
     /// The coarse status snapshot shared with Kotlin (bridge contract v1).
     /// Paths identify storage; they carry no credentials or content.
     pub fn status(&self) -> serde_json::Value {
-        let paired = self
+        let bound = self
             .runtime
             .block_on(self.state.run(|connection| player_state::repo::binding::get(connection)))
             .ok()
             .flatten()
-            .is_some_and(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
+            .filter(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
         let signals = self.drivers.link_signals();
         let link = signals.link_state.lock().unwrap_or_else(|error| error.into_inner()).clone();
         let last_contact = *signals.last_server_contact.lock().unwrap_or_else(|error| error.into_inner());
         let renderer = self.renderer_snapshot.lock().unwrap_or_else(|error| error.into_inner()).clone();
+        let activation = self.runtime.block_on(self.renderer.lock()).current_activation();
+        let next_transition = activation
+            .as_ref()
+            .and_then(|active| active.identity.as_ref())
+            .and_then(|identity| identity.next_transition_ms)
+            .and_then(player_types::Timestamp::from_unix_millis)
+            .map(|at| at.to_string());
         serde_json::json!({
             "bridge": 3,
             "ok": true,
             "stateDb": self.paths.state_db.to_string_lossy(),
             "casDir": self.paths.cas_dir.to_string_lossy(),
-            "paired": paired,
+            "paired": bound.is_some(),
+            // Non-secret binding facts the production UI, the update
+            // installer, and commissioning read. The credential itself
+            // never leaves the Keystore.
+            "serverUrl": bound.as_ref().map(|bound| bound.server_url.clone()),
+            "installationId": bound.as_ref().map(|bound| bound.installation_id.to_string()),
+            "organizationName": bound.as_ref().and_then(|bound| bound.organization_name.clone()),
+            "screenId": bound.as_ref().and_then(|bound| bound.screen_id.map(|id| id.to_string())),
+            "screenName": bound.as_ref().and_then(|bound| bound.screen_name.clone()),
+            "activeHoursState": if signals
+                .gate
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .is_some_and(|state| state.gate == crate::server_link::ActivationGateName::Rest)
+            {
+                "off_hours"
+            } else {
+                "active"
+            },
+            "takeoverActive": activation
+                .as_ref()
+                .and_then(|active| active.identity.as_ref())
+                .is_some_and(|identity| identity.takeover_id.is_some()),
+            // The committed selection's next transition, for the
+            // platform wake scheduler. Absent when nothing is committed.
+            "nextTransitionAt": next_transition,
             "configRevision": self.config.accepted_revision(),
+            "cachedFallbackAvailable": signals
+                .manifest_facts
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .cached_fallback_available,
             "linkState": link.state_token(),
             "linkReason": link.reason_code(),
+            "linkExpected": link.identity_mismatch().map(|pair| pair.0),
+            "linkActual": link.identity_mismatch().map(|pair| pair.1),
             "lastServerContactAt": last_contact.map(|at| at.to_string()),
             "renderer": {
                 "state": renderer.state,
@@ -420,6 +461,9 @@ impl AndroidHost {
         let core = self.core.clone();
         let cas = self.config.cas();
         let manifest_wake = self.drivers.link_signals().manifest_wake.clone();
+        let engine = self.renderer.clone();
+        let clock = self.clock.clone();
+        let facts = self.drivers.link_signals().manifest_facts.clone();
         self.runtime.block_on(async move {
             let client = player_client::ServerClient::new(&binding.server_url, &user_agent)
                 .map_err(|_| HostError::SyncFailed)?;
@@ -427,7 +471,7 @@ impl AndroidHost {
                 client.verify_installation(binding.installation_id, credential).await.map_err(|error| {
                     if rejected(&error) { HostError::CredentialRejected } else { HostError::SyncFailed }
                 })?;
-            let host = AndroidManifestHost::new(core.clone(), cas, server);
+            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts);
             let target = host.reconcile(&binding).await.map_err(|error| match &error {
                 player_core::ManifestSyncError::Server(server) if rejected(server) => {
                     HostError::CredentialRejected
@@ -464,6 +508,65 @@ impl AndroidHost {
         })
     }
 
+    /// Reads a server's public installation identity without sending any
+    /// credential. Setup validates a typed or discovered address through
+    /// this before pairing; failures are ordinary outcomes with a machine
+    /// reason. Kotlin calls this off the main thread.
+    pub fn fetch_identity(&self, url: &str) -> serde_json::Value {
+        let user_agent = self.user_agent().to_owned();
+        let url = url.to_owned();
+        self.runtime.block_on(async move {
+            let client = match player_client::ServerClient::new(&url, &user_agent) {
+                Ok(client) => client,
+                Err(_) => return serde_json::json!({"ok": false, "code": "invalid_url"}),
+            };
+            match client.identity().await {
+                Ok(identity) => serde_json::json!({
+                    "ok": true,
+                    "product": identity.product,
+                    "installationId": identity.installation_id.to_string(),
+                    "organizationName": identity.organization_name,
+                    "apiVersion": identity.api_version,
+                    "pairingEnabled": identity.pairing_enabled,
+                }),
+                Err(_) => serde_json::json!({"ok": false, "code": "unreachable"}),
+            }
+        })
+    }
+
+    /// One background liveness ping against the bound server: verifies the
+    /// installation still matches, then proves the credential is still
+    /// valid without sending status. Workers call this while the player
+    /// UI is dead; `revoked` means Kotlin must drop the credential so the
+    /// next launch re-pairs instead of failing every contact. Transient
+    /// failures are host errors so the worker retries them.
+    pub fn background_liveness(&self) -> Result<serde_json::Value, HostError> {
+        let binding = self.config_binding().ok_or(HostError::NotPaired)?;
+        let credential = self.credentials.load().ok().flatten().ok_or(HostError::NotPaired)?;
+        let user_agent = self.user_agent().to_owned();
+        self.runtime.block_on(async move {
+            let client = player_client::ServerClient::new(&binding.server_url, &user_agent)
+                .map_err(|_| HostError::SyncFailed)?;
+            let server = match client.verify_installation(binding.installation_id, credential).await {
+                Ok(server) => server,
+                Err(player_client::ServerError::IdentityMismatch { .. }) => {
+                    return Ok(serde_json::json!({"ok": true, "outcome": "mismatch"}));
+                }
+                Err(player_client::ServerError::CredentialRejected) => {
+                    return Ok(serde_json::json!({"ok": true, "outcome": "revoked"}));
+                }
+                Err(_) => return Err(HostError::SyncFailed),
+            };
+            match server.player_liveness().await {
+                Ok(()) => Ok(serde_json::json!({"ok": true, "outcome": "accepted"})),
+                Err(player_client::ServerError::CredentialRejected) => {
+                    Ok(serde_json::json!({"ok": true, "outcome": "revoked"}))
+                }
+                Err(_) => Err(HostError::SyncFailed),
+            }
+        })
+    }
+
     /// Begins a pairing session against `url`, blocking the caller while
     /// the session is created. Kotlin calls this off the main thread.
     pub fn begin_pairing(&self, url: &str) -> Result<(), HostError> {
@@ -483,6 +586,44 @@ impl AndroidHost {
         let host = self.drivers.pairing_host().clone();
         self.runtime.block_on(coordinator.reset(&host));
         self.drivers.wake_pairing();
+        self.unbind_link();
+    }
+
+    /// Forgets the server connection entirely: drops the pairing session,
+    /// clears the stored credential and its binding state, and parks the
+    /// link as unbound so setup starts clean. Staged content and the
+    /// installed configuration stay: both are keyed to the abandoned
+    /// binding and a new enrollment overwrites them. Kotlin calls this off
+    /// the main thread.
+    pub fn reset_server(&self) {
+        let coordinator = self.drivers.pairing().clone();
+        let host = self.drivers.pairing_host().clone();
+        let credentials = self.credentials.clone();
+        let state = self.state.clone();
+        let now = self.clock.now();
+        self.runtime.block_on(async move {
+            coordinator.reset(&host).await;
+            let _ = state
+                .run(move |connection| {
+                    player_state::repo::binding::set_credential_state(
+                        connection,
+                        player_state::repo::binding::CredentialState::None,
+                        now,
+                    )
+                })
+                .await;
+            let _ = credentials.remove();
+        });
+        self.drivers.wake_pairing();
+        self.unbind_link();
+    }
+
+    /// Parks a stopped or retired link as unbound: the operator
+    /// acknowledged the rejection or reset, so setup owns the screen
+    /// until the next pass says otherwise.
+    fn unbind_link(&self) {
+        let signals = self.drivers.link_signals();
+        *signals.link_state.lock().unwrap_or_else(|error| error.into_inner()) = player_core::ServerLinkState::Unbound;
     }
 
     /// Issues a presentation activation from a projected host message.
@@ -507,10 +648,30 @@ impl AndroidHost {
         }
     }
 
+    /// Records validated platform observations for the heartbeat
+    /// projection. Returns how many fields were stored; unknown or
+    /// out-of-range fields are dropped, never sent.
+    pub fn report_observations(&self, json: &str) -> i32 {
+        crate::observations::apply_observations(&self.drivers.link_signals().observations, json) as i32
+    }
+
+    /// The accepted configuration split by its behavioral owner, for
+    /// the production UI. Before anything is accepted the values are
+    /// defaults and the revision is null.
+    pub fn effective_config(&self) -> serde_json::Value {
+        let config = self.config.effective().unwrap_or_default();
+        serde_json::json!({
+            "ok": true,
+            "revision": self.config.accepted_revision(),
+            "runtime": config.runtime,
+            "platform": config.platform,
+        })
+    }
+
     /// One renderer report: connection, readiness, acceptance,
-    /// evidence, errors, and capture answers. Stale generations and
-    /// unknown activations are ignored, never errors. Kotlin calls
-    /// this off the main thread.
+    /// evidence, errors, capture answers, and the installed runtime's
+    /// unsupported verdict. Stale generations and unknown activations
+    /// are ignored, never errors. Kotlin calls this off the main thread.
     pub fn renderer_report(&self, json: &str) -> i32 {
         use renderer_report::{APPLIED, IGNORED, MALFORMED};
         if json.is_empty() || json.len() > 8 * 1024 * 1024 {
@@ -523,6 +684,12 @@ impl AndroidHost {
         let kind = report.get("type").and_then(serde_json::Value::as_str).unwrap_or("");
         if kind == "capture" {
             return if crate::renderer::complete_capture(&self.renderer_broker, json) { APPLIED } else { IGNORED };
+        }
+        // The installed runtime cannot host the player at all. This
+        // report carries no generation because no renderer connected.
+        if kind == "unsupported" {
+            self.runtime.block_on(async { self.renderer.lock().await.renderer_unsupported() });
+            return APPLIED;
         }
         let Some(generation) = report.get("generation").and_then(serde_json::Value::as_i64) else {
             return MALFORMED;

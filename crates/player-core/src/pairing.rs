@@ -55,8 +55,16 @@ pub enum PairingStatus {
     Setup,
     AddressRejected,
     Reset,
-    Waiting { code: String, approval_url: String, organization_name: Option<String> },
-    Renewing { reason: String },
+    Waiting {
+        code: String,
+        approval_url: String,
+        organization_name: Option<String>,
+        expires_at: player_types::Timestamp,
+        server_time: Option<String>,
+    },
+    Renewing {
+        reason: String,
+    },
 }
 
 #[async_trait]
@@ -109,6 +117,8 @@ impl PairingCoordinator {
             code: session.code.clone(),
             approval_url: session.approval_url.clone(),
             organization_name: session.organization_name.clone(),
+            expires_at: session.expires_at,
+            server_time: session.server_time.clone(),
         })
         .await;
     }

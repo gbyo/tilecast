@@ -905,6 +905,7 @@ fn identity(candidate: &NativeManifest, resolved: &ResolvedPresentation) -> Play
         layout_id: selection.layout_id,
         schedule_id: selection.schedule_id,
         takeover_id: selection.takeover_id,
+        next_transition_ms: resolved.next_transition_ms,
     }
 }
 
@@ -969,6 +970,7 @@ pub(crate) struct SelectionHost {
     engine: Arc<Mutex<PresentationEngine>>,
     config: Arc<AndroidConfigHost>,
     manifest_wake: Arc<Notify>,
+    gate: crate::server_link::GateObservation,
 }
 
 impl SelectionHost {
@@ -976,8 +978,9 @@ impl SelectionHost {
         engine: Arc<Mutex<PresentationEngine>>,
         config: Arc<AndroidConfigHost>,
         manifest_wake: Arc<Notify>,
+        gate: crate::server_link::GateObservation,
     ) -> Self {
-        Self { engine, config, manifest_wake }
+        Self { engine, config, manifest_wake, gate }
     }
 
     fn effective(&self) -> Arc<AndroidPlayerConfig> {
@@ -1007,6 +1010,8 @@ impl OfflineActivationHost for SelectionHost {
     ) -> Result<OfflineProjection<Self::Projection, Self::Key>, &'static str> {
         let resolved =
             presentation_with(candidate, time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // Content projects again: any gate the driver showed has lifted.
+        *self.gate.lock().unwrap_or_else(|error| error.into_inner()) = None;
         let metadata = crate::renderer::projection_metadata(&resolved.document, resolved.projection.as_ref())
             .map_err(|_| "presentation_requirements_invalid")?;
         let identity = identity(candidate, &resolved);
@@ -1077,10 +1082,18 @@ impl OfflineActivationHost for SelectionHost {
         time: ActivationTime,
     ) {
         let (document, content) = gate_document(gate, configuration, candidate, time.presentation_ms());
+        let name = match gate {
+            player_core::ActivationGate::Rest => crate::server_link::ActivationGateName::Rest,
+            player_core::ActivationGate::Disabled => crate::server_link::ActivationGateName::Disabled,
+        };
+        *self.gate.lock().unwrap_or_else(|error| error.into_inner()) =
+            Some(crate::server_link::GateState { gate: name, at_ms: time.presentation_ms() });
         show_policy(&self.engine, document, content, time.local_ms).await;
     }
 
     async fn show_waiting(&self, now_ms: i64) {
+        // No gate and no content: a lifted gate must not linger.
+        *self.gate.lock().unwrap_or_else(|error| error.into_inner()) = None;
         let config = self.effective();
         let branding = &config.runtime.branding;
         let document = serde_json::json!({

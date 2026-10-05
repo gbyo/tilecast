@@ -294,7 +294,10 @@ mod tests {
     fn stopped_states_name_their_reason() {
         assert_eq!(LinkState::Connected.state_token(), "connected");
         assert_eq!(LinkState::Connected.reason_code(), None);
-        assert_eq!(LinkState::IdentityMismatch.state_token(), "stopped");
+        assert_eq!(
+            LinkState::IdentityMismatch { expected: "expected".into(), actual: "actual".into() }.state_token(),
+            "stopped"
+        );
         assert_eq!(LinkState::Retrying("server_unreachable").reason_code(), Some("server_unreachable"));
     }
 

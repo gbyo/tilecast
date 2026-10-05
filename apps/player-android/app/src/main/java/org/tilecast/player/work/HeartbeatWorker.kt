@@ -4,40 +4,41 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
-import org.tilecast.player.data.PlayerDatabase
-import org.tilecast.player.network.ApiException
-import org.tilecast.player.network.BackgroundLivenessApi
-import org.tilecast.player.network.ServerIdentity
-import org.tilecast.player.network.TilecastApi
-import org.tilecast.player.security.KeystoreCredentialStore
+import org.tilecast.player.core.CoreHostState
+import org.tilecast.player.core.PlayerCoreHost
 
-internal enum class BackgroundLivenessResult { ACCEPTED, INSTALLATION_MISMATCH }
-
-internal suspend fun sendBackgroundLiveness(
-    api: BackgroundLivenessApi,
-    serverUrl: String,
-    configuredInstallationId: String?,
-    credential: String,
-): BackgroundLivenessResult {
-    val identity: ServerIdentity = api.identity(serverUrl)
-    if (identity.installationId != configuredInstallationId) return BackgroundLivenessResult.INSTALLATION_MISMATCH
-    api.liveness(serverUrl, credential)
-    return BackgroundLivenessResult.ACCEPTED
-}
-
+/**
+ * Periodic background proof that the bound server still recognizes
+ * this player. Core owns the binding, the credential, and the ping;
+ * the worker only starts the host and maps the outcome onto work.
+ */
 class HeartbeatWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
-        val config = PlayerDatabase.get(applicationContext).configuration().get() ?: return Result.success()
-        val server = config.serverUrl ?: return Result.success()
+        val host = PlayerCoreHost.get(applicationContext)
         return try {
-            val credential = KeystoreCredentialStore(applicationContext).read() ?: return Result.success()
-            when (sendBackgroundLiveness(TilecastApi(), server, config.serverInstallationId, credential)) {
-                BackgroundLivenessResult.ACCEPTED -> Result.success()
-                BackgroundLivenessResult.INSTALLATION_MISMATCH -> Result.failure()
+            host.start()
+            if (host.state.value !is CoreHostState.Ready) return Result.retry()
+            val ping = host.backgroundLiveness()
+            if (ping.ok) {
+                when (ping.outcome) {
+                    "accepted" -> Result.success()
+                    "mismatch" -> Result.failure()
+                    "revoked" -> {
+                        // The server rejected the credential while the UI
+                        // was dead. Dropping it now means the next launch
+                        // re-pairs against the retained server URL instead
+                        // of failing every contact.
+                        host.resetServer()
+                        Result.failure()
+                    }
+                    else -> Result.retry()
+                }
+            } else if (ping.code == "not_paired") {
+                // No binding, no credential: nothing to prove.
+                Result.success()
+            } else {
+                Result.retry()
             }
-        } catch (error: ApiException) {
-            if (error.code == "device_credential_revoked") KeystoreCredentialStore(applicationContext).clear()
-            if (error.status in 400..499) Result.failure() else Result.retry()
         } catch (error: CancellationException) { throw error
         } catch (_: Exception) { Result.retry() }
     }

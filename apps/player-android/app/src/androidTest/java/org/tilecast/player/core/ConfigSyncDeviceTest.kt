@@ -187,7 +187,7 @@ class ConfigSyncDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
 
             // Sync before pairing fails closed with a stable code.
@@ -228,7 +228,7 @@ class ConfigSyncDeviceTest {
             // A restart applies the accepted document with no server access.
             host.stop()
             stub.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             val restarted = host.state.value as CoreHostState.Ready
             assertEquals(7L, restarted.status.configRevision)
         } finally {

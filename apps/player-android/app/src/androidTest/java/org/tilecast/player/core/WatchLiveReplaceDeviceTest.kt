@@ -331,9 +331,9 @@ class WatchLiveReplaceDeviceTest {
         val adapter = RecordingAdapter()
         val jpeg = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0x01, 0x02, 0xFF.toByte(), 0xD9.toByte())
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(adapter)
+            host.attachRendererAdapter(adapter)
             assertEquals(
                 CoreReportCode.APPLIED,
                 host.rendererReport("""{"type":"connected","generation":1}"""),

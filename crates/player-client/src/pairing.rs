@@ -96,6 +96,10 @@ pub struct PairingSession {
     #[serde(default)]
     pub organization_name: Option<String>,
     pub expires_at: Timestamp,
+    /// The server's clock when the session was created, for the pairing
+    /// countdown. Older saved sessions predate it.
+    #[serde(default)]
+    pub server_time: Option<String>,
     pub polling_interval_seconds: u32,
     #[serde(default)]
     enrollment_token: Option<String>,
@@ -178,6 +182,8 @@ struct Created {
     poll_secret: String,
     expires_at: String,
     #[serde(default)]
+    server_time: String,
+    #[serde(default)]
     polling_interval_seconds: u32,
     #[serde(default)]
     approval_url: String,
@@ -245,6 +251,7 @@ impl ServerClient {
             approval_url: bounded(&created.approval_url, 512),
             organization_name: Some(bounded(&created.organization_name, 120)).filter(|name| !name.is_empty()),
             expires_at,
+            server_time: Some(bounded(&created.server_time, 64)).filter(|time| !time.is_empty()),
             polling_interval_seconds: created.polling_interval_seconds.clamp(2, 60),
             enrollment_token: None,
         })
@@ -304,6 +311,7 @@ mod tests {
             approval_url: "https://signs.example.org/screens/pair".into(),
             organization_name: None,
             expires_at: Timestamp::from_unix_millis(2_000_000_000_000).unwrap(),
+            server_time: Some("2026-08-06T06:56:40Z".to_owned()),
             polling_interval_seconds: 3,
             enrollment_token: None,
         }

@@ -108,7 +108,7 @@ impl player_core::PairingHost for Metadata<'_> {
             PairingStatus::Reset => {
                 set_view(context, "unpaired", None, Some("reset".to_owned()), String::new(), None);
             }
-            PairingStatus::Waiting { code, approval_url, organization_name } => {
+            PairingStatus::Waiting { code, approval_url, organization_name, .. } => {
                 set_view(context, "waiting", Some(code), None, approval_url, organization_name);
             }
             PairingStatus::Renewing { reason } => {
