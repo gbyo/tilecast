@@ -102,6 +102,8 @@ jobs:
           persist-credentials: false
       - run: rustup show active-toolchain
       - run: rustup target add x86_64-pc-windows-gnu
+      # ring compiles C for the gnu target and needs the MinGW cross compiler.
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64
       - uses: actions/cache@v6
         with:
           path: |
