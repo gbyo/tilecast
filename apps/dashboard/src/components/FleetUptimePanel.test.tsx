@@ -166,11 +166,16 @@ describe("FleetUptimePanel", () => {
     );
     renderPanel();
     await screen.findByText("81.3%");
+    const slot = document.querySelector('[data-slot="load-reveal"]');
+    expect(slot).not.toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "7 days" }));
 
     expect(screen.getByText("81.3%")).toBeTruthy();
     expect(screen.queryByLabelText("Loading fleet health")).toBeNull();
+    // Switching range is not a first load, so the reveal never re-arms.
+    expect(document.querySelector('[data-slot="load-reveal"]')).toBe(slot);
+    expect(slot).toHaveAttribute("data-state", "ready");
 
     resolveSevenDay(
       report({
@@ -181,6 +186,8 @@ describe("FleetUptimePanel", () => {
       }),
     );
     await waitFor(() => expect(screen.getByText("91.5%")).toBeTruthy());
+    expect(document.querySelector('[data-slot="load-reveal"]')).toBe(slot);
+    expect(slot).toHaveAttribute("data-state", "ready");
   });
 
   it("renders measured figures without NaN or an empty chart when buckets are sparse", async () => {

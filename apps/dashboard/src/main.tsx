@@ -10,6 +10,7 @@ import "./styles.css";
 import "./styles/layout-fonts.css";
 import "./styles/signal.css";
 import "./styles/drawer-indent.css";
+import "./styles/load-reveal.css";
 // Page-specific refinements intentionally load after shared Signal styles.
 import "./styles/screens.css";
 import "./styles/data-sources.css";

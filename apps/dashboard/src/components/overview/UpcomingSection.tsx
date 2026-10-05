@@ -21,6 +21,7 @@ import {
   useNow,
 } from "./format";
 import { listBleed, rowBleed } from "./layout";
+import { LoadReveal } from "./LoadReveal";
 import { RailSection } from "./RailSection";
 import { displayZone, type UpcomingChange } from "./upcoming";
 
@@ -53,78 +54,84 @@ export function UpcomingSection({
       title={t("operations.comingTitle")}
       action={{ label: t("operations.viewSchedules"), to: "/schedules" }}
     >
-      {isLoading ? (
-        <div
-          role="status"
-          aria-label={t("operations.schedulesLoading")}
-          className="grid gap-1.5"
-        >
-          <Skeleton className="h-11 w-full" />
-          <Skeleton className="h-11 w-full" />
-        </div>
-      ) : isError ? (
-        <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
-          <AlertTitle>{t("operations.schedulesFailed")}</AlertTitle>
-        </Alert>
-      ) : changes.length === 0 ? (
-        <p className="py-1 text-sm text-muted-foreground">
-          {t("operations.noUpcoming")}
-        </p>
-      ) : (
-        <ItemGroup className={listBleed}>
-          {changes.map(({ schedule, at, kind }) => {
-            const zone = displayZone(schedule, defaultTimezone);
-            return (
-              <Item
-                key={`${schedule.id}-${kind}`}
-                size="xs"
-                render={<Link to={`/schedules/${schedule.id}`} />}
-                className={rowBleed}
-              >
-                <span className="flex w-10 shrink-0 justify-center self-start rounded-md bg-muted py-0.5 text-xs font-medium tabular-nums">
-                  <span aria-hidden="true">
-                    {formatUntilShort(at, now, locale)}
+      <LoadReveal
+        loading={isLoading}
+        className="grid gap-2"
+        skeleton={
+          <div
+            role="status"
+            aria-label={t("operations.schedulesLoading")}
+            className="grid gap-1.5"
+          >
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+          </div>
+        }
+      >
+        {isError ? (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>{t("operations.schedulesFailed")}</AlertTitle>
+          </Alert>
+        ) : changes.length === 0 ? (
+          <p className="py-1 text-sm text-muted-foreground">
+            {t("operations.noUpcoming")}
+          </p>
+        ) : (
+          <ItemGroup className={listBleed}>
+            {changes.map(({ schedule, at, kind }) => {
+              const zone = displayZone(schedule, defaultTimezone);
+              return (
+                <Item
+                  key={`${schedule.id}-${kind}`}
+                  size="xs"
+                  render={<Link to={`/schedules/${schedule.id}`} />}
+                  className={rowBleed}
+                >
+                  <span className="flex w-10 shrink-0 justify-center self-start rounded-md bg-muted py-0.5 text-xs font-medium tabular-nums">
+                    <span aria-hidden="true">
+                      {formatUntilShort(at, now, locale)}
+                    </span>
+                    <span className="sr-only">
+                      {formatUntil(at, now, locale)}
+                    </span>
                   </span>
-                  <span className="sr-only">
-                    {formatUntil(at, now, locale)}
-                  </span>
-                </span>
-                <ItemContent className="min-w-0">
-                  <ItemTitle className="max-w-full">
-                    <span className="truncate">{schedule.name}</span>
-                  </ItemTitle>
-                  <ItemDescription className="line-clamp-1">
-                    {[
-                      t(
-                        kind === "starts"
-                          ? "operations.upcomingStartsAt"
-                          : "operations.upcomingEndsAt",
-                        { time: formatScheduleTime(at, zone, locale) },
-                      ),
-                      t("operations.upcomingDetail", {
-                        content: contentName(schedule),
-                        targets: targetLabel(schedule, t),
-                      }),
-                    ].join(" · ")}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  <ChevronRight
-                    className="size-4 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                </ItemActions>
-              </Item>
-            );
-          })}
-        </ItemGroup>
-      )}
-      {!isLoading && !isError && total > loaded && (
-        <p className="text-xs text-muted-foreground">
-          {t("operations.upcomingPartial", { shown: loaded, total })}
-        </p>
-      )}
+                  <ItemContent className="min-w-0">
+                    <ItemTitle className="max-w-full">
+                      <span className="truncate">{schedule.name}</span>
+                    </ItemTitle>
+                    <ItemDescription className="line-clamp-1">
+                      {[
+                        t(
+                          kind === "starts"
+                            ? "operations.upcomingStartsAt"
+                            : "operations.upcomingEndsAt",
+                          { time: formatScheduleTime(at, zone, locale) },
+                        ),
+                        t("operations.upcomingDetail", {
+                          content: contentName(schedule),
+                          targets: targetLabel(schedule, t),
+                        }),
+                      ].join(" · ")}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    <ChevronRight
+                      className="size-4 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </ItemActions>
+                </Item>
+              );
+            })}
+          </ItemGroup>
+        )}
+        {!isError && total > loaded && (
+          <p className="text-xs text-muted-foreground">
+            {t("operations.upcomingPartial", { shown: loaded, total })}
+          </p>
+        )}
+      </LoadReveal>
     </RailSection>
   );
 }

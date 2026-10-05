@@ -40,6 +40,7 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
+import { LoadReveal } from "./overview/LoadReveal";
 import { Skeleton } from "./ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import {
@@ -153,46 +154,51 @@ export function FleetUptimePanel({
         </CardAction>
       </CardHeader>
       <CardContent>
-        {query.isLoading ? (
-          <div className="space-y-3" aria-label={t("uptime.loading")}>
-            <Skeleton className="h-8 w-32" />
-            <Skeleton className="h-36 w-full rounded-xl sm:h-44" />
-          </div>
-        ) : query.isError ? (
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden="true" />
-            <AlertTitle>{t("uptime.loadFailed")}</AlertTitle>
-            <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
-          </Alert>
-        ) : !report || report.screensTracked === 0 ? (
-          <Empty className="border-0 py-5">
-            <EmptyHeader>
-              <EmptyDescription>
-                <Trans
-                  i18nKey="uptime.emptyState"
-                  ns="activity"
-                  components={{
-                    pairLink: (
-                      <Link
-                        className="underline underline-offset-4"
-                        to="/screens/pair"
-                      />
-                    ),
-                  }}
-                />
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : report.uptimePercent === null ? (
-          <Empty className="border-0 py-5">
-            <EmptyHeader>
-              <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
-              <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <UptimeBody report={report} />
-        )}
+        <LoadReveal
+          loading={query.isLoading}
+          skeleton={
+            <div className="space-y-3" aria-label={t("uptime.loading")}>
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-36 w-full rounded-xl sm:h-44" />
+            </div>
+          }
+        >
+          {query.isError ? (
+            <Alert variant="destructive">
+              <CircleAlert aria-hidden="true" />
+              <AlertTitle>{t("uptime.loadFailed")}</AlertTitle>
+              <AlertDescription>{t("shared.refreshHint")}</AlertDescription>
+            </Alert>
+          ) : !report || report.screensTracked === 0 ? (
+            <Empty className="border-0 py-5">
+              <EmptyHeader>
+                <EmptyDescription>
+                  <Trans
+                    i18nKey="uptime.emptyState"
+                    ns="activity"
+                    components={{
+                      pairLink: (
+                        <Link
+                          className="underline underline-offset-4"
+                          to="/screens/pair"
+                        />
+                      ),
+                    }}
+                  />
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : report.uptimePercent === null ? (
+            <Empty className="border-0 py-5">
+              <EmptyHeader>
+                <EmptyTitle>{t("uptime.noStateTitle")}</EmptyTitle>
+                <EmptyDescription>{t("uptime.noStateHint")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <UptimeBody report={report} />
+          )}
+        </LoadReveal>
       </CardContent>
     </Card>
   );
