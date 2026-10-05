@@ -37,8 +37,8 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
                 "context": .string("main"),
                 "capabilities": .object([
                     "nativeNavigation": .bool(true), "authLifecycle": .bool(true), "nativePresentations": .bool(true),
-                    "systemShare": .bool(true), "systemHaptics": .bool(true),
-                    "nativeMediaIntake": .bool(true), "deepLinks": .bool(true),
+                    "systemShare": .bool(true), "systemHaptics": .bool(true), "systemQrScanner": .bool(false),
+                    "systemMap": .bool(true), "nativeMediaIntake": .bool(true), "deepLinks": .bool(true),
                     "nativeAlerts": .bool(true),
                 ]),
             ]),
@@ -161,6 +161,15 @@ func catalogPayload(_ ids: [String], primary: Set<String> = []) -> [String: Any]
 /// Exercises the bridge in real WebKit pages: what JavaScript can reach.
 @MainActor
 @Suite(.serialized, .timeLimit(.minutes(1))) struct StudioBridgeWebKitTests {
+    @Test func iOSWebKitTestsRunInAnApplicationHost() {
+        #if os(iOS)
+        #expect(Bundle.main.bundleURL.pathExtension == "app",
+                "Real iOS WebKit tests require TilecastHostTests, hosted by Tilecast.app")
+        #expect(ProcessInfo.processInfo.arguments.contains("-TilecastEphemeralServers"),
+                "The application test host must use in-memory server profiles and credentials")
+        #endif
+    }
+
     func makePage() throws -> StudioPage {
         let directory = ServerDirectory(storage: InMemoryServerDirectoryStorage())
         let profile = try directory.add(address: address("signage.example.org"), identity: identity("A"))

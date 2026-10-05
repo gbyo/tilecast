@@ -52,6 +52,7 @@ describe("Layout editor primitives", () => {
     expect(app.type).toBe("widget");
     expect(app.widgetId).toBe("app");
     expect(app.assetId).toBeUndefined();
+    expect(app.overrides).toBeUndefined();
 
     const media = createContentPlacement(
       { id: "poster", name: "Poster", type: "image" } as Asset,

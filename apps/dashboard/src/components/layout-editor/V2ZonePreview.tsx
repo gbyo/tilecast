@@ -1,3 +1,4 @@
+import { contentQueries } from "../../data/content";
 /**
  * The Layout zone preview for migrated V2 Widgets
  * (docs/widgets-v2-authoring-and-first-wave.md).
@@ -16,7 +17,6 @@ import type {
   WidgetComponentRef,
   WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
-import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
 import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import { PreviewClock } from "../../content/previewClock";
@@ -118,7 +118,6 @@ export function V2ZonePreview({
   asset,
   width,
   height,
-  overrides,
   onState,
   fit = "shrink",
   previewDate,
@@ -131,8 +130,6 @@ export function V2ZonePreview({
    */
   width: number;
   height: number;
-  /** Per-placement overrides win over Widget configuration, as in Studio. */
-  overrides?: Record<string, unknown>;
   /** Mount state, for callers that capture the preview once it settles. */
   onState?: (state: WidgetMountState) => void;
   /**
@@ -151,8 +148,7 @@ export function V2ZonePreview({
   const { t } = useTranslation(["content", "common"]);
   const regional = useOrganizationRegionalProfile();
   const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: () => api.contentDefinitions(),
+    ...contentQueries.definitions(),
   });
   const component = useMemo(
     () => studioWidgetComponent(definitions.data, provider),
@@ -261,10 +257,8 @@ export function V2ZonePreview({
             ? ("h23" as const)
             : ("locale" as const),
       theme: resolveTheme({
-        background:
-          overrides?.backgroundColor ?? configuration["backgroundColor"],
-        foreground:
-          overrides?.foregroundColor ?? configuration["foregroundColor"],
+        background: configuration["backgroundColor"],
+        foreground: configuration["foregroundColor"],
       }),
       motion: { reduced: reducedMotion },
       mode: "preview" as const,
@@ -273,7 +267,6 @@ export function V2ZonePreview({
     clock,
     fixedMs,
     reducedMotion,
-    overrides,
     regional.locale,
     regional.timezone,
     regional.timeFormat,

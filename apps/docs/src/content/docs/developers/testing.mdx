@@ -33,6 +33,19 @@ A failed visual job includes expected, actual, and diff images, an HTML report, 
 
 The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md) gives the exact environment, masks, tolerance, baseline commands, and artifact paths.
 
+## Check React code
+
+React Doctor reviews Studio's React code for patterns that ESLint misses, such as writing to a ref during render or an effect that never cleans up. It runs on your machine and sends no score or crash reports.
+
+```sh title="Repository root · React Doctor"
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans all of Studio and lists every existing finding. `npm run doctor:changed` shows only the findings your branch adds. Neither command fails when it finds issues.
+
+On a pull request, React Doctor comments on the code you changed: one summary comment and inline comments on the affected lines. It does not block pull requests yet, so a finding never fails CI. Pull requests from forks do not get comments, because GitHub gives them a read-only token. Their findings appear in the job summary instead. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
+
 ## Understand affected checks
 
 Run `npm run test:ci` to test the CI dependency graph. Inspect a branch's selected areas with:
@@ -45,7 +58,11 @@ The classifier follows package consumers. Studio changes select Studio and Demo 
 
 Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
 
+Server CI runs the same Go formatting gate as `make check` before vet, tests, and build.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
+
+Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.
 
 ## Run tests for changed code
 
@@ -73,8 +90,56 @@ npm test --workspace @tilecast/player-runtime
 npm test -- --run src/content/presentationModelConformance.test.ts
 ```
 
-Keep host APIs, mounting, storage, and timers in the consumers. Layout preview tests cover selected dates, live availability changes, and long waits that exceed the browser timer limit. See the [Presentation Model contract](https://github.com/gbyo/tilecast/blob/main/docs/presentation-model.md) for ownership and build details.
+Shared zone-policy fixtures also exercise Runtime actors and surfaces, plus Studio preview fallback and progression. Keep host APIs, mounting, storage, and timers in the consumers. Layout preview tests cover selected dates, live availability changes, and long waits that exceed the browser timer limit. See the [Presentation Model contract](https://github.com/gbyo/tilecast/blob/main/docs/presentation-model.md) for ownership and build details.
+
+## Reuse Studio query contracts
+
+For Screen data, import `screenQueries` and `screenKeys` from `apps/dashboard/src/data/screens.ts`. Use the same factory in `useQuery()`, prefetching, and `queryClient` cache operations so the request and its cache identity stay together. Keep view-specific polling and permission conditions in the consuming UI. Fleet and detail status polls use `SCREEN_STATUS_REFRESH_MS`.
+
+The Screen factories preserve existing cache identities while other consumers migrate. A Screen's detail, assignment, commands, reliability, and history share the `screenKeys.detail(id)` prefix. Preview metadata retains its separate cache. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) for ownership.
+
+## Layout query contracts
+
+Use `apps/dashboard/src/data/layouts.ts` for Layout query keys and options. Detail queries share data across the editor, popup preview, breadcrumbs, and Screen dependencies. Revision history belongs to the detail key. Complete-list and infinite-page results stay separate. Keep draft history and autosave state in the editor.
+
+The Layout query tests cover API normalization, detail reuse, searched two-page loading, and scoped invalidation. Run the editor's drag and capture suites when changing its query integration; query changes must preserve local editing and capture readiness.
+
+## Content query contracts
+
+Use `apps/dashboard/src/data/content.ts` for Content catalog queries. The library and picker share asset pagination and processing refresh. Asset-page keys include the actual request filters, including archive state, provider, and page size. Local selection and dialog state remain with their controls.
+
+HTTP-boundary tests check filters across multiple pages, equivalent filter reuse, independent archive/provider/page-size requests, caller-parameter snapshots, and normalized definition catalogs. Run Content picker and Widget capture tests when changing these integrations. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
+## Activity query contracts
+
+Overview, compliance, and incident views use `apps/dashboard/src/data/activity.ts`. Range keys use timestamps rather than translated labels. Incident list, detail, and analytics keys share an invalidation prefix so an operator action refreshes all three.
+
+The HTTP-boundary tests check range and dimension separation, API request bounds, related-event normalization, and incident invalidation. Keep unmeasured compliance as null. The [Activity reference](https://github.com/gbyo/tilecast/blob/main/docs/activity.md) and [event contract](https://github.com/gbyo/tilecast/blob/main/docs/activity-event-contract.md) define the metrics; queries fetch and cache their results.
+
+## Playlist query contracts
+
+Use the factories in `apps/dashboard/src/data/playlists.ts` for Playlist queries. The editor, popup preview, and Screen dependency view share detail data, so a saved draft update reaches each consumer through the same cache. Complete lists and infinite pages use separate keys. API domain helpers still normalize responses; query factories do not duplicate that work.
+
+The HTTP-boundary tests check normalized detail reuse, draft cache updates, search parameters, two-page loading, and invalidation. Rendering remains with the existing preview and Player components. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
+## Settings and Account query contracts
+
+Use `apps/dashboard/src/data/settings.ts` for the organization settings document and `apps/dashboard/src/data/account.ts` for account preferences. Settings, regional formatting, policy definitions, and Takeover defaults share one organization document. A successful save publishes the returned document to every consumer. Preferences retain a separate cache for the signed-in account.
+
+Keep drafts, permission checks, and presentation-page conditions in the UI. The query factories pass cancellation to the typed transport. HTTP-boundary tests verify cancellation and cache separation; the Settings save test verifies that another mounted consumer sees the saved values without an extra request. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries).
+
+## Schedule query contracts
+
+Schedule pages, editor defaults, detail breadcrumbs, and proposed previews use the factories in `apps/dashboard/src/data/schedules.ts`. Keep complete lists separate from infinite-page results: they have different cache shapes. A preview key includes the Screen, requested instant, and proposal, so one preview cannot reuse another instant's result.
+
+The query tests use MSW at the HTTP boundary and check multi-page loading, shared prefetched details, preview separation, and invalidation. Keep schedule selection on the Server; query factories only fetch and cache the result. See the [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md#boundaries) for ownership.
+
+Schedule create, update, and delete use `mutationOptions()` factories in the same module. These factories invalidate Schedule and preview caches after success. The editor supplies its own localized feedback and navigation through mutation callbacks. The mutation tests cover CSRF, rejected requests, and a submitting view leaving before the response arrives: cache invalidation must still happen, while feedback for the old view must stop.
 
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
+
+## Android CI caches
+
+The Android workflow caches Gradle dependencies and task outputs. It also runs its unit tests, lint, and debug APK assembly twice to confirm the configuration cache can be reused. Check the Gradle logs for `FROM-CACHE` task results and `Reusing configuration cache` when reviewing a workflow change. See the [CI timing record](https://github.com/gbyo/tilecast/blob/main/docs/ci-timings.md) for observed cold and warm run durations and their limitations.

@@ -8,6 +8,7 @@ on:
         default: false
 
 permissions:
+  actions: read
   contents: read
   checks: write
 
@@ -16,6 +17,7 @@ jobs:
     name: Server CI
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
     services:
@@ -42,6 +44,8 @@ jobs:
             apps/cli/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
+      - name: Check Go formatting
+        run: make gofmt-check
       # go.work puts the bundled plugins and the plugin SDK in the same build.
       - working-directory: apps/server
         run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/...
@@ -69,3 +73,9 @@ jobs:
         with:
           name: server-coverage
           path: apps/server/coverage.out
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Server CI
+        run: node scripts/ci/timing-summary.mjs --go-json apps/server/test-results.json

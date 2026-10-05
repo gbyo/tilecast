@@ -142,5 +142,7 @@
     "description": "Alertas asignadas a una regla que muestran contenido.",
     "emptyTitle": "Sin alertas activas",
     "emptyBody": "No hay alertas del NWS activas."
-  }
+  },
+  "leaveTitle": "¿Salir sin guardar?",
+  "leaveBody": "La configuración del monitor o las reglas de alerta tienen cambios sin guardar."
 }

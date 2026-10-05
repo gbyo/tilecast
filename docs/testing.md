@@ -50,6 +50,8 @@ Both workflows run for every PR. An aggregate fails when detection fails, a sele
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
 
+Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
+
 ## Fast local iteration
 
 Use changed tests while iterating, then use the full suite required by CI before merge. Fetch the comparison ref first:
@@ -135,6 +137,49 @@ npx playwright show-report widgets/visual/playwright-report
 
 The container helper copies reports into `e2e/visual/test-results/linux-run/`.
 
+## React Doctor
+
+React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not compute a score and it does not run the supply-chain check. The local scripts pass `--no-telemetry`, which also stops crash reporting.
+
+```sh
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only the findings that your branch adds compared with the base branch. Neither command is part of `make check`, and neither fails when it finds issues.
+
+Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml`. It scans only the dashboard code that the pull request changes. It writes one sticky summary comment and inline review comments, and it adds the result to the job summary. It is advisory (`blocking: none`): findings never fail the pull request. It does not publish a commit status. The step runs on `pull_request` events only, so a release run does not scan. It uses `pull_request`, not `pull_request_target`. A pull request from a fork has a read-only token, so the action does not post comments there; its findings show in the job summary.
+
+The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
+
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
+
+## Public documentation captures
+
+The documentation generator uses the production Demo Mode installation. It
+uses the Studio visual suite's browser settings and render waits. It does not
+use regression masks or the pixel-difference contract.
+
+```sh
+make demo
+npm run docs:screenshots
+npm run docs:check
+npm run docs:build
+```
+
+Install Chromium with `npx playwright install chromium` before the first run.
+Run the generator separately from the other Demo Mode suites. Each capture
+resets the same installation. The generator refuses a non-demo server.
+
+The generator writes only named PNG files under
+`apps/docs/src/assets/screenshots/`. Each state has light and dark sources at
+2× pixel density. The docs figure selects the source for the docs theme.
+The generator hides only the Demo Mode notice.
+Review all images before commit. CI does not regenerate these source assets.
+See the [capture inventory](../e2e/docs-screenshots/README.md) for routes,
+required states, crops, and omitted states. The public screenshot policy is in
+[the docs style guide](../apps/docs/STYLE.md#product-screenshots).
+
 ## Coverage
 
 Coverage is diagnostic. There is no repository percentage gate.
@@ -150,6 +195,10 @@ go tool cover -func=coverage.out
 ```
 
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
+
+## Validation timing summaries
+
+Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
 
 Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
 

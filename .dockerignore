@@ -5,6 +5,8 @@
 node_modules
 **/node_modules
 **/dist
+target
+apps/edge/target
 apps/server/tilecast
 data
 postgres

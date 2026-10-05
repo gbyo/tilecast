@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { activityKeys } from "../data/activity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -156,7 +157,7 @@ export function useIncidentAction() {
       }
     },
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["activity", "incidents"] }),
+      queryClient.invalidateQueries({ queryKey: activityKeys.incidents }),
   });
 }
 

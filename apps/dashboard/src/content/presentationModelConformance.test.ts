@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "../../../../packages/presentation-model/fixtures/foundation.json";
 import mediaFixtures from "../../../../packages/presentation-model/fixtures/media-eligibility.json";
+import zoneFixtures from "../../../../packages/presentation-model/fixtures/zone-policy.json";
 import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
@@ -13,6 +14,7 @@ import {
   playlistPreviewDuration,
   isPlaylistZoneMediaItem,
   availablePlaylistZoneItems,
+  nextPlaylistPreviewIndex,
 } from "../components/layout-editor/WidgetLivePreview";
 import type { Asset, Playlist, PlaylistItem } from "../api/types";
 
@@ -30,6 +32,11 @@ describe("Studio adopts Presentation Model fixtures", () => {
       kind: fixture.kind,
       reason: fixture.reason,
     });
+  });
+  it.each(zoneFixtures.advance)("$name", (fixture) => {
+    expect(
+      nextPlaylistPreviewIndex(fixture.index, fixture.count, fixture.loop),
+    ).toBe(fixture.nextIndex);
   });
   it.each(fixtures.availability)("$name", (fixture) => {
     const at = new Date(fixture.at);

@@ -49,6 +49,17 @@ The full Edge run used 159 fewer job execution seconds. Its elapsed time increas
 
 A second full [Edge run 36393103397](https://github.com/gbyo/tilecast/actions/runs/36393103397) passed at commit `e9d6ac6b2d4114c1578ee6b2e319ecd21d3e25af`. It completed in 15m 19s and used 51m 37s of job execution time. The two after-change runs show why one elapsed duration is not a reliable cache speed estimate.
 
+## Android Gradle cache observation
+
+The Android workflow already enables Gradle dependency caching through `actions/setup-java` and task-output caching plus parallel execution through `apps/player-android/gradle.properties`. Two successful Android CI jobs provide a cold/warm observation:
+
+| Run                                                                             | Gradle tasks                                                                    | Android job duration | Gradle task step |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------: | ---------------: |
+| [PR run 36720401406](https://github.com/gbyo/tilecast/actions/runs/36720401406) | No restored Gradle cache or `FROM-CACHE` task results in the log                |               5m 27s |           4m 34s |
+| [PR run 36720998841](https://github.com/gbyo/tilecast/actions/runs/36720998841) | Restored Gradle caches; Kotlin compilation and unit tests reported `FROM-CACHE` |               1m 12s |              20s |
+
+These runs used separate pull request jobs, so this is an observed comparison rather than a controlled benchmark. The Android workflow now also runs the same validation tasks twice and enables configuration cache with problems set to fail. The second invocation checks that Gradle can reuse its configuration cache. This PR's CI result will establish whether the configuration cache is compatible with the current Android build.
+
 The main reduction comes from selection. Ordinary server administration changes select zero deep Edge jobs. The old workflow selected the full matrix for these changes. The after-run matrix used 52m 52s of job execution time. This is an example of the work that selection avoids, not a measured duration for a targeted PR. Studio component changes also select zero deep Edge jobs. The old Edge path filter already excluded these changes.
 
 The production browser job now includes 14 functional tests and 22 Studio visual comparisons. Studio also collects V8 coverage. The workload differs from the old smoke job, so a full PR comparison must include these extra checks. [PR 739](https://github.com/gbyo/tilecast/pull/739) records the final baseline-inclusive PR run and its elapsed and job execution times. Do not treat a synthetic selection comparison as a measured speed improvement.

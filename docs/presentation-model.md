@@ -15,6 +15,10 @@ consumer. It has no production dependencies.
 - `isPlaylistZoneMediaItem()` accepts image and video items without a nested Layout.
 - `resolveMediaEligibility()` checks the item window, item kind, exact asset
   reference, asset window, and media type in that order.
+- `resolvePlaylistAdvance()` advances or holds a zero-based zone occurrence.
+- `resolveNativeVideoLoop()` checks item loop policy and video trim offsets.
+- `resolveZoneFallback()` selects current media, previous media, background,
+  or a hidden zone from failure state and the presence of previous media.
 
 Availability starts are inclusive. Expiration is exclusive. Bounds contain
 instants with timezone offsets. Malformed or inverted windows are unavailable.
@@ -53,6 +57,12 @@ kinds, missing assets, reference mismatches, and item and asset windows.
 Studio tests exercise its zone filter. Runtime tests exercise Layout projection.
 An unsupported Widget remains valid as a direct Widget placement. The zone
 policy does not change the direct Widget renderer.
+
+`fixtures/zone-policy.json` covers empty zones, single-item and multi-item
+loops, final-item holds, video trim offsets, and each fallback. Runtime tests
+exercise the zone actor and actual surface. Studio tests exercise its index
+adapter and actual preview fallback. Timer scheduling, epoch checks, retries,
+media release, and retention of previous media stay with each consumer.
 
 The source compiler has no DOM library. A purity test rejects host imports,
 browser globals, ambient clock reads, randomness, and runtime dependencies.

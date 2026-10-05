@@ -6,10 +6,13 @@
  * Widget's state into evidence, and nothing is left behind on disposal.
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { announceError, widgetInputRevision } from "@tilecast/widget-sdk";
 import type {
   RuntimeItem,
   RuntimeWidgetComponentPayload,
 } from "../host/contract";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
+import type { RuntimeWidgetHost } from "./host";
 import { ManualClock } from "../clock/scheduler";
 import type { SurfaceEnvironment, SurfaceSink } from "../surfaces/surface";
 
@@ -46,6 +49,7 @@ const payload = (
     },
     dataSources: [],
     media: [],
+    empty: "render",
   },
   documents: {},
   media: {},
@@ -71,6 +75,7 @@ function environment() {
     fallbackShown: () => undefined,
     zoneFailed: (zoneId, message) =>
       log.push(`zoneFailed:${zoneId}:${message}`),
+    widgetEmpty: () => log.push("widget-empty"),
   };
   const env: SurfaceEnvironment = { clock, sink, animationScale: 0, widgets };
   return { clock, widgets, env, log };
@@ -186,6 +191,49 @@ describe("ComponentWidgetSurface", () => {
     expect(element.isConnected).toBe(false);
   });
 
+  it("returns the WidgetMount empty result to the playback stage", async () => {
+    const { env } = environment();
+    const emptyWidgets = {
+      mount: (
+        _container: HTMLElement,
+        _payload: RuntimeWidgetComponentPayload,
+        onState: (state: WidgetMountState) => void,
+      ) => {
+        onState({ state: "empty", reason: "no_data" });
+        return { dispose: () => undefined };
+      },
+    } as unknown as RuntimeWidgetHost;
+    const surface = new surfaceModule.ComponentWidgetSurface(
+      widgetItem(payload()),
+      { ...env, widgets: emptyWidgets },
+    );
+    expect(await surface.prepare()).toEqual({ empty: true });
+    surface.dispose();
+  });
+
+  it("reports a transition to empty after the Widget was shown", async () => {
+    const { env, log } = environment();
+    const emptyWidgets = {
+      mount: (
+        _container: HTMLElement,
+        _payload: RuntimeWidgetComponentPayload,
+        onState: (state: WidgetMountState) => void,
+      ) => {
+        onState({ state: "ready" });
+        queueMicrotask(() => onState({ state: "empty", reason: "no_data" }));
+        return { dispose: () => undefined };
+      },
+    } as unknown as RuntimeWidgetHost;
+    const surface = new surfaceModule.ComponentWidgetSurface(
+      widgetItem(payload()),
+      { ...env, widgets: emptyWidgets },
+    );
+    await surface.prepare();
+    await Promise.resolve();
+    expect(log).toContain("widget-empty");
+    surface.dispose();
+  });
+
   it("rejects an unknown component version instead of guessing", async () => {
     withAdoptedStyleSheets(true);
     const { env } = environment();
@@ -285,13 +333,9 @@ describe("Layout zones", () => {
     await (element as unknown as { updateComplete: Promise<unknown> })
       .updateComplete;
 
-    element.dispatchEvent(
-      new CustomEvent("tilecast-widget-error", {
-        bubbles: true,
-        composed: true,
-        detail: { code: "runtime_failure" },
-      }),
-    );
+    announceError(element, "stale_failure", widgetInputRevision(element) - 1);
+    expect(log.some((entry) => entry.startsWith("zoneFailed:"))).toBe(false);
+    announceError(element, "runtime_failure");
 
     expect(
       log.filter((entry) => entry === "layout-zone-rendered/zone"),

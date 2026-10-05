@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { formatDurationClock } from "../../lib/formatDuration";
 import type { TFunction } from "i18next";
 import {
   presentationPath,
@@ -84,7 +85,7 @@ export function playlistItemUsesFixedDuration(item: PlaylistItem) {
 export function formatDuration(ms: number | null, t: PlaylistsT) {
   if (ms == null) return t("model.duration.fullVideo");
   const seconds = Math.round(ms / 1000);
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  return formatDurationClock(seconds);
 }
 
 export function playlistDurationLabel(

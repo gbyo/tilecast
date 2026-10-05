@@ -405,7 +405,7 @@ def main():
         server_bin = os.path.join(work, "tilecast")
         run("go", "build", "-o", server_bin, "./cmd/tilecast-server", cwd=SERVER)
         run("cargo", "build", "-q", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE)
-        target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(EDGE, "target")), "debug")
+        target = os.path.join(os.environ.get("CARGO_TARGET_DIR", os.path.join(ROOT, "target")), "debug")
         tilecastd, tilecastctl = os.path.join(target, "tilecastd"), os.path.join(target, "tilecastctl")
 
         # Without the content phase nothing is uploaded, so when FFmpeg is not
