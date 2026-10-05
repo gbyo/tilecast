@@ -169,7 +169,7 @@ function StatusMetric({
     <>
       <Sparkline
         values={trend}
-        className={`absolute inset-x-0 bottom-0 h-10 w-full ${identityClass[identity].line}`}
+        className={`absolute inset-x-0 bottom-0 h-5 w-full ${identityClass[identity].line}`}
       />
       <span className="relative flex items-center gap-2 text-xs leading-4 font-medium text-muted-foreground">
         <span
@@ -204,7 +204,7 @@ function StatusMetric({
     </>
   );
   const cell =
-    "relative row-span-2 grid min-w-0 grid-rows-subgrid gap-y-1 overflow-hidden px-(--card-spacing) pt-2 pb-3 max-sm:px-3";
+    "relative row-span-2 grid min-w-0 grid-rows-subgrid gap-y-1 overflow-hidden px-(--card-spacing) pt-2 pb-5 max-sm:px-3";
   return (
     <li className="row-span-2 grid min-w-0 grid-rows-subgrid">
       {to ? (
