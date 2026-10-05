@@ -22,6 +22,12 @@ export const tallTitleRow = `${titleRow} min-h-8`;
  */
 export const headerAction = "-mr-1.5 max-sm:h-10";
 
+/**
+ * Placeholder for a rail list of three rows plus the list's own padding, sized
+ * to the rows it stands in for so resolving does not move what is below.
+ */
+export const railRowsSkeleton = "grid gap-2 py-2";
+
 /** A list that runs edge to edge inside a card, so hover and rules span it. */
 export const listBleed = "-mx-(--card-spacing) w-auto gap-0";
 

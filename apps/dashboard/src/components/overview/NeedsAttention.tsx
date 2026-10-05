@@ -32,7 +32,8 @@ import {
 import type { AttentionItem, AttentionReason } from "./attention";
 import { formatLastContact } from "./format";
 import { HeaderLink } from "./HeaderLink";
-import { listBleed, rowBleed, titleRow } from "./layout";
+import { Skeleton } from "../ui/skeleton";
+import { listBleed, railRowsSkeleton, rowBleed, titleRow } from "./layout";
 
 const MAX_ROWS = 8;
 
@@ -202,6 +203,33 @@ export function NeedsAttention({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Held while the list loads so the cards below do not drop when it arrives.
+ * It shows no title: a fleet with nothing to report never gets the section, and
+ * a heading that then vanishes would read as a false alarm.
+ */
+export function NeedsAttentionSkeleton() {
+  const { t } = useTranslation("activity");
+  return (
+    <div role="status" aria-label={t("operations.attention.loading")}>
+      <Card size="sm" className="gap-2 pb-3">
+        <CardHeader>
+          <div className={titleRow}>
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className={railRowsSkeleton}>
+            <Skeleton className="h-13 w-full max-sm:h-[4.9rem]" />
+            <Skeleton className="h-13 w-full max-sm:h-[4.9rem]" />
+            <Skeleton className="h-13 w-full max-sm:h-[4.9rem]" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

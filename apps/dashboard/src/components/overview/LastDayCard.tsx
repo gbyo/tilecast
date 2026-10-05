@@ -77,11 +77,12 @@ export function LastDayCard({
         <LoadReveal
           loading={status === "loading"}
           skeleton={
-            <div className="grid content-start gap-1">
-              <span className="text-sm font-medium">{label}</span>
+            <div className="grid content-start gap-0.5">
               <span role="status" aria-label={t("operations.lastDay.loading")}>
                 <Skeleton className="h-7 w-16" />
               </span>
+              <span className="text-sm font-medium">{label}</span>
+              <Skeleton className="h-4 w-28 max-w-full" />
             </div>
           }
         >

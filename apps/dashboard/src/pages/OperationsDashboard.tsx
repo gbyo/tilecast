@@ -26,7 +26,10 @@ import {
   type QueryStatus,
 } from "../components/overview/LastDayCard";
 import { LoadReveal } from "../components/overview/LoadReveal";
-import { NeedsAttention } from "../components/overview/NeedsAttention";
+import {
+  NeedsAttention,
+  NeedsAttentionSkeleton,
+} from "../components/overview/NeedsAttention";
 import { OnAirSection } from "../components/overview/OnAirSection";
 import {
   OverviewRecap,
@@ -248,14 +251,23 @@ export function OperationsDashboard() {
               nothing to attend to the uptime row moves up to the top. */}
           <div className="@container/overview">
             <div className="grid items-start gap-4 @min-[40rem]/overview:grid-cols-[minmax(0,1.55fr)_minmax(19rem,0.75fr)] @min-[40rem]/overview:grid-rows-[auto_1fr]">
-              {!screens.isLoading && !screens.isError && (
-                <div className="min-w-0 empty:hidden @min-[40rem]/overview:col-start-1">
-                  <NeedsAttention
-                    items={attention}
-                    incidentsFailed={incidents.isError}
-                  />
-                </div>
-              )}
+              <div className="min-w-0 empty:hidden @min-[40rem]/overview:col-start-1">
+                {/* Held as a placeholder while it loads so what is below does
+                    not drop when the list arrives, then gone if there is
+                    nothing to report. */}
+                <LoadReveal
+                  loading={screens.isLoading || incidents.isLoading}
+                  skeleton={<NeedsAttentionSkeleton />}
+                >
+                  {!screens.isError &&
+                    (attention.length > 0 || incidents.isError) && (
+                      <NeedsAttention
+                        items={attention}
+                        incidentsFailed={incidents.isError}
+                      />
+                    )}
+                </LoadReveal>
+              </div>
               <Card
                 size="sm"
                 className="min-w-0 gap-0 py-0 @min-[40rem]/overview:col-start-2 @min-[40rem]/overview:row-span-2 @min-[40rem]/overview:row-start-1"

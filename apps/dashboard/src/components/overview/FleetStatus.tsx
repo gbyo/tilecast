@@ -114,6 +114,10 @@ function trendSeries(buckets: UptimeBucket[]) {
   };
 }
 
+/** One figure's box. The loading placeholder shares it, so the two match. */
+const metricCell =
+  "relative row-span-3 grid min-w-0 grid-rows-subgrid gap-y-0.5 overflow-hidden px-(--card-spacing) pt-1 pb-3 max-sm:px-3";
+
 type Identity = "online" | "playing" | "attention";
 
 /** A soft color per figure, for its icon chip and its trend line. */
@@ -197,8 +201,7 @@ function StatusMetric({
       />
     </>
   );
-  const cell =
-    "relative row-span-3 grid min-w-0 grid-rows-subgrid gap-y-0.5 overflow-hidden px-(--card-spacing) pt-1 pb-3 max-sm:px-3";
+  const cell = metricCell;
   return (
     <li className="row-span-3 grid min-w-0 grid-rows-subgrid">
       {to ? (
@@ -266,7 +269,30 @@ export function FleetStatusSkeleton() {
   const { t } = useTranslation("activity");
   return (
     <div role="status" aria-label={t("operations.fleet.loading")}>
-      <Skeleton className="h-[5.5rem] w-full rounded-xl" />
+      <Card size="sm" className="gap-0 py-0">
+        <div className="flex justify-end px-(--card-spacing) pt-2">
+          <Skeleton className="h-6 w-20 max-sm:h-10" />
+        </div>
+        <ul className="grid grid-cols-3 grid-rows-[auto_auto_auto] divide-x divide-border">
+          {[0, 1, 2].map((cell) => (
+            <li
+              key={cell}
+              className="row-span-3 grid min-w-0 grid-rows-subgrid"
+            >
+              <div className={metricCell}>
+                <span className="flex items-center gap-2 max-sm:min-h-8">
+                  <Skeleton className="size-6 shrink-0" />
+                  <Skeleton className="h-3 w-16" />
+                </span>
+                <span className="flex min-h-8 items-center">
+                  <Skeleton className="h-6 w-12" />
+                </span>
+                <div className="mt-1 h-7 w-full self-end" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
     </div>
   );
 }
