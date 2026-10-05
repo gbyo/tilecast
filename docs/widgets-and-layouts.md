@@ -134,9 +134,13 @@ Web Integration Apps that opt into periodic reload require manifest v15 and `web
 
 A Layout arranges Media, Widgets, static text, shapes, playlist zones, and groups. Data Sources are never listed as normal draggable content.
 
+A Layout playlist zone supports only image and video items. Studio previews only those items. Layout publication and assignment validation reject a zone Playlist that contains a Widget, Website, or nested Layout, including content added after the Layout was published.
+
 A playlist zone uses the Player's image timing and playback defaults. An image uses its item duration or the configured default image duration. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset. Studio uses the same rules in the Layout preview.
 
 Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.
+
+Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
 A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
 

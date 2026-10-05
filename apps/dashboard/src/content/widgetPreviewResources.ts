@@ -13,7 +13,9 @@ import { useCallback } from "react";
 import { useQueries, type UseQueryResult } from "@tanstack/react-query";
 import {
   createWidgetResources,
+  type WidgetCacheState,
   type WidgetDataDocument,
+  type WidgetDateSelection,
   type WidgetDataset,
   type WidgetField,
   type WidgetRecord,
@@ -31,6 +33,47 @@ import type {
 
 export type SavedSourcePreview =
   StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload;
+
+function widgetCache(input: {
+  cachedAt?: string | null;
+  staleAt?: string | null;
+  usingCachedData?: boolean;
+  unavailable?: boolean;
+  lastModified?: string;
+  upstreamExpiry?: string | null;
+}): WidgetCacheState {
+  return {
+    ...(input.cachedAt ? { cachedAt: input.cachedAt } : null),
+    ...(input.staleAt ? { staleAt: input.staleAt } : null),
+    usingCachedData: input.usingCachedData ?? false,
+    unavailable: input.unavailable ?? false,
+    ...(input.lastModified ? { lastModified: input.lastModified } : null),
+    ...(input.upstreamExpiry ? { upstreamExpiry: input.upstreamExpiry } : null),
+  };
+}
+
+function widgetDateSelection(
+  field: string | undefined,
+  selection: NonNullable<TypedRecordData["dateSelection"]>,
+): WidgetDateSelection | undefined {
+  if (!selection.enabled || !field) return undefined;
+  return {
+    field,
+    timezone: selection.timezone,
+    mode: selection.mode,
+    ...(selection.customStartDate
+      ? { customStartDate: selection.customStartDate }
+      : null),
+    ...(selection.customEndDate
+      ? { customEndDate: selection.customEndDate }
+      : null),
+    excludePast: selection.excludePast,
+    noMatchBehavior: selection.noMatchBehavior,
+    ...(selection.fallbackText
+      ? { fallbackText: selection.fallbackText }
+      : null),
+  };
+}
 
 const DECIMAL_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 const INTEGER = /^[+-]?\d+$/;
@@ -190,29 +233,42 @@ export function previewToDataDocument(
 ): WidgetDataDocument | null {
   if (!preview || typeof preview !== "object") return null;
   if (isTypedDatasetPayload(preview)) {
-    const datasets: WidgetDataset[] = preview.datasets.map((dataset) => ({
-      id: dataset.id,
-      kind: dataset.kind,
-      fields: widgetFields(dataset.fields),
-      records: dataset.records?.map((record) => ({
-        id: record.id,
-        values: recordValues(record.values, dataset.fields),
-      })),
-      points: dataset.points?.map((point) => ({
-        at: point.at,
-        values: recordValues(point.values, dataset.fields),
-      })),
-      value:
-        dataset.values !== undefined
-          ? {
-              kind: "object",
-              object: recordValues(dataset.values, dataset.fields),
-            }
-          : null,
-      attribution: dataset.attribution,
-      timezone: dataset.timezone,
-      units: dataset.units,
-    }));
+    const datasets: WidgetDataset[] = [];
+    for (const dataset of preview.datasets) {
+      if (
+        dataset.kind !== "scalar" &&
+        dataset.kind !== "records" &&
+        dataset.kind !== "time_series" &&
+        dataset.kind !== "list" &&
+        dataset.kind !== "object"
+      ) {
+        return null;
+      }
+      datasets.push({
+        id: dataset.id,
+        kind: dataset.kind,
+        fields: widgetFields(dataset.fields),
+        records: dataset.records?.map((record) => ({
+          id: record.id,
+          values: recordValues(record.values, dataset.fields),
+        })),
+        points: dataset.points?.map((point) => ({
+          at: point.at,
+          values: recordValues(point.values, dataset.fields),
+        })),
+        value:
+          dataset.values !== undefined
+            ? {
+                kind: "object",
+                object: recordValues(dataset.values, dataset.fields),
+              }
+            : null,
+        cache: widgetCache(dataset),
+        attribution: dataset.attribution,
+        timezone: dataset.timezone,
+        units: dataset.units,
+      });
+    }
     return { schemaVersion: 1, datasets };
   }
   if (isTypedRecordData(preview)) {
@@ -220,6 +276,9 @@ export function previewToDataDocument(
       id: record.id,
       values: recordValues(record.values, preview.fields),
     }));
+    const dateSelection = preview.dateSelection
+      ? widgetDateSelection(preview.dateField, preview.dateSelection)
+      : undefined;
     return {
       schemaVersion: 1,
       datasets: [
@@ -228,15 +287,15 @@ export function previewToDataDocument(
           kind: "records",
           fields: widgetFields(preview.fields),
           records,
+          cache: widgetCache(preview),
           attribution: preview.attribution,
+          ...(dateSelection
+            ? { timezone: dateSelection.timezone, dateSelection }
+            : preview.dateSelection
+              ? { timezone: preview.dateSelection.timezone }
+              : null),
         },
       ],
-      cache: {
-        cachedAt: preview.cachedAt ?? null,
-        staleAt: preview.staleAt ?? null,
-        usingCachedData: preview.usingCachedData,
-        unavailable: preview.unavailable,
-      },
     };
   }
   if (isCalendarPreview(preview)) {
@@ -273,17 +332,18 @@ export function previewToDataDocument(
                 : null),
             },
           })),
+          cache: widgetCache(data),
+          timezone: preview.configuration.timezone,
         },
       ],
-      cache: {
-        cachedAt: data.cachedAt,
-        staleAt: data.staleAt,
-        usingCachedData: data.usingCachedData,
-      },
     };
   }
   const data = preview.configuration?.data;
   if (!data || !Array.isArray(data.records)) return null;
+  const dateSelection = widgetDateSelection(
+    "date",
+    preview.configuration.dateSelection,
+  );
   const fieldSchema = preview.fieldSchema;
   return {
     schemaVersion: 1,
@@ -319,13 +379,12 @@ export function previewToDataDocument(
             values: recordValues(declaredValues, fieldSchema),
           };
         }),
+        cache: widgetCache(data),
+        ...(dateSelection
+          ? { timezone: dateSelection.timezone, dateSelection }
+          : null),
       },
     ],
-    cache: {
-      cachedAt: data.cachedAt,
-      staleAt: data.staleAt,
-      usingCachedData: data.usingCachedData,
-    },
   };
 }
 

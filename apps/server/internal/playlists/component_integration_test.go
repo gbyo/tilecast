@@ -298,6 +298,67 @@ func TestClockComponentInLayoutZone(t *testing.T) {
 	}
 }
 
+func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	playlist, err := f.service.Create(f.ctx, f.user, "Zone playlist", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.addReadyImageToPlaylist(t, playlist.ID)
+	var imageID uuid.UUID
+	if err = f.pool.QueryRow(f.ctx, `SELECT asset_id FROM playlist_items WHERE playlist_id=$1`, playlist.ID).Scan(&imageID); err != nil {
+		t.Fatal(err)
+	}
+	imageDuration := int64(10_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: imageID, DurationMS: &imageDuration}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+
+	layoutID, revisionID := uuid.New(), uuid.New()
+	documentBytes, err := json.Marshal(map[string]any{
+		"schemaVersion": 2,
+		"canvas":        map[string]any{"width": 1920, "height": 1080, "orientation": "landscape", "backgroundColor": "#000000"},
+		"placements": []any{map[string]any{
+			"id": uuid.New(), "type": "playlistZone", "name": "Zone", "playlistId": playlist.ID,
+			"x": 0, "y": 0, "width": 1920, "height": 1080, "layer": 0, "opacity": 1, "visible": true,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(documentBytes)
+	encoded := string(documentBytes)
+	for _, statement := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO layouts(id,organization_id,name,orientation,canvas_width,canvas_height,draft_document,created_by)VALUES($1,$2,'Zone layout','landscape',1920,1080,$3::jsonb,$4)`, []any{layoutID, f.org, encoded, f.user}},
+		{`INSERT INTO layout_revisions(id,layout_id,revision,document,document_sha256,published_by)VALUES($1,$2,1,$3::jsonb,$4,$5)`, []any{revisionID, layoutID, encoded, hex.EncodeToString(digest[:]), f.user}},
+		{`UPDATE layouts SET published_revision_id=$2 WHERE id=$1`, []any{layoutID, revisionID}},
+	} {
+		if _, err = f.pool.Exec(f.ctx, statement.sql, statement.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err != nil {
+		t.Fatalf("image-only zone rejected: %v", err)
+	}
+
+	clock, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "clock", Name: "Zone clock", Configuration: json.RawMessage(`{"timezone":"UTC","format":"24","showSeconds":false}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: clock.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err == nil || !strings.Contains(err.Error(), "only image and video items") {
+		t.Fatalf("assignment validation accepted a Widget added after Layout publication: %v", err)
+	}
+}
+
 // TestComponentOnlyWidgetRefusedWithoutCapability proves a Widget with no
 // compatibility presentation is refused, with a readable reason, on a Player
 // that cannot render its component.

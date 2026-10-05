@@ -16,15 +16,20 @@ import { fileURLToPath } from "node:url";
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const oldSource = "export const page = <p>Old untranslated label</p>;\n";
 
-function fixture(t) {
+function fixture(t, baselineSource = oldSource) {
   const directory = mkdtempSync(path.join(tmpdir(), "tilecast-i18n-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const app = path.join(directory, "apps/dashboard");
   mkdirSync(path.join(app, "scripts"), { recursive: true });
   mkdirSync(path.join(app, "src"), { recursive: true });
+  mkdirSync(path.join(app, "src/data"), { recursive: true });
   copyFileSync(
     path.join(repo, "apps/dashboard/scripts/i18n-scan.mjs"),
     path.join(app, "scripts/i18n-scan.mjs"),
+  );
+  copyFileSync(
+    path.join(repo, "apps/dashboard/scripts/studio-architecture.mjs"),
+    path.join(app, "scripts/studio-architecture.mjs"),
   );
   symlinkSync(
     path.join(repo, "node_modules"),
@@ -32,7 +37,7 @@ function fixture(t) {
     "dir",
   );
   const write = (file, source) => writeFileSync(path.join(app, file), source);
-  write("src/Page.tsx", oldSource);
+  write("src/Page.tsx", baselineSource);
   const git = (...args) =>
     execFileSync("git", args, {
       cwd: directory,
@@ -122,4 +127,65 @@ test("missing or invalid baseline fails clearly instead of silently skipping val
   );
   assert.equal(invalid.status, 2);
   assert.match(invalid.stderr, /is not a Git commit/);
+});
+
+test("architecture mode uses the same baseline comparison for new raw feedback", (t) => {
+  const source = "export const page = <Alert>{error.message}</Alert>;\n";
+  const { write, scan, base } = fixture(t, source);
+  write("src/Page.tsx", `\n${source}`);
+  assert.equal(
+    scan("--architecture", "--check", "--base", base, "src/Page.tsx").status,
+    0,
+  );
+  write("src/Page.tsx", `${source}toast.add({ title: failure.message });\n`);
+  const result = scan(
+    "--architecture",
+    "--check",
+    "--base",
+    base,
+    "src/Page.tsx",
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /raw-error-feedback/);
+  assert.match(result.stdout, /1 new architecture finding/);
+});
+
+test("new English mutation feedback fails while translated feedback passes", (t) => {
+  const { write, scan, base } = fixture(t);
+  write(
+    "src/Page.tsx",
+    `${oldSource}toast.add({ title: "Changes saved successfully." });\n`,
+  );
+  const result = scan("--check", "--base", base, "src/Page.tsx");
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /Changes saved successfully/);
+  write(
+    "src/Page.tsx",
+    `${oldSource}toast.add({ title: t("changes.saved") });\n`,
+  );
+  assert.equal(scan("--check", "--base", base, "src/Page.tsx").status, 0);
+});
+
+test("domain enforcement activates when its query contract is added without reviving historical keys", (t) => {
+  const source = 'useQuery({ queryKey: ["screens", "old"] });\n';
+  const { write, scan, base } = fixture(t, source);
+  write(
+    "src/Page.tsx",
+    `${source}useQuery({ queryKey: ["screens", "new"] });\n`,
+  );
+  assert.equal(
+    scan("--architecture", "--check", "--base", base, "src/Page.tsx").status,
+    0,
+  );
+  write("src/data/screens.ts", "export const screenKeys = {};\n");
+  const result = scan(
+    "--architecture",
+    "--check",
+    "--base",
+    base,
+    "src/Page.tsx",
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /1 new architecture finding/);
+  assert.match(result.stdout, /domain-query-key/);
 });

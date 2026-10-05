@@ -3,10 +3,8 @@
  *
  * A manifest v16 or v17 Widget whose presentation is `kind: "component"` projects
  * to a RuntimeWidgetComponentPayload: the component reference, the Data
- * Documents and media variants it declares, and the regional formatting
- * for its context. Nothing here depends on the current time, so the
- * runtime's periodic re-projection never restarts a component, and nothing
- * here renders: the Widget's own element does that in every host.
+ * Documents selected for the Player instant, and its declared media variants.
+ * Selection uses the same host-owned rules as compatibility Widgets.
  *
  * Node-safe. The Electron main process imports it through
  * `@tilecast/player-runtime/projection`; the runtime runs it when a host
@@ -17,10 +15,12 @@ import type {
   RuntimeWidgetComponentV1,
 } from "../host/contract";
 import type {
+  DataDocument,
   ManifestDataSource,
   ManifestWidget,
 } from "../compat/projection/content-types";
 import type { RegionalFormatting } from "../compat/projection/format";
+import { normalizeSource } from "../compat/projection/datasource";
 import type { ManifestAsset } from "../compat/projection/types";
 
 /** Latest presentation schema version of `kind: "component"` presentations. */
@@ -36,6 +36,7 @@ export interface ComponentProjectionContext {
   dataSources: ReadonlyMap<string, ManifestDataSource>;
   assets?: readonly ManifestAsset[];
   regionalFormat: RegionalFormatting;
+  at: Date;
 }
 
 /** True when a manifest Widget carries a component presentation. */
@@ -124,9 +125,39 @@ export function projectWidgetComponent(
   const component = componentOf(widget);
   if (!component) return null;
   const documents: Record<string, unknown> = {};
+  let hidden = false;
   for (const id of component.dataSources) {
-    const document = ctx.dataSources.get(id)?.dataDocument;
-    if (document) documents[id] = document;
+    const source = ctx.dataSources.get(id);
+    const document = source?.dataDocument;
+    if (!source || !document) continue;
+    const selectedDocument: DataDocument = {
+      ...document,
+      datasets: document.datasets.map((dataset) => {
+        if (dataset.kind !== "records" || !dataset.dateSelection) {
+          return dataset;
+        }
+        const normalized = normalizeSource(
+          {
+            ...source,
+            dataDocument: { schemaVersion: 1, datasets: [dataset] },
+          },
+          ctx.at,
+          ctx.regionalFormat,
+        );
+        hidden ||= normalized.hidden;
+        const recordsById = new Map(
+          (dataset.records ?? []).map((record) => [record.id, record]),
+        );
+        return {
+          ...dataset,
+          records: normalized.records.flatMap((record) => {
+            const selected = recordsById.get(record.id);
+            return selected ? [selected] : [];
+          }),
+        };
+      }),
+    };
+    documents[id] = selectedDocument;
   }
   const media: Record<string, string> = {};
   for (const { assetId, variantId } of component.media) {
@@ -144,6 +175,7 @@ export function projectWidgetComponent(
     component,
     documents,
     media,
+    ...(hidden ? { hidden: true } : null),
     regional: {
       locale: ctx.regionalFormat.locale,
       timeZone: ctx.regionalFormat.timezone,

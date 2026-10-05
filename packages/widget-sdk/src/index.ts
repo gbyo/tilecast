@@ -37,6 +37,7 @@ export {
   type ResourceGrant,
   type ResourceTables,
   type WidgetCacheState,
+  type WidgetDateSelection,
   type WidgetDataDocument,
   type WidgetDataset,
   type WidgetField,

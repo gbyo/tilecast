@@ -65,6 +65,7 @@ function documentWith(
         {
           id: "events",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "title", label: "Title", type: "text" },
             { key: "start", label: "Start", type: "datetime" },
@@ -393,6 +394,7 @@ describe("Agenda data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 5 },
           },
         ],

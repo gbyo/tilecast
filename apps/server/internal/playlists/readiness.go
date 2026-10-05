@@ -249,6 +249,9 @@ func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvaila
 			if placement.PlaylistID == nil {
 				return fmt.Errorf("%w: layout %q playlist zone is missing its playlist", ErrPresentationNotReady, name)
 			}
+			if err = layouts.ValidatePlaylistZoneMediaOnly(ctx, s.tx, placement.PlaylistID); err != nil {
+				return fmt.Errorf("%w: layout %q playlist zone: %v", ErrPresentationNotReady, name, err)
+			}
 			if err = s.playlist(ctx, *placement.PlaylistID, false); err != nil {
 				return fmt.Errorf("%w: layout %q playlist zone: %v", ErrPresentationNotReady, name, err)
 			}
