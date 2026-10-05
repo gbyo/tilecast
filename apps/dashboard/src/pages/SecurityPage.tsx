@@ -84,22 +84,27 @@ export function SecurityPage() {
 export function SecurityPanels({ status }: { status: SecurityStatus }) {
   const { t } = useTranslation(["account", "common"]);
   return (
-    <Tabs defaultValue="authenticator">
+    <Tabs defaultValue="authenticator" className="w-full min-w-0">
       <TabsList
+        variant="line"
         aria-label={t("myAccount.sections.security.title")}
-        className="max-w-full overflow-x-auto"
+        className="min-h-10 w-full max-w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
       >
-        <TabsTrigger value="authenticator">
+        <TabsTrigger value="authenticator" className="flex-none px-2">
           {t("security.authenticator.title")}
         </TabsTrigger>
-        <TabsTrigger value="passkeys">
+        <TabsTrigger value="passkeys" className="flex-none px-2">
           {t("security.passkeys.title")}
         </TabsTrigger>
-        <TabsTrigger value="recovery">
+        <TabsTrigger value="recovery" className="flex-none px-2">
           {t("security.recovery.title")}
         </TabsTrigger>
-        <TabsTrigger value="oauth">{t("oauth.grantsTitle")}</TabsTrigger>
-        <TabsTrigger value="tokens">{t("pat.title")}</TabsTrigger>
+        <TabsTrigger value="oauth" className="flex-none px-2">
+          {t("oauth.grantsTitle")}
+        </TabsTrigger>
+        <TabsTrigger value="tokens" className="flex-none px-2">
+          {t("pat.title")}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="authenticator" keepMounted>
         <AuthenticatorBlock status={status} />

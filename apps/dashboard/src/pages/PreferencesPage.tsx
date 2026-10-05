@@ -77,7 +77,6 @@ export function PreferencesPage() {
     );
   const navigationWarning = useNavigationWarning({
     dirty,
-    allowPrefix: "/account",
     title: t("preferences.leaveWarning"),
   });
   const save = useMutation({
@@ -238,6 +237,7 @@ function AppearanceControl({
       </header>
       <ToggleGroup
         aria-label={t("preferences.appearance.title")}
+        className="w-full flex-wrap sm:w-fit sm:flex-nowrap"
         value={options.includes(value) ? [value] : []}
         onValueChange={(next) => {
           if (next[0]) onChange(next[0]);
@@ -250,6 +250,7 @@ function AppearanceControl({
               key={option}
               value={option}
               aria-label={labels[option] ?? option}
+              className="min-w-[6rem] flex-1 whitespace-normal sm:flex-none sm:whitespace-nowrap"
             >
               <Icon aria-hidden="true" />
               {labels[option] ?? option}

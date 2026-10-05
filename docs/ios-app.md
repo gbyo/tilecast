@@ -246,7 +246,7 @@ Studio also resolves the active destination. It uses the longest matching destin
 
 When the app negotiated `nativeNavigation`, Studio sends the catalog from its authenticated chrome. Labels and group titles are already localized. A language change sends a new catalog. When Studio leaves its authenticated chrome, for example after sign-out, it sends an empty catalog. An empty catalog means that native navigation is not available now.
 
-Studio sends `navigation/state` when the location or the active destination changes. `activeDestinationId` is authoritative. It is `null` when the location belongs to no destination, for example My Account. `path` is the location path without its query string. It is for diagnostics only. The app does not derive a selection from it.
+Studio sends `navigation/state` when the location or the active destination changes. `activeDestinationId` is authoritative. It is `null` when the location belongs to no destination, for example My Account (`/account/preferences` or `/account/security`). `path` is the location path without its query string. It is for diagnostics only. The app does not derive a selection from it.
 
 ### Navigation requests
 

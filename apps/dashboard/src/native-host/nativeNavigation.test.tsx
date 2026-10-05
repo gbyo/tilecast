@@ -258,6 +258,10 @@ const routes: RouteObject[] = [
         path: "account",
         element: <h1>Account page</h1>,
         handle: { breadcrumb: "My Account" },
+        children: [
+          { path: "preferences", element: <h2>Preferences page</h2> },
+          { path: "security", element: <h2>Security page</h2> },
+        ],
       },
     ],
   },
@@ -536,6 +540,8 @@ describe("Studio hosted by the native app", () => {
     ["/layouts/abc123", "layouts"],
     ["/screens/archive", null],
     ["/account", null],
+    ["/account/preferences", null],
+    ["/account/security", null],
   ])("resolves %s to the active destination %s", async (path, expected) => {
     const host = installNativeHost();
     renderStudio(path);
