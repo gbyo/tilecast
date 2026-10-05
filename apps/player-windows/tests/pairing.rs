@@ -253,7 +253,10 @@ async fn a_clean_machine_pairs_is_approved_and_connects() {
     assert_eq!(code, "ABC001");
     let metadata = harness.fake.pairing.lock().unwrap().metadata.clone().unwrap();
     assert_eq!(metadata["platform"], "windows");
-    assert_eq!((metadata["screenWidth"].clone(), metadata["screenHeight"].clone()), (json!(1920), json!(1080)));
+    // Pairing reports the primary monitor where the OS has one (a Windows
+    // runner does) and the documented fallback elsewhere.
+    let (width, height) = tilecast_windows::device::display_size(None);
+    assert_eq!((metadata["screenWidth"].clone(), metadata["screenHeight"].clone()), (json!(width), json!(height)));
     let db = player.context.db().unwrap().clone();
     let player_id = db.run(|c| daemon_repo::player_identity(c)).await.unwrap().expect("generated player ID");
     assert_eq!(player_id.source, daemon_repo::PlayerIdentitySource::Generated);
