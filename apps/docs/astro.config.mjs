@@ -135,6 +135,15 @@ export default defineConfig({
       head: [
         { tag: "link", attrs: { rel: "sitemap", href: "/sitemap-index.xml" } },
         { tag: "script", content: syncTokenTheme },
+        {
+          tag: "script",
+          attrs: { type: "text/javascript" },
+          content: `(function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+})(window, document, "clarity", "script", "ysr2mieho2");`,
+        },
       ],
       // Keep the top-level order task-first and arrange each section around
       // the reader's work rather than the filesystem or Studio's own menu.
