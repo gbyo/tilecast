@@ -3,13 +3,16 @@ name: ci-android
 on:
   workflow_call:
     inputs:
-      # Unit tests, lint, and the assembled APK gate pull requests. The
-      # emulator conformance run takes about nine minutes and needs KVM, so it
-      # runs in Extended validation.
+      # Unit tests, lint, and the assembled APK gate pull requests. The two
+      # emulator runs each take about nine minutes and need KVM, so they run
+      # in Extended validation.
       validate:
         type: boolean
         default: true
       conformance:
+        type: boolean
+        default: true
+      host_boot:
         type: boolean
         default: true
 
@@ -228,6 +231,7 @@ jobs:
 
   core-host-boot:
     name: Android Core host boot
+    if: ${{ inputs.host_boot }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

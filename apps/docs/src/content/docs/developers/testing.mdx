@@ -58,7 +58,7 @@ On a pull request, React Doctor comments on the code you changed: one summary co
 
 Only fast, deterministic checks can block a pull request: lint, formatting, types, builds, unit tests, the Demo Mode functional suite, and the documentation build. If one of them fails, the change is almost always the cause, and you can reproduce it on your own machine.
 
-Slower checks that depend on the environment run separately, as **Extended validation**. They cover the Studio screenshot comparison, iOS, Android emulator conformance, and WebView2 conformance. They run every night against `main`, and they never block a pull request. To run them on your branch, open **Actions**, choose **Extended validation**, and run it on that branch.
+Slower checks that depend on the environment run separately, as **Extended validation**. They cover the Studio screenshot comparison, iOS, Android emulator tests, and WebView2 conformance. They run every night against `main`, and they never block a pull request. To run them on your branch, open **Actions**, choose **Extended validation**, and run it on that branch.
 
 The screenshot comparison skips itself when the demo server's clock is inside one of its seeded schedules, because the server decides what is on air from real time. You'll see a notice on the run instead of a failure.
 

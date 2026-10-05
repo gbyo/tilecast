@@ -32,8 +32,9 @@ jobs:
       smoke: false
       visual: true
 
-  android_conformance:
+  android_emulator:
     uses: ./.github/workflows/ci-android.yml
     with:
       validate: false
       conformance: true
+      host_boot: true

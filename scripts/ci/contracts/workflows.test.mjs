@@ -331,6 +331,11 @@ test("pull requests run only the deterministic checks", () => {
     false,
     "no emulator on pull requests",
   );
+  assert.equal(
+    pr.jobs.android_ci.with?.host_boot,
+    false,
+    "no emulator on pull requests",
+  );
   const windows = workflow("ci-windows.yml");
   assert.match(
     windows.jobs.conformance.if,
@@ -369,9 +374,10 @@ test("Extended validation runs on a schedule and on demand, and never gates", ()
       "./.github/workflows/validate-browser.yml",
     ],
   );
-  assert.deepEqual(extended.jobs.android_conformance.with, {
+  assert.deepEqual(extended.jobs.android_emulator.with, {
     validate: false,
     conformance: true,
+    host_boot: true,
   });
   assert.deepEqual(extended.jobs.studio_visual.with, {
     smoke: false,
