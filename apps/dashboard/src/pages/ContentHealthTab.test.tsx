@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { ContentHealthTab } from "./ContentHealthTab";
@@ -32,6 +33,7 @@ function renderTab() {
 
 describe("Content health", () => {
   beforeEach(() => vi.restoreAllMocks());
+  afterEach(cleanup);
 
   it("says nothing is wrong instead of showing four empty lists", async () => {
     vi.spyOn(api, "contentHealth").mockResolvedValue(empty);
@@ -79,5 +81,15 @@ describe("Content health", () => {
     renderTab();
     expect(await screen.findByText("Lobby")).toBeTruthy();
     expect(screen.getByText(/setup state, not a\s+fault/)).toBeTruthy();
+  });
+
+  it("reports a failed load as an error with retry, not as healthy", async () => {
+    vi.spyOn(api, "contentHealth").mockRejectedValue(new Error("boom"));
+    renderTab();
+    expect(
+      await screen.findByText(/Content health could not be loaded/),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("Nothing needs attention.")).toBeNull();
   });
 });

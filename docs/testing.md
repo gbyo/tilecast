@@ -19,6 +19,7 @@ The graph selects these contracts:
 | Change                  | Selected contracts                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------- |
 | Studio component        | Studio, production image, Demo Mode browser and visual tests                           |
+| Linux Player source     | Linux tests and TypeScript build; package contract only for release-sensitive inputs   |
 | CLI or MCP              | CLI and API client                                                                     |
 | Widget or Widget SDK    | Widget conformance and visuals, Studio, server catalog, runtime and renderer consumers |
 | Plugin Studio code      | Plugin conformance, Studio and Demo Mode                                               |
@@ -33,11 +34,29 @@ Unknown shared packages select all areas. Workflow, dependency, and classifier c
 
 Detection runs only the dependency-free affected-area graph tests before classification, so unrelated helper tests do not delay job fan-out. The doctor and aggregate helper tests run in `CI workflow contracts` when CI infrastructure changes. Workflow YAML tests run there after installation of the root tool dependencies. `Required PR validation` includes its result.
 
+Dashboard formatting and lint, the production build, and two coverage-enabled Vitest shards run as independent jobs. Each shard publishes its JUnit report. The coverage job merges the Vitest blob reports before it writes the coverage summary and artifact. The required Dashboard workflow does not pass if a selected job fails.
+
+Node CI jobs use the root `package-lock.json` with a workspace filter when one application is sufficient. Dashboard CI installs `@tilecast/dashboard` and the root tools used by formatting. Linux Player CI installs `@gibsonmb71/tilecast-player-linux` and its linked workspace dependencies, including Player Runtime. A full local workspace install still uses `npm ci`.
+
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
+
+## Linux Player validation
+
+Every Linux Player change runs its unit tests and TypeScript build. Pull requests run the packaged release contract when a change can affect Electron packaging, release signing or verification, Player updates or installation, packaged assets, package metadata or dependencies, the shared Player Runtime, or the CI contract. Linux Player source and test changes outside those paths use the fast validation job.
+
+Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
+
+## Local iteration
+
+Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
+
+Run `make quick` to run tests selected from changed paths. It uses Vitest's changed-file mode for Studio, Linux Player, and Player Runtime tests. It runs Go tests for changed packages. It also checks Android unit tests, CI contracts, or documentation when those paths change. Set `TILECAST_DEV_BASE` when the comparison ref is not `origin/main`.
+
+Use `make test` for the full unit suites. Use `make check` for merge-grade validation. The quick command does not replace either command.
 
 ## Required checks
 
@@ -49,6 +68,8 @@ Require these stable check names in the branch ruleset:
 Both workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
+
+Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
 
 Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`, compared with the PR base. It fails for new findings. The full scan reports existing findings for separate fixes. See [localization.md](localization.md) for focused and full scan commands.
 
@@ -149,6 +170,49 @@ npx playwright show-report widgets/visual/playwright-report
 
 The container helper copies reports into `e2e/visual/test-results/linux-run/`.
 
+## React Doctor
+
+React Doctor checks Studio React code for patterns that ESLint does not cover. Its settings are in `apps/dashboard/doctor.config.json`: it does not compute a score and it does not run the supply-chain check. The local scripts pass `--no-telemetry`, which also stops crash reporting.
+
+```sh
+npm run doctor
+npm run doctor:changed
+```
+
+`npm run doctor` scans the full dashboard and reports all existing findings. `npm run doctor:changed` reports only the findings that your branch adds compared with the base branch. Neither command is part of `make check`, and neither fails when it finds issues.
+
+Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml`. It scans only the dashboard code that the pull request changes. It writes one sticky summary comment and inline review comments, and it adds the result to the job summary. It is advisory (`blocking: none`): findings never fail the pull request. It does not publish a commit status. The step runs on `pull_request` events only, so a release run does not scan. It uses `pull_request`, not `pull_request_target`. A pull request from a fork has a read-only token, so the action does not post comments there; its findings show in the job summary.
+
+The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
+
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
+
+## Public documentation captures
+
+The documentation generator uses the production Demo Mode installation. It
+uses the Studio visual suite's browser settings and render waits. It does not
+use regression masks or the pixel-difference contract.
+
+```sh
+make demo
+npm run docs:screenshots
+npm run docs:check
+npm run docs:build
+```
+
+Install Chromium with `npx playwright install chromium` before the first run.
+Run the generator separately from the other Demo Mode suites. Each capture
+resets the same installation. The generator refuses a non-demo server.
+
+The generator writes only named PNG files under
+`apps/docs/src/assets/screenshots/`. Each state has light and dark sources at
+2× pixel density. The docs figure selects the source for the docs theme.
+The generator hides only the Demo Mode notice.
+Review all images before commit. CI does not regenerate these source assets.
+See the [capture inventory](../e2e/docs-screenshots/README.md) for routes,
+required states, crops, and omitted states. The public screenshot policy is in
+[the docs style guide](../apps/docs/STYLE.md#product-screenshots).
+
 ## Coverage
 
 Coverage is diagnostic. There is no repository percentage gate.
@@ -156,7 +220,7 @@ Coverage is diagnostic. There is no repository percentage gate.
 ```sh
 npm run coverage
 cd apps/server
-TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -p 1 -coverprofile=coverage.out ./...
+TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 cd ../cli
 go test -coverprofile=coverage.out ./...
@@ -165,7 +229,11 @@ go tool cover -func=coverage.out
 
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
 
-Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
+Each server integration-test package creates a temporary PostgreSQL database from `TEST_DATABASE_URL` and drops it after the package exits, including after a test failure. The database role needs permission to create and drop databases. Existing advisory locks still serialize tests inside the same package database; separate packages no longer share fixture tables or locks. The CI command uses normal Go package parallelism. Reproduce the server race job with `TEST_DATABASE_URL` set and `go test -race ./...` from `apps/server`.
+
+## Validation timing summaries
+
+Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
 
 Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
 
@@ -181,7 +249,7 @@ docker buildx bake -f scripts/ci/edge-images.hcl wpe edge --load
 
 Run the existing scenario scripts from `apps/edge/ci/` and `apps/edge/renderer-wpe/ci/` with those images. The Rust, kernel CEC, PipeWire, WirePlumber, renderer, migration, power-loss, and activity assertions remain in their original suites.
 
-The scheduled Go race workflow runs the server integration contract with `-race`. Reproduce it with `TEST_DATABASE_URL` set and `go test -race -p 1 ./...` from `apps/server`. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
+The scheduled Go race workflow runs the server integration contract with `-race` and normal Go package parallelism. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
 
 ## Timing evidence
 

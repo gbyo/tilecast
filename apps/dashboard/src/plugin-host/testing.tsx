@@ -9,7 +9,7 @@ import { vi } from "vitest";
 import { catalogPlugin } from "../plugins/catalogFixtures";
 export { i18n } from "../i18n";
 import type { ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { RouterProvider, createMemoryRouter } from "react-router";
 import { StudioSessionProvider } from "./session";
 export { StudioSessionProvider };
 
@@ -30,6 +30,15 @@ export function renderPluginRoute(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  // A data router like production Studio, so plugin editors under test get
+  // the same navigation blocking the shipped shell provides.
+  const router = createMemoryRouter(
+    [
+      ...patterns.map((pattern) => ({ path: pattern, element })),
+      { path: "*", element },
+    ],
+    { initialEntries: [path] },
+  );
   return render(
     <QueryClientProvider client={client}>
       <StudioSessionProvider
@@ -44,14 +53,7 @@ export function renderPluginRoute(
           logout: () => Promise.resolve(),
         }}
       >
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            {patterns.map((pattern) => (
-              <Route key={pattern} path={pattern} element={element} />
-            ))}
-            <Route path="*" element={element} />
-          </Routes>
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </StudioSessionProvider>
     </QueryClientProvider>,
   );

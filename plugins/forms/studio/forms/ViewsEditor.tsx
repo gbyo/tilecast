@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useBlocker } from "react-router";
 import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
@@ -10,7 +9,11 @@ import type {
   FormViewInput,
 } from "../types";
 import { formsApi } from "../api";
-import { ApiError, usePluginTranslation } from "@tilecast/studio";
+import {
+  ApiError,
+  useNavigationWarning,
+  usePluginTranslation,
+} from "@tilecast/studio";
 import en from "../locales/en.json";
 import { Alert, AlertDescription, AlertTitle } from "@tilecast/studio/ui/alert";
 import { Badge } from "@tilecast/studio/ui/badge";
@@ -302,26 +305,17 @@ function ViewForm({
   const [error, setError] = useState("");
 
   const dirty = JSON.stringify(draft) !== baseline;
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty &&
-      (currentLocation.pathname !== nextLocation.pathname ||
-        currentLocation.search !== nextLocation.search ||
-        currentLocation.hash !== nextLocation.hash),
-  );
-
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, []);
+  // Any change to the path, query string, or hash unmounts this editor (the
+  // detail tabs are search-param driven), so all three count as leaving.
+  const navigationWarning = useNavigationWarning({
+    dirty,
+    title: t("views.leaveTitle"),
+    body: t("views.leaveBody"),
+    shouldBlock: (currentLocation, nextLocation) =>
+      currentLocation.pathname !== nextLocation.pathname ||
+      currentLocation.search !== nextLocation.search ||
+      currentLocation.hash !== nextLocation.hash,
+  });
 
   const update = (patch: Partial<FormViewInput>) =>
     setDraft({ ...draft, ...patch });
@@ -387,20 +381,7 @@ function ViewForm({
 
   return (
     <div className="grid gap-4">
-      {blocker.state === "blocked" && (
-        <Alert>
-          <AlertTitle>{t("views.leaveTitle")}</AlertTitle>
-          <AlertDescription>{t("views.leaveBody")}</AlertDescription>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => blocker.reset?.()}>
-              {t("views.stay")}
-            </Button>
-            <Button variant="default" onClick={() => blocker.proceed?.()}>
-              {t("views.leave")}
-            </Button>
-          </div>
-        </Alert>
-      )}
+      {navigationWarning}
       {error && (
         <Alert variant="destructive">
           <AlertTitle>{t("views.notSaved")}</AlertTitle>

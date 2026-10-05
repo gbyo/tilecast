@@ -19,7 +19,7 @@ pkg_check_modules(GST REQUIRED IMPORTED_TARGET gstreamer-1.0 gstreamer-base-1.0 
 pkg_check_modules(DRM REQUIRED IMPORTED_TARGET libdrm>=2.4.112)
 
 add_library(tilecast-validate STATIC src/validate.c)
-target_link_libraries(tilecast-validate PUBLIC PkgConfig::GIO)
+target_link_libraries(tilecast-validate PUBLIC PkgConfig::GIO PkgConfig::JSONGLIB)
 target_include_directories(tilecast-validate PUBLIC src)
 
 add_library(tilecast-media-client STATIC src/media-client.c)

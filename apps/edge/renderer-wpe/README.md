@@ -12,6 +12,10 @@ The Tilecast Linux display engine: a small C11/GLib embedder of WPE WebKit 2.54+
 | `wayland`       | Development machines and existing kiosk compositors.            |
 | `headless`      | CI and integration tests.                                       |
 
+## Motion preference
+
+WebKit 2.54 inverts `WPE_SETTING_REDUCED_MOTION`: with the default (`FALSE`) pages see `prefers-reduced-motion: reduce`. A signage display has no viewer preference, and the Player Runtime's artwork (the Cast logo) stops animating under `reduce`. `main.c` sets the setting to `TRUE`, which gives `no-preference`. Recheck this when the pinned WPE version in `release/build-wpe.sh` changes.
+
 ## What it serves
 
 - `tilecast://runtime/<name>` and `tilecast://runtime/fonts/<name>`: the shared Player Runtime artifact (`packages/player-runtime/dist/runtime`), the same files the Electron player serves. `assemble-runtime.sh` copies it and verifies every file against the artifact's `runtime-manifest.json`. Names are validated against a fixed grammar (`src/validate.c`).

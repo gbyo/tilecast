@@ -1,5 +1,64 @@
 #include "validate.h"
 
+static gboolean
+support_version (JsonNode *node)
+{
+  if (node == NULL || !JSON_NODE_HOLDS_VALUE (node) || json_node_get_value_type (node) != G_TYPE_INT64)
+    return FALSE;
+  gint64 version = json_node_get_int (node);
+  return version > 0 && version <= G_MAXUINT32;
+}
+
+static gboolean
+support_versions (JsonNode *node)
+{
+  if (node == NULL || !JSON_NODE_HOLDS_OBJECT (node))
+    return FALSE;
+  JsonObject *object = json_node_get_object (node);
+  if (json_object_get_size (object) > 256)
+    return FALSE;
+  JsonObjectIter iter;
+  const char *name;
+  JsonNode *version;
+  json_object_iter_init (&iter, object);
+  while (json_object_iter_next (&iter, &name, &version)) {
+    if (strlen (name) > 64 || name[0] < 'a' || name[0] > 'z' || !support_version (version))
+      return FALSE;
+    for (const char *p = name + 1; *p; p++) {
+      if (!g_ascii_islower (*p) && !g_ascii_isdigit (*p) && *p != '.' && *p != '-' && *p != '_')
+        return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+gboolean
+tc_runtime_support_valid (JsonNode *node)
+{
+  if (!JSON_NODE_HOLDS_OBJECT (node))
+    return FALSE;
+  JsonObject *object = json_node_get_object (node);
+  JsonNode *schemas = json_object_get_member (object, "presentationSchemas");
+  if (json_object_get_size (object) != 3 || schemas == NULL || !JSON_NODE_HOLDS_ARRAY (schemas)
+      || !support_versions (json_object_get_member (object, "declarativeCapabilities"))
+      || !support_versions (json_object_get_member (object, "widgetComponents")))
+    return FALSE;
+  JsonArray *array = json_node_get_array (schemas);
+  if (json_array_get_length (array) > 256)
+    return FALSE;
+  for (guint i = 0; i < json_array_get_length (array); i++) {
+    JsonNode *version = json_array_get_element (array, i);
+    if (!support_version (version))
+      return FALSE;
+    for (guint j = 0; j < i; j++) {
+      if (json_node_get_int (version) == json_array_get_int_element (array, j))
+        return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+
 #include <string.h>
 
 gboolean

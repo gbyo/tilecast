@@ -87,6 +87,70 @@ apps/docs/                   public documentation site (Astro Starlight)
 
 The server is a modular monolith. Preserve small domain packages and thin HTTP handlers. Do not scatter SQL through React code or unrelated handler files.
 
+## Native Player ownership
+
+Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
+The extraction contract is binding. Generic native values live in
+`crates/player-types`. Durable metadata lives in `crates/player-state`.
+Historical platform repository APIs remain in `edge-state::platform`.
+Verified storage lives in `crates/player-cas`. Its space-probe interface is
+implemented by Edge adapters; privileged helpers must not depend on storage.
+Server transport lives in `crates/player-client`. Edge owns credential and
+pairing files. Hosts supply product identity and device metadata.
+The Core foundation owns native selection, command delivery, and Activity
+sessions in `crates/player-core`. Core also owns the renderer recovery ladder
+and meaningful-evidence rules, with connection-bound acceptance and evidence
+tracking. Edge executes renderer actions through its port
+adapter. Core also owns capture serialization, periodic preview policy, and
+Watch Live lease and frame coordination. Runtime presentation data stays opaque
+to Core, with explicit resource, compatibility, and evidence metadata.
+Core correlates renderer command results and owns startup Website data-clear
+retry policy. Edge maps wire results and user-facing failure text.
+Core coordinates activation identity, profile checks, and recovery timing.
+Edge keeps Runtime projection inputs and constructs status payloads.
+Core owns pairing orchestration and server identity, credential-rejection,
+retry, and persisted clock-sampling policy. Edge supplies private stores,
+device metadata, and status surfaces. Core drives the server socket,
+heartbeat fallback, push handling, and reconciliation loop. Edge supplies
+heartbeat projection, privacy checks, Activity signals, and retry jitter.
+Core owns configuration acceptance, manifest target reconciliation, and native
+manifest resource-claim validation and verified preparation, repair, and pinning.
+Runtime presentation fields stay opaque.
+Core owns native configuration values and active-hours policy. Edge separates
+Runtime configuration projection from its Linux platform configuration.
+Core owns manifest preparation-worker supervision and target-bound cancellation.
+Core owns telemetry sampling, interval counters, serialization, and bounded
+offline queue policy. Edge supplies semantic observations and measured gauges.
+Core owns offline manifest state, native activation gates, trial deadlines,
+evidence requirements for promotion, and verified pin lifetime. Core drives the
+offline activation loop. Edge supplies Runtime projection, opaque comparison
+keys, and status surfaces.
+Core owns Display Control payload validation, scheduled policy retry, and
+power-readback result semantics. Edge keeps CEC/DDC, input address conversion,
+probes, and readback. Core owns non-secret Presentation Network assignment
+validation and revision decisions. Edge keeps provisioning credentials, helper
+calls, NetworkManager, and radio recovery.
+Core owns durable Activity reporting, restart closure, overflow reporting, and
+bounded shutdown flushing. Edge supplies Runtime signal projection, clocks,
+IDs, and timezone observations and constructs one shared PlayerCore instance.
+
+- Presentation appearance and execution belong in Presentation Model and Player Runtime.
+- Behavior shared by full native Players belongs in Player Core after extraction.
+- OS integration, lifecycle, distribution, and renderer hosting belong to the platform.
+- Independent implementations share contracts or fixtures at the rule's natural owner.
+- A normal product-level Player change should usually need one Core or Runtime implementation.
+
+Shared Player crates must never depend on Edge crates or Edge wire framing.
+Run `python3 scripts/ci/check-player-architecture.py` to check dependency direction.
+Preserve shipped SQLite migration bytes and all Edge security, offline, crash,
+update, and renderer isolation guarantees. Do not implement macOS or move behavior
+before the dedicated root Rust workspace migration is qualified. The workspace,
+lockfile, Rust toolchain, and formatter now live at the repository root. Use
+`make edge-check` and `make edge-test` for Edge-scoped Rust validation.
+Edge product version is `apps/edge/release/VERSION`.
+Use `make player-check` and `make player-test` for shared Rust validation.
+Shared values perform no I/O. Hosts supply clocks and generate random IDs.
+
 ## Server conventions
 
 ### Process and dependencies
@@ -305,7 +369,7 @@ go test ./...
 go build ./cmd/tilecast-server
 ```
 
-PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Test packages use a shared PostgreSQL advisory lock so package-level integration tests do not truncate each other's fixtures.
+PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Each integration-test package uses `apps/server/internal/testdb` to create a temporary PostgreSQL database, apply the embedded migrations, and drop the database when the package exits. The configured role must be able to create and drop databases. Advisory locks still serialize fixture resets inside a package; isolated databases let Go run packages concurrently.
 
 ```sh
 TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...

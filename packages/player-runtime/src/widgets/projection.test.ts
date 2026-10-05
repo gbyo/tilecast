@@ -114,6 +114,7 @@ describe("projectWidgetComponent", () => {
           { assetId: ASSET, variantId: VARIANT },
           { assetId: ASSET, variantId: "not-in-manifest" },
         ],
+        empty: "render",
       },
       // The undeclared source is not copied in.
       documents: { [SOURCE]: document("granted") },
@@ -127,6 +128,33 @@ describe("projectWidgetComponent", () => {
         hourCycle: "h23",
       },
     });
+  });
+
+  it("carries the component empty policy from presentation schema 3", () => {
+    const base = {
+      type: "tilecast.clock",
+      version: 1,
+      config: {},
+      dataSources: [],
+      media: [],
+    };
+    const payload = projectWidgetComponent(
+      componentWidget({ ...base, empty: "skip-eligible" }, 3),
+      context,
+    );
+    expect(payload?.component.empty).toBe("skip-eligible");
+    expect(
+      projectWidgetComponent(
+        componentWidget({ ...base, empty: "skip" }, 3),
+        context,
+      ),
+    ).toBeNull();
+    expect(
+      projectWidgetComponent(
+        componentWidget({ ...base, empty: "skip-eligible" }, 2),
+        context,
+      )?.component.empty,
+    ).toBe("render");
   });
 
   it.each([

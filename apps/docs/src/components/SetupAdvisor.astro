@@ -1,0 +1,754 @@
+---
+// Setup Advisor wizard. Questions are rendered here at build time so the
+// markup is plain HTML; the script below only shows one at a time and builds
+// the recommendation. All decisions come from ../setup-advisor/model.ts.
+import { QUESTIONS, STAGES, STEPS, TOPOLOGIES } from "../setup-advisor/model";
+
+const base = import.meta.env.BASE_URL;
+const guides = Object.values(STEPS);
+const topologies = Object.values(TOPOLOGIES).filter(
+  (topology) => topology.id !== "choose-server",
+);
+---
+
+<div class="advisor" data-advisor data-base={base}>
+  <noscript>
+    <p>
+      The Setup Advisor asks a few questions in your browser and shows the
+      setup that fits. It needs JavaScript. Nothing you answer leaves your
+      browser.
+    </p>
+    <p>Without JavaScript, start from the setup that sounds like yours:</p>
+    <ul>
+      {
+        topologies.map((topology) => (
+          <li>
+            <strong>{topology.title}.</strong> {topology.summary}
+          </li>
+        ))
+      }
+    </ul>
+    <p>These are the guides every setup uses:</p>
+    <ul>
+      {
+        guides.map((step) => (
+          <li>
+            <a href={`${base}${step.href}`}>{step.title}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </noscript>
+
+  <div class="advisor-app" data-app hidden>
+    <ol class="stages" aria-label="Setup stages" data-stages>
+      {
+        [...STAGES, "Recommendation"].map((stage) => (
+          <li data-stage={stage}>
+            <span class="stage-name">{stage}</span>
+          </li>
+        ))
+      }
+    </ol>
+
+    <form class="question-form" data-form novalidate>
+      {
+        QUESTIONS.map((question) => (
+          <fieldset
+            class="question"
+            data-question={question.id}
+            data-stage={question.stage}
+            hidden
+          >
+            <legend>
+              <span class="progress" data-progress>
+                {question.stage}
+              </span>
+              <h2 tabindex="-1" data-focus>
+                {question.text}
+              </h2>
+            </legend>
+            {question.help && (
+              <p class="help" id={`help-${question.id}`}>
+                {question.help}
+              </p>
+            )}
+            <div class="choices">
+              {question.choices.map((choice) => (
+                <label class="choice">
+                  <input
+                    type="radio"
+                    name={question.id}
+                    value={choice.value}
+                    aria-describedby={question.help ? `help-${question.id}` : undefined}
+                  />
+                  <span>{choice.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))
+      }
+      <p class="error" role="alert" data-error hidden>
+        Choose an answer to continue.
+      </p>
+      <div class="buttons" data-nav>
+        <button type="button" class="btn secondary" data-back>Back</button>
+        <button type="submit" class="btn primary" data-continue>Continue</button>
+        <button type="button" class="btn minimal" data-restart>Start over</button>
+      </div>
+    </form>
+
+    <section class="result" data-result aria-labelledby="result-title" hidden>
+    </section>
+  </div>
+</div>
+
+<script>
+  import {
+    QUESTIONS,
+    buildSummary,
+    decodeAnswers,
+    effectiveAnswers,
+    encodeAnswers,
+    flow,
+    recommend,
+    type Answers,
+    type Consideration,
+    type QuestionId,
+    type Recommendation,
+    type Step,
+  } from "../setup-advisor/model";
+
+  const root = document.querySelector<HTMLElement>("[data-advisor]");
+  const app = root?.querySelector<HTMLElement>("[data-app]");
+  if (root && app) {
+    const base = root.dataset.base ?? "/";
+    const form = app.querySelector<HTMLFormElement>("[data-form]")!;
+    const result = app.querySelector<HTMLElement>("[data-result]")!;
+    const errorBox = app.querySelector<HTMLElement>("[data-error]")!;
+    const backButton = app.querySelector<HTMLButtonElement>("[data-back]")!;
+    const stageItems = [
+      ...app.querySelectorAll<HTMLElement>("[data-stages] [data-stage]"),
+    ];
+    const fieldsets = new Map(
+      [...app.querySelectorAll<HTMLFieldSetElement>("[data-question]")].map(
+        (fieldset) => [fieldset.dataset.question as QuestionId, fieldset],
+      ),
+    );
+
+    let answers: Answers = decodeAnswers(location.search);
+    let current: QuestionId | "result" = "players";
+
+    // Wrap setting names and sample values in <code> so they read as literals.
+    const literal =
+      /(TILECAST_[A-Z_]+(?:=[a-z]+)?|signage\.example\.org|\.local\b|_tilecast\._tcp\.local)/;
+    function text(parent: HTMLElement, value: string) {
+      value.split(literal).forEach((part, index) => {
+        if (index % 2 === 1) {
+          const code = document.createElement("code");
+          code.textContent = part;
+          parent.append(code);
+        } else if (part) {
+          parent.append(part);
+        }
+      });
+      return parent;
+    }
+
+    function el<K extends keyof HTMLElementTagNameMap>(
+      tag: K,
+      className?: string,
+      content?: string,
+    ) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (content) node.textContent = content;
+      return node;
+    }
+
+    function syncUrl() {
+      const query = encodeAnswers(answers);
+      history.replaceState(
+        null,
+        "",
+        `${location.pathname}${query ? `?${query}` : ""}`,
+      );
+    }
+
+    function setStage(stage: string) {
+      for (const item of stageItems) {
+        const active = item.dataset.stage === stage;
+        if (active) item.setAttribute("aria-current", "step");
+        else item.removeAttribute("aria-current");
+        const order = stageItems.indexOf(item);
+        item.classList.toggle("done", order < stageItems.findIndex((s) => s.dataset.stage === stage));
+      }
+    }
+
+    function focusHeading(container: Element) {
+      container.querySelector<HTMLElement>("[data-focus]")?.focus();
+    }
+
+    function showQuestion(id: QuestionId, moveFocus: boolean) {
+      current = id;
+      errorBox.hidden = true;
+      result.hidden = true;
+      form.hidden = false;
+      const { path } = flow(answers);
+      const position = path.findIndex((question) => question.id === id) + 1;
+      for (const [questionId, fieldset] of fieldsets) {
+        fieldset.hidden = questionId !== id;
+        if (questionId === id) {
+          const saved = answers[id];
+          for (const input of fieldset.querySelectorAll<HTMLInputElement>("input")) {
+            input.checked = input.value === saved;
+          }
+          const progress = fieldset.querySelector<HTMLElement>("[data-progress]")!;
+          progress.textContent = `Question ${position} · ${fieldset.dataset.stage}`;
+        }
+      }
+      backButton.hidden = position <= 1;
+      setStage(fieldsets.get(id)!.dataset.stage!);
+      if (moveFocus) focusHeading(fieldsets.get(id)!);
+    }
+
+    function chosenValue(id: QuestionId) {
+      return fieldsets
+        .get(id)!
+        .querySelector<HTMLInputElement>("input:checked")?.value;
+    }
+
+    function step(item: Step) {
+      const li = el("li");
+      const link = el("a", undefined, item.title);
+      link.href = `${base}${item.href}`;
+      li.append(link, el("p", "step-summary", item.summary));
+      return li;
+    }
+
+    function stepList(steps: Step[]) {
+      const list = el("ol", "steps");
+      for (const item of steps) list.append(step(item));
+      return list;
+    }
+
+    function bulletList(items: string[]) {
+      const list = el("ul", "plain");
+      for (const item of items) list.append(text(el("li"), item));
+      return list;
+    }
+
+    function note(item: Consideration) {
+      const box = el("div", `note ${item.tone}`);
+      box.append(
+        el("strong", "note-label", item.tone === "caution" ? "Warning. " : "Note. "),
+      );
+      text(box, item.text);
+      return box;
+    }
+
+    function diagram(plan: Recommendation) {
+      const figure = el("figure", "topology");
+      for (const route of plan.topology.routes) {
+        const group = el("div", "route-group");
+        group.append(el("p", "route-label", route.label));
+        const list = el("ol", "route");
+        route.nodes.forEach((node, index) => {
+          const item = el("li", undefined, node);
+          if (index === 0 || index === route.nodes.length - 1) {
+            item.classList.add("endpoint");
+          }
+          list.append(item);
+        });
+        group.append(list);
+        figure.append(group);
+      }
+      figure.append(el("figcaption", undefined, plan.topology.routesText));
+      return figure;
+    }
+
+    function planSections(plan: Recommendation, headingLevel: "h3" | "h4") {
+      const parts: HTMLElement[] = [];
+      if (plan.topology.routes.length) parts.push(diagram(plan));
+      const columns = el("div", "columns");
+      const good = el("div", "column");
+      good.append(el(headingLevel, undefined, "Recommended"), bulletList(plan.topology.recommended));
+      columns.append(good);
+      const skip = el("div", "column");
+      skip.append(
+        el(headingLevel, undefined, "You probably don’t need"),
+        bulletList(plan.topology.notNeeded),
+      );
+      columns.append(skip);
+      parts.push(columns);
+      if (plan.considerations.length) {
+        const wrap = el("div", "notes");
+        wrap.append(el(headingLevel, undefined, "Before you start"));
+        for (const item of plan.considerations) wrap.append(note(item));
+        parts.push(wrap);
+      }
+      return parts;
+    }
+
+    function answerList() {
+      const list = el("dl", "answers");
+      const effective = effectiveAnswers(answers);
+      for (const question of flow(effective).path) {
+        const choice = question.choices.find(
+          (item) => item.value === effective[question.id],
+        );
+        if (!choice) continue;
+        const row = el("div");
+        row.append(el("dt", undefined, question.text));
+        const definition = el("dd");
+        definition.append(choice.label + " ");
+        const change = el("button", "btn minimal small", "Change");
+        change.type = "button";
+        change.setAttribute("aria-label", `Change answer: ${question.text}`);
+        change.addEventListener("click", () => showQuestion(question.id, true));
+        definition.append(change);
+        row.append(definition);
+        list.append(row);
+      }
+      return list;
+    }
+
+    function showResult() {
+      current = "result";
+      const plan = recommend(answers);
+      form.hidden = true;
+      result.hidden = false;
+      result.replaceChildren();
+      setStage("Recommendation");
+
+      const title = el("h2", undefined, `Recommended setup: ${plan.topology.title}`);
+      title.id = "result-title";
+      title.tabIndex = -1;
+      title.dataset.focus = "";
+      result.append(title, text(el("p", "lead"), plan.topology.summary));
+
+      if (plan.then) {
+        // No server yet: the server guide is the first job, and the plan that
+        // fits the network comes second.
+        result.append(el("h3", undefined, "Your setup path"), stepList(plan.steps));
+        const later = el("section", "later");
+        later.append(
+          el("h3", undefined, `After you have a server: ${plan.then.topology.title}`),
+          text(el("p"), plan.then.topology.summary),
+          ...planSections(plan.then, "h4"),
+          el("h4", undefined, "Then follow this path"),
+          stepList(plan.then.steps),
+        );
+        result.append(...planSections(plan, "h3"), later);
+      } else {
+        result.append(...planSections(plan, "h3"));
+        result.append(el("h3", undefined, "Your setup path"), stepList(plan.steps));
+      }
+
+      const answersSection = el("section", "your-answers");
+      answersSection.append(el("h3", undefined, "Your answers"), answerList());
+      result.append(answersSection);
+
+      const actions = el("div", "buttons");
+      const copy = el("button", "btn primary", "Copy my setup");
+      copy.type = "button";
+      const startOver = el("button", "btn secondary", "Start over");
+      startOver.type = "button";
+      const back = el("button", "btn secondary", "Back to the questions");
+      back.type = "button";
+      back.addEventListener("click", () => {
+        const { path } = flow(answers);
+        showQuestion(path[path.length - 1].id, true);
+      });
+      const status = el("p", "copy-status");
+      status.setAttribute("role", "status");
+      const fallback = el("textarea", "copy-fallback");
+      fallback.readOnly = true;
+      fallback.rows = 8;
+      fallback.hidden = true;
+      fallback.setAttribute("aria-label", "Setup summary to copy");
+      copy.addEventListener("click", async () => {
+        const summary = buildSummary(answers, location.href);
+        try {
+          await navigator.clipboard.writeText(summary);
+          fallback.hidden = true;
+          status.textContent = "Copied. Paste it into your question or issue. It contains no addresses or passwords.";
+        } catch {
+          fallback.value = summary;
+          fallback.hidden = false;
+          fallback.select();
+          status.textContent = "Your browser did not allow copying. Select the text below and copy it.";
+        }
+      });
+      startOver.addEventListener("click", restart);
+      actions.append(copy, back, startOver);
+      result.append(actions, status, fallback);
+      focusHeading(result);
+    }
+
+    function restart() {
+      answers = {};
+      syncUrl();
+      showQuestion("players", true);
+    }
+
+    function advance() {
+      const { path, complete } = flow(answers);
+      const index = path.findIndex((question) => question.id === current);
+      const next = path[index + 1];
+      if (next) showQuestion(next.id, true);
+      else if (complete) showResult();
+      else showQuestion(path[path.length - 1].id, true);
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (current === "result") return;
+      const value = chosenValue(current);
+      if (!value) {
+        errorBox.hidden = false;
+        fieldsets.get(current)!.querySelector("input")?.focus();
+        return;
+      }
+      answers = { ...answers, [current]: value };
+      syncUrl();
+      advance();
+    });
+
+    // A choice is saved as soon as it is made, so Back never loses it.
+    form.addEventListener("change", () => {
+      if (current === "result") return;
+      const value = chosenValue(current);
+      if (value) answers = { ...answers, [current]: value };
+      errorBox.hidden = true;
+    });
+
+    backButton.addEventListener("click", () => {
+      if (current === "result") return;
+      const { path } = flow(answers);
+      const index = path.findIndex((question) => question.id === current);
+      if (index > 0) showQuestion(path[index - 1].id, true);
+    });
+    app.querySelector("[data-restart]")!.addEventListener("click", restart);
+
+    app.hidden = false;
+    // Open on the result for a shared link, otherwise at the first question
+    // that still needs an answer.
+    const initial = flow(answers);
+    if (initial.complete && QUESTIONS.some((q) => answers[q.id])) showResult();
+    else showQuestion(initial.path[initial.path.length - 1].id, false);
+    // Drop answers from the URL that the flow no longer uses.
+    if (location.search) syncUrl();
+  }
+</script>
+
+<style is:global>
+  .advisor {
+    margin-block: var(--tc-space-6);
+  }
+  .advisor .stages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tc-space-2) var(--tc-space-4);
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--tc-space-6);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .advisor .stages li {
+    display: flex;
+    align-items: center;
+    gap: var(--tc-space-2);
+  }
+  .advisor .stages li + li::before {
+    content: "→";
+    content: "→" / "";
+    color: var(--sl-color-gray-4);
+  }
+  .advisor .stages li[aria-current="step"] .stage-name {
+    color: var(--sl-color-white);
+    font-weight: 600;
+    border-bottom: 2px solid var(--tc-accent);
+  }
+  .advisor .stages li.done .stage-name::after {
+    content: " (done)";
+  }
+  .advisor .question {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-inline-size: 0;
+  }
+  .advisor .question legend {
+    padding: 0;
+    margin-bottom: var(--tc-space-3);
+    inline-size: 100%;
+  }
+  .advisor .progress {
+    display: block;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+    margin-bottom: var(--tc-space-1);
+  }
+  .advisor .question h2,
+  .advisor .result h2 {
+    margin: 0;
+    font-size: var(--sl-text-2xl);
+    line-height: 1.25;
+  }
+  .advisor .help {
+    margin: 0 0 var(--tc-space-4);
+    color: var(--sl-color-gray-2);
+  }
+  .advisor .choices {
+    display: grid;
+    gap: var(--tc-space-2);
+  }
+  .advisor .choice {
+    display: flex;
+    align-items: center;
+    gap: var(--tc-space-3);
+    min-height: 3rem;
+    padding: var(--tc-space-3) var(--tc-space-4);
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-card);
+    background: var(--tc-bg-surface);
+    cursor: pointer;
+  }
+  .advisor .choice:hover {
+    border-color: var(--tc-border-strong);
+  }
+  .advisor .choice:has(input:checked) {
+    border-color: var(--tc-accent);
+    background: var(--sl-color-accent-low);
+    outline: 1px solid var(--tc-accent);
+  }
+  .advisor .choice:has(input:focus-visible) {
+    outline: 2px solid var(--tc-focus-ring);
+    outline-offset: 2px;
+  }
+  .advisor .choice input {
+    inline-size: 1.25rem;
+    block-size: 1.25rem;
+    margin: 0;
+    accent-color: var(--tc-accent);
+    flex: none;
+  }
+  .advisor .error {
+    margin: var(--tc-space-3) 0 0;
+    padding: var(--tc-space-2) var(--tc-space-3);
+    border: 1px solid var(--tc-status-danger-border);
+    border-radius: var(--tc-radius-card);
+    background: var(--tc-status-danger-bg);
+    color: var(--sl-color-white);
+  }
+  .advisor .error::before {
+    content: "Error. ";
+    font-weight: 600;
+  }
+  .advisor .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--tc-space-3);
+    margin-top: var(--tc-space-5);
+  }
+  .advisor .btn {
+    min-height: 2.75rem;
+    padding: 0 var(--tc-space-5);
+    border: 1px solid transparent;
+    border-radius: var(--tc-radius-control);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .advisor .btn.primary {
+    background: var(--tc-button-primary-bg);
+    color: var(--tc-button-primary-text);
+  }
+  .advisor .btn.primary:hover {
+    background: var(--tc-button-primary-hover-bg);
+  }
+  .advisor .btn.secondary {
+    background: var(--tc-button-secondary-bg);
+    border-color: var(--tc-button-secondary-border);
+    color: var(--tc-button-secondary-text);
+  }
+  .advisor .btn.secondary:hover {
+    background: var(--tc-button-secondary-hover-bg);
+  }
+  .advisor .btn.minimal {
+    background: transparent;
+    color: var(--sl-color-text-accent);
+    text-decoration: underline;
+  }
+  .advisor .btn.small {
+    min-height: 2rem;
+    padding: 0 var(--tc-space-2);
+    font-weight: 400;
+  }
+  .advisor .result .lead {
+    font-size: var(--sl-text-lg);
+    margin-block: var(--tc-space-3) var(--tc-space-5);
+  }
+  .advisor .result h3 {
+    margin: var(--tc-space-6) 0 var(--tc-space-2);
+    font-size: var(--sl-text-xl);
+  }
+  .advisor .result h4 {
+    margin: var(--tc-space-4) 0 var(--tc-space-2);
+    font-size: var(--sl-text-lg);
+  }
+  .advisor .topology {
+    margin: 0 0 var(--tc-space-5);
+    padding: var(--tc-space-4);
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-card);
+    background: var(--tc-bg-surface);
+  }
+  .advisor .route-group + .route-group {
+    margin-top: var(--tc-space-4);
+  }
+  .advisor .route-label {
+    margin: 0 0 var(--tc-space-2);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-gray-3);
+  }
+  .advisor .route {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: var(--tc-space-2);
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .advisor .route li {
+    display: flex;
+    align-items: center;
+    gap: var(--tc-space-2);
+    margin: 0;
+    padding: var(--tc-space-2) var(--tc-space-3);
+    border: 1px dashed var(--tc-border-strong);
+    border-radius: var(--tc-radius-control);
+    font-size: var(--sl-text-sm);
+  }
+  .advisor .route li.endpoint {
+    border-style: solid;
+    border-color: var(--sl-color-gray-3);
+    font-weight: 600;
+  }
+  .advisor .route li:not(:last-child)::after {
+    content: "→";
+    content: "→" / "";
+    margin-inline-start: var(--tc-space-2);
+    color: var(--sl-color-gray-3);
+  }
+  .advisor .topology figcaption {
+    margin-top: var(--tc-space-4);
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+  .advisor .columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: var(--tc-space-4) var(--tc-space-6);
+  }
+  .advisor .columns > * {
+    margin-top: 0;
+  }
+  .advisor .column h3,
+  .advisor .column h4 {
+    margin-top: 0;
+  }
+  .advisor .plain {
+    margin: 0;
+    padding-inline-start: 1.25rem;
+  }
+  .advisor .plain li + li {
+    margin-top: var(--tc-space-2);
+  }
+  .advisor .note {
+    margin-top: var(--tc-space-3);
+    padding: var(--tc-space-3) var(--tc-space-4);
+    border: 1px solid var(--tc-status-info-border);
+    border-inline-start-width: 4px;
+    border-radius: var(--tc-radius-card);
+    background: var(--tc-status-info-bg);
+  }
+  .advisor .note.caution {
+    border-color: var(--tc-status-warning-border);
+    background: var(--tc-status-warning-bg);
+  }
+  .advisor .note-label {
+    font-weight: 700;
+  }
+  .advisor .steps {
+    margin: 0;
+    padding-inline-start: 1.5rem;
+  }
+  .advisor .steps li + li {
+    margin-top: var(--tc-space-3);
+  }
+  .advisor .steps a {
+    font-weight: 600;
+  }
+  .advisor .step-summary {
+    margin: var(--tc-space-1) 0 0;
+    color: var(--sl-color-gray-2);
+  }
+  .advisor .later {
+    margin-top: var(--tc-space-6);
+    padding: var(--tc-space-4);
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-card);
+  }
+  .advisor .answers {
+    margin: 0;
+  }
+  .advisor .answers > div {
+    padding-block: var(--tc-space-2);
+    border-bottom: 1px solid var(--tc-border-subtle);
+  }
+  .advisor .answers dt {
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .advisor .answers dd {
+    margin: 0;
+    font-weight: 600;
+  }
+  .advisor .copy-status {
+    margin-top: var(--tc-space-3);
+    min-height: 1.5rem;
+  }
+  .advisor .copy-fallback {
+    inline-size: 100%;
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-sm);
+    background: var(--tc-input-bg);
+    color: var(--tc-input-text);
+    border: 1px solid var(--tc-input-border);
+    border-radius: var(--tc-radius-control);
+    padding: var(--tc-space-3);
+  }
+  @media (max-width: 40rem) {
+    .advisor .route {
+      flex-direction: column;
+    }
+    .advisor .route li:not(:last-child)::after {
+      content: "↓";
+      content: "↓" / "";
+    }
+    .advisor .btn {
+      flex: 1 1 100%;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .advisor .choice {
+      transition: border-color var(--tc-motion-fast, 120ms);
+    }
+  }
+</style>

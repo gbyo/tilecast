@@ -21,6 +21,7 @@ import {
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
+import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
 
 const canvas = {
   width: 1920,
@@ -48,6 +49,7 @@ describe("Layout editor primitives", () => {
     expect(app.type).toBe("widget");
     expect(app.widgetId).toBe("app");
     expect(app.assetId).toBeUndefined();
+    expect(app.overrides).toBeUndefined();
 
     const media = createContentPlacement(
       { id: "poster", name: "Poster", type: "image" } as Asset,
@@ -212,6 +214,36 @@ describe("Layout playlist previews", () => {
         durationMs: undefined,
         assetType: "video",
       }),
+    ).toBeUndefined();
+  });
+
+  it("matches Player image defaults and lets videos end from media events", () => {
+    const playback = playbackDefaultsFromSettings({
+      "player.playback.default_image_duration_seconds": 23,
+      "player.playback.default_fit_mode": "cover",
+      "player.playback.default_audio_enabled": false,
+      "player.playback.default_volume": 0.25,
+    });
+    expect(
+      playlistPreviewDuration({ ...item, durationMs: undefined }, playback),
+    ).toBe(23_000);
+    expect(
+      playlistPreviewDuration(
+        { ...item, durationMs: 7_500, usePlayerDefaults: true },
+        playback,
+      ),
+    ).toBe(23_000);
+    expect(
+      playlistPreviewDuration(
+        {
+          ...item,
+          assetType: "video",
+          durationMs: 7_500,
+          videoStartOffsetMs: 1_000,
+          videoEndOffsetMs: 4_000,
+        },
+        playback,
+      ),
     ).toBeUndefined();
   });
 

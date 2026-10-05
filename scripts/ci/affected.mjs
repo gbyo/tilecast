@@ -1,6 +1,30 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+function registeredPlayerCrates(cwd) {
+  try {
+    return new Set(
+      JSON.parse(
+        execFileSync(
+          "python3",
+          [
+            fileURLToPath(
+              new URL("./check-player-architecture.py", import.meta.url),
+            ),
+            "--registered-crates",
+            cwd,
+          ],
+          { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+        ),
+      ),
+    );
+  } catch {
+    // An unreadable registry must keep unknown crates conservative.
+    return new Set();
+  }
+}
 
 // Edges name consumers, not directories. A catalog reaches Studio and the
 // server; a renderer reaches its hosts without rebuilding installer images.
@@ -35,6 +59,15 @@ export const graph = {
   edge_server: [],
   edge_migration: [],
   edge_activity: [],
+  player_core: [
+    "ci",
+    "edge_rust",
+    "edge_wpe",
+    "edge_conformance",
+    "edge_server",
+    "edge_migration",
+    "edge_activity",
+  ],
 };
 export const areas = Object.keys(graph);
 const edgeAreas = areas.filter((area) => area.startsWith("edge_"));
@@ -62,6 +95,7 @@ const rules = [
     ["linux"],
   ],
   [/^packages\/player-runtime\//, ["runtime"]],
+  [/^packages\/presentation-model\//, ["dashboard", "runtime"]],
   [/^(widgets|packages\/widget-sdk|packages\/widget-kit)\//, ["widgets"]],
   [/^(data-sources|packages\/data-source-sdk)\//, ["sources"]],
   [/^packages\/design-tokens\//, ["dashboard", "docs"]],
@@ -72,7 +106,7 @@ const rules = [
   // These packages contain transport JSON, not shared application code.
   // README/metadata edits do not change the player wire contract.
   [
-    /^packages\/(layout-schema|manifest-schema|settings-schema)\/(schema-v\d+|schedule-fixtures|player-config-v\d+)\.json$/,
+    /^packages\/(layout-schema|manifest-schema|settings-schema)\/(schema-v\d+|schedule-fixtures|data-document-value-fixtures|player-config-v\d+)\.json$/,
     ["protocol", "dashboard"],
   ],
   [
@@ -155,6 +189,13 @@ const rules = [
   [/^apps\/edge\/tilecastd\/.*(legacy|update)/, ["edge_migration"]],
   [/^apps\/edge\/ci\//, edgeAreas],
   [/^apps\/edge\/[^/]+$/, edgeAreas],
+  // Root Rust inputs select every native Rust consumer. Unknown root crates
+  // still fail conservatively below until an owner is registered.
+  [
+    /^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|rustfmt\.toml|\.cargo\/.*)$/,
+    ["player_core", ...edgeAreas],
+  ],
+  [/^docs\/player-core\.md$/, ["ci"]],
   [/^deploy\/docker\//, ["container", "e2e"]],
   [/^\.dockerignore$/, ["container", "e2e"]],
   [/^\.(prettierignore|prettierrc(?:\.[^/]+)?)$/, ["dashboard", "docs"]],
@@ -171,15 +212,65 @@ const rules = [
   ],
 ];
 
-export function affected(paths, { full = false, fullEdge = false } = {}) {
+const linuxReleaseContractRules = [
+  // Changes to the CI contract itself must exercise the full package path.
+  /^\.github\/workflows\//,
+  /^scripts\/ci\//,
+  /^(?:package\.json|package-lock\.json|Makefile)$/,
+  /^scripts\/(?:build-linux-player-release\.sh|verify-linux-player-release\.mjs)$/,
+  /^apps\/player-linux\/src\/core\/(?:autostart|identifiers|self-update)\.ts$/,
+  /^packages\/player-runtime\//,
+];
+
+export function linuxReleaseContractRequired(paths, { full = false } = {}) {
+  if (full) return true;
+
+  return paths.some((path) => {
+    if (/^apps\/player-linux\/README\.md$/.test(path)) return false;
+    if (
+      /^apps\/player-linux\/(?:conformance|helper)\//.test(path) ||
+      /^packages\/player-runtime\/(?:README\.md|conformance\/)/.test(path) ||
+      /^packages\/player-runtime\/.*\.test\.(?:[cm]?ts|tsx)$/.test(path)
+    )
+      return false;
+    if (linuxReleaseContractRules.some((pattern) => pattern.test(path)))
+      return true;
+
+    if (/^apps\/player-linux\//.test(path)) {
+      // Normal TypeScript implementation and test changes use the fast build.
+      // Update and installation code is kept on the packaged release contract.
+      if (/^apps\/player-linux\/src\//.test(path)) {
+        if (/\.test\.(?:[cm]?ts|tsx)$/.test(path)) return false;
+        if (/\.(?:[cm]?ts|tsx)$/.test(path)) return false;
+      }
+      // Package configuration and non-source files include Electron Builder
+      // inputs and any present or future static assets.
+      return true;
+    }
+
+    return false;
+  });
+}
+
+export function affected(
+  paths,
+  { full = false, fullEdge = false, cwd = repoRoot } = {},
+) {
   const selected = new Set(full ? areas : []);
+  const playerCrates = paths.some((path) =>
+    /^crates\/player-[^/]+\//.test(path),
+  )
+    ? registeredPlayerCrates(cwd)
+    : new Set();
   for (const path of paths) {
     // Package READMEs explain a contract; they do not compile into it.
     if (/(^|\/)README\.md$/.test(path)) {
       selected.add("docs");
       continue;
     }
-    let matched = false;
+    const crate = path.match(/^(crates\/player-[^/]+)\//)?.[1];
+    let matched = playerCrates.has(crate);
+    if (matched) selected.add("player_core");
     for (const [pattern, targets] of rules) {
       if (!pattern.test(path)) continue;
       matched = true;
@@ -187,7 +278,7 @@ export function affected(paths, { full = false, fullEdge = false } = {}) {
     }
     // New shared packages/plugins must get validation until their consumers
     // have been added deliberately. Unknown documentation is inexpensive.
-    if (!matched && /^(packages|plugins|apps\/edge)\//.test(path)) {
+    if (!matched && /^(crates|packages|plugins|apps\/edge)\//.test(path)) {
       for (const area of areas) selected.add(area);
     }
   }
@@ -231,7 +322,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       process.env.GITHUB_OUTPUT,
       Object.entries(result)
         .map(([key, value]) => `${key}=${value}\n`)
-        .join(""),
+        .join("") +
+        `linux_release_contract=${linuxReleaseContractRequired(paths, { full: args.includes("--full") })}\n`,
     );
   }
   console.log(JSON.stringify(result, null, 2));

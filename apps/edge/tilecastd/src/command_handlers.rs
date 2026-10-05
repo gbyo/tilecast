@@ -20,8 +20,8 @@ use edge_server::player_api::ServerCommand;
 use edge_state::repo::commands::CommandResult;
 use edge_state::repo::{binding, playback};
 
-use crate::commands::{Handlers, Plan};
 use crate::daemon::DaemonContext;
+use player_core::{Handlers, Plan};
 
 /// Longest a `sync_now` waits for the server link to finish its pass.
 pub const SYNC_TIMEOUT: Duration = Duration::from_secs(45);
@@ -105,8 +105,11 @@ impl DaemonHandlers {
             None => None,
         }
         .unwrap_or_else(|| "Tilecast Player".to_owned());
-        let location =
-            if config.playback.identify_shows_location { config.playback.screen_location.as_str() } else { "" };
+        let location = if config.runtime.playback.identify_shows_location {
+            config.runtime.playback.screen_location.as_str()
+        } else {
+            ""
+        };
         // IPC text carries no control characters, so the reference player's
         // two-line form is joined with a visible separator.
         let name = if location.is_empty() { screen_name } else { format!("{screen_name} · {location}") };

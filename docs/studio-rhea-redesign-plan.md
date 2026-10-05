@@ -1028,81 +1028,122 @@ Use drag ordering only if ordering has real domain meaning.
 
 `/screens/:id`
 
+### Operator model
+
+The detail view is an operating surface, not a database record inspector. The first
+screen should answer, in order:
+
+1. Is this screen reachable and healthy?
+2. What is it showing now?
+3. What will change next?
+4. Can I present or change content immediately?
+5. If something is wrong, where are the diagnostics?
+
+Do not make ordinary operation depend on hunting through device-oriented tabs.
+
 ### Header
 
 ```text
 HS Cafeteria North
-Online · Fire TV 4K Max · Player 1.14.2
+Online · Fire TV 4K Max · Player 1.14.2 · High School · Cafeteria
 
 [Present] [Restart] [More]
 ```
 
-Only one primary action.
+Only one primary action. Keep restart visible because it is a common recovery action;
+less common commands belong in More or Diagnostics.
 
-### Tabs
+### Primary tabs
 
 - Overview
-- Content
 - Activity
-- Device
 - Settings
 
-These are appropriate shadcn Tabs if they remain layered state inside the resource route. If a future implementation makes them distinct child routes, convert them to link navigation.
+Use one responsive shadcn Tabs strip at every breakpoint. Do not replace the mobile
+strip with a separate Select. Content assignment is an Overview task. Device, health,
+and maintenance are contextual diagnostics rather than primary destinations.
+
+Legacy `?tab=content`, `?tab=device`, `?tab=reliability`, `?tab=commands`, and
+`?tab=manage&section=...` URLs must continue to resolve to the equivalent new state.
 
 ### Overview
 
-Large live/snapshot preview plus compact operational summary:
-
-- current presentation
-- location
-- connection
-- version/update state
-- uptime/reliability
-- next schedule
-- active takeover state
-
-Avoid one Card per field.
-
-### Content
-
-Preserve and elevate `ScreenContentChain`.
-
-Show assignment/dependency path:
+The Overview is the screen's operational control center:
 
 ```text
-Screen
-  ↓
-Lunch Layout
-  ↓
-Lunch Menu Widget
-  ↓
-School Lunch CSV — Healthy · refreshed 2m ago
+┌ Live preview ─────────────────┐ ┌ Connection ──────────────┐
+│ latest capture               │ │ Online                   │
+│ Refresh · History · Watch    │ │ High School · Cafeteria  │
+└───────────────────────────────┘ │ Last contact · Just now  │
+                                  │ Player update · Current  │
+                                  └──────────────────────────┘
+
+┌ Playback ──────────────────────────────────────────────────┐
+│ Expected now · source badge · Why this?                   │
+│ Default content · group scope confirmation                │
+└────────────────────────────────────────────────────────────┘
+
+┌ Schedule ──────────────────────────────────────────────────┐
+│ Active now · truthful Next · other schedules              │
+└────────────────────────────────────────────────────────────┘
+
+┌ Health & recovery ───────────┐ ┌ Recent technical events ─┐
+│ readiness · recovery         │ │ compact recent activity  │
+│ Open Health diagnostics      │ │ Open Activity            │
+└──────────────────────────────┘ └───────────────────────────┘
 ```
 
-Every resource is linked.
+> Historical note: this section once described an assignment picker with
+> Apply, an inline content chain, and playback/synchronization facts in
+> Health. The shipped Overview uses Expected now, Default content, a separate
+> Schedule card, a Why-this explanation panel, and a Diagnostics Playback
+> tab instead.
 
-This is a core Tilecast differentiator and should feel first-class.
+Use Vega `Card` for the few real decision areas, not one Card per field. Preserve and
+elevate `ScreenContentChain`; every dependency remains linked.
+
+Snapshot History opens in a desktop Sheet and the standard Tilecast mobile Drawer.
+It is complementary evidence, not permanent page content.
+
+### Diagnostics
+
+Diagnostics opens in a desktop Sheet and the standard mobile Drawer. Use local shadcn
+Tabs inside that surface for:
+
+- Playback — synchronization, manifests, downloads, renderer state, Widget
+  support, and reported playback faults.
+- Device details — hardware, platform, connection, access, hardware history.
+- Health — zero-touch readiness, reliability, display control, recovery,
+  autostart, and capability warnings.
+- Maintenance — focused commands and recent command results.
+
+This is the one permitted extra navigation layer. Advanced telemetry must remain
+available, but it must not dominate normal screen operation.
 
 ### Activity
 
-Compact recent Items with a "View full activity" route to filtered Activity.
-
-### Device
-
-Use semantic definition-list layout, Item sections, and separators.
+Keep the full timeline, proof of play, and recent events here. Overview may show a
+small recent-activity Card that opens this tab. The full Activity route remains the
+place for cross-screen investigation.
 
 ### Settings
 
-Show organization-inherited values vs screen overrides explicitly.
+Keep general screen identity/location close to Player settings. Show the current name,
+location/room, and description before the policy editor and provide the existing edit
+workflow. Continue to distinguish organization-inherited values from screen overrides.
 
 Use:
 
-- Switch
-- Select
-- Field
-- Alert for warnings
+- Card / CardAction / CardContent
+- Item / ItemGroup
+- Badge and Alert
+- Field / Input / Select / Switch in editable settings
+- Sheet on desktop
+- Drawer on narrow web layouts
+- Alert Dialog for destructive actions
 
-Do not imply a local override is the global value.
+Do not introduce generic Tilecast wrappers around these primitives merely to rename
+shadcn concepts.
 
 ---
 

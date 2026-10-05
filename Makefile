@@ -1,9 +1,12 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev-dashboard dev-server docs-check e2e edge-check edge-e2e edge-linux edge-test format helper-check test
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test format helper-check quick test watch-dashboard watch-linux
 
 bootstrap:
 	npm install
 	cd apps/server && go mod download
 	cd apps/cli && go mod download
+
+gofmt-check:
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
 
 build:
 	npm run build
@@ -16,6 +19,7 @@ build:
 
 check:
 	$(MAKE) docs-check
+	python3 scripts/ci/check-player-architecture.py
 	$(MAKE) plugins-check
 	$(MAKE) widgets-check
 	$(MAKE) data-sources-check
@@ -23,10 +27,11 @@ check:
 	npm run format:check
 	npm run lint
 	npm test
-	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)" && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
-	cd apps/cli && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
-	cd packages/api-client && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
-	cd data-sources && test -z "$$(gofmt -l .)" && go vet ./... && go test ./...
+	$(MAKE) gofmt-check
+	cd apps/server && go vet ./... $(PLUGIN_GO_PACKAGES) && go test ./... $(PLUGIN_GO_PACKAGES)
+	cd apps/cli && go vet ./... && go test ./...
+	cd packages/api-client && go vet ./... && go test ./...
+	cd data-sources && go vet ./... && go test ./...
 	$(MAKE) helper-check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
@@ -83,10 +88,20 @@ helper-check:
 # Tilecast Edge (apps/edge). edge-linux and the renderer end-to-end run need
 # the tilecast-edge-dev image (apps/edge/README.md).
 edge-check:
-	cd apps/edge && cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings
+	bash apps/edge/ci/cargo-edge.sh fmt --check
+	bash apps/edge/ci/cargo-edge.sh clippy --all-targets -- -D warnings
 
 edge-test:
-	cd apps/edge && cargo test --workspace
+	bash apps/edge/ci/cargo-edge.sh test
+
+# Portable shared Player layer, on Linux and macOS.
+player-check:
+	python3 scripts/ci/check-player-architecture.py
+	bash scripts/ci/cargo-player.sh fmt --check
+	bash scripts/ci/cargo-player.sh clippy --all-targets --all-features -- -D warnings
+
+player-test:
+	bash scripts/ci/cargo-player.sh test --all-features
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh
@@ -102,10 +117,28 @@ android-check:
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
 dev-dashboard:
-	npm run dev
+	npm run dev --workspace @tilecast/dashboard -- --host 127.0.0.1
 
 dev-server:
 	cd apps/server && go run ./cmd/tilecast-server
+
+dev-server-watch:
+	go run github.com/air-verse/air@v1.67.3 -c .air.toml
+
+dev:
+	node scripts/dev.mjs
+
+dev-down:
+	docker compose -f deploy/docker/compose.local-dev.yml down
+
+watch-dashboard:
+	npm run test:watch --workspace @tilecast/dashboard
+
+watch-linux:
+	npm run test:watch --workspace @gibsonmb71/tilecast-player-linux
+
+quick:
+	node scripts/quick-tests.mjs
 
 format:
 	npm run format
@@ -114,6 +147,11 @@ format:
 test:
 	npm test
 	npm test --workspace @tilecast/plugin-sdk
+	npm test --workspace @tilecast/widget-sdk
+	npm test --workspace @tilecast/widget-kit
+	npm test --workspace @tilecast/data-source-sdk
+	npm test --workspace @tilecast/player-runtime
+	npm test --workspace @gibsonmb71/tilecast-player-linux
 	cd apps/server && go test ./... $(PLUGIN_GO_PACKAGES)
 	cd apps/cli && go test ./...
 	python3 -m unittest discover -s apps/player-linux/helper

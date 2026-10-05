@@ -180,7 +180,7 @@ describe("DataSourcePicker", () => {
     );
     focusable[focusable.length - 1]?.focus();
     await userEvent.tab();
-    expect(document.activeElement).toBe(focusable[0]);
+    await waitFor(() => expect(document.activeElement).toBe(focusable[0]));
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(document.activeElement).toBe(trigger));

@@ -3,9 +3,19 @@ title: Build a Layout
 description: Arrange media, Widgets, playlist zones, and live text on a reusable canvas.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/layout-editor.png";
+import darkScreenshot from "../../assets/screenshots/layout-editor-dark.png";
+
 A **Layout** places content in fixed areas on a canvas. Use one to combine, for example, a notice, a live schedule, and a Playlist zone on one screen. You can use a published Layout as fullscreen content or add it to a Playlist.
 
 import { Steps } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Hallway Split canvas with an Announcements Playlist zone on the left and Spirit week and Go Falcons panels on the right."
+/>
 
 ## Create a Layout
 
@@ -21,13 +31,17 @@ import { Steps } from "@astrojs/starlight/components";
 
 If Studio cannot save an **Announcement** starting point, the Layout remains in the library. Select **Retry template setup** to finish that same Layout without creating another one. If the draft changes before you retry, setup stops and Studio asks you to review the existing Layout. Close the dialog, review that Layout in the library, then start another setup if needed.
 
-The preview opens across the Studio window and keeps the entire canvas below its toolbar. Portrait and landscape Layouts keep their canvas proportions, including Widgets rendered inside them. The preview date starts at your local date and drives those Widgets in the organization's time zone, so an Agenda or Countdown shows the selected calendar day alongside the Layout's dynamic text.
+The preview opens across the Studio window and keeps the entire canvas below its toolbar. Portrait and landscape Layouts keep their canvas proportions, including Widgets rendered inside them. The preview date starts at your local date. It also drives those Widgets in the organization's time zone and time-sensitive Data Source projections, so an Agenda or Countdown shows the selected calendar day alongside the Layout's dynamic text.
+
+Widget placements use the appearance configured on the shared Widget. Edit that Widget to change its appearance. Studio does not offer per-placement appearance controls because the Player does not apply them.
 
 Studio clears a Layout thumbnail when its referenced Media, Widget, Playlist, or Data Source changes. The next time an editor opens the Layout, Studio captures a new thumbnail. This does not change the Layout draft or its published revision.
 
 The Layout library loads the first 100 matches. Search to narrow results across the library, or select **Load more** to browse later results. Presentation choosers use the same search and **Load more** controls.
 
 The Media picker can also upload an image or video; it is added to the Media library. A Playlist zone plays independently inside the Layout. **Loop** returns to the first playable item or stops on the last one. **Corner radius** and each Playlist item's fade or crossfade transition apply in the zone. If media fails, **Fallback** shows the Layout background, keeps the last successfully loaded item, or hides the zone. The Player skips to another playable item when one is available and retries a failed final item after two seconds. A zone needs a Playlist with playable content.
+
+Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
 
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 

@@ -3,7 +3,7 @@
 //! The server's `install_player_update` command is answered at once: the
 //! handler validates the bounded payload, checks that the deployment is for
 //! Tilecast Edge and newer than this build, writes a durable job
-//! (`edge_state::repo::updates`) and returns `update_accepted`. Everything
+//! (`edge_state::platform::updates`) and returns `update_accepted`. Everything
 //! after that belongs to the [`Coordinator`], one step per pass, each step
 //! saved before it acts:
 //!
@@ -34,9 +34,9 @@ use edge_server::client::ServerError;
 use edge_server::player_api::ServerCommand;
 use edge_server::updates::{UpdateMetadata, UpdateReport, UpdateReportOutcome};
 use edge_state::StateDb;
+use edge_state::platform::updates::{self, JobState, Mode, NewJob, UpdateJob};
 use edge_state::repo::cas::{Domain, PinReason, SourceKind};
 use edge_state::repo::commands::CommandResult;
-use edge_state::repo::updates::{self, JobState, Mode, NewJob, UpdateJob};
 use tokio::io::{AsyncBufReadExt as _, AsyncReadExt as _, AsyncWriteExt as _};
 
 /// How long every confirmation condition must hold without a break: the
@@ -822,7 +822,7 @@ impl UpdateApi for ServerApi {
         // The path is built here from the release ID, never taken from the
         // server's answer.
         let path = format!("/api/v1/player/updates/{release}/artifact");
-        edge_server::origin::OriginBlobSource::new(self.server.clone(), &path)
+        player_core::OriginBlobSource::new(self.server.clone(), &path)
             .ok()
             .map(|source| Arc::new(source) as Arc<dyn BlobSource>)
     }

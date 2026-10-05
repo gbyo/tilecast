@@ -344,6 +344,12 @@ Choose the component that matches the content and task:
   otherwise consequential confirmation.
 - `Sheet` is the desktop contextual detail surface; `Drawer` is for narrow,
   swipeable contextual detail where that interaction helps.
+- A `Drawer` on a narrow browser screen pushes the page back. `DrawerIndentShell`
+  wraps the app once in `main.tsx`. Base UI writes the swipe progress to
+  `--drawer-swipe-progress`, and `styles/drawer-indent.css` uses it to scale,
+  lower, and round the page. A feature does not add this effect itself. The
+  effect is off when the user prefers reduced motion, at desktop width, and
+  inside the Tilecast native host.
 
 Use the generated Base UI components for portal, focus, dismissal, and motion
 behavior. Do not recreate those contracts with page CSS or a custom overlay
@@ -639,6 +645,8 @@ three stacked, slanted tiles. The logo has one color.
 
 - `.github/logos/tilecast-logo-black.svg` is the logo for light surfaces.
 - `.github/logos/tilecast-logo-white.svg` is the logo for dark surfaces.
+- `.github/logos/animated/` has looping logo and mark animations for loading
+  and startup screens. See its [README](../.github/logos/animated/README.md) for file selection.
 - In Studio, the logo components use the current text color.
 - Application icons show the mark only, in light color on the signal
   background. The Studio and documentation favicons show the mark in white on

@@ -12,18 +12,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import { i18n } from "../i18n";
 import type { PowerAssistResults, Screen, User } from "../api/types";
-import type { PairingRequest } from "../api/types";
+import { canManageScreens } from "../data/screens";
 import {
   autostartSummary,
   autostartWarning,
-  canManageScreens,
   formatReportedStatus,
   reportsAutostart,
   reliabilityCapabilityWarning,
-  pairingApprovalLabel,
-  pairingApprovalPayload,
   resolveScreenDetail,
   ScreenGridCard,
   ScreenListContent,
@@ -104,6 +102,46 @@ describe("screen management", () => {
   it("renders an unknown status instead of crashing on incomplete data", () => {
     render(<StatusLabel status={null as unknown as Screen["status"]} />);
     expect(screen.getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("keeps long fleet statuses inside a sized table column", () => {
+    const item = {
+      id: "screen-recent",
+      name: "Library TV with a long screen name",
+      description: "",
+      location: "Edgewood Middle School",
+      platform: "linux",
+      playerVersion: "0.17.0",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      enabled: true,
+      pairedAt: new Date().toISOString(),
+      lastContactAt: new Date().toISOString(),
+      status: "recent",
+      hasActiveCredential: true,
+    } as Screen;
+
+    render(
+      <MemoryRouter>
+        <ScreenFleetTable
+          screens={[item]}
+          canManage={false}
+          selectedIds={new Set()}
+          csrfToken=""
+          showLocation={false}
+          onSelectionChange={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("table-fixed", "min-w-[59rem]");
+    expect(
+      screen.queryByRole("columnheader", { name: "Location" }),
+    ).not.toBeInTheDocument();
+
+    const status = screen.getByText("Recently online");
+    expect(status.closest("td")).toHaveClass("w-[10rem]");
   });
 
   it("uses the dashboard record when detail data is incomplete", () => {
@@ -309,6 +347,52 @@ describe("screen management", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Open screen" }),
     ).toBeTruthy();
+  });
+
+  it("moves screens to a location without resending their map positions", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 1024px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    const updateScreen = vi
+      .spyOn(api, "updateScreen")
+      .mockResolvedValue({} as Screen);
+    const item = {
+      id: "screen-1",
+      name: "Lobby",
+      description: "",
+      location: "Main entrance",
+      mapPositionOverride: { latitude: 34.157, longitude: -82.027 },
+      platform: "android-tv",
+      status: "online",
+      enabled: true,
+      hasActiveCredential: true,
+    } as Screen;
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent screens={[item]} loading={false} canManage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("checkbox", { name: "Select Lobby" }),
+    );
+    await interaction.click(
+      screen.getByRole("button", { name: "Move to location" }),
+    );
+    await waitFor(() => expect(updateScreen).toHaveBeenCalledTimes(1));
+    // A position another editor saved after this list loaded must survive.
+    expect(updateScreen.mock.calls[0]?.[1]).not.toHaveProperty(
+      "mapPositionOverride",
+    );
   });
 
   it("keeps card selection separate from navigation links", async () => {
@@ -580,97 +664,5 @@ describe("screen management", () => {
     expect(
       autostartWarning({ commissioningState: "complete", powerAssist }, t),
     ).toBe(undefined);
-  });
-
-  it("uses an explicit credential-replacement payload for known players", () => {
-    const request: PairingRequest = {
-      id: "pairing",
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      previouslyPaired: true,
-      existingScreenId: "screen-1",
-      existingScreenName: "Cafeteria Display",
-      hasActiveCredential: true,
-      credentialReplacementAuthorized: false,
-      metadata: {
-        playerInstallationId: "installation",
-        platform: "android-tv",
-        manufacturer: "Amazon",
-        model: "Fire TV",
-        androidVersion: "11",
-        playerVersion: "0.10.1",
-        screenWidth: 1920,
-        screenHeight: 1080,
-        density: 1.5,
-        locale: "en-US",
-        timezone: "America/New_York",
-      },
-    };
-    expect(pairingApprovalLabel(request, t)).toBe(
-      "Repair and replace credential",
-    );
-    expect(
-      pairingApprovalPayload(request, {
-        name: "Cafeteria Display",
-        locationId: undefined,
-        roomName: "Cafeteria",
-        roomNumber: "",
-        description: "",
-      }),
-    ).toEqual({
-      name: "Cafeteria Display",
-      locationId: undefined,
-      roomName: "Cafeteria",
-      roomNumber: "",
-      description: "",
-      replaceExistingCredential: true,
-    });
-  });
-
-  it("uses a separate hardware replacement payload", () => {
-    const request: PairingRequest = {
-      id: "pairing",
-      status: "pending",
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      previouslyPaired: false,
-      hasActiveCredential: false,
-      credentialReplacementAuthorized: false,
-      metadata: {
-        playerInstallationId: "new-installation",
-        platform: "linux",
-        manufacturer: "Intel",
-        model: "NUC",
-        androidVersion: "none",
-        playerVersion: "0.10.1",
-        screenWidth: 1920,
-        screenHeight: 1080,
-        density: 1,
-        locale: "en-US",
-        timezone: "America/New_York",
-      },
-    };
-    expect(pairingApprovalLabel(request, t, "replace_hardware")).toBe(
-      "Replace hardware",
-    );
-    expect(
-      pairingApprovalPayload(
-        request,
-        {
-          name: "Ignored logical name",
-          locationId: undefined,
-          roomName: "",
-          roomNumber: "",
-          description: "",
-        },
-        "replace_hardware",
-        "screen-1",
-      ),
-    ).toMatchObject({
-      replaceExistingCredential: false,
-      replaceHardware: true,
-      replacementScreenId: "screen-1",
-    });
   });
 });

@@ -4,23 +4,34 @@ on:
   workflow_call:
 
 permissions:
+  actions: read
   contents: read
   checks: write
+  issues: write
+  pull-requests: write
 
 jobs:
-  validate:
-    name: Dashboard CI
+  lint:
+    name: Dashboard format and lint
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
+      issues: write
+      pull-requests: write
     steps:
+      # Full history lets React Doctor find the merge base and report only the
+      # findings a pull request adds.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Include the Dashboard workspace and root tools such as Prettier.
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - name: Scan changed Studio files for localization and architecture regressions
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         working-directory: apps/dashboard
@@ -52,25 +63,101 @@ jobs:
             eslint-${{ runner.os }}-
       - run: npm run format:check
       - run: npm run lint
-      - name: Test
+      # Advisory for now (`blocking: none`): React Doctor comments on the pull
+      # request and never fails it. It scans only the dashboard code the pull
+      # request changes. A release run has no pull request, and the Action would
+      # scan the full project there, so the step runs on pull requests only.
+      #
+      # This runs under `pull_request`, never `pull_request_target`, so a fork's
+      # code gets a read-only token and no secrets. The comment inputs are off for
+      # forks, which cannot be commented on with that token; the findings still
+      # appear in the job summary. `REACT_DOCTOR_NO_TELEMETRY` turns off crash
+      # reporting, and `apps/dashboard/doctor.config.json` turns off scoring and
+      # the supply-chain check. Keep `version` equal to the react-doctor version
+      # in apps/dashboard/package.json.
+      - name: React Doctor
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        uses: millionco/react-doctor@v2
+        env:
+          REACT_DOCTOR_NO_TELEMETRY: "1"
+        with:
+          directory: apps/dashboard
+          scope: changed
+          blocking: none
+          comment: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          review-comments: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          commit-status: false
+          version: 0.9.14
+
+  tests:
+    name: Dashboard tests (shard ${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
+      - name: Run coverage-enabled Vitest shard
         working-directory: apps/dashboard
         run: |
-          mkdir -p test-results
-          npm run coverage -- --reporter=default --reporter=junit --outputFile=test-results/vitest.xml
+          mkdir -p test-results vitest-reports
+          npm run coverage -- \
+            --shard=${{ matrix.shard }}/2 \
+            --reporter=default \
+            --reporter=junit \
+            --reporter=blob \
+            --outputFile.junit=test-results/vitest-${{ matrix.shard }}.xml \
+            --outputFile.blob=vitest-reports/blob-${{ matrix.shard }}.json
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0
         with:
-          name: Dashboard tests
-          path: apps/dashboard/test-results/vitest.xml
+          name: Dashboard tests (shard ${{ matrix.shard }}/2)
+          path: apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
           reporter: java-junit
           fail-on-empty: false
-      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: dashboard-vitest-shard-${{ matrix.shard }}
+          path: |
+            apps/dashboard/vitest-reports/blob-${{ matrix.shard }}.json
+            apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
+          if-no-files-found: ignore
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Dashboard tests (shard ${{ matrix.shard }}/2)
+        run: node scripts/ci/timing-summary.mjs --junit apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
 
-      # The Official Tilecast Plugin Conformance checks that need no build:
-      # manifests, generated files, boundaries, migrations, OpenAPI fragments,
-      # and the SDK's own tests. The Go, Studio, and runtime suites run in their
-      # own jobs above.
+  coverage:
+    name: Merge Dashboard coverage
+    needs: tests
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: dashboard-vitest-shard-*
+          path: apps/dashboard
+          merge-multiple: true
+      - name: Merge shard coverage
+        working-directory: apps/dashboard
+        run: npx vitest --merge-reports=vitest-reports --coverage --reporter=default
       - name: Coverage summary
         if: ${{ !cancelled() }}
         run: node scripts/ci/coverage-summary.mjs apps/dashboard/coverage/coverage-summary.json >> "$GITHUB_STEP_SUMMARY"
@@ -79,3 +166,15 @@ jobs:
         with:
           name: dashboard-coverage
           path: apps/dashboard/coverage
+
+  build:
+    name: Dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
+      - run: npm run build

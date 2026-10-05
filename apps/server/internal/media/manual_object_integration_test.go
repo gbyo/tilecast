@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -132,6 +133,19 @@ func TestManualObjectSourceIsGeneric(t *testing.T) {
 	}
 	if got := statusPayload.Datasets[0].Values["message"]; got != "Opening at ten." {
 		t.Fatalf("Status Message projection lost its message: %q", got)
+	}
+	for _, previewDate := range []string{"2001-01-01", "2099-12-31"} {
+		preview, err := service.PreviewDataSourceByID(ctx, statusSource.ID, previewDate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		payload, ok := preview.(TypedDatasetPayload)
+		if !ok {
+			t.Fatalf("manual object preview type = %T", preview)
+		}
+		if !reflect.DeepEqual(payload, statusPayload) {
+			t.Fatalf("date-independent preview changed saved payload for %s", previewDate)
+		}
 	}
 	statusDetail, err := service.GetDataSourceDetail(ctx, statusSource.ID)
 	if err != nil {

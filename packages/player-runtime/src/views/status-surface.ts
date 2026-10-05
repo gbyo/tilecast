@@ -6,6 +6,7 @@
 import { LitElement, html, nothing, type PropertyValues } from "lit";
 import { classMap } from "lit/directives/class-map.js";
 import { cssProps } from "./css-props";
+import { pairingQrDataUri } from "./pairing-qr";
 import type {
   DiscoveredServerV1,
   RuntimePresentation,
@@ -98,19 +99,44 @@ export class StatusSurface extends LitElement {
     switch (p.state) {
       case "setup":
         return { ...none, content: this.renderSetup() };
-      case "pairing":
+      case "pairing": {
+        // Grouped for viewing distance, as the Android player shows it.
+        // The raw approval URL never displays: the code and the QR carry it.
+        const code = p.code ?? "";
+        const grouped =
+          code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+        const qr = pairingQrDataUri(p.approvalUrl ?? "");
         return {
           ...none,
-          content: html`<img
+          content: html`<div class="pairing">
+            <img
               class="brand-logo"
               src="tilecast-logo-white.svg"
               alt="Tilecast"
             />
-            <h1>${p.organizationName ?? "Tilecast"}</h1>
-            <p>Approve this screen in Tilecast Studio with the code below.</p>
-            <div class="code">${p.code ?? ""}</div>
-            <p>${p.approvalUrl ?? ""}</p>`,
+            <p class="pairing__org">${p.organizationName ?? "Tilecast"}</p>
+            <h1>Pair this screen</h1>
+            <div class="pairing__body">
+              <div class="pairing__code-block">
+                <div class="code" aria-label=${code}>${grouped}</div>
+                <p>
+                  Enter this code in Tilecast Studio<br />or scan the QR code
+                </p>
+              </div>
+              ${
+                qr
+                  ? html`<img
+                      class="pairing__qr"
+                      src=${qr}
+                      alt="QR code: scan to approve this screen in Tilecast Studio"
+                    />`
+                  : nothing
+              }
+            </div>
+            <p class="pairing__waiting">Waiting for approval…</p>
+          </div>`,
         };
+      }
       case "idle":
       case "disabled":
       case "unavailable": {
@@ -200,17 +226,28 @@ export class StatusSurface extends LitElement {
             </button>`,
         )}
       </div>
-      <input
-        id="setup-input"
-        type="url"
-        placeholder="https://signage.example.org"
-        autofocus
-        @keydown=${(event: KeyboardEvent) => {
-          if (event.key === "Enter") {
-            submit((event.target as HTMLInputElement).value);
-          }
+      <form
+        id="setup-manual"
+        @submit=${(event: SubmitEvent) => {
+          event.preventDefault();
+          submit(
+            (
+              event.currentTarget as HTMLFormElement
+            ).querySelector<HTMLInputElement>("#setup-input")?.value ?? "",
+          );
         }}
-      />
+      >
+        <label for="setup-input">Server address</label>
+        <input
+          id="setup-input"
+          name="server-address"
+          type="url"
+          placeholder="https://signage.example.org"
+          autofocus
+          autocomplete="url"
+        />
+        <button type="submit">Connect</button>
+      </form>
       <div id="setup-error" role="status">${this.setupError}</div>`;
   }
 

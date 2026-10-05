@@ -33,6 +33,8 @@ Use the due-work claim API when a worker needs the refresh-state schedule and `S
 
 Forms uses this model to turn approved submissions into typed datasets. It does not need a separate Forms renderer on the Player.
 
+Use `number`, `percent`, and `currency` fields for finite base-10 numbers. `integer` fields accept values from `-9007199254740991` through `9007199254740991`. Use `duration` for nonnegative integer seconds up to `9007199254740991`. Use `asset` for UUIDs that refer to Tilecast Media assets. The Server projects valid values as typed values; malformed values remain text. Server and Studio tests use the same scalar fixtures to keep preview and playback coercion aligned. See the [Data Source module contract](https://github.com/gbyo/tilecast/blob/main/docs/data-source-modules.md#3-data-types) for the exact rules.
+
 A published dataset is shown by core Widgets, such as List, Table, and Cards, that accept records of its type. A plugin that needs its own display can bundle a Widget; see [Bundle Widgets and Data Sources](../static-content/).
 
 ## Store private plugin assets

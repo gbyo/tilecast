@@ -154,7 +154,10 @@ export class PlayerRoot extends LitElement {
       >
         ${this.identifyName ?? ""}
       </div>
-      <tc-outside-hours .presentation=${this.sleep}></tc-outside-hours>
+      <tc-outside-hours
+        .presentation=${this.sleep}
+        .logo=${b?.capabilities.outsideHoursLogo}
+      ></tc-outside-hours>
     `;
   }
 

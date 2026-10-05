@@ -1,3 +1,7 @@
+import { contentKeys, contentQueries } from "../data/content";
+
+import { formatDurationClock } from "../lib/formatDuration";
+import { formatBytes } from "../lib/formatBytes";
 import {
   useInfiniteQuery,
   useMutation,
@@ -18,7 +22,6 @@ import {
   List,
   Pencil,
   RotateCcw,
-  SquarePen,
   Tags,
   Trash2,
   Upload,
@@ -26,7 +29,6 @@ import {
 } from "lucide-react";
 import { signalColors } from "@tilecast/design-tokens/values";
 import {
-  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -46,9 +48,10 @@ import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { rfc3339ToLocalDateTime } from "../lib/dateTime";
 import {
-  DashboardListToolbar,
-  DashboardSearch,
-} from "../components/DashboardListToolbar";
+  FilterBar,
+  type FilterDefinition,
+  type FilterValues,
+} from "../components/FilterBar";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -81,12 +84,11 @@ import {
   CollapsibleTrigger,
 } from "../components/studio/StudioCollapsible";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import {
   Dialog,
   DialogContent,
@@ -160,7 +162,10 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { PageHeader } from "../components/PageHeader";
+import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { YouTubeSourceEditor } from "../content/SourceEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
@@ -236,26 +241,6 @@ function queueStateLabel(
     processing: t("media.status.processing"),
     failed: t("media.status.failed"),
   }[state];
-}
-
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = value / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit++;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
-}
-
-function formatDuration(seconds?: number) {
-  if (seconds == null) return "";
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}:${Math.floor(seconds % 60)
-    .toString()
-    .padStart(2, "0")}`;
 }
 
 export function isExpiredAsset(asset: Asset, now = Date.now()) {
@@ -363,6 +348,7 @@ function FilterSelect({
 
 export function ContentPage() {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const { t: tErrors } = useTranslation("errors");
   const auth = useAuth();
   const canManage = canManageContent(auth.status?.user);
@@ -384,9 +370,18 @@ export function ContentPage() {
   const { confirm, dialog: confirmDialog } = useConfirm();
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
-    await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    try {
+      await Promise.all(ids.map((id) => api.deleteAsset(id, csrf)));
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.bulkDeleteFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
     toast.add({
-      title: `${ids.length} archived item${ids.length === 1 ? "" : "s"} permanently deleted.`,
+      title: t("media.bulkDelete.success", { count: ids.length }),
       type: "success",
     });
     setCheckedAssetIds(new Set());
@@ -409,8 +404,17 @@ export function ContentPage() {
       action: t("media.archiveDialog.moveToArchive"),
     });
     if (!confirmed) return;
-    await api.archiveAssets([asset.id], csrf);
-    toast.add({ title: "Asset archived.", type: "success" });
+    try {
+      await api.archiveAssets([asset.id], csrf);
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.archiveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.archiveDialog.archived"), type: "success" });
     refreshOrganization();
   };
   const confirmDeleteAsset = async (asset: Asset) => {
@@ -421,8 +425,17 @@ export function ContentPage() {
       destructive: true,
     });
     if (!confirmed) return;
-    await api.deleteAsset(asset.id, csrf);
-    toast.add({ title: "Asset permanently deleted.", type: "success" });
+    try {
+      await api.deleteAsset(asset.id, csrf);
+    } catch (error) {
+      toast.add({
+        title: t("media.errors.deleteFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.deleteDialog.deleted"), type: "success" });
     refreshOrganization();
   };
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -446,56 +459,119 @@ export function ContentPage() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const controllers = useRef(new Map<string, AbortController>());
   const fileInput = useRef<HTMLInputElement>(null);
-  const paramsKey = `${libraryView}|${search}|${contentFilter}|${status}|${sort}|${folderFilter}|${collectionFilter}|${tagFilter}`;
-  const assets = useInfiniteQuery({
-    queryKey: ["assets", "library", paramsKey],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({
-        page: String(pageParam),
-        pageSize: "48",
-        sort,
-      });
-      if (libraryView === "archive") params.set("archived", "true");
-      if (search) params.set("search", search);
-      if (["media", "image", "video"].includes(contentFilter))
-        params.set("type", contentFilter);
-      if (status) params.set("status", status);
-      if (folderFilter) params.set("folderId", folderFilter);
-      if (collectionFilter) params.set("collectionId", collectionFilter);
-      if (tagFilter) params.set("tagId", tagFilter);
-      return api.assets(params);
-    },
-    getNextPageParam: (last) =>
-      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
-    refetchInterval: (query) =>
-      query.state.data?.pages?.some((page) =>
-        page.items.some((item) =>
-          ["queued", "inspecting", "processing"].includes(
-            item.processingStatus,
-          ),
-        ),
-      )
-        ? 3000
-        : false,
+  const params = new URLSearchParams({
+    pageSize: "48",
+    sort,
   });
+  if (libraryView === "archive") params.set("archived", "true");
+  if (search) params.set("search", search);
+  if (["media", "image", "video"].includes(contentFilter))
+    params.set("type", contentFilter);
+  if (status) params.set("status", status);
+  if (folderFilter) params.set("folderId", folderFilter);
+  if (collectionFilter) params.set("collectionId", collectionFilter);
+  if (tagFilter) params.set("tagId", tagFilter);
+  const assets = useInfiniteQuery(contentQueries.assetPages(params));
+
   const libraryItems = useMemo(
     () => assets.data?.pages.flatMap((page) => page.items) ?? [],
     [assets.data],
   );
   const libraryTotal = assets.data?.pages[0]?.total;
   const folders = useQuery({
-    queryKey: ["content-folders"],
-    queryFn: api.contentFolders,
+    ...contentQueries.folders(),
   });
   const collections = useQuery({
-    queryKey: ["content-collections"],
-    queryFn: api.contentCollections,
+    ...contentQueries.collections(),
   });
   const tags = useQuery({
-    queryKey: ["content-tags"],
-    queryFn: api.contentTags,
+    ...contentQueries.tags(),
   });
+  const filterValues: FilterValues = {
+    search,
+    status,
+    folder: folderFilter,
+    collection: collectionFilter,
+    tag: tagFilter,
+  };
+  const filterDefinitions: FilterDefinition[] = [
+    {
+      key: "search",
+      kind: "search",
+      label: t("media.toolbar.search"),
+      placeholder: t("media.toolbar.search"),
+    },
+    {
+      key: "status",
+      kind: "select",
+      label: t("media.toolbar.filterByStatus"),
+      allLabel: t("media.toolbar.allStatuses"),
+      options: [
+        { value: "ready", label: t("media.status.ready") },
+        { value: "queued", label: t("media.status.waiting") },
+        { value: "inspecting", label: t("media.status.inspecting") },
+        { value: "processing", label: t("media.status.processing") },
+        { value: "failed", label: t("media.status.failed") },
+      ],
+    },
+    {
+      key: "folder",
+      kind: "select",
+      label: t("picker.toolbar.filterByFolder"),
+      allLabel: t("picker.toolbar.allFolders"),
+      options:
+        folders.data?.map((folder) => ({
+          value: folder.id,
+          label: t("media.toolbar.folderOption", {
+            name: folder.name,
+            count: folder.assetCount,
+          }),
+        })) ?? [],
+    },
+    {
+      key: "collection",
+      kind: "select",
+      label: t("picker.toolbar.filterByCollection"),
+      allLabel: t("picker.toolbar.allCollections"),
+      options:
+        collections.data?.map((collection) => ({
+          value: collection.id,
+          label: t("media.toolbar.collectionOption", {
+            name: collection.name,
+            count: collection.assetCount,
+          }),
+        })) ?? [],
+    },
+    {
+      key: "tag",
+      kind: "select",
+      label: t("picker.toolbar.filterByTag"),
+      allLabel: t("picker.toolbar.allTags"),
+      options:
+        tags.data?.map((tag) => ({
+          value: tag.id,
+          label: t("media.toolbar.tagOption", {
+            name: tag.name,
+            count: tag.assetCount ?? 0,
+          }),
+        })) ?? [],
+    },
+  ];
+  const setFilterValue = (key: string, value: string) => {
+    if (key === "search") setSearch(value);
+    else if (key === "status") setStatus(value);
+    else if (key === "folder") setFolderFilter(value);
+    else if (key === "collection") setCollectionFilter(value);
+    else if (key === "tag") setTagFilter(value);
+  };
+  const clearFilters = () => {
+    setSearch("");
+    setContentFilter("media");
+    setStatus("");
+    setFolderFilter("");
+    setCollectionFilter("");
+    setTagFilter("");
+  };
   // A native host shows a media asset's details in its own sheet. Widgets
   // and websites edit in Studio, and a browser always uses the Sheet or
   // Drawer.
@@ -518,7 +594,8 @@ export function ContentPage() {
     const delay = nextExpirationDelay(libraryItems);
     if (delay == null) return;
     const timer = window.setTimeout(
-      () => void queryClient.invalidateQueries({ queryKey: ["assets"] }),
+      () =>
+        void queryClient.invalidateQueries({ queryKey: contentKeys.assets }),
       Math.min(delay, 2_147_483_647),
     );
     return () => window.clearTimeout(timer);
@@ -537,10 +614,10 @@ export function ContentPage() {
     tagFilter,
   ]);
   const refreshOrganization = () => {
-    void queryClient.invalidateQueries({ queryKey: ["assets"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-collections"] });
-    void queryClient.invalidateQueries({ queryKey: ["content-tags"] });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.folders });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.collections });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.tags });
   };
 
   useEffect(() => {
@@ -553,7 +630,13 @@ export function ContentPage() {
         sizeBytes,
         uploadedBytes,
       }));
-    localStorage.setItem(resumeKey, JSON.stringify(saved));
+    // Resume persistence is best-effort like the guarded read path: a
+    // throwing store must not take down the library.
+    try {
+      localStorage.setItem(resumeKey, JSON.stringify(saved));
+    } catch {
+      // Continue without persisted resume metadata.
+    }
   }, [queue]);
 
   const updateQueue = (localId: string, update: Partial<QueueItem>) =>
@@ -627,7 +710,7 @@ export function ContentPage() {
         type: "success",
       });
       updateQueue(localId, { state: "processing", uploadedBytes: file.size });
-      await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      await queryClient.invalidateQueries({ queryKey: contentKeys.assets });
       window.setTimeout(
         () =>
           setQueue((current) =>
@@ -686,30 +769,32 @@ export function ContentPage() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">{t("media.library.title")}</h1>
-          {canManage && libraryView === "active" && (
+      <PageHeader
+        title={t("media.library.title")}
+        description={
+          <>
+            {libraryView === "active"
+              ? t("media.library.descriptionActive")
+              : t("media.library.descriptionArchived")}
+            {typeof libraryTotal === "number" && (
+              <>
+                {" "}
+                {t("media.library.totalAssets", {
+                  count: libraryTotal,
+                })}
+              </>
+            )}
+          </>
+        }
+        actions={
+          canManage && libraryView === "active" ? (
             <Button type="button" onClick={() => fileInput.current?.click()}>
               <Upload size={16} aria-hidden="true" />{" "}
               {t("media.library.uploadAssets")}
             </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {libraryView === "active"
-            ? t("media.library.descriptionActive")
-            : t("media.library.descriptionArchived")}
-          {typeof libraryTotal === "number" && (
-            <>
-              {" "}
-              {t("media.library.totalAssets", {
-                count: libraryTotal,
-              })}
-            </>
-          )}
-        </p>
-      </header>
+          ) : undefined
+        }
+      />
       <SingleToggleGroup
         label={t("media.library.viewLabel")}
         value={libraryView}
@@ -772,8 +857,8 @@ export function ContentPage() {
                   <AttachmentTitle>{item.filename}</AttachmentTitle>
                   <AttachmentDescription>
                     {t("media.upload.progress", {
-                      uploaded: formatBytes(item.uploadedBytes),
-                      total: formatBytes(item.sizeBytes),
+                      uploaded: formatBytes(item.uploadedBytes, locale),
+                      total: formatBytes(item.sizeBytes, locale),
                       percent,
                       state: queueStateLabel(item.state, t),
                     })}
@@ -814,13 +899,12 @@ export function ContentPage() {
         </section>
       )}
 
-      <DashboardListToolbar>
-        <DashboardSearch
-          value={search}
-          onValueChange={setSearch}
-          label={t("media.toolbar.search")}
-          placeholder={t("media.toolbar.search")}
-        />
+      <FilterBar
+        definitions={filterDefinitions}
+        values={filterValues}
+        onChange={setFilterValue}
+        onClear={clearFilters}
+      >
         <SingleToggleGroup
           label={t("media.toolbar.typeFilters")}
           value={contentFilter}
@@ -844,72 +928,6 @@ export function ContentPage() {
           ]}
         />
         <FilterSelect
-          label={t("media.toolbar.filterByStatus")}
-          className="w-40 max-sm:flex-1"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "", label: t("media.toolbar.allStatuses") },
-            { value: "ready", label: t("media.status.ready") },
-            { value: "queued", label: t("media.status.waiting") },
-            { value: "inspecting", label: t("media.status.inspecting") },
-            { value: "processing", label: t("media.status.processing") },
-            { value: "failed", label: t("media.status.failed") },
-          ]}
-        />
-        {libraryView === "active" && (
-          <>
-            <FilterSelect
-              label={t("picker.toolbar.filterByFolder")}
-              className="w-44 max-sm:flex-1"
-              value={folderFilter}
-              onChange={setFolderFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allFolders") },
-                ...(folders.data?.map((folder) => ({
-                  value: folder.id,
-                  label: t("media.toolbar.folderOption", {
-                    name: folder.name,
-                    count: folder.assetCount,
-                  }),
-                })) ?? []),
-              ]}
-            />
-            <FilterSelect
-              label={t("picker.toolbar.filterByCollection")}
-              className="w-44 max-sm:flex-1"
-              value={collectionFilter}
-              onChange={setCollectionFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allCollections") },
-                ...(collections.data?.map((collection) => ({
-                  value: collection.id,
-                  label: t("media.toolbar.collectionOption", {
-                    name: collection.name,
-                    count: collection.assetCount,
-                  }),
-                })) ?? []),
-              ]}
-            />
-            <FilterSelect
-              label={t("picker.toolbar.filterByTag")}
-              className="w-44 max-sm:flex-1"
-              value={tagFilter}
-              onChange={setTagFilter}
-              options={[
-                { value: "", label: t("picker.toolbar.allTags") },
-                ...(tags.data?.map((tag) => ({
-                  value: tag.id,
-                  label: t("media.toolbar.tagOption", {
-                    name: tag.name,
-                    count: tag.assetCount ?? 0,
-                  }),
-                })) ?? []),
-              ]}
-            />
-          </>
-        )}
-        <FilterSelect
           label={t("media.toolbar.sortMedia")}
           className="w-44 max-sm:flex-1"
           value={sort}
@@ -921,27 +939,6 @@ export function ContentPage() {
             { value: "name", label: t("picker.toolbar.sortName") },
           ]}
         />
-        {(search ||
-          contentFilter !== "media" ||
-          status ||
-          folderFilter ||
-          collectionFilter ||
-          tagFilter) && (
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={() => {
-              setSearch("");
-              setContentFilter("media");
-              setStatus("");
-              setFolderFilter("");
-              setCollectionFilter("");
-              setTagFilter("");
-            }}
-          >
-            {t("media.toolbar.resetFilters")}
-          </Button>
-        )}
         <SingleToggleGroup
           label={t("media.toolbar.viewLabel")}
           variant="outline"
@@ -961,7 +958,7 @@ export function ContentPage() {
             },
           ]}
         />
-      </DashboardListToolbar>
+      </FilterBar>
 
       {canManage && (libraryView === "active" || checkedAssetIds.size > 0) && (
         <ContentOrganizer
@@ -981,18 +978,40 @@ export function ContentPage() {
           onClear={() => setCheckedAssetIds(new Set())}
           archiveMode={libraryView === "archive"}
           onArchive={async () => {
-            await api.archiveAssets([...checkedAssetIds], csrf);
+            const ids = [...checkedAssetIds];
+            try {
+              await api.archiveAssets(ids, csrf);
+            } catch (error) {
+              toast.add({
+                title: t("media.errors.bulkArchiveFailed"),
+                description: apiErrorMessage(error),
+                type: "error",
+              });
+              return;
+            }
             toast.add({
-              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} archived.`,
+              title: t("media.archiveDialog.archivedBulk", {
+                count: ids.length,
+              }),
               type: "success",
             });
             setCheckedAssetIds(new Set());
             refreshOrganization();
           }}
           onRestore={async () => {
-            await api.restoreAssets([...checkedAssetIds], csrf);
+            const ids = [...checkedAssetIds];
+            try {
+              await api.restoreAssets(ids, csrf);
+            } catch (error) {
+              toast.add({
+                title: t("media.errors.restoreFailed", { count: ids.length }),
+                description: apiErrorMessage(error),
+                type: "error",
+              });
+              return;
+            }
             toast.add({
-              title: `${checkedAssetIds.size} item${checkedAssetIds.size === 1 ? "" : "s"} restored.`,
+              title: t("media.restore.success", { count: ids.length }),
               type: "success",
             });
             setCheckedAssetIds(new Set());
@@ -1006,7 +1025,18 @@ export function ContentPage() {
       {assets.isError && (
         <Alert variant="destructive">
           <AlertTitle>{t("media.library.loadError")}</AlertTitle>
-          <AlertDescription>{apiErrorMessage(assets.error)}</AlertDescription>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{apiErrorMessage(assets.error)}</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={assets.isFetching}
+              onClick={() => void assets.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
       {assets.isLoading ? (
@@ -1016,7 +1046,7 @@ export function ContentPage() {
             {t("media.library.loading")}
           </p>
         </div>
-      ) : libraryItems.length === 0 ? (
+      ) : assets.isError && !assets.data ? null : libraryItems.length === 0 ? (
         <ContentEmpty
           canManage={canManage && libraryView === "active"}
           onChoose={() => fileInput.current?.click()}
@@ -1041,22 +1071,43 @@ export function ContentPage() {
             canManage={canManage}
             archived={libraryView === "archive"}
             onDuplicate={(asset) =>
-              void api.duplicateWidget(asset.id, csrf).then(() => {
-                toast.add({
-                  title: t("widgets.duplicateSuccess"),
-                  type: "success",
-                });
-                return queryClient.invalidateQueries({
-                  queryKey: ["assets"],
-                });
-              })
+              void api.duplicateWidget(asset.id, csrf).then(
+                () => {
+                  toast.add({
+                    title: t("widgets.duplicateSuccess"),
+                    type: "success",
+                  });
+                  return queryClient.invalidateQueries({
+                    queryKey: contentKeys.assets,
+                  });
+                },
+                (error: unknown) => {
+                  toast.add({
+                    title: t("widgets.duplicateFailed"),
+                    description: apiErrorMessage(error),
+                    type: "error",
+                  });
+                },
+              )
             }
             onArchive={(asset) => void confirmArchiveAsset(asset)}
             onRestore={(asset) => {
-              void api.restoreAssets([asset.id], csrf).then(() => {
-                toast.add({ title: "Asset restored.", type: "success" });
-                refreshOrganization();
-              });
+              void api
+                .restoreAssets([asset.id], csrf)
+                .then(() => {
+                  toast.add({
+                    title: t("media.restore.success", { count: 1 }),
+                    type: "success",
+                  });
+                  refreshOrganization();
+                })
+                .catch((error: unknown) => {
+                  toast.add({
+                    title: t("media.errors.restoreFailed", { count: 1 }),
+                    description: apiErrorMessage(error),
+                    type: "error",
+                  });
+                });
             }}
             onDelete={(asset) => void confirmDeleteAsset(asset)}
             selectedIds={checkedAssetIds}
@@ -1100,7 +1151,9 @@ export function ContentPage() {
           }}
           onChanged={(asset) => {
             setSelected(asset);
-            void queryClient.invalidateQueries({ queryKey: ["assets"] });
+            void queryClient.invalidateQueries({
+              queryKey: contentKeys.assets,
+            });
           }}
         />
       )}
@@ -1187,20 +1240,22 @@ export function AssetCollection({
   const { t } = useTranslation(["content", "common"]);
   // Every action is also reachable from a visible control, so the menus stay a
   // shortcut rather than the only route to duplication or deletion.
-  const actionsFor = (asset: Asset): AssetMenuAction[] => {
-    const actions: AssetMenuAction[] = archived
+  const actionsFor = (asset: Asset): StudioActionGroup[] => {
+    const primary: StudioAction[] = archived
       ? []
       : [
           {
+            id: "open",
             label: canManage
               ? t("common:actions.edit")
               : t("media.card.openMenu"),
-            icon: <SquarePen size={14} aria-hidden="true" />,
+            icon: "edit",
             onSelect: () => onSelect(asset),
           },
         ];
     if (canManage && onToggle)
-      actions.push({
+      primary.push({
+        id: "select",
         label: selectedIds.has(asset.id)
           ? t("picker.tray.clearSelection")
           : t("media.card.selectItem"),
@@ -1208,33 +1263,44 @@ export function AssetCollection({
       });
     // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
     if (canManage && onDuplicate && asset.type === "widget")
-      actions.push({
+      primary.push({
+        id: "duplicate",
         label: t("media.card.duplicate"),
-        icon: <Copy size={14} aria-hidden="true" />,
+        icon: "duplicate",
         onSelect: () => onDuplicate(asset),
       });
-    if (canManage && !archived && onArchive)
-      actions.push({
-        label: t("media.card.archive"),
-        icon: <Archive size={14} aria-hidden="true" />,
-        separated: actions.length > 0,
-        onSelect: () => onArchive(asset),
-      });
     if (canManage && archived && onRestore)
-      actions.push({
+      primary.push({
+        id: "restore",
         label: t("media.card.restoreToLibrary"),
-        icon: <ArchiveRestore size={14} aria-hidden="true" />,
+        icon: "restore",
         onSelect: () => onRestore(asset),
       });
-    if (canManage && archived && onDelete)
-      actions.push({
-        label: t("media.action.deletePermanently"),
-        icon: <Trash2 size={14} aria-hidden="true" />,
-        danger: true,
-        separated: actions.length > 0,
-        onSelect: () => onDelete(asset),
+    const groups: StudioActionGroup[] = [{ actions: primary }];
+    if (canManage && !archived && onArchive)
+      groups.push({
+        actions: [
+          {
+            id: "archive",
+            label: t("media.card.archive"),
+            icon: "archive",
+            onSelect: () => onArchive(asset),
+          },
+        ],
       });
-    return actions;
+    if (canManage && archived && onDelete)
+      groups.push({
+        actions: [
+          {
+            id: "delete",
+            label: t("media.action.deletePermanently"),
+            icon: "trash",
+            role: "destructive",
+            onSelect: () => onDelete(asset),
+          },
+        ],
+      });
+    return groups;
   };
   const toggleFor =
     canManage && onToggle ? (id: string) => onToggle(id) : undefined;
@@ -1242,19 +1308,21 @@ export function AssetCollection({
     return (
       <ItemGroup>
         {items.map((asset) => (
-          <ContextMenu key={asset.id}>
-            <ContextMenuTrigger className="contents">
-              <MediaAssetListRow
-                asset={asset}
-                archived={archived}
-                selected={selectedIds.has(asset.id)}
-                onSelect={() => onSelect(asset)}
-                onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
-                actions={actionsFor(asset)}
-              />
-            </ContextMenuTrigger>
-            <AssetContextMenu asset={asset} actions={actionsFor(asset)} />
-          </ContextMenu>
+          <ActionContextMenu
+            key={asset.id}
+            label={t("media.card.actionsFor", { name: asset.name })}
+            actions={actionsFor(asset)}
+            className="contents"
+          >
+            <MediaAssetListRow
+              asset={asset}
+              archived={archived}
+              selected={selectedIds.has(asset.id)}
+              onSelect={() => onSelect(asset)}
+              onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
+              actions={actionsFor(asset)}
+            />
+          </ActionContextMenu>
         ))}
       </ItemGroup>
     );
@@ -1285,62 +1353,6 @@ export function AssetCollection({
   );
 }
 
-type AssetMenuAction = {
-  label: string;
-  icon?: ReactNode;
-  onSelect: () => void;
-  danger?: boolean;
-  separated?: boolean;
-};
-
-function AssetMenuContents({ actions }: { actions: AssetMenuAction[] }) {
-  return (
-    <>
-      {actions.map((action, index) => (
-        <Fragment key={`${action.label}-${index}`}>
-          {action.separated && <DropdownMenuSeparator />}
-          <DropdownMenuItem
-            variant={action.danger ? "destructive" : "default"}
-            onClick={action.onSelect}
-          >
-            {action.icon}
-            {action.label}
-          </DropdownMenuItem>
-        </Fragment>
-      ))}
-    </>
-  );
-}
-
-function AssetContextMenu({
-  asset,
-  actions,
-}: {
-  asset: Asset;
-  actions: AssetMenuAction[];
-}) {
-  const { t } = useTranslation(["content", "common"]);
-  if (actions.length === 0) return null;
-  return (
-    <ContextMenuContent
-      aria-label={t("media.card.actionsFor", { name: asset.name })}
-    >
-      {actions.map((action, index) => (
-        <Fragment key={`${action.label}-${index}`}>
-          {action.separated && <ContextMenuSeparator />}
-          <ContextMenuItem
-            variant={action.danger ? "destructive" : "default"}
-            onClick={action.onSelect}
-          >
-            {action.icon}
-            {action.label}
-          </ContextMenuItem>
-        </Fragment>
-      ))}
-    </ContextMenuContent>
-  );
-}
-
 function assetStatusBadge(
   asset: Asset,
   archived: boolean,
@@ -1363,7 +1375,7 @@ function assetStatusBadge(
 function AssetSummary({ asset }: { asset: Asset }) {
   return (
     <>
-      {asset.type === "video" && formatDuration(asset.durationSeconds)}
+      {asset.type === "video" && formatDurationClock(asset.durationSeconds)}
       {asset.type === "widget" &&
         (asset.widget?.provider === "youtube"
           ? // i18n-ignore: brand name stays Latin in every language
@@ -1434,9 +1446,10 @@ function MediaAssetCard({
   onToggle?: () => void;
   onDuplicate?: () => void;
   onArchive?: () => void;
-  actions: AssetMenuAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   const openLabel = archived
     ? t("media.card.viewAsset", { name: asset.name })
@@ -1444,118 +1457,113 @@ function MediaAssetCard({
   // The card root is the right-click target itself, so assisted-technology and
   // test hooks keep working: `asset-card` stays a stable structural hook.
   return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        render={
-          <article
-            className={`asset-card group relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${selected ? "border-primary ring-2 ring-ring/30" : "border-border"}`}
-          />
-        }
-      >
-        {onToggle && (
-          <Checkbox
-            aria-label={t("media.card.selectAsset", { name: asset.name })}
-            checked={selected}
-            onCheckedChange={() => onToggle()}
-            className="absolute top-2 left-2 z-10 bg-background/90"
-          />
-        )}
-        {showMenu && actions.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={t("media.card.actionsFor", { name: asset.name })}
-              className="absolute top-2 right-2 z-10 bg-background/90"
-            >
-              <EllipsisVertical aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <AssetMenuContents actions={actions} />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        <Button
-          type="button"
+    <ActionContextMenu
+      label={t("media.card.actionsFor", { name: asset.name })}
+      actions={actions}
+      render={
+        <article
+          className={`asset-card group relative flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${selected ? "border-primary ring-2 ring-ring/30" : "border-border"}`}
+        />
+      }
+    >
+      {onToggle && (
+        <Checkbox
+          aria-label={t("media.card.selectAsset", { name: asset.name })}
+          checked={selected}
+          onCheckedChange={() => onToggle()}
+          className="absolute top-2 left-2 z-10 bg-background/90"
+        />
+      )}
+      {showMenu && (
+        <ActionMenuButton
+          label={t("media.card.actionsFor", { name: asset.name })}
+          actions={actions}
           variant="ghost"
-          onClick={onSelect}
-          aria-label={openLabel}
-          className="grid h-auto w-full grid-cols-1 justify-items-stretch gap-2 p-3 pt-10 text-left whitespace-normal focus-visible:ring-inset"
+          size="icon-sm"
+          triggerClassName="absolute top-2 right-2 z-10 bg-background/90"
+          triggerIcon={<EllipsisVertical aria-hidden="true" />}
+        />
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={onSelect}
+        aria-label={openLabel}
+        className="grid h-auto w-full grid-cols-1 justify-items-stretch gap-2 p-3 pt-10 text-left whitespace-normal focus-visible:ring-inset"
+      >
+        <AspectRatio
+          ratio={16 / 9}
+          className="grid w-full place-items-center overflow-hidden rounded-xl bg-muted [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
         >
-          <AspectRatio
-            ratio={16 / 9}
-            className="grid w-full place-items-center overflow-hidden rounded-xl bg-muted [&_img]:h-full [&_img]:w-full [&_img]:object-cover"
-          >
-            <AssetPreview asset={asset} />
-          </AspectRatio>
-          <span className="grid min-w-0 gap-0.5">
-            <span className="truncate text-sm font-medium">{asset.name}</span>
-            <span className="text-xs text-muted-foreground">
-              <AssetSummary asset={asset} />
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {formatBytes(asset.originalSize)}
-            </span>
-            <AssetOrganizationChips asset={asset} folderNames={folderNames} />
+          <AssetPreview asset={asset} />
+        </AspectRatio>
+        <span className="grid min-w-0 gap-0.5">
+          <span className="truncate text-sm font-medium">{asset.name}</span>
+          <span className="text-xs text-muted-foreground">
+            <AssetSummary asset={asset} />
           </span>
-          <Badge variant={status.variant} className="w-fit">
-            {status.label}
-          </Badge>
-        </Button>
-        {asset.type === "widget" && !archived && (
-          <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
-            <span className="text-xs text-muted-foreground">
-              {t("media.card.playlistUsage", {
-                count: asset.playlistUsage ?? 0,
-              })}
-              {t("media.card.layoutUsage", {
-                count: asset.layoutUsage?.length ?? 0,
-              })}
-            </span>
-            {canManage && (
-              <>
+          <span className="text-xs text-muted-foreground">
+            {formatBytes(asset.originalSize, locale)}
+          </span>
+          <AssetOrganizationChips asset={asset} folderNames={folderNames} />
+        </span>
+        <Badge variant={status.variant} className="w-fit">
+          {status.label}
+        </Badge>
+      </Button>
+      {asset.type === "widget" && !archived && (
+        <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
+          <span className="text-xs text-muted-foreground">
+            {t("media.card.playlistUsage", {
+              count: asset.playlistUsage ?? 0,
+            })}
+            {t("media.card.layoutUsage", {
+              count: asset.layoutUsage?.length ?? 0,
+            })}
+          </span>
+          {canManage && (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onSelect}
+              >
+                {t("common:actions.edit")}
+              </Button>
+              {onDuplicate && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={onSelect}
+                  onClick={onDuplicate}
+                  aria-label={t("media.card.duplicateAsset", {
+                    name: asset.name,
+                  })}
                 >
-                  {t("common:actions.edit")}
+                  <Copy size={14} aria-hidden="true" />{" "}
+                  {t("media.card.duplicate")}
                 </Button>
-                {onDuplicate && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onDuplicate}
-                    aria-label={t("media.card.duplicateAsset", {
-                      name: asset.name,
-                    })}
-                  >
-                    <Copy size={14} aria-hidden="true" />{" "}
-                    {t("media.card.duplicate")}
-                  </Button>
-                )}
-                {onArchive && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onArchive}
-                    aria-label={t("media.card.archiveAsset", {
-                      name: asset.name,
-                    })}
-                  >
-                    <Archive size={14} aria-hidden="true" />{" "}
-                    {t("media.card.archive")}
-                  </Button>
-                )}
-              </>
-            )}
-          </footer>
-        )}
-      </ContextMenuTrigger>
-      <AssetContextMenu asset={asset} actions={actions} />
-    </ContextMenu>
+              )}
+              {onArchive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onArchive}
+                  aria-label={t("media.card.archiveAsset", {
+                    name: asset.name,
+                  })}
+                >
+                  <Archive size={14} aria-hidden="true" />{" "}
+                  {t("media.card.archive")}
+                </Button>
+              )}
+            </>
+          )}
+        </footer>
+      )}
+    </ActionContextMenu>
   );
 }
 
@@ -1572,9 +1580,10 @@ function MediaAssetListRow({
   selected: boolean;
   onSelect: () => void;
   onToggle?: () => void;
-  actions: AssetMenuAction[];
+  actions: StudioActionGroup[];
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const status = assetStatusBadge(asset, archived, t);
   return (
     <Item size="sm">
@@ -1603,23 +1612,20 @@ function MediaAssetListRow({
           </Button>
         </ItemTitle>
         <ItemDescription>
-          <AssetSummary asset={asset} /> · {formatBytes(asset.originalSize)}
+          <AssetSummary asset={asset} /> ·{" "}
+          {formatBytes(asset.originalSize, locale)}
         </ItemDescription>
       </ItemContent>
       <Badge variant={status.variant}>{status.label}</Badge>
-      {actions.length > 0 && (
+      {actions.some((group) => group.actions.length > 0) && (
         <ItemActions>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" />}
-              aria-label={t("media.card.actionsFor", { name: asset.name })}
-            >
-              <EllipsisVertical aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <AssetMenuContents actions={actions} />
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ActionMenuButton
+            label={t("media.card.actionsFor", { name: asset.name })}
+            actions={actions}
+            variant="ghost"
+            size="icon-sm"
+            triggerIcon={<EllipsisVertical aria-hidden="true" />}
+          />
         </ItemActions>
       )}
     </Item>
@@ -2030,7 +2036,7 @@ function ManageOrganizationDialog({
   );
 }
 
-function ContentOrganizer({
+export function ContentOrganizer({
   csrf,
   folders,
   collections,
@@ -2124,117 +2130,125 @@ function ContentOrganizer({
       aria-label={t("media.organize.sectionLabel")}
     >
       {!archiveMode && assetIds.length === 0 && (
-        <div className="flex flex-wrap items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("folder");
-              setCreateOpen(true);
-            }}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button type="button" variant="ghost" size="sm" />}
           >
             <FolderPlus size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.folderTitle")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("collection");
-              setCreateOpen(true);
-            }}
+            {t("media.organize.sectionLabel")}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            aria-label={t("media.organize.sectionLabel")}
           >
-            <Library size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.collectionTitle")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setCreating("tag");
-              setCreateOpen(true);
-            }}
-          >
-            <Tags size={15} aria-hidden="true" />{" "}
-            {t("media.organizer.tagTitle")}
-          </Button>
-          {(folders.length > 0 ||
-            collections.length > 0 ||
-            tags.length > 0) && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setManaging(true)}
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("folder");
+                setCreateOpen(true);
+              }}
             >
-              <Pencil size={15} aria-hidden="true" />{" "}
-              {t("media.organize.manage")}
-            </Button>
-          )}
-        </div>
+              <FolderPlus size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.folderTitle")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("collection");
+                setCreateOpen(true);
+              }}
+            >
+              <Library size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.collectionTitle")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setCreating("tag");
+                setCreateOpen(true);
+              }}
+            >
+              <Tags size={15} aria-hidden="true" />{" "}
+              {t("media.organizer.tagTitle")}
+            </DropdownMenuItem>
+            {(folders.length > 0 ||
+              collections.length > 0 ||
+              tags.length > 0) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setManaging(true)}>
+                  <Pencil size={15} aria-hidden="true" />{" "}
+                  {t("media.organize.manage")}
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
       {assetIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-          <strong className="text-sm font-medium">
-            {t("picker.tray.selectedCount", { count: assetIds.length })}
-          </strong>
-          <span className="flex flex-wrap items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onSelectAll}
-            >
-              {t("media.organize.selectLoaded")}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-              {t("media.organize.clear")}
-            </Button>
-          </span>
-          <span className="flex flex-wrap items-center gap-1">
-            {!archiveMode && (
+        <div
+          className="fixed bottom-4 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-border bg-card shadow-lg"
+          role="toolbar"
+          aria-label={t("picker.tray.selectedCount", {
+            count: assetIds.length,
+          })}
+        >
+          <div className="flex items-center gap-x-3 gap-y-2 overflow-x-auto px-3 py-2">
+            <strong className="flex-none text-sm font-medium">
+              {t("picker.tray.selectedCount", { count: assetIds.length })}
+            </strong>
+            <span className="flex flex-none items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setOrganizing(true)}
+                onClick={onSelectAll}
               >
-                <Folder size={15} aria-hidden="true" />{" "}
-                {t("media.organize.organize")}
+                {t("media.organize.selectLoaded")}
               </Button>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => void run(archiveMode ? onRestore : onArchive)}
-            >
-              {archiveMode ? (
-                <ArchiveRestore size={15} aria-hidden="true" />
-              ) : (
-                <Archive size={15} aria-hidden="true" />
+              <Button type="button" variant="ghost" size="sm" onClick={onClear}>
+                {t("media.organize.clear")}
+              </Button>
+            </span>
+            <span className="flex flex-none items-center gap-1">
+              {!archiveMode && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setOrganizing(true)}
+                >
+                  <Folder size={15} aria-hidden="true" />{" "}
+                  {t("media.organize.organize")}
+                </Button>
               )}
-              {archiveMode
-                ? t("media.organize.restore")
-                : t("media.card.archive")}
-            </Button>
-            {archiveMode && (
               <Button
                 type="button"
-                variant="destructive"
+                variant="ghost"
                 size="sm"
                 disabled={busy}
-                onClick={() => void run(onDelete)}
+                onClick={() => void run(archiveMode ? onRestore : onArchive)}
               >
-                <Trash2 size={15} aria-hidden="true" />{" "}
-                {t("media.action.deletePermanently")}
+                {archiveMode ? (
+                  <ArchiveRestore size={15} aria-hidden="true" />
+                ) : (
+                  <Archive size={15} aria-hidden="true" />
+                )}
+                {archiveMode
+                  ? t("media.organize.restore")
+                  : t("media.card.archive")}
               </Button>
-            )}
-          </span>
+              {archiveMode && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void run(onDelete)}
+                >
+                  <Trash2 size={15} aria-hidden="true" />{" "}
+                  {t("media.action.deletePermanently")}
+                </Button>
+              )}
+            </span>
+          </div>
         </div>
       )}
       {error && (
@@ -2397,8 +2411,7 @@ function AssetDetails(props: {
   onChanged: (asset: Asset) => void;
 }) {
   const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: api.contentDefinitions,
+    ...contentQueries.definitions(),
     staleTime: 5 * 60_000,
   });
   const definition =
@@ -2458,16 +2471,13 @@ export function AssetOrganization({
   const { t } = useTranslation(["content", "common"]);
   const queryClient = useQueryClient();
   const folders = useQuery({
-    queryKey: ["content-folders"],
-    queryFn: api.contentFolders,
+    ...contentQueries.folders(),
   });
   const collections = useQuery({
-    queryKey: ["content-collections"],
-    queryFn: api.contentCollections,
+    ...contentQueries.collections(),
   });
   const tags = useQuery({
-    queryKey: ["content-tags"],
-    queryFn: api.contentTags,
+    ...contentQueries.tags(),
   });
   const organize = useMutation({
     mutationFn: async (input: Omit<BulkOrganizeInput, "assetIds">) => {
@@ -2475,13 +2485,23 @@ export function AssetOrganization({
       return api.asset(asset.id);
     },
     onSuccess: (latest) => {
-      toast.add({ title: "Asset organization updated.", type: "success" });
-      onChanged(latest);
-      void queryClient.invalidateQueries({ queryKey: ["content-folders"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["content-collections"],
+      toast.add({
+        title: t("media.details.organizationUpdated"),
+        type: "success",
       });
-      void queryClient.invalidateQueries({ queryKey: ["content-tags"] });
+      onChanged(latest);
+      void queryClient.invalidateQueries({ queryKey: contentKeys.folders });
+      void queryClient.invalidateQueries({
+        queryKey: contentKeys.collections,
+      });
+      void queryClient.invalidateQueries({ queryKey: contentKeys.tags });
+    },
+    onError: (error: unknown) => {
+      toast.add({
+        title: t("media.details.organizationFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const assetTagIds = new Set((asset.tags ?? []).map((tag) => tag.id));
@@ -2663,8 +2683,15 @@ export function useMediaAssetDetails({
         csrf,
       ),
     onSuccess: (saved) => {
-      toast.add({ title: "Media details saved.", type: "success" });
+      toast.add({ title: t("media.details.saved"), type: "success" });
       onChanged(saved);
+    },
+    onError: (error: unknown) => {
+      toast.add({
+        title: t("media.details.saveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const { confirm, dialog: archiveConfirmation } = useConfirm();
@@ -2807,9 +2834,18 @@ export function useMediaAssetDetails({
       action: t("media.archiveDialog.moveToArchive"),
     });
     if (!confirmed) return;
-    await api.archiveAssets([asset.id], csrf);
-    toast.add({ title: "Asset archived.", type: "success" });
-    void queryClient.invalidateQueries({ queryKey: ["assets"] });
+    try {
+      await api.archiveAssets([asset.id], csrf);
+    } catch (error: unknown) {
+      toast.add({
+        title: t("media.errors.archiveFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+      return;
+    }
+    toast.add({ title: t("media.archiveDialog.archived"), type: "success" });
+    void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
     onRequestClose();
   };
   const actions = canManage && (
@@ -2822,13 +2858,22 @@ export function useMediaAssetDetails({
         <Button
           variant="outline"
           onClick={() =>
-            void api.retryAsset(asset.id, csrf).then((next) => {
-              toast.add({
-                title: "Processing retry started.",
-                type: "success",
-              });
-              onChanged(next);
-            })
+            void api.retryAsset(asset.id, csrf).then(
+              (next) => {
+                toast.add({
+                  title: t("media.details.retryStarted"),
+                  type: "success",
+                });
+                onChanged(next);
+              },
+              (error: unknown) => {
+                toast.add({
+                  title: t("media.details.retryFailed"),
+                  description: apiErrorMessage(error),
+                  type: "error",
+                });
+              },
+            )
           }
         >
           {t("media.details.retryProcessing")}
@@ -3002,24 +3047,20 @@ export function WebsiteEditor({
     setInput((current) => ({ ...current, [key]: value }));
     setDirty(true);
   };
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    addEventListener("beforeunload", handler);
-    return () => removeEventListener("beforeunload", handler);
-  }, [dirty]);
-  const images = useQuery({
-    queryKey: ["assets", "website-fallbacks"],
-    queryFn: () =>
-      api.assets(
-        new URLSearchParams({
-          page: "1",
-          pageSize: "100",
-          type: "image",
-          status: "ready",
-        }),
-      ),
+  // The host navigates synchronously inside onSaved, so the post-save
+  // departure consumes a pass instead of racing the dirty reset.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("media.website.discardTitle"),
+    body: t("media.website.discardDescription"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
   });
   const diagnostics = useQuery({
     queryKey: ["assets", asset?.id, "website-diagnostics"],
@@ -3045,6 +3086,7 @@ export function WebsiteEditor({
         type: "success",
       });
       setDirty(false);
+      departing.current = true;
       onSaved(value);
     },
   });
@@ -3165,19 +3207,20 @@ export function WebsiteEditor({
         <FieldLabel htmlFor="website-fallback">
           {t("media.website.fallbackImage")}
         </FieldLabel>
-        <FilterSelect
+        <FallbackImagePicker
           id="website-fallback"
           label={t("media.website.fallbackImage")}
+          value={input.fallbackImageAssetId}
+          onChange={(next) => set("fallbackImageAssetId", next)}
           disabled={readOnly}
-          value={input.fallbackImageAssetId ?? ""}
-          onChange={(value) => set("fallbackImageAssetId", value || undefined)}
-          options={[
-            { value: "", label: t("media.website.noneOption") },
-            ...(images.data?.items?.map((image) => ({
-              value: image.id,
-              label: image.name,
-            })) ?? []),
-          ]}
+          csrf={csrf}
+          noneLabel={t("media.website.noneOption")}
+          clearLabel={t("common:actions.remove")}
+          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
+          pickerDescription={t(
+            "widgets.editors.shared.fallbackPickerDescription",
+          )}
+          pickerConfirm={t("common:actions.confirm")}
         />
       </Field>
       <Collapsible>
@@ -3440,13 +3483,22 @@ export function WebsiteEditor({
             <AlertDialogAction
               onClick={() => {
                 if (asset)
-                  void api.deleteAsset(asset.id, csrf).then(() => {
-                    toast.add({
-                      title: "Website App deleted.",
-                      type: "success",
-                    });
-                    onClose();
-                  });
+                  void api.deleteAsset(asset.id, csrf).then(
+                    () => {
+                      toast.add({
+                        title: t("media.website.deleted"),
+                        type: "success",
+                      });
+                      onClose();
+                    },
+                    (error: unknown) => {
+                      toast.add({
+                        title: t("media.website.deleteFailed"),
+                        description: apiErrorMessage(error),
+                        type: "error",
+                      });
+                    },
+                  );
               }}
             >
               {t("media.website.deleteWebsite")}
@@ -3454,6 +3506,7 @@ export function WebsiteEditor({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {navigationDialog}
     </div>
   );
   if (page) {

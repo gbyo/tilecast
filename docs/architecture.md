@@ -1,6 +1,6 @@
-# Tilecast architecture through Milestone 4
+# Tilecast architecture
 
-Tilecast begins as a modular monolith. The server compiles into one Go binary, serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled dashboard. PostgreSQL is the source of truth. This keeps a small self-hosted installation understandable while preserving clean package boundaries for later player and media work.
+Tilecast is a self-hosted modular monolith with one organization per installation. The Server compiles into one Go binary. It serves the versioned REST API, applies embedded SQL migrations at startup, and serves the compiled Studio application. PostgreSQL is the source of truth. This document describes the current architecture. The linked domain documents define the exact contracts.
 
 ## Boundaries
 
@@ -14,9 +14,18 @@ Tilecast begins as a modular monolith. The server compiles into one Go binary, s
 - `internal/playlists` owns ordered playlists, direct assignments, per-screen manifest versions, manifest contracts, and summarized synchronization status.
 - `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
-- `apps/dashboard/src/api` owns browser API types and transport behavior.
+- `packages/api-schema` owns the generated OpenAPI TypeScript contract. `apps/dashboard/src/api/transport.ts` owns the typed first-party JSON transport. Domain modules in `apps/dashboard/src/api/domains/` expose operations to Studio. Dynamic plugin operations use the plugin API boundary.
+- `apps/dashboard/src/data` owns domain query keys and `queryOptions()` factories. Screen queries preserve the existing cache keys during adoption.
+
+- `apps/dashboard/src/data/content.ts` owns Content catalog query keys and options. Asset pages use the actual request filters as their cache key. The library and picker share pagination and processing refresh. The API domain module retains response normalization.
+- `apps/dashboard/src/data/layouts.ts` owns Layout query keys and options. The editor, popup preview, and Screen content dependencies share normalized detail data. Revision history uses a detail child key. Local draft history and autosave remain editor state.
+- `apps/dashboard/src/data/playlists.ts` owns Playlist query keys and options. Complete lists and infinite pages use different keys. The editor, popup preview, and Screen content dependencies share normalized Playlist detail data. API domain modules retain response normalization.
+- `apps/dashboard/src/data/schedules.ts` owns Schedule query keys and options. Infinite pages and complete lists use different keys. Schedule previews include the Screen, timestamp, and proposed input in their keys. The Server remains the schedule selection authority.
+- Schedule mutation options own typed requests and cache invalidation. The editor owns confirmation, feedback, and navigation. Domain success handlers remain active after a UI observer disconnects.
+- `apps/dashboard/src/data/settings.ts` owns the organization settings document query. Settings, regional formatting, policy definitions, and Takeover defaults share this cache. A successful settings save updates the shared document. `apps/dashboard/src/data/account.ts` owns the separate account preferences query. Both queries cancel through the typed transport. Local drafts remain in the editor.
+
 - Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
-- `packages/*-schema` are reserved for stable, versioned cross-application contracts as those protocols are introduced.
+- `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
 ## Authentication model
 
@@ -28,7 +37,7 @@ An account may carry a second factor: an authenticator app, one or more WebAuthn
 
 ## Database evolution
 
-Goose migrations are embedded in the binary and run before the connection pool is opened to serve traffic. Applied versions are recorded by Goose. Migrations must be forward-safe; deployed player manifest schemas will follow separate compatibility rules once introduced.
+Goose migrations are embedded in the binary and run before the Server accepts traffic. Goose records applied versions. Migrations must be forward-safe. Player manifest schemas have separate versioned compatibility rules. See [player-protocol.md](player-protocol.md).
 
 ## Dashboard delivery
 
@@ -36,9 +45,24 @@ During development Vite runs separately and proxies `/api` to the server. The co
 
 Studio text is localized in the browser with react-i18next. English is bundled and each other language is a separate lazily loaded chunk, so the server embeds every locale but a browser only downloads the one it uses. The server API stays English; each person's language is the `preference.language` user preference. See [localization](localization.md).
 
-## Deferred decisions
+## Player enrollment and playback
 
-The player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager.
+The accepted native Player extraction contract is
+[`player-core.md`](player-core.md). It separates shared native behavior from
+Linux host integration. Presentation decisions and execution remain with
+Presentation Model and Player Runtime. Generic native values are implemented in
+`crates/player-types`, and durable metadata in `crates/player-state`. Historical
+Edge repository APIs remain outside the shared crate. Verified storage lives in
+`crates/player-cas`. Server transport lives in `crates/player-client`; Edge owns
+its private file stores and Electron import. The Core foundation owns native
+selection, command idempotency, Activity sessions, and the CAS origin adapter.
+Core also owns renderer recovery decisions and meaningful-evidence rules.
+Edge executes renderer actions through its RendererPort adapter.
+Activation coordination and server reconciliation remain in Edge until their
+extraction stages. Edge retains
+its current process and security boundaries.
+
+The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
@@ -54,6 +78,13 @@ Playback supports either a fullscreen playlist or a published Layout. Layouts re
 
 ## Scheduling and Display Groups
 
+`packages/presentation-model` owns deterministic availability and item-default
+decisions shared by Studio and Player Runtime. Runtime compatibility modules
+re-export those functions. Studio's settings adapter stays in Studio. The
+model has no mounting, storage, telemetry, or host APIs. See
+[Presentation Model](presentation-model.md) for the current boundary and
+shared fixtures.
+
 Display Groups own synchronized fallback content and schedule targeting. Existing
 groups migrate to `display_mode=mirror`, which is the current synchronized
 behavior. A screen belongs to zero or one group; PostgreSQL enforces the
@@ -61,9 +92,25 @@ invariant with a unique membership constraint. Assigning content through any
 member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
-for half-open interval evaluation and deterministic precedence: priority, later
-effective start, then stable ID. The Android `ScheduleEngine` implements the
+for half-open interval evaluation and deterministic precedence: priority,
+target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
 same transport semantics for offline evaluation.
+
+`scheduling.Explain` calls this same resolver. It returns a reason code for
+each selected, inactive, or superseded schedule. Selection and explanation
+use one precedence comparator. Disabled schedules do not contribute a next
+transition. The supplied schedules describe a configuration at an explicit
+instant; they do not establish a historical expectation. Historical reports
+must use recorded expected playback windows.
+
+`internal/playbackplan.Current` composes the assignment reader, schedule
+explanation, and active Takeover and Quick Present readers. It selects content
+in this order: Takeover, Quick Present, schedule, then assignment. Display-control
+schedules do not select content. Inspection does not create manifest state or
+expire temporary presentations. The next evaluation time is a boundary for
+another evaluation; it does not guarantee a change in selected content.
+This internal reader predicts selection from current configuration. It does
+not establish content readiness, Player capability, or actual playback.
 
 Span Display Groups extend this model with a logical canvas and one validated
 viewport per member. The manifest adds optional canvas/viewport fields only for
@@ -82,13 +129,13 @@ The server validates URLs without fetching them, avoiding SSRF and network-topol
 
 Apps are reusable configured Content items backed by the closed Source/provider registry. The `sources` table remains the internal compatibility name and stores a built-in provider, provider configuration version, and validated JSON object; clients cannot invent provider names or arbitrary keys. Website and YouTube are Apps in Studio. Clock, Date, QR Code, and Ticker are native Apps. Calendar, RSS, Atom, JSON, and CSV may supply prepared data to a display App or render directly when their playback model supports it.
 
-Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and a small provider-approved override object; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
+Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and visibility; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
 
 Manifest v12 introduces a renderer-neutral typed record boundary between Data Sources and native Widgets. Provider-specific acquisition and authoring configuration stays on the server; the Player receives only bounded fields, records, cache state, date policy, and attribution.
 
 Manifest v13 extends that boundary into a declarative presentation runtime. The Server-owned release catalog in `internal/contentdefs` is the runtime source of truth for Widget and Data Source metadata, form schemas, output schemas, adapter IDs, presentation templates, and exact capability requirements. `internal/media` validates release-defined configuration and dispatches trusted acquisition through adapter IDs; `internal/playlists` resolves trusted placeholders into a provider-neutral native node tree before the manifest is sent. Android validates capabilities and interprets final documents instead of selecting a renderer from the provider name.
 
-Widgets V2 (manifest v16) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends the component to a Player that reports its exact `widget.<type>` capability and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
+Widgets V2 (manifest v16 and v17) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends schema 3 with the declared empty policy to a Player that reports schema 3 and the exact `widget.<type>` capability, schema 2 to an older component-capable Player, and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
 
 Catalog Apps extend that boundary without collapsing it. An App recipe atomically provisions a Widget and an explicitly owned, hidden Data Source, then stores the source ID in the compiled Widget configuration so the existing relational usage, invalidation, readiness, and manifest paths remain authoritative. Release-defined Web Integrations compile a closed host policy and built-in URL normalization into the provider-neutral web descriptor; manifest v15 adds bounded periodic reload and requires web runtime 2. Players remain provider-agnostic. See [Adding a Tilecast App](adding-a-tilecast-app.md).
 
