@@ -210,9 +210,9 @@ actor ScanGate {
         return StudioPage(profile: profile, dataStore: .nonPersistent(), applicationName: "TilecastTests", system: system)
     }
 
-    func negotiate(_ bridge: StudioBridge) {
+    func negotiate(_ bridge: StudioBridge, capabilities: [String: Bool] = [:]) {
         _ = bridge.replyValue(to: envelope("config/get"), from: .studio)
-        _ = bridge.replyValue(to: envelope("frontend/ready", [:]), from: .studio)
+        _ = bridge.replyValue(to: envelope("frontend/ready", ["capabilities": capabilities]), from: .studio)
     }
 
     func received(in page: WebPage) async throws -> [[String: Any]] {
@@ -282,7 +282,7 @@ actor ScanGate {
             }
             return page
         }
-        negotiate(main.bridge)
+        negotiate(main.bridge, capabilities: ["nativePresentations": true])
         _ = main.bridge.replyValue(to: envelope("navigation/catalog", catalogPayload(["alpha"])), from: .studio)
         _ = main.bridge.replyValue(to: envelope("presentation/open", openPayload("p-1")), from: .studio)
         let page = try #require(main.presentations.page)
@@ -344,8 +344,11 @@ actor ScanGate {
         host.system.isQRScannerAvailable = { true }
         host.system.scanQR = { _ in await gate.wait() }
         let page = try #require(host.page)
-        _ = page.bridge.replyValue(to: envelope("frontend/ready", [:]), from: .studio)
-        _ = page.bridge.replyValue(to: envelope("system/scan-qr", ["requestId": "qr-1"]), from: .studio)
+        // The bridge answers only its own server's origin, and these hosts
+        // use their own addresses rather than the shared test origin.
+        let sender = BridgeSender(isMainFrame: true, isPageWorld: true, origin: page.bridge.origin)
+        _ = page.bridge.replyValue(to: envelope("frontend/ready", [:]), from: sender)
+        _ = page.bridge.replyValue(to: envelope("system/scan-qr", ["requestId": "qr-1"]), from: sender)
         #expect(page.scanners.current != nil)
         return page
     }
