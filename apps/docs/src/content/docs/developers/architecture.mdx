@@ -1,0 +1,40 @@
+---
+title: Architecture
+description: See how the Tilecast repository is laid out and where to find the engineering contracts for each part.
+---
+
+import { FileTree } from "@astrojs/starlight/components";
+
+## Repository layout
+
+<FileTree>
+
+- tilecast/
+  - apps/ Product applications.
+    - server/ Go server, HTTP API, and database migrations.
+    - cli/ Remote tilecast CLI and its MCP server.
+    - dashboard/ React and TypeScript management app, Tilecast Studio.
+    - player-android/ Kotlin and Jetpack Compose Player for Android TV devices.
+    - player-linux/ Electron Player for Linux kiosk devices.
+    - edge/ Tilecast Edge, the new Linux player: a Rust daemon, a WPE WebKit renderer, update and migration helpers, and a small user-session bridge.
+    - docs/ Astro and Starlight public documentation site.
+  - plugins/ Bundled plugins, one directory each.
+  - widgets/ Core Widgets, one directory each.
+  - packages/ Shared design tokens, the API client, application contracts, and the plugin and Widget SDKs.
+  - deploy/ Docker deployment and optional network integrations.
+  - docs/ Engineering references, API descriptions, and implementation contracts.
+
+</FileTree>
+
+The Server is a modular monolith backed by one PostgreSQL database and one organization per installation. Studio consumes the generated OpenAPI contract through typed transport and API domain modules. Android uses a native Player; Electron and WPE hosts share the Player Runtime renderer. Read the living [architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) for ownership boundaries and links to the exact domain contracts.
+
+## Where to read next
+
+These engineering documents live with the code and are the contracts for each area. This site doesn't repeat them.
+
+- [Architecture reference](https://github.com/gbyo/tilecast/blob/main/docs/architecture.md) describes the server and application boundaries.
+- [Choose where Player code belongs](../player-ownership/) explains which part of a Player owns a change.
+- [Tilecast Edge architecture](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge.md) and its [implementation ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md) describe the new Linux Player and the state of each milestone.
+- [Programmable control plane](https://github.com/gbyo/tilecast/blob/main/docs/programmable-control-plane.md) is the contract for the CLI, MCP, and plugin automation.
+- [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) and its [authoring plan](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-authoring-and-first-wave.md) describe how core Widgets are built in `widgets/`.
+- [HTTP API overview](../../reference/api/) explains the shared API contract and links to the OpenAPI description.

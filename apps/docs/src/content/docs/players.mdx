@@ -1,0 +1,86 @@
+---
+title: Screens and players
+description: Install, pair, and update Tilecast Player, and decide how your screens behave.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Tilecast Player runs on each display, and each paired display appears in Studio as a screen. Use these guides to get a display connected, then to control how it behaves.
+
+## Choose a task
+
+<CardGrid>
+  <LinkCard
+    title="Install and pair"
+    description="Choose a Player for your hardware, install it, and approve it in Studio. Replace hardware without losing a screen's assignments."
+    href="install-and-pair/"
+  />
+  <LinkCard
+    title="Groups and walls"
+    description="Group screens that share content and schedules, or arrange them as one video wall."
+    href="../screens/groups-and-walls/"
+  />
+  <LinkCard
+    title="Playback behavior"
+    description="See what a screen is expected to play now, and why."
+    href="../screens/explain-playback/"
+  />
+  <LinkCard
+    title="Reliability, power, and accessibility"
+    description="Set recovery, kiosk behavior, active hours, power, and Android accessibility control."
+    href="reliability-power-accessibility/"
+  />
+  <LinkCard
+    title="Display Control"
+    description="Request a power, input, volume, or brightness action on a Linux-connected display."
+    href="../screens/display-control/"
+  />
+  <LinkCard
+    title="Player updates"
+    description="Cache a verified release and deploy it to selected screens."
+    href="update-a-player/"
+  />
+  <LinkCard
+    title="Platform capabilities"
+    description="Compare Android, Linux, Tilecast Edge, and Windows before you choose hardware."
+    href="capabilities/"
+  />
+  <LinkCard
+    title="Tilecast Edge"
+    description="Preview. The service-based Linux Player, still being qualified on physical hardware."
+    href="../edge/"
+  />
+</CardGrid>
+
+To retire a screen or change several at once, see [Screen archive](../screens/archive/) and [Bulk screen changes](../screens/bulk-changes/). To request a sync, playback reload, cache clear, or restart, see [Send a Player command](../operations/player-commands/).
+
+## Which Player to use
+
+Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
+
+Tilecast Edge is the new Linux Player. It replaces the Electron/AppImage Player with a Linux service and a WPE WebKit renderer. Its software is complete, but it is still being qualified on physical hardware, so it is not the production Linux install yet. See [Tilecast Edge](../edge/).
+
+| Player  | Install format                    | Notes                                                                                                            |
+| ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
+| Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
+| Windows | Signed MSIX package               | Windows 10 and 11, x64 and ARM64. Physical qualification is still in progress.                                   |
+| Edge    | Signed Linux release archive      | Preview. Use it only when a Tilecast release lists your hardware as supported.                                   |
+
+Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/). Windows setup is in [Install Tilecast Player on Windows](./install-windows/).
+
+## Connect a display
+
+A Player can discover nearby servers or accept a manually entered address. Discovery is optional: the default Docker Compose setup disables mDNS, and multicast may not cross VLANs, guest networks, or access-point isolation. Enter the server address if it does not appear.
+
+Use HTTPS for a public hostname. Both Players accept HTTP for local addresses such as private IPv4, `localhost`, and `.local` names. Enter the server address and optional port, without an API path.
+
+An Owner or Administrator approves each new pairing request. Studio displays device details so you can compare the request with the display in front of you. For a step-by-step procedure, see [Pair a display](./pair-a-display/).
+
+If you replace a broken device, choose **Replace hardware for an existing screen** during approval and select the existing screen. The logical screen, its assignments, schedules, policies, and history stay in place. The old credential is retired after the replacement Player enrolls.
+
+## Playback and connection limits
+
+Players store prepared content locally. A Player can continue to show cached content during a server or network interruption, but it cannot fetch a new assignment until it reconnects. Website and other remote content can also need its own network connection.
+
+Pairing does not prove that a TV will launch Tilecast after a power cut or return from sleep. Android checks local readiness during commissioning. The Linux installer sets up a systemd user service, but a graphical session must still start on the host. Test the exact device model, firmware, and kiosk session before unattended use.

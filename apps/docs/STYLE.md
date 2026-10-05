@@ -178,6 +178,21 @@ import { Steps } from "@astrojs/starlight/components";
 - Prefer Starlight's built-in icon names for component and hero-action icons.
   Don't import an icon library into the docs for decoration.
 
+## Navigation and hubs
+
+- The sidebar is a short task map, not a table of contents. A page doesn't
+  need a sidebar entry.
+- Link every page that isn't in the sidebar from the hub for its section. The
+  hub is what makes a deeper page findable, and the build checks it. Never hide
+  a page from search or from the `llms` files to keep it out of navigation.
+- A hub page gives one or two sentences of orientation, then links to the
+  guides with Starlight `CardGrid` and `LinkCard`. Don't repeat a guide's
+  instructions on the hub.
+- Don't add sidebar subgroups. When a group grows, move the deeper pages onto
+  a hub instead.
+- When a public page moves or is retired, add a redirect. See
+  [`README.md`](README.md).
+
 ## Drafts, search, and banners
 
 - If a page is worth keeping while research or review is incomplete, mark it
