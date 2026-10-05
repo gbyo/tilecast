@@ -152,9 +152,7 @@ test("mobile dependency search popup stays inside the viewport", async ({
 
 test("mobile Account routes stay inside the viewport", async ({ page }) => {
   await page.goto("/account/preferences");
-  await expect(
-    page.getByRole("heading", { name: "My Account" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Account" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Preferences" }),
   ).toBeVisible();
