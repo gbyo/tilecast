@@ -14,6 +14,10 @@
 //! | `nativeInitTls(context)` | `0` ready, `1` failed, `2` non-Android |
 //! | `nativeQualifyCas(filesDir)` | CAS checklist JSON (instrumented tests only) |
 //! | `nativeSyncConfig(handle)` | One config reconcile as a JSON envelope |
+//! | `nativeSyncManifest(handle)` | One manifest sync as a JSON envelope |
+//! | `nativeActivatePresentation(handle, json)` | Activation outcome as a JSON envelope |
+//! | `nativeRendererReport(handle, json)` | `0` applied, `1` ignored, `2` malformed, `3` bad handle |
+//! | `nativeRendererRecovery(handle, json)` | Recovery outcome as a JSON envelope |
 //!
 //! `nativeStatus` and `nativeBeginPairing` always return a JSON object so
 //! Kotlin parses one shape: `{"ok":true,...}` or `{"ok":false,"code":"..."}`.
@@ -53,7 +57,7 @@ fn open_handle(env: &mut Env, files_dir: &str, user_agent: &str, handler: &JObje
 fn status_json(handle: i64) -> String {
     match with_host(handle, |host| host.status()) {
         Ok(status) => status.to_string(),
-        Err(error) => serde_json::json!({"bridge": 2, "ok": false, "code": error.code()}).to_string(),
+        Err(error) => serde_json::json!({"bridge": 3, "ok": false, "code": error.code()}).to_string(),
     }
 }
 
@@ -224,6 +228,127 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeSync
         .resolve::<errors::ThrowRuntimeExAndDefault>()
 }
 
+fn sync_manifest_json(handle: i64) -> String {
+    match with_host(handle, |host| host.sync_manifest()) {
+        Ok(Ok(report)) => report.to_string(),
+        Ok(Err(error)) | Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+fn import_legacy_json(handle: i64) -> String {
+    match with_host(handle, |host| host.import_legacy()) {
+        Ok(outcome) => outcome.to_string(),
+        Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeImportLegacy<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            Ok(JObject::from(env.new_string(import_legacy_json(handle))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeSyncManifest<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            Ok(JObject::from(env.new_string(sync_manifest_json(handle))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+/// Bounds a projected activation or report before it reaches the
+/// engine. Presentations carry media manifests; anything larger is a
+/// caller bug.
+const MAX_RENDERER_JSON_CHARS: usize = 8 * 1024 * 1024;
+
+fn activate_json(handle: i64, json: &str) -> String {
+    if json.is_empty() || json.len() > MAX_RENDERER_JSON_CHARS {
+        return serde_json::json!({"ok": true, "outcome": "refused", "reason": "malformed_activation"}).to_string();
+    }
+    match with_host(handle, |host| host.activate_presentation(json)) {
+        Ok(outcome) => outcome.to_string(),
+        Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+fn report_code(handle: i64, json: &str) -> i32 {
+    if json.is_empty() || json.len() > MAX_RENDERER_JSON_CHARS {
+        return crate::host::renderer_report::MALFORMED;
+    }
+    match with_host(handle, |host| host.renderer_report(json)) {
+        Ok(code) => code,
+        Err(crate::host::HostError::BadHandle) => 3,
+        Err(_) => crate::host::renderer_report::MALFORMED,
+    }
+}
+
+fn recovery_json(handle: i64, json: &str) -> String {
+    if json.is_empty() || json.len() > MAX_RENDERER_JSON_CHARS {
+        return serde_json::json!({"ok": true, "outcome": "refused", "reason": "unknown_action"}).to_string();
+    }
+    match with_host(handle, |host| host.renderer_recovery(json)) {
+        Ok(outcome) => outcome.to_string(),
+        Err(error) => serde_json::json!({"ok": false, "code": error.code()}).to_string(),
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeActivatePresentation<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+    json: JString<'local>,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            let json = json.try_to_string(env).unwrap_or_default();
+            Ok(JObject::from(env.new_string(activate_json(handle, &json))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeRendererReport<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+    json: JString<'local>,
+) -> i32 {
+    unowned
+        .with_env(|env| -> errors::Result<i32> {
+            let json = json.try_to_string(env).unwrap_or_default();
+            Ok(report_code(handle, &json))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeRendererRecovery<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+    json: JString<'local>,
+) -> JObject<'local> {
+    unowned
+        .with_env(|env| -> errors::Result<JObject<'local>> {
+            let json = json.try_to_string(env).unwrap_or_default();
+            Ok(JObject::from(env.new_string(recovery_json(handle, &json))?))
+        })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeQualifyCas<'local>(
     mut unowned: EnvUnowned<'local>,
@@ -255,9 +380,19 @@ mod tests {
     #[test]
     fn status_reports_machine_code_for_bad_handle() {
         let value: serde_json::Value = serde_json::from_str(&status_json(7)).expect("status parses");
-        assert_eq!(value["bridge"], 2);
+        assert_eq!(value["bridge"], 3);
         assert_eq!(value["ok"], false);
         assert_eq!(value["code"], "bad_handle");
+    }
+
+    #[test]
+    fn renderer_entries_reject_absurd_input_without_touching_global_state() {
+        let value: serde_json::Value = serde_json::from_str(&activate_json(7, "")).expect("parses");
+        assert_eq!(value["reason"], "malformed_activation");
+        let value: serde_json::Value = serde_json::from_str(&recovery_json(7, "")).expect("parses");
+        assert_eq!(value["reason"], "unknown_action");
+        assert_eq!(report_code(7, ""), crate::host::renderer_report::MALFORMED);
+        assert_eq!(report_code(7, r#"{"type":"connected","generation":1}"#), 3);
     }
 
     #[test]

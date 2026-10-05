@@ -12,15 +12,56 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import org.tilecast.player.BuildConfig
 import org.tilecast.player.security.MigratingCredentialStore
 
+/** Renderer snapshot shared by the native host (bridge contract v3). */
+data class CoreRendererStatus(
+    val state: String?,
+    val connected: Boolean,
+    val ready: Boolean,
+    val generation: Long?,
+    val accepted: Boolean,
+    val evidence: Boolean,
+    val playing: Boolean,
+    val safeMode: Boolean,
+    val incompatibleReason: String?,
+    val lastError: String?,
+    val currentItemId: String?,
+) {
+    companion object {
+        fun parse(root: JsonObject?): CoreRendererStatus? {
+            root ?: return null
+            return try {
+                CoreRendererStatus(
+                    state = root.stringOrNull("state"),
+                    connected = root["connected"]?.jsonPrimitive?.booleanOrNull == true,
+                    ready = root["ready"]?.jsonPrimitive?.booleanOrNull == true,
+                    generation = root["generation"]?.jsonPrimitive?.longOrNull,
+                    accepted = root["accepted"]?.jsonPrimitive?.booleanOrNull == true,
+                    evidence = root["evidence"]?.jsonPrimitive?.booleanOrNull == true,
+                    playing = root["playing"]?.jsonPrimitive?.booleanOrNull == true,
+                    safeMode = root["safeMode"]?.jsonPrimitive?.booleanOrNull == true,
+                    incompatibleReason = root.stringOrNull("incompatibleReason"),
+                    lastError = root.stringOrNull("lastError"),
+                    currentItemId = root.stringOrNull("currentItemId"),
+                )
+            } catch (_: Exception) {
+                null
+            }
+        }
+    }
+}
+
 /**
- * Status snapshot shared by the native host (bridge contract v2). Lenient by
+ * Status snapshot shared by the native host (bridge contract v3). Lenient by
  * design: anything unparseable becomes a failed status, never an exception.
  */
 data class CoreHostStatus(
@@ -31,6 +72,10 @@ data class CoreHostStatus(
     val paired: Boolean,
     val code: String?,
     val configRevision: Long? = null,
+    val linkState: String? = null,
+    val linkReason: String? = null,
+    val lastServerContactAt: String? = null,
+    val renderer: CoreRendererStatus? = null,
 ) {
     companion object {
         fun parse(payload: String?): CoreHostStatus {
@@ -45,6 +90,16 @@ data class CoreHostStatus(
                     paired = root["paired"]?.jsonPrimitive?.booleanOrNull == true,
                     code = root.stringOrNull("code"),
                     configRevision = root["configRevision"]?.jsonPrimitive?.longOrNull,
+                    linkState = root.stringOrNull("linkState"),
+                    linkReason = root.stringOrNull("linkReason"),
+                    lastServerContactAt = root.stringOrNull("lastServerContactAt"),
+                    renderer = CoreRendererStatus.parse(
+                        try {
+                            root["renderer"]?.jsonObject
+                        } catch (_: Exception) {
+                            null
+                        },
+                    ),
                 )
             } catch (_: Exception) {
                 CoreHostStatus(false, 0, null, null, false, "status_unparseable")
@@ -135,6 +190,73 @@ data class CoreSyncResult(
     }
 }
 
+data class CoreManifestResult(
+    val ok: Boolean,
+    val outcome: String?,
+    val version: Long?,
+    val reason: String? = null,
+    val code: String? = null,
+) {
+    companion object {
+        fun parse(payload: String?): CoreManifestResult {
+            if (payload == null) return CoreManifestResult(false, null, null, code = "null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                CoreManifestResult(
+                    ok = root["ok"]?.jsonPrimitive?.booleanOrNull == true,
+                    outcome = root.stringOrNull("outcome"),
+                    version = root["version"]?.jsonPrimitive?.longOrNull,
+                    reason = root.stringOrNull("reason"),
+                    code = root.stringOrNull("code"),
+                )
+            } catch (_: Exception) {
+                CoreManifestResult(false, null, null, code = "result_unparseable")
+            }
+        }
+    }
+}
+
+data class CoreImportResult(
+    val ok: Boolean,
+    val status: String?,
+    val roomVersion: Long?,
+    val identityImported: Boolean,
+    val bindingImported: Boolean,
+    val configRevision: Long?,
+    val manifestVersion: Long?,
+    val mediaImported: Int,
+    val mediaSkipped: Int,
+    val notes: List<String>,
+    val code: String? = null,
+) {
+    companion object {
+        fun parse(payload: String?): CoreImportResult {
+            fun empty(code: String) = CoreImportResult(false, null, null, false, false, null, null, 0, 0, emptyList(), code)
+            if (payload == null) return empty("null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                val code = root.stringOrNull("code")
+                if (code != null) return empty(code)
+                val status = root.stringOrNull("status")
+                CoreImportResult(
+                    ok = status == "complete" || status == "skipped_core_owned" || status == "nothing_to_import",
+                    status = status,
+                    roomVersion = root["roomVersion"]?.jsonPrimitive?.longOrNull,
+                    identityImported = root["identityImported"]?.jsonPrimitive?.booleanOrNull == true,
+                    bindingImported = root["bindingImported"]?.jsonPrimitive?.booleanOrNull == true,
+                    configRevision = root["configRevision"]?.jsonPrimitive?.longOrNull,
+                    manifestVersion = root["manifestVersion"]?.jsonPrimitive?.longOrNull,
+                    mediaImported = root["mediaImported"]?.jsonPrimitive?.intOrNull ?: 0,
+                    mediaSkipped = root["mediaSkipped"]?.jsonPrimitive?.intOrNull ?: 0,
+                    notes = root["notes"]?.jsonArray?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList(),
+                )
+            } catch (_: Exception) {
+                empty("result_unparseable")
+            }
+        }
+    }
+}
+
 private fun JsonObject.stringOrNull(key: String): String? {
     val primitive = try {
         get(key)?.jsonPrimitive
@@ -142,6 +264,76 @@ private fun JsonObject.stringOrNull(key: String): String? {
         null
     } ?: return null
     return if (primitive.isString) primitive.content else null
+}
+
+/** Result of an activation call: the issued reference or a machine reason. */
+data class CoreActivateResult(
+    val ok: Boolean,
+    val activationId: String?,
+    val generation: Long?,
+    val queued: Boolean,
+    val incompatibleReason: String?,
+    val outcome: String? = null,
+    val reason: String? = null,
+    val code: String? = null,
+) {
+    companion object {
+        fun parse(payload: String?): CoreActivateResult {
+            if (payload == null) return CoreActivateResult(false, null, null, false, null, code = "null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                CoreActivateResult(
+                    ok = root["ok"]?.jsonPrimitive?.booleanOrNull == true,
+                    activationId = root.stringOrNull("activationId"),
+                    generation = root["generation"]?.jsonPrimitive?.longOrNull,
+                    queued = root["queued"]?.jsonPrimitive?.booleanOrNull == true,
+                    incompatibleReason = root.stringOrNull("incompatibleReason"),
+                    outcome = root.stringOrNull("outcome"),
+                    reason = root.stringOrNull("reason"),
+                    code = root.stringOrNull("code"),
+                )
+            } catch (_: Exception) {
+                CoreActivateResult(false, null, null, false, null, code = "result_unparseable")
+            }
+        }
+    }
+}
+
+/** Result of a recovery control call: the action taken or a machine reason. */
+data class CoreRecoveryResult(
+    val ok: Boolean,
+    val action: String?,
+    val wasActive: Boolean?,
+    val outcome: String? = null,
+    val reason: String? = null,
+    val code: String? = null,
+) {
+    companion object {
+        fun parse(payload: String?): CoreRecoveryResult {
+            if (payload == null) return CoreRecoveryResult(false, null, null, code = "null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                CoreRecoveryResult(
+                    ok = root["ok"]?.jsonPrimitive?.booleanOrNull == true,
+                    action = root.stringOrNull("action"),
+                    wasActive = root["wasActive"]?.jsonPrimitive?.booleanOrNull,
+                    outcome = root.stringOrNull("outcome"),
+                    reason = root.stringOrNull("reason"),
+                    code = root.stringOrNull("code"),
+                )
+            } catch (_: Exception) {
+                CoreRecoveryResult(false, null, null, code = "result_unparseable")
+            }
+        }
+    }
+}
+
+/** Answer codes for renderer reports, shared with the native host. */
+object CoreReportCode {
+    const val APPLIED = 0
+    const val IGNORED = 1
+    const val MALFORMED = 2
+    const val BAD_HANDLE = 3
 }
 
 /** Observable state of the process-level native host. */
@@ -165,6 +357,11 @@ interface CoreBridge {
     fun beginPairing(handle: Long, url: String): String?
     fun resetPairing(handle: Long): Int
     fun syncConfig(handle: Long): String?
+    fun syncManifest(handle: Long): String?
+    fun importLegacy(handle: Long): String?
+    fun activatePresentation(handle: Long, json: String): String?
+    fun rendererReport(handle: Long, json: String): Int
+    fun rendererRecovery(handle: Long, json: String): String?
     fun close(handle: Long): Int
 }
 
@@ -178,6 +375,14 @@ internal class JniCoreBridge : CoreBridge {
         PlayerCoreNative.nativeBeginPairing(handle, url)
     override fun resetPairing(handle: Long): Int = PlayerCoreNative.nativeResetPairing(handle)
     override fun syncConfig(handle: Long): String? = PlayerCoreNative.nativeSyncConfig(handle)
+    override fun syncManifest(handle: Long): String? = PlayerCoreNative.nativeSyncManifest(handle)
+    override fun importLegacy(handle: Long): String? = PlayerCoreNative.nativeImportLegacy(handle)
+    override fun activatePresentation(handle: Long, json: String): String? =
+        PlayerCoreNative.nativeActivatePresentation(handle, json)
+    override fun rendererReport(handle: Long, json: String): Int =
+        PlayerCoreNative.nativeRendererReport(handle, json)
+    override fun rendererRecovery(handle: Long, json: String): String? =
+        PlayerCoreNative.nativeRendererRecovery(handle, json)
     override fun close(handle: Long): Int = PlayerCoreNative.nativeClose(handle)
     fun initTls(context: Context): Int = PlayerCoreNative.nativeInitTls(context)
 }
@@ -281,6 +486,10 @@ class PlayerCoreHost private constructor(
             mutex.withLock {
                 val ready = _state.value as? CoreHostState.Ready ?: return@withContext
                 if (ready.coreRunning) return@withContext
+                // Legacy state crosses before the drivers start, so the
+                // first reconciliation already sees the imported binding.
+                runCatching { bridge.importLegacy(handle) }
+                refreshStatusLocked(ready)
                 val code = runCatching { bridge.startCore(handle) }.getOrDefault(1)
                 if (code == 0) {
                     val status = CoreHostStatus.parse(runCatching { bridge.statusJson(handle) }.getOrNull())
@@ -316,6 +525,67 @@ class PlayerCoreHost private constructor(
             }
         }
 
+    /** Runs one Core manifest sync against the bound server. */
+    suspend fun syncManifest(): CoreManifestResult =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready
+                    ?: return@withLock CoreManifestResult(false, null, null, code = "host_not_ready")
+                CoreManifestResult.parse(runCatching { bridge.syncManifest(handle) }.getOrNull())
+                    .also { result ->
+                        if (result.ok) refreshStatusLocked(ready)
+                    }
+            }
+        }
+
+    /** Runs one legacy Room/cache import into Core state. Idempotent. */
+    suspend fun importLegacy(): CoreImportResult =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready
+                    ?: return@withLock CoreImportResult.parse(null).copy(code = "host_not_ready")
+                CoreImportResult.parse(runCatching { bridge.importLegacy(handle) }.getOrNull())
+                    .also { result ->
+                        if (result.ok) refreshStatusLocked(ready)
+                    }
+            }
+        }
+
+    /** Issues a Core presentation activation from a projected host message. */
+    suspend fun activatePresentation(json: String): CoreActivateResult =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready
+                    ?: return@withLock CoreActivateResult(false, null, null, false, null, code = "host_not_ready")
+                CoreActivateResult.parse(runCatching { bridge.activatePresentation(handle, json) }.getOrNull())
+                    .also { result ->
+                        if (result.ok) refreshStatusLocked(ready)
+                    }
+            }
+        }
+
+    /** Sends one renderer report: connection, readiness, evidence, errors, captures. */
+    suspend fun rendererReport(json: String): Int =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock CoreReportCode.BAD_HANDLE
+                runCatching { bridge.rendererReport(handle, json) }.getOrDefault(CoreReportCode.MALFORMED)
+            }
+        }
+
+    /** Runs one renderer recovery control: retry, clear_safe_mode, or clear. */
+    suspend fun rendererRecovery(json: String): CoreRecoveryResult =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready
+                    ?: return@withLock CoreRecoveryResult(false, null, null, code = "host_not_ready")
+                CoreRecoveryResult.parse(runCatching { bridge.rendererRecovery(handle, json) }.getOrNull())
+                    .also { result ->
+                        if (result.ok) refreshStatusLocked(ready)
+                    }
+            }
+        }
+
     /** Resets Core pairing state. Best effort; always safe to call. */
     suspend fun resetPairing(): Boolean =
         withContext(Dispatchers.IO) {
@@ -333,6 +603,27 @@ class PlayerCoreHost private constructor(
     private fun refreshStatusLocked(ready: CoreHostState.Ready) {
         val status = CoreHostStatus.parse(runCatching { bridge.statusJson(handle) }.getOrNull())
         if (status.ok) _state.value = ready.copy(status = status)
+    }
+
+    /** Test-only: swaps the platform command executor on the live handler. */
+    fun setPlatformExecutorForTesting(executor: PlatformCommandExecutor) {
+        handler.executor = executor
+    }
+
+    /** Test-only: swaps the renderer adapter on the live handler. */
+    fun setRendererAdapterForTesting(adapter: CoreRendererAdapter) {
+        handler.rendererAdapter = adapter
+    }
+
+    /** Re-reads the native status snapshot. The server link updates link
+     * state, contact time, and revisions continuously; Kotlin pulls. */
+    suspend fun refreshStatus() {
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready ?: return@withLock
+                refreshStatusLocked(ready)
+            }
+        }
     }
 
     /** Stops the host. Safe to call when idle or after a failed start. */

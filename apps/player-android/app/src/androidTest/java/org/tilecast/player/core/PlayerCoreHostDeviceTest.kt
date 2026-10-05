@@ -26,7 +26,7 @@ class PlayerCoreHostDeviceTest {
             state as CoreHostState.Ready
             assertTrue(state.version.isNotEmpty())
             assertTrue(state.status.ok)
-            assertEquals(2, state.status.bridge)
+            assertEquals(3, state.status.bridge)
             assertTrue(state.coreRunning)
             assertFalse(state.status.paired)
             assertTrue(

@@ -41,6 +41,43 @@ status. A restart applies the accepted document before any network
 access. The one-shot `syncConfig` reconciles against the bound
 server; the server-link driver reuses the same coordinator.
 
+Core owns manifest identity, validation, and verified preparation.
+The Android host contributes its packaged renderer profile: the
+declarative presentation capabilities from the shared contracts
+generator, the widget capabilities from `widgetctl`, presentation
+schemas 1 and 2, and the packaged feature set. Components with
+schema 3 or unknown capabilities, bundled web widgets, the brand
+bug plugin, and malformed sync or span geometry are incompatible.
+The one-shot `syncManifest` reconciles the target, prepares its
+verified content, and pins the pending manifest; the instrumented
+`ManifestSyncDeviceTest` proves prepare-once, conditional refetch,
+and restart persistence against a stub server.
+
+Core drives the server link: the identity gate, the player
+WebSocket with fallback heartbeats, configuration and manifest
+reconciliation, and publication of the verified server. The
+Android host supplies the relationship credential, the renderer
+profile for preparation, the heartbeat projection, and the
+activity sink. Enrollment wakes the link at once. The heartbeat
+reports device facts, uptime, the packaged profile, manifest
+versions, configuration state, and store usage; renderer,
+website, widget, command, update, reliability, and
+commissioning fields arrive with the drivers that own them.
+Status publishes the link token, the reason, and the last
+server contact. The instrumented `ServerLinkDeviceTest` proves
+unbound idle, enrollment wake, fallback heartbeat content,
+same-pass reconciliation, and connected status.
+
+Core owns command delivery: polling, idempotency, crash
+recovery, and result reporting. Pure-state commands run in the
+Android host; renderer, OS, and update-installer effects cross
+JNI as one `ExecutePlatformCommand` message to the Kotlin
+platform executor. The last executed command is projected into
+the heartbeat. The instrumented `CommandsDeviceTest` proves
+acknowledge, run, and report for a state and a platform
+command, JNI routing with type and payload, and execution-once
+across a restart while redeliveries re-send stored results.
+
 Before you build an APK, install the Rust toolchain from
 `rust-toolchain.toml` and the Android targets from the CI workflow. Install
 `cargo-ndk`:

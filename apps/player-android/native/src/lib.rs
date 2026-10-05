@@ -25,13 +25,23 @@
 // maps errors to return codes (never panics: `panic = "abort"` would kill
 // the process), and holds no lock across a Kotlin upcall.
 pub mod cas_qualify;
+pub mod commands;
 pub mod config_host;
 pub mod drivers;
 #[allow(unsafe_code)]
 pub mod ffi;
 pub mod host;
 pub mod jvm;
+pub mod legacy_import;
+pub mod live_stream;
+pub mod manifest_host;
 pub mod pairing_host;
 pub mod paths;
+pub mod presentation_capabilities;
+pub mod renderer;
+pub mod selection;
+pub mod server_link;
 pub mod stores;
+pub mod telemetry;
 pub mod tls;
+pub mod widget_capabilities;
