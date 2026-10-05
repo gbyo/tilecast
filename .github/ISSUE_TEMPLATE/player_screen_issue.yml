@@ -1,0 +1,165 @@
+name: "📺 Player or screen issue"
+description: Report pairing, playback, synchronization, update, or screen connectivity problems
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not include pairing secrets, device tokens, authentication headers, passwords, private server URLs, or other sensitive information.**
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the existing issues for the same player or screen problem.
+          required: true
+        - label: I have removed pairing secrets, tokens, credentials, and private information from this report.
+          required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Player platform
+      options:
+        - Android TV / Google TV
+        - Fire TV
+        - Linux Player
+        - Tilecast Edge
+        - Web Player
+        - Something else / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of problem is this?
+      multiple: true
+      options:
+        - Screen will not pair
+        - Screen appears offline
+        - Content does not update
+        - Incorrect content plays
+        - Playback is blank or frozen
+        - Media fails to load
+        - Layout or Widget renders incorrectly
+        - Data Source binding fails
+        - Playlist or schedule is incorrect
+        - Sync group is out of sync
+        - Commands remain pending
+        - Player update fails
+        - Offline playback fails
+        - Reconnection or recovery fails
+        - Display power control fails
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is happening?
+      description: Describe what you see on the physical screen or in Studio.
+    validations:
+      required: true
+  - type: input
+    id: server-version
+    attributes:
+      label: Tilecast server version
+      description: Release, tag, commit, or "main/latest".
+    validations:
+      required: true
+  - type: input
+    id: player-version
+    attributes:
+      label: Player version
+      description: Include the Player release/channel when known.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Player environment
+      value: |
+        - Device manufacturer and model:
+        - OS / firmware version:
+        - Display model:
+        - Connection: Wi-Fi / Ethernet
+        - Server location: local network / remote
+        - Player installation method:
+        - Number of affected screens:
+        - Sync group: yes / no / not sure
+        - Inherited policies: yes / no / not sure
+  - type: dropdown
+    id: content
+    attributes:
+      label: What content is involved?
+      multiple: true
+      options:
+        - Image
+        - Video
+        - Web content
+        - Layout
+        - Widget
+        - Playlist
+        - Schedule
+        - Data Source content
+        - Emergency takeover
+        - No content / pairing screen
+        - Something else
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: studio-preview
+    attributes:
+      label: Does the same content work in Studio preview?
+      options:
+        - "Yes"
+        - "No"
+        - Partially
+        - Not applicable
+        - Not tested
+    validations:
+      required: true
+  - type: checkboxes
+    id: recovery
+    attributes:
+      label: What temporarily fixes it?
+      description: Select anything you have tried.
+      options:
+        - label: Restarting the Player
+        - label: Force-stopping and reopening the Player
+        - label: Rebooting the device
+        - label: Re-publishing the content
+        - label: Re-pairing the screen
+        - label: Clearing Player data
+        - label: Reconnecting the network
+        - label: Waiting for the next sync
+        - label: Nothing tested yet
+        - label: Nothing fixes it
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots or recordings
+      description: If useful, include the physical screen, corresponding Studio preview, and relevant screen status or command history.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or diagnostics
+      description: Include the smallest useful, redacted Android/server logs, command status, manifest details, or network errors.
+      render: text
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Mention recent Player updates, network changes, policy changes, or related issues.
