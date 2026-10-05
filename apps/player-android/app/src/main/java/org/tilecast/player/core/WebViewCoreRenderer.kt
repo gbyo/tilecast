@@ -476,13 +476,19 @@ class WebViewCoreRenderer(
     }
 
     private fun handlePageMessage(payload: String, generation: Long, reply: JavaScriptReplyProxy?) {
-        val current = synchronized(lock) { session } ?: return
-        val response = current.handlePageMessage(payload, generation, reply)
+        // Snapshot and response stay atomic with activation: offer() runs
+        // under the same lock, so the state generation and replay bundle
+        // cannot tear, and concurrent page messages cannot clobber the
+        // pending delivery each responseDelivered consumes below.
+        val (current, response) = synchronized(lock) {
+            val live = session ?: return
+            live to live.handlePageMessage(payload, generation, reply)
+        }
         if (response != null && reply != null) {
-            runCatching {
-                reply.postMessage(response)
-                current.responseDelivered(response)
-            }
+            // The delivery ack pairs with an accepted post, as before;
+            // only the lock placement changed.
+            val posted = runCatching { reply.postMessage(response) }.isSuccess
+            if (posted) synchronized(lock) { current.responseDelivered(response) }
         }
         scope.launch { forwardToCore(payload, generation) }
     }

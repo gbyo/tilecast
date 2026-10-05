@@ -568,7 +568,13 @@ pub async fn import_legacy(deps: &ImportDeps) -> ImportOutcome {
     };
     outcome.room_version = Some(room.version);
     // Crash recovery starts here: this marker precedes every Core write.
-    let _ = atomic_write(&marker_path(&deps.core_root), outcome.marker_json().to_string().as_bytes());
+    // A failed marker write defers the import instead of risking Core
+    // writes no marker describes; those would read back as pairing-owned.
+    if let Err(error) = atomic_write(&marker_path(&deps.core_root), outcome.marker_json().to_string().as_bytes()) {
+        outcome.status = Some(ImportStatus::Failed);
+        outcome.note(format!("in-progress marker unwritable ({error}); import deferred"));
+        return outcome;
+    }
 
     let config = match room.configuration() {
         Ok(config) => config,
@@ -1317,6 +1323,32 @@ mod tests {
         let outcome = import_legacy(&fixture.deps).await;
         assert!(!outcome.identity_imported);
         assert!(!outcome.notes.is_empty());
+        assert!(!fixture.core_root.join(IMPORT_MARKER_NAME).exists());
+    }
+
+    #[tokio::test]
+    async fn unwritable_marker_defers_before_any_core_write() {
+        let fixture = fixture().await;
+        let db = fixture.app_data.join("databases").join(ROOM_DB_NAME);
+        room_db(&db, 1);
+        seed_enrolled_config(&db, false);
+        // The marker tmp file cannot be created, so the import must stop
+        // before the first Core write instead of leaving Core writes no
+        // marker describes (those would read back as pairing-owned).
+        std::fs::remove_dir_all(&fixture.core_root).expect("remove core root");
+
+        let outcome = import_legacy(&fixture.deps).await;
+        assert_eq!(outcome.status, Some(ImportStatus::Failed));
+        assert!(outcome.notes.iter().any(|note| note.contains("deferred")), "notes: {:?}", outcome.notes);
+        assert!(!outcome.identity_imported);
+        assert!(!outcome.binding_imported);
+        let binding = fixture
+            .deps
+            .state
+            .run(|connection| player_state::repo::binding::get(connection))
+            .await
+            .expect("binding read");
+        assert!(binding.is_none());
         assert!(!fixture.core_root.join(IMPORT_MARKER_NAME).exists());
     }
 }

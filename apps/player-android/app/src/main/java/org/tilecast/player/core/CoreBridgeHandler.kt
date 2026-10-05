@@ -93,8 +93,8 @@ class CoreBridgeHandler(
     private val pairingFile: File,
     private val facts: DeviceFacts,
     private val pairingSink: (String) -> Unit,
-    var executor: PlatformCommandExecutor = PlatformCommandExecutor.UNAVAILABLE,
-    var rendererAdapter: CoreRendererAdapter = CoreRendererAdapterRefusing,
+    @Volatile var executor: PlatformCommandExecutor = PlatformCommandExecutor.UNAVAILABLE,
+    @Volatile var rendererAdapter: CoreRendererAdapter = CoreRendererAdapterRefusing,
 ) {
     fun credentialLoad(): String? = runCatching { credentials.read() }.getOrNull()
 

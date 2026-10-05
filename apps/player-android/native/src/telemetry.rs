@@ -93,9 +93,8 @@ impl AndroidTelemetryHost {
         Self { state, cas, signals, meta, renderer, state_dir, started_at }
     }
 
-    fn display(&self) -> Option<(u64, u64)> {
-        let facts: serde_json::Value =
-            self.meta.device_metadata_json().ok().and_then(|json| serde_json::from_str(&json).ok())?;
+    fn parse_display(json: &str) -> Option<(u64, u64)> {
+        let facts: serde_json::Value = serde_json::from_str(json).ok()?;
         let width = facts.get("screenWidth")?.as_u64()?;
         let height = facts.get("screenHeight")?.as_u64()?;
         (width > 0 && height > 0).then_some((width, height))
@@ -123,13 +122,15 @@ impl TelemetryHost for AndroidTelemetryHost {
     }
 
     async fn gauges(&self, now: Timestamp) -> TelemetryGauges {
-        let uptime = tokio::task::spawn_blocking({
+        // Both metadata crossings are blocking JNI: they ride the blocking
+        // pool together so neither stalls a Tokio worker.
+        let fetched = tokio::task::spawn_blocking({
             let meta = self.meta.clone();
-            move || meta.device_uptime_seconds()
+            move || (meta.device_uptime_seconds(), meta.device_metadata_json().ok())
         })
         .await
-        .ok()
-        .flatten();
+        .ok();
+        let uptime = fetched.as_ref().and_then(|(uptime, _)| *uptime);
         let usage = self.cas.usage().await.ok();
         let offset = self
             .state
@@ -137,7 +138,7 @@ impl TelemetryHost for AndroidTelemetryHost {
             .await
             .ok()
             .and_then(|flags| flags.server_clock_offset_ms);
-        let display = self.display();
+        let display = fetched.as_ref().and_then(|(_, json)| json.as_deref()).and_then(Self::parse_display);
         let renderer = self.renderer.lock().unwrap_or_else(|error| error.into_inner()).clone();
         TelemetryGauges {
             current_item_id: renderer.current_item_id,
