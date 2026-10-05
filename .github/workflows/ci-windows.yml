@@ -6,7 +6,9 @@ name: Windows Player CI
 # and version-mapping contract tests) run natively on Windows x64 and
 # Windows ARM64; the Windows-only code also cross-checks on Linux; and
 # the WebView2 conformance engine runs the shared Runtime fixture corpus
-# against the Electron reference on a real Windows runner.
+# against the Electron reference on a real Windows runner. Conformance
+# depends on the runner's display and on the Evergreen WebView2 version, so
+# it runs on main, weekly, and on demand, but not on pull requests.
 on:
   pull_request:
   push:
@@ -116,7 +118,7 @@ jobs:
 
   conformance:
     needs: changes
-    if: needs.changes.outputs.windows == 'true'
+    if: needs.changes.outputs.windows == 'true' && github.event_name != 'pull_request'
     name: WebView2 conformance
     runs-on: windows-latest
     timeout-minutes: 120
@@ -192,7 +194,7 @@ jobs:
           RUST_RESULT: ${{ needs.rust.result }}
           GNU_SELECTED: ${{ needs.changes.outputs.windows == 'true' }}
           GNU_RESULT: ${{ needs.gnu.result }}
-          CONFORMANCE_SELECTED: ${{ needs.changes.outputs.windows == 'true' }}
+          CONFORMANCE_SELECTED: ${{ needs.changes.outputs.windows == 'true' && github.event_name != 'pull_request' }}
           CONFORMANCE_RESULT: ${{ needs.conformance.result }}
         run: |
           set -euo pipefail

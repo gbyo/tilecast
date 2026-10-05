@@ -1,0 +1,39 @@
+name: Extended validation
+
+# Checks that are slow, need special runners, or depend on the environment
+# more than on the change under review. They run every night against main and
+# on demand, and never gate a pull request. To run them on a branch, open
+# Actions > Extended validation > Run workflow and pick that branch.
+#
+# Pull requests run the fast, deterministic checks in pr-validation.yml.
+on:
+  schedule:
+    # 22:17 in Chicago during daylight time. The Studio visual suite also
+    # skips itself when the demo clock is inside a seeded schedule window.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  checks: write
+
+jobs:
+  ios_ci:
+    uses: ./.github/workflows/ci-ios.yml
+
+  studio_visual:
+    uses: ./.github/workflows/validate-browser.yml
+    with:
+      smoke: false
+      visual: true
+
+  android_conformance:
+    uses: ./.github/workflows/ci-android.yml
+    with:
+      validate: false
+      conformance: true

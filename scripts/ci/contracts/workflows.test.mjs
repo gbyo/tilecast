@@ -308,3 +308,125 @@ test("change detectors run only the dependency-free affected graph gate", () => 
   assert.ok(helperTests >= 0 && helperTests < install);
   assert.ok(install >= 0 && tests > install);
 });
+
+const workflow = (file) =>
+  parse(readFileSync(`.github/workflows/${file}`, "utf8"), {
+    uniqueKeys: true,
+  });
+
+test("pull requests run only the deterministic checks", () => {
+  const pr = workflow("pr-validation.yml");
+  assert.equal(
+    pr.jobs.ios_ci,
+    undefined,
+    "iOS CI belongs to Extended validation",
+  );
+  assert.equal(
+    pr.jobs.e2e_ci.with?.visual,
+    false,
+    "no screenshots on pull requests",
+  );
+  assert.equal(
+    pr.jobs.android_ci.with?.conformance,
+    false,
+    "no emulator on pull requests",
+  );
+  const windows = workflow("ci-windows.yml");
+  assert.match(
+    windows.jobs.conformance.if,
+    /github\.event_name != 'pull_request'/,
+    "WebView2 conformance must not run on pull requests",
+  );
+  assert.match(
+    windows.jobs.required.steps.find((step) => step.env?.CONFORMANCE_SELECTED)
+      .env.CONFORMANCE_SELECTED,
+    /github\.event_name != 'pull_request'/,
+  );
+});
+
+test("Extended validation runs on a schedule and on demand, and never gates", () => {
+  const extended = workflow("extended-validation.yml");
+  assert.deepEqual(Object.keys(extended.on).sort(), [
+    "schedule",
+    "workflow_dispatch",
+  ]);
+  assert.equal(
+    extended.jobs.required,
+    undefined,
+    "an aggregate would make it a gate",
+  );
+  for (const job of Object.values(extended.jobs)) {
+    const called = parse(readFileSync(job.uses, "utf8"));
+    assert.ok(Object.hasOwn(called.on, "workflow_call"), job.uses);
+  }
+  assert.deepEqual(
+    Object.values(extended.jobs)
+      .map((job) => job.uses)
+      .sort(),
+    [
+      "./.github/workflows/ci-android.yml",
+      "./.github/workflows/ci-ios.yml",
+      "./.github/workflows/validate-browser.yml",
+    ],
+  );
+  assert.deepEqual(extended.jobs.android_conformance.with, {
+    validate: false,
+    conformance: true,
+  });
+  assert.deepEqual(extended.jobs.studio_visual.with, {
+    smoke: false,
+    visual: true,
+  });
+});
+
+test("the visual suite skips itself inside a seeded schedule window", () => {
+  const browser = workflow("validate-browser.yml");
+  const steps = browser.jobs.validate.steps;
+  const clock = steps.findIndex((step) => step.id === "clock");
+  const visual = steps.findIndex((step) => step.id === "visual");
+  assert.ok(clock >= 0 && visual > clock, "the clock check must come first");
+  assert.match(steps[visual].if, /steps\.clock\.outputs\.active != 'true'/);
+  assert.match(steps[visual].if, /inputs\.visual/);
+  assert.match(
+    steps.find((step) => /smoke/.test(step.name ?? "")).if,
+    /inputs\.smoke/,
+  );
+});
+
+test("documentation formatting is checked on changed files for pull requests", () => {
+  const docs = workflow("validate-docs.yml");
+  const step = docs.jobs.validate.steps.find((s) =>
+    /formatting/.test(s.name ?? ""),
+  );
+  assert.match(step.run, /pull_request/);
+  assert.match(step.run, /git diff --name-only/);
+});
+
+test("a failed Dashboard test shard is not reported a second time by the merge", () => {
+  const dashboard = workflow("ci-dashboard.yml");
+  const merge = dashboard.jobs.coverage.steps.find((s) =>
+    /Merge shard coverage/.test(s.name ?? ""),
+  );
+  assert.match(
+    String(merge["continue-on-error"]),
+    /needs\.tests\.result != 'success'/,
+  );
+});
+
+test("the snapshot refresh runs on demand, on a branch, and refuses a schedule window", () => {
+  const refresh = workflow("refresh-visual-snapshots.yml");
+  assert.deepEqual(Object.keys(refresh.on), ["workflow_dispatch"]);
+  assert.match(refresh.jobs.refresh.if, /refs\/heads\/main/);
+  assert.equal(refresh.permissions.contents, "write");
+  const steps = refresh.jobs.refresh.steps;
+  const clock = steps.findIndex((step) => step.id === "clock");
+  const render = steps.findIndex((step) =>
+    /--update-snapshots/.test(step.run ?? ""),
+  );
+  assert.ok(clock >= 0 && render > clock, "check the clock before rendering");
+  assert.ok(
+    steps.some(
+      (step) => /exit 1/.test(step.run ?? "") && /clock/.test(step.if ?? ""),
+    ),
+  );
+});

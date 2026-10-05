@@ -33,7 +33,9 @@ bash scripts/ci/visual-linux.sh studio
 bash scripts/ci/visual-linux.sh widgets
 ```
 
-After an intentional design change, add `--update-snapshots` to the helper command. Inspect every changed PNG, then run the comparison again without that flag. Commit only reviewed baselines. CI compares screenshots and never accepts changes automatically.
+After an intentional design change, add `--update-snapshots` to the helper command. Inspect every changed PNG, then run the comparison again without that flag. Commit only reviewed baselines.
+
+No Docker? In GitHub, open **Actions**, choose **Refresh Studio visual snapshots**, and run it on your branch. It re-renders the changed Studio screenshots on the CI runner and commits them to the branch. Review the commit before you merge. It doesn't start your other checks, so push a commit or re-run them afterward.
 
 A failed visual job includes expected, actual, and diff images, an HTML report, and traces. Studio failures also include the demo server logs. Open a downloaded HTML report with `npx playwright show-report <report-directory>`. The Linux helper saves reports in `e2e/visual/test-results/linux-run/`.
 
@@ -51,6 +53,14 @@ npm run doctor:changed
 `npm run doctor` scans all of Studio and lists every existing finding. `npm run doctor:changed` shows only the findings your branch adds. Neither command fails when it finds issues.
 
 On a pull request, React Doctor comments on the code you changed: one summary comment and inline comments on the affected lines. It does not block pull requests yet, so a finding never fails CI. Pull requests from forks do not get comments, because GitHub gives them a read-only token. Their findings appear in the job summary instead. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
+
+## Know what blocks your pull request
+
+Only fast, deterministic checks can block a pull request: lint, formatting, types, builds, unit tests, the Demo Mode functional suite, and the documentation build. If one of them fails, the change is almost always the cause, and you can reproduce it on your own machine.
+
+Slower checks that depend on the environment run separately, as **Extended validation**. They cover the Studio screenshot comparison, iOS, Android emulator conformance, and WebView2 conformance. They run every night against `main`, and they never block a pull request. To run them on your branch, open **Actions**, choose **Extended validation**, and run it on that branch.
+
+The screenshot comparison skips itself when the demo server's clock is inside one of its seeded schedules, because the server decides what is on air from real time. You'll see a notice on the run instead of a failure.
 
 ## Understand affected checks
 
@@ -86,7 +96,7 @@ Dashboard formatting and lint, the production build, and two Vitest test shards 
 
 Dashboard CI installs the Dashboard workspace and root tools such as Prettier. Linux Player CI installs the Player workspace and its linked workspace dependencies. Both installs use the root `package-lock.json`; local full-workspace setup still uses `npm ci`.
 
-The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
+The stable aggregate checks are **Required PR validation**, **Required Edge validation**, and **Required Windows validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.
 

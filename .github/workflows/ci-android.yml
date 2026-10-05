@@ -2,6 +2,16 @@ name: ci-android
 
 on:
   workflow_call:
+    inputs:
+      # Unit tests, lint, and the assembled APK gate pull requests. The
+      # emulator conformance run takes about nine minutes and needs KVM, so it
+      # runs in Extended validation.
+      validate:
+        type: boolean
+        default: true
+      conformance:
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -10,6 +20,7 @@ permissions:
 jobs:
   validate:
     name: Android CI
+    if: ${{ inputs.validate }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,6 +69,7 @@ jobs:
 
   conformance:
     name: Android runtime conformance
+    if: ${{ inputs.conformance }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

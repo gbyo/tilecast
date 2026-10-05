@@ -73,11 +73,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.android == 'true'
     uses: ./.github/workflows/ci-android.yml
-
-  ios_ci:
-    needs: changes
-    if: needs.changes.outputs.ios == 'true'
-    uses: ./.github/workflows/ci-ios.yml
+    with:
+      conformance: false
 
   server_ci:
     needs: changes
@@ -123,6 +120,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.e2e == 'true'
     uses: ./.github/workflows/validate-browser.yml
+    with:
+      visual: false
 
   docs_ci:
     needs: changes
@@ -147,7 +146,6 @@ jobs:
       - ci_contract
       - player_core_ci
       - android_ci
-      - ios_ci
       - linux_player_ci
       - server_ci
       - dashboard_ci
@@ -169,8 +167,6 @@ jobs:
           PLAYER_CORE_CI_RESULT: ${{ needs.player_core_ci.result }}
           ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
           ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
-          IOS_CI_SELECTED: ${{ needs.changes.outputs.ios == 'true' }}
-          IOS_CI_RESULT: ${{ needs.ios_ci.result }}
           LINUX_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.linux == 'true' }}
           LINUX_PLAYER_CI_RESULT: ${{ needs.linux_player_ci.result }}
           SERVER_CI_SELECTED: ${{ needs.changes.outputs.server == 'true' }}
@@ -213,7 +209,6 @@ jobs:
           check ci_contract "$CI_CONTRACT_SELECTED" "$CI_CONTRACT_RESULT"
           check player_core_ci "$PLAYER_CORE_CI_SELECTED" "$PLAYER_CORE_CI_RESULT"
           check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
-          check ios_ci "$IOS_CI_SELECTED" "$IOS_CI_RESULT"
           check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
           check server_ci "$SERVER_CI_SELECTED" "$SERVER_CI_RESULT"
           check dashboard_ci "$DASHBOARD_CI_SELECTED" "$DASHBOARD_CI_RESULT"
