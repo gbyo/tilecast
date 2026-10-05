@@ -64,6 +64,16 @@ function typedRecords(): TypedRecordData {
     usingCachedData: false,
     attribution: "League feed",
     unavailable: false,
+    dateField: "playedAt",
+    dateSelection: {
+      enabled: true,
+      dateFormat: "iso_date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    },
   };
 }
 
@@ -146,7 +156,20 @@ describe("previewToDataDocument", () => {
     expect(second?.["link"]).toEqual({ kind: "text", text: "/relative/path" });
     expect(second?.["elapsed"]).toEqual({ kind: "text", text: "1h30m" });
     expect(second?.["cover"]).toEqual({ kind: "text", text: "not-a-uuid" });
-    expect(document?.cache?.usingCachedData).toBe(false);
+    expect(dataset?.cache).toEqual({
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      unavailable: false,
+    });
+    expect(dataset?.timezone).toBe("America/New_York");
+    expect(dataset?.dateSelection).toEqual({
+      field: "playedAt",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    });
   });
 
   it("projects time-series points, metadata, and object datasets", () => {
@@ -168,6 +191,10 @@ describe("previewToDataDocument", () => {
           fields: [{ key: "home", label: "Home", type: "text" }],
           records: [{ id: "r1", values: { home: "Riverside" } }],
           attribution: "League feed",
+          cachedAt: "2026-09-28T15:00:00Z",
+          staleAt: "2026-09-28T16:00:00Z",
+          timezone: "Europe/London",
+          units: { temperature: "C" },
           usingCachedData: false,
           unavailable: false,
         },
@@ -200,6 +227,17 @@ describe("previewToDataDocument", () => {
       kind: "text",
       text: "Riverside",
     });
+    expect(document?.datasets[1]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      attribution: "League feed",
+      timezone: "Europe/London",
+      units: { temperature: "C" },
+    });
     expect(document?.datasets[2]).toMatchObject({
       id: "current",
       kind: "object",
@@ -229,7 +267,9 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: true,
         },
+        timezone: "America/New_York",
       },
     } as unknown as CalendarPreview;
     const document = previewToDataDocument(preview);
@@ -242,6 +282,15 @@ describe("previewToDataDocument", () => {
     expect(values?.["location"]).toEqual({
       kind: "text",
       text: "Stadium",
+    });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: true,
+      },
+      timezone: "America/New_York",
     });
   });
 
@@ -281,6 +330,15 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
+        },
+        dateSelection: {
+          enabled: true,
+          dateFormat: "iso_date",
+          timezone: "America/Los_Angeles",
+          mode: "current_week",
+          excludePast: true,
+          noMatchBehavior: "empty",
         },
       },
     } as unknown as StructuredPreview;
@@ -303,9 +361,24 @@ describe("previewToDataDocument", () => {
       kind: "url",
       url: "https://example.test/win",
     });
-    expect(values?.["poster"]).toEqual({
-      kind: "asset",
-      assetId: "asset-123",
+    // "asset-123" is not a UUID, so strict asset coercion degrades it to
+    // text instead of projecting an asset value.
+    expect(values?.["poster"]).toEqual({ kind: "text", text: "asset-123" });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      timezone: "America/Los_Angeles",
+      dateSelection: {
+        field: "date",
+        timezone: "America/Los_Angeles",
+        mode: "current_week",
+        excludePast: true,
+        noMatchBehavior: "empty",
+      },
     });
   });
 

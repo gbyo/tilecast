@@ -38,6 +38,7 @@ function documentWith(
         {
           id: "records",
           kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
           fields: [
             { key: "dish", label: "Dish", type: "text" },
             { key: "notes", label: "Notes", type: "text" },
@@ -180,6 +181,7 @@ describe("Menu Board data resolution", () => {
           {
             id: "total",
             kind: "scalar",
+            cache: { usingCachedData: false, unavailable: false },
             scalar: { kind: "number", number: 3 },
           },
         ],
