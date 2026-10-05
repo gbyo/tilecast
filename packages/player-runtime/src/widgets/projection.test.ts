@@ -1,14 +1,17 @@
 /*
  * Projection of first-class Widget components (docs/widgets-v2.md §6): the
- * payload carries only what the component declares, never a time-dependent
- * value, and a malformed component is left out rather than downgraded.
+ * payload carries only declared resources and applies date-selection policy
+ * before a component receives its document.
  */
 import { describe, expect, it } from "vitest";
+import dateFixtures from "../../../manifest-schema/date-selection-fixtures.json";
 import type { ProjectionContextV1 } from "../host/contract";
 import { createProjector } from "../compat/projector";
 import { resolveRegionalFormatting } from "../compat/projection/format";
+import { normalizeSource } from "../compat/projection/datasource";
 import { renderLayout } from "../compat/projection/layout-render";
 import type {
+  DataDocument,
   ManifestDataSource,
   ManifestWidget,
 } from "../compat/projection/content-types";
@@ -87,9 +90,127 @@ const context = {
     timeFormat: "24-hour",
     firstDayOfWeek: "monday",
   }),
+  at: new Date("2026-07-15T12:00:00-04:00"),
 };
 
+function sourceWithDateSelection(
+  dates: readonly string[],
+  selection: NonNullable<
+    ManifestDataSource["dataDocument"]
+  >["datasets"][number]["dateSelection"],
+): ManifestDataSource {
+  return {
+    id: SOURCE,
+    name: "Events",
+    provider: "manual",
+    configVersion: 1,
+    configuration: {},
+    dataDocument: {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "events",
+          kind: "records",
+          dateSelection: selection,
+          records: dates.map((date, index) => ({
+            id: `event-${index}`,
+            values: { date: { kind: "date", date } },
+          })),
+        },
+      ],
+    },
+  };
+}
+
+function selectedRecordIds(
+  source: ManifestDataSource,
+  at: Date,
+  firstDayOfWeek:
+    | "sunday"
+    | "monday"
+    | "tuesday"
+    | "wednesday"
+    | "thursday"
+    | "friday"
+    | "saturday" = "monday",
+): string[] | null {
+  const regionalFormat = resolveRegionalFormatting({
+    locale: "en-US",
+    timezone: "America/New_York",
+    dateFormat: "locale",
+    timeFormat: "locale",
+    firstDayOfWeek,
+  });
+  const payload = projectWidgetComponent(
+    componentWidget({
+      type: "tilecast.events",
+      version: 1,
+      config: {},
+      dataSources: [SOURCE],
+      media: [],
+    }),
+    { dataSources: new Map([[SOURCE, source]]), regionalFormat, at },
+  );
+  if (!payload) return null;
+  if (payload.hidden) return null;
+  const document = payload.documents[SOURCE] as DataDocument | undefined;
+  return document?.datasets[0]?.records?.map((record) => record.id) ?? [];
+}
+
 describe("projectWidgetComponent", () => {
+  it.each(dateFixtures)(
+    "matches native preview date fixture $id",
+    (fixture) => {
+      const source: ManifestDataSource = {
+        id: SOURCE,
+        name: "Events",
+        provider: "json",
+        configVersion: 1,
+        configuration: {},
+        dataDocument: {
+          schemaVersion: 1,
+          datasets: [
+            {
+              id: "records",
+              kind: "records",
+              dateSelection: fixture.selection,
+              records: fixture.records.map((record) => ({
+                id: record.id,
+                values: { date: { kind: "date", date: record.date } },
+              })),
+            },
+          ],
+        },
+      };
+      const payload = projectWidgetComponent(
+        componentWidget({
+          type: "tilecast.events",
+          version: 1,
+          config: {},
+          dataSources: [SOURCE],
+          media: [],
+        }),
+        {
+          dataSources: new Map([[SOURCE, source]]),
+          at: new Date(fixture.at),
+          regionalFormat: resolveRegionalFormatting({
+            locale: "en-US",
+            timezone: fixture.selection.timezone,
+            dateFormat: "locale",
+            timeFormat: "locale",
+            firstDayOfWeek: fixture.firstDayOfWeek as "monday" | "friday",
+          }),
+        },
+      );
+      expect(payload).not.toBeNull();
+      expect(payload?.hidden ?? false).toBe(fixture.hidden);
+      const document = payload?.documents[SOURCE] as DataDocument;
+      expect(document.datasets[0]?.records?.map((record) => record.id)).toEqual(
+        fixture.expectedIds,
+      );
+    },
+  );
+
   it("projects the declared resources and regional formatting", () => {
     const payload = projectWidgetComponent(
       componentWidget({
@@ -114,6 +235,7 @@ describe("projectWidgetComponent", () => {
           { assetId: ASSET, variantId: VARIANT },
           { assetId: ASSET, variantId: "not-in-manifest" },
         ],
+        empty: "render",
       },
       // The undeclared source is not copied in.
       documents: { [SOURCE]: document("granted") },
@@ -127,6 +249,193 @@ describe("projectWidgetComponent", () => {
         hourCycle: "h23",
       },
     });
+  });
+
+  it("carries the component empty policy from presentation schema 3", () => {
+    const base = {
+      type: "tilecast.clock",
+      version: 1,
+      config: {},
+      dataSources: [],
+      media: [],
+    };
+    const payload = projectWidgetComponent(
+      componentWidget({ ...base, empty: "skip-eligible" }, 3),
+      context,
+    );
+    expect(payload?.component.empty).toBe("skip-eligible");
+    expect(
+      projectWidgetComponent(
+        componentWidget({ ...base, empty: "skip" }, 3),
+        context,
+      ),
+    ).toBeNull();
+    expect(
+      projectWidgetComponent(
+        componentWidget({ ...base, empty: "skip-eligible" }, 2),
+        context,
+      )?.component.empty,
+    ).toBe("render");
+  });
+
+  it.each([
+    ["today", { mode: "today" }, ["2026-07-15", "2026-07-15"]],
+    ["tomorrow", { mode: "tomorrow" }, ["2026-07-16"]],
+    [
+      "next available",
+      { mode: "next_available" },
+      ["2026-07-15", "2026-07-15"],
+    ],
+    [
+      "current week",
+      { mode: "current_week" },
+      ["2026-07-15", "2026-07-15", "2026-07-16", "2026-07-18"],
+    ],
+    [
+      "custom range",
+      {
+        mode: "custom_range",
+        customStartDate: "2026-07-15",
+        customEndDate: "2026-07-16",
+      },
+      ["2026-07-15", "2026-07-15", "2026-07-16"],
+    ],
+  ] as const)(
+    "selects %s records like compatibility Widgets",
+    (_name, mode, dates) => {
+      const at = new Date("2026-07-15T12:00:00-04:00");
+      const selection = {
+        field: "date",
+        timezone: "America/New_York",
+        mode: mode.mode,
+        customStartDate:
+          "customStartDate" in mode ? mode.customStartDate : undefined,
+        customEndDate: "customEndDate" in mode ? mode.customEndDate : undefined,
+        excludePast: true,
+        noMatchBehavior: "empty",
+      };
+      const source = sourceWithDateSelection(
+        [
+          "2026-07-14",
+          "2026-07-15",
+          "2026-07-15",
+          "2026-07-16",
+          "2026-07-18",
+          "2026-08-01",
+        ],
+        selection,
+      );
+      const expectedDates = [...dates];
+      const actualIds = selectedRecordIds(source, at);
+      const compat = normalizeSource(
+        source,
+        at,
+        resolveRegionalFormatting({
+          locale: "en-US",
+          timezone: "America/New_York",
+          dateFormat: "locale",
+          timeFormat: "locale",
+          firstDayOfWeek: "monday",
+        }),
+      ).records.map((record) => record.id);
+      const selectedDates = source
+        .dataDocument!.datasets[0]!.records!.filter((record) =>
+          actualIds?.includes(record.id),
+        )
+        .map((record) => (record.values["date"] as { date: string }).date);
+      expect(selectedDates).toEqual(expectedDates);
+      expect(actualIds).toEqual(compat);
+    },
+  );
+
+  it("uses the Player time zone and regional week start", () => {
+    const source = sourceWithDateSelection(
+      ["2026-07-10", "2026-07-12", "2026-07-14", "2026-07-18"],
+      {
+        field: "date",
+        timezone: "America/New_York",
+        mode: "current_week",
+        excludePast: false,
+      },
+    );
+    const at = new Date("2026-07-16T00:30:00Z");
+    expect(selectedRecordIds(source, at, "monday")).toEqual([
+      "event-2",
+      "event-3",
+    ]);
+    expect(selectedRecordIds(source, at, "friday")).toEqual([
+      "event-0",
+      "event-1",
+      "event-2",
+    ]);
+  });
+
+  it("uses the selected time zone across a UTC date boundary", () => {
+    const source = sourceWithDateSelection(["2026-07-15", "2026-07-16"], {
+      field: "date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+    });
+    expect(selectedRecordIds(source, new Date("2026-07-16T00:30:00Z"))).toEqual(
+      ["event-0"],
+    );
+  });
+
+  it.each([
+    ["empty", []],
+    ["fallback_text", []],
+    ["last_known_good", ["2026-07-01"]],
+    ["next_available", ["2026-07-20"]],
+  ] as const)(
+    "matches compatibility no-match policy %s",
+    (behavior, expectedDates) => {
+      const source = sourceWithDateSelection(["2026-07-01", "2026-07-20"], {
+        field: "date",
+        timezone: "America/New_York",
+        mode: "today",
+        excludePast: true,
+        noMatchBehavior: behavior,
+        fallbackText: "No events today",
+      });
+      const actualIds = selectedRecordIds(
+        source,
+        new Date("2026-07-15T12:00:00-04:00"),
+      );
+      const selectedDates = source
+        .dataDocument!.datasets[0]!.records!.filter((record) =>
+          actualIds?.includes(record.id),
+        )
+        .map((record) => (record.values["date"] as { date: string }).date);
+      expect(selectedDates).toEqual(expectedDates);
+    },
+  );
+
+  it("hides a component when the source date policy says hide", () => {
+    const source = sourceWithDateSelection(["2026-07-01"], {
+      field: "date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "hide",
+    });
+    const at = new Date("2026-07-15T12:00:00-04:00");
+    expect(selectedRecordIds(source, at)).toBeNull();
+    const payload = projectWidgetComponent(
+      componentWidget({
+        type: "tilecast.events",
+        version: 1,
+        config: {},
+        dataSources: [SOURCE],
+        media: [],
+      }),
+      {
+        dataSources: new Map([[SOURCE, source]]),
+        regionalFormat: context.regionalFormat,
+        at,
+      },
+    );
+    expect(payload?.hidden).toBe(true);
   });
 
   it.each([
@@ -166,7 +475,7 @@ describe("component projection in hosts", () => {
     media: [],
   });
 
-  it("is identical at every instant, so re-projection never restarts it", () => {
+  it("keeps an unsourced clock component stable at every instant", () => {
     const projection: ProjectionContextV1 = {
       schema: 16,
       clockOffsetMs: 0,

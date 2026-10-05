@@ -8678,7 +8678,10 @@ export interface components {
       fallback?: "hide" | "background" | "previous";
       cornerRadius?: number;
     };
-    /** @description Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted. */
+    /**
+     * @deprecated
+     * @description Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+     */
     LayoutPlacementOverrides: {
       /** @enum {string} */
       fit?: "contain" | "cover" | "stretch";
@@ -9369,8 +9372,11 @@ export interface components {
       results: components["schemas"]["DisplayControlGroupResult"][];
     };
     PlayerManifest: {
-      /** @enum {integer} */
-      schemaVersion: 11 | 12 | 13 | 14 | 15;
+      /**
+       * @description The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+       * @enum {integer}
+       */
+      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17;
       /** Format: int64 */
       manifestVersion: number;
       /** Format: uuid */
@@ -9803,6 +9809,8 @@ export interface components {
     };
     StructuredPreview: {
       configuration: components["schemas"]["StructuredPlayerPreviewConfig"];
+      /** @description Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives. */
+      fieldSchema?: components["schemas"]["DataSourceField"][];
       diagnostics: components["schemas"]["DataSourceDiagnostics"];
     };
     CalendarPreviewFields: {

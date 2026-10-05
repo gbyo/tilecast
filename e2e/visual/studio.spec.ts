@@ -84,8 +84,7 @@ for (const [name, path, ready] of states) {
         .click();
     }
     if (name.startsWith("screen-")) {
-      const { panel } = await inspectFuturePlayback(page);
-      await panel.getByRole("button", { name: "Why this selection?" }).click();
+      await inspectFuturePlayback(page);
       // Demo players explicitly acknowledge unsupported captures. Screens
       // without a connected player show Offline rather than awaiting an image.
       await expect(

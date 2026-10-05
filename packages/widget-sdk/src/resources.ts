@@ -74,6 +74,7 @@ export interface WidgetCacheState {
   readonly upstreamExpiry?: string;
 }
 
+/** Date policy attached to a manifest v16 dataset. Selection remains Player-owned. */
 export interface WidgetDateSelection {
   readonly field: string;
   readonly timezone: string;

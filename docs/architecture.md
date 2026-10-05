@@ -78,6 +78,13 @@ Playback supports either a fullscreen playlist or a published Layout. Layouts re
 
 ## Scheduling and Display Groups
 
+`packages/presentation-model` owns deterministic availability and item-default
+decisions shared by Studio and Player Runtime. Runtime compatibility modules
+re-export those functions. Studio's settings adapter stays in Studio. The
+model has no mounting, storage, telemetry, or host APIs. See
+[Presentation Model](presentation-model.md) for the current boundary and
+shared fixtures.
+
 Display Groups own synchronized fallback content and schedule targeting. Existing
 groups migrate to `display_mode=mirror`, which is the current synchronized
 behavior. A screen belongs to zero or one group; PostgreSQL enforces the
@@ -122,13 +129,13 @@ The server validates URLs without fetching them, avoiding SSRF and network-topol
 
 Apps are reusable configured Content items backed by the closed Source/provider registry. The `sources` table remains the internal compatibility name and stores a built-in provider, provider configuration version, and validated JSON object; clients cannot invent provider names or arbitrary keys. Website and YouTube are Apps in Studio. Clock, Date, QR Code, and Ticker are native Apps. Calendar, RSS, Atom, JSON, and CSV may supply prepared data to a display App or render directly when their playback model supports it.
 
-Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and a small provider-approved override object; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
+Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and visibility; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
 
 Manifest v12 introduces a renderer-neutral typed record boundary between Data Sources and native Widgets. Provider-specific acquisition and authoring configuration stays on the server; the Player receives only bounded fields, records, cache state, date policy, and attribution.
 
 Manifest v13 extends that boundary into a declarative presentation runtime. The Server-owned release catalog in `internal/contentdefs` is the runtime source of truth for Widget and Data Source metadata, form schemas, output schemas, adapter IDs, presentation templates, and exact capability requirements. `internal/media` validates release-defined configuration and dispatches trusted acquisition through adapter IDs; `internal/playlists` resolves trusted placeholders into a provider-neutral native node tree before the manifest is sent. Android validates capabilities and interprets final documents instead of selecting a renderer from the provider name.
 
-Widgets V2 (manifest v16) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends the component to a Player that reports its exact `widget.<type>` capability and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
+Widgets V2 (manifest v16 and v17) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends schema 3 with the declared empty policy to a Player that reports schema 3 and the exact `widget.<type>` capability, schema 2 to an older component-capable Player, and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
 
 Catalog Apps extend that boundary without collapsing it. An App recipe atomically provisions a Widget and an explicitly owned, hidden Data Source, then stores the source ID in the compiled Widget configuration so the existing relational usage, invalidation, readiness, and manifest paths remain authoritative. Release-defined Web Integrations compile a closed host policy and built-in URL normalization into the provider-neutral web descriptor; manifest v15 adds bounded periodic reload and requires web runtime 2. Players remain provider-agnostic. See [Adding a Tilecast App](adding-a-tilecast-app.md).
 

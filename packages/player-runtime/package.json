@@ -13,6 +13,10 @@
       "types": "./dist/node/compat/projection/index.d.ts",
       "default": "./dist/node/compat/projection/index.js"
     },
+    "./playback-settings": {
+      "types": "./src/compat/projection/playback-defaults.ts",
+      "default": "./src/compat/projection/playback-defaults.ts"
+    },
     "./synchronized": {
       "types": "./dist/node/clock/synchronized.d.ts",
       "default": "./dist/node/clock/synchronized.js"
@@ -34,14 +38,16 @@
   ],
   "scripts": {
     "build": "npm run build:node && npm run build:runtime && npm run build:conformance",
-    "build:node": "tsc -p tsconfig.node.json",
+    "build:node": "npm run build --workspace @tilecast/presentation-model && tsc -p tsconfig.node.json",
     "build:runtime": "vite build && node scripts/finish-runtime.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "npm test --workspace @tilecast/presentation-model && vitest run",
     "conformance": "node conformance/run.mjs",
     "build:conformance": "vite build --config vite.conformance.config.ts"
   },
   "dependencies": {
+    "@tilecast/presentation-model": "*",
+    "@tilecast/plugin-sdk": "*",
     "qrcode-generator": "^2.0.4",
     "@tilecast/widget-sdk": "*",
     "@tilecast/widget-kit": "*"
@@ -53,7 +59,7 @@
     "pixelmatch": "^7.2.0",
     "pngjs": "^7.0.0",
     "typescript": "~6.0.3",
-    "vite": "^8.3.1",
+    "vite": "^8.3.2",
     "vitest": "^5.0.2",
     "xstate": "^5.33.2"
   }

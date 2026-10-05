@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   contents: read
   checks: write
 
@@ -25,6 +26,7 @@ jobs:
       android: ${{ steps.paths.outputs.android }}
       ios: ${{ steps.paths.outputs.ios }}
       linux: ${{ steps.paths.outputs.linux }}
+      linux_release_contract: ${{ steps.paths.outputs.linux_release_contract }}
       server: ${{ steps.paths.outputs.server }}
       dashboard: ${{ steps.paths.outputs.dashboard }}
       container: ${{ steps.paths.outputs.container }}
@@ -88,6 +90,7 @@ jobs:
     # React Doctor comments on the pull request; existing test reporting keeps
     # `checks: write`. Fork and Dependabot pull requests get a read-only token.
     permissions:
+      actions: read
       contents: read
       checks: write
       issues: write
@@ -98,6 +101,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.linux == 'true'
     uses: ./.github/workflows/validate-linux.yml
+    with:
+      release_contract: ${{ github.event_name != 'pull_request' || needs.changes.outputs.linux_release_contract == 'true' }}
 
   plugins_ci:
     needs: changes

@@ -16,7 +16,7 @@
 > native Player behavior. `tilecastd` remains the Linux process authority and
 > becomes the composition root for that behavior. The extraction preserves
 > the process, privilege, persistence, IPC, media, and update guarantees here.
-> Shared crates are not yet implemented. Presentation execution remains in
+> The shared crates now implement native coordination. Presentation execution remains in
 > Player Runtime; pure presentation decisions belong in Presentation Model.
 
 ---
@@ -25,7 +25,7 @@
 
 Tilecast Edge 1 is a reliable Linux signage player. It replaces the Electron Linux Player with two processes:
 
-- `tilecastd`, an unprivileged Rust daemon that owns everything except drawing pixels;
+- `tilecastd`, an unprivileged Rust daemon that composes Player Core with Linux services and the Edge renderer adapter;
 - `tilecast-renderer-wpe`, a small C/GLib host for WPE WebKit. It hosts the shared Tilecast Player Runtime, which draws what `tilecastd` sends and reports what happened on screen.
 
 ```text
@@ -34,6 +34,8 @@ Tilecast Server
  HTTPS / WebSocket
       │
   tilecastd
+      │
+ Player Core
       │
  ┌────┴────┐
 SQLite    CAS
@@ -297,7 +299,7 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 - WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo.
 - Platforms: `drm` on dedicated signage (no compositor), `wayland` on development machines and existing kiosk compositors, `headless` in CI.
-- A small C11/GLib host. Presentation policy and business logic stay in `tilecastd`.
+- A small C11/GLib host. Native coordination stays in Player Core. Presentation execution stays in Player Runtime.
 
 ### 10.2 Trusted runtime
 

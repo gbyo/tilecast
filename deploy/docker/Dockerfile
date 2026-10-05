@@ -13,6 +13,7 @@ COPY packages/layout-schema/package.json packages/layout-schema/package.json
 COPY packages/plugin-sdk/package.json packages/plugin-sdk/package.json
 COPY packages/widget-kit/package.json packages/widget-kit/package.json
 COPY packages/widget-sdk/package.json packages/widget-sdk/package.json
+COPY packages/presentation-model/package.json packages/presentation-model/package.json
 COPY packages/native-bridge-schema/package.json packages/native-bridge-schema/package.json
 RUN npm ci
 COPY apps/dashboard apps/dashboard
@@ -27,6 +28,7 @@ COPY packages/plugin-sdk packages/plugin-sdk
 # workspace sources (PR3 Studio V2 authoring shell and later migrations).
 COPY packages/widget-kit packages/widget-kit
 COPY packages/widget-sdk packages/widget-sdk
+COPY packages/presentation-model packages/presentation-model
 # Studio's native-host tests type-check against the shared bridge contract.
 COPY packages/native-bridge-schema packages/native-bridge-schema
 COPY widgets widgets

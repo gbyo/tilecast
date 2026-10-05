@@ -17,7 +17,6 @@ use edge_platform::clock::system_clock;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
 use edge_server::legacy::{ImportError, ImportMode, ImportOutcome, import_legacy};
-use edge_server::origin::OriginBlobSource;
 use edge_server::{DeviceCredential, ServerError};
 use edge_state::platform::legacy;
 use edge_state::repo::{binding, commands, playback};
@@ -26,6 +25,7 @@ use futures_util::StreamExt as _;
 use http_body_util::{BodyExt as _, Full};
 use hyper::body::Incoming;
 use hyper::{Request, Response, StatusCode};
+use player_core::OriginBlobSource;
 use serde_json::{Value, json};
 
 const CREDENTIAL: &str = "tc_device_01j8xk2m4n6p8q0r2s4t6v8w0y.ZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQ";

@@ -43,6 +43,7 @@ pub enum PairingOutcome {
 /// Device facts are collected only after public installation identity answers.
 #[async_trait]
 pub trait PairingMetadataProvider: Send + Sync {
+    fn new_player_id(&self) -> PlayerId;
     async fn metadata(&self, player: PlayerId) -> DeviceMetadata;
 }
 
@@ -221,7 +222,7 @@ impl PairingCoordinator {
         }
     }
 
-    async fn player_id(&self) -> Result<PlayerId, PairingError> {
+    async fn player_id(&self, candidate: PlayerId) -> Result<PlayerId, PairingError> {
         let now = self.dependencies.clock.now();
         self.dependencies
             .state
@@ -229,7 +230,7 @@ impl PairingCoordinator {
                 if let Some(identity) = daemon::player_identity(connection)? {
                     return Ok(identity.player_id);
                 }
-                let id = PlayerId::from_uuid(uuid::Uuid::new_v4());
+                let id = candidate;
                 daemon::set_player_identity(connection, id, daemon::PlayerIdentitySource::Generated, now)?;
                 Ok(id)
             })
@@ -254,7 +255,7 @@ impl PairingCoordinator {
         if !identity.pairing_enabled {
             return Err(PairingError::PairingDisabled);
         }
-        let player = self.player_id().await?;
+        let player = self.player_id(metadata.new_player_id()).await?;
         let metadata = metadata.metadata(player).await;
         let session = client.create(identity.installation_id, &metadata).await?;
         self.sessions.save(&session).map_err(|_| PairingError::SessionNotStored)?;
@@ -428,6 +429,9 @@ mod tests {
     }
     #[async_trait]
     impl PairingMetadataProvider for Stores {
+        fn new_player_id(&self) -> PlayerId {
+            PlayerId::from_uuid(uuid::Uuid::from_u128(41))
+        }
         async fn metadata(&self, player: PlayerId) -> DeviceMetadata {
             self.events.lock().unwrap().push("metadata");
             let stored = self.state.run_blocking(|c| daemon::player_identity(c)).unwrap().unwrap();
@@ -513,6 +517,17 @@ mod tests {
     }
     use crate::PlayerCore as PlayerCoreForTest;
 
+    #[tokio::test]
+    async fn host_generated_identity_is_persisted_and_never_replaced_by_a_new_candidate() {
+        let (_dir, core, _, _) = fixture();
+        let first = PlayerId::from_uuid(uuid::Uuid::from_u128(41));
+        let next = PlayerId::from_uuid(uuid::Uuid::from_u128(42));
+        assert_eq!(core.player_id(first).await.unwrap(), first);
+        assert_eq!(core.player_id(next).await.unwrap(), first);
+        let stored = core.dependencies.state.run(|c| daemon::player_identity(c)).await.unwrap().unwrap();
+        assert_eq!(stored.player_id, first);
+    }
+
     #[derive(Debug, Default)]
     struct Sessions(Mutex<Option<PairingSession>>);
 
@@ -535,6 +550,9 @@ mod tests {
 
     #[async_trait]
     impl PairingMetadataProvider for Host {
+        fn new_player_id(&self) -> PlayerId {
+            PlayerId::from_uuid(uuid::Uuid::from_u128(41))
+        }
         async fn metadata(&self, _: PlayerId) -> DeviceMetadata {
             panic!("a rejected address must not collect device metadata")
         }

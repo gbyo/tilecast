@@ -1,0 +1,165 @@
+{
+  "advance": [
+    {
+      "name": "normalize an occurrence after the item count changes",
+      "index": 4,
+      "count": 3,
+      "loop": true,
+      "nextIndex": 2,
+      "canAdvance": true
+    },
+    {
+      "name": "empty playlist",
+      "index": 0,
+      "count": 0,
+      "loop": true,
+      "nextIndex": 0,
+      "canAdvance": false
+    },
+    {
+      "name": "advance within playlist",
+      "index": 0,
+      "count": 3,
+      "loop": false,
+      "nextIndex": 1,
+      "canAdvance": true
+    },
+    {
+      "name": "wrap looping playlist",
+      "index": 2,
+      "count": 3,
+      "loop": true,
+      "nextIndex": 0,
+      "canAdvance": true
+    },
+    {
+      "name": "hold final non-looping item",
+      "index": 2,
+      "count": 3,
+      "loop": false,
+      "nextIndex": 2,
+      "canAdvance": false
+    },
+    {
+      "name": "repeat single looping item",
+      "index": 0,
+      "count": 1,
+      "loop": true,
+      "nextIndex": 0,
+      "canAdvance": true
+    },
+    {
+      "name": "hold single non-looping item",
+      "index": 0,
+      "count": 1,
+      "loop": false,
+      "nextIndex": 0,
+      "canAdvance": false
+    }
+  ],
+  "nativeLoop": [
+    {
+      "name": "single untrimmed video loops",
+      "item": {
+        "kind": "video"
+      },
+      "count": 1,
+      "loop": true,
+      "expected": true
+    },
+    {
+      "name": "non-looping video holds",
+      "item": {
+        "kind": "video"
+      },
+      "count": 1,
+      "loop": false,
+      "expected": false
+    },
+    {
+      "name": "multi-item video advances",
+      "item": {
+        "kind": "video"
+      },
+      "count": 2,
+      "loop": true,
+      "expected": false
+    },
+    {
+      "name": "start offset requires managed loop",
+      "item": {
+        "kind": "video",
+        "videoStartOffsetMs": 1000
+      },
+      "count": 1,
+      "loop": true,
+      "expected": false
+    },
+    {
+      "name": "end offset requires managed loop",
+      "item": {
+        "kind": "video",
+        "videoEndOffsetMs": 4000
+      },
+      "count": 1,
+      "loop": true,
+      "expected": false
+    },
+    {
+      "name": "explicit item loop remains supported",
+      "item": {
+        "kind": "video",
+        "loop": true
+      },
+      "count": 2,
+      "loop": false,
+      "expected": true
+    },
+    {
+      "name": "image does not loop natively",
+      "item": {
+        "kind": "image"
+      },
+      "count": 1,
+      "loop": true,
+      "expected": false
+    }
+  ],
+  "fallback": [
+    {
+      "name": "healthy media remains current",
+      "failed": false,
+      "fallback": "previous",
+      "hasPrevious": true,
+      "expected": "current"
+    },
+    {
+      "name": "failed media shows background",
+      "failed": true,
+      "fallback": "background",
+      "hasPrevious": true,
+      "expected": "background"
+    },
+    {
+      "name": "failed zone is hidden",
+      "failed": true,
+      "fallback": "hide",
+      "hasPrevious": true,
+      "expected": "hide"
+    },
+    {
+      "name": "failed media retains previous",
+      "failed": true,
+      "fallback": "previous",
+      "hasPrevious": true,
+      "expected": "previous"
+    },
+    {
+      "name": "no previous media shows background",
+      "failed": true,
+      "fallback": "previous",
+      "hasPrevious": false,
+      "expected": "background"
+    }
+  ]
+}

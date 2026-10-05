@@ -8,7 +8,7 @@ export function runtimeSupport(
   remoteWeb: boolean,
 ): RuntimeSupportV1 {
   return {
-    presentationSchemas: [1, COMPONENT_PRESENTATION_SCHEMA_VERSION],
+    presentationSchemas: [1, 2, COMPONENT_PRESENTATION_SCHEMA_VERSION],
     declarativeCapabilities: {
       ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
       ...(remoteWeb ? { "web.remote": 1 } : {}),

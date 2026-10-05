@@ -19,6 +19,7 @@ The graph selects these contracts:
 | Change                  | Selected contracts                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------- |
 | Studio component        | Studio, production image, Demo Mode browser and visual tests                           |
+| Linux Player source     | Linux tests and TypeScript build; package contract only for release-sensitive inputs   |
 | CLI or MCP              | CLI and API client                                                                     |
 | Widget or Widget SDK    | Widget conformance and visuals, Studio, server catalog, runtime and renderer consumers |
 | Plugin Studio code      | Plugin conformance, Studio and Demo Mode                                               |
@@ -33,11 +34,29 @@ Unknown shared packages select all areas. Workflow, dependency, and classifier c
 
 Detection runs only the dependency-free affected-area graph tests before classification, so unrelated helper tests do not delay job fan-out. The doctor and aggregate helper tests run in `CI workflow contracts` when CI infrastructure changes. Workflow YAML tests run there after installation of the root tool dependencies. `Required PR validation` includes its result.
 
+Dashboard formatting and lint, the production build, and two coverage-enabled Vitest shards run as independent jobs. Each shard publishes its JUnit report. The coverage job merges the Vitest blob reports before it writes the coverage summary and artifact. The required Dashboard workflow does not pass if a selected job fails.
+
+Node CI jobs use the root `package-lock.json` with a workspace filter when one application is sufficient. Dashboard CI installs `@tilecast/dashboard` and the root tools used by formatting. Linux Player CI installs `@gibsonmb71/tilecast-player-linux` and its linked workspace dependencies, including Player Runtime. A full local workspace install still uses `npm ci`.
+
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
+
+## Linux Player validation
+
+Every Linux Player change runs its unit tests and TypeScript build. Pull requests run the packaged release contract when a change can affect Electron packaging, release signing or verification, Player updates or installation, packaged assets, package metadata or dependencies, the shared Player Runtime, or the CI contract. Linux Player source and test changes outside those paths use the fast validation job.
+
+Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
+
+## Local iteration
+
+Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
+
+Run `make quick` to run tests selected from changed paths. It uses Vitest's changed-file mode for Studio, Linux Player, and Player Runtime tests. It runs Go tests for changed packages. It also checks Android unit tests, CI contracts, or documentation when those paths change. Set `TILECAST_DEV_BASE` when the comparison ref is not `origin/main`.
+
+Use `make test` for the full unit suites. Use `make check` for merge-grade validation. The quick command does not replace either command.
 
 ## Required checks
 
@@ -49,6 +68,22 @@ Require these stable check names in the branch ruleset:
 Both workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
+
+Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
+
+Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`, compared with the PR base. It fails for new findings. The full scan reports existing findings for separate fixes. See [localization.md](localization.md) for focused and full scan commands.
+
+## Studio architecture checks
+
+Run `npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx` for a changed Studio file. Omit `--base` to see all findings. Dashboard CI uses the same file list and comparison ref as the localization check.
+
+The architecture mode uses the existing TypeScript AST scanner. It reports new local byte formatters and local `CancelledAction` classes. It reports raw error messages in JSX and toast feedback. Use `apiErrorMessage()` for localized API failures. The localization mode reports new English toast text.
+
+Query-key checks activate when a domain has a module in `src/data/`. Key factories belong in that directory. UI consumers use the factories. The check reports inline keys in query options and common query-client operations. Existing inline keys remain incremental migration work.
+
+The transport check reports generic `request<T>()` calls with static core paths. It also reports literal core API `fetch()` calls with JSON bodies or JSON reads. Dynamic plugin routes, typed transport, external requests, and binary reads retain their boundaries. The scanner is a structural check, not type-level data-flow analysis.
+
+A genuine transport exception can use `architecture-ignore: <reason>` on the finding's line or the previous line. State the reason, such as a specialized upload. Do not use an exception to bypass an ordinary core JSON route. Git-fixture tests verify baseline comparison, missing refs, and domain activation. Run `npm run test:ci` after changes to these checks.
 
 ## Fast local iteration
 
@@ -185,7 +220,7 @@ Coverage is diagnostic. There is no repository percentage gate.
 ```sh
 npm run coverage
 cd apps/server
-TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -p 1 -coverprofile=coverage.out ./...
+TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 cd ../cli
 go test -coverprofile=coverage.out ./...
@@ -194,7 +229,11 @@ go tool cover -func=coverage.out
 
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
 
-Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
+Each server integration-test package creates a temporary PostgreSQL database from `TEST_DATABASE_URL` and drops it after the package exits, including after a test failure. The database role needs permission to create and drop databases. Existing advisory locks still serialize tests inside the same package database; separate packages no longer share fixture tables or locks. The CI command uses normal Go package parallelism. Reproduce the server race job with `TEST_DATABASE_URL` set and `go test -race ./...` from `apps/server`.
+
+## Validation timing summaries
+
+Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
 
 Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
 
@@ -210,7 +249,7 @@ docker buildx bake -f scripts/ci/edge-images.hcl wpe edge --load
 
 Run the existing scenario scripts from `apps/edge/ci/` and `apps/edge/renderer-wpe/ci/` with those images. The Rust, kernel CEC, PipeWire, WirePlumber, renderer, migration, power-loss, and activity assertions remain in their original suites.
 
-The scheduled Go race workflow runs the server integration contract with `-race`. Reproduce it with `TEST_DATABASE_URL` set and `go test -race -p 1 ./...` from `apps/server`. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
+The scheduled Go race workflow runs the server integration contract with `-race` and normal Go package parallelism. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
 
 ## Timing evidence
 

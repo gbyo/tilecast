@@ -11,6 +11,7 @@
  * the page. Zone evidence is the Layout's: a Widget only says it rendered.
  */
 import { createActor } from "xstate";
+import { resolveZoneFallback } from "@tilecast/presentation-model";
 import type {
   RuntimeItem,
   RuntimeLayoutZone,
@@ -130,7 +131,9 @@ export class LayoutSurface implements MediaSurface {
 
     if (zone.component) {
       const widgets = this.env.widgets;
-      if (!widgets) {
+      if (zone.component.hidden) {
+        requestAnimationFrame(rendered);
+      } else if (!widgets) {
         zoneFailed("widget components are unavailable");
       } else {
         let readinessReported = false;
@@ -221,6 +224,9 @@ export class LayoutSurface implements MediaSurface {
       websiteRecovered: () => sink.websiteRecovered(),
       fallbackShown: rendered,
       zoneFailed: (id, message) => sink.zoneFailed(id, message),
+      // Empty Widget state inside a zone must not advance the containing
+      // Layout's fullscreen playlist occurrence.
+      widgetEmpty: () => undefined,
     };
     const surface = this.env.remoteWeb?.(
       {
@@ -276,6 +282,8 @@ export class LayoutSurface implements MediaSurface {
     };
     const releaseNode = (node: HTMLElement) => {
       if (node instanceof HTMLVideoElement) {
+        node.onloadedmetadata = null;
+        node.ontimeupdate = null;
         node.onended = null;
         node.onloadeddata = null;
         node.onerror = null;
@@ -304,7 +312,8 @@ export class LayoutSurface implements MediaSurface {
     const failed = (epoch: number) => {
       if (epoch !== mounted || this.disposed) return;
       cancelTransition();
-      if (fallback === "previous" && lastGood) {
+      const decision = resolveZoneFallback(true, fallback, lastGood !== null);
+      if (decision === "previous" && lastGood) {
         for (const child of Array.from(container.children)) {
           if (child !== lastGood) releaseNode(child as HTMLElement);
         }
@@ -315,7 +324,7 @@ export class LayoutSurface implements MediaSurface {
         for (const child of Array.from(container.children))
           releaseNode(child as HTMLElement);
         activeElement = null;
-        if (fallback === "hide") {
+        if (decision === "hide") {
           container.style.visibility = "hidden";
         }
       }
@@ -366,6 +375,20 @@ export class LayoutSurface implements MediaSurface {
         next.autoplay = true;
         next.loop = selected.loop;
         next.playsInline = true;
+        if (entry.videoStartOffsetMs && entry.videoStartOffsetMs > 0) {
+          next.onloadedmetadata = () => {
+            next.currentTime = entry.videoStartOffsetMs! / 1_000;
+          };
+        }
+        next.ontimeupdate = () => {
+          if (
+            entry.videoEndOffsetMs != null &&
+            next.currentTime >= entry.videoEndOffsetMs / 1_000
+          ) {
+            next.pause();
+            actor.send({ type: "MEDIA_ENDED", epoch });
+          }
+        };
         next.onloadeddata = accept;
         next.onended = () => actor.send({ type: "MEDIA_ENDED", epoch });
         next.onerror = () => failed(epoch);

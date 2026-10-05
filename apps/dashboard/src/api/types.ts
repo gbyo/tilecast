@@ -495,6 +495,7 @@ export type LayoutPlacement = {
   assetId?: string;
   variantId?: string;
   playlistId?: string;
+  /** Legacy placement overrides are read for compatibility but ignored. */
   overrides?: Record<string, unknown>;
   primitive?: LayoutPrimitive;
   playback?: LayoutPlayback;

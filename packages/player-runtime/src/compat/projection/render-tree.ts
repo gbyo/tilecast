@@ -158,6 +158,8 @@ export interface LayoutPlaylistItem {
   muted: boolean;
   volume: number;
   loop: boolean;
+  videoStartOffsetMs?: number | null;
+  videoEndOffsetMs?: number | null;
   radius?: number;
   transition?: "none" | "fade" | "crossfade";
 }

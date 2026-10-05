@@ -5,22 +5,64 @@
 //   npm run i18n:scan -- --summary            counts per file, largest first
 //   npm run i18n:scan -- --check src/pages/UsersPage.tsx
 //                                             exit 1 if that file has any
+//   npm run i18n:scan -- --check --base origin/main src/pages/UsersPage.tsx
+//                                             exit 1 only for new findings
 //
 // It is a heuristic, not a proof: it reports JSX text, translatable JSX
 // attributes, string literals rendered from JSX expressions, toast and
 // confirm messages, and label-like object properties. A literal that must
 // stay English (a code sample, a protocol value) is silenced by putting
 // `i18n-ignore` in a comment on the same line or the line above.
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { queryDomains, scanArchitecture } from "./studio-architecture.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const args = process.argv.slice(2);
 const summary = args.includes("--summary");
 const check = args.includes("--check");
-const targets = args.filter((arg) => !arg.startsWith("--"));
+const architecture = args.includes("--architecture");
+const migratedDomains = new Set(
+  Object.values(queryDomains).filter((domain) =>
+    fs.existsSync(path.join(root, "src/data", `${domain}.ts`)),
+  ),
+);
+const scanSource = architecture
+  ? (file, source) => scanArchitecture(file, source, migratedDomains)
+  : scanI18nSource;
+const baseIndex = args.indexOf("--base");
+const baseRef = baseIndex === -1 ? null : args[baseIndex + 1];
+if (baseIndex !== -1 && (!baseRef || baseRef.startsWith("--"))) {
+  console.error("i18n-scan: --base requires a Git commit or ref");
+  process.exit(2);
+}
+const targets = args.filter(
+  (arg, index) =>
+    !arg.startsWith("--") && (baseIndex === -1 || index !== baseIndex + 1),
+);
 if (targets.length === 0) targets.push("src");
+
+let baseCommit = null;
+let gitRoot = null;
+if (baseRef) {
+  try {
+    baseCommit = execFileSync(
+      "git",
+      ["rev-parse", "--verify", `${baseRef}^{commit}`],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+    gitRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    console.error(`i18n-scan: base ref ${baseRef} is not a Git commit`);
+    process.exit(2);
+  }
+}
 
 const translatableAttributes = new Set([
   "alt",
@@ -167,8 +209,7 @@ function literalContext(node) {
   return null;
 }
 
-function scan(file) {
-  const source = fs.readFileSync(file, "utf8");
+function scanI18nSource(file, source) {
   const lines = source.split("\n");
   const sourceFile = ts.createSourceFile(
     file,
@@ -211,9 +252,45 @@ function scan(file) {
   return findings;
 }
 
+function scan(file) {
+  return scanSource(file, fs.readFileSync(file, "utf8"));
+}
+
+function findingsSinceBase(file, currentFindings) {
+  if (!baseCommit) return currentFindings;
+
+  let baselineSource;
+  try {
+    baselineSource = execFileSync(
+      "git",
+      ["show", `${baseCommit}:${path.relative(gitRoot, file)}`],
+      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+  } catch {
+    return currentFindings;
+  }
+
+  const baselineCounts = new Map();
+  for (const finding of scanSource(file, baselineSource)) {
+    const key = `${finding.kind}\0${finding.text}`;
+    baselineCounts.set(key, (baselineCounts.get(key) ?? 0) + 1);
+  }
+
+  return currentFindings.filter((finding) => {
+    const key = `${finding.kind}\0${finding.text}`;
+    const count = baselineCounts.get(key) ?? 0;
+    if (count === 0) return true;
+    baselineCounts.set(key, count - 1);
+    return false;
+  });
+}
+
 const results = targets
   .flatMap(files)
-  .map((file) => ({ file: path.relative(root, file), findings: scan(file) }))
+  .map((file) => ({
+    file: path.relative(root, file),
+    findings: findingsSinceBase(file, scan(file)),
+  }))
   .filter((result) => result.findings.length > 0);
 const total = results.reduce((sum, r) => sum + r.findings.length, 0);
 
@@ -237,6 +314,6 @@ if (summary) {
   }
 }
 console.log(
-  `${total} untranslated string${total === 1 ? "" : "s"} in ${results.length} file${results.length === 1 ? "" : "s"}`,
+  `${total} ${baseCommit ? "new " : ""}${architecture ? "architecture finding" : "untranslated string"}${total === 1 ? "" : "s"} in ${results.length} file${results.length === 1 ? "" : "s"}`,
 );
 if (check && total > 0) process.exit(1);

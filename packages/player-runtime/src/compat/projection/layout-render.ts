@@ -18,6 +18,7 @@ import {
 } from "./format";
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
+import { resolveMediaEligibility } from "@tilecast/presentation-model";
 import { renderWidget } from "./widget-render";
 import { projectWidgetComponent } from "../../widgets/projection";
 import type {
@@ -40,6 +41,7 @@ import type {
   RenderNode,
 } from "./render-tree";
 import {
+  defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
   resolvePlaybackItemSettings,
 } from "./playback-defaults";
@@ -271,6 +273,7 @@ function renderPlacement(
           assets: ctx.manifest.assets,
           regionalFormat:
             ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
+          at: ctx.at,
         });
         return component ? { ...base, component } : null;
       }
@@ -374,39 +377,18 @@ function buildZoneItems(
 ): LayoutPlaylistItem[] {
   const items: LayoutPlaylistItem[] = [];
   for (const item of playlist.items) {
-    if (!isAvailableAt(item, at)) {
-      continue;
-    }
-    if (item.layoutId || item.assetType === "website") {
-      continue; // nested layouts / websites not supported inside a zone
-    }
     const asset = manifest.assets.find(
       (a) => a.assetId === item.assetId && a.variantId === item.variantId,
     );
-    if (!asset) {
+    const eligibility = resolveMediaEligibility(item, asset, at);
+    if (!asset || eligibility.kind === null) {
       continue;
     }
-    if (!isAvailableAt(asset, at)) {
-      continue;
-    }
-    const kind = asset.mimeType.startsWith("video/")
-      ? "video"
-      : asset.mimeType.startsWith("image/")
-        ? "image"
-        : null;
-    if (!kind) {
-      continue;
-    }
+    const kind = eligibility.kind;
     const settings = resolvePlaybackItemSettings(
       item,
       playback,
-      fallbackDurationMsFor(
-        kind,
-        Number.isFinite(Number(playback?.defaultImageDurationSeconds)) &&
-          Number(playback?.defaultImageDurationSeconds) > 0
-          ? Number(playback?.defaultImageDurationSeconds) * 1_000
-          : 10_000,
-      ),
+      fallbackDurationMsFor(kind, defaultImageDurationMsForPlayback(playback)),
     );
     items.push({
       id: item.id,
@@ -416,14 +398,13 @@ function buildZoneItems(
       fit: placement.playback?.fit || settings.fitMode,
       muted: placement.playback?.muted ?? !settings.audioEnabled,
       volume: settings.volume,
+      videoStartOffsetMs: item.videoStartOffsetMs ?? null,
+      videoEndOffsetMs: item.videoEndOffsetMs ?? null,
       // The playlist-zone loop is a zone policy, not an item video setting.
       // zoneEntry enables native looping only for a single-item looping zone.
       loop: false,
       radius: placement.playback?.cornerRadius ?? 0,
-      transition:
-        item.transition === "fade" || item.transition === "crossfade"
-          ? item.transition
-          : "none",
+      transition: settings.transition,
     });
   }
   if (items.length === 1 && items[0]!.kind === "video") {

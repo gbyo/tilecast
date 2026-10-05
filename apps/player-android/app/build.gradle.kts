@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.Sync
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -108,22 +109,11 @@ dependencies {
 val sharedRuntimeSource = layout.projectDirectory.dir("../../../packages/player-runtime/dist/runtime")
 val sharedRuntimeAssets = layout.projectDirectory.dir("src/main/assets/shared-runtime")
 
-tasks.register("syncSharedRuntime") {
+tasks.register<Sync>("syncSharedRuntime") {
     group = "tilecast"
     description = "Copies the built shared Player Runtime into app assets."
-    inputs.dir(sharedRuntimeSource)
-    outputs.dir(sharedRuntimeAssets)
-    doLast {
-        val manifest = sharedRuntimeSource.file("runtime-manifest.json").asFile
-        check(manifest.isFile) {
-            "packages/player-runtime/dist/runtime is missing; run: npm run build --workspace @tilecast/player-runtime"
-        }
-        project.delete(sharedRuntimeAssets)
-        project.copy {
-            from(sharedRuntimeSource)
-            into(sharedRuntimeAssets)
-        }
-    }
+    from(sharedRuntimeSource)
+    into(sharedRuntimeAssets)
 }
 
 tasks.register<Exec>("verifySharedRuntime") {
@@ -136,7 +126,10 @@ tasks.register<Exec>("verifySharedRuntime") {
         """
         import hashlib, json, os, sys
         dest = sys.argv[1]
-        manifest = json.load(open(os.path.join(dest, "runtime-manifest.json")))
+        manifest_path = os.path.join(dest, "runtime-manifest.json")
+        if not os.path.isfile(manifest_path):
+            sys.exit("packages/player-runtime/dist/runtime is missing; run: npm run build --workspace @tilecast/player-runtime")
+        manifest = json.load(open(manifest_path))
         seen = set()
         for entry in manifest["files"]:
             p = entry["path"]

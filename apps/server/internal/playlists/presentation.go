@@ -112,7 +112,7 @@ type WidgetPresentation struct {
 	RequiredCapabilities map[string]int          `json:"requiredCapabilities"`
 	Native               *NativePresentation     `json:"native,omitempty"`
 	Web                  *WebSandboxPresentation `json:"web,omitempty"`
-	// Component is set for kind "component" (manifest v16, docs/widgets-v2.md).
+	// Component is set for kind "component" (manifest v16 or v17, docs/widgets-v2.md).
 	Component *ComponentPresentation `json:"component,omitempty"`
 }
 

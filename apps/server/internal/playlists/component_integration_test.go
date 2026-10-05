@@ -147,6 +147,18 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 		t.Fatalf("component manifest still carries the persisted configuration: %s", widget.Configuration)
 	}
 
+	// A Player that reports component schema 3 receives the bounded empty
+	// policy in manifest v17. Schema 2 Players keep the v16 contract above.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{"widget.tilecast.clock": 2})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3Widget := onlyWidget(t, manifest)
+	if manifest.SchemaVersion != ManifestSchemaComponentEmptyPolicy || v3Widget.Presentation.SchemaVersion != 3 || v3Widget.Presentation.Component.Empty != "render" {
+		t.Fatalf("component schema 3 was not negotiated: schema=%d presentation=%+v", manifest.SchemaVersion, v3Widget.Presentation)
+	}
+
 	// The persisted Widget is unchanged by any of this.
 	var stored json.RawMessage
 	if err := f.pool.QueryRow(f.ctx, `SELECT configuration FROM widgets WHERE provider='clock'`).Scan(&stored); err != nil {
@@ -157,10 +169,56 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 	}
 
 	// Assignment validation agrees with manifest generation for every profile.
-	for _, schemas := range []string{"{1}", "{1,2}"} {
+	for _, schemas := range []string{"{1}", "{1,2}", "{1,2,3}"} {
 		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.clock": 2})
 		if err := f.service.ValidatePresentationTargets(f.ctx, &playlistID, nil, []uuid.UUID{f.screen}, nil); err != nil {
 			t.Fatalf("schemas %s: valid Clock content rejected: %v", schemas, err)
+		}
+	}
+}
+
+func TestEmptyComponentPolicyPreservesOlderPlayerAutoSkip(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	source, err := f.media.CreateDataSource(f.ctx, f.user, media.DataSourceInput{
+		Provider: "manual", Name: "Recognition entries",
+		Configuration: json.RawMessage(`{"columns":[{"key":"person","label":"Person","type":"text"},{"key":"contribution","label":"Contribution","type":"text"}],"rows":[]}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration, _ := json.Marshal(map[string]any{
+		"dataSourceId": source.ID.String(), "nameField": "person", "noteField": "contribution",
+		"heading": "Recognition", "autoSkipWhenEmpty": true,
+	})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "recognition-board", Name: "Recognition", Configuration: configuration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Recognition rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err := f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	for _, schemas := range []string{"{1,2}", "{1,2,3}"} {
+		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.cards": 1})
+		if _, err := f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+			t.Fatal(err)
+		}
+		manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		presentation := onlyWidget(t, manifest).Presentation
+		if schemas == "{1,2}" {
+			if presentation.Kind != "native" || presentation.Native.Root.Props["autoSkipWhenEmpty"] != true {
+				t.Fatalf("older Player lost auto-skip: %+v", presentation)
+			}
+		} else if manifest.SchemaVersion != 17 || presentation.SchemaVersion != 3 || presentation.Component.Empty != "skip-eligible" {
+			t.Fatalf("capable Player lost empty policy: %+v", presentation)
 		}
 	}
 }
@@ -329,6 +387,67 @@ func TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant(t *testing.T) {
 	}
 	if len(manifest.Assets) != 1 || manifest.Assets[0].AssetID != assetID || manifest.Assets[0].VariantID != variantID {
 		t.Fatalf("manifest assets = %+v", manifest.Assets)
+	}
+}
+
+func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	playlist, err := f.service.Create(f.ctx, f.user, "Zone playlist", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.addReadyImageToPlaylist(t, playlist.ID)
+	var imageID uuid.UUID
+	if err = f.pool.QueryRow(f.ctx, `SELECT asset_id FROM playlist_items WHERE playlist_id=$1`, playlist.ID).Scan(&imageID); err != nil {
+		t.Fatal(err)
+	}
+	imageDuration := int64(10_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: imageID, DurationMS: &imageDuration}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+
+	layoutID, revisionID := uuid.New(), uuid.New()
+	documentBytes, err := json.Marshal(map[string]any{
+		"schemaVersion": 2,
+		"canvas":        map[string]any{"width": 1920, "height": 1080, "orientation": "landscape", "backgroundColor": "#000000"},
+		"placements": []any{map[string]any{
+			"id": uuid.New(), "type": "playlistZone", "name": "Zone", "playlistId": playlist.ID,
+			"x": 0, "y": 0, "width": 1920, "height": 1080, "layer": 0, "opacity": 1, "visible": true,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(documentBytes)
+	encoded := string(documentBytes)
+	for _, statement := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO layouts(id,organization_id,name,orientation,canvas_width,canvas_height,draft_document,created_by)VALUES($1,$2,'Zone layout','landscape',1920,1080,$3::jsonb,$4)`, []any{layoutID, f.org, encoded, f.user}},
+		{`INSERT INTO layout_revisions(id,layout_id,revision,document,document_sha256,published_by)VALUES($1,$2,1,$3::jsonb,$4,$5)`, []any{revisionID, layoutID, encoded, hex.EncodeToString(digest[:]), f.user}},
+		{`UPDATE layouts SET published_revision_id=$2 WHERE id=$1`, []any{layoutID, revisionID}},
+	} {
+		if _, err = f.pool.Exec(f.ctx, statement.sql, statement.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err != nil {
+		t.Fatalf("image-only zone rejected: %v", err)
+	}
+
+	clock, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "clock", Name: "Zone clock", Configuration: json.RawMessage(`{"timezone":"UTC","format":"24","showSeconds":false}`)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err = f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: clock.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err == nil || !strings.Contains(err.Error(), "only image and video items") {
+		t.Fatalf("assignment validation accepted a Widget added after Layout publication: %v", err)
 	}
 }
 

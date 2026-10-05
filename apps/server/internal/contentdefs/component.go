@@ -15,9 +15,10 @@ import (
 // The identity rules below mirror packages/widget-sdk/src/identity.ts.
 
 const (
-	// ComponentPresentationSchemaVersion is the presentation schema of
-	// kind "component" presentations. Native and web presentations use 1.
-	ComponentPresentationSchemaVersion = 2
+	// ComponentPresentationSchemaVersion is the newest presentation schema of
+	// kind "component" presentations. Schema 3 carries the declared empty
+	// policy; native and web presentations use schema 1.
+	ComponentPresentationSchemaVersion = 3
 	maxComponentVersion                = 100
 	// maxWidgetCapabilityLen is the heartbeat's capability-name bound. The
 	// full "widget.<type>" capability must fit within it.

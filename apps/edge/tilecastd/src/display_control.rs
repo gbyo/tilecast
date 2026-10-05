@@ -33,16 +33,7 @@ use crate::config::EdgeConfig;
 use crate::daemon::DaemonContext;
 
 /// The display command types of the shared catalog.
-pub const COMMANDS: &[&str] = &[
-    "display_power_on",
-    "display_power_off",
-    "display_set_input",
-    "display_set_volume",
-    "display_mute",
-    "display_unmute",
-    "display_set_brightness",
-    "display_probe",
-];
+pub use player_core::DISPLAY_COMMANDS as COMMANDS;
 
 /// Longest one hardware operation may hold the display.
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(20);
@@ -90,63 +81,28 @@ pub enum Invalid {
     Input,
 }
 
-fn percent(value: &Value) -> Option<u8> {
-    let number = value.as_i64().or_else(|| value.as_f64().filter(|v| v.fract() == 0.0).map(|v| v as i64))?;
-    u8::try_from(number).ok().filter(|v| *v <= 100)
+/// Core validates product payloads; Edge resolves the CEC input address.
+fn native_action(action: player_core::DisplayAction) -> Result<Action, Invalid> {
+    use player_core::DisplayAction as Native;
+    Ok(match action {
+        Native::PowerOn => Action::PowerOn,
+        Native::PowerOff => Action::PowerOff,
+        Native::SetInput(input) => Action::SetInput(cec::parse_physical_address(&input).ok_or(Invalid::Input)?),
+        Native::SetVolume(value) => Action::SetVolume(value),
+        Native::Mute => Action::Mute,
+        Native::Unmute => Action::Unmute,
+        Native::SetBrightness(value) => Action::SetBrightness(value),
+        Native::Probe => Action::Probe,
+    })
 }
 
-/// Validates a command or schedule payload exactly as the reference player
-/// and the server do: known type, only `input`, `volume` or `brightness`,
-/// the one field the type needs, integers 0–100, and an input of at most 32
-/// characters from `[A-Za-z0-9._:-]`.
 pub fn parse(command_type: &str, payload: &Map<String, Value>) -> Result<Action, Invalid> {
-    if !COMMANDS.contains(&command_type)
-        || payload.keys().any(|k| !matches!(k.as_str(), "input" | "volume" | "brightness"))
-    {
-        return Err(Invalid::Payload);
-    }
-    let input = payload.get("input");
-    let volume = payload.get("volume");
-    let brightness = payload.get("brightness");
-    let only = |field: Option<&Value>| {
-        [input, volume, brightness].iter().filter(|f| f.is_some()).count() == usize::from(field.is_some())
-            && field.is_some()
-    };
-    let none = input.is_none() && volume.is_none() && brightness.is_none();
-    match command_type {
-        "display_power_on" if none => Ok(Action::PowerOn),
-        "display_power_off" if none => Ok(Action::PowerOff),
-        "display_mute" if none => Ok(Action::Mute),
-        "display_unmute" if none => Ok(Action::Unmute),
-        "display_probe" if none => Ok(Action::Probe),
-        "display_set_volume" if only(volume) => volume.and_then(percent).map(Action::SetVolume).ok_or(Invalid::Payload),
-        "display_set_brightness" if only(brightness) => {
-            brightness.and_then(percent).map(Action::SetBrightness).ok_or(Invalid::Payload)
-        }
-        "display_set_input" if only(input) => {
-            let text = input.and_then(Value::as_str).ok_or(Invalid::Payload)?;
-            let shaped = !text.is_empty()
-                && text.len() <= 32
-                && text.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b':' | b'-'));
-            if !shaped {
-                return Err(Invalid::Payload);
-            }
-            cec::parse_physical_address(text).map(Action::SetInput).ok_or(Invalid::Input)
-        }
-        _ => Err(Invalid::Payload),
-    }
+    native_action(player_core::parse_display_action(command_type, payload).map_err(|_| Invalid::Payload)?)
 }
 
-/// A schedule's `displayAction` object. Probe is a command, never a policy.
-pub fn parse_policy(action: &Value) -> Result<Action, Invalid> {
-    let object = action.as_object().ok_or(Invalid::Payload)?;
-    let kind = object.get("type").and_then(Value::as_str).ok_or(Invalid::Payload)?;
-    if kind == "display_probe" {
-        return Err(Invalid::Payload);
-    }
-    let payload: Map<String, Value> =
-        object.iter().filter(|(k, _)| *k != "type").map(|(k, v)| (k.clone(), v.clone())).collect();
-    parse(kind, &payload)
+#[cfg(test)]
+fn parse_policy(action: &Value) -> Result<Action, Invalid> {
+    native_action(player_core::parse_display_policy(action).map_err(|_| Invalid::Payload)?)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -411,46 +367,42 @@ impl DisplayControl {
     }
 
     fn power_result(&self, on: bool, observed: Option<PowerStatus>, now: Timestamp) -> CommandResult {
-        let (wanted, toward, opposite) = if on {
-            (
-                PowerStatus::On,
-                PowerStatus::TransitioningToOn,
-                [PowerStatus::Standby, PowerStatus::TransitioningToStandby],
-            )
-        } else {
-            (
-                PowerStatus::Standby,
-                PowerStatus::TransitioningToStandby,
-                [PowerStatus::On, PowerStatus::TransitioningToOn],
-            )
-        };
+        use player_core::{DisplayPowerOutcome as Outcome, DisplayPowerReport as Report};
+        let report = observed.map(|status| match status {
+            PowerStatus::On => Report::On,
+            PowerStatus::Standby => Report::Off,
+            PowerStatus::TransitioningToOn => Report::TurningOn,
+            PowerStatus::TransitioningToStandby => Report::TurningOff,
+        });
+        let outcome = player_core::display_power_outcome(on, report);
         let word = if on { "on" } else { "in standby" };
         let mut snapshot = self.snapshot();
-        match observed {
-            Some(status) if status == wanted => {
+        match outcome {
+            Outcome::Confirmed => {
+                let status = observed.expect("confirmed state was observed");
                 snapshot.power = PowerView { state: power_name(status), confirmed: true, observed_at: Some(now) };
-                CommandResult::ok("display_state_confirmed", &format!("The display reports it is {word}."))
+                CommandResult::ok(outcome.code(), &format!("The display reports it is {word}."))
             }
-            Some(status) if opposite.contains(&status) => {
+            Outcome::Mismatch => {
+                let status = observed.expect("mismatched state was observed");
                 snapshot.power = PowerView { state: power_name(status), confirmed: true, observed_at: Some(now) };
                 CommandResult::failed(
-                    "display_state_mismatch",
+                    outcome.code(),
                     &format!("The display acknowledged the request but still reports {}.", power_name(status)),
                 )
             }
-            Some(status) => {
-                debug_assert_eq!(status, toward);
+            Outcome::Changing => {
                 snapshot.power = PowerView { state: "transitioning", confirmed: false, observed_at: Some(now) };
                 CommandResult::ok(
-                    "display_command_sent",
+                    outcome.code(),
                     "The display acknowledged the request and reports that it is changing state.",
                 )
             }
-            None => {
+            Outcome::Unconfirmed => {
                 snapshot.power =
                     PowerView { state: if on { "on" } else { "off" }, confirmed: false, observed_at: None };
                 CommandResult::ok(
-                    "display_command_sent",
+                    outcome.code(),
                     "The display acknowledged the request but does not report its power state.",
                 )
             }
@@ -620,25 +572,6 @@ fn capability(
 
 // ------------------------------------------------------------ policy task
 
-/// The committed manifest and the corrected wall clock, or `None` without a
-/// bound screen.
-async fn committed(context: &DaemonContext) -> Option<(Value, i64)> {
-    let db = context.db()?;
-    let bound = db.run(|c| edge_state::repo::binding::get(c)).await.ok().flatten()?;
-    let binding = edge_state::repo::manifests::Binding {
-        installation_id: bound.installation_id,
-        screen_id: bound.screen_id?,
-        server_url: bound.server_url,
-    };
-    let stored = db
-        .run(move |c| edge_state::repo::manifests::get_for(c, edge_state::repo::manifests::Stage::Active, &binding))
-        .await
-        .ok()
-        .flatten()?;
-    let offset = db.run(|c| edge_state::repo::playback::get(c)).await.ok()?.server_clock_offset_ms.unwrap_or(0);
-    Some((stored.document, context.now().unix_millis().saturating_add(offset)))
-}
-
 /// Applies scheduled display actions, reads back the TV's power state and
 /// re-probes for hot-plugged hardware. Without hardware it only probes, at
 /// the probe interval.
@@ -646,8 +579,7 @@ pub async fn run(context: Arc<DaemonContext>) {
     let display = Arc::clone(&context.display);
     let mut last_probe: Option<Instant> = None;
     let mut last_power = Instant::now();
-    let mut applied: Option<Option<String>> = None;
-    let mut seen: Option<String> = None;
+    let mut policy = context.core.as_ref().map(player_core::PlayerCore::display_policy);
     loop {
         let mut changed = false;
         if last_probe.is_none_or(|at| at.elapsed() >= PROBE_INTERVAL) {
@@ -659,7 +591,9 @@ pub async fn run(context: Arc<DaemonContext>) {
                 changed = true;
                 // Hardware appeared or went: an action it could not take is
                 // tried again.
-                applied = None;
+                if let Some(policy) = &mut policy {
+                    policy.capabilities_changed();
+                }
             }
         } else if last_power.elapsed() >= POWER_INTERVAL {
             display.refresh_power(context.now()).await;
@@ -667,26 +601,11 @@ pub async fn run(context: Arc<DaemonContext>) {
         }
 
         let mut wake_in = MAX_SLEEP;
-        if let Some((document, now_ms)) = committed(&context).await {
-            match crate::schedule::resolve_display_policy(&document, now_ms) {
-                Ok(policy) => {
-                    if let Some(next) = policy.next_transition_ms {
-                        wake_in = wake_in.min(Duration::from_millis((next - now_ms).clamp(50, i64::MAX) as u64 + 100));
-                    }
-                    let key = policy.action.as_ref().map(|action| format!("{:?}:{action}", policy.schedule_id));
-                    if key != seen {
-                        changed = true;
-                        seen = key.clone();
-                        applied = None;
-                    }
-                    if applied.as_ref() != Some(&key) && apply(&context, &display, policy.action.as_ref()).await {
-                        applied = Some(key);
-                        changed = true;
-                    }
-                }
-                Err(error) => {
-                    tracing::warn!(component = "display", event = "policy_invalid", error = %error);
-                }
+        if let Some(policy) = &mut policy {
+            let pass = policy.reconcile(display.as_ref()).await;
+            changed |= pass.changed;
+            if let Some(delay_ms) = pass.wake_in_ms {
+                wake_in = wake_in.min(Duration::from_millis(delay_ms));
             }
         }
         if changed {
@@ -701,37 +620,28 @@ pub async fn run(context: Arc<DaemonContext>) {
     }
 }
 
-async fn apply(context: &DaemonContext, display: &DisplayControl, action: Option<&Value>) -> bool {
-    let Some(action) = action else {
-        display.set_policy_state("normal");
-        return true;
-    };
-    let parsed = parse_policy(action);
-    let state = if parsed.as_ref().is_ok_and(|action| *action == Action::PowerOff) {
-        "powered_off_by_policy"
-    } else {
-        "normal"
-    };
-    display.set_policy_state(state);
-    let result = match parsed {
-        Ok(action) => display.execute(&action, context.now()).await,
-        Err(_) => {
-            let result = CommandResult::failed("display_invalid_payload", "The scheduled display action is invalid.");
-            display.record(&result);
-            result
+#[async_trait::async_trait]
+impl player_core::DisplayControlProvider for DisplayControl {
+    async fn apply_policy(&self, request: &player_core::DisplayPolicyRequest, now: Timestamp) -> CommandResult {
+        use player_core::DisplayPolicyRequest as Request;
+        self.set_policy_state(request.state_name());
+        match request {
+            Request::Clear => CommandResult::ok("display_policy_cleared", "The display policy is cleared."),
+            Request::Action(action) => match native_action(action.clone()) {
+                Ok(action) => self.execute(&action, now).await,
+                Err(_) => self.invalid_policy(),
+            },
+            Request::Invalid => self.invalid_policy(),
         }
-    };
-    tracing::info!(
-        component = "display",
-        event = "policy_applied",
-        policy = state,
-        success = result.success,
-        code = result.code.as_str()
-    );
-    // Settled: done, never valid, or impossible on this hardware until a
-    // re-probe finds something new. Anything else (a TV that did not answer)
-    // is tried again on the next pass.
-    result.success || matches!(result.code.as_str(), "display_invalid_payload" | "display_unsupported")
+    }
+}
+
+impl DisplayControl {
+    fn invalid_policy(&self) -> CommandResult {
+        let result = CommandResult::failed("display_invalid_payload", "The scheduled display action is invalid.");
+        self.record(&result);
+        result
+    }
 }
 
 fn materially_changed(before: &[Capability], after: &[Capability]) -> bool {

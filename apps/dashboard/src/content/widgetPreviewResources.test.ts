@@ -298,16 +298,37 @@ describe("previewToDataDocument", () => {
     });
   });
 
-  it("projects structured previews into text records", () => {
+  it("projects structured previews with typed fields and values", () => {
     const preview = {
+      fieldSchema: [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        { key: "amount", label: "Amount", type: "number" },
+        { key: "count", label: "Count", type: "integer" },
+        { key: "completion", label: "Completion", type: "percent" },
+        { key: "day", label: "Day", type: "date" },
+        { key: "startsAt", label: "Starts at", type: "datetime" },
+        { key: "price", label: "Price", type: "currency", currency: "USD" },
+        { key: "active", label: "Active", type: "boolean" },
+        { key: "link", label: "Link", type: "url", role: "link" },
+        { key: "poster", label: "Poster", type: "asset" },
+      ],
       configuration: {
         data: {
           records: [
             {
               id: "n1",
               title: "Win",
-              subtitle: "League",
-              values: { league: "Premier" },
+              link: "https://example.test/win",
+              values: {
+                amount: "12.5",
+                count: "4",
+                completion: "0.75",
+                day: "2026-09-29",
+                startsAt: "2026-09-29T17:00:00Z",
+                price: "4.25",
+                active: "true",
+                poster: "asset-123",
+              },
             },
           ],
           cachedAt: "2026-09-28T15:00:00Z",
@@ -326,10 +347,27 @@ describe("previewToDataDocument", () => {
       },
     } as unknown as StructuredPreview;
     const document = previewToDataDocument(preview);
-    const values = document?.datasets[0]?.records?.[0]?.values;
+    const dataset = document?.datasets[0];
+    const values = dataset?.records?.[0]?.values;
+    expect(dataset?.fields).toEqual(preview.fieldSchema);
     expect(values?.["title"]).toEqual({ kind: "text", text: "Win" });
-    expect(values?.["subtitle"]).toEqual({ kind: "text", text: "League" });
-    expect(values?.["league"]).toEqual({ kind: "text", text: "Premier" });
+    expect(values?.["amount"]).toEqual({ kind: "number", number: 12.5 });
+    expect(values?.["count"]).toEqual({ kind: "integer", integer: 4 });
+    expect(values?.["completion"]).toEqual({ kind: "percent", number: 0.75 });
+    expect(values?.["day"]).toEqual({ kind: "date", date: "2026-09-29" });
+    expect(values?.["startsAt"]).toEqual({
+      kind: "datetime",
+      datetime: "2026-09-29T17:00:00Z",
+    });
+    expect(values?.["price"]).toEqual({ kind: "currency", number: 4.25 });
+    expect(values?.["active"]).toEqual({ kind: "boolean", boolean: true });
+    expect(values?.["link"]).toEqual({
+      kind: "url",
+      url: "https://example.test/win",
+    });
+    // "asset-123" is not a UUID, so strict asset coercion degrades it to
+    // text instead of projecting an asset value.
+    expect(values?.["poster"]).toEqual({ kind: "text", text: "asset-123" });
     expect(document?.datasets[0]).toMatchObject({
       cache: {
         cachedAt: "2026-09-28T15:00:00Z",
