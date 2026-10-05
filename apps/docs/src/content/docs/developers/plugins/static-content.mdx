@@ -30,6 +30,10 @@ When your Widget declares a `media_asset` field, Tilecast resolves each selected
 The Widget SDK exposes each Data Source dataset through `WidgetResources`. Dataset cache state, time zone, units and date-selection rules stay with that dataset in Data Document v1.
 Studio Widget previews preserve the field types of connected Structured Data Sources, so developers see the same numbers, dates, and links that playback receives. The [API contract](https://github.com/gbyo/tilecast/blob/main/docs/api.md) describes the preview's `fieldSchema`.
 
+The Player applies dataset date-selection rules before it gives resources to a Widget. It uses the corrected Player clock, the policy time zone and the organization's first day of the week. Compatibility Widgets use the same rules.
+
+When no records match, `last_known_good` selects all records from the latest cached date before the requested day. For a tomorrow preview, that can include today's records. The default empty policy keeps past records out. The native server preview and Player projection share the [date-selection conformance corpus](https://github.com/gbyo/tilecast/blob/main/packages/manifest-schema/date-selection-fixtures.json).
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:

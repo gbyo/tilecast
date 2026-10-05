@@ -1,0 +1,441 @@
+[
+  {
+    "id": "today",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-16"
+      },
+      {
+        "id": "r4",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r5",
+        "date": "2026-08-01"
+      }
+    ],
+    "expectedIds": ["r1", "r2"],
+    "hidden": false
+  },
+  {
+    "id": "tomorrow",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "tomorrow",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-16"
+      },
+      {
+        "id": "r4",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r5",
+        "date": "2026-08-01"
+      }
+    ],
+    "expectedIds": ["r3"],
+    "hidden": false
+  },
+  {
+    "id": "next-available",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "next_available",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r3",
+        "date": "2026-08-01"
+      }
+    ],
+    "expectedIds": ["r1", "r2"],
+    "hidden": false
+  },
+  {
+    "id": "week-monday",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "current_week",
+      "excludePast": false,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-16"
+      },
+      {
+        "id": "r4",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r5",
+        "date": "2026-08-01"
+      }
+    ],
+    "expectedIds": ["r0", "r1", "r2", "r3", "r4"],
+    "hidden": false
+  },
+  {
+    "id": "week-friday",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "friday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "current_week",
+      "excludePast": false,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-10"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-12"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-18"
+      }
+    ],
+    "expectedIds": ["r0", "r1", "r2"],
+    "hidden": false
+  },
+  {
+    "id": "inclusive-custom-range",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "custom_range",
+      "excludePast": true,
+      "noMatchBehavior": "empty",
+      "customStartDate": "2026-07-15",
+      "customEndDate": "2026-07-16"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-16"
+      },
+      {
+        "id": "r4",
+        "date": "2026-07-18"
+      },
+      {
+        "id": "r5",
+        "date": "2026-08-01"
+      }
+    ],
+    "expectedIds": ["r1", "r2", "r3"],
+    "hidden": false
+  },
+  {
+    "id": "empty-does-not-reuse-past",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      }
+    ],
+    "expectedIds": [],
+    "hidden": false
+  },
+  {
+    "id": "hide-no-match",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "hide"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-14"
+      }
+    ],
+    "expectedIds": [],
+    "hidden": true
+  },
+  {
+    "id": "latest-past-date",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "last_known_good"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-01"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-14"
+      },
+      {
+        "id": "r3",
+        "date": "2026-07-20"
+      }
+    ],
+    "expectedIds": ["r1", "r2"],
+    "hidden": false
+  },
+  {
+    "id": "next-date-fallback",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "next_available"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-01"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-20"
+      },
+      {
+        "id": "r2",
+        "date": "2026-07-20"
+      }
+    ],
+    "expectedIds": ["r1", "r2"],
+    "hidden": false
+  },
+  {
+    "id": "utc-boundary-in-new-york",
+    "at": "2026-07-16T00:30:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-07-15"
+      },
+      {
+        "id": "r1",
+        "date": "2026-07-16"
+      }
+    ],
+    "expectedIds": ["r0"],
+    "hidden": false
+  },
+  {
+    "id": "spring-dst-tomorrow",
+    "at": "2026-03-08T06:30:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "tomorrow",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-03-08"
+      },
+      {
+        "id": "r1",
+        "date": "2026-03-09"
+      },
+      {
+        "id": "r2",
+        "date": "2026-03-10"
+      }
+    ],
+    "expectedIds": ["r1"],
+    "hidden": false
+  },
+  {
+    "id": "fall-dst-repeated-hour",
+    "at": "2026-11-01T06:30:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "today",
+      "excludePast": true,
+      "noMatchBehavior": "empty"
+    },
+    "records": [
+      {
+        "id": "r0",
+        "date": "2026-10-31"
+      },
+      {
+        "id": "r1",
+        "date": "2026-11-01"
+      },
+      {
+        "id": "r2",
+        "date": "2026-11-02"
+      }
+    ],
+    "expectedIds": ["r1"],
+    "hidden": false
+  },
+  {
+    "id": "tomorrow-last-known-includes-today",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "tomorrow",
+      "excludePast": true,
+      "noMatchBehavior": "last_known_good"
+    },
+    "records": [{ "id": "today", "date": "2026-07-15" }],
+    "expectedIds": ["today"],
+    "hidden": false
+  },
+  {
+    "id": "tomorrow-next-date-does-not-return-today",
+    "at": "2026-07-15T16:00:00Z",
+    "firstDayOfWeek": "monday",
+    "selection": {
+      "field": "date",
+      "timezone": "America/New_York",
+      "mode": "tomorrow",
+      "excludePast": true,
+      "noMatchBehavior": "next_available"
+    },
+    "records": [
+      { "id": "today", "date": "2026-07-15" },
+      { "id": "later", "date": "2026-07-18" }
+    ],
+    "expectedIds": ["later"],
+    "hidden": false
+  }
+]

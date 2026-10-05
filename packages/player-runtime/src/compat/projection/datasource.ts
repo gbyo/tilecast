@@ -271,7 +271,7 @@ export function normalizeSource(
       applySelection(
         base,
         dataset.dateSelection,
-        dataset.timezone ?? "UTC",
+        dataset.dateSelection?.timezone || dataset.timezone || "UTC",
         at,
         regionalFormat?.firstDayOfWeek,
       );
