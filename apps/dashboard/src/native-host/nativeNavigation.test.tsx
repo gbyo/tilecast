@@ -536,6 +536,8 @@ describe("Studio hosted by the native app", () => {
     ["/layouts/abc123", "layouts"],
     ["/screens/archive", null],
     ["/account", null],
+    ["/account/preferences", null],
+    ["/account/security", null],
   ])("resolves %s to the active destination %s", async (path, expected) => {
     const host = installNativeHost();
     renderStudio(path);
