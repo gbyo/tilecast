@@ -34,6 +34,7 @@ it.each(["fullscreen", "layout"])(
         websiteFailed() {},
         websiteRecovered() {},
         fallbackShown() {},
+        widgetEmpty() {},
       },
     };
     const component: RuntimeWidgetComponentPayload = {
@@ -43,6 +44,7 @@ it.each(["fullscreen", "layout"])(
         config: {},
         dataSources: [],
         media: [],
+        empty: "render",
       },
       documents: {},
       media: {},
