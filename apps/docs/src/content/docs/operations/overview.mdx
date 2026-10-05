@@ -7,13 +7,29 @@ import Screenshot from "../../../components/Screenshot.astro";
 import screenshot from "../../../assets/screenshots/studio-overview.png";
 import darkScreenshot from "../../../assets/screenshots/studio-overview-dark.png";
 
-**Overview** is the first page in Studio. It answers five questions in order: is the fleet up, what is wrong, what is on air, what happens next, and did playback go as expected while you were away. Each part links to the page with the records behind it.
+**Overview** is the first page in Studio. It starts with one plain-language sentence about your fleet right now, such as "Most of your fleet is online, but 4 screens need attention." Below it, the detailed cards answer five questions in order: is the fleet up, what is wrong, what is on air, what happens next, and did playback go as expected while you were away. Each card links to the page with the records behind it.
 
 <Screenshot
   src={screenshot}
   darkSrc={darkScreenshot}
   alt="Studio Overview with Needs attention, On air now, Coming up, and fleet status sections."
 />
+
+## The summary sentence
+
+The sentence is built from the same figures as the **Fleet status** card, so it never disagrees with them. It says how much of the fleet is online and how many screens need attention. It doesn't mention schedules.
+
+| It says                                      | When                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------- |
+| **All 10 screens are online.**               | Every screen is connected and nothing needs attention.                       |
+| **Most of your fleet is online…**            | At least two thirds of the screens are online.                               |
+| **6 of 10 screens are online…**              | Between a third and two thirds are online.                                   |
+| **Only 3 of 10 screens are online…**         | Fewer than a third are online.                                               |
+| **No screens are online…**                   | None is online.                                                              |
+| **…reporting healthy playback**              | Every screen is online and the Player confirms all of them are playing.      |
+| **…but none is reporting healthy playback.** | Every screen is online, but the Players report problems and none is playing. |
+
+Playback is added only when it changes the meaning, that is, when every screen is online and nothing else needs attention. If playback can't be measured, the sentence leaves it out. If the incident list is still loading, the sentence doesn't say whether anything needs attention. If it can't be loaded, the sentence says "at least" and counts only the problems Studio can already see. A fleet with no screens shows no sentence, only the pairing prompt.
 
 ## What each part shows
 
