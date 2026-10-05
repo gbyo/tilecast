@@ -1230,11 +1230,7 @@ function ArchiveScreenDialog({
   const queryClient = useQueryClient();
   const archive = useMutation({
     mutationFn: () =>
-      api.revokeScreen(
-        screen.id,
-        t("detail.archiveReason"),
-        csrfToken,
-      ),
+      api.revokeScreen(screen.id, t("detail.archiveReason"), csrfToken),
     onSuccess: async () => {
       toast.add({
         title: t("detail.archiveSuccess", { name: screen.name }),
@@ -1265,7 +1261,9 @@ function ArchiveScreenDialog({
         {archive.error && (
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
-            <AlertDescription>{apiErrorMessage(archive.error)}</AlertDescription>
+            <AlertDescription>
+              {apiErrorMessage(archive.error)}
+            </AlertDescription>
           </Alert>
         )}
         <AlertDialogFooter>
@@ -1275,7 +1273,10 @@ function ArchiveScreenDialog({
           <AlertDialogAction
             variant="destructive"
             disabled={archive.isPending}
-            onClick={() => archive.mutate()}
+            onClick={(event) => {
+              event.preventDefault();
+              archive.mutate();
+            }}
           >
             {t("detail.archiveAction")}
           </AlertDialogAction>
