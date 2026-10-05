@@ -11,8 +11,10 @@
     "doctor:changed": "react-doctor --yes --no-telemetry --scope changed .",
     "lint": "eslint . --max-warnings=0 --cache --cache-strategy content --cache-location .cache/eslint && eslint --max-warnings=0 ../../plugins",
     "test": "vitest run",
+    "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "i18n:scan": "node scripts/i18n-scan.mjs"
+    "i18n:scan": "node scripts/i18n-scan.mjs",
+    "architecture:scan": "node scripts/i18n-scan.mjs --architecture"
   },
   "dependencies": {
     "@tilecast/presentation-model": "*",
@@ -24,6 +26,7 @@
     "@tanstack/react-table": "^9.2.4",
     "@tilecast/api-schema": "*",
     "@tilecast/design-tokens": "*",
+    "@tilecast/plugin-sdk": "*",
     "@tilecast/widget-kit": "*",
     "@tilecast/widget-sdk": "*",
     "class-variance-authority": "^0.7.1",

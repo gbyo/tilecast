@@ -2,6 +2,12 @@ name: validate-linux
 
 on:
   workflow_call:
+    inputs:
+      release_contract:
+        description: Run the packaged Linux Player release contract.
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -9,7 +15,7 @@ permissions:
 
 jobs:
   validate:
-    name: Linux Player release contract
+    name: Linux Player fast validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -17,11 +23,26 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # The selected workspace pulls its Player Runtime dependency from the root lockfile.
+      - run: npm ci --workspace @gibsonmb71/tilecast-player-linux
       # The Linux Player imports the runtime's compiled Node entry points.
       - run: npm run build:node --workspace @tilecast/player-runtime
       - run: npm run player:linux:test
       - run: npm run player:linux:build
+
+  release_contract:
+    name: Linux Player release contract
+    if: ${{ inputs.release_contract }}
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspace @gibsonmb71/tilecast-player-linux
+      - run: npm run build:node --workspace @tilecast/player-runtime
       - name: Create test-only release signing keys
         run: |
           set -euo pipefail

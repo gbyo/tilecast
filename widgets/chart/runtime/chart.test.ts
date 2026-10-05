@@ -52,7 +52,15 @@ function recordsDocument(
   return {
     [SOURCE]: {
       schemaVersion: 1,
-      datasets: [{ id: "records", kind: "records", fields, records }],
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields,
+          records,
+        },
+      ],
     },
   };
 }
@@ -271,6 +279,7 @@ describe("Chart data resolution", () => {
               {
                 id: "series",
                 kind: "time_series",
+                cache: { usingCachedData: false, unavailable: false },
                 points: [
                   {
                     at: "2026-09-26T09:00:00Z",
@@ -341,6 +350,7 @@ describe("Chart data resolution", () => {
                 {
                   id: "object",
                   kind: "object",
+                  cache: { usingCachedData: false, unavailable: false },
                   value: { kind: "object", object: {} },
                 },
               ],
@@ -359,10 +369,17 @@ describe("Chart data resolution", () => {
           [SOURCE]: {
             schemaVersion: 1,
             datasets: [
-              { id: "records", kind: "records", fields, records },
+              {
+                id: "records",
+                kind: "records",
+                cache: { usingCachedData: false, unavailable: false },
+                fields,
+                records,
+              },
               {
                 id: "series",
                 kind: "time_series",
+                cache: { usingCachedData: false, unavailable: false },
                 points: [
                   {
                     at: "2026-09-26T09:00:00Z",
