@@ -17,7 +17,7 @@
         android:allowBackup="false"
         android:banner="@drawable/tilecast_banner"
         android:hardwareAccelerated="true"
-        android:icon="@drawable/tilecast_icon"
+        android:icon="@mipmap/ic_launcher"
         android:label="Tilecast Player"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tilecast"
