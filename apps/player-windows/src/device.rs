@@ -78,10 +78,14 @@ mod tests {
     #[test]
     fn metadata_is_server_shaped_on_any_platform() {
         let player = PlayerId::from_uuid(uuid::Uuid::new_v4());
-        let facts = metadata(player, None);
+        // An explicit size wins everywhere; a real Windows session reports
+        // its own monitor when none is given, so the fallback is not asserted.
+        let facts = metadata(player, Some(HEADLESS_DISPLAY));
         assert_eq!(facts.platform, "windows");
         assert_eq!(facts.screen_width, HEADLESS_DISPLAY.0);
         assert_eq!(facts.screen_height, HEADLESS_DISPLAY.1);
+        let (width, height) = display_size(None);
+        assert!(width > 0 && height > 0);
         assert!(!facts.manufacturer.is_empty());
         assert!(!facts.model.is_empty());
         assert!(!facts.android_version.is_empty());

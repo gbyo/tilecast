@@ -59,7 +59,7 @@ impl SecureOpener for WindowsSecureOpener {
         };
         // On Windows `is_symlink` reports reparse points: symlinks and
         // junctions alike.
-        if metadata.file_type().is_symlink() {
+        if metadata.file_type().is_symlink() || !metadata.file_type().is_file() {
             return Ok(RegularOpen::Refused);
         }
         let file = open_without_following(path)?;
