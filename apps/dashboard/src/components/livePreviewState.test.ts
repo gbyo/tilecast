@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Screen } from "../api/types";
 import type { WireScreenPreview as ScreenPreview } from "../api/domains/screens";
-import { livePreviewState, previewAge } from "./livePreviewState";
+import {
+  livePreviewState,
+  previewAge,
+  previewRailPhase,
+  previewRailState,
+} from "./livePreviewState";
 
 const screen = { status: "online" } as Screen;
 const preview = {
@@ -81,5 +86,40 @@ describe("previewAge", () => {
       tone: "fresh",
     });
     expect(previewAge("not-a-date")).toBeNull();
+  });
+});
+
+describe("previewRailState", () => {
+  const capturedAt = "2026-07-13T20:00:00Z";
+  const at = (seconds: number) => Date.parse(capturedAt) + seconds * 1_000;
+
+  it("follows the shared previewAge thresholds for stale previews", () => {
+    expect(previewRailState("stale", capturedAt, at(45))).toBe("none");
+    expect(previewRailState("stale", capturedAt, at(46))).toBe("aging");
+    expect(previewRailState("stale", capturedAt, at(120))).toBe("aging");
+    expect(previewRailState("stale", capturedAt, at(121))).toBe("overdue");
+  });
+
+  it("treats a capture error as an immediate failure", () => {
+    expect(previewRailState("capture-error", capturedAt, at(5))).toBe("error");
+    expect(previewRailState("capture-error", undefined, at(5))).toBe("error");
+  });
+
+  it("stays quiet for healthy and separately explained states", () => {
+    for (const state of ["live", "loading", "offline", "unavailable"] as const)
+      expect(previewRailState(state, capturedAt, at(600))).toBe("none");
+    expect(previewRailState("stale", undefined, at(600))).toBe("none");
+  });
+});
+
+describe("previewRailPhase", () => {
+  it("is deterministic, within one cycle, and varies between screens", () => {
+    expect(previewRailPhase("screen-1")).toBe(previewRailPhase("screen-1"));
+    const phases = ["a", "b", "c", "d", "e"].map(previewRailPhase);
+    for (const phase of phases) {
+      expect(phase).toBeGreaterThanOrEqual(0);
+      expect(phase).toBeLessThan(1);
+    }
+    expect(new Set(phases).size).toBe(phases.length);
   });
 });
