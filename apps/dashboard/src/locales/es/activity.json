@@ -574,10 +574,7 @@
       "playingLoading": "Cargando la reproducción confirmada",
       "attentionLoading": "Cargando las pantallas que requieren atención",
       "loading": "Cargando el estado de la flota",
-      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales.",
-      "onlineDetail": "Conectadas ahora",
-      "playingDetail": "Confirmado por el reproductor",
-      "attentionDetail": "Requiere revisión"
+      "scopeNote": "En línea es la conexión en vivo. Reproduciendo lo confirma el reproductor, sin fallos actuales."
     },
     "recap": {
       "single": {
