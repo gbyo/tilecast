@@ -32,7 +32,7 @@ const fields = [
   { key: "title", label: "Title", type: "text" },
   { key: "owner", label: "Owner", type: "text" },
   { key: "detail", label: "Detail", type: "text" },
-  { key: "cover", label: "Cover", type: "text" },
+  { key: "cover", label: "Cover", type: "asset" },
   { key: "status", label: "Status", type: "text" },
   { key: "due", label: "Due", type: "date" },
 ];
@@ -44,7 +44,7 @@ const records = [
       title: { kind: "text", text: "Lobby screen refresh" },
       owner: { kind: "text", text: "Content team" },
       detail: { kind: "text", text: "Replace the entrance display." },
-      cover: { kind: "assetId", assetId: "cover-a" },
+      cover: { kind: "asset", assetId: "cover-a" },
       status: { kind: "text", text: "In progress" },
       due: { kind: "date", date: "2026-10-01" },
     },
@@ -75,7 +75,7 @@ function documents(): Record<string, WidgetDataDocument> {
   };
 }
 
-const media = { "cover-a/": "data:image/svg+xml,%3Csvg/%3E" };
+const media = { "cover-a/variant-a": "data:image/svg+xml,%3Csvg/%3E" };
 
 async function render(
   config: Partial<CardsConfig>,

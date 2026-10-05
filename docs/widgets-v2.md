@@ -167,6 +167,7 @@ interface WidgetResources {
   dataDocument(dataSourceId: string): WidgetDataDocument | null;
   dataset(dataSourceId: string, datasetId: string): WidgetDataset | null;
   media(assetId: string, variantId: string): string | null; // host-authorized URI
+  mediaForAsset(assetId: string): string | null; // only when one variant is declared
   attribution(dataSourceId: string): string | null;
 }
 ```
@@ -229,6 +230,8 @@ A lap of empty Widgets pauses for 30 seconds before the next attempt. A shown Wi
 - `config` is a bounded JSON object: at most 8 KiB encoded, depth 6, 64 keys for each object, 200 items for each array and 2,000 characters for each string.
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
+- A `data_source_field` that declares the `asset` type may add exact media pairs from its selected, granted Data Source. The Server requires the selected Data Document field to have type `asset`, reads no more than the configured record limit, and resolves only active library images with a Player-compatible variant. The component grant contains at most 16 media pairs. Invalid, unavailable, private, and over-limit values receive no grant.
+- `media(assetId, variantId)` requires an exact pair. `mediaForAsset(assetId)` returns a URI only when the component declares exactly one variant for that asset. It returns `null` for an ungranted or ambiguous asset.
 
 During manifest projection, the Server resolves every selected `media_asset` field in the Widget schema. The Server writes the selected variant beside the asset field. If the field key ends in `AssetId`, the Server replaces that suffix with `VariantId`; otherwise, the Server appends `VariantId`. A field named `logoAssetId` therefore receives `logoVariantId`, and a field named `brandMark` receives `brandMarkVariantId`. For fields inside a `repeating_group`, the Server writes the variant key into the matching item. The component media grant contains each resolved asset and variant pair. An empty optional field adds no variant key or grant. Clients cannot submit derived variant keys.
 

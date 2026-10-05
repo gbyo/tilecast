@@ -594,13 +594,35 @@ describe("resources", () => {
     expect(resources.dataDocument("secret")).toBeNull();
     expect(resources.dataset("secret", "all")).toBeNull();
     expect(resources.media("a1", "v1")).toBe("tcmedia://variant/a1/v1");
+    expect(resources.mediaForAsset("a1")).toBe("tcmedia://variant/a1/v1");
     expect(resources.media("a2", "v2")).toBeNull();
     expect(Object.keys(resources).sort()).toEqual([
       "attribution",
       "dataDocument",
       "dataset",
       "media",
+      "mediaForAsset",
     ]);
+  });
+
+  it("resolves an asset only when its grant names one exact variant", () => {
+    const oneVariant = createWidgetResources(
+      { media },
+      { media: [{ assetId: "a1", variantId: "v1" }] },
+    );
+    expect(oneVariant.mediaForAsset("a1")).toBe("tcmedia://variant/a1/v1");
+
+    const ambiguous = createWidgetResources(
+      { media },
+      {
+        media: [
+          { assetId: "a1", variantId: "v1" },
+          { assetId: "a1", variantId: "v2" },
+        ],
+      },
+    );
+    expect(ambiguous.mediaForAsset("a1")).toBeNull();
+    expect(ambiguous.media("a1", "v1")).toBe("tcmedia://variant/a1/v1");
   });
 
   it("grants nothing by default", () => {

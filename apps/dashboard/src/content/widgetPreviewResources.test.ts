@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { WidgetDataDocument, WidgetRecord } from "@tilecast/widget-sdk";
 import { createWidgetResources } from "@tilecast/widget-sdk";
-import { previewToDataDocument } from "./widgetPreviewResources";
+import {
+  previewDataSourceMedia,
+  previewToDataDocument,
+} from "./widgetPreviewResources";
 import valueFixtures from "../../../../packages/manifest-schema/data-document-value-fixtures.json";
 import type {
   CalendarPreview,
@@ -403,5 +407,122 @@ describe("previewToDataDocument", () => {
     // The document exists but the grant does not cover it.
     expect(narrowed.dataset("connected", "records")).toBeNull();
     expect(narrowed.dataDocument("connected")).toBeNull();
+  });
+});
+
+describe("previewDataSourceMedia", () => {
+  it("grants only typed assets in the selected field and record bound", () => {
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [
+            { key: "cover", label: "Cover", type: "asset" },
+            { key: "other", label: "Other", type: "asset" },
+          ],
+          records: [
+            {
+              id: "one",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "11111111-1111-1111-1111-111111111111",
+                },
+                other: {
+                  kind: "asset",
+                  assetId: "22222222-2222-4222-8222-222222222222",
+                },
+              },
+            },
+            {
+              id: "two",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "33333333-3333-4333-8333-333333333333",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "cover", maximumItems: 1 },
+      ]),
+    ).toEqual([
+      {
+        assetId: "11111111-1111-1111-1111-111111111111",
+        variantId: "preview",
+      },
+    ]);
+  });
+
+  it("does not grant assets from an untyped field", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "text" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("stops after the component media grant limit", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "asset" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toHaveLength(16);
   });
 });

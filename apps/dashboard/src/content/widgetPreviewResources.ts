@@ -18,6 +18,7 @@ import {
   type WidgetDateSelection,
   type WidgetDataset,
   type WidgetField,
+  type WidgetMediaRef,
   type WidgetRecord,
   type WidgetResources,
   type WidgetValue,
@@ -30,6 +31,7 @@ import type {
   TypedDatasetPayload,
   TypedRecordData,
 } from "../api/types";
+import type { WidgetPreviewAssetField } from "./widgetPreviewSources";
 
 export type SavedSourcePreview =
   StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload;
@@ -388,6 +390,56 @@ export function previewToDataDocument(
   };
 }
 
+const PREVIEW_MEDIA_VARIANT = "preview";
+const MAX_PREVIEW_MEDIA = 16;
+
+/**
+ * Resolve the bounded media references Cards can consume from declared,
+ * typed asset fields. Studio uses a preview alias because it loads thumbnails
+ * from the authenticated preview endpoint instead of Player manifest variants.
+ */
+export function previewDataSourceMedia(
+  documents: ReadonlyMap<string, WidgetDataDocument>,
+  fields: readonly WidgetPreviewAssetField[],
+  existing: readonly WidgetMediaRef[] = [],
+): WidgetMediaRef[] {
+  const media = existing.slice(0, MAX_PREVIEW_MEDIA);
+  const assets = new Set(existing.map((ref) => ref.assetId));
+  for (const field of fields) {
+    const dataset = documents
+      .get(field.dataSourceId)
+      ?.datasets.find((candidate) => candidate.kind === "records");
+    if (
+      !dataset?.fields?.some(
+        (candidate) =>
+          candidate.key === field.fieldKey && candidate.type === "asset",
+      )
+    ) {
+      continue;
+    }
+    const recordLimit = Number.isInteger(field.maximumItems)
+      ? Math.max(0, Math.min(100, field.maximumItems))
+      : 6;
+    for (const record of (dataset.records ?? []).slice(0, recordLimit)) {
+      const value = record.values[field.fieldKey];
+      const assetId = value?.assetId?.toLowerCase();
+      if (
+        value?.kind !== "asset" ||
+        !assetId ||
+        !ASSET_ID.test(assetId) ||
+        assetId === "00000000-0000-0000-0000-000000000000" ||
+        assets.has(assetId)
+      ) {
+        continue;
+      }
+      if (media.length >= MAX_PREVIEW_MEDIA) return media;
+      assets.add(assetId);
+      media.push({ assetId, variantId: PREVIEW_MEDIA_VARIANT });
+    }
+  }
+  return media;
+}
+
 export interface PreviewResources {
   /** Resources narrowed to the component's declared Data Sources. */
   readonly resources: WidgetResources;
@@ -421,6 +473,7 @@ export function useWidgetPreviewResources(
    * live instant's documents.
    */
   previewDate?: string,
+  dataSourceAssetFields: readonly WidgetPreviewAssetField[] = [],
 ): PreviewResources {
   // Callers can build equivalent grant arrays on every render. TanStack's
   // combine memoization keeps resources stable until inputs or query results
@@ -429,6 +482,7 @@ export function useWidgetPreviewResources(
     dataSourceIds,
     declaredDataSources,
     declaredMedia,
+    dataSourceAssetFields,
   });
   const combine = useCallback(
     (
@@ -436,12 +490,16 @@ export function useWidgetPreviewResources(
         Awaited<ReturnType<typeof api.previewSavedDataSource>>
       >[],
     ): PreviewResources => {
-      const { dataSourceIds, declaredDataSources, declaredMedia } = JSON.parse(
-        inputKey,
-      ) as {
+      const {
+        dataSourceIds,
+        declaredDataSources,
+        declaredMedia,
+        dataSourceAssetFields,
+      } = JSON.parse(inputKey) as {
         dataSourceIds: string[];
         declaredDataSources: string[];
         declaredMedia: { assetId: string; variantId: string }[];
+        dataSourceAssetFields: WidgetPreviewAssetField[];
       };
       const documents = new Map<string, WidgetDataDocument>();
       const failedIds: string[] = [];
@@ -458,8 +516,15 @@ export function useWidgetPreviewResources(
         if (document) documents.set(id, document);
         else if (granted.has(id)) failedIds.push(id);
       });
+      const grantedMedia = previewDataSourceMedia(
+        documents,
+        dataSourceAssetFields.filter((field) =>
+          granted.has(field.dataSourceId),
+        ),
+        declaredMedia,
+      );
       const media = new Map(
-        declaredMedia.map((ref) => [
+        grantedMedia.map((ref) => [
           `${ref.assetId}/${ref.variantId}`,
           api.assetPreviewUrl(ref.assetId),
         ]),
@@ -467,7 +532,7 @@ export function useWidgetPreviewResources(
       return {
         resources: createWidgetResources(
           { documents, media },
-          { dataSources: declaredDataSources, media: declaredMedia },
+          { dataSources: declaredDataSources, media: grantedMedia },
         ),
         loading: previews.some((preview) => preview.isLoading),
         failedIds,
