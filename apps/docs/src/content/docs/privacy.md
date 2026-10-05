@@ -10,11 +10,10 @@ This page covers two things: the Tilecast documentation site at tilecast.org, an
 
 tilecast.org is a static site hosted on GitHub Pages. It doesn't have accounts, forms, comments, or advertising.
 
-- **No analytics.** The site doesn't load Google Analytics or any other tracking or measurement script, and the project doesn't count visitors.
-- **No cookies.** The site doesn't set cookies.
-- **Stored in your browser.** If you change the theme with the picker in the page header, your browser keeps that choice in local storage so the next page loads in the same theme. It stays on your device and is never sent anywhere.
+- **Website analytics.** tilecast.org uses [Microsoft Clarity](https://clarity.microsoft.com/) to understand how people use the site, including page visits, clicks or taps, scrolling, device and browser information, and session replays. Tilecast uses this information to improve the website and documentation, not for advertising.
+- **Cookies and browser storage.** Microsoft Clarity may use cookies and similar browser technologies to measure visits and sessions. Separately, if you change the theme with the picker in the page header, your browser keeps that choice in local storage so the next page loads in the same theme.
 - **Search runs in your browser.** The search index is downloaded with the page assets, and queries are matched on your device. They aren't sent to a server.
-- **No third-party assets.** Pages don't load fonts, scripts, or images from other companies.
+- **Third-party service.** The site loads the Clarity script from Microsoft and sends analytics data to Microsoft. Other site assets such as fonts and documentation images are served with the site rather than loaded from third-party asset hosts. Microsoft describes its data practices in the [Microsoft Privacy Statement](https://privacy.microsoft.com/en-us/privacystatement).
 
 GitHub serves the site, so GitHub receives your IP address and browser details when you load a page, and it may keep server logs. The Tilecast project doesn't get access to those logs. GitHub describes its own practices in the [GitHub privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 
