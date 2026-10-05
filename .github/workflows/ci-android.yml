@@ -53,7 +53,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
@@ -126,7 +126,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
@@ -255,7 +255,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
