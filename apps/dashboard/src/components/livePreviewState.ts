@@ -68,6 +68,39 @@ export function previewAge(
   return { label, tone };
 }
 
+/**
+ * What the Screens grid shows at the seam between a preview and its details.
+ * `none` covers every state that is healthy or that another indicator already
+ * explains (loading, offline, protected/unavailable), so those stay quiet.
+ */
+export type PreviewRailState = "none" | "aging" | "overdue" | "error";
+
+export function previewRailState(
+  state: LivePreviewState,
+  capturedAt: string | null | undefined,
+  now = Date.now(),
+): PreviewRailState {
+  if (state === "capture-error") return "error";
+  if (state !== "stale" || !capturedAt) return "none";
+  const tone = previewAge(capturedAt, now)?.tone;
+  if (tone === "aging") return "aging";
+  if (tone === "old") return "overdue";
+  return "none";
+}
+
+/**
+ * Stable 0-1 fraction derived from the screen ID (FNV-1a). Cards that go stale
+ * together use it to start their sweep at different points of the cycle.
+ */
+export function previewRailPhase(screenId: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < screenId.length; index += 1) {
+    hash ^= screenId.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0) / 0x1_0000_0000;
+}
+
 export function previewUnavailableMessage(
   failureStatus?: string,
   t?: ScreensT,

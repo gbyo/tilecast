@@ -4,3 +4,102 @@
   gap: var(--tc-space-6);
   width: min(1180px, 100%);
 }
+
+/*
+ * Preview freshness rail on Screens grid cards. Fresh previews stay quiet:
+ * aging shows a subtle amber track with one eased sweep, and an overdue or
+ * failed capture resolves into a still destructive line. Only transform and
+ * opacity animate, and only while a card is in the aging state.
+ */
+.screen-preview-rail {
+  --rail-sweep-duration: 1.2s;
+  --rail-sweep-ease: cubic-bezier(0.65, 0, 0.35, 1);
+  --rail-track-amber: 34%;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: transparent;
+  transition: background-color var(--tc-motion-standard) var(--tc-ease-standard);
+}
+
+.screen-preview-rail[data-state="aging"] {
+  background-color: color-mix(
+    in oklab,
+    oklch(0.769 0.188 70.08) var(--rail-track-amber),
+    transparent
+  );
+}
+
+.screen-preview-rail[data-state="overdue"],
+.screen-preview-rail[data-state="error"] {
+  background-color: var(--destructive);
+}
+
+.screen-preview-rail__sweep {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 32%;
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    oklch(0.769 0.188 70.08) 35%,
+    oklch(0.82 0.18 80) 65%,
+    transparent
+  );
+  opacity: 0;
+  transform: translateX(-100%);
+  transition: opacity var(--tc-motion-standard) var(--tc-ease-standard);
+}
+
+/* The sweep stays mounted but paused while it fades out, so it fades where it
+   was instead of jumping back to the start. A healthy card runs no animation. */
+.screen-preview-rail:not([data-state="none"]) .screen-preview-rail__sweep {
+  animation: screen-preview-rail-sweep var(--rail-sweep-duration)
+    var(--rail-sweep-ease) infinite;
+  animation-delay: calc(var(--rail-phase, 0) * var(--rail-sweep-duration) * -1);
+  animation-play-state: paused;
+}
+
+.screen-preview-rail[data-state="aging"] .screen-preview-rail__sweep {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+/* 32% wide, so 316% of its own width carries it across the 100% track. */
+@keyframes screen-preview-rail-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(316%);
+  }
+}
+
+/* Reduced motion keeps the amber and red lines, but stationary. The global
+   0.01ms duration override would leave an infinite animation flickering, so
+   the sweep has no animation at all. */
+@media (prefers-reduced-motion: reduce) {
+  .screen-preview-rail {
+    --rail-track-amber: 80%;
+  }
+
+  .screen-preview-rail[data-state] .screen-preview-rail__sweep {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+html[data-reduced-motion="true"] .screen-preview-rail {
+  --rail-track-amber: 80%;
+}
+
+html[data-reduced-motion="true"]
+  .screen-preview-rail[data-state]
+  .screen-preview-rail__sweep {
+  animation: none;
+  opacity: 0;
+}
