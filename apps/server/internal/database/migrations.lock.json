@@ -670,5 +670,11 @@
     "file": "00113_screen_map_positions.sql",
     "owner": "core",
     "sha256": "d4ec9b5b30558acee97f71b86420c82f3f4a28d14201a74d323072105909c9e5"
+  },
+  {
+    "version": 114,
+    "file": "00114_windows_player_releases.sql",
+    "owner": "core",
+    "sha256": "77b774a7e400cb8833606e66aa6ae9a378d28487621c3558a4b411b98296d1a2"
   }
 ]

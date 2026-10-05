@@ -13,7 +13,6 @@ bytes.workspace = true
 player-types.workspace = true
 player-state.workspace = true
 futures-util.workspace = true
-rustix.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["fs", "io-util", "sync", "rt", "time"] }
 tracing.workspace = true

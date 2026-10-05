@@ -112,8 +112,9 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 		files[name] = path
 	}
 	// The uploaded files select the family: a Tilecast Edge envelope and
-	// archive, an AppImage (the Electron Linux Player, with its Linux-suffixed
-	// manifest), or otherwise the Android APK.
+	// archive, a Windows Player envelope and MSIX package, an AppImage (the
+	// Electron Linux Player, with its Linux-suffixed manifest), or otherwise
+	// the Android APK.
 	artifactName, manifestName, signatureName := "tilecast-player.apk", "tilecast-player-update.json", "tilecast-player-update.json.sig"
 	if files[updates.LinuxArtifactName] != "" {
 		artifactName, manifestName, signatureName = updates.LinuxArtifactName, "tilecast-player-update-linux.json", "tilecast-player-update-linux.json.sig"
@@ -127,6 +128,18 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 		}
 		if artifactName == "" {
 			writeError(w, http.StatusUnprocessableEntity, "player_release_file_missing", "Missing required release file: the Tilecast Edge archive.")
+			return
+		}
+	}
+	if files[updates.WindowsManifestName] != "" {
+		manifestName, signatureName, artifactName = updates.WindowsManifestName, updates.WindowsManifestName+".sig", ""
+		for name := range files {
+			if windowsArchiveName.MatchString(name) {
+				artifactName = name
+			}
+		}
+		if artifactName == "" {
+			writeError(w, http.StatusUnprocessableEntity, "player_release_file_missing", "Missing required release file: the Windows Player package.")
 			return
 		}
 	}
@@ -165,15 +178,26 @@ func (s *server) uploadPlayerRelease(w http.ResponseWriter, r *http.Request) {
 // (updates.EdgeArtifactName); the signed envelope must name it exactly.
 var edgeArchiveName = regexp.MustCompile(`^tilecast-edge-[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(-[0-9A-Za-z.]+)?-(x86_64|aarch64)\.tar\.zst$`)
 
+// windowsArchiveName matches the MSIX package of a Windows Player release
+// (updates.WindowsArtifactName); the signed envelope must name it exactly.
+var windowsArchiveName = regexp.MustCompile(`^tilecast-windows-[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(-[0-9A-Za-z.]+)?-(x86_64|aarch64)\.msix$`)
+
 func releaseUploadPartLimit(name, contentType string, maximum int64) (int64, bool) {
 	mediaType := strings.ToLower(strings.TrimSpace(strings.Split(contentType, ";")[0]))
 	if edgeArchiveName.MatchString(name) {
 		return maximum, mediaType == "application/zstd" || mediaType == "application/octet-stream"
 	}
+	if windowsArchiveName.MatchString(name) {
+		return maximum, mediaType == "application/msix" || mediaType == "application/octet-stream"
+	}
 	switch name {
 	case updates.EdgeManifestName:
 		return 16 << 10, mediaType == "application/json" || mediaType == "application/octet-stream"
 	case updates.EdgeManifestName + ".sig":
+		return 4 << 10, mediaType == "application/octet-stream" || mediaType == "text/plain"
+	case updates.WindowsManifestName:
+		return 16 << 10, mediaType == "application/json" || mediaType == "application/octet-stream"
+	case updates.WindowsManifestName + ".sig":
 		return 4 << 10, mediaType == "application/octet-stream" || mediaType == "text/plain"
 	case "tilecast-player.apk":
 		return maximum, mediaType == "application/vnd.android.package-archive" || mediaType == "application/octet-stream"
@@ -420,11 +444,12 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	// A release reaches only screens of its family. A player that reports its
-	// family (Tilecast Edge always does) is taken at its word; for older
-	// players the platform decides: "linux" is the Electron Linux Player, and
-	// every other platform string ("fire-tv", "android-tv", ...) is Android,
-	// so future Android form factors stay eligible. An Electron release can
-	// therefore never reach an Edge screen, nor an Edge release an Electron one.
+	// family (Tilecast Edge and the Windows Player always do) is taken at its
+	// word; for older players the platform decides: "linux" is the Electron
+	// Linux Player, "windows" is the Windows Player, and every other platform
+	// string ("fire-tv", "android-tv", ...) is Android, so future Android form
+	// factors stay eligible. A release can therefore never reach a screen of
+	// another family.
 	rows, err := tx.Query(r.Context(), `SELECT DISTINCT s.id,ps.player_version_code,ps.android_sdk,COALESCE(ps.install_permission_status,'unknown'),COALESCE(s.last_heartbeat_at>now()-interval '15 minutes',false),COALESCE(ps.player_architecture,'') FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id WHERE s.deleted_at IS NULL AND `+screenFamilySQL+`=$3 AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_id=s.id AND m.screen_group_id=ANY($2))) ORDER BY s.id`, input.ScreenIDs, input.GroupIDs, family)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -475,9 +500,10 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		if minimumSDK != nil && target.sdk != nil && *target.sdk < *minimumSDK {
 			state = "incompatible"
 		}
-		// An architecture-specific release needs a screen that reported the
-		// same architecture; an unknown one is not assumed to match.
-		if architecture != "" && target.architecture != architecture {
+		// The family already matches by the query above; the shared rule
+		// additionally requires the reported architecture for an
+		// architecture-specific release.
+		if !updates.ScreenMatchesRelease(family, architecture, family, target.architecture) {
 			state = "incompatible"
 		}
 		if target.current != nil && *target.current >= versionCode {
@@ -515,12 +541,14 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 
 // screenFamilySQL is the Player release family of screen s (joined with its
 // status as ps): what the player reported, or what its platform always meant.
-const screenFamilySQL = `COALESCE(ps.player_family,CASE WHEN s.platform='linux' THEN 'electron-linux' ELSE 'android' END)`
+const screenFamilySQL = `COALESCE(ps.player_family,CASE WHEN s.platform='linux' THEN 'electron-linux' WHEN s.platform='windows' THEN 'windows' ELSE 'android' END)`
 
 func familyLabel(family string) string {
 	switch family {
 	case updates.FamilyEdge:
 		return "Tilecast Edge"
+	case updates.FamilyWindows:
+		return "Windows"
 	case updates.FamilyElectronLinux:
 		return "Linux (Electron)"
 	default:
@@ -846,6 +874,17 @@ func (s *server) playerUpdateMetadata(w http.ResponseWriter, r *http.Request) {
 		data["signedManifest"] = base64.StdEncoding.EncodeToString(manifestBytes)
 		data["manifestSignature"] = signature
 		data["stateSchemaVersion"] = stateSchema
+	case updates.FamilyWindows:
+		// The exact signed envelope, as for Edge, but without an Edge state
+		// schema: the screen verifies the signature and every field against
+		// this answer and the command before it downloads.
+		data["playerFamily"] = family
+		data["architecture"] = architecture
+		data["artifactSizeBytes"] = size
+		data["artifactSha256"] = hash
+		data["artifactPath"] = fmt.Sprintf("/api/v1/player/updates/%s/artifact", release)
+		data["signedManifest"] = base64.StdEncoding.EncodeToString(manifestBytes)
+		data["manifestSignature"] = signature
 	case updates.FamilyElectronLinux:
 		data["playerFamily"] = family
 		data["artifactSizeBytes"] = size
@@ -862,9 +901,9 @@ func (s *server) playerUpdateMetadata(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"data": data})
 }
 
-// playerUpdateArtifact streams the verified release artifact (APK or AppImage)
-// to a targeted screen. It backs both the /apk (Android) and /artifact (Linux)
-// routes; the platform recorded with the release selects the filename and type.
+// playerUpdateArtifact streams the verified release artifact to a targeted
+// screen. It backs both the /apk (Android) and /artifact (every other family)
+// routes; the family recorded with the release selects the filename and type.
 func (s *server) playerUpdateArtifact(w http.ResponseWriter, r *http.Request) {
 	principal := r.Context().Value(deviceContextKey).(devices.DevicePrincipal)
 	release, ok := urlUUID(w, r, "releaseId")
@@ -894,6 +933,8 @@ func (s *server) playerUpdateArtifact(w http.ResponseWriter, r *http.Request) {
 		filename, contentType = updates.LinuxArtifactName, "application/octet-stream"
 	case updates.FamilyEdge:
 		filename, contentType = "tilecast-edge.tar.zst", "application/zstd"
+	case updates.FamilyWindows:
+		filename, contentType = "tilecast-windows.msix", "application/msix"
 	}
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("ETag", `"sha256-`+hash+`"`)
@@ -932,7 +973,8 @@ func (s *server) playerUpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// `succeeded` is the explicit confirmation of a provisional Tilecast Edge
-	// release. Other families settle from the heartbeat of the new build.
+	// release. Other families, including Windows, settle from the heartbeat
+	// of the new build.
 	if body.State == "succeeded" {
 		var family string
 		if err := s.db.QueryRow(r.Context(), `SELECT r.player_family FROM update_deployments d JOIN player_releases r ON r.id=d.release_id WHERE d.id=$1`, deployment).Scan(&family); err != nil || family != updates.FamilyEdge {

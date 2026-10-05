@@ -213,6 +213,7 @@ export default defineConfig({
               items: [
                 { slug: "players/install-android" },
                 { slug: "players/install-linux" },
+                { slug: "players/install-windows" },
                 { slug: "players/pair-a-display" },
                 { slug: "screens/pair-and-replace" },
               ],

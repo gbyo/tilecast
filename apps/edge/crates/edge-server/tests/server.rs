@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
 use edge_cas::space::FixedSpace;
-use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, StorePolicy};
+use edge_cas::{BlobSource, ContentStore, LruByDomain, SourceError, StorePolicy, UnixSecureOpener};
 use edge_platform::clock::system_clock;
 use edge_protocol::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
 use edge_server::client::{MAX_MANIFEST_BYTES, ManifestFetch, ServerClient};
@@ -237,6 +237,7 @@ impl Env {
             db.clone(),
             system_clock(),
             Arc::new(FixedSpace(1 << 40)),
+            Arc::new(UnixSecureOpener),
             StorePolicy { limit_bytes: 1 << 30, reserved_free_bytes: 0 },
             Arc::new(LruByDomain),
         )

@@ -45,13 +45,14 @@
 //!   diagnostics.
 
 pub mod fetch;
-mod fs;
+pub mod open;
 pub mod policy;
 pub mod source;
 pub mod space;
 pub mod store;
 
 pub use fetch::{FetchError, FetchObserver, FetchRequest, Fetcher};
+pub use open::{RegularOpen, SecureOpener};
 pub use player_types::Sha256Digest;
 pub use policy::{EvictionPolicy, LruByDomain};
 pub use source::{BlobSource, SourceError, SourceKind, SourceStream};

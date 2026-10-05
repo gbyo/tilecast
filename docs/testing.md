@@ -241,6 +241,8 @@ Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD sna
 
 Edge PRs select Rust, WPE, runtime, conformance, real-server, migration, and activity parity jobs from the same graph. Relevant changes on `main` run the full Edge suite. Dispatch and twice-weekly scheduled runs also run the full suite. Documentation-only changes do not start platform images.
 
+Windows PRs select the `windows` area: native Rust unit tests on Windows x64 and Windows ARM64 (including the MSIX, envelope, package-identity, and version-mapping contract tests), a Windows-only code cross-check on Linux, and the WebView2 conformance engine against the Electron reference. A weekly scheduled run exercises the current Evergreen WebView2. Shared Player crate changes also select Windows validation through the `player_core` graph edge. Run `make windows-check` and `make windows-test` locally; unit tests run on any host.
+
 The image dependency chain is in `scripts/ci/edge-images.hcl`. Bake uses explicit parent targets and separate GHA cache scopes. Run a selected image build locally:
 
 ```sh

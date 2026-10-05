@@ -38,7 +38,10 @@ export function normalizeScreen(
     ...source,
     nowPlayingType,
     playerFamily:
-      family === "android" || family === "electron-linux" || family === "edge"
+      family === "android" ||
+      family === "electron-linux" ||
+      family === "edge" ||
+      family === "windows"
         ? family
         : undefined,
     deviceManufacturer:

@@ -1,15 +1,15 @@
 # Tilecast Player Runtime
 
 **Package:** `packages/player-runtime` (`@tilecast/player-runtime`)
-**Hosts:** the Electron Linux player (`apps/player-linux`), the WPE renderer (`apps/edge/renderer-wpe`), and the Android trusted local WebView as Android convergence lands (`apps/player-android`)
+**Hosts:** the WPE renderer (`apps/edge/renderer-wpe`), the WebView2 renderer host (`apps/player-windows`), the legacy Electron Linux player (`apps/player-linux`), and the Android trusted local WebView as Android convergence lands (`apps/player-android`)
 **Host contract:** `TilecastRuntimeHostV1` (contract version 1)
 
-The Player Runtime is the one trusted playback document and engine for Tilecast screens. Electron and WPE host the same built artifact from the same runtime sources, and Android's convergence loads that same runtime behind its trusted local WebView boundary, so presentation behavior does not acquire a host-specific Widget renderer.
+The Player Runtime is the one trusted playback document and engine for Tilecast screens. WPE and WebView2 host the same built artifact from the same runtime sources, and Android's convergence loads that same runtime behind its trusted local WebView boundary, so presentation behavior does not acquire a host-specific Widget renderer. The Electron Linux player is legacy and migration-oriented: it keeps existing Linux screens running and remains the conformance reference engine, but new Linux investment goes to Tilecast Edge.
 
 Studio is deliberately **not** another host of this complete runtime. Studio shares the **Widget renderer** only: the Widget runtime module plus `WidgetMount` from `@tilecast/widget-sdk`. Authoring preview provides its own preview `WidgetContext`, resources, locally edited configuration, and geometry; it does not run the XState playback engine, occurrence staging, evidence, synchronization, or playback host bridge.
 
 ```text
-host process (Electron, tilecastd/WPE, or Android trusted WebView host)
+host process (tilecastd/WPE, Windows/WebView2, legacy Electron, or Android trusted WebView host)
         │  TilecastRuntimeHostV1 (typed members only)
         ▼
 @tilecast/player-runtime  ── Lit views ── Stage + item surfaces ── DOM / <video> / <img>
@@ -36,21 +36,21 @@ The cross-process contract owners, generated capability registry, and shared Ser
 
 A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `TilecastRuntimeHostV1` (`src/host/contract.ts`). The contract has no generic message or native-invocation member. Every function is named and typed:
 
-| Direction      | Members                                                                                                           |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command` and `discovered-server` messages. |
-| Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                           |
-| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                            |
+| Direction      | Members                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command`, `discovered-server` and `remote-web` messages. |
+| Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                                         |
+| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                                          |
 
 Behavior depends on `capabilities`, never on `info.host`:
 
-| Capability             | Electron           | WPE (Edge)                   |
-| ---------------------- | ------------------ | ---------------------------- |
-| `remoteWeb`            | `electron-webview` | `host-view`                  |
-| `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
-| `setup`                | `true`             | `true`                       |
-| `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
-| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      |
+| Capability             | Electron           | WPE (Edge)                   | WebView2 (Windows) |
+| ---------------------- | ------------------ | ---------------------------- | ------------------ |
+| `remoteWeb`            | `electron-webview` | `host-view`                  | `host-view`        |
+| `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) | `true`             |
+| `setup`                | `true`             | `true`                       | `true`             |
+| `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  | `false`            |
+| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      | absent (`cast`)    |
 
 `outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
@@ -72,6 +72,18 @@ The runtime validates the host object at start (`hostContractProblem`). A missin
 Everything that crosses the contract is data. The runtime receives no credential, no path, no server response and no executable. Media is addressed only by URIs the host already authorized (`tcmedia:`).
 
 The `conformance` member exists only for the conformance suite (§8). It switches the runtime to a manual clock and instant transitions. No production host sets it.
+
+### 2.1 Remote web (`host-view`)
+
+When `capabilities.remoteWeb` is `host-view`, the host shows remote pages and YouTube players in its own views outside the runtime document. The runtime drives those views through `host.remoteWeb` (`src/remote-web/port.ts`):
+
+- `create(spec)` is the only call with an answer. The answer is `{ok: true, target: "host-layer"}` or `{ok: false, code}`.
+- `updateViewport`, `setVisible`, `setMuted`, `reload` and `destroy` are one-way notifications.
+- `reportRecovered` tells the host that the runtime proved content after the host's remote process ended.
+
+The host reports surface events as `remote-web` messages: `stream-ready`, `loaded`, `navigation-blocked`, `failed`, `media-ended`, and the host-wide `process-terminated` and `recovered`. Events for unknown surfaces are dropped on both sides.
+
+The runtime owns the load timers and the reload policy. The host owns the allowlist, the failure codes, and the browsing data. The host never navigates a main frame outside the approved hosts. When the remote process is not ready, the host must answer `{ok: false}`. The host must not queue the create.
 
 ## 3. Playback engine
 
@@ -139,6 +151,7 @@ RenderNode is not the Player Runtime's permanent widget API. Widgets V2 ([widget
 - The Electron runner (`apps/player-linux/conformance/runner.cjs`) loads the runtime through the player's own `tilecast://runtime/` protocol module.
 - The WPE runner (`apps/edge/renderer-wpe/tests/conformance.c`) loads it through the renderer's own path validation and `tcmediasrc` media source on WPEPlatform headless.
 - The Android runner (`apps/player-android/app/src/androidTest/.../PlayerRuntimeConformanceTest.kt`, driven by `apps/player-android/conformance/run-android.sh`) loads the exact packaged runtime asset through the same app-owned origin production uses, injects the same fixture host, serves `tcmedia:` bytes from the pushed fixture store, and captures per-checkpoint screenshots with UiAutomation. Its `@JavascriptInterface` bridge is test-only surface that never ships. Remote web fixtures run with the default null `remoteWeb` capability, exactly as on WPE: host-owned Android WebViews get Android-specific host tests instead of pixel comparison.
+- The WebView2 runner (`apps/player-windows/src/bin/tilecast-runtime-conformance.rs`) loads the exact production runtime artifact through the player's own `tilecast://runtime/` origin and scheme handlers. It imports fixture media through the verified CAS commit path, mints the same generation-scoped `tcmedia://cap/` grants production sends, and serves them with the same range semantics. It injects the same fixture host instead of the product bridge and captures per-checkpoint PNG screenshots. Its harness message channel is test-only surface that never ships. It runs only on Windows with the WebView2 Runtime installed, at 100% display scaling. Remote web fixtures run with the default null `remoteWeb` capability, exactly as on WPE and Android: host-layer WebView2 views get Windows host qualification instead of pixel comparison (see `tilecast-windows-qualification.md`).
 - `compare.mjs` requires identical semantic state, evidence, errors and presentation results at every checkpoint. It compares screenshots perceptually, with a 1.5 % mismatch budget. Active video and remote web content are never pixel-compared. On a failure the report keeps both screenshots, the diff, the fixture and the engine versions.
 
 The fixtures cover setup and discovery, pairing, idle, offline, disabled and safe-mode surfaces, image contain, cover and fill, playlist transitions, the video lifecycle, a synchronized join and boundary with a wall-clock step, Layout zones with a rotating zone, the stable widget compatibility fixture, the Widgets V2 gate (`widget-component`), outside active hours, takeover and resume, plugin strip priority, identify, and projection rejection.
@@ -159,6 +172,14 @@ Android needs one attached device (or a running emulator, API 34+, UTC timezone,
 ```sh
 node packages/player-runtime/conformance/run.mjs --engine android --out "$RESULTS"
 node packages/player-runtime/conformance/compare.mjs --a "$RESULTS/electron" --b "$RESULTS/android" --report "$RESULTS/report-android"
+```
+
+WebView2 runs on a Windows host with the Evergreen runtime installed:
+
+```sh
+cargo build -p tilecast-windows --bin tilecast-runtime-conformance
+node packages/player-runtime/conformance/run.mjs --engine webview2 --out "$RESULTS" --windows-runner target/debug/tilecast-runtime-conformance.exe
+node packages/player-runtime/conformance/compare.mjs --a "$RESULTS/electron" --b "$RESULTS/webview2" --report "$RESULTS/report-webview2"
 ```
 
 Compare Chromium screenshots from Linux. On macOS, Electron captures the window in the display's colour space, so pixel results there are not meaningful.

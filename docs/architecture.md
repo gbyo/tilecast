@@ -49,7 +49,7 @@ Studio text is localized in the browser with react-i18next. English is bundled a
 
 The accepted native Player extraction contract is
 [`player-core.md`](player-core.md). It separates shared native behavior from
-Linux host integration. Presentation decisions and execution remain with
+host integration. Presentation decisions and execution remain with
 Presentation Model and Player Runtime. Generic native values are implemented in
 `crates/player-types`, and durable metadata in `crates/player-state`. Historical
 Edge repository APIs remain outside the shared crate. Verified storage lives in
@@ -57,12 +57,10 @@ Edge repository APIs remain outside the shared crate. Verified storage lives in
 its private file stores and Electron import. The Core foundation owns native
 selection, command idempotency, Activity sessions, and the CAS origin adapter.
 Core also owns renderer recovery decisions and meaningful-evidence rules.
-Edge executes renderer actions through its RendererPort adapter.
-Activation coordination and server reconciliation remain in Edge until their
-extraction stages. Edge retains
-its current process and security boundaries.
+Each native host executes renderer actions through its RendererPort adapter
+and keeps its current process and security boundaries.
 
-The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
+The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron, WPE, and WebView2 hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below. The Windows Player is the second native host of the same shared crates; see the Windows section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
@@ -198,3 +196,11 @@ On each Linux player:
 - `tilecast-renderer-wpe` (C, WPE WebKit 2.54+ on WPEPlatform) shows what `tilecastd` sends over a versioned Unix socket. It holds no credential.
 
 The server stays the only authority, and Edge uses the ordinary player API: identity, pairing, heartbeat, the player WebSocket, manifests, commands and authenticated downloads. The server has no Edge-specific domain package or endpoint. A player keeps playing from its local state and verified content when the server is unreachable.
+
+## Tilecast Player for Windows
+
+The Windows Player (`apps/player-windows`) is the native Windows host of the same shared Player Core and Player Runtime: Player behavior is implemented once, not once per operating system. The platform contract is [`tilecast-windows.md`](tilecast-windows.md); physical qualification is tracked in [`tilecast-windows-qualification.md`](tilecast-windows-qualification.md).
+
+On each Windows player, one Rust process owns the server relationship, pairing, configuration, manifests, selection, scheduling, offline activation, commands, Activity, and telemetry through the shared crates. It hosts the exact `packages/player-runtime` artifact in an Evergreen WebView2 view over the trusted `tilecast://runtime/` origin, serves verified media through opaque `tcmedia://cap/` grants, and shows remote Websites and YouTube in isolated child views of a separate WebView2 environment. User-scoped Windows DPAPI protects the device credential. Updates arrive as signed per-architecture MSIX packages through the ordinary Player Updates deployment flow.
+
+The server has no Windows-specific domain package or endpoint: releases of the `windows` family (architecture `x86_64` or `aarch64`) travel the same signed-envelope, deployment, and heartbeat-settlement path as the other families.

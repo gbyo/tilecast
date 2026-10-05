@@ -72,7 +72,10 @@ apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests
   app/src/androidTest/       emulator/device tests
-packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
+apps/player-windows/         native Windows Player Core host (see docs/tilecast-windows.md)
+  src/                       Rust host: UI thread, WebView2 renderer, services
+  release/                   MSIX manifest template, staging script, VERSION
+packages/player-runtime/      shared Player Runtime hosted by Electron, WPE, and WebView2
 packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
 packages/api-schema/         generated TypeScript contract for the composed OpenAPI
 packages/manifest-schema/    Player manifest schemas + declarative presentation capability registry
@@ -148,6 +151,8 @@ before the dedicated root Rust workspace migration is qualified. The workspace,
 lockfile, Rust toolchain, and formatter now live at the repository root. Use
 `make edge-check` and `make edge-test` for Edge-scoped Rust validation.
 Edge product version is `apps/edge/release/VERSION`.
+Use `make windows-check` and `make windows-test` for Windows-scoped Rust
+validation. Windows product version is `apps/player-windows/release/VERSION`.
 Use `make player-check` and `make player-test` for shared Rust validation.
 Shared values perform no I/O. Hosts supply clocks and generate random IDs.
 

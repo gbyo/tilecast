@@ -1,4 +1,4 @@
-.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test format helper-check quick test watch-dashboard watch-linux
+.PHONY: android-build android-check bootstrap build check data-sources-check doctor generate generated-check gofmt-check plugins-check plugins-generate widgets-check demo demo-down demo-logs demo-reset dev dev-dashboard dev-down dev-server dev-server-watch docs-check e2e edge-check edge-e2e edge-linux edge-test player-check player-test windows-check windows-test format helper-check quick test watch-dashboard watch-linux
 
 bootstrap:
 	npm install
@@ -51,7 +51,7 @@ generated-check:
 	./scripts/generated-check.sh
 
 # Area-aware prerequisite diagnostics. Never installs anything:
-# make doctor AREA=server|dashboard|edge|android|media|docs
+# make doctor AREA=server|dashboard|edge|windows|android|media|docs
 doctor:
 	./scripts/doctor.sh $(AREA)
 
@@ -94,7 +94,7 @@ edge-check:
 edge-test:
 	bash apps/edge/ci/cargo-edge.sh test
 
-# Portable shared Player layer, on Linux and macOS.
+# Portable shared Player layer, on Linux, macOS, and Windows.
 player-check:
 	python3 scripts/ci/check-player-architecture.py
 	bash scripts/ci/cargo-player.sh fmt --check
@@ -102,6 +102,15 @@ player-check:
 
 player-test:
 	bash scripts/ci/cargo-player.sh test --all-features
+
+# Tilecast Player for Windows (apps/player-windows). Unit tests run on any
+# host; the renderer and conformance need Windows with WebView2.
+windows-check:
+	cargo fmt -p tilecast-windows -- --check
+	cargo clippy --locked -p tilecast-windows --all-targets --all-features -- -D warnings
+
+windows-test:
+	cargo test --locked -p tilecast-windows --all-features
 
 edge-linux:
 	docker run --rm -v "$(CURDIR):/src" -v tilecast-edge-target:/target tilecast-edge-dev /src/apps/edge/ci/test-linux.sh

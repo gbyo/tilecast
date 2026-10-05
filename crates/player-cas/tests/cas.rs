@@ -42,6 +42,7 @@ async fn store_with(env: &Env, limit: u64, free: u64) -> ContentStore {
         env.db.clone(),
         test_clock(),
         Arc::new(FixedSpace(free)),
+        Arc::new(TestOpener),
         policy(limit),
         Arc::new(LruByDomain),
     )
@@ -372,6 +373,7 @@ async fn free_space_reserve_is_enforced() {
         env.db.clone(),
         test_clock(),
         Arc::new(FixedSpace(1_000)),
+        Arc::new(TestOpener),
         StorePolicy { limit_bytes: 1 << 30, reserved_free_bytes: 990 },
         Arc::new(LruByDomain),
     )
@@ -420,5 +422,31 @@ struct FixedSpace(u64);
 impl SpaceProbe for FixedSpace {
     fn available_bytes(&self, _path: &std::path::Path) -> std::io::Result<u64> {
         Ok(self.0)
+    }
+}
+
+/// A portable opener for tests. Production hosts supply their own adapter
+/// with the platform's race-free primitive; tests never need it.
+#[derive(Debug, Default)]
+struct TestOpener;
+impl player_cas::SecureOpener for TestOpener {
+    fn open_regular(&self, path: &std::path::Path, max_bytes: u64) -> std::io::Result<player_cas::RegularOpen> {
+        use player_cas::RegularOpen;
+        let metadata = match std::fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(RegularOpen::Missing);
+            }
+            Err(error) => return Err(error),
+        };
+        if metadata.file_type().is_symlink() {
+            return Ok(RegularOpen::Refused);
+        }
+        let file = std::fs::File::open(path)?;
+        let metadata = file.metadata()?;
+        if !metadata.is_file() || metadata.len() > max_bytes {
+            return Ok(RegularOpen::Refused);
+        }
+        Ok(RegularOpen::Opened(file, metadata.len()))
     }
 }

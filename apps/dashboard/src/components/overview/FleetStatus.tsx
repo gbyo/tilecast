@@ -171,9 +171,9 @@ function StatusMetric({
       </span>
       <span className="flex min-h-8 items-baseline gap-0.5">
         {unavailable ? (
-          <strong className="text-2xl leading-8 font-semibold text-muted-foreground">
-            —
-          </strong>
+          <span className="self-center text-sm font-medium text-muted-foreground">
+            {unavailable}
+          </span>
         ) : value === null ? (
           <span role="status" aria-label={loadingLabel} className="self-center">
             <Skeleton className="h-6 w-12" />

@@ -211,10 +211,11 @@ func effectiveHealthyPlaybackAt(heartbeat Heartbeat) *time.Time {
 }
 
 // knownPlayerFamily keeps only protocol values: a family, and an
-// architecture only for Tilecast Edge.
+// architecture only for the architecture-specific families (Tilecast Edge,
+// Windows Player).
 func knownPlayerFamily(family, architecture string) (string, string) {
 	switch family {
-	case "edge":
+	case "edge", "windows":
 		if architecture != "x86_64" && architecture != "aarch64" {
 			architecture = ""
 		}

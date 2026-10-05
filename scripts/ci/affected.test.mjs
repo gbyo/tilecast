@@ -44,6 +44,7 @@ test("root Rust inputs and shared crates select portable and Edge validation", (
       "edge_activity",
       "edge_wpe",
       "edge_conformance",
+      "windows",
     ])
       assert.equal(result[area], true, `${path}: ${area}`);
     assert.equal(result.ios, false, path);
@@ -161,7 +162,17 @@ test("runtime semantics select both renderers but no migration", () => {
     "edge_wpe",
     "linux",
     "runtime",
+    "windows",
   ]);
+});
+test("the Windows host selects only Windows validation", () => {
+  for (const path of [
+    "apps/player-windows/src/main.rs",
+    "apps/player-windows/release/AppxManifest.xml.template",
+    "apps/player-windows/release/stage-windows-release.py",
+  ])
+    assert.deepEqual(selected([path]), ["windows"], path);
+  assert.equal(affected(["apps/player-windows/src/main.rs"]).edge_rust, false);
 });
 test("the Presentation Model selects Studio and production runtime consumers", () => {
   assert.deepEqual(
@@ -175,6 +186,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
       "edge_wpe",
       "linux",
       "runtime",
+      "windows",
     ],
   );
   assert.deepEqual(selected(["packages/presentation-model/package.json"]), [
@@ -186,6 +198,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
     "edge_wpe",
     "linux",
     "runtime",
+    "windows",
   ]);
 });
 test("Widgets reach the catalog, Studio and production hosts", () => {

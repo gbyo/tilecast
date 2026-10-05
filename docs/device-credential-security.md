@@ -54,3 +54,18 @@ It never changes or deletes the legacy files. Edge then uses that same
 credential for ordinary player contact; it creates no second credential or
 key. Revoking the screen's credential affects the legacy files and Edge
 alike. See [`tilecast-edge.md`](tilecast-edge.md) §8.2 and §14.
+
+## Windows Player
+
+On a Windows player, `tilecast-windows.exe` is the only process that
+holds the device credential. It stores the credential sealed with
+user-scoped Windows DPAPI under the `identity` directory of its state
+folder. Only the same Windows user on the same machine can unseal it.
+Machine-scoped protection is never used. The credential is never in
+the state database, never exposed to the WebView2 views, and never
+written to logs. Pairing sessions are sealed the same way.
+
+The Player sends no stored credential before it verifies the server
+installation identity. When the installation ID changes, it shows a
+mismatch and requires an explicit reset. See
+[`tilecast-windows.md`](tilecast-windows.md).

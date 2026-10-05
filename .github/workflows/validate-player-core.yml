@@ -12,7 +12,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # The shared crates build and test on every host OS and CPU the
+        # native players ship on; OS-specific code must fail here, loudly.
+        os:
+          [
+            ubuntu-latest,
+            ubuntu-24.04-arm,
+            macos-latest,
+            windows-latest,
+            windows-11-arm,
+          ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -25,7 +34,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: player-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          key: player-rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
       - run: python3 scripts/ci/check-player-architecture.py
       - run: bash scripts/ci/cargo-player.sh fmt --check
       - run: bash scripts/ci/cargo-player.sh clippy --all-targets --all-features -- -D warnings

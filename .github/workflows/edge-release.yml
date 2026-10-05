@@ -1,10 +1,11 @@
 name: Tilecast Edge Release
 
-# Builds a signed Tilecast Edge release: the private WPE WebKit build, the
-# renderer, the Rust binaries and the Player Runtime, on the pinned Debian 13
-# builder (apps/edge/release/Dockerfile.builder). It uploads the artifacts
-# and their build provenance attestation. Publishing a GitHub release is a
-# separate, human step.
+# Builds signed Tilecast Edge releases, one per architecture: the private
+# WPE WebKit build, the renderer, the Rust binaries and the Player Runtime,
+# on the pinned Debian 13 builder (apps/edge/release/Dockerfile.builder).
+# Each architecture builds natively on its own runner; emulation is never
+# ARM64 support. It uploads the artifacts and their build provenance
+# attestation. Publishing a GitHub release is a separate, human step.
 on:
   workflow_dispatch:
     inputs:
@@ -31,7 +32,15 @@ concurrency:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
     permissions:
       contents: read
@@ -81,7 +90,9 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/edge-release-cache/wpe-*.tar
-          key: edge-wpe-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
+          # The architecture is part of the key: a WPE build for the other
+          # architecture must never be restored into this build.
+          key: edge-wpe-${{ matrix.arch }}-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
 
       - name: Build, sign and package
         env:
@@ -122,7 +133,7 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: tilecast-edge-release
+          name: tilecast-edge-release-${{ matrix.arch }}
           path: |
             ${{ runner.temp }}/edge-release/tilecast-edge-*
             ${{ runner.temp }}/edge-release/SHA256SUMS

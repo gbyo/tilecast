@@ -156,6 +156,98 @@ func TestParseAndVerifyManifestEdge(t *testing.T) {
 	}
 }
 
+func windowsEnvelope() Manifest {
+	return Manifest{SchemaVersion: 1, Product: WindowsProduct, PlayerFamily: FamilyWindows, Platform: PlatformWindows, Arch: "aarch64", VersionCode: 2000, VersionName: "0.2.0", Channel: "stable", ArtifactAssetName: "tilecast-windows-0.2.0-aarch64.msix", ArtifactSizeBytes: 4096, ArtifactSHA256: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}
+}
+
+func TestParseAndVerifyManifestWindows(t *testing.T) {
+	public, private, _ := ed25519.GenerateKey(rand.Reader)
+	sign := func(m Manifest) ([]byte, []byte) {
+		raw, _ := json.Marshal(m)
+		return raw, []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw)))
+	}
+	raw, signature := sign(windowsEnvelope())
+	manifest, err := ParseAndVerifyManifest(raw, signature, public)
+	if err != nil {
+		t.Fatalf("valid windows envelope rejected: %v", err)
+	}
+	if manifest.NormalizedFamily() != FamilyWindows || manifest.Architecture() != "aarch64" || manifest.AssetName() != "tilecast-windows-0.2.0-aarch64.msix" || manifest.ArtifactSize() != 4096 {
+		t.Fatalf("windows accessors wrong: %+v", manifest)
+	}
+	if manifestApplicationID(manifest) != nil || manifestMinimumSDK(manifest) != nil {
+		t.Fatalf("windows manifest carries android metadata: %+v", manifest)
+	}
+
+	for name, change := range map[string]func(*Manifest){
+		"edge product":            func(m *Manifest) { m.Product = EdgeProduct },
+		"electron product":        func(m *Manifest) { m.Product = "tilecast-player" },
+		"linux platform":          func(m *Manifest) { m.Platform = PlatformLinux },
+		"unknown architecture":    func(m *Manifest) { m.Arch = "riscv64" },
+		"code not from name":      func(m *Manifest) { m.VersionCode = 2001 },
+		"artifact name":           func(m *Manifest) { m.ArtifactAssetName = LinuxArtifactName },
+		"artifact for other arch": func(m *Manifest) { m.ArtifactAssetName = "tilecast-windows-0.2.0-x86_64.msix" },
+		"uppercase digest": func(m *Manifest) {
+			m.ArtifactSHA256 = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+		},
+		"edge manifest digest": func(m *Manifest) {
+			m.ReleaseManifestSHA256 = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+		},
+		"edge sbom digest": func(m *Manifest) {
+			m.SBOMSHA256 = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+		},
+		"edge state schema": func(m *Manifest) { m.StateSchemaVersion = 6 },
+		"android fields":    func(m *Manifest) { m.ApplicationID = ApplicationID },
+		"too large":         func(m *Manifest) { m.ArtifactSizeBytes = WindowsMaxArtifactBytes + 1 },
+	} {
+		bad := windowsEnvelope()
+		change(&bad)
+		raw, signature := sign(bad)
+		if _, err := ParseAndVerifyManifest(raw, signature, public); err == nil {
+			t.Fatalf("invalid windows envelope accepted: %s", name)
+		}
+	}
+
+	// A Windows platform without the Windows family never validates as a
+	// legacy manifest: Windows releases are always envelopes.
+	legacy := windowsEnvelope()
+	legacy.PlayerFamily = ""
+	legacy.Product = "tilecast-player"
+	raw, signature = sign(legacy)
+	if _, err := ParseAndVerifyManifest(raw, signature, public); err == nil {
+		t.Fatal("windows platform without windows family accepted")
+	}
+}
+
+func TestScreenMatchesRelease(t *testing.T) {
+	families := []string{FamilyAndroid, FamilyElectronLinux, FamilyEdge, FamilyWindows}
+	arches := []string{"", "x86_64", "aarch64"}
+	for _, releaseFamily := range families {
+		for _, releaseArch := range arches {
+			if ArchitectureRequired(releaseFamily) == (releaseArch == "") {
+				continue
+			}
+			for _, screenFamily := range families {
+				for _, screenArch := range arches {
+					got := ScreenMatchesRelease(releaseFamily, releaseArch, screenFamily, screenArch)
+					want := releaseFamily == screenFamily && (!ArchitectureRequired(releaseFamily) || screenArch == releaseArch)
+					if got != want {
+						t.Fatalf("ScreenMatchesRelease(%q,%q,%q,%q) = %v, want %v", releaseFamily, releaseArch, screenFamily, screenArch, got, want)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestArchitectureRequired(t *testing.T) {
+	if ArchitectureRequired(FamilyAndroid) || ArchitectureRequired(FamilyElectronLinux) {
+		t.Fatal("android and electron-linux must stay architecture-neutral")
+	}
+	if !ArchitectureRequired(FamilyEdge) || !ArchitectureRequired(FamilyWindows) {
+		t.Fatal("edge and windows must require an architecture")
+	}
+}
+
 func TestEdgeVersionCodeMatchesTheReleaseBuild(t *testing.T) {
 	for name, want := range map[string]int64{"0.1.0": 1000, "1.2.3-rc.1": 1002003, "10.20.30": 10020030} {
 		if got, ok := EdgeVersionCode(name); !ok || got != want {

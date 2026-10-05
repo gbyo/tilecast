@@ -1,8 +1,8 @@
 # GitHub Player updates
 
-Tilecast distributes Android APK and Linux AppImage Player builds, and Tilecast
-Edge release archives, through signed published releases at
-`Gibsonmb71/tilecast`. No Google Play, Amazon Developer,
+Tilecast distributes Android APK and Linux AppImage Player builds, Tilecast
+Edge release archives, and Windows Player MSIX packages, through signed
+published releases at `Gibsonmb71/tilecast`. No Google Play, Amazon Developer,
 or paid Android developer account is required. Unknown-app installation remains
 a one-time local commissioning permission. On Android 12 and newer, eligible
 signed self-updates request Android's supported unattended-update mode. Older
@@ -30,8 +30,16 @@ Tilecast Edge (one set for each architecture, `x86_64` or `aarch64`):
 - `tilecast-edge-update-<arch>.json`
 - `tilecast-edge-update-<arch>.json.sig`
 
+Windows Player (one set for each architecture, `x86_64` or `aarch64`):
+
+- `tilecast-windows-<version>-<arch>.msix`
+- `tilecast-windows-update-<arch>.json`
+- `tilecast-windows-update-<arch>.json.sig`
+
 A direct upload of an Edge release names the envelope `tilecast-edge-update.json`
-and its signature `tilecast-edge-update.json.sig`.
+and its signature `tilecast-edge-update.json.sig`. A direct upload of a Windows
+release names the envelope `tilecast-windows-update.json` and its signature
+`tilecast-windows-update.json.sig`.
 
 The schema-1 JSON identifies `tilecast-player`, its platform, version code/name,
 stable or beta channel, artifact name/size/SHA-256, and release notes. Android
@@ -50,6 +58,16 @@ of the release. The same key signs it in the same way. The server refuses an Edg
 envelope that carries Android fields, a wrong archive name, an unknown
 architecture or a version code that does not match its version name.
 
+The Windows Player JSON is the same schema-1 signed envelope. It identifies
+`tilecast-windows`, `playerFamily: "windows"`, platform `windows`, the
+architecture, the version code and name, the channel, and the package name,
+size and SHA-256. The Edge-only release-manifest fields must be absent: the
+MSIX package carries the signed Windows publisher identity, and the envelope
+binds the package. The same key signs it in the same way. The server refuses a
+Windows envelope that carries Android or Edge release-manifest fields, a wrong
+package name, an unknown architecture or a version code that does not match
+its version name.
+
 ## Player families
 
 Every release belongs to one Player family:
@@ -59,17 +77,19 @@ Every release belongs to one Player family:
 | `android`        | `tilecast-player.apk`                    | Not architecture-specific. |
 | `electron-linux` | `tilecast-player.AppImage`               | Not architecture-specific. |
 | `edge`           | `tilecast-edge-<version>-<arch>.tar.zst` | `x86_64` or `aarch64`.     |
+| `windows`        | `tilecast-windows-<version>-<arch>.msix` | `x86_64` or `aarch64`.     |
 
-A manifest without `playerFamily` is `android` or `electron-linux` by its
-platform. Version codes must increase within one family and architecture. A
-deployment reaches only screens of its release's family: a screen reports its
-family (`playerFamily`) and, for Edge, its architecture (`playerArchitecture`) in
-the heartbeat. An Edge screen that has not reported them, or reports another
-architecture, is `incompatible`. An Edge release never reaches an Electron or
-Android screen, and an Electron release never reaches an Edge screen. The
+A manifest without `playerFamily` is `android`, `electron-linux` or `windows`
+by its platform. Version codes must increase within one family and
+architecture. A deployment reaches only screens of its release's family: a
+screen reports its family (`playerFamily`) and, for Edge and Windows, its
+architecture (`playerArchitecture`) in the heartbeat. An Edge or Windows
+screen that has not reported them, or reports another architecture, is
+`incompatible`. A release never reaches a screen of another family. The
 Electron Player also refuses an `install_player_update` command whose
-`playerFamily` is `edge`. The `install_player_update` payload carries
-`playerFamily` and `expectedArtifactSha256` beside the existing fields.
+`playerFamily` is not `electron-linux`. The `install_player_update` payload
+carries `playerFamily` and `expectedArtifactSha256` beside the existing
+fields.
 
 Drafts, arbitrary repositories, arbitrary asset names/URLs, invalid signatures, downgrades, incompatible SDK declarations, checksum mismatches, invalid APK signatures, and signing-certificate mismatches are rejected. A verified APK is streamed to a temporary file beneath `/data/updates`, checked, and atomically renamed. Players download only from their paired Tilecast server using authenticated range requests.
 
@@ -94,11 +114,38 @@ The `Tilecast Player Release` workflow requires `TILECAST_ANDROID_KEYSTORE_BASE6
 
 Pushing a tag named `player-v<versionName>` publishes a release automatically. The tag version must exactly match Android `versionName`; tags containing `beta` publish as prereleases, while other tags publish to the stable channel. The workflow may also be run manually for an existing matching tag, with an explicit stable or beta channel. Release notes are generated by GitHub when a manual summary is not supplied.
 
+## Windows release build
+
+The `Tilecast Windows Player Release` workflow builds the Windows
+Player natively on Windows runners: x64 on `windows-latest`, ARM64 on
+`windows-11-arm`. Emulation is never ARM64 support. It runs only by
+manual dispatch with an explicit stable or beta channel and an
+optional release summary. Publishing a GitHub release stays a
+separate, human step.
+
+The workflow requires `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM` and
+`TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`, the code-signing identity
+`TILECAST_MSIX_PFX_BASE64` with `TILECAST_MSIX_PFX_PASSWORD`, and the
+manifest publisher `TILECAST_MSIX_PUBLISHER`. It refuses missing
+secrets. The public key must match the repository key in
+`apps/edge/release/tilecast-update-key.pem`, and the PFX subject must
+equal the manifest publisher, or the build fails before it compiles.
+
+Each architecture builds the Player and the `tilecast-msix-version`
+helper, stages the executable with its Player Runtime artifact,
+renders the MSIX manifest from the template, packs and signs the
+package with the Windows SDK, and writes the unsigned update envelope.
+It then signs the envelope with the Tilecast Ed25519 update key and
+verifies the signature before upload. Secret files exist only in the
+Actions runner temporary directory. The workflow uploads the package,
+the envelope, and its signature per architecture, with a build
+provenance attestation over all of them.
+
 ## Studio and player flow
 
 Owners can either select **Upload release** or **Sync from GitHub** under
-**Settings → Player Updates**. Direct upload accepts the exact Android or Linux
-three-file set above. The server applies the same manifest-signature, artifact
+**Settings → Player Updates**. Direct upload accepts the exact three-file set
+above for the release's family. The server applies the same manifest-signature, artifact
 hash/size, platform, and version checks to both sources, plus Android package,
 minimum-SDK, and signing-certificate checks for APKs. A verified direct upload
 is moved atomically into the same private update cache and creates the same
@@ -119,19 +166,19 @@ The Owner starts sign-in in Studio, opens GitHub's device page, and enters the d
 
 Owners and Administrators deploy a fully verified cached release to screens or
 sync groups. Studio and the server restrict each release to screens of its
-family (and architecture, for Edge). Studio shows Android, Linux and Tilecast
-Edge on separate tabs. Sync-group membership is resolved
+family (and architecture, for Edge and Windows). Studio shows Android, Linux,
+Tilecast Edge and Windows on separate tabs. Sync-group membership is resolved
 at deployment start and duplicates are removed. Modes are download only,
 install now, and maintenance window. Screen states distinguish downloading,
 verification, permission/user approval, installation, reconnecting, success,
 failure, cancellation, incompatibility, and already-current. Players always
-retrieve the verified APK or AppImage from their paired Tilecast server; the
+retrieve the verified artifact from their paired Tilecast server; the
 player never contacts GitHub.
 
 ## Reading a deployment in Studio
 
-The Android, Linux or Tilecast Edge choice is held in the URL (`?platform=linux`,
-`?platform=edge`), so a reload, a
+The Android, Linux, Tilecast Edge or Windows choice is held in the URL
+(`?platform=linux`, `?platform=edge`, `?platform=windows`), so a reload, a
 bookmark, or the back button all return to the fleet the operator was reading
 rather than to Android.
 
@@ -188,7 +235,9 @@ rolled back on the screen, which reports `failed` with `installerStatus:
 `candidate_daemon_failed`. A canary rollback pauses the deployment like any other
 canary failure.
 
-For the other families, a target in `reconnecting` becomes `succeeded` when an accepted heartbeat or bounded reconciliation confirms all of these conditions:
+For the other families, including Windows, a target in `reconnecting` becomes
+`succeeded` when an accepted heartbeat or bounded reconciliation confirms all
+of these conditions:
 
 - Player version code is at or above the expected version.
 - Player uptime is at least 120 seconds, or the Player does not report uptime.

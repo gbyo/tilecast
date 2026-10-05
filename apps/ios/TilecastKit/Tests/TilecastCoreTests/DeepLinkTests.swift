@@ -278,7 +278,11 @@ import Testing
         let page = try #require(host.page)
         studioBecomesReady(page)
         await host.open(link(profile))
-        try await Task.sleep(for: .milliseconds(900))
+        // Each attempt runs script in a real page, so wait for the retry
+        // rather than assume how many fit in a fixed window.
+        for _ in 0..<100 where deliveries.paths.count <= 1 {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         #expect(deliveries.paths.count > 1, "the host retries while Studio's router is not listening yet")
         deliveries.accept = true
         try await Task.sleep(for: .milliseconds(2000))

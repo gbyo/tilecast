@@ -36,7 +36,7 @@ export const graph = {
   ci: [],
   widgets: ["dashboard", "runtime", "server", "docs"],
   sources: ["dashboard", "server", "plugins", "docs"],
-  runtime: ["linux", "edge_runtime", "edge_wpe", "edge_conformance"],
+  runtime: ["linux", "edge_runtime", "edge_wpe", "edge_conformance", "windows"],
   linux: ["edge_runtime", "edge_conformance"],
   protocol: ["server", "android", "runtime", "edge_rust", "edge_server"],
   activity: ["protocol", "edge_activity"],
@@ -67,7 +67,9 @@ export const graph = {
     "edge_server",
     "edge_migration",
     "edge_activity",
+    "windows",
   ],
+  windows: [],
 };
 export const areas = Object.keys(graph);
 const edgeAreas = areas.filter((area) => area.startsWith("edge_"));
@@ -169,6 +171,7 @@ const rules = [
     ],
   ],
   [/^packages\/edge-protocol\//, edgeAreas],
+  [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],
   [
     /^apps\/edge\/(renderer-wpe|web-renderer-wpe|session-bridge)\//,
@@ -193,7 +196,7 @@ const rules = [
   // still fail conservatively below until an owner is registered.
   [
     /^(Cargo\.(toml|lock)|rust-toolchain(\.toml)?|rustfmt\.toml|\.cargo\/.*)$/,
-    ["player_core", ...edgeAreas],
+    ["player_core", "windows", ...edgeAreas],
   ],
   [/^docs\/player-core\.md$/, ["ci"]],
   [/^deploy\/docker\//, ["container", "e2e"]],

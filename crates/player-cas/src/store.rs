@@ -5,6 +5,7 @@ use std::io::{Read as _, Seek as _, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 
+use crate::open::{RegularOpen, SecureOpener};
 use crate::space::SpaceProbe;
 use player_state::StateDb;
 use player_state::repo::cas::{
@@ -60,6 +61,7 @@ struct Inner {
     db: StateDb,
     clock: SharedClock,
     space: Arc<dyn SpaceProbe>,
+    opener: Arc<dyn SecureOpener>,
     policy: Mutex<StorePolicy>,
     eviction: Arc<dyn EvictionPolicy>,
     writers: Mutex<HashMap<Sha256Digest, Weak<tokio::sync::Mutex<()>>>>,
@@ -112,12 +114,14 @@ pub fn hash_file(path: &Path) -> std::io::Result<(Sha256Digest, u64)> {
 impl ContentStore {
     /// Opens the store rooted at `cas_dir` (`<state>/cas`) with partials in
     /// `partial_dir`, reconciling files with metadata (crate invariant 2).
+    #[allow(clippy::too_many_arguments)]
     pub async fn open(
         cas_dir: PathBuf,
         partial_dir: PathBuf,
         db: StateDb,
         clock: SharedClock,
         space: Arc<dyn SpaceProbe>,
+        opener: Arc<dyn SecureOpener>,
         policy: StorePolicy,
         eviction: Arc<dyn EvictionPolicy>,
     ) -> Result<Self, CasError> {
@@ -130,6 +134,7 @@ impl ContentStore {
                 db,
                 clock,
                 space,
+                opener,
                 policy: Mutex::new(policy),
                 eviction,
                 writers: Mutex::new(HashMap::new()),
@@ -285,30 +290,20 @@ impl ContentStore {
             return Ok(None);
         };
         let path = object_path(&self.inner.cas_dir, digest);
-        match rustix::fs::open(
-            &path,
-            rustix::fs::OFlags::RDONLY
-                | rustix::fs::OFlags::NONBLOCK
-                | rustix::fs::OFlags::NOFOLLOW
-                | rustix::fs::OFlags::CLOEXEC,
-            rustix::fs::Mode::empty(),
-        ) {
-            Ok(fd) => {
-                let file = std::fs::File::from(fd);
-                let metadata = file.metadata()?;
-                if !metadata.is_file() || metadata.len() != record.size_bytes {
+        match self.inner.opener.open_regular(&path, record.size_bytes)? {
+            RegularOpen::Missing => Ok(None),
+            RegularOpen::Refused => {
+                self.remove_unchecked(digest).await?;
+                Ok(None)
+            }
+            RegularOpen::Opened(file, size) => {
+                if size != record.size_bytes {
                     self.remove_unchecked(digest).await?;
                     return Ok(None);
                 }
                 self.touch(digest);
                 Ok(Some((file, record)))
             }
-            Err(rustix::io::Errno::NOENT) => Ok(None),
-            Err(rustix::io::Errno::LOOP) => {
-                self.remove_unchecked(digest).await?;
-                Ok(None)
-            }
-            Err(error) => Err(std::io::Error::from(error).into()),
         }
     }
 
@@ -526,7 +521,7 @@ impl ContentStore {
     ) -> Result<ObjectRecord, CasError> {
         // Never follow a symbolic link or block on a FIFO; an oversized or
         // special file fails like a file of the wrong size.
-        let Some((file, actual)) = crate::fs::open_regular(source, expected_size)? else {
+        let RegularOpen::Opened(file, actual) = self.inner.opener.open_regular(source, expected_size)? else {
             return Err(CasError::SizeMismatch { expected: expected_size, actual: 0 });
         };
         if actual != expected_size {
