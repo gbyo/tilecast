@@ -223,6 +223,8 @@ describe("resolveActiveDestination", () => {
     ["/plugins/forms", "plugins"],
     ["/settings/users", "settings"],
     ["/account", null],
+    ["/account/preferences", null],
+    ["/account/security", null],
     ["/content-review", null],
     ["/overview-lookalike", null],
   ])("%s belongs to %s", (pathname, expected) => {
