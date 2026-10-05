@@ -217,7 +217,7 @@ class ManifestSyncDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
 
             // Sync before pairing fails closed with a stable code.
@@ -242,7 +242,7 @@ class ManifestSyncDeviceTest {
 
             // A restart keeps the persisted target and fetches no bytes.
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             val third = host.syncManifest()
             assertTrue("restarted sync: $third", third.ok && third.outcome == "current" && third.version == 8L)
             assertEquals(1, stub.assetHits.get())

@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.tilecast.player.network.DataDocument
+import org.tilecast.player.network.PlayerPresentationSupport
 import org.tilecast.player.network.WidgetPresentation
 
 class DeclarativeContractTest {
@@ -23,7 +24,7 @@ class DeclarativeContractTest {
         val presentation = json.decodeFromString<WidgetPresentation>(
             """{"schemaVersion":1,"kind":"native","requiredCapabilities":{"layout.surface":1,"content.text":1},"native":{"root":{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":"Hello"}}]}}}"""
         )
-        assertTrue(presentation.requiredCapabilities.all { (name, version) -> (PresentationCapabilities.native[name] ?: 0) >= version })
+        assertTrue(presentation.requiredCapabilities.all { (name, version) -> (PlayerPresentationSupport.native[name] ?: 0) >= version })
     }
 
     @Test
@@ -35,15 +36,15 @@ class DeclarativeContractTest {
         val presentation = json.decodeFromString<WidgetPresentation>(
             """{"schemaVersion":1,"kind":"native","requiredCapabilities":{"content.line_chart":2,"binding.core":2},"native":{"root":{"type":"line_chart","binding":{"source":"dataset","dataset":"source:hourly","fields":["pm2_5","aqi"]}}}}"""
         )
-        assertTrue(presentation.requiredCapabilities.all { (name, version) -> (PresentationCapabilities.native[name] ?: 0) >= version })
+        assertTrue(presentation.requiredCapabilities.all { (name, version) -> (PlayerPresentationSupport.native[name] ?: 0) >= version })
     }
 
     @Test
     fun advancedPrimitiveCapabilitiesAreVersioned() {
-        assertTrue((PresentationCapabilities.native["content.asset_image"] ?: 0) >= 2)
-        assertTrue((PresentationCapabilities.native["content.progress"] ?: 0) >= 2)
-        assertTrue((PresentationCapabilities.native["content.donut_chart"] ?: 0) >= 2)
-        assertTrue((PresentationCapabilities.native["collection.conditional"] ?: 0) >= 2)
+        assertTrue((PlayerPresentationSupport.native["content.asset_image"] ?: 0) >= 2)
+        assertTrue((PlayerPresentationSupport.native["content.progress"] ?: 0) >= 2)
+        assertTrue((PlayerPresentationSupport.native["content.donut_chart"] ?: 0) >= 2)
+        assertTrue((PlayerPresentationSupport.native["collection.conditional"] ?: 0) >= 2)
     }
 
     @Test
@@ -51,7 +52,7 @@ class DeclarativeContractTest {
         val presentation = json.decodeFromString<WidgetPresentation>(
             """{"schemaVersion":1,"kind":"web","requiredCapabilities":{"web.remote":2},"web":{"mode":"remote","url":"https://docs.google.com/presentation/d/example/embed","allowedHosts":["docs.google.com"],"externalNetworkAccess":true,"onlineOnly":true,"fallbackBehavior":"placeholder","loadTimeoutSeconds":30,"lifecycle":"keep_warm","warmSeconds":60,"reload":{"mode":"periodic","intervalSeconds":900}}}"""
         )
-        assertEquals(2, PresentationCapabilities.webRuntimeVersion)
+        assertEquals(2, PlayerPresentationSupport.webRuntimeVersion)
         assertEquals("periodic", presentation.web?.reload?.mode)
         assertEquals(900, presentation.web?.reload?.intervalSeconds)
     }

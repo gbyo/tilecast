@@ -481,6 +481,20 @@ impl AuthenticatedServer {
         Ok(())
     }
 
+    /// The background liveness ping: proves the credential is still valid
+    /// without sending status. Background workers call this while the
+    /// player UI is dead; a rejection means the credential must go.
+    pub async fn player_liveness(&self) -> Result<(), ServerError> {
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/liveness")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let _data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(())
+    }
+
     /// `GET /player/presentation-network`: the assigned Wi-Fi profile with
     /// its secret, for one helper install call. The caller must not keep,
     /// log or forward the secret.

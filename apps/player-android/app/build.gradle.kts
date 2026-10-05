@@ -87,9 +87,13 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.room:room-runtime:2.8.5")
-    implementation("androidx.room:room-ktx:2.8.5")
-    ksp("androidx.room:room-compiler:2.8.5")
+    // The legacy Room schema lives in androidTest now: only the legacy-import
+    // device test seeds a pre-migration database for the native importer.
+    // 2.7.0 matches the Room WorkManager already ships; consistent resolution
+    // pins androidTest to the app's resolved version.
+    androidTestImplementation("androidx.room:room-runtime:2.7.0")
+    androidTestImplementation("androidx.room:room-ktx:2.7.0")
+    kspAndroidTest("androidx.room:room-compiler:2.7.0")
     // WorkManager 2.12 raises minSdk to 24; Tilecast still supports API 23.
     implementation("androidx.work:work-runtime-ktx:2.11.2")
     // Trusted Player Runtime host (WebViewAssetLoader, WebMessageListener).

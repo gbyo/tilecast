@@ -256,9 +256,9 @@ class SelectionDeviceTest {
         val host = PlayerCoreHost.get(context)
         val adapter = RecordingAdapter()
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(adapter)
+            host.attachRendererAdapter(adapter)
             // The scripted renderer links with the packaged image profile.
             assertEquals(
                 CoreReportCode.APPLIED,
@@ -334,9 +334,9 @@ class SelectionDeviceTest {
             host.stop()
             stub.stop()
             adapter.requests.clear()
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(adapter)
+            host.attachRendererAdapter(adapter)
             assertEquals(
                 CoreReportCode.APPLIED,
                 host.rendererReport("""{"type":"connected","generation":2}"""),

@@ -8,20 +8,21 @@ The APK embeds a Rust host for shared Player Core. The host crate is
 `tilecast-player-android-native` below `apps/player-android/native`.
 It owns one process-level host, a narrow JNI bridge, Android storage
 locations, and Android platform TLS trust. Kotlin owns the host lifetime
-through the application-scoped `PlayerCoreHost`. Production still runs the
-Kotlin Player. The host gains behavior behind its own qualification before
-any production cutover.
+through the application-scoped `PlayerCoreHost`. Production runs Core.
+Kotlin keeps setup discovery, server-address entry, OS effects, the
+trusted WebView renderer, capture, and self-update installation.
 
-The host runs Core pairing in Core-only mode. Kotlin calls
-`PlayerCoreHost.startCoreOnly` to open the host and start only the pairing
-driver. Core keeps the pairing session and enrollment. The Keystore keeps
-the device credential. The file `player-core/pairing.json` keeps the
+Kotlin calls `PlayerCoreHost.startDrivers` to open the host and start the
+Core drivers. Core keeps the pairing session and enrollment. The Keystore
+keeps the device credential. The file `player-core/pairing.json` keeps the
 pairing session. Neither value enters Player State, Room, logs, or status
 payloads. A JNI handler on Kotlin supplies the private stores and device
 facts to Core through upcalls. `beginPairing` starts a session.
 `resetPairing` clears only the session. It preserves an enrolled
 credential, because Core reserves removal for revocation. Core reports
-`Paired` immediately on enrollment.
+`Paired` immediately on enrollment. `resetServer` clears the credential
+and parks the link unbound. The binding keeps the server URL, so the next
+launch re-pairs without retyping the address.
 
 The host qualifies the content store on Android storage. The native
 `cas_qualify` checklist proves verified commits, size and digest
@@ -120,6 +121,35 @@ python3 apps/player-android/ci/check-native-alignment.py apps/player-android/app
 If the check reports a 4 KB alignment, do not ship the APK. Fix the
 toolchain flags first.
 
+## Production cutover
+
+Core owns pairing, configuration, manifest preparation, the server link,
+presence, commands, activity, renderer recovery, and capture policy.
+Kotlin owns server discovery, manual address entry, window, kiosk, and
+power effects, renderer hosting, frame capture, commissioning, and
+self-update installation. `PlayerViewModel` projects Core state onto the
+setup and status screens. It makes no content decisions.
+
+The cutover deleted the legacy Kotlin brains: the player state machine,
+the pairing coordinator, the manifest and configuration managers, the
+schedule engine, the playback screens, the preview and live-stream
+coordinators, the activity queue, the plugin bars, the fallback policy,
+and the Kotlin supervision ladder. The Kotlin HTTP client keeps only
+self-update metadata, status reports, and verified downloads.
+
+Production code has no Room dependency. The legacy Room schema lives in
+the `androidTest` source set. Only the legacy-import device test uses it,
+to seed a pre-migration database for the native importer. The native
+importer reads the legacy database file directly.
+
+`MainActivity` attaches the `WebViewCoreRenderer` view for paired
+playback. Idle, disabled, unavailable, safe-mode, and off-hours states
+render inside the runtime page. Capture refuses admin, maintenance,
+commissioning, update, and pairing screens with a named reason. Each
+capture request carries its own byte budget. The background worker proves
+liveness through Core. A revoked credential drops at once, so the next
+launch re-pairs against the retained server URL.
+
 ## Commissioning and unattended-recovery checks
 
 Pairing a fresh installation enters the required commissioning wizard before playback. Emulator tests can exercise PIN storage, permission-state verification, unattended self-update policy selection, boot receiver registration, immersive/keep-awake reporting, cached-manifest checks, recovery escalation, and safe mode. They cannot prove firmware foreground-launch behavior, physical-TV wake/standby, or whether a vendor installer honors Android's unattended-update request.
@@ -135,7 +165,7 @@ The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Build an unsigned,
 
 The single `org.tilecast.player` application ID is suitable for Play Store and direct APK distribution. Do not introduce Fire TV or Google TV variants unless a future store requirement cannot be handled through resources or manifest metadata.
 
-The shared Player Runtime is the only presentation implementation. Playlists, Widgets (including V2 components), Layouts, websites, and YouTube play in the trusted Player Runtime WebView through generic references plus a projection context. The player keeps no Compose renderer and no Media3 dependency. The player skips unsupported entries in ordinary playlists. It keeps the other entries playing and reports the unsupported content. It does not start reliability recovery. A synchronized group stops if any entry cannot render. It must keep one shared timeline for all screens. Plugin overlay bars (emergency tickers, countdown bars) stay native overlays above playback; website data clearing and the website navigation policy stay host-owned.
+The shared Player Runtime is the only presentation implementation. Playlists, Widgets (including V2 components), Layouts, websites, and YouTube play in the trusted Player Runtime WebView through generic references plus a projection context. The player keeps no Compose renderer and no Media3 dependency. The player skips unsupported entries in ordinary playlists. It keeps the other entries playing and reports the unsupported content. It does not start reliability recovery. A synchronized group stops if any entry cannot render. It must keep one shared timeline for all screens. Tickers and countdown bars project inside the runtime page. Core drives website data clearing through the renderer command channel. The website navigation policy stays host-owned.
 
 Calendar Sources project inside the shared runtime from sanitized manifest data. The Player does not fetch ICS, receive feed URLs, or use WebView for calendar content. Manifest validation bounds event counts and text before activation. Cached manifest startup preserves last-known-good prepared events.
 
@@ -145,7 +175,7 @@ Manifest v9 adds Clock, Date, QR Code, and Ticker Apps, which project inside the
 
 Layout schema v1 is decoded into typed Kotlin models and validated before activation. Layouts travel to the shared runtime as references. Groups are structural and never inject markup. Canvas coordinates scale uniformly into landscape or portrait display bounds.
 
-Unit tests cover URL policy, state transitions, player-generated identity, secure-storage abstractions, pairing enrollment, revocation, and reconnect backoff. Instrumented tests require an emulator or device:
+Unit tests cover URL policy, Core-to-UI state mapping, player-generated identity, secure-storage abstractions, and reconnect backoff. Core owns pairing enrollment, revocation, and scheduling, and the Rust tests cover them. Instrumented tests require an emulator or device:
 
 Milestone 4 uses Room schema version 2. `MIGRATION_1_2` preserves pairing configuration while adding manifest and cache metadata. Media bytes live under the application-controlled `files/media-cache` directory. Startup loads verified active content before network reconciliation.
 

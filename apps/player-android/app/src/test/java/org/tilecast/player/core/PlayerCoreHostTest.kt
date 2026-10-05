@@ -55,6 +55,11 @@ class PlayerCoreHostTest {
             resets++
             return 0
         }
+        var serverResets = 0
+        override fun resetServer(handle: Long): Int {
+            serverResets++
+            return 0
+        }
         override fun syncConfig(handle: Long): String? {
             syncs++
             return syncPayload
@@ -78,6 +83,25 @@ class PlayerCoreHostTest {
         override fun rendererRecovery(handle: Long, json: String): String? {
             recoveries += json
             return recoveryPayload
+        }
+        var observations = mutableListOf<String>()
+        override fun reportObservations(handle: Long, json: String): Int {
+            observations += json
+            return observations.size
+        }
+        var configPayload: String? = """{"ok":true,"revision":null}"""
+        override fun configJson(handle: Long): String? = configPayload
+        var identityPayload: String? = """{"ok":true,"product":"tilecast","installationId":"i1","organizationName":"Org","apiVersion":"v1","pairingEnabled":true}"""
+        var identityUrls = mutableListOf<String>()
+        override fun fetchIdentity(handle: Long, url: String): String? {
+            identityUrls += url
+            return identityPayload
+        }
+        var livenessPayload: String? = """{"ok":true,"outcome":"accepted"}"""
+        var livenessCalls = 0
+        override fun backgroundLiveness(handle: Long): String? {
+            livenessCalls++
+            return livenessPayload
         }
         override fun close(handle: Long): Int {
             closed++
@@ -147,11 +171,11 @@ class PlayerCoreHostTest {
         val bridge = FakeBridge()
         val dir = filesDir()
         val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
-        host.startCoreOnly()
+        host.startDrivers()
         val ready = host.state.value as CoreHostState.Ready
         assertTrue(ready.coreRunning)
         assertEquals(1, bridge.coreStarts)
-        host.startCoreOnly()
+        host.startDrivers()
         assertEquals(1, bridge.coreStarts)
         host.stop()
         assertEquals(CoreHostState.Idle, host.state.value)
@@ -166,6 +190,49 @@ class PlayerCoreHostTest {
         assertEquals(CoreBeginResult(true, null), host.beginPairing("https://signs.example"))
         assertEquals(listOf("https://signs.example"), bridge.begins)
         host.stop()
+    }
+
+    @Test fun fetchIdentityNeedsAReadyHostAndParses() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        assertEquals("host_not_ready", host.fetchIdentity("https://signs.example").code)
+        host.start()
+        val identity = host.fetchIdentity("https://signs.example")
+        assertTrue(identity.ok)
+        assertEquals("tilecast", identity.product)
+        assertEquals("i1", identity.installationId)
+        assertEquals("Org", identity.organizationName)
+        assertEquals("v1", identity.apiVersion)
+        assertTrue(identity.pairingEnabled)
+        assertEquals(listOf("https://signs.example"), bridge.identityUrls)
+        bridge.identityPayload = """{"ok":false,"code":"unreachable"}"""
+        assertEquals("unreachable", host.fetchIdentity("https://signs.example").code)
+        assertEquals(CoreIdentity(false, null, null, null, null, false, "null_result"), CoreIdentity.parse(null))
+        host.stop()
+    }
+
+    @Test fun backgroundLivenessNeedsAReadyHostAndParses() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        assertEquals("host_not_ready", host.backgroundLiveness().code)
+        host.start()
+        assertEquals(CoreLivenessResult(true, "accepted", null), host.backgroundLiveness())
+        assertEquals(1, bridge.livenessCalls)
+        bridge.livenessPayload = """{"ok":true,"outcome":"revoked"}"""
+        assertEquals("revoked", host.backgroundLiveness().outcome)
+        assertEquals(CoreLivenessResult(false, null, "null_result"), CoreLivenessResult.parse(null))
+        assertEquals(CoreLivenessResult(false, null, "result_unparseable"), CoreLivenessResult.parse("nope"))
+        host.stop()
+    }
+
+    @Test fun statusParsesTransitionAndFacts() {
+        val status = CoreHostStatus.parse(
+            """{"ok":true,"bridge":3,"paired":true,"cachedFallbackAvailable":true,"nextTransitionAt":"2026-10-05T01:00:00Z"}""",
+        )
+        assertTrue(status.cachedFallbackAvailable)
+        assertEquals("2026-10-05T01:00:00Z", status.nextTransitionAt)
     }
 
     @Test fun resetPairingClearsProjectedState() = runTest {
@@ -295,11 +362,11 @@ class PlayerCoreHostTest {
         assertEquals("bad_handle", CoreImportResult.parse("""{"ok":false,"code":"bad_handle"}""").code)
     }
 
-    @Test fun startCoreOnlyImportsBeforeDriversStart() = runTest {
+    @Test fun startDriversImportsBeforeDriversStart() = runTest {
         val bridge = FakeBridge()
         val dir = filesDir()
         val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
-        host.startCoreOnly()
+        host.startDrivers()
         assertEquals(1, bridge.imports)
         assertEquals(1, bridge.coreStarts)
         host.stop()
@@ -370,8 +437,12 @@ class PlayerCoreHostTest {
         assertEquals(CorePairingState.Paired, CorePairingState.parse("""{"state":"paired"}"""))
         assertEquals(CorePairingState.Setup, CorePairingState.parse("""{"state":"setup"}"""))
         assertEquals(
-            CorePairingState.Waiting("C", "U", null),
+            CorePairingState.Waiting("C", "U", null, null, null),
             CorePairingState.parse("""{"state":"waiting","code":"C","approvalUrl":"U"}"""),
+        )
+        assertEquals(
+            CorePairingState.Waiting("C", "U", "Org", "2026-08-06T07:06:40Z", "2026-08-06T06:56:40Z"),
+            CorePairingState.parse("""{"state":"waiting","code":"C","approvalUrl":"U","organizationName":"Org","expiresAt":"2026-08-06T07:06:40Z","serverTime":"2026-08-06T06:56:40Z"}"""),
         )
         assertEquals(CorePairingState.Unknown, CorePairingState.parse("""{"state":"waiting"}"""))
     }
@@ -400,6 +471,25 @@ class PlayerCoreHostTest {
         assertTrue(recovered.ok)
         assertEquals(true, recovered.wasActive)
         assertEquals(listOf("""{"action":"clear_safe_mode"}"""), bridge.recoveries)
+        host.stop()
+    }
+
+    @Test fun observationsAndConfigNeedAReadyHost() = runTest {
+        val bridge = FakeBridge()
+        val dir = filesDir()
+        val host = PlayerCoreHost.forTesting(dir, bridge, handlerFactory(dir))
+        assertEquals(-1, host.reportObservations("""{"updateState":"idle"}"""))
+        assertEquals(null, host.effectiveConfig().revision)
+        host.start()
+        assertEquals(1, host.reportObservations("""{"updateState":"idle"}"""))
+        assertEquals(listOf("""{"updateState":"idle"}"""), bridge.observations)
+        bridge.configPayload =
+            """{"ok":true,"revision":7,"runtime":{"branding":{"organizationName":"Acme"}},"platform":{"power":{"keepScreenOn":false}}}"""
+        val config = host.effectiveConfig()
+        assertEquals(7L, config.revision)
+        assertEquals("Acme", config.runtime.branding.organizationName)
+        assertFalse(config.platform.power.keepScreenOn)
+        assertEquals("standard", config.platform.reliability.mode)
         host.stop()
     }
 

@@ -156,19 +156,19 @@ internal object CoreRendererAdapterRefusing : CoreRendererAdapter {
 }
 
 /**
- * Executes platform-owned commands Core cannot run itself: renderer,
- * OS, and update-installer effects. The request is
- * `{"type": str, "payload": object}`; the answer is the result
- * envelope `{"ok": bool, "code": str, "message": str}`. Called on a
- * Core worker thread; never block on the UI thread.
+ * Executes platform-owned commands Core cannot run itself: power,
+ * update-installer, and restart effects. The request is
+ * `{"id": str, "type": str, "payload": object}`; the answer is the
+ * result envelope `{"ok": bool, "code": str, "message": str}`. Called
+ * on a Core worker thread; never call back into native code or block
+ * on the UI thread.
  */
 fun interface PlatformCommandExecutor {
     fun execute(requestJson: String): String
 
     companion object {
-        /** Pre-cutover production answer: the command driver only runs
-         * in Core-only mode, so this is unreachable until PR3 wires the
-         * real effects as the old brain is removed. */
+        /** Safe default until a real executor is attached: production
+         * wires [CorePlatformCommands], tests substitute fakes. */
         val UNAVAILABLE = PlatformCommandExecutor {
             """{"ok":false,"code":"platform_unavailable","message":"The platform executor is not wired yet."}"""
         }

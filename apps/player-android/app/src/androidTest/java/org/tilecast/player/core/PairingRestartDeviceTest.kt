@@ -186,7 +186,7 @@ class PairingRestartDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
@@ -197,7 +197,7 @@ class PairingRestartDeviceTest {
             }
 
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
 
             // No second begin: the saved session resumes and enrolls.

@@ -24,6 +24,7 @@ internal object PlayerCoreNative {
     external fun nativeStartCore(handle: Long): Int
     external fun nativeBeginPairing(handle: Long, url: String): String?
     external fun nativeResetPairing(handle: Long): Int
+    external fun nativeResetServer(handle: Long): Int
     external fun nativeClose(handle: Long): Int
     external fun nativeInitTls(context: Context): Int
     /**
@@ -38,4 +39,8 @@ internal object PlayerCoreNative {
     external fun nativeActivatePresentation(handle: Long, json: String): String?
     external fun nativeRendererReport(handle: Long, json: String): Int
     external fun nativeRendererRecovery(handle: Long, json: String): String?
+    external fun nativeReportObservations(handle: Long, json: String): Int
+    external fun nativeConfigJson(handle: Long): String?
+    external fun nativeFetchIdentity(handle: Long, url: String): String?
+    external fun nativeBackgroundLiveness(handle: Long): String?
 }

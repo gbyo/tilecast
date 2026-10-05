@@ -140,6 +140,7 @@ pub struct PlaybackIdentity {
     pub layout_id: Option<uuid::Uuid>,
     pub schedule_id: Option<uuid::Uuid>,
     pub takeover_id: Option<uuid::Uuid>,
+    pub next_transition_ms: Option<i64>,
 }
 
 /// The explicit `activatePresentation` call: a projected host message
@@ -296,6 +297,7 @@ fn parse_activate_request(raw: &str) -> Result<ActivateRequest, ActivateError> {
                     .map(uuid::Uuid::parse_str)
                     .transpose()
                     .map_err(|_| ActivateError::Malformed)?,
+                next_transition_ms: identity.get("nextTransitionMs").and_then(serde_json::Value::as_i64),
             })
         })
         .transpose()?;
@@ -746,6 +748,12 @@ pub struct RendererSnapshot {
     pub incompatible_reason: Option<String>,
     pub last_error: Option<String>,
     pub current_item_id: Option<String>,
+    /// The last meaningful renderer progress: the heartbeat's
+    /// `lastHealthyPlaybackAt` while a playing presentation is healthy.
+    pub last_progress_at: Option<Timestamp>,
+    /// When the current activation was issued: the heartbeat's
+    /// `lastPlaylistTransitionAt`.
+    pub last_activation_at: Option<Timestamp>,
 }
 
 /// The prepared activation the engine issued: the caller's request for
@@ -785,6 +793,12 @@ pub struct PresentationEngine {
     clock_offset_ms: i64,
     manifest_wake: Arc<Notify>,
     item_boundary: Arc<AtomicBool>,
+    last_activation_at: Option<Timestamp>,
+    /// The installed runtime cannot host the player at all (its WebView
+    /// lacks the bridge the trusted document needs). Sticky: no renderer
+    /// will ever connect, so capability advertisement is empty rather
+    /// than the fresh-process fallback.
+    unsupported_runtime: bool,
 }
 
 impl std::fmt::Debug for PresentationEngine {
@@ -852,9 +866,30 @@ impl PresentationEngine {
             clock_offset_ms: 0,
             manifest_wake,
             item_boundary,
+            last_activation_at: None,
+            unsupported_runtime: false,
         };
         engine.refresh_snapshot();
         engine
+    }
+
+    /// The installed runtime cannot host the player: no renderer will
+    /// ever connect. Later connections still win if one somehow arrives;
+    /// until then advertisement is empty, never the fresh fallback.
+    pub fn renderer_unsupported(&mut self) {
+        self.unsupported_runtime = true;
+        self.refresh_snapshot();
+    }
+
+    /// The support heartbeat and preparation-time compatibility checks
+    /// advertise: the live connection's ready report, empty when the
+    /// runtime is unsupported, or `None` before any renderer proves
+    /// itself (callers use the fresh-process fallback then).
+    pub fn advertised_support(&self) -> Option<ConnectedRendererProfile> {
+        if self.unsupported_runtime && self.link.as_ref().is_none_or(|link| link.ready.is_none()) {
+            return Some(ConnectedRendererProfile(player_core::RendererSupport::default()));
+        }
+        self.link.as_ref().and_then(|link| link.ready.clone())
     }
 
     /// The corrected server clock offset the selection driver last
@@ -993,6 +1028,7 @@ impl PresentationEngine {
             self.signal(player_core::ActivitySignal::Presented(presented));
         }
         self.current = Some(Prepared { request, reference, activation, uris });
+        self.last_activation_at = Some(now);
         self.push_current().await;
         self.refresh_snapshot();
         Ok(ActivateOutcome {
@@ -1079,6 +1115,8 @@ impl PresentationEngine {
             incompatible_reason: self.incompatible_reason.clone(),
             last_error: self.native.tracker().last_error().map(|code| code.as_str().to_owned()),
             current_item_id: self.native.tracker().current_item().map(|(id, _)| id),
+            last_progress_at: self.native.tracker().last_progress(),
+            last_activation_at: self.last_activation_at,
         };
     }
 }
@@ -1676,6 +1714,41 @@ mod tests {
                 "widgetComponents": {},
             },
         })
+    }
+
+    #[tokio::test]
+    async fn advertised_support_tracks_the_live_ready_report() {
+        let mut test = scratch().await;
+        // Before any renderer proves itself there is nothing to advertise.
+        assert!(test.engine.advertised_support().is_none());
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let advertised = test.engine.advertised_support().expect("profile");
+        assert_eq!(advertised.presentation_schemas(), vec![1, 2]);
+        assert_eq!(advertised.declarative_capabilities(), vec![("content.text".to_owned(), 1)]);
+        assert!(advertised.widget_components().is_empty());
+        // A newer ready report replaces the advertisement.
+        let proved = serde_json::json!({
+            "features": FULL_FEATURES,
+            "support": {
+                "presentationSchemas": [1, 2],
+                "declarativeCapabilities": {"content.text": 1},
+                "widgetComponents": {"widget.tilecast.clock": 2},
+            },
+        });
+        assert!(test.engine.renderer_ready(1, &proved).await);
+        let advertised = test.engine.advertised_support().expect("profile");
+        assert_eq!(advertised.widget_components(), vec![("widget.tilecast.clock".to_owned(), 2)]);
+    }
+
+    #[tokio::test]
+    async fn unsupported_runtime_advertises_an_empty_profile() {
+        let mut test = scratch().await;
+        test.engine.renderer_unsupported();
+        let advertised = test.engine.advertised_support().expect("profile");
+        assert!(advertised.presentation_schemas().is_empty());
+        assert!(advertised.declarative_capabilities().is_empty());
+        assert!(advertised.widget_components().is_empty());
     }
 
     const FULL_FEATURES: &[&str] = &[

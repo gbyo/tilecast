@@ -52,6 +52,9 @@ fn host_lifecycle_opens_state_cas_and_core() {
     assert_eq!(status["bridge"], 3);
     assert_eq!(status["ok"], true);
     assert_eq!(status["paired"], false);
+    for key in ["serverUrl", "installationId", "organizationName", "screenId", "screenName"] {
+        assert!(status[key].is_null(), "{key} is null while unpaired");
+    }
     assert!(status["stateDb"].as_str().expect("stateDb").ends_with("player-core/state.db"));
     assert!(status["casDir"].as_str().expect("casDir").ends_with("player-core/cas"));
 

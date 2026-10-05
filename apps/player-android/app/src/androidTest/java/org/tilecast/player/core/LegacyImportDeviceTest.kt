@@ -218,9 +218,9 @@ class LegacyImportDeviceTest {
 
             // No server is ever started: the selection driver picks up
             // the imported pending manifest and trial-activates it.
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(adapter)
+            host.attachRendererAdapter(adapter)
             assertEquals(
                 CoreReportCode.APPLIED,
                 host.rendererReport("""{"type":"connected","generation":1}"""),

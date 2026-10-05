@@ -1,8 +1,12 @@
 package org.tilecast.player.core
 
+import android.app.Application
 import android.content.Context
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +24,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import org.tilecast.player.BuildConfig
+import org.tilecast.player.content.PlayerUpdateManager
+import org.tilecast.player.network.TilecastApi
+import org.tilecast.player.reliability.ReliabilityController
 import org.tilecast.player.security.MigratingCredentialStore
 
 /** Renderer snapshot shared by the native host (bridge contract v3). */
@@ -74,8 +81,19 @@ data class CoreHostStatus(
     val configRevision: Long? = null,
     val linkState: String? = null,
     val linkReason: String? = null,
+    val linkExpected: String? = null,
+    val linkActual: String? = null,
     val lastServerContactAt: String? = null,
     val renderer: CoreRendererStatus? = null,
+    val serverUrl: String? = null,
+    val installationId: String? = null,
+    val organizationName: String? = null,
+    val screenId: String? = null,
+    val screenName: String? = null,
+    val activeHoursState: String? = null,
+    val takeoverActive: Boolean = false,
+    val cachedFallbackAvailable: Boolean = false,
+    val nextTransitionAt: String? = null,
 ) {
     companion object {
         fun parse(payload: String?): CoreHostStatus {
@@ -92,7 +110,18 @@ data class CoreHostStatus(
                     configRevision = root["configRevision"]?.jsonPrimitive?.longOrNull,
                     linkState = root.stringOrNull("linkState"),
                     linkReason = root.stringOrNull("linkReason"),
+                    linkExpected = root.stringOrNull("linkExpected"),
+                    linkActual = root.stringOrNull("linkActual"),
                     lastServerContactAt = root.stringOrNull("lastServerContactAt"),
+                    serverUrl = root.stringOrNull("serverUrl"),
+                    installationId = root.stringOrNull("installationId"),
+                    organizationName = root.stringOrNull("organizationName"),
+                    screenId = root.stringOrNull("screenId"),
+                    screenName = root.stringOrNull("screenName"),
+                    activeHoursState = root.stringOrNull("activeHoursState"),
+                    takeoverActive = root["takeoverActive"]?.jsonPrimitive?.booleanOrNull == true,
+                    cachedFallbackAvailable = root["cachedFallbackAvailable"]?.jsonPrimitive?.booleanOrNull == true,
+                    nextTransitionAt = root.stringOrNull("nextTransitionAt"),
                     renderer = CoreRendererStatus.parse(
                         try {
                             root["renderer"]?.jsonObject
@@ -116,7 +145,13 @@ sealed interface CorePairingState {
     data object Setup : CorePairingState
     data object AddressRejected : CorePairingState
     data object Reset : CorePairingState
-    data class Waiting(val code: String, val approvalUrl: String, val organizationName: String?) : CorePairingState
+    data class Waiting(
+        val code: String,
+        val approvalUrl: String,
+        val organizationName: String?,
+        val expiresAt: String?,
+        val serverTime: String?,
+    ) : CorePairingState
     data class Renewing(val reason: String) : CorePairingState
 
     companion object {
@@ -134,12 +169,64 @@ sealed interface CorePairingState {
                         code = root.stringOrNull("code") ?: return Unknown,
                         approvalUrl = root.stringOrNull("approvalUrl") ?: return Unknown,
                         organizationName = root.stringOrNull("organizationName"),
+                        expiresAt = root.stringOrNull("expiresAt"),
+                        serverTime = root.stringOrNull("serverTime"),
                     )
                     "renewing" -> Renewing(reason = root.stringOrNull("reason") ?: return Unknown)
                     else -> Unknown
                 }
             } catch (_: Exception) {
                 Unknown
+            }
+        }
+    }
+}
+
+/** A server's public installation identity, fetched without a credential. */
+data class CoreIdentity(
+    val ok: Boolean,
+    val product: String?,
+    val installationId: String?,
+    val organizationName: String?,
+    val apiVersion: String?,
+    val pairingEnabled: Boolean,
+    val code: String? = null,
+) {
+    companion object {
+        fun parse(payload: String?): CoreIdentity {
+            if (payload == null) return CoreIdentity(false, null, null, null, null, false, "null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                CoreIdentity(
+                    ok = root["ok"]?.jsonPrimitive?.booleanOrNull == true,
+                    product = root.stringOrNull("product"),
+                    installationId = root.stringOrNull("installationId"),
+                    organizationName = root.stringOrNull("organizationName"),
+                    apiVersion = root.stringOrNull("apiVersion"),
+                    pairingEnabled = root["pairingEnabled"]?.jsonPrimitive?.booleanOrNull == true,
+                    code = root.stringOrNull("code"),
+                )
+            } catch (_: Exception) {
+                CoreIdentity(false, null, null, null, null, false, "result_unparseable")
+            }
+        }
+    }
+}
+
+/** One background liveness ping: accepted, revoked, mismatch, or a retryable code. */
+data class CoreLivenessResult(val ok: Boolean, val outcome: String?, val code: String?) {
+    companion object {
+        fun parse(payload: String?): CoreLivenessResult {
+            if (payload == null) return CoreLivenessResult(false, null, "null_result")
+            return try {
+                val root = Json.parseToJsonElement(payload).jsonObject
+                CoreLivenessResult(
+                    ok = root["ok"]?.jsonPrimitive?.booleanOrNull == true,
+                    outcome = root.stringOrNull("outcome"),
+                    code = root.stringOrNull("code"),
+                )
+            } catch (_: Exception) {
+                CoreLivenessResult(false, null, "result_unparseable")
             }
         }
     }
@@ -356,12 +443,17 @@ interface CoreBridge {
     fun startCore(handle: Long): Int
     fun beginPairing(handle: Long, url: String): String?
     fun resetPairing(handle: Long): Int
+    fun resetServer(handle: Long): Int
     fun syncConfig(handle: Long): String?
     fun syncManifest(handle: Long): String?
     fun importLegacy(handle: Long): String?
     fun activatePresentation(handle: Long, json: String): String?
     fun rendererReport(handle: Long, json: String): Int
     fun rendererRecovery(handle: Long, json: String): String?
+    fun reportObservations(handle: Long, json: String): Int
+    fun configJson(handle: Long): String?
+    fun fetchIdentity(handle: Long, url: String): String?
+    fun backgroundLiveness(handle: Long): String?
     fun close(handle: Long): Int
 }
 
@@ -374,6 +466,7 @@ internal class JniCoreBridge : CoreBridge {
     override fun beginPairing(handle: Long, url: String): String? =
         PlayerCoreNative.nativeBeginPairing(handle, url)
     override fun resetPairing(handle: Long): Int = PlayerCoreNative.nativeResetPairing(handle)
+    override fun resetServer(handle: Long): Int = PlayerCoreNative.nativeResetServer(handle)
     override fun syncConfig(handle: Long): String? = PlayerCoreNative.nativeSyncConfig(handle)
     override fun syncManifest(handle: Long): String? = PlayerCoreNative.nativeSyncManifest(handle)
     override fun importLegacy(handle: Long): String? = PlayerCoreNative.nativeImportLegacy(handle)
@@ -383,6 +476,11 @@ internal class JniCoreBridge : CoreBridge {
         PlayerCoreNative.nativeRendererReport(handle, json)
     override fun rendererRecovery(handle: Long, json: String): String? =
         PlayerCoreNative.nativeRendererRecovery(handle, json)
+    override fun reportObservations(handle: Long, json: String): Int =
+        PlayerCoreNative.nativeReportObservations(handle, json)
+    override fun configJson(handle: Long): String? = PlayerCoreNative.nativeConfigJson(handle)
+    override fun fetchIdentity(handle: Long, url: String): String? = PlayerCoreNative.nativeFetchIdentity(handle, url)
+    override fun backgroundLiveness(handle: Long): String? = PlayerCoreNative.nativeBackgroundLiveness(handle)
     override fun close(handle: Long): Int = PlayerCoreNative.nativeClose(handle)
     fun initTls(context: Context): Int = PlayerCoreNative.nativeInitTls(context)
 }
@@ -397,10 +495,9 @@ fun interface CoreHandlerFactory {
  * ViewModels observe [state] and [pairingState]; they never own the host, so
  * Activity recreation cannot restart the Player daemon.
  *
- * Production still runs the Kotlin Player. The Core-only test mode starts
- * the host plus its drivers ([startCoreOnly]) and drives pairing through
- * Core ([beginPairing]); the device test and internal builds use it while
- * the Kotlin Player keeps serving production traffic.
+ * Production starts the host plus its drivers ([startDrivers]) and drives
+ * pairing, content, and presence through Core. The Kotlin Player it
+ * replaced is gone; this host is the production brain.
  */
 class PlayerCoreHost private constructor(
     private val filesDir: File,
@@ -408,11 +505,25 @@ class PlayerCoreHost private constructor(
     private val bridge: CoreBridge,
     private val tlsInit: () -> Int,
     handlerFactory: CoreHandlerFactory,
+    /**
+     * The single app-scoped update manager: the command executor prepares
+     * deployments through it and the ViewModel shows its states. Null in
+     * tests that never build production effects.
+     */
+    val updateManager: PlayerUpdateManager?,
 ) {
     private val mutex = Mutex()
     private var handle: Long = 0L
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val handler: CoreBridgeHandler = handlerFactory.create { json ->
-        _pairingState.value = CorePairingState.parse(json)
+        val parsed = CorePairingState.parse(json)
+        _pairingState.value = parsed
+        // Enrollment binds the server URL and screen: refresh the cached
+        // status so the platform executor's providers see it. The sink
+        // runs on a Core worker thread; the refresh hops to IO first.
+        if (parsed is CorePairingState.Paired || parsed is CorePairingState.Enrolled) {
+            scope.launch { refreshStatus() }
+        }
     }
     private val _state = MutableStateFlow<CoreHostState>(CoreHostState.Idle)
     val state: StateFlow<CoreHostState> = _state.asStateFlow()
@@ -477,10 +588,11 @@ class PlayerCoreHost private constructor(
     }
 
     /**
-     * Starts the host plus its Core drivers: the Core-only test mode. The
-     * drivers reconcile pairing and (as they land) every other Core behavior.
+     * Starts the host plus its Core drivers: legacy state is imported,
+     * then the drivers reconcile pairing, content, and presence. This is
+     * the production start path; qualification tests use it too.
      */
-    suspend fun startCoreOnly() {
+    suspend fun startDrivers() {
         start()
         withContext(Dispatchers.IO) {
             mutex.withLock {
@@ -498,6 +610,24 @@ class PlayerCoreHost private constructor(
             }
         }
     }
+
+    /** Reads a server's public identity without sending any credential. */
+    suspend fun fetchIdentity(url: String): CoreIdentity =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock CoreIdentity(false, null, null, null, null, false, "host_not_ready")
+                CoreIdentity.parse(runCatching { bridge.fetchIdentity(handle, url) }.getOrNull())
+            }
+        }
+
+    /** Pings background liveness against the bound server. */
+    suspend fun backgroundLiveness(): CoreLivenessResult =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock CoreLivenessResult(false, null, "host_not_ready")
+                CoreLivenessResult.parse(runCatching { bridge.backgroundLiveness(handle) }.getOrNull())
+            }
+        }
 
     /** Begins a Core pairing session against the server URL. */
     suspend fun beginPairing(url: String): CoreBeginResult =
@@ -586,12 +716,48 @@ class PlayerCoreHost private constructor(
             }
         }
 
+    /**
+     * Records platform observations for the heartbeat projection.
+     * Returns how many fields Core stored; unknown or out-of-range
+     * fields are dropped, never sent. Negative means the call failed.
+     */
+    suspend fun reportObservations(json: String): Int =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock -1
+                runCatching { bridge.reportObservations(handle, json) }.getOrDefault(-1)
+            }
+        }
+
+    /** Reads the accepted configuration split by its behavioral owner. */
+    suspend fun effectiveConfig(): CorePlayerConfig =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock CorePlayerConfig(null)
+                CorePlayerConfig.parse(runCatching { bridge.configJson(handle) }.getOrNull())
+            }
+        }
+
     /** Resets Core pairing state. Best effort; always safe to call. */
     suspend fun resetPairing(): Boolean =
         withContext(Dispatchers.IO) {
             mutex.withLock {
                 val ready = _state.value as? CoreHostState.Ready ?: return@withLock false
                 val ok = runCatching { bridge.resetPairing(handle) }.getOrDefault(1) == 0
+                if (ok) {
+                    _pairingState.value = CorePairingState.Unknown
+                    refreshStatusLocked(ready)
+                }
+                ok
+            }
+        }
+
+    /** Forgets the server connection entirely. Best effort; always safe to call. */
+    suspend fun resetServer(): Boolean =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                val ready = _state.value as? CoreHostState.Ready ?: return@withLock false
+                val ok = runCatching { bridge.resetServer(handle) }.getOrDefault(1) == 0
                 if (ok) {
                     _pairingState.value = CorePairingState.Unknown
                     refreshStatusLocked(ready)
@@ -610,8 +776,8 @@ class PlayerCoreHost private constructor(
         handler.executor = executor
     }
 
-    /** Test-only: swaps the renderer adapter on the live handler. */
-    fun setRendererAdapterForTesting(adapter: CoreRendererAdapter) {
+    /** Attaches the renderer adapter that serves Core's renderer requests. */
+    fun attachRendererAdapter(adapter: CoreRendererAdapter) {
         handler.rendererAdapter = adapter
     }
 
@@ -661,14 +827,29 @@ class PlayerCoreHost private constructor(
             val bridge = JniCoreBridge()
             val coreDir = File(app.filesDir, "player-core")
             val credentials = MigratingCredentialStore.forProduction(app)
-            return PlayerCoreHost(app.filesDir, userAgent(), bridge, { bridge.initTls(app) }) { sink ->
+            val updates = PlayerUpdateManager(app as Application, TilecastApi())
+            lateinit var host: PlayerCoreHost
+            val executor = CorePlatformCommands(
+                AndroidPlatformEffects(
+                    ReliabilityController(app),
+                    updates,
+                ),
+                credentials,
+                serverUrl = { (host.state.value as? CoreHostState.Ready)?.status?.serverUrl },
+                takeoverActive = {
+                    (host.state.value as? CoreHostState.Ready)?.status?.takeoverActive == true
+                },
+            )
+            host = PlayerCoreHost(app.filesDir, userAgent(), bridge, { bridge.initTls(app) }, { sink ->
                 CoreBridgeHandler(
                     credentials,
                     File(coreDir, "pairing.json"),
                     DeviceFacts.collect(app),
                     sink,
+                    executor = executor,
                 )
-            }
+            }, updates)
+            return host
         }
 
         /** Test-only: builds an isolated host that never touches the singleton. */
@@ -678,6 +859,6 @@ class PlayerCoreHost private constructor(
             handlerFactory: CoreHandlerFactory,
             tlsInit: () -> Int = { TLS_OK },
             userAgent: String = "Tilecast-Player-Android/test",
-        ): PlayerCoreHost = PlayerCoreHost(filesDir, userAgent, bridge, tlsInit, handlerFactory)
+        ): PlayerCoreHost = PlayerCoreHost(filesDir, userAgent, bridge, tlsInit, handlerFactory, null)
     }
 }

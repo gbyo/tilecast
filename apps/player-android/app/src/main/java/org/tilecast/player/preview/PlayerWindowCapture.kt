@@ -135,19 +135,6 @@ internal class PlayerWindowCapture(private val activity: Activity) {
     }
 }
 
-internal fun scaledDimensions(
-    width: Int,
-    height: Int,
-    maxWidth: Int,
-    maxHeight: Int,
-): PreviewDimensions {
-    require(width > 0 && height > 0 && maxWidth > 0 && maxHeight > 0)
-    val scale = min(1.0, min(maxWidth.toDouble() / width, maxHeight.toDouble() / height))
-    return PreviewDimensions(
-        width = (width * scale).roundToInt().coerceAtLeast(1),
-        height = (height * scale).roundToInt().coerceAtLeast(1),
-    )
-}
 
 private fun visibleSurfaceViews(root: View): List<SurfaceView> {
     val result = mutableListOf<SurfaceView>()

@@ -149,7 +149,7 @@ impl player_core::PairingHost for Metadata<'_> {
                 activate(context, PresentationDocument::Setup {}).await;
             }
             PairingStatus::AddressRejected => activate(context, PresentationDocument::Setup {}).await,
-            PairingStatus::Waiting { code, approval_url, organization_name } => {
+            PairingStatus::Waiting { code, approval_url, organization_name, .. } => {
                 set_view(context, "waiting", Some(code.clone()), None);
                 activate(
                     context,

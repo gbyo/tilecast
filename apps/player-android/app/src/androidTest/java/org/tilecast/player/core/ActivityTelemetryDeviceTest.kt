@@ -340,7 +340,7 @@ class ActivityTelemetryDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
             awaitPaired(host)
@@ -382,7 +382,7 @@ class ActivityTelemetryDeviceTest {
             // A restart keeps the sequence moving across the boundary.
             val maxBefore = stub.events.maxOf { it.getInt("sequence") }
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             awaitEvents(stub, stub.events.size + 2)
             val after = stub.events.filter { it.getInt("sequence") > maxBefore }
             assertTrue("post-restart events: ${after.size}", after.size >= 2)

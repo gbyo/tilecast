@@ -185,12 +185,16 @@ pub fn status_json(status: &PairingStatus) -> String {
         PairingStatus::Setup => serde_json::json!({"state": "setup"}),
         PairingStatus::AddressRejected => serde_json::json!({"state": "addressRejected"}),
         PairingStatus::Reset => serde_json::json!({"state": "reset"}),
-        PairingStatus::Waiting { code, approval_url, organization_name } => serde_json::json!({
-            "state": "waiting",
-            "code": code,
-            "approvalUrl": approval_url,
-            "organizationName": organization_name,
-        }),
+        PairingStatus::Waiting { code, approval_url, organization_name, expires_at, server_time } => {
+            serde_json::json!({
+                "state": "waiting",
+                "code": code,
+                "approvalUrl": approval_url,
+                "organizationName": organization_name,
+                "expiresAt": expires_at.to_string(),
+                "serverTime": server_time,
+            })
+        }
         PairingStatus::Renewing { reason } => serde_json::json!({"state": "renewing", "reason": reason}),
     };
     value.to_string()
@@ -283,10 +287,12 @@ mod tests {
             code: "ABC123".to_owned(),
             approval_url: "https://signs.example/s".to_owned(),
             organization_name: None,
+            expires_at: player_types::Timestamp::from_unix_millis(1_786_000_000_000).expect("expiry"),
+            server_time: Some("2026-08-06T06:56:40Z".to_owned()),
         });
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&waiting).expect("json"),
-            serde_json::json!({"state": "waiting", "code": "ABC123", "approvalUrl": "https://signs.example/s", "organizationName": null}),
+            serde_json::json!({"state": "waiting", "code": "ABC123", "approvalUrl": "https://signs.example/s", "organizationName": null, "expiresAt": "2026-08-06T07:06:40Z", "serverTime": "2026-08-06T06:56:40Z"}),
         );
         assert!(status_json(&PairingStatus::Paired).contains("paired"));
         assert!(status_json(&PairingStatus::Renewing { reason: "expired".to_owned() }).contains("expired"));

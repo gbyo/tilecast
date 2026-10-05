@@ -401,7 +401,7 @@ class RendererDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             // A scripted link is enough: this test asserts the call's
             // synchronous answer, not any steady state. The selection
@@ -464,13 +464,13 @@ class RendererDeviceTest {
                 reports += JSONObject(json)
                 host.rendererReport(json).also { reportCodes += it }
             },
-            captureFrame = { _, _ -> WebViewCoreRenderer.CapturedImage(jpegBytes, 2, 2) },
+            captureFrame = { _, _, _ -> WebViewCoreRenderer.CapturedImage(jpegBytes, 2, 2) },
         )
         val scenario = ActivityScenario.launch(RendererHarnessActivity::class.java)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
-            host.setRendererAdapterForTesting(renderer)
+            host.attachRendererAdapter(renderer)
             assertTrue("renderer did not start", renderer.start())
             // Production attaches the trusted view to the player UI;
             // view-posted work only runs on an attached view.
@@ -658,7 +658,7 @@ class RendererDeviceTest {
             }
             runCatching { scenario.close() }
             runCatching { renderer.close() }
-            runCatching { host.setRendererAdapterForTesting(CoreRendererAdapterRefusing) }
+            runCatching { host.attachRendererAdapter(CoreRendererAdapterRefusing) }
             host.stop()
             stub.stop()
             credentials.clear()

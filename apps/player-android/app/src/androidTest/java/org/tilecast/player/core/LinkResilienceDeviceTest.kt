@@ -244,7 +244,7 @@ class LinkResilienceDeviceTest {
         credentials.clear()
         val host = PlayerCoreHost.get(context)
         try {
-            host.startCoreOnly()
+            host.startDrivers()
             assertTrue(host.state.value is CoreHostState.Ready)
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
@@ -258,7 +258,7 @@ class LinkResilienceDeviceTest {
             // restores the link.
             stub.heartbeatMode = "revoked"
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             awaitLink(host, "stopped", "device_credential_rejected")
             assertEquals(null, credentials.read())
             val repair = host.beginPairing(stub.url)
@@ -273,11 +273,11 @@ class LinkResilienceDeviceTest {
             // reconnects without any re-pairing.
             stub.heartbeatMode = "disabled"
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             awaitLink(host, "retrying")
             stub.heartbeatMode = "ok"
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             awaitLink(host, "connected")
             assertEquals(2, stub.sessions.get())
 
@@ -288,7 +288,7 @@ class LinkResilienceDeviceTest {
             stub.installationId = UUID.randomUUID().toString()
             stub.installationFlipped = true
             host.stop()
-            host.startCoreOnly()
+            host.startDrivers()
             awaitLink(host, "stopped", "installation_identity_mismatch")
             delay(2000)
             assertEquals(0, stub.authedAfterFlip.get())

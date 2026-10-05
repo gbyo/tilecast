@@ -35,6 +35,7 @@ pub mod jvm;
 pub mod legacy_import;
 pub mod live_stream;
 pub mod manifest_host;
+pub mod observations;
 pub mod pairing_host;
 pub mod paths;
 pub mod presentation_capabilities;

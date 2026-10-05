@@ -56,7 +56,20 @@ class WebViewCoreRenderer(
     private val hostVersion: String,
     private val engineVersion: String,
     private val report: suspend (String) -> Int,
-    private val captureFrame: (suspend (maxWidth: Int, maxHeight: Int) -> CapturedImage?)? = null,
+    private val captureFrame: (suspend (maxWidth: Int, maxHeight: Int, maxBytes: Int) -> CapturedImage?)? = null,
+    /**
+     * Names why the current screen must never be captured
+     * (admin, maintenance, commissioning, update), or null when
+     * capture is allowed. Checked before every capture request.
+     */
+    private val captureBlockReason: (() -> String?)? = null,
+    /**
+     * Runs after the probe passes and the upgraded ready report is
+     * sent. Production re-syncs the manifest so newly proven
+     * capabilities can unlock staged content, as the legacy player
+     * reconciled on the probe result.
+     */
+    private val onCapabilitiesChanged: () -> Unit = {},
 ) : CoreRendererAdapter {
     data class CapturedImage(val bytes: ByteArray, val width: Int, val height: Int)
 
@@ -99,11 +112,20 @@ class WebViewCoreRenderer(
     var onViewRecreated: ((WebView) -> Unit)? = null
 
     /**
+     * Runs when the installed WebView cannot host the secure runtime
+     * bridge, at startup or after a recreate. The renderer also reports
+     * `unsupported` to Core so capability advertisement stays empty;
+     * production shows a native screen instead of the renderer view.
+     */
+    var onRuntimeUnsupported: (() -> Unit)? = null
+
+    /**
      * Creates the trusted WebView and announces it to Core. Must be called
      * before any request can queue; false means this WebView cannot host
      * the secure runtime bridge.
      */
     suspend fun start(): Boolean {
+        var unsupported = false
         withContext(Dispatchers.Main.immediate) {
             synchronized(lock) {
                 if (started) return@withContext
@@ -128,12 +150,22 @@ class WebViewCoreRenderer(
                         session = newSession(endpoint.generation)
                         started = true
                     }
-                    is TrustedRuntimeEndpoint.Unsupported -> return@withContext
+                    is TrustedRuntimeEndpoint.Unsupported -> {
+                        unsupported = true
+                        return@withContext
+                    }
                 }
             }
             reportConnected(liveGeneration)
         }
+        if (unsupported) notifyRuntimeUnsupported()
         return synchronized(lock) { started }
+    }
+
+    /** Reports the unsupported runtime to Core and notifies the host. */
+    private fun notifyRuntimeUnsupported() {
+        scope.launch { runCatching { report("""{"type":"unsupported"}""") } }
+        runCatching { onRuntimeUnsupported?.invoke() }
     }
 
     /** Tears the renderer down and reports its disconnection. Best effort. */
@@ -332,12 +364,17 @@ class WebViewCoreRenderer(
             return CoreRendererRequestCode.INVALID_ACTIVATION
         }
         val capture = captureFrame
+        val blockReason = runCatching { captureBlockReason?.invoke() }.getOrNull()
         scope.launch {
+            if (blockReason != null) {
+                report(unavailableCapture(requestId, blockReason.take(64)))
+                return@launch
+            }
             if (capture == null) {
                 report(unavailableCapture(requestId, "capture_unavailable"))
                 return@launch
             }
-            val image = runCatching { capture(maxWidth, maxHeight) }.getOrNull()
+            val image = runCatching { capture(maxWidth, maxHeight, maxBytes) }.getOrNull()
             if (image == null) {
                 report(unavailableCapture(requestId, "capture_failed"))
             } else if (image.bytes.size > maxBytes) {
@@ -392,6 +429,7 @@ class WebViewCoreRenderer(
                     webView = null
                     session = null
                     grants = null
+                    notifyRuntimeUnsupported()
                     return@withContext
                 }
                 webView = endpoint.webView
@@ -551,8 +589,14 @@ class WebViewCoreRenderer(
                             put(
                                 "declarativeCapabilities",
                                 buildJsonObject {
-                                    for ((name, version) in PlayerPresentationSupport.native) {
-                                        put(name, version)
+                                    // An untrusted runtime advertises
+                                    // nothing: the server must not
+                                    // negotiate content this build cannot
+                                    // render.
+                                    if (support.trustedRuntimeSupported) {
+                                        for ((name, version) in PlayerPresentationSupport.native) {
+                                            put(name, version)
+                                        }
                                     }
                                 },
                             )
@@ -589,6 +633,7 @@ class WebViewCoreRenderer(
         val generation = liveGeneration
         if (generation == 0L) return
         runCatching { report(readyReport(generation)) }
+        runCatching { onCapabilitiesChanged() }
     }
 
     private suspend fun onRendererGone(dead: Long) {

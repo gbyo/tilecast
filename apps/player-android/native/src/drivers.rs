@@ -165,6 +165,12 @@ impl Drivers {
             signals.preparation.clone(),
             link.commands.clone(),
             link.renderer_snapshot.clone(),
+            link.renderer_engine.clone(),
+            signals.last_server_contact.clone(),
+            signals.gate.clone(),
+            signals.observations.clone(),
+            signals.manifest_facts.clone(),
+            clock.clone(),
             link.state_dir,
         );
         let handlers = AndroidCommandHandlers::new(
@@ -175,6 +181,8 @@ impl Drivers {
             signals.clone(),
             link.platform,
             link.commands,
+            link.renderer_engine.clone(),
+            link.renderer_snapshot.clone(),
         );
         let relationship = link.core.server_relationship(link.credentials);
         Self {
@@ -374,6 +382,7 @@ impl Drivers {
                     self.renderer.engine.clone(),
                     self.renderer.config.clone(),
                     self.renderer.signals.manifest_wake.clone(),
+                    self.renderer.signals.gate.clone(),
                 ),
                 self.renderer.signals.manifest_wake.clone(),
                 self.renderer.signals.manifest_item_boundary.clone(),

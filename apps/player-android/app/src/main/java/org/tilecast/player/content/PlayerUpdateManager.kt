@@ -35,6 +35,8 @@ import java.time.Instant
  */
 private const val PROGRESS_REPORT_INTERVAL_MS=2_000L
 
+data class CommandOutcome(val success: Boolean, val code: String, val message: String)
+
 data class UpdateUiState(val deploymentId:String,val currentVersion:String,val newVersion:String,val state:String,val downloadedBytes:Long,val expectedBytes:Long,val message:String,val permissionRequired:Boolean=false,val installReady:Boolean=false,val maintenanceAt:String?=null,val errorCode:String?=null,val releaseId:String?=null,val artifactId:String?=null,val expectedSha256:String?=null,val expectedVersionCode:Long?=null,val exactPath:String?=null)
 data class ArchiveMetadata(val applicationId:String,val versionCode:Long,val certificateSha256:String,val artifactSizeBytes:Long=0,val artifactSha256:String="")
 
@@ -68,6 +70,10 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
     private val store=app.getSharedPreferences("tilecast-player-updates",Application.MODE_PRIVATE)
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Default)
     private var maintenanceJob:Job?=null
+    private val listeners=java.util.concurrent.CopyOnWriteArrayList<(UpdateUiState)->Unit>()
+    /** Observes every persisted update state. The production ViewModel shows the approval UI from this. */
+    fun addListener(listener:(UpdateUiState)->Unit){listeners+=listener}
+    fun removeListener(listener:(UpdateUiState)->Unit){listeners-=listener}
     val restored:UpdateUiState? get()=store.getString("deployment",null)?.let{deployment->val next=store.getString("new-version","")?:"";if(next==BuildConfig.VERSION_NAME){store.edit().clear().apply();null}else UpdateUiState(deployment,BuildConfig.VERSION_NAME,next,store.getString("state","pending")?:"pending",store.getLong("downloaded",0),store.getLong("expected",0),"Player update is ready to continue",store.getBoolean("permission",false),store.getBoolean("ready",false),store.getString("maintenance-at",null),store.getString("error-code",null),store.getString("release-id",null),store.getString("artifact-id",null),store.getString("expected-sha256",null),store.getLong("expected-version-code",0).takeIf{it>0},store.getString("exact-path",null))}
 
     private fun updateDirectory():File = File(app.filesDir,"updates").apply { mkdirs() }
@@ -130,6 +136,20 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
     }
 
     fun openPermissionSettings(){app.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))}
+    /** Folds installer results and permission grants into the persisted state and reports the outcome. */
+    suspend fun refreshPermission(server:String?,credential:String?,state:UpdateUiState):UpdateUiState{
+        val changed=installerFailure(state)?:permissionGranted(state)?:return state
+        if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,changed.deploymentId,changed.state,changed.downloadedBytes,if(changed.permissionRequired)"required" else "granted",error=if(changed.state=="failed")changed.errorCode?:"installer_failed" else "")}
+        return changed
+    }
+    /** Starts the system installer for a ready update and reports the handoff. Null when the installer refused to start. */
+    suspend fun beginInstall(server:String?,credential:String?,state:UpdateUiState):UpdateUiState?{
+        if(!install(state))return null
+        val installing=state.copy(state="installing",message="Complete installation in the Android prompt")
+        persist(installing)
+        if(server!=null&&credential!=null)runCatching{api.updateStatus(server,credential,state.deploymentId,"installing",state.downloadedBytes,"granted","system_installer_started")}
+        return installing
+    }
     fun permissionGranted(state:UpdateUiState):UpdateUiState? {
         if((Build.VERSION.SDK_INT>=26&&!app.packageManager.canRequestPackageInstalls())||!state.permissionRequired)return null
         val next=if(PlayerUpdateInstallPolicy.canRequestUnattended(Build.VERSION.SDK_INT))state.copy(state="installing",message="Installing verified player update",permissionRequired=false,installReady=false) else state.copy(state="waiting_for_user",message="This Android version requires local installer approval",permissionRequired=false,installReady=true)
@@ -189,5 +209,5 @@ class PlayerUpdateManager(private val app:Application,private val api:TilecastAp
         val certificate=signatures?.firstOrNull()?.toByteArray()?:throw IllegalStateException("installed_certificate_missing")
         return MessageDigest.getInstance("SHA-256").digest(certificate).joinToString(""){"%02x".format(it)}
     }
-    private fun persist(state:UpdateUiState){store.edit().putString("deployment",state.deploymentId).putString("new-version",state.newVersion).putString("state",state.state).putLong("downloaded",state.downloadedBytes).putLong("expected",state.expectedBytes).putBoolean("permission",state.permissionRequired).putBoolean("ready",state.installReady).apply{if(state.maintenanceAt==null)remove("maintenance-at") else putString("maintenance-at",state.maintenanceAt);if(state.errorCode==null)remove("error-code") else putString("error-code",state.errorCode);if(state.releaseId==null)remove("release-id") else putString("release-id",state.releaseId);if(state.artifactId==null)remove("artifact-id") else putString("artifact-id",state.artifactId);if(state.expectedSha256==null)remove("expected-sha256") else putString("expected-sha256",state.expectedSha256);if(state.expectedVersionCode==null)remove("expected-version-code") else putLong("expected-version-code",state.expectedVersionCode);if(state.exactPath==null)remove("exact-path") else putString("exact-path",state.exactPath)}.apply()}
+    private fun persist(state:UpdateUiState){store.edit().putString("deployment",state.deploymentId).putString("new-version",state.newVersion).putString("state",state.state).putLong("downloaded",state.downloadedBytes).putLong("expected",state.expectedBytes).putBoolean("permission",state.permissionRequired).putBoolean("ready",state.installReady).apply{if(state.maintenanceAt==null)remove("maintenance-at") else putString("maintenance-at",state.maintenanceAt);if(state.errorCode==null)remove("error-code") else putString("error-code",state.errorCode);if(state.releaseId==null)remove("release-id") else putString("release-id",state.releaseId);if(state.artifactId==null)remove("artifact-id") else putString("artifact-id",state.artifactId);if(state.expectedSha256==null)remove("expected-sha256") else putString("expected-sha256",state.expectedSha256);if(state.expectedVersionCode==null)remove("expected-version-code") else putLong("expected-version-code",state.expectedVersionCode);if(state.exactPath==null)remove("exact-path") else putString("exact-path",state.exactPath)}.apply();listeners.forEach{runCatching{it(state)}}}
 }
