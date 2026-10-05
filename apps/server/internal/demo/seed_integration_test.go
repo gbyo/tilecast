@@ -27,8 +27,8 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/span"
 )
 
-// openDemoDatabase connects to TEST_DATABASE_URL under the shared integration
-// lock, so the full-database wipe cannot race another package's fixtures.
+// openDemoDatabase connects to the package-scoped TEST_DATABASE_URL and uses
+// the advisory lock before resetting seeded fixtures.
 func openDemoDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	databaseURL := os.Getenv("TEST_DATABASE_URL")

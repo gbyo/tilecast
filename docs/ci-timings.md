@@ -63,3 +63,15 @@ These runs used separate pull request jobs, so this is an observed comparison ra
 The main reduction comes from selection. Ordinary server administration changes select zero deep Edge jobs. The old workflow selected the full matrix for these changes. The after-run matrix used 52m 52s of job execution time. This is an example of the work that selection avoids, not a measured duration for a targeted PR. Studio component changes also select zero deep Edge jobs. The old Edge path filter already excluded these changes.
 
 The production browser job now includes 14 functional tests and 22 Studio visual comparisons. Studio also collects V8 coverage. The workload differs from the old smoke job, so a full PR comparison must include these extra checks. [PR 739](https://github.com/gbyo/tilecast/pull/739) records the final baseline-inclusive PR run and its elapsed and job execution times. Do not treat a synthetic selection comparison as a measured speed improvement.
+
+## Server test package parallelism
+
+On 2026-09-30, the full server CI test command ran locally against PostgreSQL 18.6 (Homebrew) on macOS. Both runs used the same checkout, a warm Go build cache, and `-count=1` to disable Go's test-result cache. The command covered 54 packages and 748 tests, including temporary database setup and cleanup.
+
+| Package setting | Wall time | Result             |
+| --------------- | --------: | ------------------ |
+| `-p 1`          |   15.03 s | 54 packages passed |
+| Go default      |    3.24 s | 54 packages passed |
+| `-p 8` repeat   |    2.67 s | 54 packages passed |
+
+These local runs show that package-level parallelism reduced elapsed time on this host. They do not predict GitHub runner timing. Each measured run executed the tests with result caching disabled.

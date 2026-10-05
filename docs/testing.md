@@ -196,7 +196,7 @@ Coverage is diagnostic. There is no repository percentage gate.
 ```sh
 npm run coverage
 cd apps/server
-TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -p 1 -coverprofile=coverage.out ./...
+TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 cd ../cli
 go test -coverprofile=coverage.out ./...
@@ -205,11 +205,11 @@ go tool cover -func=coverage.out
 
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
 
+Each server integration-test package creates a temporary PostgreSQL database from `TEST_DATABASE_URL` and drops it after the package exits, including after a test failure. The database role needs permission to create and drop databases. Existing advisory locks still serialize tests inside the same package database; separate packages no longer share fixture tables or locks. The CI command uses normal Go package parallelism. Reproduce the server race job with `TEST_DATABASE_URL` set and `go test -race ./...` from `apps/server`.
+
 ## Validation timing summaries
 
 Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
-
-Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
 
 Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
 
@@ -225,7 +225,7 @@ docker buildx bake -f scripts/ci/edge-images.hcl wpe edge --load
 
 Run the existing scenario scripts from `apps/edge/ci/` and `apps/edge/renderer-wpe/ci/` with those images. The Rust, kernel CEC, PipeWire, WirePlumber, renderer, migration, power-loss, and activity assertions remain in their original suites.
 
-The scheduled Go race workflow runs the server integration contract with `-race`. Reproduce it with `TEST_DATABASE_URL` set and `go test -race -p 1 ./...` from `apps/server`. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
+The scheduled Go race workflow runs the server integration contract with `-race` and normal Go package parallelism. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
 
 ## Timing evidence
 
