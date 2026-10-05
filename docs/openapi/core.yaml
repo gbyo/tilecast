@@ -13028,9 +13028,10 @@ components:
     LayoutPlacementOverrides:
       type: object
       additionalProperties: false
+      deprecated: true
       description: >-
-        Widget placement override bag. Unknown keys are rejected, so only
-        the keys below are accepted.
+        Legacy Widget placement override bag. The listed values are accepted
+        for saved-document compatibility but are ignored by Studio and Player.
       properties:
         fit: { type: string, enum: [contain, cover, stretch] }
         alignment: { type: string, enum: [left, center, right] }

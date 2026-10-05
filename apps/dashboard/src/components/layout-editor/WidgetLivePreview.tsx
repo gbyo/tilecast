@@ -319,25 +319,15 @@ export function AppPlacementPreview({
     unknown
   >;
   const background =
-    (item.overrides?.backgroundColor as string | undefined) ??
-    (config.backgroundColor as string | undefined) ??
-    "#18232D";
+    (config.backgroundColor as string | undefined) ?? "#18232D";
   const foreground =
-    (item.overrides?.foregroundColor as string | undefined) ??
-    (config.foregroundColor as string | undefined) ??
-    "#F5F7FA";
+    (config.foregroundColor as string | undefined) ?? "#F5F7FA";
   return (
     <div
       className={`layout-app-placement layout-app-placement--${provider ?? "unknown"}`}
       style={{
         background,
         color: foreground,
-        alignItems:
-          item.overrides?.alignment === "left"
-            ? "flex-start"
-            : item.overrides?.alignment === "right"
-              ? "flex-end"
-              : "center",
       }}
     >
       <span className="layout-app-placement__provider">
@@ -401,7 +391,6 @@ export function WidgetLivePreview({
         // the zone grow past 100% Studio zoom without underfilling.
         width={item.width}
         height={item.height}
-        overrides={item.overrides}
         fit="fill"
         previewDate={previewDate}
         onState={

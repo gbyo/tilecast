@@ -8678,7 +8678,10 @@ export interface components {
       fallback?: "hide" | "background" | "previous";
       cornerRadius?: number;
     };
-    /** @description Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted. */
+    /**
+     * @deprecated
+     * @description Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+     */
     LayoutPlacementOverrides: {
       /** @enum {string} */
       fit?: "contain" | "cover" | "stretch";

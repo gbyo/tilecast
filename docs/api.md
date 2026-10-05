@@ -399,7 +399,7 @@ Per-form grants (`manage`): `GET /api/v1/data-sources/{id}/grants`, `PUT …/gra
 
 `GET /api/v1/layouts/{id}/revisions` returns the native immutable history. Unified publication history is exposed below `/api/v1/content-history/layout/{id}/publications`, with semantic comparison, Restore as draft, and rollback actions. `POST /api/v1/layouts/{id}/revisions/{revisionId}/restore` remains a compatibility route and copies an old document into a new draft without changing live state. Duplicate and delete operations are `POST /api/v1/layouts/{id}/duplicate` and `DELETE /api/v1/layouts/{id}`. Validation errors use `layout_validation_failed`; stale draft writes use `layout_revision_conflict`.
 
-Content responses include `layoutUsage` with stable Layout IDs, names, and published state. Content deletion returns `asset_in_use` when a draft or published revision depends on the item. Layout App placements contain only the Content ID and approved presentation overrides; shared provider configuration remains in Content.
+Content responses include `layoutUsage` with stable Layout IDs, names, and published state. Content deletion returns `asset_in_use` when a draft or published revision depends on the item. Layout Widget placements refer to the shared Widget. Legacy placement override values remain accepted in saved documents for compatibility, but Studio and Player ignore them.
 
 Manifest v10 adds root and scheduled Layout presentations. A Layout entry includes its published revision, document SHA-256, validated document, and materialized dependencies. Layout deletion is blocked while assigned or scheduled; dependency deletion is blocked while referenced by a draft or published revision.
 
