@@ -70,6 +70,14 @@ Dashboard CI scans changed Studio TypeScript files against the PR base and fails
 
 Run `npm run test:ci` when you change the scanner or its CI integration. Its Git-fixture tests check baseline comparison, duplicate text, new files, ignore comments, and missing comparison refs.
 
+The architecture check uses the same comparison to flag new raw error feedback, local byte formatters, static generic API requests, and inline query keys in domains that have query contracts. Run it on a changed file with:
+
+```bash
+npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx
+```
+
+Use the shared formatting, localized API-error, typed transport, and query factories when the check finds a regression. It leaves existing findings for deliberate migration. The [engineering test reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#studio-architecture-checks) describes its scope and genuine transport exceptions.
+
 Linux Player changes always run the Player tests and TypeScript build. Pull requests also build and verify an AppImage when package metadata, build inputs, release or update code, installation code, packaged assets, dependencies, the shared Player Runtime, or CI contract files change. Linux Player changes on `main` run the full package contract. See the [exact Linux Player validation contract](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#linux-player-validation).
 
 Server integration-test packages use separate temporary PostgreSQL databases, so Go can run the packages concurrently. `TEST_DATABASE_URL` must point to a disposable database and its role must be able to create and drop databases. The test harness removes each temporary database after the package exits.

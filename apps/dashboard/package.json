@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "i18n:scan": "node scripts/i18n-scan.mjs"
+    "i18n:scan": "node scripts/i18n-scan.mjs",
+    "architecture:scan": "node scripts/i18n-scan.mjs --architecture"
   },
   "dependencies": {
     "@tilecast/presentation-model": "*",

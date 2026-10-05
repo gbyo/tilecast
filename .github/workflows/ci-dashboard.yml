@@ -32,7 +32,7 @@ jobs:
           cache: npm
       # Include the Dashboard workspace and root tools such as Prettier.
       - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
-      - name: Scan changed Studio files for untranslated strings
+      - name: Scan changed Studio files for localization and architecture regressions
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         working-directory: apps/dashboard
         env:
@@ -53,6 +53,7 @@ jobs:
             exit 0
           fi
           npm run i18n:scan -- --check --base "$BASE_SHA" "${files[@]}"
+          npm run architecture:scan -- --check --base "$BASE_SHA" "${files[@]}"
       - name: Restore ESLint cache
         uses: actions/cache@v4
         with:
