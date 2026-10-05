@@ -3,9 +3,9 @@
 Tilecast Edge is the Linux player platform that replaces the Electron Linux
 Player. It has four processes:
 
-- `tilecastd` is the unprivileged daemon. It owns the server relationship,
-  the device credential, state, the content store, supervision and machine
-  integration.
+- `tilecastd` is the unprivileged Linux composition root. It constructs the
+  shared Player services and connects credentials, renderer hosting, machine
+  integration, and lifecycle to Player Core.
 - `tilecast-renderer-wpe` is the display engine: a small WPE WebKit host for
   the shared Tilecast Player Runtime (`packages/player-runtime`, the same
   runtime the Electron player hosts). It shows what `tilecastd` sends and
@@ -49,60 +49,90 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 
 | Crate                   | Responsibility                                                                                                                                                          |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `edge-protocol`         | Contracts only: IDs, digests, time, bounded text, capabilities, the IPC v1 messages. No I/O.                                                                            |
-| `edge-state`            | SQLite state with embedded migrations and typed repositories.                                                                                                           |
+| `edge-protocol`         | Edge IPC v1 messages and session identity; reexports generic player-types values. No I/O.                                                                               |
+| `edge-state`            | Edge-only update, network recovery, and legacy repositories over the shared player-state database.                                                                      |
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
-| `edge-cas`              | The content-addressed store: verified commit, crash reconciliation, pins, eviction, the `BlobSource` trait and the multi-source `Fetcher`.                              |
+| `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`           | The Tilecast Server client: URL policy, identity gate, device credential, heartbeat, one-time legacy import, origin `BlobSource`.                                       |
+| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client adapters.                                                                               |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
-| `tilecastd`             | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
+| `tilecastd`             | Linux composition, lifecycle, IPC, Runtime projection, renderer adapter, hardware providers, and `import-legacy`.                                                       |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
 | `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
 | `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |
 
 ### Dependency direction
 
-A crate depends only on crates above it in this list. `edge-protocol` has no
-internal dependency. Only `tilecastd` combines the server client, the content store and the state.
+Shared types and durable state live in root `crates/player-types` and
+`crates/player-state`. Verified storage lives in `crates/player-cas`. Shared
+crates never depend on Edge. `player-state` owns the unchanged
+embedded migrations and Core-owned repositories. `edge-state::platform` owns
+historical Edge repositories; its temporary `repo` exports preserve Edge callers.
+`edge-protocol` depends on shared types. `player-client` owns portable transport.
+`player-core` combines shared state, CAS, and client services. Core owns pairing,
+server reconciliation, manifest preparation, offline activation, native selection,
+commands, Activity delivery, telemetry policy, and renderer recovery.
+Edge supplies Runtime projection and signal adapters, private stores, fixed
+platform command handlers, and its migration hold.
 
 ```text
-edge-protocol
-├── edge-state
-├── edge-platform
-├── edge-ipc
-├── edge-cas          (protocol, state, platform)
-├── edge-server       (protocol, state, cas)
-├── edge-release      (protocol, platform)
-├── tilecastctl       (protocol, ipc, platform)
-├── tilecastd         (all of the above)
-├── tilecast-edge-migrate (protocol, ipc, platform, release)
-└── tilecast-edge-update  (protocol, ipc, platform, release)
+player-types
+├── player-state
+├── player-cas        (types, state)
+├── player-client     (types)
+└── player-core       (types, state, CAS, client)
+         ▲
+         │ native semantic services
+     tilecastd
+         ├── Edge IPC, renderer, media, and Runtime projection
+         ├── Linux stores, measurements, and hardware providers
+         └── Edge update and lifecycle integrations
+
+Edge privileged helpers -> edge-protocol, edge-platform, edge-release
+Shared Player crates -X-> Edge crates
 ```
 
 Rules that follow from the direction:
 
-- Only `edge-server` holds the device credential, and only an
+- Only the native host holds the device credential. Edge owns its file store,
+  `player-client` owns the validated value, and only an
   `AuthenticatedServer` (obtained after the installation identity check) can
   send it.
 - The root programs do not depend on `edge-server`, `edge-cas` or
   `edge-state`. The update helper reads a content-store object only through
   a path that it makes from the digest, and copies it before it verifies it.
-- `edge-server`'s origin source and local files are `BlobSource`
+  They do not depend on shared state, CAS, the client, or Core either.
+- Core's origin source and Edge legacy local files are `BlobSource`
   implementations. The content store verifies every byte from either. A new
   source is a new `BlobSource`, never a second write path.
 
 ## Build and test
 
-Toolchain: Rust 1.98 (`rust-toolchain.toml`). From this directory:
+Toolchain: Rust 1.98 (the root `rust-toolchain.toml`). The virtual Cargo
+workspace, lockfile, formatter settings, dependencies, and lint policy live at
+the repository root. `release/VERSION` owns the Edge product version.
+The build-time `TILECAST_EDGE_VERSION` override is for update qualification.
+
+Release tooling locates the state schema through the state crate's Cargo
+manifest. The Rust SBOM uses compiler artifacts from the four shipped binary
+builds and checks them against root locked metadata. It includes build-time
+packages but excludes test-only and unrelated-product packages. A cached build
+still emits the required artifacts. An incomplete build fails SBOM generation.
+
+From the repository root:
 
 ```sh
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+make edge-check
+make edge-test
 ```
 
-Linux is the target platform. Run the same checks in the development image:
+The Edge commands explicitly select Edge packages. Root default members
+also select Edge today. `--workspace` includes future native products;
+it does not use `default-members` as a filter. The root build directory
+is `target/`. `CARGO_TARGET_DIR` overrides it in CI.
+
+Linux is the target platform. From `apps/edge`, run the same checks in the
+development image:
 
 ```sh
 docker build -t tilecast-wpe-dev -f renderer-wpe/ci/Dockerfile renderer-wpe/ci

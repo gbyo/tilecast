@@ -17,6 +17,7 @@ COPY packages/presentation-model/package.json packages/presentation-model/packag
 COPY packages/native-bridge-schema/package.json packages/native-bridge-schema/package.json
 RUN npm ci
 COPY apps/dashboard apps/dashboard
+COPY packages/manifest-schema/data-document-value-fixtures.json packages/manifest-schema/data-document-value-fixtures.json
 # Studio imports the committed generated contract types
 # (@tilecast/api-schema/generated/openapi). They are copied, not regenerated,
 # so the image builds exactly the contract `make generated-check` pins.

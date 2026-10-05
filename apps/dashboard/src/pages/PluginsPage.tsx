@@ -4,6 +4,7 @@ import { CircleAlert, Plus, Puzzle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { PluginSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
+import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -94,20 +95,18 @@ export function PluginsPage() {
 
   return (
     <main className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("list.title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("list.subtitle")}</p>
-        </div>
-        {installed.length > 0 && (
-          <Button onClick={openCatalog}>
-            <Plus data-icon="inline-start" aria-hidden="true" />
-            {t("list.addAction")}
-          </Button>
-        )}
-      </header>
+      <PageHeader
+        title={t("list.title")}
+        description={t("list.subtitle")}
+        actions={
+          installed.length > 0 ? (
+            <Button onClick={openCatalog}>
+              <Plus data-icon="inline-start" aria-hidden="true" />
+              {t("list.addAction")}
+            </Button>
+          ) : undefined
+        }
+      />
 
       {catalog.isError && (
         <Alert variant="destructive">

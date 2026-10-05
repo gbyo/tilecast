@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 )
 
 type dataSourceUsageQuerier interface {
@@ -47,35 +46,19 @@ func (s *Service) widgetConfigurationReferencesDataSource(provider string, raw j
 	if managedDataSourceID != nil && *managedDataSourceID == target {
 		return true
 	}
+	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
+		for _, id := range s.definitions.WidgetDataSourceIDs(provider, raw) {
+			if id == target {
+				return true
+			}
+		}
+		return false
+	}
 	var configuration map[string]any
 	if json.Unmarshal(raw, &configuration) != nil {
 		return false
 	}
-	if definition, ok := s.definitions.Widget(provider); ok && !definition.LegacyEditor {
-		return fieldsReferenceDataSource(definition.ConfigurationSchema.Fields, configuration, target.String())
-	}
 	return jsonValueContainsExactString(configuration, target.String())
-}
-
-func fieldsReferenceDataSource(fields []contentdefs.FieldDefinition, configuration map[string]any, target string) bool {
-	for _, field := range fields {
-		value := configuration[field.Key]
-		switch field.Control {
-		case "data_source":
-			if selected, ok := value.(string); ok && selected == target {
-				return true
-			}
-		case "repeating_group":
-			items, _ := value.([]any)
-			for _, item := range items {
-				group, _ := item.(map[string]any)
-				if group != nil && fieldsReferenceDataSource(field.ItemFields, group, target) {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 func jsonValueContainsExactString(value any, target string) bool {

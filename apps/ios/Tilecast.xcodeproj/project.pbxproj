@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1100000000000000000000C /* OpenAPIRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = A1100000000000000000000D /* OpenAPIRuntime */; };
+		A1100000000000000000000E /* OpenAPIURLSession in Frameworks */ = {isa = PBXBuildFile; productRef = A1100000000000000000000F /* OpenAPIURLSession */; };
+		A11000000000000000000001 /* TilecastCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5B08EA8491F33AAE89A5EF81 /* TilecastCore */; };
 		F3320EFC15B4453BBCCB4FB1 /* TilecastCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5B08EA8491F33AAE89A5EF81 /* TilecastCore */; };
 /* End PBXBuildFile section */
 
@@ -21,6 +24,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		A11000000000000000000002 /* TilecastHostTests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TilecastHostTests.xcconfig; sourceTree = "<group>"; };
+		A11000000000000000000003 /* TilecastHostTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TilecastHostTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = TilecastUITests.xcconfig; sourceTree = "<group>"; };
 		064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TilecastUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		17C24CC145F21ACFB46C834F /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Local.xcconfig.example; sourceTree = "<group>"; };
@@ -43,6 +48,11 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A11000000000000000000004 /* TilecastHostTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TilecastKit/Tests/TilecastCoreTests;
+			sourceTree = "<group>";
+		};
 		C51B4ABB26689EED0D4FA5C2 /* Tilecast */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -59,6 +69,16 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A11000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11000000000000000000001 /* TilecastCore in Frameworks */,
+				A1100000000000000000000C /* OpenAPIRuntime in Frameworks */,
+				A1100000000000000000000E /* OpenAPIURLSession in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		6A6F47E8D8A9C83E922E776F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -83,6 +103,7 @@
 			children = (
 				F406C608DADC63E5251026A3 /* Tilecast.app */,
 				064B1BFFB18AEAA2D67FF12A /* TilecastUITests.xctest */,
+				A11000000000000000000003 /* TilecastHostTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -94,6 +115,7 @@
 				489C2E0906BCB89F3D1A7AB4 /* Packages */,
 				C51B4ABB26689EED0D4FA5C2 /* Tilecast */,
 				E4CD350141089EF361253F36 /* TilecastUITests */,
+				A11000000000000000000004 /* TilecastHostTests */,
 				4F0C20180E7E9B7A6F67F8BA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -107,6 +129,7 @@
 				AA8FBF69EFE12BEA4FF85A42 /* Release.xcconfig */,
 				67CEED44A9C8A6BE154BF1B5 /* Tilecast.xcconfig */,
 				02EE3EDBAEC5CDADBEFDC57A /* TilecastUITests.xcconfig */,
+				A11000000000000000000002 /* TilecastHostTests.xcconfig */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -114,6 +137,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A11000000000000000000006 /* TilecastHostTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11000000000000000000007 /* Build configuration list for PBXNativeTarget "TilecastHostTests" */;
+			buildPhases = (
+				A11000000000000000000008 /* Sources */,
+				A11000000000000000000009 /* Resources */,
+				A11000000000000000000005 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = (4D857909F444F4618693CE2B /* PBXTargetDependency */,);
+			fileSystemSynchronizedGroups = (A11000000000000000000004 /* TilecastHostTests */,);
+			name = TilecastHostTests;
+			packageProductDependencies = (
+				5B08EA8491F33AAE89A5EF81 /* TilecastCore */,
+				A1100000000000000000000D /* OpenAPIRuntime */,
+				A1100000000000000000000F /* OpenAPIURLSession */,
+			);
+			productName = TilecastHostTests;
+			productReference = A11000000000000000000003 /* TilecastHostTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		0B32AC1D043E738E78866DCE /* Tilecast */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 93A8FBF6E2BB129427CB142B /* Build configuration list for PBXNativeTarget "Tilecast" */;
@@ -168,6 +212,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					A11000000000000000000006 = {
+						TestTargetID = 0B32AC1D043E738E78866DCE;
+					};
 					0B32AC1D043E738E78866DCE = {
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
@@ -199,11 +246,18 @@
 			targets = (
 				0B32AC1D043E738E78866DCE /* Tilecast */,
 				A5C4F73F9D7792AE7A213CC9 /* TilecastUITests */,
+				A11000000000000000000006 /* TilecastHostTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A11000000000000000000009 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8448F1E14CDC12EB4651CB43 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -221,6 +275,12 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A11000000000000000000008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		29D3A9DF861FF4BA3C5178D1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -246,6 +306,18 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A1100000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A11000000000000000000002 /* TilecastHostTests.xcconfig */;
+			buildSettings = {};
+			name = Debug;
+		};
+		A1100000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A11000000000000000000002 /* TilecastHostTests.xcconfig */;
+			buildSettings = {};
+			name = Release;
+		};
 		0CDC331818649DF767A6203F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C66DE3D082F5162179243024 /* Debug.xcconfig */;
@@ -293,6 +365,12 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A11000000000000000000007 /* Build configuration list for PBXNativeTarget "TilecastHostTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (A1100000000000000000000A /* Debug */, A1100000000000000000000B /* Release */,);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		93A8FBF6E2BB129427CB142B /* Build configuration list for PBXNativeTarget "Tilecast" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -330,6 +408,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A1100000000000000000000D /* OpenAPIRuntime */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OpenAPIRuntime;
+		};
+		A1100000000000000000000F /* OpenAPIURLSession */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OpenAPIURLSession;
+		};
 		5B08EA8491F33AAE89A5EF81 /* TilecastCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = TilecastCore;

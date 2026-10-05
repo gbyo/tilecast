@@ -108,33 +108,45 @@ type EnrollmentResult struct {
 	DeviceCredential string    `json:"deviceCredential"`
 }
 
+type MapCoordinates struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type ScreenMapPosition struct {
+	MapCoordinates
+	Source string `json:"source"`
+}
+
 type Screen struct {
-	ID                        uuid.UUID  `json:"id"`
-	Name                      string     `json:"name"`
-	Description               string     `json:"description"`
-	Location                  string     `json:"location"`
-	LocationID                *uuid.UUID `json:"locationId,omitempty"`
-	LocationDetails           *Location  `json:"locationDetails,omitempty"`
-	RoomName                  string     `json:"roomName"`
-	RoomNumber                string     `json:"roomNumber"`
-	SyncGroupID               *uuid.UUID `json:"syncGroupId,omitempty"`
-	SyncGroupName             *string    `json:"syncGroupName,omitempty"`
-	NowPlayingName            *string    `json:"nowPlayingName,omitempty"`
-	NowPlayingType            *string    `json:"nowPlayingType,omitempty"`
-	Platform                  string     `json:"platform"`
-	DeviceManufacturer        string     `json:"deviceManufacturer"`
-	DeviceModel               string     `json:"deviceModel"`
-	AndroidVersion            string     `json:"androidVersion"`
-	PlayerVersion             string     `json:"playerVersion"`
-	PlayerVersionCode         *int64     `json:"playerVersionCode,omitempty"`
-	AndroidSDK                *int       `json:"androidSdk,omitempty"`
-	InstallerSource           *string    `json:"installerSource,omitempty"`
-	InstallPermissionStatus   *string    `json:"installPermissionStatus,omitempty"`
-	CurrentUpdateDeploymentID *uuid.UUID `json:"currentUpdateDeploymentId,omitempty"`
-	UpdateState               *string    `json:"updateState,omitempty"`
-	UpdateDownloadedBytes     *int64     `json:"updateDownloadedBytes,omitempty"`
-	UpdateExpectedBytes       *int64     `json:"updateExpectedBytes,omitempty"`
-	UpdateError               *string    `json:"updateError,omitempty"`
+	ID                        uuid.UUID          `json:"id"`
+	Name                      string             `json:"name"`
+	Description               string             `json:"description"`
+	Location                  string             `json:"location"`
+	LocationID                *uuid.UUID         `json:"locationId,omitempty"`
+	LocationDetails           *Location          `json:"locationDetails,omitempty"`
+	RoomName                  string             `json:"roomName"`
+	RoomNumber                string             `json:"roomNumber"`
+	MapPositionOverride       *MapCoordinates    `json:"mapPositionOverride,omitempty"`
+	MapPosition               *ScreenMapPosition `json:"mapPosition,omitempty"`
+	SyncGroupID               *uuid.UUID         `json:"syncGroupId,omitempty"`
+	SyncGroupName             *string            `json:"syncGroupName,omitempty"`
+	NowPlayingName            *string            `json:"nowPlayingName,omitempty"`
+	NowPlayingType            *string            `json:"nowPlayingType,omitempty"`
+	Platform                  string             `json:"platform"`
+	DeviceManufacturer        string             `json:"deviceManufacturer"`
+	DeviceModel               string             `json:"deviceModel"`
+	AndroidVersion            string             `json:"androidVersion"`
+	PlayerVersion             string             `json:"playerVersion"`
+	PlayerVersionCode         *int64             `json:"playerVersionCode,omitempty"`
+	AndroidSDK                *int               `json:"androidSdk,omitempty"`
+	InstallerSource           *string            `json:"installerSource,omitempty"`
+	InstallPermissionStatus   *string            `json:"installPermissionStatus,omitempty"`
+	CurrentUpdateDeploymentID *uuid.UUID         `json:"currentUpdateDeploymentId,omitempty"`
+	UpdateState               *string            `json:"updateState,omitempty"`
+	UpdateDownloadedBytes     *int64             `json:"updateDownloadedBytes,omitempty"`
+	UpdateExpectedBytes       *int64             `json:"updateExpectedBytes,omitempty"`
+	UpdateError               *string            `json:"updateError,omitempty"`
 	// PlayerFamily is what the running player reported (`edge` for Tilecast
 	// Edge); absent for players that do not report it.
 	PlayerFamily          *string    `json:"playerFamily,omitempty"`

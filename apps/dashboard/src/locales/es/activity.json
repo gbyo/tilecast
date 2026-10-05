@@ -715,6 +715,7 @@
     "title": "Actividad",
     "subtitle": "Reproducción reciente confirmada por el reproductor y eventos técnicos de pantalla.",
     "openFiltered": "Abrir actividad filtrada",
+    "viewAll": "Ver actividad",
     "loading": "Cargando actividad de la pantalla",
     "loadErrorTitle": "No se pudo cargar la actividad",
     "facts": {

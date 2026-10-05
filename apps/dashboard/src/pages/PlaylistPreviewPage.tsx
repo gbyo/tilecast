@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { playlistQueries } from "../data/playlists";
 import {
   Pause,
   Play,
@@ -19,6 +20,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router";
 import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
 import type { PlaylistItem } from "../api/types";
 import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { useAuth } from "../auth/AuthProvider";
@@ -30,7 +32,6 @@ import {
 } from "../native-presentation/presentationContext";
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 import { isInteractiveShortcutTarget } from "../lib/keyboard";
-import { apiErrorMessage } from "../i18n";
 import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
 import { useAvailabilityInstant } from "../content/useAvailabilityInstant";
 import {
@@ -213,8 +214,7 @@ export function PlaylistPreviewPage() {
   const auth = useAuth();
   const presentation = useNativePresentation();
   const query = useQuery({
-    queryKey: ["playlists", id, "popup-preview"],
-    queryFn: () => api.playlist(id),
+    ...playlistQueries.detail(id),
     enabled: Boolean(id && auth.status?.authenticated),
   });
   const settingsQuery = useQuery({
@@ -391,7 +391,7 @@ export function PlaylistPreviewPage() {
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] place-content-center gap-2 bg-[#05070a] text-center text-[#f5f7fa]">
         <strong>{t("preview.unavailableTitle")}</strong>
         <span className="text-[#aab8c5]">
-          {query.error || settingsQuery.error
+          {(query.error ?? settingsQuery.error) instanceof Error
             ? apiErrorMessage(query.error ?? settingsQuery.error)
             : t("preview.loadError")}
         </span>

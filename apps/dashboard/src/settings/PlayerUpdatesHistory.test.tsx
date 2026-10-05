@@ -161,7 +161,7 @@ describe("Player update deployment history", () => {
     expect(screen.queryByText(/1 screen needs a retry/)).toBeNull();
   });
 
-  it("shows live cache progress in megabytes", async () => {
+  it("shows live cache progress in binary units", async () => {
     const release: PlayerRelease = {
       id: "r1",
       tag: "player-v1.4.0",
@@ -201,8 +201,8 @@ describe("Player update deployment history", () => {
     renderPanel();
     expect(
       await (
-        await tableWith("20.0 MB of 50.0 MB")
-      ).findByText("20.0 MB of 50.0 MB"),
+        await tableWith("20 MiB of 50 MiB")
+      ).findByText("20 MiB of 50 MiB"),
     ).toBeTruthy();
     expect(
       document.querySelector(".player-release-cache-progress progress"),

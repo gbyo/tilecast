@@ -29,6 +29,7 @@ import {
 import { Skeleton } from "@tilecast/studio/ui/skeleton";
 import {
   Pagination,
+  apiErrorMessage,
   useFormatLocale,
   usePluginTranslation,
 } from "@tilecast/studio";
@@ -55,6 +56,10 @@ export function ApprovalsPage() {
   const total = approvals.data?.total ?? 0;
   const items = approvals.data?.items ?? [];
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  // A failed load with no usable data owns the content area: the alert is
+  // the state, not a companion to an empty inbox. Stale data still renders
+  // alongside the alert.
+  const loadFailed = approvals.isError && !approvals.data;
 
   const columns = useMemo(
     () =>
@@ -158,7 +163,7 @@ export function ApprovalsPage() {
           <AlertTitle>{t("approvals.loadErrorTitle")}</AlertTitle>
           <AlertDescription>
             {approvals.error instanceof Error
-              ? approvals.error.message
+              ? apiErrorMessage(approvals.error)
               : t("approvals.loadErrorFallback")}
           </AlertDescription>
         </Alert>
@@ -169,7 +174,7 @@ export function ApprovalsPage() {
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
-      ) : items.length === 0 ? (
+      ) : loadFailed ? null : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">

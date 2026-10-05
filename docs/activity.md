@@ -27,15 +27,17 @@ An incident opens once, absorbs repeats into `last_seen_at` and an occurrence co
 
 **A recovered incident is logged, not queued.** The condition ended without anyone doing anything, so it is a record of an outage rather than work waiting on an operator: it leaves the active list, is not counted as an active incident, and nobody is asked to acknowledge or close it. It stays readable on the Incidents tab under `status=recovered` or `status=all`, keeps its recovery timestamp and mode, counts toward time-to-recover, and can be reopened if the record turns out to be wrong.
 
-| Incident     | Opened by                                                                             | Recovered by                                                |
-| ------------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Connectivity | Heartbeat gap, confirmed connection loss, or a screen past the heartbeat grace period | Connection restored, or a heartbeat inside the grace period |
-| Playback     | Renderer failure, decoder failure, or foreground playback lost                        | Renderer recovery, or a healthy root presentation starting  |
-| Storage      | Cache use crossing the configured pressure threshold                                  | A `storage.recovered` report                                |
-| Safe mode    | Safe-mode entry                                                                       | Safe-mode exit                                              |
-| Update       | A failed installation                                                                 | A completed installation                                    |
+| Incident     | Opened by                                                                             | Recovered by                                                                                           |
+| ------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Connectivity | Heartbeat gap, confirmed connection loss, or a screen past the heartbeat grace period | Connection restored, or a heartbeat inside the grace period                                            |
+| Playback     | Renderer failure, decoder failure, or foreground playback lost                        | Renderer recovery, a healthy root presentation starting, or the failed content playing to a normal end |
+| Storage      | Cache use crossing the configured pressure threshold                                  | A `storage.recovered` report                                                                           |
+| Safe mode    | Safe-mode entry                                                                       | Safe-mode exit                                                                                         |
+| Update       | A failed installation                                                                 | A completed installation                                                                               |
 
 A screen that stops reporting sends nothing, so connectivity incidents are also swept from current state whenever the incident list or analytics are read. The sweep is idempotent — the partial unique index on `dedupe_key` means one open incident per screen per condition — and it opens the incident at the moment the grace period lapsed rather than when the sweep noticed, so time-to-recover measures the outage and not the poll interval.
+
+A Player that restarts an item when its manifest is reconciled can fail for a few milliseconds and then play the same item normally, and it reports neither `renderer.recovered` nor a new root presentation. A `content.completed` event therefore recovers the open playback incident when all of these hold: the event names the same content the incident was opened for, the session reached `expected_item_boundary` or `completed_duration`, it carries no failure code, and it lasted at least [the minimum play](#minimum-play). Playback of other content does not recover the incident. A healthy image on a screen whose video keeps failing says nothing about the video, and closing the incident on it would reopen it on the next failure as a series of one-second outages.
 
 A condition that returns after recovering opens a _new_ incident rather than reviving the old one. Two outages must not be measured as one.
 
@@ -50,6 +52,24 @@ Sessions carry a `session_type`: `presentation` for the root interval, and `cont
 The proof-of-play summary reports a **session completion rate**, not coverage. It is the share of sessions that completed or ran partially. Nothing in Tilecast yet compares actual playback against what was scheduled to play, so calling it coverage would claim a measurement that does not exist.
 
 Every ended session records a `terminal_reason` (see [the event contract](activity-event-contract.md)). **Interrupted plays** counts only sessions whose reason was unexpected. A schedule transition, a Takeover, and a normal item boundary all end playback early and are exactly what was asked for. `unknown` is excluded too: absence of evidence is not evidence of an interruption, which also means records predating the contract are not retroactively counted as faults.
+
+### Minimum play
+
+A child session (`content`, `layout_placement`, or `playlist_item`) counts as a play only when it was on screen for at least **1000 ms** (`minimumPlaybackSessionMS`). Studio does not accept an item duration under one second, so a shorter session that ended as expected was not a play. It is a Player that remounted the item, or a synchronized slot that a host computed as zero or one millisecond.
+
+The server applies the rule at ingest. When a `content.completed` event closes a session in under 1000 ms, with result `completed` and terminal reason `expected_item_boundary` or `completed_duration`, the server deletes the derived `playback_sessions` row and does not synthesize a session for a completion that has no start. The raw events stay in `player_activity_events` until their retention expires, so the condition remains visible in Screen Events.
+
+The rule is narrow on purpose:
+
+- A failed session is never a micro play. A renderer that fails 60 ms after mount is the evidence an operator needs.
+- A session that ended for any other reason, such as a schedule transition, a Takeover, a restart, or an unknown reason, is kept. Those reasons are evidence of why playback changed.
+- Root `presentation` sessions are never removed. They are the screen's wall clock.
+
+Migration `00111_playback_micro_sessions` applies the same rule to rows that were derived before it. It cannot be reversed, and the removed rows are reconstructable only from raw events that have not expired.
+
+### Expected duration
+
+`expectedDurationMs` is the duration an item was supposed to run for. An item with no duration, or one that plays until something else ends it, has none. Zero is how stored item data spells "no duration", and it is not an expectation. The server stores an expected duration of zero as null, and the Players do not send it.
 
 The server derives `playback_sessions` from matching start and terminal events. A session is not considered completed until the Player reports a completion. Missing terminal events become:
 
@@ -368,3 +388,13 @@ Settings:
 - `GET|PATCH /api/v1/activity/retention`
 
 Large event lists use a stable `(timestamp, UUID)` cursor. CSV exports are bounded and require Owner or Administrator access.
+
+## Studio query ownership
+
+`apps/dashboard/src/data/activity.ts` owns query keys and options for Overview,
+compliance, incident lists, incident detail, and incident analytics.
+The typed API domain module owns requests and event normalization.
+Incident action invalidation covers incident lists, detail, and analytics.
+Range queries use API bounds rather than translated display labels.
+The Server owns metric values and historical evidence.
+UI components retain permission gates and refresh intervals.

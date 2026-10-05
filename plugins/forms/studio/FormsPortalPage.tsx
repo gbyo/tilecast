@@ -28,6 +28,7 @@ import type { FormRecord } from "./types";
 import type { ReactNode } from "react";
 import {
   Brand,
+  apiErrorMessage,
   useFormatLocale,
   usePluginTranslation,
   useStudioSession,
@@ -219,7 +220,7 @@ export function FormsListPage() {
     return (
       <PortalNotice variant="danger" title={t("portal.list.error")}>
         {forms.error instanceof Error
-          ? forms.error.message
+          ? apiErrorMessage(forms.error)
           : t("portal.list.retry")}
       </PortalNotice>
     );

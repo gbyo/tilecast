@@ -715,7 +715,15 @@ func (s *Service) StructuredPreview(ctx context.Context, provider string, raw js
 	if c.DateSelection.Enabled {
 		prepared.Records = selectStructuredRecords(prepared.Records, c.DateSelection, previewDate, s.organizationFirstDayOfWeek(ctx))
 	}
-	return StructuredPreview{Configuration: StructuredPlayerConfig{Presentation: c.Presentation, Fields: c.Fields, EmptyState: c.EmptyState, DateSelection: c.DateSelection, Data: prepared}, Diagnostics: diagnostics}, nil
+	fieldConfig, err := json.Marshal(c)
+	if err != nil {
+		return StructuredPreview{}, fmt.Errorf("encode structured source configuration: %w", err)
+	}
+	return StructuredPreview{
+		Configuration: StructuredPlayerConfig{Presentation: c.Presentation, Fields: c.Fields, EmptyState: c.EmptyState, DateSelection: c.DateSelection, Data: prepared},
+		FieldSchema:   s.availableDataSourceFields(provider, fieldConfig),
+		Diagnostics:   diagnostics,
+	}, nil
 }
 
 func selectStructuredRecords(records []StructuredRecord, selection DateSelection, previewDate string, firstDays ...time.Weekday) []StructuredRecord {
@@ -725,7 +733,7 @@ func selectStructuredRecords(records []StructuredRecord, selection DateSelection
 	}
 	loc, _ := time.LoadLocation(selection.Timezone)
 	target := time.Now().In(loc)
-	if parsed, err := time.ParseInLocation("2006-01-02", previewDate, loc); err == nil {
+	if parsed, ok := previewDateAt(previewDate, selection.Timezone); ok {
 		target = parsed
 	}
 	today := target.Format("2006-01-02")

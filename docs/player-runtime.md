@@ -50,8 +50,22 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `synchronizedPlayback` | `true`             | `true` (`tilecastd` anchors) |
 | `setup`                | `true`             | `true`                       |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  |
+| `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      |
+
+`outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
 `info` (host name and version, engine name and version) is for diagnostics only.
+
+`RuntimeReadyV1` has optional `support` metadata with separate
+`presentationSchemas`, `declarativeCapabilities`, and `widgetComponents` fields.
+Each namespace has at most 256 entries. Versions are positive uint32 values;
+capability names are contract tokens of at most 64 ASCII characters.
+The Runtime uses its generated schema and declarative constants and its live
+Widget discovery registry. Remote web support requires the running host port.
+WPE validates and forwards this report in `renderer.ready.support` with its live
+host features. Edge checks this connected profile independently of the generated
+installed-release profile. Missing support is empty. Contract version 1 and the
+existing readiness messages without this optional member remain valid.
 
 The runtime validates the host object at start (`hostContractProblem`). A missing bridge or a different contract version shows the "Display bridge unavailable" surface instead of a black screen.
 
@@ -68,6 +82,14 @@ The playback lifecycle is explicit XState 5 state machines (`src/engine`). They 
 - **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout.
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
+
+### 3.1 Durations and the dwell floor
+
+A duration is a positive number of milliseconds or it is absent. `clock/duration.ts` is the only place that decides which, and every timer in the runtime reads durations through it. Zero, a negative number, `NaN`, and a missing value all mean "no duration". An image with no duration runs for `IMAGE_DEFAULT_MS`. A website runs for `WEBSITE_DEFAULT_MS`. A widget or layout with no duration stays until something replaces it.
+
+No duration timer completes an occurrence before `MIN_ITEM_DWELL_MS` (1000 ms) has passed since it mounted. A timer that fires earlier, from a one-millisecond duration, is delivered again when the floor passes. It is not dropped, so exactly one completion path still wins the occurrence. A Layout playlist zone reads a zero image duration as unset, and the synchronized timeline applies the floor to every slot.
+
+Before this floor, a host that sent a synchronized slot of zero or one millisecond put the screen on a cycle that rolled over every millisecond. The runtime tore down and remounted the item as fast as the renderer could paint. Each remount was recorded as a separate one-millisecond play. Studio does not accept an item duration under one second, so the floor removes only values that are already faults.
 
 The playback rules are the Electron player's, unchanged: `engine/playback-policy.ts` (playback authority, the completion arbiter, stale-callback identity, drift correction bands, the crossfade decision and outgoing-layer cleanup) moved into the runtime with its tests.
 
@@ -96,11 +118,11 @@ The current widget system is preserved as compatibility code and labelled as suc
 RenderNode is not the Player Runtime's permanent widget API. Widgets V2 ([widgets-v2.md](widgets-v2.md)) replace it for migrated Widgets:
 
 - A Widgets V2 Widget is one custom element (Lit 3) in `widgets/<name>/runtime/`. The runtime finds every Widget module when it is built (`src/widgets/host.ts`, `import.meta.glob`). There is no Widget switch in the runtime.
-- A manifest v16 `kind: "component"` presentation projects to a `RuntimeWidgetComponentPayload` (`src/widgets/projection.ts`): the component reference, the Data Documents and media variants it declares, and the regional formatting. The payload has no time-dependent value, so re-projection does not restart the Widget.
-- `ComponentWidgetSurface` mounts a fullscreen Widget, and `LayoutSurface` mounts a Widget in a zone, through the same `WidgetMount` from `@tilecast/widget-sdk`. `prepare()` settles when the Widget reports `ready` or `empty`. The runtime, not the Widget, reports `widget-shown`, `widget-alive` and `layout-zone-rendered`.
+- A manifest v16 or v17 `kind: "component"` presentation projects to a `RuntimeWidgetComponentPayload` (`src/widgets/projection.ts`): the component reference, the Data Documents and media variants it declares, the empty policy, and the regional formatting. The payload has no time-dependent value, so re-projection does not restart the Widget.
+- `ComponentWidgetSurface` mounts a fullscreen Widget, and `LayoutSurface` mounts a Widget in a zone, through the same `WidgetMount` from `@tilecast/widget-sdk`. A local fullscreen component with the `skip-eligible` policy advances when its mount reports `empty`; synchronized playback and Layout zones keep their presentation. The runtime, not the Widget, reports `widget-shown`, `widget-alive` and `layout-zone-rendered`.
 - A Widget keeps time with the corrected clock: the local wall clock plus the host's latest `clockOffsetMs` (from `plugins`, `projection` or `timing`), scheduled on the runtime scheduler. A conformance run's manual clock drives Widgets like everything else.
 - The runtime refuses to mount a Widget when the engine cannot adopt constructed stylesheets (`widget_styles_unsupported`). The CSP refuses the `<style>` fallback, so the Widget would otherwise render unstyled.
-- `src/widgets/capabilities.gen.ts` (generated by `npm run widgets:generate`) lists `widget.<type>` for each bundled Widget. The Electron main process reports it in the heartbeat with presentation schema 2. The Edge daemon reports the generated `widget_capabilities.rs`. A test proves that the list equals what discovery finds.
+- `src/widgets/capabilities.gen.ts` (generated by `npm run widgets:generate`) lists `widget.<type>` for each bundled Widget. The Electron main process and Edge daemon report it in the heartbeat with presentation schemas 1, 2 and 3. Android continues to report schemas 1 and 2. A test proves that the list equals what discovery finds.
 
 ## 7. Security and appearance
 

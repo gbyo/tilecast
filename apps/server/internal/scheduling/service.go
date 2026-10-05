@@ -921,7 +921,22 @@ func (s *Service) targets(ctx context.Context, id uuid.UUID) ([]Target, error) {
 	return out, rows.Err()
 }
 func (s *Service) Relevant(ctx context.Context, screen uuid.UUID) ([]Record, error) {
-	rows, err := s.db.Query(ctx, recordSelect+` WHERE s.deleted_at IS NULL AND s.enabled AND EXISTS(SELECT 1 FROM schedule_targets t WHERE t.schedule_id=s.id AND (t.screen_id=$1 OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=$1))) ORDER BY s.id`, screen)
+	return s.relevant(ctx, s.db, screen, false)
+}
+
+// RelevantForInspectionInTx includes disabled alternatives in the same snapshot
+// as assignments and temporary presentations. Resolve ignores their intervals.
+func (s *Service) RelevantForInspectionInTx(ctx context.Context, tx pgx.Tx, screen uuid.UUID) ([]Record, error) {
+	return s.relevant(ctx, tx, screen, true)
+}
+
+type scheduleQuery interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func (s *Service) relevant(ctx context.Context, q scheduleQuery, screen uuid.UUID, includeDisabled bool) ([]Record, error) {
+	rows, err := q.Query(ctx, recordSelect+` WHERE s.deleted_at IS NULL AND (s.enabled OR $2) AND EXISTS(SELECT 1 FROM schedule_targets t WHERE t.schedule_id=s.id AND (t.screen_id=$1 OR EXISTS(SELECT 1 FROM screen_group_memberships m WHERE m.screen_group_id=t.screen_group_id AND m.screen_id=$1))) ORDER BY s.id`, screen, includeDisabled)
 	if err != nil {
 		return nil, err
 	}
@@ -932,16 +947,24 @@ func (s *Service) Relevant(ctx context.Context, screen uuid.UUID) ([]Record, err
 		if er != nil {
 			return nil, er
 		}
-		var direct bool
-		if er = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schedule_targets WHERE schedule_id=$1 AND screen_id=$2)`, r.ID, screen).Scan(&direct); er != nil {
-			return nil, er
-		}
-		if direct {
-			r.Specificity = 1
-		}
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// A transaction has one connection. Finish the result set before another
+	// query uses it; pool-backed readers previously masked this requirement.
+	for i := range out {
+		var direct bool
+		if err = q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM schedule_targets WHERE schedule_id=$1 AND screen_id=$2)`, out[i].ID, screen).Scan(&direct); err != nil {
+			return nil, err
+		}
+		if direct {
+			out[i].Specificity = 1
+		}
+	}
+	return out, nil
 }
 
 type Preview struct {
