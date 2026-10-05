@@ -39,7 +39,9 @@ import {
 } from "./pages/SchedulesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
-import { AccountIndexRedirect, MyAccountPage } from "./pages/MyAccountPage";\nimport { PreferencesPage } from "./pages/PreferencesPage";\nimport { SecurityPage } from "./pages/SecurityPage";
+import { AccountIndexRedirect, MyAccountPage } from "./pages/MyAccountPage";
+import { PreferencesPage } from "./pages/PreferencesPage";
+import { SecurityPage } from "./pages/SecurityPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
 import { LayoutPreviewPage } from "./pages/LayoutPreviewPage";
