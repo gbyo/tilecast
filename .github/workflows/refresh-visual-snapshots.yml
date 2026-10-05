@@ -1,0 +1,87 @@
+name: Refresh Studio visual snapshots
+
+# Re-renders the Studio screenshots on the same Linux Chromium that Extended
+# validation uses and commits the ones that changed to the branch you pick.
+# Contributors need neither Docker nor a Linux machine.
+#
+#   Actions > Refresh Studio visual snapshots > Run workflow > choose your branch
+#
+# Review the commit before you merge: every changed PNG must be an intended
+# design change. The commit is pushed with the workflow token, which does not
+# start other workflows, so push a follow-up commit or re-run checks yourself.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    name: Refresh Studio visual snapshots
+    if: ${{ github.ref != 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      TILECAST_DEMO_PORT: "18080"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Screenshots taken inside a seeded schedule window cannot match the
+      # baselines other runs compare against, so refuse to refresh them then.
+      - name: Check the demo schedule clock
+        id: clock
+        run: node scripts/ci/demo-schedule-window.mjs
+      - name: Stop when the demo clock is inside a schedule window
+        if: ${{ steps.clock.outputs.active == 'true' }}
+        run: |
+          echo "::error title=Run this later::The demo clock is inside the \"${{ steps.clock.outputs.window }}\" schedule window (weekdays 07:15-08:15 and 10:30-13:30, Fridays 15:00-23:00, Chicago time). Screenshots taken now would not match the baselines."
+          exit 1
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the production demo image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          tags: tilecast/server:demo
+          load: true
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,scope=server,mode=max
+      - name: Start the demo stack
+        run: docker compose -f deploy/docker/compose.demo.yml up -d --no-build --wait
+      - name: Re-render the changed screenshots
+        run: npm run test:visual -- --update-snapshots=changed
+      - name: Commit the changed baselines
+        run: |
+          git add e2e/visual/__screenshots__/linux
+          if git diff --cached --quiet; then
+            echo "::notice title=Nothing to refresh::Every Studio screenshot already matches this branch."
+            exit 0
+          fi
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Refresh Studio visual snapshots"
+          git push
+      - name: Keep the reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: refreshed-visual-snapshots
+          path: |
+            e2e/visual/test-results
+            e2e/visual/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Remove the demo stack
+        if: ${{ always() }}
+        run: make demo-down

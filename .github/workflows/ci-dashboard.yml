@@ -164,7 +164,11 @@ jobs:
           pattern: dashboard-vitest-shard-*
           path: apps/dashboard
           merge-multiple: true
+      # Merging reports that contain a failed test exits non-zero. The shard
+      # job already reports that failure, so the merge stays best effort then
+      # and one broken test does not show up as a second red job.
       - name: Merge shard coverage
+        continue-on-error: ${{ needs.tests.result != 'success' }}
         working-directory: apps/dashboard
         run: npx vitest --merge-reports=vitest-reports --coverage --reporter=default
       - name: Coverage summary

@@ -17,7 +17,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Validate dependency-free CI helpers
-        run: node --test scripts/ci/doctor.test.mjs scripts/ci/required.test.mjs
+        run: node --test scripts/ci/doctor.test.mjs scripts/ci/required.test.mjs scripts/ci/demo-schedule-window.test.mjs
       - name: Validate native Player dependency direction
         run: |
           python3 -m unittest discover -s scripts/ci -p 'test_player_architecture.py'

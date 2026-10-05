@@ -20,11 +20,27 @@ jobs:
       - run: npm ci
       - name: Check ASD-STE100 hard rules
         run: bash scripts/check-docs-ste.sh
+      # A pull request answers for the documents it changes. Formatting that
+      # already drifted on main must not fail unrelated pull requests, so the
+      # whole-repository check runs on main and on demand instead.
       - name: Check documentation formatting
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages plugins deploy | sort)
-          doc_files+=(README.md apps/docs)
-          npx prettier --check "${doc_files[@]}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA"
+            mapfile -d '' -t doc_files < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA" HEAD -- '*.md' '*.mdx')
+            if [ "${#doc_files[@]}" -eq 0 ]; then
+              echo "No changed documents to format-check."
+              exit 0
+            fi
+            npx prettier --check --ignore-unknown -- "${doc_files[@]}"
+          else
+            mapfile -t doc_files < <(rg --files -g '*.md' -g '*.mdx' docs wiki apps packages plugins deploy | sort)
+            doc_files+=(README.md apps/docs)
+            npx prettier --check "${doc_files[@]}"
+          fi
       - name: Check the docs site
         run: npm run docs:check
       - name: Build the docs site and check its links
