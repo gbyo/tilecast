@@ -14,7 +14,7 @@ import type {
   WidgetDefinition,
 } from "../../api/types";
 import listManifest from "../../../../../widgets/list/tilecast.widget.json";
-import { WidgetLivePreview } from "./WidgetLivePreview";
+import { AppPlacementPreview, WidgetLivePreview } from "./WidgetLivePreview";
 import { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 
 afterEach(() => {
@@ -53,6 +53,51 @@ function listDefinition(): WidgetDefinition {
 }
 
 describe("WidgetLivePreview capture tracking", () => {
+  it("ignores legacy placement overrides and uses the shared Widget appearance", () => {
+    const asset = {
+      id: "clock-asset",
+      name: "Lobby Clock",
+      type: "widget",
+      widget: {
+        provider: "clock",
+        configuration: {
+          backgroundColor: "#123456",
+          foregroundColor: "#ddeeff",
+        },
+      },
+    } as unknown as Asset;
+    const item = {
+      id: "clock-placement",
+      type: "widget",
+      name: "Lobby Clock",
+      x: 0,
+      y: 0,
+      width: 480,
+      height: 270,
+      layer: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      overrides: {
+        fit: "cover",
+        alignment: "right",
+        foregroundColor: "#ff0000",
+        backgroundColor: "#00ff00",
+        fallbackVisibility: "hide",
+        muted: false,
+      },
+    } as LayoutPlacement;
+    const { container } = render(
+      <AppPlacementPreview asset={asset} item={item} />,
+    );
+    const preview = container.querySelector(
+      ".layout-app-placement",
+    ) as HTMLElement;
+    expect(preview.style.backgroundColor).toBe("rgb(18, 52, 86)");
+    expect(preview.style.color).toBe("rgb(221, 238, 255)");
+    expect(preview.style.alignItems).toBe("");
+  });
+
   it("holds the thumbnail wait until an async Widget settles", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue({
       revision: "test",

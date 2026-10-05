@@ -1,0 +1,254 @@
+[
+  {
+    "kind": "duration",
+    "raw": "0",
+    "expected": {
+      "kind": "duration",
+      "durationSeconds": 0
+    }
+  },
+  {
+    "kind": "duration",
+    "raw": "9007199254740991",
+    "expected": {
+      "kind": "duration",
+      "durationSeconds": 9007199254740991
+    }
+  },
+  {
+    "kind": "asset",
+    "raw": "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF",
+    "expected": {
+      "kind": "asset",
+      "assetId": "abcdefab-cdef-4abc-8def-abcdefabcdef"
+    }
+  },
+  {
+    "kind": "number",
+    "raw": "1e2",
+    "expected": {
+      "kind": "number",
+      "number": 100
+    }
+  },
+  {
+    "kind": "integer",
+    "raw": "-9007199254740991",
+    "expected": {
+      "kind": "integer",
+      "integer": -9007199254740991
+    }
+  },
+  {
+    "kind": "boolean",
+    "raw": "TRUE",
+    "expected": {
+      "kind": "boolean",
+      "boolean": true
+    }
+  },
+  {
+    "kind": "boolean",
+    "raw": "0",
+    "expected": {
+      "kind": "boolean",
+      "boolean": false
+    }
+  },
+  {
+    "kind": "date",
+    "raw": "2024-02-29",
+    "expected": {
+      "kind": "date",
+      "date": "2024-02-29"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "2026-09-28T23:59:59.123+05:30",
+    "expected": {
+      "kind": "datetime",
+      "datetime": "2026-09-28T23:59:59.123+05:30"
+    }
+  },
+  {
+    "kind": "url",
+    "raw": "https://example.org/a%20b",
+    "expected": {
+      "kind": "url",
+      "url": "https://example.org/a%20b"
+    }
+  },
+  {
+    "kind": "duration",
+    "raw": "-1",
+    "expected": {
+      "kind": "text",
+      "text": "-1"
+    }
+  },
+  {
+    "kind": "duration",
+    "raw": "1.5",
+    "expected": {
+      "kind": "text",
+      "text": "1.5"
+    }
+  },
+  {
+    "kind": "duration",
+    "raw": "9007199254740992",
+    "expected": {
+      "kind": "text",
+      "text": "9007199254740992"
+    }
+  },
+  {
+    "kind": "asset",
+    "raw": "00000000-0000-0000-0000-000000000000",
+    "expected": {
+      "kind": "text",
+      "text": "00000000-0000-0000-0000-000000000000"
+    }
+  },
+  {
+    "kind": "asset",
+    "raw": "urn:uuid:abcdefab-cdef-4abc-8def-abcdefabcdef",
+    "expected": {
+      "kind": "text",
+      "text": "urn:uuid:abcdefab-cdef-4abc-8def-abcdefabcdef"
+    }
+  },
+  {
+    "kind": "number",
+    "raw": "NaN",
+    "expected": {
+      "kind": "text",
+      "text": "NaN"
+    }
+  },
+  {
+    "kind": "number",
+    "raw": "Infinity",
+    "expected": {
+      "kind": "text",
+      "text": "Infinity"
+    }
+  },
+  {
+    "kind": "number",
+    "raw": "0x10",
+    "expected": {
+      "kind": "text",
+      "text": "0x10"
+    }
+  },
+  {
+    "kind": "integer",
+    "raw": "1.5",
+    "expected": {
+      "kind": "text",
+      "text": "1.5"
+    }
+  },
+  {
+    "kind": "integer",
+    "raw": "9007199254740992",
+    "expected": {
+      "kind": "text",
+      "text": "9007199254740992"
+    }
+  },
+  {
+    "kind": "boolean",
+    "raw": "yes",
+    "expected": {
+      "kind": "text",
+      "text": "yes"
+    }
+  },
+  {
+    "kind": "date",
+    "raw": "2026-02-29",
+    "expected": {
+      "kind": "text",
+      "text": "2026-02-29"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "2026-09-28T24:00:00Z",
+    "expected": {
+      "kind": "text",
+      "text": "2026-09-28T24:00:00Z"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "2026-09-28T23:59:59+24:00",
+    "expected": {
+      "kind": "text",
+      "text": "2026-09-28T23:59:59+24:00"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "2026-09-28T23:59:59+01:60",
+    "expected": {
+      "kind": "text",
+      "text": "2026-09-28T23:59:59+01:60"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "2026-09-28T23:59:59,123Z",
+    "expected": {
+      "kind": "text",
+      "text": "2026-09-28T23:59:59,123Z"
+    }
+  },
+  {
+    "kind": "url",
+    "raw": "https://example.org/a b",
+    "expected": {
+      "kind": "text",
+      "text": "https://example.org/a b"
+    }
+  },
+  {
+    "kind": "url",
+    "raw": "/relative",
+    "expected": {
+      "kind": "text",
+      "text": "/relative"
+    }
+  },
+  {
+    "kind": "duration",
+    "raw": "",
+    "expected": {
+      "kind": "null"
+    }
+  },
+  {
+    "kind": "asset",
+    "raw": "",
+    "expected": {
+      "kind": "null"
+    }
+  },
+  {
+    "kind": "integer",
+    "raw": "",
+    "expected": {
+      "kind": "null"
+    }
+  },
+  {
+    "kind": "datetime",
+    "raw": "",
+    "expected": {
+      "kind": "null"
+    }
+  }
+]

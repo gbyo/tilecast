@@ -61,8 +61,10 @@ impl RendererCommandBroker {
 
     /// The host queues the command while holding its renderer/activation lock.
     /// No transport value enters Core, and cancellation removes the registration.
+    /// The host supplies a fresh ID. An ID already pending is refused.
     pub async fn request<F, Fut>(
         &self,
+        id: uuid::Uuid,
         timeout: Duration,
         queue: F,
     ) -> Result<SemanticRendererCommandResult, RendererCommandError>
@@ -70,12 +72,11 @@ impl RendererCommandBroker {
         F: FnOnce(uuid::Uuid) -> Fut,
         Fut: Future<Output = bool>,
     {
-        let id = uuid::Uuid::new_v4();
         let (sender, receiver) = oneshot::channel();
         {
             let mut pending = self.pending.lock().unwrap_or_else(|error| error.into_inner());
             pending.retain(|_, sender| !sender.is_closed());
-            if pending.len() >= MAX_PENDING {
+            if pending.len() >= MAX_PENDING || pending.contains_key(&id) {
                 return Err(RendererCommandError::Busy);
             }
             pending.insert(id, sender);
@@ -127,18 +128,47 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn duplicate_host_ids_cannot_replace_a_pending_command() {
+        let broker = Arc::new(RendererCommandBroker::default());
+        let id = uuid::Uuid::from_u128(41);
+        let (queued, ready) = oneshot::channel();
+        let task = tokio::spawn({
+            let broker = broker.clone();
+            async move {
+                broker
+                    .request(id, WEBSITE_DATA_CLEAR_TIMEOUT, |queued_id| async move {
+                        assert_eq!(queued_id, id);
+                        queued.send(()).unwrap();
+                        true
+                    })
+                    .await
+            }
+        });
+        ready.await.unwrap();
+        assert_eq!(
+            broker.request(id, WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { panic!("duplicate must not queue") }).await,
+            Err(RendererCommandError::Busy)
+        );
+        broker.complete(result(id, true));
+        assert_eq!(task.await.unwrap(), Ok(result(id, true)));
+        assert!(broker.pending.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn results_are_correlated_bounded_and_disconnect_fails_pending_commands() {
         let broker = Arc::new(RendererCommandBroker::default());
         let mut tasks = Vec::new();
         for _ in 0..MAX_PENDING {
             let broker = broker.clone();
-            tasks.push(tokio::spawn(
-                async move { broker.request(WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await },
-            ));
+            tasks.push(tokio::spawn(async move {
+                broker.request(uuid::Uuid::new_v4(), WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await
+            }));
         }
         tokio::task::yield_now().await;
         assert_eq!(
-            broker.request(WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { panic!("must not queue") }).await,
+            broker
+                .request(uuid::Uuid::new_v4(), WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { panic!("must not queue") })
+                .await,
             Err(RendererCommandError::Busy)
         );
         broker.complete(result(uuid::Uuid::new_v4(), true));
@@ -166,13 +196,13 @@ mod tests {
     async fn refusal_timeout_and_cancellation_remove_the_request() {
         let broker = Arc::new(RendererCommandBroker::default());
         assert_eq!(
-            broker.request(WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { false }).await,
+            broker.request(uuid::Uuid::new_v4(), WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { false }).await,
             Err(RendererCommandError::NotConnected)
         );
         assert!(broker.pending.lock().unwrap().is_empty());
         let task = tokio::spawn({
             let broker = broker.clone();
-            async move { broker.request(WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await }
+            async move { broker.request(uuid::Uuid::new_v4(), WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await }
         });
         tokio::task::yield_now().await;
         let id = *broker.pending.lock().unwrap().keys().next().unwrap();
@@ -182,7 +212,7 @@ mod tests {
         assert!(broker.pending.lock().unwrap().is_empty());
         let task = tokio::spawn({
             let broker = broker.clone();
-            async move { broker.request(WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await }
+            async move { broker.request(uuid::Uuid::new_v4(), WEBSITE_DATA_CLEAR_TIMEOUT, |_| async { true }).await }
         });
         tokio::task::yield_now().await;
         task.abort();

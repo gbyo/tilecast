@@ -22,7 +22,7 @@ impl CaptureBroker {
         max_bytes: u32,
     ) -> Result<CapturedFrame, CaptureError> {
         self.0
-            .capture(max_width, max_height, max_bytes, |request| async move {
+            .capture(uuid::Uuid::new_v4(), max_width, max_height, max_bytes, |request| async move {
                 let engine = context.presentation.lock().await;
                 let current = engine.current().ok_or(CaptureError::NothingShown)?;
                 current.renderer_metadata.capture_state.check(false)?;

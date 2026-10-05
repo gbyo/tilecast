@@ -243,8 +243,8 @@ export interface RuntimeWidgetPayload {
 }
 
 /**
- * A first-class Widget component (docs/widgets-v2.md), as a manifest v16
- * `kind: "component"` presentation describes it after projection.
+ * A first-class Widget component (docs/widgets-v2.md), as a manifest v16 or
+ * v17 `kind: "component"` presentation describes it after projection.
  */
 export interface RuntimeWidgetComponentV1 {
   type: string;
@@ -255,6 +255,8 @@ export interface RuntimeWidgetComponentV1 {
   dataSources: string[];
   /** Media variants the component may display. */
   media: { assetId: string; variantId: string }[];
+  /** Whether an empty fullscreen component may skip its playlist occurrence. */
+  empty: "render" | "skip-eligible";
 }
 
 /**
@@ -285,6 +287,8 @@ export interface RuntimeLayoutZonePlaylistItem {
   muted: boolean;
   volume: number;
   loop: boolean;
+  videoStartOffsetMs?: number | null;
+  videoEndOffsetMs?: number | null;
   radius?: number;
   transition?: "none" | "fade" | "crossfade";
 }

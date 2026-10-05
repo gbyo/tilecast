@@ -145,6 +145,18 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 		t.Fatalf("component manifest still carries the persisted configuration: %s", widget.Configuration)
 	}
 
+	// A Player that reports component schema 3 receives the bounded empty
+	// policy in manifest v17. Schema 2 Players keep the v16 contract above.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{"widget.tilecast.clock": 2})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v3Widget := onlyWidget(t, manifest)
+	if manifest.SchemaVersion != ManifestSchemaComponentEmptyPolicy || v3Widget.Presentation.SchemaVersion != 3 || v3Widget.Presentation.Component.Empty != "render" {
+		t.Fatalf("component schema 3 was not negotiated: schema=%d presentation=%+v", manifest.SchemaVersion, v3Widget.Presentation)
+	}
+
 	// The persisted Widget is unchanged by any of this.
 	var stored json.RawMessage
 	if err := f.pool.QueryRow(f.ctx, `SELECT configuration FROM widgets WHERE provider='clock'`).Scan(&stored); err != nil {
@@ -155,10 +167,56 @@ func TestClockComponentChosenForEachPlayer(t *testing.T) {
 	}
 
 	// Assignment validation agrees with manifest generation for every profile.
-	for _, schemas := range []string{"{1}", "{1,2}"} {
+	for _, schemas := range []string{"{1}", "{1,2}", "{1,2,3}"} {
 		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.clock": 2})
 		if err := f.service.ValidatePresentationTargets(f.ctx, &playlistID, nil, []uuid.UUID{f.screen}, nil); err != nil {
 			t.Fatalf("schemas %s: valid Clock content rejected: %v", schemas, err)
+		}
+	}
+}
+
+func TestEmptyComponentPolicyPreservesOlderPlayerAutoSkip(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	source, err := f.media.CreateDataSource(f.ctx, f.user, media.DataSourceInput{
+		Provider: "manual", Name: "Recognition entries",
+		Configuration: json.RawMessage(`{"columns":[{"key":"person","label":"Person","type":"text"},{"key":"contribution","label":"Contribution","type":"text"}],"rows":[]}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration, _ := json.Marshal(map[string]any{
+		"dataSourceId": source.ID.String(), "nameField": "person", "noteField": "contribution",
+		"heading": "Recognition", "autoSkipWhenEmpty": true,
+	})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "recognition-board", Name: "Recognition", Configuration: configuration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Recognition rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err := f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	for _, schemas := range []string{"{1,2}", "{1,2,3}"} {
+		f.reportCapabilities(t, schemas, map[string]int{"widget.tilecast.cards": 1})
+		if _, err := f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+			t.Fatal(err)
+		}
+		manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+		if err != nil {
+			t.Fatal(err)
+		}
+		presentation := onlyWidget(t, manifest).Presentation
+		if schemas == "{1,2}" {
+			if presentation.Kind != "native" || presentation.Native.Root.Props["autoSkipWhenEmpty"] != true {
+				t.Fatalf("older Player lost auto-skip: %+v", presentation)
+			}
+		} else if manifest.SchemaVersion != 17 || presentation.SchemaVersion != 3 || presentation.Component.Empty != "skip-eligible" {
+			t.Fatalf("capable Player lost empty policy: %+v", presentation)
 		}
 	}
 }

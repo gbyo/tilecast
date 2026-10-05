@@ -11,6 +11,8 @@ import type {
   RuntimeItem,
   RuntimeWidgetComponentPayload,
 } from "../host/contract";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
+import type { RuntimeWidgetHost } from "./host";
 import { ManualClock } from "../clock/scheduler";
 import type { SurfaceEnvironment, SurfaceSink } from "../surfaces/surface";
 
@@ -47,6 +49,7 @@ const payload = (
     },
     dataSources: [],
     media: [],
+    empty: "render",
   },
   documents: {},
   media: {},
@@ -72,6 +75,7 @@ function environment() {
     fallbackShown: () => undefined,
     zoneFailed: (zoneId, message) =>
       log.push(`zoneFailed:${zoneId}:${message}`),
+    widgetEmpty: () => log.push("widget-empty"),
   };
   const env: SurfaceEnvironment = { clock, sink, animationScale: 0, widgets };
   return { clock, widgets, env, log };
@@ -185,6 +189,49 @@ describe("ComponentWidgetSurface", () => {
     expect(text()).toContain("16:0131");
     surface.dispose();
     expect(element.isConnected).toBe(false);
+  });
+
+  it("returns the WidgetMount empty result to the playback stage", async () => {
+    const { env } = environment();
+    const emptyWidgets = {
+      mount: (
+        _container: HTMLElement,
+        _payload: RuntimeWidgetComponentPayload,
+        onState: (state: WidgetMountState) => void,
+      ) => {
+        onState({ state: "empty", reason: "no_data" });
+        return { dispose: () => undefined };
+      },
+    } as unknown as RuntimeWidgetHost;
+    const surface = new surfaceModule.ComponentWidgetSurface(
+      widgetItem(payload()),
+      { ...env, widgets: emptyWidgets },
+    );
+    expect(await surface.prepare()).toEqual({ empty: true });
+    surface.dispose();
+  });
+
+  it("reports a transition to empty after the Widget was shown", async () => {
+    const { env, log } = environment();
+    const emptyWidgets = {
+      mount: (
+        _container: HTMLElement,
+        _payload: RuntimeWidgetComponentPayload,
+        onState: (state: WidgetMountState) => void,
+      ) => {
+        onState({ state: "ready" });
+        queueMicrotask(() => onState({ state: "empty", reason: "no_data" }));
+        return { dispose: () => undefined };
+      },
+    } as unknown as RuntimeWidgetHost;
+    const surface = new surfaceModule.ComponentWidgetSurface(
+      widgetItem(payload()),
+      { ...env, widgets: emptyWidgets },
+    );
+    await surface.prepare();
+    await Promise.resolve();
+    expect(log).toContain("widget-empty");
+    surface.dispose();
   });
 
   it("rejects an unknown component version instead of guessing", async () => {

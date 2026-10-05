@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=16;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=17;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;

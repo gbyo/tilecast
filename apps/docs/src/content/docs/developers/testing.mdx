@@ -58,6 +58,8 @@ The classifier follows package consumers. Studio changes select Studio and Demo 
 
 Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
 
+Server CI runs the same Go formatting gate as `make check` before vet, tests, and build.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.
@@ -77,6 +79,18 @@ npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main 
 ```
 
 The merge-base check stops if `origin/main` is missing or has no common history with your branch. Fetch a usable base or run the full suite in that case. `--passWithNoTests` lets documentation-only changes finish when Vitest finds no related tests. For Go, run the affected package from `apps/server`, such as `go test ./internal/devices`. Run each package when a change spans packages. These commands support local iteration; CI still runs the complete selected test suites.
+
+## Shared presentation decisions
+
+Availability and item-default decisions live in the pure Presentation Model. Its expected-result fixtures run in the model, Studio, and Player Runtime suites. When changing those decisions, run:
+
+```bash
+npm test --workspace @tilecast/presentation-model
+npm test --workspace @tilecast/player-runtime
+npm test -- --run src/content/presentationModelConformance.test.ts
+```
+
+Shared zone-policy fixtures also exercise Runtime actors and surfaces, plus Studio preview fallback and progression. Keep host APIs, mounting, storage, and timers in the consumers. See the [Presentation Model contract](https://github.com/gbyo/tilecast/blob/main/docs/presentation-model.md) for ownership and build details.
 
 ## Reuse Studio query contracts
 
@@ -125,3 +139,7 @@ Schedule create, update, and delete use `mutationOptions()` factories in the sam
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
+
+## Android CI caches
+
+The Android workflow caches Gradle dependencies and task outputs. It also runs its unit tests, lint, and debug APK assembly twice to confirm the configuration cache can be reused. Check the Gradle logs for `FROM-CACHE` task results and `Reusing configuration cache` when reviewing a workflow change. See the [CI timing record](https://github.com/gbyo/tilecast/blob/main/docs/ci-timings.md) for observed cold and warm run durations and their limitations.

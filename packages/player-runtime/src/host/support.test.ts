@@ -6,7 +6,7 @@ describe("Runtime readiness support", () => {
   it("uses live Widget discovery, including absent and changed components", () => {
     const discovered = { "widget.custom.counter": 3 };
     const support = runtimeSupport(discovered, false);
-    expect(support.presentationSchemas).toEqual([1, 2]);
+    expect(support.presentationSchemas).toEqual([1, 2, 3]);
     expect(support.widgetComponents).toEqual(discovered);
     expect(support.widgetComponents["widget.tilecast.clock"]).toBeUndefined();
     discovered["widget.custom.counter"] = 4;

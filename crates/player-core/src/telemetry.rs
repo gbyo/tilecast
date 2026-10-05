@@ -133,6 +133,7 @@ struct Sample {
 
 #[async_trait::async_trait]
 pub trait TelemetryHost: Send + Sync {
+    fn new_sample_id(&self) -> uuid::Uuid;
     async fn observe(&self) -> TelemetryTick;
     async fn gauges(&self, observed_at: Timestamp) -> TelemetryGauges;
     fn has_authenticated_server(&self) -> bool;
@@ -153,7 +154,7 @@ async fn enqueue(dependencies: &Dependencies, host: &impl TelemetryHost, interva
         Ok(body) => body,
         Err(_) => return,
     };
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = host.new_sample_id().to_string();
     let now = dependencies.clock.now();
     if let Err(error) = db.run(move |c| outbox::enqueue_telemetry(c, &id, &body, now)).await {
         tracing::warn!(component = "telemetry", event = "enqueue_failed", reason = error.reason_code());
@@ -162,7 +163,11 @@ async fn enqueue(dependencies: &Dependencies, host: &impl TelemetryHost, interva
 
 /// One-second observations and one sample per minute. Queue delivery remains
 /// independent of playback and sampling; missed ticks are skipped.
-pub async fn drive_telemetry(dependencies: Dependencies, host: &impl TelemetryHost, shutdown: &CancellationToken) {
+pub(crate) async fn drive_telemetry(
+    dependencies: Dependencies,
+    host: &impl TelemetryHost,
+    shutdown: &CancellationToken,
+) {
     let mut second = tokio::time::interval(Duration::from_secs(1));
     second.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut accumulator = Accumulator::default();
@@ -194,6 +199,9 @@ mod tests {
 
     #[async_trait::async_trait]
     impl TelemetryHost for Host {
+        fn new_sample_id(&self) -> uuid::Uuid {
+            uuid::Uuid::from_u128(self.0.load(Ordering::Relaxed) as u128)
+        }
         async fn observe(&self) -> TelemetryTick {
             TelemetryTick { bound: true, connected: false, renderer_connected: true, playing: true, healthy: true }
         }
@@ -259,6 +267,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(rows.len(), 120);
+        assert_eq!(rows[0].event_id, uuid::Uuid::from_u128(2).to_string());
         let value: serde_json::Value = serde_json::from_str(&rows[0].body).unwrap();
         assert_eq!(
             value,

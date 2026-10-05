@@ -80,7 +80,8 @@ type OnMount<T extends string, E = object> = { type: T; mount: number } & E;
 
 /** Events a surface sends about the occurrence it renders. */
 export type SurfaceEvent =
-  | OnMount<"SURFACE_READY">
+  | OnMount<"SURFACE_READY", { empty?: boolean }>
+  | OnMount<"WIDGET_EMPTY">
   | OnMount<"SURFACE_ENDED", { source: "ended" | "end-offset" }>
   | OnMount<"SURFACE_FAILED", { message: string }>
   | OnMount<"SURFACE_RESUMED">
@@ -168,6 +169,18 @@ export const presentationMachine = setup({
       const item = currentItem(context);
       return item !== null && isAutoSkipWidget(item, context.authority);
     },
+    skipEmptyComponent: ({ context, event }) => {
+      const item = currentItem(context);
+      const empty =
+        (event.type === "SURFACE_READY" && event.empty === true) ||
+        event.type === "WIDGET_EMPTY";
+      return (
+        empty &&
+        context.authority === "local" &&
+        item?.kind === "widget" &&
+        widgetComponent(item)?.component.empty === "skip-eligible"
+      );
+    },
     canSkip: ({ context }) =>
       context.stage !== null && context.authority === "local",
     advances: ({ event }) =>
@@ -202,9 +215,13 @@ export const presentationMachine = setup({
           context.authority,
           context.items.length === 1 && item.kind === "video",
         ),
-        consecutiveEmptySkips: isAutoSkipWidget(item, context.authority)
-          ? context.consecutiveEmptySkips
-          : 0,
+        consecutiveEmptySkips:
+          isAutoSkipWidget(item, context.authority) ||
+          (context.authority === "local" &&
+            item.kind === "widget" &&
+            widgetComponent(item)?.component.empty === "skip-eligible")
+            ? context.consecutiveEmptySkips
+            : 0,
       };
     }),
     /** Evidence and deadlines that start with the occurrence itself. */
@@ -240,6 +257,12 @@ export const presentationMachine = setup({
         ? { ...context.stage, phase: "shown" as const }
         : null,
       consecutiveFailures: 0,
+      consecutiveEmptySkips: 0,
+    })),
+    markStageSkipping: assign(({ context }) => ({
+      stage: context.stage
+        ? { ...context.stage, phase: "skipping" as const }
+        : null,
     })),
     /** Evidence, heartbeats and completion once an occurrence is visible. */
     onShown: ({ context, self }) => {
@@ -366,6 +389,7 @@ export const presentationMachine = setup({
       );
     },
     startEmptySkip: enqueueActions(({ context, enqueue, self }) => {
+      context.timers.cancelAll();
       const skips = context.consecutiveEmptySkips + 1;
       enqueue.assign({ consecutiveEmptySkips: skips });
       const stage = context.stage!;
@@ -478,10 +502,20 @@ export const presentationMachine = setup({
     /** Staged on the hidden layer; the surface is loading. */
     preparing: {
       on: {
-        SURFACE_READY: {
-          guard: "isCurrent",
-          target: "showing",
-          actions: ["showStage", "onShown"],
+        SURFACE_READY: [
+          {
+            guard: and(["isCurrent", "skipEmptyComponent"]),
+            target: "skipping",
+          },
+          {
+            guard: "isCurrent",
+            target: "showing",
+            actions: ["showStage", "onShown"],
+          },
+        ],
+        WIDGET_EMPTY: {
+          guard: and(["isCurrent", "skipEmptyComponent"]),
+          target: "skipping",
         },
         FALLBACK_SHOWN: {
           guard: "isCurrent",
@@ -503,6 +537,10 @@ export const presentationMachine = setup({
     /** On screen. */
     showing: {
       on: {
+        WIDGET_EMPTY: {
+          guard: and(["isCurrent", "skipEmptyComponent"]),
+          target: "skipping",
+        },
         SURFACE_ENDED: { guard: "isCurrent", actions: "finish" },
         DURATION_DUE: { guard: "isCurrent", actions: "finish" },
         SURFACE_RESUMED: { guard: "isCurrent", actions: "occurrenceStarted" },
@@ -545,7 +583,7 @@ export const presentationMachine = setup({
       },
     },
     skipping: {
-      entry: "startEmptySkip",
+      entry: ["markStageSkipping", "startEmptySkip"],
       on: {
         EMPTY_SKIP_DUE: {
           guard: "isCurrent",

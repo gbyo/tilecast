@@ -240,6 +240,17 @@ describe("Overview fleet status", () => {
     ).toHaveAttribute("href", "/activity");
   });
 
+  it("keeps fleet figures visually compact without redundant detail copy", async () => {
+    mockAll();
+    renderPage();
+    const status = await screen.findByTestId("fleet-status");
+    expect(within(status).queryByText("Connected now")).not.toBeInTheDocument();
+    expect(
+      within(status).queryByText("Confirmed by the Player"),
+    ).not.toBeInTheDocument();
+    expect(within(status).queryByText("Needs review")).not.toBeInTheDocument();
+  });
+
   it("draws a trend line per figure only from measured uptime hours", async () => {
     mockAll();
     const bucket = (upPercent: number | null) => ({

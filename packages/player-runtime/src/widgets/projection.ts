@@ -1,7 +1,7 @@
 /**
  * Projection of first-class Widget components (docs/widgets-v2.md §6).
  *
- * A manifest v16 Widget whose presentation is `kind: "component"` projects
+ * A manifest v16 or v17 Widget whose presentation is `kind: "component"` projects
  * to a RuntimeWidgetComponentPayload: the component reference, the Data
  * Documents and media variants it declares, and the regional formatting
  * for its context. Nothing here depends on the current time, so the
@@ -23,8 +23,9 @@ import type {
 import type { RegionalFormatting } from "../compat/projection/format";
 import type { ManifestAsset } from "../compat/projection/types";
 
-/** Presentation schema version of `kind: "component"` presentations. */
-export const COMPONENT_PRESENTATION_SCHEMA = 2;
+/** Latest presentation schema version of `kind: "component"` presentations. */
+export const COMPONENT_PRESENTATION_SCHEMA = 3;
+const LEGACY_COMPONENT_PRESENTATION_SCHEMA = 2;
 
 const MAX_DATA_SOURCES = 8;
 const MAX_MEDIA = 16;
@@ -47,13 +48,20 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
   if (
     !presentation ||
     presentation.kind !== "component" ||
-    presentation.schemaVersion !== COMPONENT_PRESENTATION_SCHEMA
+    ![
+      LEGACY_COMPONENT_PRESENTATION_SCHEMA,
+      COMPONENT_PRESENTATION_SCHEMA,
+    ].includes(presentation.schemaVersion)
   ) {
     return null;
   }
   const raw = presentation.component;
   if (!raw || typeof raw !== "object") return null;
   const { type, version, config } = raw;
+  const empty =
+    presentation.schemaVersion === COMPONENT_PRESENTATION_SCHEMA
+      ? raw.empty
+      : "render";
   if (typeof type !== "string" || type.length > 72 || !TYPE.test(type)) {
     return null;
   }
@@ -61,6 +69,7 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
   if (!config || typeof config !== "object" || Array.isArray(config)) {
     return null;
   }
+  if (empty !== "render" && empty !== "skip-eligible") return null;
   const dataSources = Array.isArray(raw.dataSources) ? raw.dataSources : [];
   const media = Array.isArray(raw.media) ? raw.media : [];
   if (dataSources.length > MAX_DATA_SOURCES || media.length > MAX_MEDIA) {
@@ -87,6 +96,7 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
     type,
     version,
     config,
+    empty,
     dataSources: [...dataSources],
     media: media.map(({ assetId, variantId }) => ({ assetId, variantId })),
   };
