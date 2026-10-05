@@ -45,6 +45,7 @@ export function ScreenFleetTable({
   csrfToken,
   showLocation = true,
   onSelectionChange,
+  onArchive,
 }: {
   screens: Screen[];
   canManage: boolean;
@@ -52,6 +53,7 @@ export function ScreenFleetTable({
   csrfToken: string;
   showLocation?: boolean;
   onSelectionChange: (id: string, selected: boolean) => void;
+  onArchive?: (screen: Screen) => void;
 }) {
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
@@ -269,6 +271,9 @@ export function ScreenFleetTable({
                       navigate,
                       csrfToken,
                       canManage,
+                      onArchive: onArchive
+                        ? () => onArchive(row.original)
+                        : undefined,
                     })}
                     variant="ghost"
                     size="icon-sm"
@@ -279,7 +284,7 @@ export function ScreenFleetTable({
             ]
           : []),
       ]),
-    [canManage, csrfToken, formatLocale, navigate, showLocation, t],
+    [canManage, csrfToken, formatLocale, navigate, onArchive, showLocation, t],
   );
   const table = useTable({
     features,
