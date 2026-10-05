@@ -689,11 +689,9 @@ describe("content organizer entry point", () => {
     expect(
       screen.queryByRole("button", { name: "Create folder" }),
     ).not.toBeInTheDocument();
-    await user.click(
-      screen.getByRole("button", { name: "Content organization" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Organize" }));
     const menu = await screen.findByRole("menu", {
-      name: "Content organization",
+      name: "Organize",
     });
     expect(
       within(menu).getByRole("menuitem", { name: "Create folder" }),
@@ -719,11 +717,9 @@ describe("content organizer entry point", () => {
     const user = userEvent.setup();
     renderOrganizer({ folders: [], collections: [], tags: [] });
 
-    await user.click(
-      screen.getByRole("button", { name: "Content organization" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Organize" }));
     const menu = await screen.findByRole("menu", {
-      name: "Content organization",
+      name: "Organize",
     });
     expect(
       within(menu).queryByRole("menuitem", { name: "Manage" }),
@@ -747,9 +743,8 @@ describe("content organizer entry point", () => {
     expect(
       within(bar).getByRole("button", { name: "Archive" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Content organization" }),
-    ).not.toBeInTheDocument();
+    // The zero-selection trigger gives way to the bar rather than duplicating it.
+    expect(screen.getAllByRole("button", { name: "Organize" })).toHaveLength(1);
   });
 
   it("opens the organize dialog from the selection bar", async () => {

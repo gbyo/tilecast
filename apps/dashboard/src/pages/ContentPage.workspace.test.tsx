@@ -8,6 +8,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
@@ -116,6 +117,8 @@ describe("Media workspace anatomy", () => {
     expect(await screen.findByText("Poster-1")).toBeInTheDocument();
 
     const toggle = screen.getByRole("group", { name: "Library view" });
+    expect(toggle).toHaveAttribute("data-slot", "toggle-group");
+    expect(toggle).toHaveAttribute("data-variant", "outline");
     expect(
       within(toggle).getByRole("button", { name: "Library" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -126,6 +129,7 @@ describe("Media workspace anatomy", () => {
     const count = screen.getByText("3 assets");
     expect(count).not.toHaveAttribute("aria-live");
     expect(count.closest("[aria-live]")).toBeNull();
+    expect(count).not.toHaveAttribute("data-slot", "badge");
     expect(
       screen.getByRole("button", { name: "Upload assets" }),
     ).toBeInTheDocument();
@@ -195,5 +199,84 @@ describe("Media workspace anatomy", () => {
     fireEvent.click(screen.getByRole("button", { name: "Archive" }));
     expect(await screen.findByText("Archive is empty")).toBeInTheDocument();
     expect(screen.queryByText(ARCHIVE_NOTE)).toBeNull();
+  });
+
+  it("places Organize beside Upload and drops the standalone organization row", async () => {
+    mockLibrary();
+    renderPage();
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole("button", { name: "Content organization" }),
+    ).toBeNull();
+    const organize = screen.getByRole("button", { name: "Organize" });
+    const upload = screen.getByRole("button", { name: "Upload assets" });
+    expect(organize.parentElement).toBe(upload.parentElement);
+    expect(
+      organize.compareDocumentPosition(upload) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(organize).toHaveAttribute("aria-haspopup", "menu");
+  });
+
+  it("keeps the existing organization actions behind the Organize menu", async () => {
+    const user = userEvent.setup();
+    mockLibrary();
+    renderPage();
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Organize" }));
+    const menu = await screen.findByRole("menu", {
+      name: "Organize",
+    });
+    for (const name of ["Create folder", "Create collection", "Create tag"]) {
+      expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
+    }
+    await user.click(
+      within(menu).getByRole("menuitem", { name: "Create folder" }),
+    );
+    expect(await screen.findByLabelText("Folder name")).toBeInTheDocument();
+  });
+
+  it("offers Organize only to managers in the Library view", async () => {
+    mockLibrary();
+    renderPage();
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Archive" }));
+    expect(await screen.findByText("Old-1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Organize" })).toBeNull();
+  });
+
+  it("hides Organize from viewers", async () => {
+    auth.role = "viewer";
+    mockLibrary();
+    renderPage();
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Organize" })).toBeNull();
+  });
+
+  it("hands over to the selection toolbar instead of duplicating Organize", async () => {
+    mockLibrary();
+    renderPage();
+    expect(await screen.findByText("Poster-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Poster-1" }));
+    const bar = await screen.findByRole("toolbar", { name: "1 selected" });
+    expect(screen.getAllByRole("button", { name: "Organize" })).toHaveLength(1);
+    expect(
+      within(bar).getByRole("button", { name: "Organize" }),
+    ).toBeInTheDocument();
+    expect(
+      within(bar).getByRole("button", { name: "Archive" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Upload assets" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(bar).getByRole("button", { name: "Clear" }));
+    expect(
+      await screen.findByRole("button", { name: "Organize" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar")).toBeNull();
   });
 });

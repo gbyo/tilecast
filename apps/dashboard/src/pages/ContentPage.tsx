@@ -11,6 +11,7 @@ import {
 import {
   Archive,
   ArchiveRestore,
+  ChevronDown,
   Copy,
   EllipsisVertical,
   FileImage,
@@ -146,6 +147,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "../components/ui/sheet";
+import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { Switch } from "../components/ui/switch";
@@ -773,11 +775,13 @@ export function ContentPage() {
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
       <h1 className="sr-only">{t("media.library.title")}</h1>
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <SingleToggleGroup
               label={t("media.library.viewLabel")}
+              variant="outline"
+              spacing={0}
               value={libraryView}
               onChange={setLibraryView}
               options={[
@@ -799,18 +803,86 @@ export function ContentPage() {
               </p>
             )}
           </div>
-          {canManage && libraryView === "active" && (
-            <Button type="button" onClick={() => fileInput.current?.click()}>
-              <Upload size={16} aria-hidden="true" />{" "}
-              {t("media.library.uploadAssets")}
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {canManage &&
+              (libraryView === "active" || checkedAssetIds.size > 0) && (
+                <ContentOrganizer
+                  csrf={csrf}
+                  folders={folders.data ?? []}
+                  collections={collections.data ?? []}
+                  tags={tags.data ?? []}
+                  assetIds={[...checkedAssetIds]}
+                  onApplied={() => {
+                    setCheckedAssetIds(new Set());
+                    refreshOrganization();
+                  }}
+                  onCatalogChanged={refreshOrganization}
+                  onSelectAll={() =>
+                    setCheckedAssetIds(
+                      new Set(libraryItems.map((asset) => asset.id)),
+                    )
+                  }
+                  onClear={() => setCheckedAssetIds(new Set())}
+                  archiveMode={libraryView === "archive"}
+                  onArchive={async () => {
+                    const ids = [...checkedAssetIds];
+                    try {
+                      await api.archiveAssets(ids, csrf);
+                    } catch (error) {
+                      toast.add({
+                        title: t("media.errors.bulkArchiveFailed"),
+                        description: apiErrorMessage(error),
+                        type: "error",
+                      });
+                      return;
+                    }
+                    toast.add({
+                      title: t("media.archiveDialog.archivedBulk", {
+                        count: ids.length,
+                      }),
+                      type: "success",
+                    });
+                    setCheckedAssetIds(new Set());
+                    refreshOrganization();
+                  }}
+                  onRestore={async () => {
+                    const ids = [...checkedAssetIds];
+                    try {
+                      await api.restoreAssets(ids, csrf);
+                    } catch (error) {
+                      toast.add({
+                        title: t("media.errors.restoreFailed", {
+                          count: ids.length,
+                        }),
+                        description: apiErrorMessage(error),
+                        type: "error",
+                      });
+                      return;
+                    }
+                    toast.add({
+                      title: t("media.restore.success", { count: ids.length }),
+                      type: "success",
+                    });
+                    setCheckedAssetIds(new Set());
+                    refreshOrganization();
+                  }}
+                  onDelete={() => void confirmBulkDelete()}
+                />
+              )}
+            {canManage && libraryView === "active" && (
+              <Button type="button" onClick={() => fileInput.current?.click()}>
+                <Upload size={16} aria-hidden="true" />{" "}
+                {t("media.library.uploadAssets")}
+              </Button>
+            )}
+          </div>
         </div>
         {libraryView === "archive" && !archiveIsEmpty && (
           <p className="max-w-prose text-sm text-muted-foreground">
             {t("media.library.descriptionArchived")}
           </p>
         )}
+        <Separator />
       </div>
       <input
         ref={fileInput}
@@ -960,66 +1032,6 @@ export function ContentPage() {
         />
       </FilterBar>
 
-      {canManage && (libraryView === "active" || checkedAssetIds.size > 0) && (
-        <ContentOrganizer
-          csrf={csrf}
-          folders={folders.data ?? []}
-          collections={collections.data ?? []}
-          tags={tags.data ?? []}
-          assetIds={[...checkedAssetIds]}
-          onApplied={() => {
-            setCheckedAssetIds(new Set());
-            refreshOrganization();
-          }}
-          onCatalogChanged={refreshOrganization}
-          onSelectAll={() =>
-            setCheckedAssetIds(new Set(libraryItems.map((asset) => asset.id)))
-          }
-          onClear={() => setCheckedAssetIds(new Set())}
-          archiveMode={libraryView === "archive"}
-          onArchive={async () => {
-            const ids = [...checkedAssetIds];
-            try {
-              await api.archiveAssets(ids, csrf);
-            } catch (error) {
-              toast.add({
-                title: t("media.errors.bulkArchiveFailed"),
-                description: apiErrorMessage(error),
-                type: "error",
-              });
-              return;
-            }
-            toast.add({
-              title: t("media.archiveDialog.archivedBulk", {
-                count: ids.length,
-              }),
-              type: "success",
-            });
-            setCheckedAssetIds(new Set());
-            refreshOrganization();
-          }}
-          onRestore={async () => {
-            const ids = [...checkedAssetIds];
-            try {
-              await api.restoreAssets(ids, csrf);
-            } catch (error) {
-              toast.add({
-                title: t("media.errors.restoreFailed", { count: ids.length }),
-                description: apiErrorMessage(error),
-                type: "error",
-              });
-              return;
-            }
-            toast.add({
-              title: t("media.restore.success", { count: ids.length }),
-              type: "success",
-            });
-            setCheckedAssetIds(new Set());
-            refreshOrganization();
-          }}
-          onDelete={() => void confirmBulkDelete()}
-        />
-      )}
       {confirmDialog}
 
       {assets.isError && (
@@ -2068,27 +2080,26 @@ export function ContentOrganizer({
   const [folderId, setFolderId] = useState("");
   const [tagId, setTagId] = useState("");
   const [collectionId, setCollectionId] = useState("");
-  const [error, setError] = useState("");
   const [creating, setCreating] = useState<OrganizerKind>();
   const [createOpen, setCreateOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   const { t } = useTranslation(["content", "common"]);
   const [organizing, setOrganizing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const reportError = (cause: unknown) =>
+    toast.add({ title: apiErrorMessage(cause), type: "error" });
   const run = async (action: () => void | Promise<void>) => {
     setBusy(true);
-    setError("");
     try {
       await action();
     } catch (cause) {
-      setError(apiErrorMessage(cause));
+      reportError(cause);
     } finally {
       setBusy(false);
     }
   };
   const apply = async () => {
     if (!assetIds.length) return;
-    setError("");
     try {
       const [tagAction, selectedTagId] = tagId.split(":");
       const [collectionAction, selectedCollectionId] = collectionId.split(":");
@@ -2121,24 +2132,26 @@ export function ContentOrganizer({
       setOrganizing(false);
       onApplied();
     } catch (cause) {
-      setError(apiErrorMessage(cause));
+      reportError(cause);
     }
   };
+  // Renders inline into whatever action cluster the caller places it in: the
+  // zero-selection trigger belongs to the workspace band, while the dialogs
+  // and the fixed selection toolbar do not take part in layout.
   return (
-    <div
-      className="flex flex-wrap items-center gap-2"
-      aria-label={t("media.organize.sectionLabel")}
-    >
+    <>
       {!archiveMode && assetIds.length === 0 && (
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button type="button" variant="ghost" size="sm" />}
+            render={<Button type="button" variant="outline" />}
           >
-            <FolderPlus size={15} aria-hidden="true" />{" "}
-            {t("media.organize.sectionLabel")}
+            <FolderPlus size={16} aria-hidden="true" />
+            {t("media.organize.organize")}
+            <ChevronDown size={14} aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            align="start"
+            align="end"
+            className="w-auto min-w-48"
             aria-label={t("media.organize.sectionLabel")}
           >
             <DropdownMenuItem
@@ -2250,11 +2263,6 @@ export function ContentOrganizer({
             </span>
           </div>
         </div>
-      )}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
       )}
       {creating && (
         <CreateOrganizerDialog
@@ -2395,7 +2403,7 @@ export function ContentOrganizer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
