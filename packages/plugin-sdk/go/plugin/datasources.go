@@ -70,9 +70,9 @@ type DataSourceRecord struct {
 	Description   string
 	Configuration json.RawMessage
 	// CreatedBy is uuid.Nil when the row has no creator.
-	CreatedBy  uuid.UUID
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	CreatedBy uuid.UUID
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // DataSourceCreate provisions one provider-owned Data Source row. The host
@@ -92,9 +92,9 @@ type DataSourceCreate struct {
 
 // RefreshSeed is the initial cached state of a new Data Source.
 type RefreshSeed struct {
-	Payload      TypedDatasetPayload
-	ItemCount    int
-	NextRefresh  *time.Time
+	Payload     TypedDatasetPayload
+	ItemCount   int
+	NextRefresh *time.Time
 }
 
 // ProjectionWrite replaces a Data Source's cached payload and reschedules
@@ -108,11 +108,11 @@ type ProjectionWrite struct {
 
 // DataSourceRefresh is the projection status callers show in Studio.
 type DataSourceRefresh struct {
-	Payload      TypedDatasetPayload
-	LastSuccess  *time.Time
-	NextRefresh  *time.Time
-	UsingCached  bool
-	ErrorCode    *string
+	Payload     TypedDatasetPayload
+	LastSuccess *time.Time
+	NextRefresh *time.Time
+	UsingCached bool
+	ErrorCode   *string
 }
 
 // DataSourceUsage summarizes where a Data Source's datasets are consumed.

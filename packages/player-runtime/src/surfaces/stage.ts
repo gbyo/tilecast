@@ -87,6 +87,11 @@ export class Stage {
   /** Render the engine's current occurrence. */
   update(entry: StageEntry | null): void {
     if (!entry) return;
+    if (entry.phase === "skipping") {
+      if (this.back.mount === entry.mount) this.empty(this.back);
+      if (this.front.mount === entry.mount) this.empty(this.front);
+      return;
+    }
     if (entry.mount !== this.back.mount && entry.mount !== this.front.mount) {
       this.stage(entry);
     }
@@ -160,9 +165,13 @@ export class Stage {
     layer.surface = surface;
     layer.el.replaceChildren(surface.element);
     surface.prepare().then(
-      () => {
+      (readiness) => {
         if (layer.surface === surface) {
-          this.options.send({ type: "SURFACE_READY", mount: entry.mount });
+          this.options.send({
+            type: "SURFACE_READY",
+            mount: entry.mount,
+            ...(readiness?.empty === true ? { empty: true } : {}),
+          });
         }
       },
       (error: unknown) => {
@@ -293,6 +302,7 @@ export class Stage {
       fallbackShown: () => send({ type: "FALLBACK_SHOWN", mount }),
       zoneFailed: (zoneId, message) =>
         send({ type: "ZONE_FAILED", mount, zoneId, message }),
+      widgetEmpty: () => send({ type: "WIDGET_EMPTY", mount }),
     };
   }
 }

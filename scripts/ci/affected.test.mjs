@@ -8,6 +8,7 @@ import {
   renameSync,
   readFileSync,
   readdirSync,
+  mkdirSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,6 +19,75 @@ const selected = (paths) =>
     .filter(([, value]) => value)
     .map(([key]) => key)
     .sort();
+test("root Rust inputs and shared crates select portable and Edge validation", () => {
+  for (const path of [
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "rustfmt.toml",
+    ".cargo/config.toml",
+    "crates/player-types/src/lib.rs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "player_core",
+      "ci",
+      "edge_rust",
+      "edge_server",
+      "edge_migration",
+      "edge_activity",
+      "edge_wpe",
+      "edge_conformance",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.ios, false, path);
+    assert.equal(result.android, false, path);
+    assert.equal(result.server, false, path);
+  }
+  for (const path of [
+    "crates/future/Cargo.toml",
+    "crates/player-unregistered/src/lib.rs",
+    "scripts/ci/check-player-architecture.py",
+  ])
+    assert.deepEqual(selected([path]), [...areas].sort(), path);
+  assert.equal(
+    affected(["apps/edge/crates/edge-platform/src/systemd.rs"]).player_core,
+    false,
+  );
+  assert.equal(affected(["docs/player-core.md"]).ci, true);
+});
+test("Player crates require root workspace registration before narrowing validation", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "tilecast-player-registry-"));
+  try {
+    mkdirSync(join(cwd, "crates/player-types"), { recursive: true });
+    writeFileSync(
+      join(cwd, "crates/player-types/Cargo.toml"),
+      '[package]\nname = "player-types"\nversion = "0.1.0"\n',
+    );
+    const path = "crates/player-types/src/lib.rs";
+    for (const workspace of [
+      "[workspace]\nmembers = []\n",
+      '[workspace]\nmembers = ["crates/player-*"]\nexclude = ["crates/player-types"]\n',
+    ]) {
+      writeFileSync(join(cwd, "Cargo.toml"), workspace);
+      assert.deepEqual(affected([path], { cwd }), affected([], { full: true }));
+    }
+    for (const members of ['"crates/player-types"', '"crates/player-*"']) {
+      writeFileSync(
+        join(cwd, "Cargo.toml"),
+        `[workspace]\nmembers = [${members}]\n`,
+      );
+      const result = affected([path], { cwd });
+      assert.equal(result.player_core, true);
+      assert.equal(result.ios, false);
+      assert.equal(result.server, false);
+    }
+    writeFileSync(join(cwd, "Cargo.toml"), "invalid TOML");
+    assert.deepEqual(affected([path], { cwd }), affected([], { full: true }));
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
 test("Studio selects the real stack without Edge or Android", () => {
   assert.deepEqual(selected(["apps/dashboard/src/components/Button.tsx"]), [
     "container",
@@ -260,6 +330,7 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
   for (const path of [
     "packages/manifest-schema/schema-v16.json",
     "packages/manifest-schema/schedule-fixtures.json",
+    "packages/manifest-schema/data-document-value-fixtures.json",
     "packages/layout-schema/schema-v2.json",
     "packages/settings-schema/player-config-v1.json",
   ])

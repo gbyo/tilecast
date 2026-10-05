@@ -221,7 +221,7 @@ describe("playlist editor", () => {
       7_500,
     );
     expect(playlistPreviewItemDuration(item({ assetType: "layout" }))).toBe(
-      10_000,
+      30_000,
     );
     expect(
       playlistPreviewItemDuration(item({ assetType: "video" })),

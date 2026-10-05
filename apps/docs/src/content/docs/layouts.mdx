@@ -3,9 +3,19 @@ title: Build a Layout
 description: Arrange media, Widgets, playlist zones, and live text on a reusable canvas.
 ---
 
+import Screenshot from "../../components/Screenshot.astro";
+import screenshot from "../../assets/screenshots/layout-editor.png";
+import darkScreenshot from "../../assets/screenshots/layout-editor-dark.png";
+
 A **Layout** places content in fixed areas on a canvas. Use one to combine, for example, a notice, a live schedule, and a Playlist zone on one screen. You can use a published Layout as fullscreen content or add it to a Playlist.
 
 import { Steps } from "@astrojs/starlight/components";
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Hallway Split canvas with an Announcements Playlist zone on the left and Spirit week and Go Falcons panels on the right."
+/>
 
 ## Create a Layout
 
@@ -22,6 +32,8 @@ import { Steps } from "@astrojs/starlight/components";
 If Studio cannot save an **Announcement** starting point, the Layout remains in the library. Select **Retry template setup** to finish that same Layout without creating another one. If the draft changes before you retry, setup stops and Studio asks you to review the existing Layout. Close the dialog, review that Layout in the library, then start another setup if needed.
 
 The preview opens across the Studio window and keeps the entire canvas below its toolbar. Portrait and landscape Layouts keep their canvas proportions, including Widgets rendered inside them. The preview date starts at your local date. It also drives those Widgets in the organization's time zone and time-sensitive Data Source projections, so an Agenda or Countdown shows the selected calendar day alongside the Layout's dynamic text.
+
+Widget placements use the appearance configured on the shared Widget. Edit that Widget to change its appearance. Studio does not offer per-placement appearance controls because the Player does not apply them.
 
 Studio clears a Layout thumbnail when its referenced Media, Widget, Playlist, or Data Source changes. The next time an editor opens the Layout, Studio captures a new thumbnail. This does not change the Layout draft or its published revision.
 

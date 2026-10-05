@@ -12,6 +12,10 @@ consumer. It has no production dependencies.
 - `fallbackDurationMsFor()` selects the existing per-kind duration fallback.
 - `resolvePlaybackItemSettings()` resolves duration, fit, transition, audio,
   and volume from an item and effective Player settings.
+- `resolvePlaylistAdvance()` advances or holds a zero-based zone occurrence.
+- `resolveNativeVideoLoop()` checks item loop policy and video trim offsets.
+- `resolveZoneFallback()` selects current media, previous media, background,
+  or a hidden zone from failure state and the presence of previous media.
 
 Availability starts are inclusive. Expiration is exclusive. Bounds contain
 instants with timezone offsets. Malformed or inverted windows are unavailable.
@@ -45,6 +49,12 @@ The Studio tests also exercise the existing static-item preview duration.
 The popup Playlist preview resolves its item settings with the same fixtures.
 It uses installation settings for generic preview. A specific Screen can have
 a different effective policy. Studio waits for settings before it shows media.
+
+`fixtures/zone-policy.json` covers empty zones, single-item and multi-item
+loops, final-item holds, video trim offsets, and each fallback. Runtime tests
+exercise the zone actor and actual surface. Studio tests exercise its index
+adapter and actual preview fallback. Timer scheduling, epoch checks, retries,
+media release, and retention of previous media stay with each consumer.
 
 The source compiler has no DOM library. A purity test rejects host imports,
 browser globals, ambient clock reads, randomness, and runtime dependencies.

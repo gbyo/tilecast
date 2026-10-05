@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -70,16 +71,47 @@ func (s *Service) DependencyGraph(ctx context.Context, visibleScreenIDs []uuid.U
 		return DependencyGraph{}, err
 	}
 	rows.Close()
+	widgetRows, err := s.db.Query(ctx, `SELECT a.id,w.provider,w.configuration,w.managed_data_source_id
+		FROM widgets w JOIN assets a ON a.id=w.asset_id AND a.deleted_at IS NULL ORDER BY a.id`)
+	if err != nil {
+		return DependencyGraph{}, err
+	}
+	sources := map[uuid.UUID]bool{}
+	for _, node := range graph.Nodes {
+		if node.Type == "data_source" {
+			sources[node.ID] = true
+		}
+	}
+	catalog := s.catalog()
+	for widgetRows.Next() {
+		var widgetID uuid.UUID
+		var provider string
+		var configuration json.RawMessage
+		var managedID *uuid.UUID
+		if err = widgetRows.Scan(&widgetID, &provider, &configuration, &managedID); err != nil {
+			widgetRows.Close()
+			return DependencyGraph{}, err
+		}
+		ids := catalog.WidgetDataSourceIDs(provider, configuration)
+		if managedID != nil {
+			ids = append(ids, *managedID)
+		}
+		seen := map[uuid.UUID]bool{}
+		for _, id := range ids {
+			if sources[id] && !seen[id] {
+				graph.Edges = append(graph.Edges, DependencyEdge{FromType: "data_source", FromID: id,
+					ToType: "widget", ToID: widgetID, Relationship: "provides data to"})
+				seen[id] = true
+			}
+		}
+	}
+	err = widgetRows.Err()
+	widgetRows.Close()
+	if err != nil {
+		return DependencyGraph{}, err
+	}
 
 	edgeQueries := []string{
-		`WITH visible_screens AS (SELECT unnest($1::uuid[]) id)
-		 SELECT 'data_source',d.id,'widget',a.id,'provides data to'
-		   FROM data_sources d
-		   JOIN widgets w ON EXISTS (
-		        SELECT 1 FROM jsonb_each_text(w.configuration) field
-		         WHERE field.value=d.id::text)
-		   JOIN assets a ON a.id=w.asset_id
-		  WHERE d.deleted_at IS NULL AND a.deleted_at IS NULL`,
 		`WITH visible_screens AS (SELECT unnest($1::uuid[]) id)
 		 SELECT CASE WHEN a.type='widget' THEN 'widget' ELSE 'asset' END,a.id,
 		        'playlist',p.id,'included in'

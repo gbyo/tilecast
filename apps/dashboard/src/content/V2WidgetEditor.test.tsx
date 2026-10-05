@@ -11,6 +11,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { Link, RouterProvider, createMemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { toast } from "../components/ui/toast";
@@ -93,17 +94,25 @@ function editor(props?: {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const router = createMemoryRouter([
+    {
+      path: "*",
+      element: (
+        <V2WidgetEditor
+          definition={definition}
+          catalog={catalog(definition)}
+          asset={props?.asset}
+          csrf="test-csrf"
+          readOnly={props?.readOnly}
+          onClose={onClose}
+          onSaved={onSaved}
+        />
+      ),
+    },
+  ]);
   const view = render(
     <QueryClientProvider client={client}>
-      <V2WidgetEditor
-        definition={definition}
-        catalog={catalog(definition)}
-        asset={props?.asset}
-        csrf="test-csrf"
-        readOnly={props?.readOnly}
-        onClose={onClose}
-        onSaved={onSaved}
-      />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   return { ...view, onClose, onSaved, definition };
@@ -594,16 +603,24 @@ describe("V2WidgetEditor", () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
+    const router = createMemoryRouter([
+      {
+        path: "*",
+        element: (
+          <V2WidgetEditor
+            definition={definition}
+            catalog={catalog(definition)}
+            csrf="test-csrf"
+            readOnly
+            onClose={vi.fn()}
+            onSaved={vi.fn()}
+          />
+        ),
+      },
+    ]);
     render(
       <QueryClientProvider client={client}>
-        <V2WidgetEditor
-          definition={definition}
-          catalog={catalog(definition)}
-          csrf="test-csrf"
-          readOnly
-          onClose={vi.fn()}
-          onSaved={vi.fn()}
-        />
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
     await screen.findByRole("img", { name: "Live preview" });
@@ -632,5 +649,83 @@ describe("V2WidgetEditor", () => {
     }
     // Tabbing walks the editor instead of getting stuck outside it.
     expect(seen.size).toBeGreaterThan(10);
+  });
+});
+
+function renderEditorWithAwayLink(onClose: () => void) {
+  const definition = clockDefinition();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: (
+          <>
+            <V2WidgetEditor
+              definition={definition}
+              catalog={catalog(definition)}
+              csrf="test-csrf"
+              onClose={onClose}
+              onSaved={vi.fn()}
+            />
+            <Link to="/elsewhere">away</Link>
+          </>
+        ),
+      },
+      { path: "/elsewhere", element: <p>Elsewhere</p> },
+    ],
+    { initialEntries: ["/"] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+}
+
+describe("V2WidgetEditor unsaved changes", () => {
+  it("confirms through Back before discarding widget edits", async () => {
+    const { onClose } = editor();
+    await screen.findByLabelText("Widget name");
+    fireEvent.change(screen.getByLabelText("Widget name"), {
+      target: { value: "Renamed clock" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved widget changes?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it("closes Back directly when nothing changed", async () => {
+    const { onClose } = editor();
+    await screen.findByLabelText("Widget name");
+
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("warns before following an in-app link and discards on confirm", async () => {
+    renderEditorWithAwayLink(vi.fn());
+    await screen.findByLabelText("Widget name");
+    fireEvent.change(screen.getByLabelText("Widget name"), {
+      target: { value: "Renamed clock" },
+    });
+
+    fireEvent.click(screen.getByRole("link", { name: "away" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Discard unsaved widget changes?",
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Discard changes" }),
+    );
+    expect(await screen.findByText("Elsewhere")).toBeInTheDocument();
   });
 });

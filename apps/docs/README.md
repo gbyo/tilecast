@@ -23,14 +23,17 @@ shallow clone shows the wrong date. Use a full clone.
 
 ## Files
 
-| Path                       | Contents                                                             |
-| -------------------------- | -------------------------------------------------------------------- |
-| `astro.config.mjs`         | Site URL, sidebar, theme, and Starlight settings                     |
-| `src/content/docs/`        | Pages. The file path is the URL path.                                |
-| `src/route-middleware.mjs` | Adds the Edge section banner; hides page actions on generated routes |
-| `src/styles/tilecast.css`  | Starlight theme variables mapped to `@tilecast/design-tokens`        |
-| `scripts/check-links.mjs`  | Post-build check for internal links and heading anchors              |
-| `STYLE.md`                 | Writing rules for public pages                                       |
+| Path                                | Contents                                                             |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `astro.config.mjs`                  | Site URL, sidebar, theme, and Starlight settings                     |
+| `src/content/docs/`                 | Pages. The file path is the URL path.                                |
+| `src/route-middleware.mjs`          | Adds the Edge section banner; hides page actions on generated routes |
+| `src/components/SetupAdvisor.astro` | The Setup Advisor wizard shown on `/setup/`                          |
+| `src/setup-advisor/model.ts`        | Advisor questions, decision rules, and the guide each step links to  |
+| `src/setup-advisor/model.test.ts`   | Tests for the rules and for every guide link the advisor can show    |
+| `src/styles/tilecast.css`           | Starlight theme variables mapped to `@tilecast/design-tokens`        |
+| `scripts/check-links.mjs`           | Post-build check for internal links and heading anchors              |
+| `STYLE.md`                          | Writing rules for public pages                                       |
 
 Public pages live below `src/content/docs/`. Engineering specifications and
 contracts live with the code they describe:
@@ -54,6 +57,14 @@ tilecast/
    navigation. Keep the landing page first in its group.
 4. Run `npm run docs:build`. The build also checks internal links, and the
    link checker resolves the renamed `.mdx` file to the same route.
+
+## Setup Advisor
+
+The page at `/setup/` is an interactive wizard that recommends a deployment and lists the guides to follow. It runs only in the browser and sends nothing anywhere.
+
+- Change questions, rules, and recommendation text in `src/setup-advisor/model.ts`. The first rule in `TOPOLOGY_RULES` that applies wins; there is no scoring.
+- Each step in `STEPS` links to a public page. The wizard builds its links at run time, so the link checker cannot see them. `model.test.ts` checks that every page and heading exists, so run `npm test` after you rename or move one of those guides.
+- Keep the commands in the guides, not in the advisor. The advisor routes readers to the canonical page.
 
 ## Drafts and search
 

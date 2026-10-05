@@ -14,6 +14,7 @@ import {
   getActivityRetention,
   updateActivityRetention,
 } from "../api/domains/activity";
+import { apiErrorMessage } from "../i18n";
 
 type Retention = {
   rawEventDays: number;
@@ -177,7 +178,7 @@ export function ActivityRetentionPanel({
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>
               {query.error instanceof Error
-                ? query.error.message
+                ? apiErrorMessage(query.error)
                 : t("retention.loadError")}
             </span>
             <Button
@@ -196,7 +197,7 @@ export function ActivityRetentionPanel({
       )}
       {save.error && (
         <Alert variant="destructive">
-          <AlertDescription>{save.error.message}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
         </Alert>
       )}
 

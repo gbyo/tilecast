@@ -138,15 +138,55 @@ public enum MediaIntakeOutcome: String, Equatable, Sendable {
     case cancelled
 }
 
-/// What the app does for `system/haptic` and `system/share`. One instance
-/// serves every Studio page of the app, the main page and the presentation
-/// page alike, so both reach the same feedback and the same share sheet.
+/// Studio's request for `system/scan-qr`. It carries only an opaque id: the
+/// scanner is a generic OS capability, and nothing about pairing crosses here.
+public struct QRScanRequest: Equatable, Sendable {
+    public var requestID: String
+
+    /// The bridge's bound on a scan request id, in characters.
+    public static let maximumIDLength = 128
+
+    public init(requestID: String) {
+        self.requestID = requestID
+    }
+}
+
+/// How a QR scan ended, for `system/qr-scan-result`. A scan returns only
+/// bounded text: no image data, no camera frame, and no credential.
+public enum QRScanOutcome: Equatable, Sendable {
+    /// One QR code's text payload.
+    case scanned(String)
+    /// The person dismissed the scanner, or the scan was withdrawn.
+    case cancelled
+    /// Scanning failed after acceptance, for example a revoked permission,
+    /// or the payload could not cross the bridge.
+    case unavailable
+
+    /// The bridge's bound on a scanned payload, in characters.
+    public static let maximumValueLength = 4096
+}
+
+/// Scans one QR code with the system camera and reports how it ended. The
+/// app target provides it; Core tests inject a fake. It returns promptly
+/// when its task is cancelled.
+public typealias QRScanDriver = @MainActor (QRScanRequest) async -> QRScanOutcome
+
+/// What the app does for `system/haptic`, `system/share`, and
+/// `system/scan-qr`. One instance serves every Studio page of the app, the
+/// main page and the presentation page alike, so both reach the same
+/// feedback, the same share sheet, and the same scanner.
 @MainActor
 public final class SystemIntegrationHandlers {
     /// Performs standard system feedback for a semantic request.
     public var haptic: (@MainActor (HapticFeedback) -> Void)?
     /// Presents the system share sheet. Returns whether it did.
     public var share: (@MainActor (SystemShare) -> Bool)?
+    /// Whether the system camera can scan a QR code now: hardware the
+    /// Data Scanner supports. Nil means no.
+    public var isQRScannerAvailable: (@MainActor () -> Bool)?
+    /// Scans one QR code with the system camera. Nil when the app did not
+    /// provide a scanner.
+    public var scanQR: QRScanDriver?
     /// Chooses files for a web `<input type="file">`, with the system
     /// pickers. Nil when the person cancels. The files are readable by the
     /// page and live in temporary space.
@@ -157,5 +197,6 @@ public final class SystemIntegrationHandlers {
     func install(on bridge: StudioBridge) {
         bridge.onHaptic = { [weak self] feedback in self?.haptic?(feedback) }
         bridge.onShare = { [weak self] share in self?.share?(share) ?? false }
+        bridge.isQRScannerAvailable = { [weak self] in self?.isQRScannerAvailable?() == true }
     }
 }

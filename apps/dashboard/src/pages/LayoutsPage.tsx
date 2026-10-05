@@ -5,23 +5,20 @@ import {
 } from "@tanstack/react-query";
 import {
   ChevronRight,
-  Copy,
   EllipsisVertical,
   LayoutGrid,
   LayoutTemplate,
   List,
-  Pencil,
   Plus,
   SquarePen,
-  Trash2,
 } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import { hasNextPage } from "../api/pagination";
+import { PageHeader } from "../components/PageHeader";
+import { layoutKeys, layoutQueries } from "../data/layouts";
 import type {
   LayoutDocument,
   LayoutOrientation,
@@ -44,12 +41,11 @@ import {
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "../components/ui/context-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import {
   Dialog,
   DialogContent,
@@ -58,13 +54,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import {
   Empty,
   EmptyContent,
@@ -373,12 +362,7 @@ export function LayoutsPage() {
     null,
   );
 
-  const layouts = useInfiniteQuery({
-    queryKey: ["layouts", "library", search],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.layoutPage(search, pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const layouts = useInfiniteQuery(layoutQueries.pages(search));
   const create = useMutation({
     mutationFn: async () => {
       const pendingAnnouncement = pendingAnnouncementRef.current;
@@ -434,12 +418,12 @@ export function LayoutsPage() {
       pendingAnnouncementRef.current = null;
       setPendingAnnouncementLayoutId(undefined);
       toast.add({ title: "Layout created.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
     onError: () => {
       if (pendingAnnouncementRef.current) {
-        void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+        void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       }
     },
   });
@@ -450,7 +434,7 @@ export function LayoutsPage() {
     onMutate: () => setActionError(""),
     onSuccess: (layout) => {
       toast.add({ title: "Layout duplicated.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
     onError: (error) =>
@@ -478,7 +462,7 @@ export function LayoutsPage() {
       toast.add({ title: "Layout renamed.", type: "success" });
       setRenaming(undefined);
       setRenameName("");
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>
       setActionError(
@@ -492,7 +476,7 @@ export function LayoutsPage() {
     onMutate: () => setActionError(""),
     onSuccess: () => {
       toast.add({ title: "Layout deleted.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["layouts"] });
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>
       setActionError(
@@ -604,69 +588,59 @@ export function LayoutsPage() {
     setOrientation("all");
     setPublication("all");
   };
-  type LayoutMenuAction = {
-    label: string;
-    icon: ReactNode;
-    danger?: boolean;
-    separated?: boolean;
-    disabled?: boolean;
-    onSelect: () => void;
-  };
-  const actionsFor = (layout: LayoutSummary): LayoutMenuAction[] => {
-    const actions: LayoutMenuAction[] = [
+  const actionsFor = (layout: LayoutSummary): StudioActionGroup[] => {
+    const primary: StudioAction[] = [
       {
+        id: "open",
         label: canManage ? t("common:actions.edit") : t("library.menuOpen"),
-        icon: <SquarePen size={14} />,
+        icon: "edit",
         onSelect: () => void navigate(`/layouts/${layout.id}`),
       },
     ];
+    const danger: StudioAction[] = [];
     if (canManage) {
-      actions.push(
+      primary.push(
         {
+          id: "rename",
           label: t("library.menuRename"),
-          icon: <Pencil size={14} />,
+          icon: "rename",
           disabled: rename.isPending,
           onSelect: () => openRename(layout),
         },
         {
+          id: "duplicate",
           label: t("library.menuDuplicate"),
-          icon: <Copy size={14} />,
+          icon: "duplicate",
           disabled: duplicate.isPending,
           onSelect: () => duplicate.mutate(layout.id),
         },
-        {
-          label: t("common:actions.delete"),
-          icon: <Trash2 size={14} />,
-          danger: true,
-          separated: true,
-          disabled: remove.isPending,
-          onSelect: () => setPendingDelete(layout),
-        },
       );
+      danger.push({
+        id: "delete",
+        label: t("common:actions.delete"),
+        icon: "trash",
+        role: "destructive",
+        disabled: remove.isPending,
+        onSelect: () => setPendingDelete(layout),
+      });
     }
-    return actions;
+    return [{ actions: primary }, { actions: danger }];
   };
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("library.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("library.description")}
-          </p>
-        </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
+      <PageHeader
+        title={t("library.title")}
+        description={t("library.description")}
+        actions={
+          canManage ? (
             <Button type="button" onClick={() => setCreating(true)}>
               <Plus size={16} aria-hidden="true" />
               {t("library.createLayout")}
             </Button>
-          </div>
-        )}
-      </header>
+          ) : undefined
+        }
+      />
       <FilterBar
         definitions={filterDefinitions}
         values={{
@@ -733,10 +707,21 @@ export function LayoutsPage() {
 
       {layouts.isError && (
         <Alert variant="destructive">
-          <AlertDescription>
-            {layouts.error instanceof Error
-              ? apiErrorMessage(layouts.error)
-              : t("library.loadFailed")}
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              {layouts.error instanceof Error
+                ? apiErrorMessage(layouts.error)
+                : t("library.loadFailed")}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={layouts.isFetching}
+              onClick={() => void layouts.refetch()}
+            >
+              {t("common:actions.retry")}
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -751,7 +736,7 @@ export function LayoutsPage() {
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
-      ) : allLayouts.length === 0 ? (
+      ) : layouts.isError && !layouts.data ? null : allLayouts.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -803,116 +788,81 @@ export function LayoutsPage() {
             const publicationState = layoutPublicationState(layout);
             const menuLabel = t("library.cardActions", { name: layout.name });
             return (
-              <ContextMenu key={layout.id}>
-                <ContextMenuTrigger
-                  render={
-                    <article
-                      className="relative min-w-0"
-                      data-orientation={layout.orientation}
-                      data-publication={publicationState}
-                    />
+              <ActionContextMenu
+                key={layout.id}
+                label={menuLabel}
+                actions={actionsFor(layout)}
+                render={
+                  <article
+                    className="relative min-w-0"
+                    data-orientation={layout.orientation}
+                    data-publication={publicationState}
+                  />
+                }
+              >
+                <Link
+                  to={`/layouts/${layout.id}`}
+                  className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
+                  aria-label={
+                    canManage
+                      ? t("library.cardEdit", { name: layout.name })
+                      : t("library.cardOpen", { name: layout.name })
                   }
                 >
-                  <Link
-                    to={`/layouts/${layout.id}`}
-                    className="grid w-full gap-3 rounded-xl border border-border p-3 text-left hover:bg-muted"
-                    aria-label={
-                      canManage
-                        ? t("library.cardEdit", { name: layout.name })
-                        : t("library.cardOpen", { name: layout.name })
-                    }
-                    onClick={() => void navigate(`/layouts/${layout.id}`)}
-                  >
-                    <span className="relative block">
-                      <LayoutPreview layout={layout} />
-                      <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
-                        {layoutPublicationLabel(layout, t)}
-                      </span>
-                      <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
-                        {layout.canvasWidth} × {layout.canvasHeight}
-                      </span>
+                  <span className="relative block">
+                    <LayoutPreview layout={layout} />
+                    <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
+                      {layoutPublicationLabel(layout, t)}
                     </span>
-                    <span className="grid gap-1">
-                      <span className="flex items-center justify-between gap-2">
-                        <strong
-                          title={layout.name}
-                          className="truncate text-sm"
-                        >
-                          {layout.name}
-                        </strong>
-                        <ChevronRight
-                          size={17}
-                          aria-hidden="true"
-                          className="shrink-0 text-muted-foreground"
-                        />
+                    <span className="absolute right-2 bottom-2 rounded-full bg-background/90 px-2 py-0.5 text-xs tabular-nums">
+                      {layout.canvasWidth} × {layout.canvasHeight}
+                    </span>
+                  </span>
+                  <span className="grid gap-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <strong title={layout.name} className="truncate text-sm">
+                        {layout.name}
+                      </strong>
+                      <ChevronRight
+                        size={17}
+                        aria-hidden="true"
+                        className="shrink-0 text-muted-foreground"
+                      />
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {layout.description || t("library.cardNoDescription")}
+                    </span>
+                    <span className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span>{orientationLabel(layout.orientation, t)}</span>
+                      <span>
+                        {t("library.cardDraftRevision", {
+                          revision: layout.draftRevision,
+                        })}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {layout.description || t("library.cardNoDescription")}
-                      </span>
-                      <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span>{orientationLabel(layout.orientation, t)}</span>
+                      {layout.publishedRevision && (
                         <span>
-                          {t("library.cardDraftRevision", {
-                            revision: layout.draftRevision,
+                          {t("library.publicationPublished", {
+                            revision: layout.publishedRevision,
                           })}
                         </span>
-                        {layout.publishedRevision && (
-                          <span>
-                            {t("library.publicationPublished", {
-                              revision: layout.publishedRevision,
-                            })}
-                          </span>
-                        )}
-                      </span>
-                      <small className="text-xs text-muted-foreground">
-                        {formatLayoutUpdatedAt(
-                          layout.updatedAt,
-                          t,
-                          formatLocale,
-                        )}
-                      </small>
+                      )}
                     </span>
-                  </Link>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
-                      aria-label={menuLabel}
-                    >
-                      <EllipsisVertical size={16} aria-hidden="true" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" aria-label={menuLabel}>
-                      {actionsFor(layout).map((action, index) => (
-                        <Fragment key={`${action.label}-${index}`}>
-                          {action.separated && <DropdownMenuSeparator />}
-                          <DropdownMenuItem
-                            variant={action.danger ? "destructive" : "default"}
-                            disabled={action.disabled}
-                            onClick={action.onSelect}
-                          >
-                            {action.icon}
-                            {action.label}
-                          </DropdownMenuItem>
-                        </Fragment>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </ContextMenuTrigger>
-                <ContextMenuContent aria-label={menuLabel}>
-                  {actionsFor(layout).map((action, index) => (
-                    <Fragment key={`${action.label}-${index}`}>
-                      {action.separated && <ContextMenuSeparator />}
-                      <ContextMenuItem
-                        variant={action.danger ? "destructive" : "default"}
-                        disabled={action.disabled}
-                        onClick={action.onSelect}
-                      >
-                        {action.icon}
-                        {action.label}
-                      </ContextMenuItem>
-                    </Fragment>
-                  ))}
-                </ContextMenuContent>
-              </ContextMenu>
+                    <small className="text-xs text-muted-foreground">
+                      {formatLayoutUpdatedAt(layout.updatedAt, t, formatLocale)}
+                    </small>
+                  </span>
+                </Link>
+                <ActionMenuButton
+                  label={menuLabel}
+                  actions={actionsFor(layout)}
+                  variant="ghost"
+                  size="icon"
+                  triggerClassName="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-xl bg-background/90 hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground"
+                  triggerIcon={
+                    <EllipsisVertical size={16} aria-hidden="true" />
+                  }
+                />
+              </ActionContextMenu>
             );
           })}
         </div>

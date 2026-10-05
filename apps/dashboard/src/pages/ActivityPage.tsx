@@ -9,6 +9,7 @@ import {
   resolveTimeRange,
   type TimeRangePreset,
 } from "../components/TimeRangePicker";
+import { PageHeader } from "../components/PageHeader";
 import {
   Tabs,
   TabsContent,
@@ -20,6 +21,10 @@ import { Button, buttonVariants } from "../components/ui/button";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Input } from "../components/ui/input";
 import {
+  NativeSelect,
+  NativeSelectOption,
+} from "../components/ui/native-select";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -29,6 +34,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Download, SlidersHorizontal } from "lucide-react";
+import { useDesktopLayout } from "../hooks/use-desktop-layout";
 import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { translateKnown } from "../i18n";
@@ -90,6 +96,7 @@ function labelledOptions(prefix: string, values: string[]): FilterOption[] {
 
 export function ActivityPage() {
   const { t, i18n } = useTranslation("activity");
+  const desktop = useDesktopLayout();
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const role = auth.status?.user?.role ?? "";
@@ -384,56 +391,67 @@ export function ActivityPage() {
 
   return (
     <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("page.subtitle")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <TimeRangePicker
-            preset={preset}
-            onPresetChange={(value) => setRange("range", value)}
-            customFrom={customFrom}
-            customTo={customTo}
-            onCustomFromChange={(value) => setRange("from", value)}
-            onCustomToChange={(value) => setRange("to", value)}
-          />
-          {exportHref && (
-            <a
-              className={buttonVariants({ variant: "outline" })}
-              href={exportHref}
-              title={t("page.exportTitle")}
-            >
-              <Download aria-hidden="true" /> {t("page.exportCsv")}
-            </a>
-          )}
-        </div>
-      </header>
+      <PageHeader
+        title={t("page.title")}
+        description={t("page.subtitle")}
+        actions={
+          <>
+            <TimeRangePicker
+              preset={preset}
+              onPresetChange={(value) => setRange("range", value)}
+              customFrom={customFrom}
+              customTo={customTo}
+              onCustomFromChange={(value) => setRange("from", value)}
+              onCustomToChange={(value) => setRange("to", value)}
+            />
+            {exportHref && (
+              <a
+                className={buttonVariants({ variant: "outline" })}
+                href={exportHref}
+                title={t("page.exportTitle")}
+              >
+                <Download aria-hidden="true" /> {t("page.exportCsv")}
+              </a>
+            )}
+          </>
+        }
+      />
 
       <Tabs
         value={tab}
         onValueChange={(value) => selectTab(value as ActivityTab)}
         className="grid gap-4"
       >
-        <TabsList
-          variant="line"
-          aria-label={t("page.tabsLabel")}
-          className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
-        >
-          {activityTabs.map((item) => (
-            <TabsTrigger
-              key={item.value}
-              value={item.value}
-              className="flex-none"
-            >
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {desktop ? (
+          <TabsList
+            variant="line"
+            aria-label={t("page.tabsLabel")}
+            className="min-h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0"
+          >
+            {activityTabs.map((item) => (
+              <TabsTrigger
+                key={item.value}
+                value={item.value}
+                className="flex-none"
+              >
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        ) : (
+          <NativeSelect
+            value={tab}
+            onChange={(event) => selectTab(event.target.value as ActivityTab)}
+            aria-label={t("page.tabsLabel")}
+            className="w-full sm:w-auto"
+          >
+            {activityTabs.map((item) => (
+              <NativeSelectOption key={item.value} value={item.value}>
+                {item.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
         <TabsContent value={tab} className="grid gap-4">
           {tab !== "overview" && tab !== "content-health" && (
             <FilterBar

@@ -109,7 +109,7 @@ fn wanted(context: &DaemonContext) -> bool {
     wants_lock(
         context.config.dev.idle_inhibit,
         context.config.renderer.prevent_display_sleep,
-        crate::config_sync::effective(context).linux_kiosk.prevent_display_sleep,
+        crate::config_sync::effective(context).platform.linux_kiosk.prevent_display_sleep,
     )
 }
 

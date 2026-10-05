@@ -827,7 +827,7 @@ impl Host for LinuxHost {
     }
 
     async fn edge_status(&self) -> Option<DaemonStatus> {
-        let options = ClientOptions::new(Role::Tilecastctl, "tilecast-edge-migrate", env!("CARGO_PKG_VERSION"));
+        let options = ClientOptions::new(Role::Tilecastctl, "tilecast-edge-migrate", edge_platform::RELEASE_VERSION);
         let request = async {
             let client = IpcClient::connect(Path::new(EDGE_SOCKET), options).await.ok()?;
             let value = client.request(Method::StatusGet(Empty {})).await.ok()?.ok()?;

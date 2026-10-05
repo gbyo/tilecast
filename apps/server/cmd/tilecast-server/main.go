@@ -239,6 +239,7 @@ func serve() {
 		logger.Info("notification email is unavailable", "reason", "TILECAST_SMTP_HOST is not set")
 	}
 	contentHealthService := contenthealth.NewService(db, settingsService)
+	contentHealthService.SetContentDefinitions(contentDefinitions)
 	fleetService := fleetops.NewService(db, playlistService, deviceService, logger)
 	integrationService := integrations.NewService(db)
 	approvalService := approvals.NewService(db, settingsService)

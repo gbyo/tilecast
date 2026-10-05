@@ -816,6 +816,71 @@ describe("renderLayout", () => {
     ).toBeNull();
   });
 
+  it("ignores legacy Widget placement overrides in Player projection", () => {
+    const widget: ManifestWidget = {
+      assetId: "clock",
+      name: "Lobby Clock",
+      provider: "clock",
+      configVersion: 11,
+      configuration: {
+        timezone: "UTC",
+        format: "24",
+        showSeconds: false,
+      },
+    };
+    const placement = {
+      id: "widget-placement",
+      type: "widget",
+      name: "Lobby Clock",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      layer: 0,
+      opacity: 1,
+      visible: true,
+      locked: false,
+      widgetId: "clock",
+    };
+    const document: LayoutDocument = {
+      schemaVersion: 2,
+      canvas: {
+        width: 100,
+        height: 100,
+        orientation: "landscape",
+        backgroundColor: "#000000",
+      },
+      placements: [placement],
+    };
+    const context = {
+      manifest,
+      widgets: new Map([["clock", widget]]),
+      dataSources: new Map(),
+      at,
+    };
+    const withoutOverrides = renderLayout(document, context);
+    const withLegacyOverrides = renderLayout(
+      {
+        ...document,
+        placements: [
+          {
+            ...placement,
+            overrides: {
+              fit: "cover",
+              alignment: "right",
+              foregroundColor: "#ff0000",
+              backgroundColor: "#00ff00",
+              fallbackVisibility: "hide",
+              muted: false,
+            },
+          },
+        ],
+      },
+      context,
+    );
+    expect(withLegacyOverrides).toEqual(withoutOverrides);
+  });
+
   it("applies player defaults to playlist zones and skips unavailable items", () => {
     const playlistManifest = {
       ...manifest,

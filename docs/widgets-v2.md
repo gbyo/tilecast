@@ -24,9 +24,9 @@ The architectural invariant is: **one Widget component renders fullscreen, Layou
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                               |
 | #699 (Edge M11)          | Merged. It adds Edge remote-web isolation and the shared Player Runtime host-view path, plus the YouTube Layout rule. It does not change the manifest schema or content definitions. |
-| Next manifest schema     | v16. v11–v15 do not change.                                                                                                                                                          |
-| Presentation schema      | Component presentations use presentation schema 2. Native and web presentations stay at 1.                                                                                           |
-| Capability advertisement | `presentationSchemaVersions` includes `2`, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                                              |
+| Next manifest schema     | v17. v11–v16 do not change.                                                                                                                                                          |
+| Presentation schema      | Component presentations use schema 2 or 3. Schema 3 carries the empty policy. Native and web presentations stay at 1.                                                                |
+| Capability advertisement | `presentationSchemaVersions` includes `3` for empty-policy support, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                     |
 | Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.                    |
 | Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                                      |
 | CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                                  |
@@ -168,7 +168,7 @@ Time-sensitive Widgets use the `ClockController` from `@tilecast/widget-kit`. It
 
 Before the SDK returns a prepared Data Document to a Widget, it freezes the document and its nested values. A Widget must create its own objects when it needs to transform data. This keeps one Widget from changing data that another reader shares. The SDK skips objects that it already froze, so repeated lookups do not traverse the same resource graph again.
 
-## 6. Manifest v16 component presentation
+## 6. Manifest v16 and v17 component presentations
 
 ```json
 {
@@ -193,9 +193,33 @@ Before the SDK returns a prepared Data Document to a Widget, it freezes the docu
 }
 ```
 
+Manifest v16 uses component presentation schema 2 as shown. Manifest v17 uses schema 3 and adds the component's declared empty policy:
+
+```json
+{
+  "schemaVersion": 3,
+  "kind": "component",
+  "requiredCapabilities": { "widget.tilecast.agenda": 1 },
+  "component": {
+    "type": "tilecast.agenda",
+    "version": 1,
+    "config": {},
+    "dataSources": ["agenda-source"],
+    "media": [],
+    "empty": "skip-eligible"
+  }
+}
+```
+
+`empty` is `render` or `skip-eligible`, from the Widget component declaration. The Player Runtime uses the policy with the actual `WidgetMount` state. An empty `skip-eligible` component advances only a local fullscreen playlist item. A `render` component, synchronized playback, and a Widget inside a Layout keep their existing behavior.
+
+A lap of empty Widgets pauses for 30 seconds before the next attempt. A shown Widget resets the empty-skip count. Events from a replaced mount cannot advance the current item.
+
 - `config` is a bounded JSON object: at most 8 KiB encoded, depth 6, 64 keys for each object, 200 items for each array and 2,000 characters for each string.
 - `dataSources` lists the Data Source IDs the component may read. Their Data Documents stay in the manifest's `dataSources[]`. The presentation never copies a document.
 - `media` lists the `{assetId, variantId}` pairs the component may display. Each pair is also in the manifest's `assets[]`, so the Player verifies and caches it before activation.
+
+During manifest projection, the Server resolves every selected `media_asset` field in the Widget schema. The Server writes the selected variant beside the asset field. If the field key ends in `AssetId`, the Server replaces that suffix with `VariantId`; otherwise, the Server appends `VariantId`. A field named `logoAssetId` therefore receives `logoVariantId`, and a field named `brandMark` receives `brandMarkVariantId`. For fields inside a `repeating_group`, the Server writes the variant key into the matching item. The component media grant contains each resolved asset and variant pair. An empty optional field adds no variant key or grant. Clients cannot submit derived variant keys.
 
 The Server compiles `config` from the persisted Widget configuration with the component's `configTemplate` in `tilecast.widget.json`. A template value is plain JSON or `{"$config": key, "default": value, "when": flag}`. No other directive exists. A `when` flag names a persisted key. A falsy flag value resolves the default instead of the mapped value. A missing flag resolves the mapped value. The Go compiler (`contentdefs.CompileComponentConfig`) and the TypeScript compiler (`compileComponentConfig`) implement the same rules, and every Widget fixture compiles in both. A persisted Widget record never changes because a release adds a V2 renderer.
 
@@ -205,11 +229,11 @@ A Layout zone that places a V2 Widget carries the same component payload (§11).
 
 ## 7. Capabilities and fallback
 
-A V2-capable Player reports:
+A Player with component empty-policy support reports:
 
 ```json
 {
-  "presentationSchemaVersions": [1, 2],
+  "presentationSchemaVersions": [1, 2, 3],
   "nativePresentationCapabilities": { "…": 1, "widget.tilecast.clock": 1 }
 }
 ```
@@ -218,11 +242,12 @@ The capability list comes from the Widgets bundled in the runtime artifact. `wid
 
 For each screen, the Server compiles each reachable Widget:
 
-1. When the Widget has a component, and the Player reports presentation schema 2 and `widget.<type>` at the component version or later, the Widget gets the component presentation.
-2. Otherwise, when the Widget has a compatibility presentation, it gets that presentation, exactly as before this change.
-3. Otherwise, assignment validation and manifest generation refuse the content with the existing capability error.
+1. When the Player reports presentation schema 3 and `widget.<type>` at the component version or later, the Widget gets the schema 3 component presentation with its empty policy.
+2. A Player that reports only schema 2 gets the schema 2 component presentation, without the new policy.
+3. Otherwise, when the Widget has a compatibility presentation, it gets that presentation, exactly as before this change.
+4. Otherwise, assignment validation and manifest generation refuse the content with the existing capability error.
 
-A manifest that contains at least one component presentation is v16. Every other manifest keeps the schema that it had before. Assignment validation and manifest generation use the same rules.
+A manifest with at least one schema 3 component presentation is v17. A manifest with only schema 2 component presentations is v16. Every other manifest keeps the schema that it had before. Assignment validation and manifest generation use the same rules.
 
 The heartbeat accepts at most 128 capability entries (earlier: 64). A Player must not report more than 64 entries until the minimum supported Server accepts 128. A capability name is at most 80 characters, so the full `widget.<type>` capability must fit within that limit (the type may be at most 73 ASCII characters).
 
@@ -230,13 +255,13 @@ The heartbeat accepts at most 128 capability entries (earlier: 64). A Player mus
 
 A Widget element dispatches bounded, bubbling, composed events:
 
-| Event                   | Detail                    | Runtime meaning                                 |
-| ----------------------- | ------------------------- | ----------------------------------------------- |
-| `tilecast-widget-ready` | none                      | Meaningful content is painted for these inputs. |
-| `tilecast-widget-empty` | `{ reason }` (≤ 48 chars) | Expected empty content. It is not a failure.    |
-| `tilecast-widget-error` | `{ code }` (≤ 48 chars)   | The Widget cannot render these inputs.          |
+| Event                   | Detail                                 | Runtime meaning                                 |
+| ----------------------- | -------------------------------------- | ----------------------------------------------- |
+| `tilecast-widget-ready` | `{ revision }`                         | Meaningful content is painted for these inputs. |
+| `tilecast-widget-empty` | `{ reason, revision }` (`reason` ≤ 48) | Expected empty content. It is not a failure.    |
+| `tilecast-widget-error` | `{ code, revision }` (`code` ≤ 48)     | The Widget cannot render these inputs.          |
 
-`WidgetMount` turns these events into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
+`WidgetMount` advances the input revision for every assignment and in-place update. Synchronous Widgets can use the `announceReady`, `announceEmpty` and `announceError` helpers without a revision argument. A Widget that starts asynchronous work must capture `widgetInputRevision(this)` before it starts and pass that captured revision as the last argument to its announce helper. The mount ignores events for older revisions and gives each revision its own readiness timeout. It turns the current event into a state: `ready`, `empty` or `error`. The Player Runtime turns that state into evidence (`widget-shown`, `widget-alive`, `widget-empty`, `layout-zone-rendered`) and playback errors. A Widget never reports evidence.
 
 A time-sensitive Widget may change between `ready` and `empty` at a clock boundary. The base element reports that transition once, even when its `config`, `data`, `empty`, and `context` properties did not change.
 
@@ -377,10 +402,34 @@ Player bundle, Studio editor, and conformance. Only its source differs.
 - The heap grows by about 100 KB during 119 Clock V2 rotations. This is less than the image-only control, which shows that the conformance host's own evidence log causes the growth.
 - A static Widget has no timer. Clock V2 wakes once each second with seconds and once each minute without seconds.
 
+### 14.2 Structured capability evidence
+
+`playlists.Service.PresentationCapabilityEvidenceInTx` reads the reachable
+Widget requirements for a playlist, published Layout, or asset. It uses the
+same compilation, renderer choice, and capability comparison as assignment
+validation. The caller supplies a transaction and authorizes resource access.
+The [Playback Plan API](playback-plan.md) uses this evidence for selected
+current content. Historical inspection does not read today's capability
+profile. The Screen Overview Why this selection control shows the report.
+An unpublished Layout returns a conflict; it does not return an empty report
+that could imply support for a published presentation.
+
+The report includes Widget identities, required schema and capability
+versions, reported Player capabilities, and stable reason codes. It excludes
+Widget configuration and Data Source payloads. A supported component takes
+precedence over its compatibility presentation. A supported compatibility
+presentation remains a valid fallback when the component is unsupported.
+
+An unreported Player profile is `unknown`. Each requirement has a null
+`supported` value until the Player reports capabilities. A component-only Widget or content
+that requires manifest v13 is `blocked` when the Player has not reported
+capabilities. No Widget presentation requirements means `not_applicable`.
+This evidence does not establish content readiness, media decoder support,
+network availability, or proof of actual playback.
+
 ## 15. Deferred from PR 1
 
 - The theme is the Tilecast display theme plus Widget author colors. Player branding colors join the context in a later PR; this needs no new setting.
-- Skip-when-empty for components (`empty: "skip-eligible"`) is declared but not acted on. A component that is empty shows its empty presentation.
 - Widget-owned copy (for example the default empty title) is English. Clock V2 shows only Intl-formatted text.
 - In the Studio gallery, a Widget module's catalog entry follows the definitions in `contentdefs/definitions`, so Clock now appears last in its category.
 - PR 1 left the Studio Clock preview on its compatibility renderer. The V2

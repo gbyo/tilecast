@@ -388,3 +388,13 @@ Settings:
 - `GET|PATCH /api/v1/activity/retention`
 
 Large event lists use a stable `(timestamp, UUID)` cursor. CSV exports are bounded and require Owner or Administrator access.
+
+## Studio query ownership
+
+`apps/dashboard/src/data/activity.ts` owns query keys and options for Overview,
+compliance, incident lists, incident detail, and incident analytics.
+The typed API domain module owns requests and event normalization.
+Incident action invalidation covers incident lists, detail, and analytics.
+Range queries use API bounds rather than translated display labels.
+The Server owns metric values and historical evidence.
+UI components retain permission gates and refresh intervals.

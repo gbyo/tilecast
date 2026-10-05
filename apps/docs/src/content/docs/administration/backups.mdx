@@ -3,6 +3,10 @@ title: Back up and restore Tilecast
 description: Create, verify, download, schedule, or restore a full installation backup.
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
+import screenshot from "../../../assets/screenshots/backups.png";
+import darkScreenshot from "../../../assets/screenshots/backups-dark.png";
+
 Tilecast backups include the database, media originals and processed files, thumbnails, and cached Player updates. Only the **Owner** can manage backups. Open **Settings** > **Backup and restore**.
 
 import { Steps } from "@astrojs/starlight/components";
@@ -16,6 +20,12 @@ import { Steps } from "@astrojs/starlight/components";
 3. Select **Download** and copy the file to storage outside the Tilecast host.
 
 </Steps>
+
+<Screenshot
+  src={screenshot}
+  darkSrc={darkScreenshot}
+  alt="Available backups showing a completed, verified installation archive with Verify, Download, and Restore controls."
+/>
 
 The Studio panel restores archives already stored by this installation. Downloading an archive gives you an off-host copy; it doesn't add that file back to **Available backups**.
 
