@@ -46,6 +46,9 @@ results. Model, Studio, and runtime tests consume the same fixtures. They
 cover future and expired assets and items, half-open bounds, DST offsets,
 duration defaults, explicit overrides, fade and crossfade, and value limits.
 The Studio tests also exercise the existing static-item preview duration.
+The popup Playlist preview resolves its item settings with the same fixtures.
+It uses installation settings for generic preview. A specific Screen can have
+a different effective policy. Studio waits for settings before it shows media.
 
 `fixtures/zone-policy.json` covers empty zones, single-item and multi-item
 loops, final-item holds, video trim offsets, and each fallback. Runtime tests
