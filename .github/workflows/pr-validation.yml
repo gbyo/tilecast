@@ -26,6 +26,7 @@ jobs:
       android: ${{ steps.paths.outputs.android }}
       ios: ${{ steps.paths.outputs.ios }}
       linux: ${{ steps.paths.outputs.linux }}
+      linux_release_contract: ${{ steps.paths.outputs.linux_release_contract }}
       server: ${{ steps.paths.outputs.server }}
       dashboard: ${{ steps.paths.outputs.dashboard }}
       container: ${{ steps.paths.outputs.container }}
@@ -100,6 +101,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.linux == 'true'
     uses: ./.github/workflows/validate-linux.yml
+    with:
+      release_contract: ${{ github.event_name != 'pull_request' || needs.changes.outputs.linux_release_contract == 'true' }}
 
   plugins_ci:
     needs: changes

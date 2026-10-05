@@ -114,15 +114,128 @@ test("reusable jobs resolve to a workflow_call contract", () => {
   }
 });
 
+test("Linux release packaging is path-gated on PRs and full on main", () => {
+  const pr = parse(readFileSync(".github/workflows/pr-validation.yml", "utf8"));
+  const linux = parse(
+    readFileSync(".github/workflows/validate-linux.yml", "utf8"),
+  );
+  assert.equal(
+    pr.jobs.changes.outputs.linux_release_contract,
+    "${{ steps.paths.outputs.linux_release_contract }}",
+  );
+  assert.equal(
+    pr.jobs.linux_player_ci.with.release_contract,
+    "${{ github.event_name != 'pull_request' || needs.changes.outputs.linux_release_contract == 'true' }}",
+  );
+  assert.equal(linux.on.workflow_call.inputs.release_contract.type, "boolean");
+  assert.equal(
+    linux.jobs.release_contract.if,
+    "${{ inputs.release_contract }}",
+  );
+  assert.ok(linux.jobs.release_contract.needs.includes("validate"));
+  assert.ok(
+    linux.jobs.validate.steps.some((step) =>
+      /player:linux:test/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(
+    linux.jobs.validate.steps.some((step) =>
+      /player:linux:build/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(
+    linux.jobs.release_contract.steps.some((step) =>
+      /build-linux-player-release\.sh/.test(step.run ?? ""),
+    ),
+  );
+  assert.ok(pr.jobs.required.needs.includes("linux_player_ci"));
+});
+
+test("Dashboard validation runs independently and keeps coverage across shards", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  const jobs = dashboard.jobs;
+  assert.ok(jobs.lint && jobs.tests && jobs.build && jobs.coverage);
+  assert.equal(jobs.lint.needs, undefined);
+  assert.equal(jobs.tests.needs, undefined);
+  assert.equal(jobs.build.needs, undefined);
+  assert.deepEqual(jobs.tests.strategy.matrix.shard, [1, 2]);
+  assert.deepEqual(jobs.coverage.needs, "tests");
+  assert.equal(jobs.coverage.if, "always()");
+
+  const shardRun = jobs.tests.steps.find((step) =>
+    /Run coverage-enabled Vitest shard/.test(step.name ?? ""),
+  );
+  assert.match(shardRun?.run ?? "", /--shard=\$\{\{ matrix\.shard \}\}\/2/);
+  assert.match(shardRun?.run ?? "", /--reporter=junit/);
+  assert.match(shardRun?.run ?? "", /--reporter=blob/);
+  assert.match(shardRun?.run ?? "", /--outputFile\.junit=.*matrix\.shard/);
+
+  const shardReporter = jobs.tests.steps.find((step) =>
+    /Test Reporter/.test(step.name ?? ""),
+  );
+  assert.match(
+    shardReporter?.with?.path ?? "",
+    /vitest-\$\{\{ matrix\.shard \}\}\.xml/,
+  );
+
+  const coverageMerge = jobs.coverage.steps.find((step) =>
+    /Merge shard coverage/.test(step.name ?? ""),
+  );
+  assert.match(coverageMerge?.run ?? "", /--merge-reports=vitest-reports/);
+  assert.match(coverageMerge?.run ?? "", /--coverage/);
+  assert.ok(
+    jobs.coverage.steps.some((step) =>
+      /coverage-summary\.json/.test(step.run ?? ""),
+    ),
+  );
+});
+
+test("Dashboard and Linux Player install only their npm workspace graphs", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  for (const name of ["lint", "tests", "build", "coverage"]) {
+    const dashboardInstall = dashboard.jobs[name].steps.find((step) =>
+      /^npm ci/.test(step.run ?? ""),
+    );
+    assert.equal(
+      dashboardInstall?.run,
+      "npm ci --workspace @tilecast/dashboard --include-workspace-root",
+      `Dashboard CI ${name} needs its workspace and root tooling, but not every workspace`,
+    );
+  }
+
+  const linux = parse(
+    readFileSync(".github/workflows/validate-linux.yml", "utf8"),
+  );
+  for (const name of ["validate", "release_contract"]) {
+    const linuxInstall = linux.jobs[name].steps.find((step) =>
+      /^npm ci/.test(step.run ?? ""),
+    );
+    assert.equal(
+      linuxInstall?.run,
+      "npm ci --workspace @gibsonmb71/tilecast-player-linux",
+      `Linux Player CI ${name} should use its lockfile-resolved workspace graph`,
+    );
+  }
+});
+
 test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
-  for (const [file, reportArg] of [
-    ["ci-dashboard.yml", "--junit"],
-    ["ci-server.yml", "--go-json"],
+  // Dashboard CI measures each Vitest shard; Server CI is one job.
+  for (const [file, jobName, reportArg] of [
+    ["ci-dashboard.yml", "tests", "--junit"],
+    ["ci-server.yml", "validate", "--go-json"],
   ]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
     assert.equal(workflow.permissions.actions, "read", file);
-    const job = workflow.jobs.validate;
-    assert.equal(job.permissions.actions, "read", file);
+    const job = workflow.jobs[jobName];
+    assert.equal(
+      (job.permissions ?? workflow.permissions).actions,
+      "read",
+      file,
+    );
     const summary = job.steps.find((step) =>
       /timing-summary\.mjs/.test(step.run ?? ""),
     );
