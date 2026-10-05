@@ -619,6 +619,7 @@
     },
     "attention": {
       "title": "Needs attention",
+      "loading": "Loading the attention list",
       "description": "Most urgent first.",
       "more_one": "{{count}} more screen needs attention.",
       "more_other": "{{count}} more screens need attention.",

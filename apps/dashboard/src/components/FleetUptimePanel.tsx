@@ -157,9 +157,26 @@ export function FleetUptimePanel({
         <LoadReveal
           loading={query.isLoading}
           skeleton={
-            <div className="space-y-3" aria-label={t("uptime.loading")}>
-              <Skeleton className="h-8 w-32" />
+            <div aria-label={t("uptime.loading")}>
+              <div className="grid gap-3">
+                <div className="grid gap-0.5">
+                  <Skeleton className="h-8 w-24" />
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <div className="grid grid-cols-3 gap-x-4 border-t pt-3">
+                  {[0, 1, 2].map((cell) => (
+                    <div key={cell} className="grid gap-0.5">
+                      <Skeleton className="h-4 w-12" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
+                  ))}
+                </div>
+              </div>
               <Skeleton className="h-36 w-full rounded-xl sm:h-44" />
+              <div className="border-t border-border pt-3">
+                <Skeleton className="h-5 w-48" />
+              </div>
             </div>
           }
         >

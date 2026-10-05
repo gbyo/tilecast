@@ -99,7 +99,7 @@ export function ContentHealthSection({
         loading={isLoading}
         skeleton={
           <div role="status" aria-label={t("operations.content.loading")}>
-            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-[45px] w-full" />
           </div>
         }
       >

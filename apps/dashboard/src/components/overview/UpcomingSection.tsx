@@ -20,7 +20,7 @@ import {
   formatUntilShort,
   useNow,
 } from "./format";
-import { listBleed, rowBleed } from "./layout";
+import { listBleed, railRowsSkeleton, rowBleed } from "./layout";
 import { LoadReveal } from "./LoadReveal";
 import { RailSection } from "./RailSection";
 import { displayZone, type UpcomingChange } from "./upcoming";
@@ -61,10 +61,11 @@ export function UpcomingSection({
           <div
             role="status"
             aria-label={t("operations.schedulesLoading")}
-            className="grid gap-1.5"
+            className={railRowsSkeleton}
           >
-            <Skeleton className="h-11 w-full" />
-            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
         }
       >

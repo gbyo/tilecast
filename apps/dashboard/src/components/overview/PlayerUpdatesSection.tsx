@@ -45,7 +45,7 @@ export function PlayerUpdatesSection({
         loading={isLoading}
         skeleton={
           <div role="status" aria-label={t("operations.updatesLoading")}>
-            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-12 w-full" />
           </div>
         }
       >

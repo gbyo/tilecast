@@ -12,7 +12,7 @@ import {
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
 import { idleScreenCount, onAirScreens } from "./attention";
-import { listBleed, rowBleed } from "./layout";
+import { listBleed, railRowsSkeleton, rowBleed } from "./layout";
 import { LoadReveal } from "./LoadReveal";
 import { RailSection } from "./RailSection";
 
@@ -66,10 +66,14 @@ export function OnAirSection({
           <div
             role="status"
             aria-label={t("operations.onAir.loading")}
-            className="grid gap-1.5"
+            className="grid gap-2"
           >
-            <Skeleton className="h-11 w-full" />
-            <Skeleton className="h-11 w-full" />
+            <div className={railRowsSkeleton}>
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-4 w-44" />
           </div>
         }
       >

@@ -1062,4 +1062,69 @@ describe("Overview load reveal", () => {
       "standard",
     );
   });
+
+  it("holds a placeholder for the attention list, then leaves nothing for a healthy fleet", async () => {
+    mockAll({ screens: [screenFixture({ status: "online" })] });
+    runExitAnimations();
+    let resolveIncidents!: (value: never) => void;
+    vi.mocked(activity.listIncidents).mockImplementation(
+      () => new Promise((resolve) => (resolveIncidents = resolve)),
+    );
+    renderPage();
+
+    await screen.findByTestId("fleet-status");
+    expect(
+      screen.getByRole("status", {
+        name: "Loading the attention list",
+      }),
+    ).toBeInTheDocument();
+    // The placeholder names no section, so a healthy fleet never sees a
+    // heading that then disappears.
+    expect(
+      screen.queryByRole("heading", { name: "Needs attention" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      resolveIncidents({ items: [] } as never);
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("status", {
+          name: "Loading the attention list",
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByRole("region", { name: "Needs attention" }),
+    ).not.toBeInTheDocument();
+    // The column that held the placeholder is empty, so it reserves no space.
+    expect(
+      document.querySelector('[class*="empty:hidden"]'),
+    ).toBeEmptyDOMElement();
+  });
+
+  it("waits for incidents before revealing the attention list, so it does not grow twice", async () => {
+    mockAll({
+      screens: [screenFixture({ id: "a", name: "Library", status: "offline" })],
+    });
+    runExitAnimations();
+    let resolveIncidents!: (value: never) => void;
+    vi.mocked(activity.listIncidents).mockImplementation(
+      () => new Promise((resolve) => (resolveIncidents = resolve)),
+    );
+    renderPage();
+    await screen.findByTestId("fleet-status");
+    expect(
+      screen.queryByRole("region", { name: "Needs attention" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      resolveIncidents({ items: [] } as never);
+    });
+    const list = await region("Needs attention");
+    expect(list.closest("[data-load-reveal]")).toHaveAttribute(
+      "data-load-reveal",
+      "standard",
+    );
+  });
 });

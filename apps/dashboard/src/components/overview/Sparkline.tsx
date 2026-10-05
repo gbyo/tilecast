@@ -15,7 +15,10 @@ export function Sparkline({
   className?: string;
 }) {
   const gradientId = useId().replaceAll(":", "");
-  if (values.filter((value) => value !== null).length < 2) return null;
+  // Without a line the box is still held, so a card does not grow when the
+  // trend arrives after the figures.
+  if (values.filter((value) => value !== null).length < 2)
+    return <div aria-hidden="true" className={className} />;
   const step = 100 / (values.length - 1);
   const y = (value: number) =>
     30 - (Math.min(100, Math.max(0, value)) / 100) * 28;

@@ -21,11 +21,19 @@ export function OverviewRecap({ recap }: { recap: Recap }) {
   );
 }
 
-/** One line of the headline's height, so the cards do not jump on load. */
+/**
+ * The headline's height, so the cards do not jump on load: one line, or two
+ * where the sentence wraps on a narrow screen.
+ */
 export function OverviewRecapSkeleton() {
   return (
-    <div aria-hidden="true" className="flex h-7 items-center">
-      <Skeleton className="h-5 w-full max-w-md" />
+    <div aria-hidden="true" className="grid">
+      <div className="flex h-7 items-center">
+        <Skeleton className="h-5 w-full max-w-md" />
+      </div>
+      <div className="flex h-7 items-center sm:hidden">
+        <Skeleton className="h-5 w-2/3" />
+      </div>
     </div>
   );
 }
