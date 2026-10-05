@@ -22,6 +22,8 @@ vi.mock("maplibre-gl", () => {
       maplibre.constructed += 1;
     }
     addControl = vi.fn();
+    once = vi.fn();
+    getContainer = () => document.createElement("div");
     addSource = maplibre.addSource;
     addLayer = maplibre.addLayer;
     on = vi.fn((event: string, layerOrHandler: unknown) => {

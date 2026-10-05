@@ -5,6 +5,7 @@ import {
   type MapOptions,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { installTrackpadGestures } from "./mapGestures";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 
 // MapLibre GL JS v6 is ESM-only. Vite must bundle the worker through its
@@ -44,6 +45,8 @@ export function createTilecastMap(
     },
   });
   map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+  // The container outlives a retried map, so the listeners must not.
+  map.once("remove", installTrackpadGestures(map));
   return map;
 }
 

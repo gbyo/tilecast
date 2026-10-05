@@ -13,6 +13,8 @@ const maplibre = vi.hoisted(() => ({
 vi.mock("maplibre-gl", () => {
   class Map {
     addControl = vi.fn();
+    once = vi.fn();
+    getContainer = () => document.createElement("div");
     on = vi.fn();
     remove = vi.fn();
     getZoom = vi.fn(() => 1);
