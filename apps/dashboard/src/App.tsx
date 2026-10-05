@@ -39,7 +39,7 @@ import {
 } from "./pages/SchedulesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
-import { MyAccountPage } from "./pages/MyAccountPage";
+import { AccountIndexRedirect, MyAccountPage } from "./pages/MyAccountPage";\nimport { PreferencesPage } from "./pages/PreferencesPage";\nimport { SecurityPage } from "./pages/SecurityPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
 import { LayoutPreviewPage } from "./pages/LayoutPreviewPage";
@@ -545,22 +545,40 @@ export const studioRoutes: RouteObject[] = [
           breadcrumb: "My Account",
           search: search(
             "My Account",
-            "Manage your profile, preferences, and sign-in security",
-            "/account",
-            [
-              "preferences",
-              "security",
-              "mfa",
-              "2fa",
-              "passkey",
-              "authenticator",
-              "recovery",
-              "theme",
-              "appearance",
-              "density",
-            ],
+            "Manage your profile and preferences",
+            "/account/preferences",
+            ["preferences", "theme", "appearance", "density", "language"],
           ),
         },
+        children: [
+          { index: true, element: <AccountIndexRedirect /> },
+          {
+            path: "preferences",
+            element: <PreferencesPage />,
+          },
+          {
+            path: "security",
+            element: <SecurityPage />,
+            handle: {
+              search: search(
+                "Sign-in security",
+                "Manage authenticators, passkeys, recovery codes, and account tokens",
+                "/account/security",
+                [
+                  "security",
+                  "mfa",
+                  "2fa",
+                  "passkey",
+                  "authenticator",
+                  "recovery",
+                  "oauth",
+                  "personal access token",
+                  "pat",
+                ],
+              ),
+            },
+          },
+        ],
       },
       {
         path: "oauth/approve",
@@ -577,11 +595,11 @@ export const studioRoutes: RouteObject[] = [
       },
       {
         path: "preferences",
-        element: <Navigate to="/account#preferences" replace />,
+        element: <Navigate to="/account/preferences" replace />,
       },
       {
         path: "security",
-        element: <Navigate to="/account#security" replace />,
+        element: <Navigate to="/account/security" replace />,
       },
       {
         path: "settings",
@@ -629,7 +647,7 @@ export const studioRoutes: RouteObject[] = [
           }),
           {
             path: "preferences",
-            element: <Navigate to="/account#preferences" replace />,
+            element: <Navigate to="/account/preferences" replace />,
           },
           {
             path: "*",
