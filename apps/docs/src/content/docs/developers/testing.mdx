@@ -68,6 +68,8 @@ Linux Player changes always run the Player tests and TypeScript build. Pull requ
 
 Server integration-test packages use separate temporary PostgreSQL databases, so Go can run the packages concurrently. `TEST_DATABASE_URL` must point to a disposable database and its role must be able to create and drop databases. The test harness removes each temporary database after the package exits.
 
+Dashboard formatting and lint, the production build, and two Vitest test shards run as parallel CI jobs. Each shard publishes a test report. CI merges shard coverage before it publishes the coverage summary.
+
 The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.

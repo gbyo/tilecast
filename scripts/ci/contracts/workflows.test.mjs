@@ -151,15 +151,61 @@ test("Linux release packaging is path-gated on PRs and full on main", () => {
   assert.ok(pr.jobs.required.needs.includes("linux_player_ci"));
 });
 
+test("Dashboard validation runs independently and keeps coverage across shards", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  const jobs = dashboard.jobs;
+  assert.ok(jobs.lint && jobs.tests && jobs.build && jobs.coverage);
+  assert.equal(jobs.lint.needs, undefined);
+  assert.equal(jobs.tests.needs, undefined);
+  assert.equal(jobs.build.needs, undefined);
+  assert.deepEqual(jobs.tests.strategy.matrix.shard, [1, 2]);
+  assert.deepEqual(jobs.coverage.needs, "tests");
+  assert.equal(jobs.coverage.if, "always()");
+
+  const shardRun = jobs.tests.steps.find((step) =>
+    /Run coverage-enabled Vitest shard/.test(step.name ?? ""),
+  );
+  assert.match(shardRun?.run ?? "", /--shard=\$\{\{ matrix\.shard \}\}\/2/);
+  assert.match(shardRun?.run ?? "", /--reporter=junit/);
+  assert.match(shardRun?.run ?? "", /--reporter=blob/);
+  assert.match(shardRun?.run ?? "", /--outputFile\.junit=.*matrix\.shard/);
+
+  const shardReporter = jobs.tests.steps.find((step) =>
+    /Test Reporter/.test(step.name ?? ""),
+  );
+  assert.match(
+    shardReporter?.with?.path ?? "",
+    /vitest-\$\{\{ matrix\.shard \}\}\.xml/,
+  );
+
+  const coverageMerge = jobs.coverage.steps.find((step) =>
+    /Merge shard coverage/.test(step.name ?? ""),
+  );
+  assert.match(coverageMerge?.run ?? "", /--merge-reports=vitest-reports/);
+  assert.match(coverageMerge?.run ?? "", /--coverage/);
+  assert.ok(
+    jobs.coverage.steps.some((step) =>
+      /coverage-summary\.json/.test(step.run ?? ""),
+    ),
+  );
+});
+
 test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
-  for (const [file, reportArg] of [
-    ["ci-dashboard.yml", "--junit"],
-    ["ci-server.yml", "--go-json"],
+  // Dashboard CI measures each Vitest shard; Server CI is one job.
+  for (const [file, jobName, reportArg] of [
+    ["ci-dashboard.yml", "tests", "--junit"],
+    ["ci-server.yml", "validate", "--go-json"],
   ]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
     assert.equal(workflow.permissions.actions, "read", file);
-    const job = workflow.jobs.validate;
-    assert.equal(job.permissions.actions, "read", file);
+    const job = workflow.jobs[jobName];
+    assert.equal(
+      (job.permissions ?? workflow.permissions).actions,
+      "read",
+      file,
+    );
     const summary = job.steps.find((step) =>
       /timing-summary\.mjs/.test(step.run ?? ""),
     );
