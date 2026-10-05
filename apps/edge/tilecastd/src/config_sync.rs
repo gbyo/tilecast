@@ -29,11 +29,7 @@ use crate::player_config::PlayerConfig;
 pub use player_core::ConfigurationOutcome as ConfigOutcome;
 
 fn coordinator(context: &DaemonContext) -> Option<player_core::ConfigurationCoordinator> {
-    let db = context.db()?;
-    Some(
-        player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: context.clock.clone() })
-            .configuration(),
-    )
+    Some(context.core.as_ref()?.configuration())
 }
 
 struct Projection<'a>(&'a DaemonContext);

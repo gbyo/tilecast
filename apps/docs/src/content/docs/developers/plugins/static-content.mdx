@@ -28,6 +28,7 @@ Use the SDK's `announceReady`, `announceEmpty`, and `announceError` helpers to r
 When your Widget declares a `media_asset` field, Tilecast resolves each selected asset before playback and gives the component the matching media grant. A key such as `logoAssetId` gets the derived key `logoVariantId`. Tilecast adds the variant inside each matching item when the field is inside a repeating group. The Studio preview uses the same field mapping. See the [Widgets V2 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the full key rule and manifest contract.
 
 The Widget SDK exposes each Data Source dataset through `WidgetResources`. Dataset cache state, time zone, units and date-selection rules stay with that dataset in Data Document v1.
+Studio Widget previews preserve the field types of connected Structured Data Sources, so developers see the same numbers, dates, and links that playback receives. The [API contract](https://github.com/gbyo/tilecast/blob/main/docs/api.md) describes the preview's `fieldSchema`.
 
 ## Bundle a declarative Data Source
 

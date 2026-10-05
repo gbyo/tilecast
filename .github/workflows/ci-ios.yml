@@ -47,7 +47,8 @@ jobs:
           CODE_SIGNING_ALLOWED=NO
       - name: Check localization
         run: scripts/check-localization.py "$DERIVED_DATA"
-      # Keep the real-WebKit integration suite isolated from the deterministic
+      # All Core test sources run in Tilecast.app so WebKit has UIApplication
+      # lifecycle and events. Keep the real-WebKit bridge suite isolated from the
       # Core tests. A stuck WebKit process must not consume the entire Core-test
       # timeout or hide which surface stalled.
       - name: Core tests
@@ -57,8 +58,8 @@ jobs:
           -project Tilecast.xcodeproj -scheme Tilecast
           -destination "$DESTINATION"
           -derivedDataPath "$DERIVED_DATA"
-          -only-testing:TilecastCoreTests
-          -skip-testing:TilecastCoreTests/StudioBridgeWebKitTests
+          -only-testing:TilecastHostTests
+          -skip-testing:TilecastHostTests/StudioBridgeWebKitTests
           -resultBundlePath "$RUNNER_TEMP/core-tests.xcresult"
       - name: WebKit bridge tests
         timeout-minutes: 5
@@ -67,7 +68,7 @@ jobs:
           -project Tilecast.xcodeproj -scheme Tilecast
           -destination "$DESTINATION"
           -derivedDataPath "$DERIVED_DATA"
-          -only-testing:TilecastCoreTests/StudioBridgeWebKitTests
+          -only-testing:TilecastHostTests/StudioBridgeWebKitTests
           -test-iterations 2
           -retry-tests-on-failure
           -resultBundlePath "$RUNNER_TEMP/webkit-bridge-tests.xcresult"

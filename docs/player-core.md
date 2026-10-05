@@ -1,8 +1,8 @@
 # Native Player Core
 
-**Status:** Accepted extraction contract. The five shared crates and Core
-foundation and renderer stage are implemented and qualified.
-Reconciliation extraction remains.
+**Status:** Accepted extraction contract. Stages 1 through 9 and stage 11 are
+implemented and qualified. Stage 10 is implemented but has selected CI failures.
+Stage 12 hardening and the readiness review are in progress.
 Edge keeps its current behavior throughout the extraction.
 
 This document defines ownership for native Player work. It supplements
@@ -72,7 +72,7 @@ It may consume generic values from `player-types`. Do not rename the entire
 wire crate. Preserve IPC golden fixtures when semantic values move.
 
 Expose a small Core composition API, such as `PlayerCore::new(dependencies)`
-and `PlayerCore::run(...)`. Keep scheduling, reconciliation, command delivery,
+and its domain drivers. Keep scheduling, reconciliation, command delivery,
 Activity, and supervision modules internal unless a consumer needs an API.
 `tilecastd` becomes the Linux composition root. It constructs shared services
 and connects Edge providers, lifecycle, migration, and update integrations.
@@ -126,12 +126,12 @@ storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
 
-Stage 9 is incomplete. Core now owns pairing eligibility, persistent Player
+Stage 9 passed all selected qualification at `f19a6b88`. Core owns pairing eligibility, persistent Player
 identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-Final offline driver qualification remains pending.
+The shared macOS and Linux gates and all selected Edge jobs passed.
 Core now owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence
 requirements for promotion, and verified pin lifetime. Core tests check that
@@ -144,7 +144,7 @@ Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Core now drives the server
 socket, reconnect and liveness timers, heartbeat fallback, push handling,
 configuration and manifest reconciliation, and command/Watch Live wakes.
-Edge supplies heartbeat projection, renderer privacy checks, Activity delivery,
+Edge supplies heartbeat projection, renderer privacy checks, Activity signals,
 and retry jitter. Socket credentials still pass the public identity gate.
 Core owns conditional configuration fetches, binding-scoped acceptance,
 revision ordering, current/previous persistence, and refusal reporting.
@@ -157,8 +157,8 @@ from Linux kiosk and Presentation Network policy. Runtime fields keep their
 existing values and defaults, including unknown bounded playback context fields.
 Core now owns conditional manifest fetches, stable manifest identity,
 binding-scoped target persistence, and native resource-claim validation.
-Runtime-owned fields in the manifest stay opaque. Edge still owns renderer
-projection and compatibility checks and drives activation. Core owns
+Runtime-owned fields in the manifest stay opaque. Edge owns Runtime projection
+and supplies explicit compatibility requirements. Core drives activation and owns
 preparation-worker supervision, verified content preparation, repair, pin identities,
 and target-bound pending storage. Core tests use SQLite and CAS to check repair
 and replacement during a fetch.
@@ -172,18 +172,26 @@ The first stage-9 CI run passed 39 of 40 Linux playback tests. The clock
 sampling test failed on a timestamp rewrite with a final offset change of 9 ms.
 The sampling rule is unchanged. The same test passed in isolation in Linux
 Docker, and all 40 playback tests then passed locally in that image.
-The CI qualification gate remains unqualified until the current head passes.
+Later qualification passed at `f19a6b88`, including that playback test.
 
 ## Core foundation
 
 `crates/player-core` implements native schedule selection, command idempotency,
 and Activity session semantics. Its implementation modules are private.
 `PlayerCore::new(Dependencies)` receives durable state and a host clock.
-Hosts supply fixed command handlers. `PlayerCore::run` drives command delivery.
+Hosts supply fixed command handlers. `PlayerCore::run_commands` drives command delivery.
 Edge supplies its migration hold outside Core.
 Activity consumes semantic signals and injected clocks and IDs.
 The persisted session encoding and parity fixtures remain unchanged.
-Edge retains renderer signal adapters and outbox delivery in this stage.
+Core drives durable Activity reporting, restart closure, overflow reporting,
+and bounded shutdown flushing. Edge retains renderer signal projection and
+supplies clocks, IDs, and timezone observations. Edge constructs one PlayerCore
+with shared durable dependencies. It connects the narrow host services to
+domain drivers and keeps Linux lifecycle and hardware tasks separate.
+`PlayerCore::run_server_link`, `run_activity`, and `run_telemetry` use those
+dependencies. Hosts do not construct a second set for these drivers.
+Hosts generate Player, activation, command, capture, and telemetry IDs.
+Core persists stable Player identity and correlates the supplied request IDs.
 Core owns the renderer recovery ladder and meaningful-evidence rules.
 Core tracks acceptance, errors, and evidence by connection and activation.
 It refuses stale observations and bounds evidence logs and content-item sets.
@@ -310,12 +318,18 @@ An unavailable measurement is omitted. Never report it as zero.
 Core tests check offline sample storage, wire fields, queue bounds, and restart
 persistence. Telemetry does not displace proof-of-play events.
 
-Shared display command validation, result vocabulary, and scheduled action
-semantics may use a narrow display provider. CEC and DDC/CI stay in Edge.
-Presentation Network assignment and revision policy may be shared where needed.
+Core validates Display Control payloads and applies committed scheduled actions
+through a narrow provider. It owns retry settlement and power-readback result
+semantics. Edge converts input identifiers to CEC physical addresses and keeps
+probe timers, device access, and hardware readback. Unsupported results settle
+until capabilities change; uncertain results retry.
+Core validates non-secret Presentation Network assignments, identifies obsolete
+profiles, and checks installed revisions and credential availability.
 NetworkManager, Wi-Fi mechanics, helper sockets, and recovery stay in Edge.
 Discovery supplies a candidate URL to the shared URL policy and pairing path.
 Core needs no discovery abstraction until a real consumer requires it.
+Generic capability values and IDs live in `player-types`.
+WPE, systemd, PipeWire, CEC, and DDC provider IDs live in `edge-protocol`.
 
 Edge updates remain intact: release family, signed archive, installer,
 privileged helper, systemd guards, provisional activation, and rollback.
@@ -386,6 +400,7 @@ capability providers, lifecycle, distribution, and secure media delivery.
 It must not need another implementation of pairing, reconciliation, manifests,
 offline selection, idempotency, Activity, recovery, or content verification.
 Record remaining macOS work in a readiness review. Do not create the app.
+The current review is [`player-core-readiness.md`](player-core-readiness.md).
 
 ## Current characterization
 

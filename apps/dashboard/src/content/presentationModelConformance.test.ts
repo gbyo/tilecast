@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import fixtures from "../../../../packages/presentation-model/fixtures/foundation.json";
+import zoneFixtures from "../../../../packages/presentation-model/fixtures/zone-policy.json";
+import {
+  defaultImageDurationMsForPlayback,
+  fallbackDurationMsFor,
+  isAvailableAt,
+  nextAvailabilityTransition,
+  resolvePlaybackItemSettings,
+} from "@tilecast/presentation-model";
+import {
+  playlistPreviewDuration,
+  nextPlaylistPreviewIndex,
+} from "../components/layout-editor/WidgetLivePreview";
+import type { PlaylistItem } from "../api/types";
+
+describe("Studio adopts Presentation Model fixtures", () => {
+  it.each(zoneFixtures.advance)("$name", (fixture) => {
+    expect(
+      nextPlaylistPreviewIndex(fixture.index, fixture.count, fixture.loop),
+    ).toBe(fixture.nextIndex);
+  });
+  it.each(fixtures.availability)("$name", (fixture) => {
+    const at = new Date(fixture.at);
+    expect(isAvailableAt(fixture.window, at)).toBe(fixture.available);
+    expect(
+      nextAvailabilityTransition([fixture.window], at)?.toISOString() ?? null,
+    ).toBe(fixture.next);
+  });
+  it.each(fixtures.settings)("$name", (fixture) => {
+    const item = { ...fixtures.item, ...fixture.item };
+    const fallback = fallbackDurationMsFor(
+      item.assetType,
+      defaultImageDurationMsForPlayback(fixture.playback),
+    );
+    expect(
+      resolvePlaybackItemSettings(item, fixture.playback, fallback),
+    ).toEqual(fixture.expected);
+    if (item.assetType !== "video")
+      expect(
+        playlistPreviewDuration(item as PlaylistItem, fixture.playback),
+      ).toBe(fixture.expected.durationMs);
+  });
+});

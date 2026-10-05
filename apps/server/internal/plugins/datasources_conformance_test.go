@@ -56,11 +56,11 @@ func (p *syntheticProvider) Init(_ context.Context, host plugin.Host) error {
 }
 
 var (
-	_ plugin.Plugin            = (*syntheticProvider)(nil)
-	_ plugin.Initializer       = (*syntheticProvider)(nil)
+	_ plugin.Plugin             = (*syntheticProvider)(nil)
+	_ plugin.Initializer        = (*syntheticProvider)(nil)
 	_ plugin.DataSourceProvider = (*syntheticProvider)(nil)
-	_ plugin.Plugin            = (*syntheticPlain)(nil)
-	_ plugin.Initializer       = (*syntheticPlain)(nil)
+	_ plugin.Plugin             = (*syntheticPlain)(nil)
+	_ plugin.Initializer        = (*syntheticPlain)(nil)
 )
 
 func (p *syntheticProvider) ProviderID() string { return p.providerID }

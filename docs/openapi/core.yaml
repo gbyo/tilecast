@@ -13028,9 +13028,10 @@ components:
     LayoutPlacementOverrides:
       type: object
       additionalProperties: false
+      deprecated: true
       description: >-
-        Widget placement override bag. Unknown keys are rejected, so only
-        the keys below are accepted.
+        Legacy Widget placement override bag. The listed values are accepted
+        for saved-document compatibility but are ignored by Studio and Player.
       properties:
         fit: { type: string, enum: [contain, cover, stretch] }
         alignment: { type: string, enum: [left, center, right] }
@@ -13937,7 +13938,10 @@ components:
           assets,
         ]
       properties:
-        schemaVersion: { type: integer, enum: [11, 12, 13, 14, 15] }
+        schemaVersion:
+          type: integer
+          enum: [11, 12, 13, 14, 15, 16, 17]
+          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
         manifestVersion: { type: integer, format: int64, minimum: 1 }
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }
@@ -14548,6 +14552,13 @@ components:
       properties:
         configuration:
           { $ref: "#/components/schemas/StructuredPlayerPreviewConfig" }
+        fieldSchema:
+          type: array
+          description: >-
+            Typed fields available to Widgets for these records. Studio uses
+            this schema to build the same typed Data Document that playback
+            receives.
+          items: { $ref: "#/components/schemas/DataSourceField" }
         diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
     CalendarPreviewFields:
       type: object

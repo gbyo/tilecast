@@ -32,18 +32,12 @@
 //! restart or an outage never loses one: the outbox keeps at most 500 rows
 //! and drops the oldest first, counting them.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
-
 use edge_protocol::ipc::presentation::{ItemKind, PresentationDocument};
-use edge_server::AuthenticatedServer;
-use edge_server::client::ServerError;
-use edge_server::player_api::{ActivityBatchOutcome, MAX_ACTIVITY_BATCH, TelemetryOutcome};
-use edge_state::StateDb;
-use edge_state::repo::outbox::{self, OutboxKind};
-use serde::Serialize;
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::mpsc;
+
+pub use player_core::{ACTIVITY_FLUSH_INTERVAL as FLUSH_INTERVAL, ActivityHandle as Handle};
 
 pub use player_core::{
     ActivityClocks as Clocks, ActivityEvent as Event, ActivityItem as ItemInfo,
@@ -54,15 +48,6 @@ pub use player_core::{
 
 use crate::daemon::DaemonContext;
 use crate::presentation::{ActivationSource, PlaybackIdentity};
-
-/// The Electron player's flush cadence.
-pub const FLUSH_INTERVAL: Duration = Duration::from_secs(30);
-/// Signals waiting for the activity task. A burst beyond this is counted
-/// and reported as dropped, never allowed to block playback.
-const SIGNAL_CAPACITY: usize = 1_024;
-/// The server refuses telemetry older than a day; keep a margin.
-const TELEMETRY_MAX_AGE: Duration = Duration::from_secs(23 * 3_600);
-const FLUSH_ON_SHUTDOWN: Duration = Duration::from_secs(5);
 
 fn item_kind(kind: ItemKind) -> &'static str {
     match kind {
@@ -129,50 +114,6 @@ pub fn presented(
     }
 }
 
-/// The daemon's side of the activity task: non-blocking and bounded.
-#[derive(Debug, Clone)]
-pub struct Handle {
-    tx: mpsc::Sender<Signal>,
-    lost: Arc<AtomicU64>,
-}
-
-impl Handle {
-    pub fn channel() -> (Self, mpsc::Receiver<Signal>) {
-        let (tx, rx) = mpsc::channel(SIGNAL_CAPACITY);
-        (Self { tx, lost: Arc::new(AtomicU64::new(0)) }, rx)
-    }
-
-    pub fn send(&self, signal: Signal) {
-        if self.tx.try_send(signal).is_err() {
-            self.lost.fetch_add(1, Ordering::Relaxed);
-        }
-    }
-
-    pub fn record(&self, event: Event) {
-        self.send(Signal::Event(Box::new(event)));
-    }
-}
-
-/// The envelope the server needs around each event.
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Envelope<'a> {
-    id: &'a str,
-    sequence: i64,
-    occurred_at: String,
-    elapsed_realtime_ms: i64,
-    player_timezone: &'a str,
-    #[serde(flatten)]
-    event: &'a Event,
-}
-
-fn rfc3339(wall_ms: i64) -> String {
-    edge_protocol::Timestamp::from_unix_millis(wall_ms)
-        .and_then(|t| serde_json::to_value(t).ok())
-        .and_then(|v| v.as_str().map(str::to_owned))
-        .unwrap_or_else(|| "1970-01-01T00:00:00Z".into())
-}
-
 struct TaskClocks {
     started: Instant,
     clock: edge_protocol::time::SharedClock,
@@ -200,208 +141,20 @@ pub fn player_timezone() -> String {
         .unwrap_or_else(|| "UTC".into())
 }
 
-async fn enqueue(db: &StateDb, clocks: &dyn Clocks, timezone: &str, events: Vec<(i64, Event)>) {
-    for (wall_ms, event) in events {
-        let mut event = event.bounded();
-        // The Electron reporter's default on every recorded event.
-        event.severity.get_or_insert_with(|| "info".to_owned());
-        let id = clocks.uuid();
-        let (timezone, mono) = (timezone.to_owned(), clocks.mono_ms());
-        let Some(now) = edge_protocol::Timestamp::from_unix_millis(wall_ms) else { continue };
-        let result = db
-            .run(move |c| {
-                outbox::enqueue_activity(c, &id, now, |sequence| {
-                    serde_json::to_string(&Envelope {
-                        id: &id,
-                        sequence,
-                        occurred_at: rfc3339(wall_ms),
-                        elapsed_realtime_ms: mono,
-                        player_timezone: &timezone,
-                        event: &event,
-                    })
-                    .unwrap_or_default()
-                })
-            })
-            .await;
-        if let Err(error) = result {
-            tracing::warn!(component = "activity", event = "enqueue_failed", reason = error.reason_code());
-        }
-    }
-}
-
-async fn persist(db: &StateDb, tracker: &Tracker, alive_at_wall_ms: i64) {
-    let value = (!tracker.is_empty())
-        .then(|| serde_json::to_string(&Persisted { tracker: tracker.clone(), alive_at_wall_ms }).ok())
-        .flatten();
-    let _ = db.run(move |c| outbox::set_open_sessions(c, value.as_deref())).await;
-}
-
-/// Sends what the outbox holds, oldest first. Stops at the first transport
-/// failure and leaves the rest for the next pass.
-pub async fn flush(
-    db: &StateDb,
-    server: &AuthenticatedServer,
-    now: edge_protocol::Timestamp,
-) -> Result<(), ServerError> {
-    loop {
-        let rows = db
-            .run(|c| outbox::pending(c, OutboxKind::ActivityEvent, MAX_ACTIVITY_BATCH))
-            .await
-            .map_err(|_| ServerError::Decode)?;
-        if rows.is_empty() {
-            break;
-        }
-        let bodies: Vec<&str> = rows.iter().map(|row| row.body.as_str()).collect();
-        match server.post_activity_events(&bodies).await? {
-            ActivityBatchOutcome::Taken { .. } => {
-                // Accepted and duplicates alike: the server holds them.
-                let ids: Vec<i64> = rows.iter().map(|row| row.id).collect();
-                let _ = db.run(move |c| outbox::delivered(c, &ids)).await;
-            }
-            ActivityBatchOutcome::InvalidEvent(index) => {
-                let Some(row) = rows.get(index) else { break };
-                tracing::warn!(component = "activity", event = "event_refused", sequence_row = row.id);
-                let id = row.id;
-                let _ = db.run(move |c| outbox::rejected(c, id)).await;
-            }
-            ActivityBatchOutcome::Refused if rows.len() > 1 => {
-                // The server did not name the event: send one at a time.
-                for row in rows {
-                    match server.post_activity_events(&[row.body.as_str()]).await? {
-                        ActivityBatchOutcome::Taken { .. } => {
-                            let _ = db.run(move |c| outbox::delivered(c, &[row.id])).await;
-                        }
-                        _ => {
-                            let _ = db.run(move |c| outbox::rejected(c, row.id)).await;
-                        }
-                    }
-                }
-            }
-            ActivityBatchOutcome::Refused => {
-                let id = rows[0].id;
-                let _ = db.run(move |c| outbox::rejected(c, id)).await;
-            }
-        }
-    }
-    let cutoff = edge_protocol::Timestamp::from_unix_millis(
-        now.unix_millis().saturating_sub(TELEMETRY_MAX_AGE.as_millis() as i64),
-    )
-    .unwrap_or(now);
-    let _ = db.run(move |c| outbox::expire_telemetry(c, cutoff)).await;
-    loop {
-        let rows =
-            db.run(|c| outbox::pending(c, OutboxKind::TelemetrySample, 30)).await.map_err(|_| ServerError::Decode)?;
-        if rows.is_empty() {
-            break;
-        }
-        for row in rows {
-            let outcome = server.post_telemetry(&row.body).await?;
-            let id = row.id;
-            let _ = match outcome {
-                TelemetryOutcome::Accepted => db.run(move |c| outbox::delivered(c, &[id])).await,
-                TelemetryOutcome::Refused => db.run(move |c| outbox::rejected(c, id)).await,
-            };
-        }
-    }
-    Ok(())
-}
-
-/// The activity task: turns daemon signals into outbox rows and flushes the
-/// outbox to the server.
-pub async fn run(context: Arc<DaemonContext>, mut signals: mpsc::Receiver<Signal>) {
-    let Some(db) = context.db().cloned() else { return };
+/// Connect host observations and semantic renderer signals to Core reporting.
+pub async fn run(context: Arc<DaemonContext>, signals: mpsc::Receiver<Signal>) {
+    let Some(core) = context.core.as_ref() else { return };
     let clocks = TaskClocks { started: Instant::now(), clock: context.clock.clone() };
     let timezone = player_timezone();
-    let mut tracker = Tracker::default();
-
-    // Sessions an unclean stop left open.
-    if let Ok(Some(stored)) = db.run(|c| outbox::open_sessions(c)).await {
-        if let Ok(Persisted { mut tracker, alive_at_wall_ms }) = serde_json::from_str::<Persisted>(&stored) {
-            let closed = tracker.close_after_restart(alive_at_wall_ms);
-            tracing::info!(component = "activity", event = "sessions_closed_after_restart", count = closed.len());
-            enqueue(&db, &clocks, &timezone, closed).await;
-        }
-        let _ = db.run(|c| outbox::set_open_sessions(c, None)).await;
-    }
-
-    let mut server = context.command_server.subscribe();
-    let mut ticker = tokio::time::interval(FLUSH_INTERVAL);
-    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-    let mut lost_reported = 0u64;
-    loop {
-        let flush_now = tokio::select! {
-            () = context.shutdown.cancelled() => break,
-            signal = signals.recv() => {
-                let Some(signal) = signal else { break };
-                let urgent = matches!(&signal, Signal::Event(event)
-                    if event.category.as_deref() == Some("reliability"));
-                let wall = clocks.wall_ms();
-                let events = tracker.apply(&signal, &clocks);
-                if !events.is_empty() {
-                    enqueue(&db, &clocks, &timezone, events.into_iter().map(|e| (wall, e)).collect()).await;
-                    persist(&db, &tracker, wall).await;
-                }
-                // Reliability events are flushed at once, so Studio sees an
-                // outage even if the action that follows restarts the process.
-                urgent
-            }
-            _ = ticker.tick() => {
-                persist(&db, &tracker, clocks.wall_ms()).await;
-                true
-            }
-            () = context.report_wake.notified() => true,
-            changed = server.changed() => {
-                if changed.is_err() {
-                    break;
-                }
-                true
-            }
-        };
-        if flush_now {
-            report_overflow(&db, &clocks, &timezone, &context, &mut lost_reported).await;
-            let current = server.borrow().clone();
-            if let Some(api) = current
-                && let Err(error) = flush(&db, &api, context.now()).await
-            {
-                tracing::debug!(component = "activity", event = "flush_deferred", reason = error.reason_code());
-                if error == ServerError::CredentialRejected {
-                    context.server_wake.notify_one();
-                }
-            }
-        }
-    }
-
-    // A clean stop closes what is on screen and flushes once, bounded.
-    let wall = clocks.wall_ms();
-    let closing = tracker.apply(&Signal::Shutdown, &clocks);
-    enqueue(&db, &clocks, &timezone, closing.into_iter().map(|e| (wall, e)).collect()).await;
-    let _ = db.run(|c| outbox::set_open_sessions(c, None)).await;
-    let current = server.borrow().clone();
-    if let Some(api) = current {
-        let _ = tokio::time::timeout(FLUSH_ON_SHUTDOWN, flush(&db, &api, context.now())).await;
-    }
-}
-
-/// Reports activity events that the outbox or the signal queue dropped.
-async fn report_overflow(
-    db: &StateDb,
-    clocks: &dyn Clocks,
-    timezone: &str,
-    context: &DaemonContext,
-    lost_reported: &mut u64,
-) {
-    let lost = context.activity.lost.load(Ordering::Relaxed);
-    let signals = lost.saturating_sub(*lost_reported);
-    *lost_reported = lost;
-    let dropped = db.run(outbox::take_unreported_drops).await.unwrap_or(0);
-    if dropped + signals == 0 {
-        return;
-    }
-    tracing::warn!(component = "activity", event = "outbox_overflow", dropped, signals);
-    let event = Event::new("outbox.overflow", "system").with(|e| {
-        e.severity = Some("warning".into());
-        e.result = Some("unknown".into());
-        e.metadata = Some(serde_json::json!({ "droppedEvents": dropped + signals }));
-    });
-    enqueue(db, clocks, timezone, vec![(clocks.wall_ms(), event)]).await;
+    core.run_activity(player_core::ActivityServices {
+        clocks: &clocks,
+        timezone: &timezone,
+        handle: &context.activity,
+        signals,
+        server: context.command_server.subscribe(),
+        report_wake: &context.report_wake,
+        server_wake: &context.server_wake,
+        shutdown: &context.shutdown,
+    })
+    .await;
 }

@@ -20,8 +20,8 @@ use edge_server::player_api::ServerCommand;
 use edge_state::repo::commands::CommandResult;
 use edge_state::repo::{binding, playback};
 
-use crate::commands::{Handlers, Plan};
 use crate::daemon::DaemonContext;
+use player_core::{Handlers, Plan};
 
 /// Longest a `sync_now` waits for the server link to finish its pass.
 pub const SYNC_TIMEOUT: Duration = Duration::from_secs(45);

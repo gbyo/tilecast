@@ -822,7 +822,7 @@ impl UpdateApi for ServerApi {
         // The path is built here from the release ID, never taken from the
         // server's answer.
         let path = format!("/api/v1/player/updates/{release}/artifact");
-        edge_server::origin::OriginBlobSource::new(self.server.clone(), &path)
+        player_core::OriginBlobSource::new(self.server.clone(), &path)
             .ok()
             .map(|source| Arc::new(source) as Arc<dyn BlobSource>)
     }
