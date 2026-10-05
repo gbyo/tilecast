@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import fixtures from "../../../../packages/presentation-model/fixtures/foundation.json";
+import mediaFixtures from "../../../../packages/presentation-model/fixtures/media-eligibility.json";
 import zoneFixtures from "../../../../packages/presentation-model/fixtures/zone-policy.json";
 import {
   defaultImageDurationMsForPlayback,
@@ -7,9 +8,11 @@ import {
   isAvailableAt,
   nextAvailabilityTransition,
   resolvePlaybackItemSettings,
+  resolveMediaEligibility,
 } from "@tilecast/presentation-model";
 import {
   playlistPreviewDuration,
+  isPlaylistZoneMediaItem,
   nextPlaylistPreviewIndex,
 } from "../components/layout-editor/WidgetLivePreview";
 import type { PlaylistItem } from "../api/types";
@@ -20,6 +23,20 @@ import {
 } from "../pages/PlaylistPreviewPage";
 
 describe("Studio adopts Presentation Model fixtures", () => {
+  it.each(mediaFixtures.cases)("$name", (fixture) => {
+    const item = { ...mediaFixtures.item, ...fixture.item };
+    const asset =
+      fixture.asset == null
+        ? null
+        : { ...mediaFixtures.asset, ...fixture.asset };
+    expect(isPlaylistZoneMediaItem(item)).toBe(fixture.supported);
+    expect(
+      resolveMediaEligibility(item, asset, new Date(mediaFixtures.at)),
+    ).toEqual({
+      kind: fixture.kind,
+      reason: fixture.reason,
+    });
+  });
   it.each(zoneFixtures.advance)("$name", (fixture) => {
     expect(
       nextPlaylistPreviewIndex(fixture.index, fixture.count, fixture.loop),

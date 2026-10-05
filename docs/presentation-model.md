@@ -12,6 +12,9 @@ consumer. It has no production dependencies.
 - `fallbackDurationMsFor()` selects the existing per-kind duration fallback.
 - `resolvePlaybackItemSettings()` resolves duration, fit, transition, audio,
   and volume from an item and effective Player settings.
+- `isPlaylistZoneMediaItem()` accepts image and video items without a nested Layout.
+- `resolveMediaEligibility()` checks the item window, item kind, exact asset
+  reference, asset window, and media type in that order.
 - `resolvePlaylistAdvance()` advances or holds a zero-based zone occurrence.
 - `resolveNativeVideoLoop()` checks item loop policy and video trim offsets.
 - `resolveZoneFallback()` selects current media, previous media, background,
@@ -46,12 +49,19 @@ results. Model, Studio, and runtime tests consume the same fixtures. They
 cover future and expired assets and items, half-open bounds, DST offsets,
 duration defaults, explicit overrides, fade and crossfade, and value limits.
 The Studio tests also exercise the existing static-item preview duration.
+
 The popup Playlist preview resolves its item settings with the same fixtures.
 It uses installation settings for generic preview. A specific Screen can have
 a different effective policy. Studio waits for settings before it shows media.
 The Studio availability clock reevaluates at window boundaries and on tab
 visibility changes. Long waits are bounded to the browser timer limit. A fixed
 preview instant does not follow the live clock. Unmount clears the timer.
+
+`fixtures/media-eligibility.json` covers supported media, unsupported item
+kinds, missing assets, reference mismatches, and item and asset windows.
+Studio tests exercise its zone filter. Runtime tests exercise Layout projection.
+An unsupported Widget remains valid as a direct Widget placement. The zone
+policy does not change the direct Widget renderer.
 
 `fixtures/zone-policy.json` covers empty zones, single-item and multi-item
 loops, final-item holds, video trim offsets, and each fallback. Runtime tests

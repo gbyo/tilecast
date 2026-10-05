@@ -219,16 +219,15 @@ describe("Layout editor initial preview capture", () => {
       items: [
         {
           id: "playlist-item-1",
-          assetId: "widget-1",
+          assetId: "image-1",
           position: 0,
           fitMode: "contain",
           transition: "none",
           audioEnabled: false,
           volume: 0,
           deliveryPolicy: "download",
-          assetName: "Clock",
-          assetType: "widget",
-          widgetProvider: "clock",
+          assetName: "Welcome",
+          assetType: "image",
           assetStatus: "ready",
           thumbnailUrl: "https://example.org/clock-preview.jpg",
         },
@@ -273,7 +272,10 @@ describe("Layout editor initial preview capture", () => {
 
     renderLayoutEditor({
       layout,
-      assets: [asset],
+      assets: [
+        asset,
+        { id: "image-1", type: "image", processingStatus: "ready" } as Asset,
+      ],
       contentDefinitions: definitions,
       playlists,
     });

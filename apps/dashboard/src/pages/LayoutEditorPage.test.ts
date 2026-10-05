@@ -18,6 +18,7 @@ import {
   recentLayoutLibraryItems,
 } from "./LayoutEditorPage";
 import {
+  isPlaylistZoneMediaItem,
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
@@ -88,6 +89,21 @@ describe("Layout editor primitives", () => {
     expect(line.height).toBe(8);
     expect(group.primitive?.kind).toBe("group");
     expect(group.y + group.height).toBeLessThanOrEqual(canvas.height);
+  });
+});
+
+describe("Layout playlist-zone media support", () => {
+  const item = (
+    assetType: PlaylistItem["assetType"],
+    widgetProvider?: string,
+  ) => ({ assetType, widgetProvider }) as PlaylistItem;
+
+  it("matches the Player zone contract", () => {
+    expect(isPlaylistZoneMediaItem(item("image"))).toBe(true);
+    expect(isPlaylistZoneMediaItem(item("video"))).toBe(true);
+    expect(isPlaylistZoneMediaItem(item("widget", "clock"))).toBe(false);
+    expect(isPlaylistZoneMediaItem(item("widget", "website"))).toBe(false);
+    expect(isPlaylistZoneMediaItem(item("layout"))).toBe(false);
   });
 });
 

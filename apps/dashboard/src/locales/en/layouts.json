@@ -398,6 +398,7 @@
   },
   "preview": {
     "zoneEmpty": "No ready items",
+    "zoneUnsupported": "Only images and videos can play in a Layout playlist zone.",
     "unknownProvider": "Widget"
   }
 }

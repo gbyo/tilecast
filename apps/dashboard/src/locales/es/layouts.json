@@ -406,6 +406,7 @@
   },
   "preview": {
     "zoneEmpty": "No hay elementos listos",
+    "zoneUnsupported": "En una zona de lista de reproducción de un diseño solo se pueden reproducir imágenes y vídeos.",
     "unknownProvider": "Widget"
   }
 }

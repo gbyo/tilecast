@@ -2,6 +2,7 @@ import { Button } from "../ui/button";
 import {
   AppPlacementPreview,
   AssetPlaybackPreview,
+  isPlaylistZoneMediaItem,
   PlaylistZonePreview,
   WidgetLivePreview,
   assetPreviewStyle,
@@ -67,6 +68,11 @@ export function LayoutPlacementView({
     zIndex: item.layer,
     opacity: item.opacity,
   };
+  const playlistPreviewItem = playlist?.items.find(
+    (playlistItem) =>
+      playlistItem.assetStatus === "ready" &&
+      isPlaylistZoneMediaItem(playlistItem),
+  );
   return (
     <div
       className={
@@ -86,17 +92,11 @@ export function LayoutPlacementView({
             placement={item}
             playlist={playlist}
             assetsById={assetsById ?? new Map()}
-            previewDate={previewDate}
-            captureTracking={
-              captureCoordinator
-                ? { coordinator: captureCoordinator, zoneId: item.id }
-                : undefined
-            }
           />
-        ) : playlist?.items?.[0]?.thumbnailUrl ? (
+        ) : playlistPreviewItem?.thumbnailUrl ? (
           <img
             className="layout-asset-placement"
-            src={playlist.items[0].thumbnailUrl}
+            src={playlistPreviewItem.thumbnailUrl}
             alt=""
             draggable={false}
             style={assetPreviewStyle(
