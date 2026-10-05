@@ -77,7 +77,6 @@ export function PreferencesPage() {
     );
   const navigationWarning = useNavigationWarning({
     dirty,
-    shouldBlock: (current, next) => current.pathname !== next.pathname,
     title: t("preferences.leaveWarning"),
   });
   const save = useMutation({
