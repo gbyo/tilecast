@@ -16,9 +16,22 @@ interface CredentialStore {
     fun clear()
 }
 
-class KeystoreCredentialStore(context: Context) : CredentialStore {
-    private val preferences = context.getSharedPreferences("tilecast_secure_device", Context.MODE_PRIVATE)
-    private val alias = "tilecast_device_credential_key"
+class KeystoreCredentialStore(
+    context: Context,
+    prefsName: String = LEGACY_PREFS_NAME,
+    private val alias: String = LEGACY_KEY_ALIAS,
+) : CredentialStore {
+    companion object {
+        /** Legacy slot. Unchanged so enrolled players keep working. */
+        const val LEGACY_PREFS_NAME = "tilecast_secure_device"
+        const val LEGACY_KEY_ALIAS = "tilecast_device_credential_key"
+
+        /** Player Core slot. Separate so Core never disturbs legacy state. */
+        const val CORE_PREFS_NAME = "tilecast_core_secure_device"
+        const val CORE_KEY_ALIAS = "tilecast_core_device_credential_key"
+    }
+
+    private val preferences = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     override fun save(credential: String) {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -50,4 +63,32 @@ class KeystoreCredentialStore(context: Context) : CredentialStore {
                 .build())
         }.generateKey()
     }
+}
+
+/**
+ * Production Core credential storage. Reads and writes the Core slot,
+ * copying the legacy slot forward once on first read so enrolled players
+ * keep their credential across the cutover. Never writes the legacy slot.
+ */
+class MigratingCredentialStore(
+    private val core: CredentialStore,
+    private val legacy: CredentialStore,
+) : CredentialStore {
+    companion object {
+        /** Production Core storage: the Core slot with legacy copy-forward. */
+        fun forProduction(context: Context): CredentialStore = MigratingCredentialStore(
+            KeystoreCredentialStore(
+                context,
+                KeystoreCredentialStore.CORE_PREFS_NAME,
+                KeystoreCredentialStore.CORE_KEY_ALIAS,
+            ),
+            KeystoreCredentialStore(context),
+        )
+    }
+
+    override fun save(credential: String) = core.save(credential)
+
+    override fun read(): String? = core.read() ?: legacy.read()?.also { core.save(it) }
+
+    override fun clear() = core.clear()
 }

@@ -4,6 +4,19 @@ Native Kotlin and Jetpack Compose player for Fire TV, Google TV, and Android TV.
 
 See [`docs/android-development.md`](../../docs/android-development.md) for build and emulator instructions.
 
+## Native Player Core host
+
+The APK embeds the Rust crate `tilecast-player-android-native` from
+`native/`. It owns one process-level Player Core host, a narrow JNI bridge,
+Android storage locations, and Android platform TLS trust. Kotlin owns the
+host lifetime through the application-scoped `PlayerCoreHost`.
+
+An APK build needs the Rust toolchain from `rust-toolchain.toml`,
+`cargo-ndk`, and the pinned NDK from `tilecastNdkVersion` in
+`app/build.gradle.kts`. JVM unit tests do not need these tools. See
+[`docs/android-development.md`](../../docs/android-development.md) for the
+install commands, the host tests, and the 16 KB alignment gate.
+
 ## Shared runtime host (in progress)
 
 The player is migrating its trusted display layer onto the shared

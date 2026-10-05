@@ -30,6 +30,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Detect Android changes
         id: changes
         env:
@@ -65,6 +66,28 @@ jobs:
       - name: Build shared Player Runtime
         if: steps.changes.outputs.changed == 'true'
         run: npm ci && npm run build --workspace @tilecast/player-runtime
+      # The Gradle build compiles the native Player Core host with cargo-ndk.
+      - name: Set up Rust
+        if: steps.changes.outputs.changed == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-ndk and Android targets
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+          cargo install cargo-ndk --version 4.1.2 --locked
+      - name: Restore pinned NDK
+        if: steps.changes.outputs.changed == 'true'
+        id: ndk-cache
+        uses: actions/cache@v6
+        with:
+          # Must match tilecastNdkVersion in app/build.gradle.kts.
+          path: ${{ env.ANDROID_HOME }}/ndk/29.0.14206865
+          key: android-ndk-29.0.14206865
+      - name: Install pinned NDK
+        if: steps.changes.outputs.changed == 'true' && steps.ndk-cache.outputs.cache-hit != 'true'
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager --install "ndk;29.0.14206865"
       - name: Initialize CodeQL
         if: steps.changes.outputs.changed == 'true'
         uses: github/codeql-action/init@v4.38.2

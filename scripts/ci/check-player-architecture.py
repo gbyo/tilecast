@@ -14,6 +14,10 @@ SHARED = {
     "player-client": {"player-types"},
     "player-core": {"player-types", "player-state", "player-cas", "player-client"},
 }
+# Android platform host: depends downward on the shared crates only. It is
+# platform code under apps/player-android, never a sixth shared crate.
+ANDROID_NATIVE = "apps/player-android/native"
+ANDROID_CRATE = "tilecast-player-android-native"
 KINDS = ("dependencies", "dev-dependencies", "build-dependencies")
 # Anything only a Windows host can use stays in apps/player-windows; the
 # shared crates build and test on every host OS.
@@ -165,6 +169,40 @@ def windows_violations(root):
     return errors
 
 
+def android_native_violations(root):
+    """The Android host may depend on the shared crates, never on Edge."""
+    errors = []
+    path = root / ANDROID_NATIVE / "Cargo.toml"
+    if not path.is_file():
+        return [f"{ANDROID_NATIVE}/Cargo.toml: Android native host crate is missing"]
+    manifest = read_manifest(path)
+    if manifest.get("package", {}).get("name") != ANDROID_CRATE:
+        errors.append(f"{ANDROID_NATIVE}/Cargo.toml: expected package {ANDROID_CRATE}")
+    workspace_path, workspace = workspace_for(path)
+    for alias, original in dependency_tables(manifest):
+        kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
+        if kind == "unresolved":
+            errors.append(f"{ANDROID_CRATE}: unresolved workspace dependency {alias}")
+            continue
+        if kind == "missing":
+            errors.append(f"{ANDROID_CRATE}: missing local dependency {alias}")
+            continue
+        if kind == "local":
+            # Local dependencies must stay in the shared layer: no Edge
+            # crates, no other apps, no sibling platform code.
+            if target != (root / "crates" / package).resolve():
+                errors.append(f"{ANDROID_CRATE}: {alias} points outside the shared Player crates")
+        if package in SHARED:
+            continue
+        if target_is_host(package):
+            errors.append(f"{ANDROID_CRATE}: forbidden native host dependency {package}")
+    return errors
+
+
+def target_is_host(package):
+    return str(package).startswith(("edge-", "tilecast"))
+
+
 def violations(root):
     registered = registered_crates(root)
     return shared_violations(root, registered) + windows_violations(root)
@@ -175,7 +213,7 @@ def main():
         print(json.dumps(sorted(registered_crates(Path(sys.argv[2])))))
         return 0
     root = Path(__file__).resolve().parents[2]
-    errors = violations(root)
+    errors = violations(root) + android_native_violations(root)
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

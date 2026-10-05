@@ -17,6 +17,9 @@ cd "$ROOT/apps/player-android"
 ./gradlew clean assembleRelease
 APK="$ROOT/apps/player-android/app/build/outputs/apk/release/app-release.apk"
 test -f "$APK"
+# 16 KB page-size compatibility is a release gate: every bundled native
+# library must carry 16 KB ELF alignment and valid ZIP placement.
+python3 "$ROOT/apps/player-android/ci/check-native-alignment.py" "$APK"
 APKSIGNER="${ANDROID_HOME:?ANDROID_HOME is required}/build-tools/${ANDROID_BUILD_TOOLS_VERSION:-35.0.0}/apksigner"
 BUILD_TOOLS="$(dirname "$APKSIGNER")"
 AAPT="$BUILD_TOOLS/aapt"

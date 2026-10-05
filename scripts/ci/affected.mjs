@@ -60,6 +60,7 @@ export const graph = {
   edge_migration: [],
   edge_activity: [],
   player_core: [
+    "android",
     "ci",
     "edge_rust",
     "edge_wpe",

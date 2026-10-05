@@ -37,6 +37,7 @@ test("root Rust inputs and shared crates select portable and Edge validation", (
     const result = affected([path]);
     for (const area of [
       "player_core",
+      "android",
       "ci",
       "edge_rust",
       "edge_server",
@@ -48,7 +49,6 @@ test("root Rust inputs and shared crates select portable and Edge validation", (
     ])
       assert.equal(result[area], true, `${path}: ${area}`);
     assert.equal(result.ios, false, path);
-    assert.equal(result.android, false, path);
     assert.equal(result.server, false, path);
   }
   for (const path of [

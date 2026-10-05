@@ -2,6 +2,87 @@
 
 Tilecast Player requires JDK 17 and Android SDK 35. It uses the checked-in Gradle wrapper and has no Google Play Services dependency.
 
+## Native Player Core host
+
+The APK embeds a Rust host for shared Player Core. The host crate is
+`tilecast-player-android-native` below `apps/player-android/native`.
+It owns one process-level host, a narrow JNI bridge, Android storage
+locations, and Android platform TLS trust. Kotlin owns the host lifetime
+through the application-scoped `PlayerCoreHost`. Production still runs the
+Kotlin Player. The host gains behavior behind its own qualification before
+any production cutover.
+
+The host runs Core pairing in Core-only mode. Kotlin calls
+`PlayerCoreHost.startCoreOnly` to open the host and start only the pairing
+driver. Core keeps the pairing session and enrollment. The Keystore keeps
+the device credential. The file `player-core/pairing.json` keeps the
+pairing session. Neither value enters Player State, Room, logs, or status
+payloads. A JNI handler on Kotlin supplies the private stores and device
+facts to Core through upcalls. `beginPairing` starts a session.
+`resetPairing` clears only the session. It preserves an enrolled
+credential, because Core reserves removal for revocation. Core reports
+`Paired` immediately on enrollment.
+
+The host qualifies the content store on Android storage. The native
+`cas_qualify` checklist proves verified commits, size and digest
+enforcement, symlink refusal, partial resume, crash reconciliation,
+pin-aware eviction, and free-space reserve behavior on real
+app-private storage. The instrumented `CasQualifyDeviceTest` runs it.
+It uses a scratch directory and never touches live host state.
+
+Core owns configuration acceptance. The Android host projects the
+accepted document into Runtime values for the shared Player Runtime
+and platform values Kotlin applies: reliability, power, managed
+kiosk, accessibility, updates, and downloads. Structure is strict
+and values fall back to defaults, the way the reference player
+reads them. Install persists `installed-config.json`, narrows the
+content-store policy, and publishes the accepted revision to
+status. A restart applies the accepted document before any network
+access. The one-shot `syncConfig` reconciles against the bound
+server; the server-link driver reuses the same coordinator.
+
+Before you build an APK, install the Rust toolchain from
+`rust-toolchain.toml` and the Android targets from the CI workflow. Install
+`cargo-ndk`:
+
+```sh
+cargo install cargo-ndk --version 4.1.2 --locked
+```
+
+The Gradle task `buildNativeCore` compiles the host crate for `arm64-v8a`,
+`armeabi-v7a`, and `x86_64` and packages the libraries into the APK. It
+resolves the pinned NDK from `tilecastNdkVersion` in
+`app/build.gradle.kts`. If the NDK is missing, install it:
+
+```sh
+sdkmanager "ndk;29.0.14206865"
+```
+
+Unit tests do not need the native library. The host crate has its own Rust
+tests:
+
+```sh
+bash scripts/ci/cargo-player-android.sh test
+```
+
+The device test `PlayerCoreHostDeviceTest` starts the host on an emulator
+and checks the status snapshot. CI runs it in the Core host boot job:
+
+```sh
+cd apps/player-android
+./gradlew :app:connectedDebugAndroidTest "-Pandroid.testInstrumentationRunnerArguments.class=org.tilecast.player.core.PlayerCoreHostDeviceTest"
+```
+
+Every bundled native library must keep 16 KB page-size compatibility. CI
+checks the assembled APK. You can run the same check locally:
+
+```sh
+python3 apps/player-android/ci/check-native-alignment.py apps/player-android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+If the check reports a 4 KB alignment, do not ship the APK. Fix the
+toolchain flags first.
+
 ## Commissioning and unattended-recovery checks
 
 Pairing a fresh installation enters the required commissioning wizard before playback. Emulator tests can exercise PIN storage, permission-state verification, unattended self-update policy selection, boot receiver registration, immersive/keep-awake reporting, cached-manifest checks, recovery escalation, and safe mode. They cannot prove firmware foreground-launch behavior, physical-TV wake/standby, or whether a vendor installer honors Android's unattended-update request.

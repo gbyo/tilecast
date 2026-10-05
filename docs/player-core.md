@@ -368,7 +368,7 @@ It checks local paths, dependency aliases, workspace inheritance, normal,
 development, build, and target dependencies. CI and `make check` run it.
 Root Cargo and toolchain changes select shared Ubuntu/macOS validation and all
 Edge integration tests. Shared Player crate changes select these same consumer
-tests through the `player_core` area. Unknown root crates select all areas.
+tests plus Android validation through the `player_core` area. Unknown root crates select all areas.
 
 Keep Rust, real Linux builds, fake-server playback, real Server E2E, WPE E2E,
 Runtime conformance, Activity parity, migration crash and power-loss tests,
@@ -387,7 +387,20 @@ These tests supplement Edge system tests.
 
 ## Other Players and non-goals
 
-Android keeps Kotlin. Independent Players share fixtures at the rule's natural
+Android keeps Kotlin. Android hosts Core through the platform crate
+`tilecast-player-android-native` below `apps/player-android/native`.
+The crate owns one process-level host, a narrow JNI bridge, Android storage
+locations, and Android platform TLS trust. Kotlin keeps lifecycle, UI,
+WebView runtime hosting, Keystore, scheduling, and other OS behavior.
+Shared crates never depend on the Android crate. The dependency gate checks
+this direction. Production still runs the Kotlin Player. The Core host
+gains behavior behind its own qualification before any production cutover.
+The first qualified behavior is pairing. Core owns the session and
+enrollment. Kotlin supplies private stores and device facts and keeps the
+credential in the Keystore. A reset clears only the session and preserves
+an enrolled credential. Core reserves credential removal for revocation.
+
+Independent Players share fixtures at the rule's natural
 owner. `packages/player-contracts` contains only ownerless cross-player fixtures.
 Browser, Tizen, and webOS may later share a browser-host family and Player Runtime
 where supported. They need no native appliance Core or WASM requirement.
