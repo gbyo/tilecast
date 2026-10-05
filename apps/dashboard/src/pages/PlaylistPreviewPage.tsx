@@ -33,6 +33,7 @@ import {
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 import { isInteractiveShortcutTarget } from "../lib/keyboard";
 import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
+import { useAvailabilityInstant } from "../content/useAvailabilityInstant";
 import {
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
@@ -236,12 +237,24 @@ export function PlaylistPreviewPage() {
       : undefined,
     size: "full",
   });
+  const availabilityWindows = useMemo(
+    () => query.data?.items ?? [],
+    [query.data?.items],
+  );
+  const availabilityAt = useAvailabilityInstant(availabilityWindows);
+  const resolvedItems = useMemo(
+    () =>
+      (query.data?.items ?? []).map((item) =>
+        resolvePlaylistPreviewItem(item, playback),
+      ),
+    [query.data?.items, playback],
+  );
   const items = useMemo(
     () =>
-      (query.data?.items ?? [])
-        .map((item) => resolvePlaylistPreviewItem(item, playback))
-        .filter((item) => playlistPreviewItemAvailable(item)),
-    [query.data?.items, playback],
+      resolvedItems.filter((item) =>
+        playlistPreviewItemAvailable(item, availabilityAt),
+      ),
+    [resolvedItems, availabilityAt],
   );
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
