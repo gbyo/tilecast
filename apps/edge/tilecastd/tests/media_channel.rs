@@ -6,7 +6,7 @@ use std::os::unix::fs::PermissionsExt as _;
 use std::sync::Arc;
 
 use edge_cas::space::FixedSpace;
-use edge_cas::{ContentStore, IngestMeta, LruByDomain, StorePolicy};
+use edge_cas::{ContentStore, IngestMeta, LruByDomain, StorePolicy, UnixSecureOpener};
 use edge_platform::clock::system_clock;
 use edge_protocol::Sha256Digest;
 use edge_protocol::bounded::SafeText;
@@ -47,6 +47,7 @@ async fn authorized_range_reads_and_denials_use_only_verified_cas() {
         db,
         clock.clone(),
         Arc::new(FixedSpace(1 << 30)),
+        Arc::new(UnixSecureOpener),
         StorePolicy { limit_bytes: 1 << 28, reserved_free_bytes: 0 },
         Arc::new(LruByDomain),
     )

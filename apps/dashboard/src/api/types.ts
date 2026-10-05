@@ -1335,19 +1335,19 @@ export type SchedulePreview = {
   conflicts: string[];
 };
 
-export type PlayerPlatform = "android" | "linux";
+export type PlayerPlatform = "android" | "linux" | "windows";
 /**
  * Which player installs a release. `linux` is the operating system of both
- * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`); a
- * deployment reaches only screens of its release's family.
+ * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`);
+ * a deployment reaches only screens of its release's family.
  */
-export type PlayerFamily = "android" | "electron-linux" | "edge";
+export type PlayerFamily = "android" | "electron-linux" | "edge" | "windows";
 export type PlayerRelease = {
   id: string;
   tag: string;
   platform: PlayerPlatform;
   playerFamily: PlayerFamily;
-  /** The CPU architecture of an Edge release; empty for the other families. */
+  /** The CPU architecture of an Edge or Windows release; empty for the other families. */
   architecture: string;
   source: "github" | "upload";
   channel: "stable" | "beta";

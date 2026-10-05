@@ -11,6 +11,10 @@ Root default members are the Edge Rust packages. `--workspace` includes every
 member, including future native products. Use `make edge-check` and
 `make edge-test` for explicit Edge validation. Edge product version is
 `apps/edge/release/VERSION`, independently of Rust library versions.
+Use `make windows-check` and `make windows-test` for explicit Windows
+Player validation. Windows product version is
+`apps/player-windows/release/VERSION`. Windows unit tests run on any
+host; the renderer and conformance need Windows with WebView2.
 
 The production Docker builder images in `deploy/docker/Dockerfile` are a separate build environment. They can use newer, validated versions than `mise.toml`. Docker must not change the contributor baseline. To change any version, change it on purpose, and run the full checks for the affected areas.
 

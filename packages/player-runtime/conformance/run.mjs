@@ -5,12 +5,19 @@
  *   node conformance/run.mjs --engine electron --out DIR [--only a,b]
  *   node conformance/run.mjs --engine wpe --out DIR --wpe-runner BIN \
  *     --gst-plugin-dir DIR [--only a,b]
+ *   node conformance/run.mjs --engine webview2 --out DIR --windows-runner BIN \
+ *     [--only a,b]
  *   node conformance/run.mjs --engine android --out DIR [--only a,b] [--media-dir DIR]
  *
  * The android engine delegates to apps/player-android/conformance/run-android.sh,
  * which drives the instrumentation suite on an attached device or a running
  * emulator (API 34+ recommended, UTC timezone, mdpi for scale-1 screenshots).
  * run.mjs never boots or manages the emulator itself.
+ *
+ * The webview2 engine delegates to the tilecast-runtime-conformance binary
+ * (apps/player-windows), which must run on Windows with the WebView2
+ * Runtime installed, at 100% display scaling so captures match the
+ * fixture viewport exactly.
  *
  * Results land in DIR/<engine>/<fixture>/ (result.json and screenshots). The
  * environment is normalized for every engine: UTC, en-US, a fixed viewport,
@@ -43,9 +50,13 @@ const fixtures =
     : args.get("suite") === "widget-perf"
       ? widgetPerfScenarios()
       : conformanceFixtures;
-if (!["electron", "electron-legacy", "wpe", "android"].includes(engine)) {
+if (
+  !["electron", "electron-legacy", "wpe", "webview2", "android"].includes(
+    engine,
+  )
+) {
   console.error(
-    "run: --engine electron|electron-legacy|wpe|android is required",
+    "run: --engine electron|electron-legacy|wpe|webview2|android is required",
   );
   process.exit(64);
 }
@@ -235,6 +246,29 @@ if (engine === "android") {
             { env, stdio: "inherit" },
           )
         : spawnSync(electron, command, { env, stdio: "inherit" });
+    } else if (engine === "webview2") {
+      const runner = args.get("windows-runner");
+      if (!runner) {
+        console.error("run: --windows-runner is required for webview2");
+        process.exit(64);
+      }
+      child = spawnSync(
+        runner,
+        [
+          "--runtime-dir",
+          runtimeDir,
+          "--host-script",
+          hostScript,
+          "--fixture",
+          fixtureFile,
+          "--cas-root",
+          path.join(mediaDir, "cas"),
+          "--out",
+          dir,
+          `--size=${fixture.viewport.width}x${fixture.viewport.height}`,
+        ],
+        { env, stdio: "inherit" },
+      );
     } else {
       const runner = args.get("wpe-runner");
       const gst = args.get("gst-plugin-dir");

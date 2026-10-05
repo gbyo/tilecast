@@ -4712,7 +4712,7 @@ export interface paths {
     put?: never;
     /**
      * Upload and verify a signed Tilecast Player release bundle
-     * @description Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+     * @description Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
      */
     post: operations["uploadPlayerRelease"];
     delete?: never;
@@ -7699,13 +7699,10 @@ export interface components {
       toId: string;
       relationship: string;
     };
-    /**
-     * @description The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
-     * @enum {unknown}
-     */
-    PlayerFamily: "android" | "electron-linux" | "edge";
-    /** @enum {string} */
-    PlayerPlatform: "android" | "linux";
+    /** @description The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize. */
+    PlayerFamily: string;
+    /** @description The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize. */
+    PlayerPlatform: string;
     /** @enum {string} */
     PlayerReleaseCacheStatus: "missing" | "downloading" | "cached" | "failed";
     /** @enum {string} */
@@ -7931,28 +7928,27 @@ export interface components {
       releaseId: string;
       /** @description The artifact's asset name. */
       artifactId?: string;
-      /** @enum {unknown} */
-      platform: "android" | "linux";
+      platform: string;
       versionCode: number;
       versionName: string;
       playerFamily?: components["schemas"]["PlayerFamily"];
       /**
-       * @description Tilecast Edge only.
+       * @description Tilecast Edge and Windows Player only.
        * @enum {unknown}
        */
       architecture?: "x86_64" | "aarch64";
-      /** @description Linux families. */
+      /** @description Every family but Android. */
       artifactSizeBytes?: number;
-      /** @description Linux families. */
+      /** @description Every family but Android. */
       artifactSha256?: string;
-      /** @description `/api/v1/player/updates/{releaseId}/artifact` for the Linux families. */
+      /** @description `/api/v1/player/updates/{releaseId}/artifact` for every family but Android. */
       artifactPath?: string;
       /**
        * Format: byte
-       * @description Tilecast Edge only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
+       * @description Tilecast Edge and Windows Player only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
        */
       signedManifest?: string;
-      /** @description Tilecast Edge only. The envelope's base64 Ed25519 signature text. */
+      /** @description Tilecast Edge and Windows Player only. The envelope's base64 Ed25519 signature text. */
       manifestSignature?: string;
       /** @description Tilecast Edge only. The state database schema the release migrates to. */
       stateSchemaVersion?: number;
@@ -7971,9 +7967,9 @@ export interface components {
     };
     /** @description The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive. */
     PlayerHeartbeat: {
-      /** @description `android`, `electron-linux` or `edge`. The server keeps only these values; another value is recorded as absent. */
+      /** @description `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent. */
       playerFamily?: string;
-      /** @description `x86_64` or `aarch64`, kept only with `playerFamily: edge`. An Edge screen without a known architecture is `incompatible` for Edge deployments. */
+      /** @description `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments. */
       playerArchitecture?: string;
     };
     MultiFactorVerifyRequest: {
@@ -23401,10 +23397,9 @@ export interface operations {
             data?: {
               /** Format: uuid */
               id?: string;
-              /** @enum {unknown} */
-              platform?: "android" | "linux";
+              platform?: string;
               playerFamily?: components["schemas"]["PlayerFamily"];
-              /** @description `x86_64` or `aarch64` for Tilecast Edge; empty for the other families. */
+              /** @description `x86_64` or `aarch64` for Tilecast Edge and Windows Player; empty for the other families. */
               architecture?: string;
               /** @enum {unknown} */
               source?: "upload" | "github";

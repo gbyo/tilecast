@@ -1,29 +1,29 @@
 ---
 title: Player capability matrix
-description: Compare Android, stable Linux, and Tilecast Edge before choosing hardware or depending on a platform-specific feature.
+description: Compare Android, stable Linux, Tilecast Edge, and Windows before choosing hardware or depending on a platform-specific feature.
 ---
 
 Available features can depend on the Player platform, operating-system version, firmware, adapters, and display hardware.
 
 Use this table as a starting point, then check the actual screen in Studio before relying on a hardware-specific feature.
 
-| Capability                                 | Android TV / Google TV / Fire TV                      | Stable Linux Player                     | Tilecast Edge                                |
-| ------------------------------------------ | ----------------------------------------------------- | --------------------------------------- | -------------------------------------------- |
-| Images, video, Widgets, Layouts, Schedules | Supported                                             | Supported                               | Implemented; codecs need hardware testing    |
-| Prepared offline playback                  | Supported                                             | Supported                               | Implemented                                  |
-| Website and YouTube content                | Supported where the Android web runtime can load it   | Supported by Electron webviews          | Implemented; needs hardware testing          |
-| Quick Present and Takeover                 | Supported                                             | Supported                               | Implemented                                  |
-| Synchronized Display Groups                | Supported                                             | Supported                               | Implemented                                  |
-| Span walls                                 | Supported with current platform limits                | Supported with current platform limits  | Implemented; rotation needs hardware testing |
-| Live preview                               | Supported                                             | Supported                               | Implemented                                  |
-| Watch live                                 | Supported on capture-capable states                   | Supported on capture-capable states     | Implemented                                  |
-| Player updates                             | Supported; Android/Fire OS can require local approval | Supported for the managed AppImage path | Implemented, with automatic rollback         |
-| Managed Kiosk                              | Device-owner capable Android only                     | Not applicable                          | Not applicable                               |
-| Android Power Assist                       | Device/firmware dependent                             | Not applicable                          | Not applicable                               |
-| Accessibility Control Assist               | Android platform feature; Fire OS support differs     | Not applicable                          | Not applicable                               |
-| Display Control                            | Not provided by Tilecast Player                       | HDMI-CEC and DDC/CI where reported      | Implemented; hardware dependent              |
-| AirPlay receiver                           | Not supported                                         | Supported when provisioned              | Not part of Edge 1                           |
-| Presentation Network                       | Not supported                                         | Supported when provisioned              | Implemented; hardware dependent              |
+| Capability                                 | Android TV / Google TV / Fire TV                      | Stable Linux Player                     | Tilecast Edge                                | Windows Player                            |
+| ------------------------------------------ | ----------------------------------------------------- | --------------------------------------- | -------------------------------------------- | ----------------------------------------- |
+| Images, video, Widgets, Layouts, Schedules | Supported                                             | Supported                               | Implemented; codecs need hardware testing    | Implemented; needs hardware qualification |
+| Prepared offline playback                  | Supported                                             | Supported                               | Implemented                                  | Implemented; needs hardware qualification |
+| Website and YouTube content                | Supported where the Android web runtime can load it   | Supported by Electron webviews          | Implemented; needs hardware testing          | Implemented; needs hardware qualification |
+| Quick Present and Takeover                 | Supported                                             | Supported                               | Implemented                                  | Implemented; needs hardware qualification |
+| Synchronized Display Groups                | Supported                                             | Supported                               | Implemented                                  | Implemented; needs hardware qualification |
+| Span walls                                 | Supported with current platform limits                | Supported with current platform limits  | Implemented; rotation needs hardware testing | Implemented; needs hardware qualification |
+| Live preview                               | Supported                                             | Supported                               | Implemented                                  | Implemented; needs hardware qualification |
+| Watch live                                 | Supported on capture-capable states                   | Supported on capture-capable states     | Implemented                                  | Implemented; needs hardware qualification |
+| Player updates                             | Supported; Android/Fire OS can require local approval | Supported for the managed AppImage path | Implemented, with automatic rollback         | Implemented; signed MSIX per architecture |
+| Managed Kiosk                              | Device-owner capable Android only                     | Not applicable                          | Not applicable                               | Not applicable                            |
+| Android Power Assist                       | Device/firmware dependent                             | Not applicable                          | Not applicable                               | Not applicable                            |
+| Accessibility Control Assist               | Android platform feature; Fire OS support differs     | Not applicable                          | Not applicable                               | Not applicable                            |
+| Display Control                            | Not provided by Tilecast Player                       | HDMI-CEC and DDC/CI where reported      | Implemented; hardware dependent              | Not provided by the Windows Player        |
+| AirPlay receiver                           | Not supported                                         | Supported when provisioned              | Not part of Edge 1                           | Not supported                             |
+| Presentation Network                       | Not supported                                         | Supported when provisioned              | Implemented; hardware dependent              | Not supported                             |
 
 ## Fire TV uses the Android Player
 
@@ -36,3 +36,7 @@ Device-owner kiosk setup, accessibility settings, unattended app updates, and bo
 The Edge column shows what the Edge software does. None of it is qualified on physical hardware yet, so keep production Linux screens on the stable Linux Player until a Tilecast release lists your hardware as supported.
 
 See the [Edge capability matrix](../../edge/capabilities/) for the details and limits of each feature.
+
+## Windows is not qualified for production yet
+
+The Windows column shows what the Windows Player software does. It is not qualified on physical x64 or ARM64 hardware yet, so keep production screens on a qualified Player until a Tilecast release lists Windows as supported for your setup.

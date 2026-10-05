@@ -2,7 +2,7 @@
 # make doctor [area] — area-aware prerequisite diagnostics for Tilecast
 # contributors. Reports versions and missing tools; it never installs,
 # downloads, or changes anything. Areas: all (default), server,
-# dashboard, edge, android, media, docs.
+# dashboard, edge, windows, android, media, docs.
 set -u
 AREA="${1:-${AREA:-all}}"
 
@@ -30,6 +30,8 @@ want edge docker "docker --version"
 want server psql "psql --version"
 want edge cargo "cargo --version"
 want edge rustc "rustc --version"
+want windows cargo "cargo --version"
+want windows rustc "rustc --version"
 want android java "java -version 2>&1"
 want media ffmpeg "ffmpeg -version"
 want media ffprobe "ffprobe -version"
@@ -73,4 +75,4 @@ case " $AREA " in
 		;;
 esac
 
-echo "area: $AREA (run 'make doctor AREA=<server|dashboard|edge|android|media|docs>' to narrow)"
+echo "area: $AREA (run 'make doctor AREA=<server|dashboard|edge|windows|android|media|docs>' to narrow)"

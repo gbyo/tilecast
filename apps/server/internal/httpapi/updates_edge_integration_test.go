@@ -185,6 +185,19 @@ func TestEdgeAndElectronReleasesNeverReachEachOthersScreens(t *testing.T) {
 		t.Fatalf("an incompatible or other-family screen got %d install commands", armCommands)
 	}
 
+	// The symmetric proof for the native ARM64 release artifact: an
+	// aarch64 release reaches the aarch64 screen and marks the x86_64
+	// screen incompatible.
+	arm, count := f.deploy(t, f.edgeRelease(t, "aarch64"), electron, edgeIntel, edgeArm, unreported, android)
+	if count != 3 {
+		t.Fatalf("an ARM64 Edge release targets exactly the three Edge screens, got %d", count)
+	}
+	for screen, want := range map[uuid.UUID]string{electron: "not_targeted", android: "not_targeted", edgeIntel: "incompatible", edgeArm: "pending", unreported: "incompatible"} {
+		if got := f.state(t, arm, screen); got != want {
+			t.Fatalf("arm64 edge deployment: screen state %q, want %q", got, want)
+		}
+	}
+
 	appImage, count := f.deploy(t, f.electronRelease(t), electron, edgeIntel, edgeArm, android)
 	if count != 1 || f.state(t, appImage, electron) != "pending" || f.state(t, appImage, edgeIntel) != "not_targeted" {
 		t.Fatalf("an Electron release reaches only the Electron screen (count %d)", count)

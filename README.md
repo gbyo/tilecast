@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  Self-hosted digital signage for Android TV, Fire TV, Google TV, and Linux.
+  Self-hosted digital signage for Android TV, Fire TV, Google TV, Linux, and Windows.
 </p>
 
 <p align="center">
@@ -57,9 +57,9 @@ See [the documentation](https://tilecast.org/) for the full feature set.
 
 ## Players
 
-Tilecast Player runs on Android-based signage devices and Linux.
+Tilecast Player runs on Android-based signage devices, Linux, and Windows.
 
-Android support covers Android TV, Google TV, Fire TV, and compatible dedicated players. The repository also contains the Linux players and **Tilecast Edge**, the newer Linux player architecture built around Tilecast's shared Player Runtime.
+Android support covers Android TV, Google TV, Fire TV, and compatible dedicated players. The repository also contains the Linux players and **Tilecast Edge**, the newer Linux player architecture built around Tilecast's shared Player Runtime. **Tilecast Player for Windows** is the native Windows host of the same shared Player Core and Player Runtime, for Windows 10 and Windows 11 PCs on x64 and ARM64; see [`docs/tilecast-windows.md`](docs/tilecast-windows.md).
 
 Player development and platform-specific details live in [`apps/`](apps/) and [`docs/`](docs/).
 
@@ -93,7 +93,7 @@ For production installs, player setup, reverse proxies, updates, and operations,
 
 ## Development
 
-Tilecast is a monorepo containing the Go server, React/TypeScript Studio, Android Player, Linux players, shared Player Runtime, plugins, and documentation.
+Tilecast is a monorepo containing the Go server, React/TypeScript Studio, Android Player, Linux players, Windows Player, shared Player Runtime, plugins, and documentation.
 
 The development toolchain is defined in `mise.toml`.
 

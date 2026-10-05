@@ -1,0 +1,216 @@
+name: Windows Player CI
+
+# The Windows Player is developed as a stack of pull requests whose bases
+# are other branches, so this workflow runs for pull requests against any
+# base. Rust unit tests (including the MSIX, envelope, package-identity
+# and version-mapping contract tests) run natively on Windows x64 and
+# Windows ARM64; the Windows-only code also cross-checks on Linux; and
+# the WebView2 conformance engine runs the shared Runtime fixture corpus
+# against the Electron reference on a real Windows runner.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Weekly against the current Evergreen WebView2, so runtime drift
+    # shows up here before it shows up in qualification.
+    - cron: "42 5 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      windows: ${{ steps.paths.outputs.windows }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Validate affected-area graph
+        run: node --test scripts/ci/affected.test.mjs
+      - name: Classify changed paths
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "schedule" ]; then
+            node scripts/ci/affected.mjs --full --github-output
+          else
+            node scripts/ci/affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --github-output
+          fi
+
+  rust:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    name: Rust unit tests (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+          - runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      # rust-toolchain.toml pins the toolchain; rustup installs it on first use.
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: player-windows-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: python3 scripts/ci/check-player-architecture.py
+      - run: cargo fmt -p tilecast-windows -- --check
+      - run: cargo clippy --locked -p tilecast-windows --all-targets --all-features -- -D warnings
+      - run: cargo test --locked -p tilecast-windows --all-features
+      - name: MSIX version-mapping smoke test
+        run: |
+          set -euo pipefail
+          test "$(./target/debug/tilecast-msix-version.exe 0.2.0 stable)" = "0.2.0.2"
+          test "$(./target/debug/tilecast-msix-version.exe 0.2.0 beta)" = "0.2.0.1"
+
+  gnu:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    name: Windows-only code cross-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: rustup show active-toolchain
+      - run: rustup target add x86_64-pc-windows-gnu
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: player-windows-gnu-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: cargo check --locked -p tilecast-windows --all-targets --all-features --target x86_64-pc-windows-gnu
+      - run: cargo clippy --locked -p tilecast-windows --all-targets --all-features --target x86_64-pc-windows-gnu -- -D warnings
+
+  conformance:
+    needs: changes
+    if: needs.changes.outputs.windows == 'true'
+    name: WebView2 conformance
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: rustup show active-toolchain
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: player-windows-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+      - run: npm run build --workspace @gibsonmb71/tilecast-player-linux
+      - run: cargo build --locked -p tilecast-windows --bin tilecast-runtime-conformance
+      - name: Record the WebView2 engine version
+        run: |
+          node -e "console.log('webview2 conformance on ' + process.platform + '-' + process.arch)"
+          ls /c/'Program Files (x86)'/'Microsoft'/'EdgeWebView'/'Application' 2>/dev/null || true
+      - name: WebView2 engine
+        run: |
+          mkdir -p "$RUNNER_TEMP/conformance"
+          node packages/player-runtime/conformance/run.mjs --engine webview2 \
+            --out "$RUNNER_TEMP/conformance" \
+            --windows-runner "$PWD/target/debug/tilecast-runtime-conformance.exe"
+      - name: Electron reference engine
+        env:
+          # The .bin shim is a .cmd file; run the executable directly.
+          TILECAST_ELECTRON: ${{ github.workspace }}\node_modules\electron\dist\electron.exe
+        run: |
+          node packages/player-runtime/conformance/run.mjs --engine electron \
+            --out "$RUNNER_TEMP/conformance"
+      - name: Compare the engines
+        run: |
+          node packages/player-runtime/conformance/compare.mjs \
+            --a "$RUNNER_TEMP/conformance/electron" --b "$RUNNER_TEMP/conformance/webview2" \
+            --report "$RUNNER_TEMP/conformance/report"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-webview2-conformance
+          path: |
+            ${{ runner.temp }}/conformance/report/**
+            ${{ runner.temp }}/conformance/*/summary.json
+            ${{ runner.temp }}/conformance/*/*/result.json
+          if-no-files-found: ignore
+
+  required:
+    name: Required Windows validation
+    if: always()
+    needs:
+      - changes
+      - rust
+      - gnu
+      - conformance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every selected job to pass
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUST_SELECTED: ${{ needs.changes.outputs.windows == 'true' }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          GNU_SELECTED: ${{ needs.changes.outputs.windows == 'true' }}
+          GNU_RESULT: ${{ needs.gnu.result }}
+          CONFORMANCE_SELECTED: ${{ needs.changes.outputs.windows == 'true' }}
+          CONFORMANCE_RESULT: ${{ needs.conformance.result }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error title=Required validation failed::Changed-area detection was $CHANGES_RESULT"
+            exit 1
+          fi
+          check() {
+            local job="$1"
+            local selected="$2"
+            local result="$3"
+            if [ "$result" = "success" ]; then
+              return 0
+            fi
+            if [ "$selected" = "false" ] && [ "$result" = "skipped" ]; then
+              return 0
+            fi
+            echo "::error title=Required validation failed::$job was $result (selected=$selected)"
+            return 1
+          }
+          check rust "$RUST_SELECTED" "$RUST_RESULT"
+          check gnu "$GNU_SELECTED" "$GNU_RESULT"
+          check conformance "$CONFORMANCE_SELECTED" "$CONFORMANCE_RESULT"

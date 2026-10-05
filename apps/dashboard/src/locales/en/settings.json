@@ -1526,7 +1526,9 @@
       "edgeNote": "Each Tilecast Edge screen downloads and verifies the release, restarts into it, and confirms it after it reconnects and shows content. A screen that cannot confirm returns to its previous release on its own.",
       "verifyingEdge": "Verifying the signed envelope and the release archive hash…",
       "architectureUnknown": "architecture not reported",
-      "edgeArchive": "release archive"
+      "edgeArchive": "release archive",
+      "windowsNote": "Each Windows player downloads and verifies the package, installs it, and restarts into the new version.",
+      "verifyingWindows": "Verifying the signed envelope and the package hash…"
     },
     "setup": {
       "connect": "Connect GitHub",

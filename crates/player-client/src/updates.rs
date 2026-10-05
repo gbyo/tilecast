@@ -2,7 +2,9 @@
 //! release metadata for a targeted screen, and deployment status reports.
 //!
 //! Metadata is validated here and nothing more: the caller verifies the
-//! signed envelope with the Tilecast key before it trusts any field.
+//! signed envelope with the Tilecast key before it trusts any field. Only the
+//! envelope families (`edge`, `windows`) carry a signed envelope; the other
+//! families have no envelope to parse.
 
 use base64::Engine as _;
 use serde_json::Value;
@@ -12,7 +14,8 @@ use serde_json::Value;
 pub const MAX_SIGNED_MANIFEST_BYTES: usize = 16 * 1024;
 const MAX_SIGNATURE_BYTES: usize = 1024;
 
-/// `GET /player/updates/{releaseId}` for an Edge release.
+/// `GET /player/updates/{releaseId}` for an envelope release (`edge` or
+/// `windows`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateMetadata {
     pub release_id: uuid::Uuid,
@@ -34,15 +37,19 @@ fn text<'a>(data: &'a Value, key: &str, max: usize) -> Option<&'a str> {
 }
 
 /// Parses the `data` of a metadata answer. `None` for anything that is not a
-/// well-formed Edge release answer.
+/// well-formed envelope release answer.
 pub fn update_metadata(data: &Value) -> Option<UpdateMetadata> {
     let signed_manifest = base64::engine::general_purpose::STANDARD
         .decode(text(data, "signedManifest", MAX_SIGNED_MANIFEST_BYTES.div_ceil(3) * 4)?)
         .ok()
         .filter(|bytes| bytes.len() <= MAX_SIGNED_MANIFEST_BYTES)?;
+    let player_family = text(data, "playerFamily", 32)?;
+    if player_family != "edge" && player_family != "windows" {
+        return None;
+    }
     Some(UpdateMetadata {
         release_id: uuid::Uuid::parse_str(text(data, "releaseId", 64)?).ok()?,
-        player_family: text(data, "playerFamily", 32)?.to_owned(),
+        player_family: player_family.to_owned(),
         architecture: text(data, "architecture", 32)?.to_owned(),
         version_code: data.get("versionCode").and_then(Value::as_u64)?,
         version_name: text(data, "versionName", 64)?.to_owned(),
@@ -57,7 +64,8 @@ pub fn update_metadata(data: &Value) -> Option<UpdateMetadata> {
 /// A status report (`POST /player/update-deployments/{id}/status`). The
 /// server accepts `downloading`, `downloaded`, `verifying`, `ready`,
 /// `installing`, `reconnecting`, `failed`, and for Tilecast Edge the
-/// explicit confirmation `succeeded`.
+/// explicit confirmation `succeeded`. The Windows Player never sends
+/// `succeeded`: its targets settle from the heartbeat of the new build.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpdateReport {
     pub state: &'static str,
@@ -108,10 +116,27 @@ mod tests {
     }
 
     #[test]
-    fn a_non_edge_or_oversized_answer_is_refused() {
+    fn a_windows_answer_parses_like_an_edge_answer() {
+        let mut windows = answer();
+        windows["artifactId"] = Value::String("tilecast-windows-0.2.0-aarch64.msix".into());
+        windows["platform"] = Value::String("windows".into());
+        windows["playerFamily"] = Value::String("windows".into());
+        windows["architecture"] = Value::String("aarch64".into());
+        windows.as_object_mut().unwrap().remove("stateSchemaVersion");
+        let metadata = update_metadata(&windows).expect("a windows answer parses");
+        assert_eq!(metadata.player_family, "windows");
+        assert_eq!(metadata.architecture, "aarch64");
+        assert_eq!(metadata.signed_manifest, br#"{"a":1}"#);
+    }
+
+    #[test]
+    fn a_non_envelope_or_oversized_answer_is_refused() {
         let mut appimage = answer();
         appimage.as_object_mut().unwrap().remove("signedManifest");
         assert!(update_metadata(&appimage).is_none(), "an Electron answer has no envelope");
+        let mut wrong_family = answer();
+        wrong_family["playerFamily"] = Value::String("electron-linux".into());
+        assert!(update_metadata(&wrong_family).is_none(), "an envelope for another family is refused");
         let mut huge = answer();
         huge["signedManifest"] = Value::String("A".repeat(40_000));
         assert!(update_metadata(&huge).is_none());

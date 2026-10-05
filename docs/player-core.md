@@ -107,7 +107,8 @@ adapter must preserve link and regular-file checks.
 The shared CAS is implemented in `crates/player-cas`. Linux free-space providers
 live in `edge-cas::space` and call `edge-platform::disk::available_bytes`.
 The shared crate has no Edge dependency. Its secure Unix opening uses the same
-no-follow, nonblocking flags and opened-file checks on Linux and macOS. Privileged
+no-follow, nonblocking flags and opened-file checks on Linux and macOS, and its
+Windows opening rejects reparse points and non-regular files. Privileged
 Edge helpers do not depend on CAS, state, the server client, or Core.
 
 ## Server identity and credentials
@@ -373,7 +374,8 @@ Keep Rust, real Linux builds, fake-server playback, real Server E2E, WPE E2E,
 Runtime conformance, Activity parity, migration crash and power-loss tests,
 systemd update and rollback, hardware-provider tests, packaged sandbox, and
 release reproducibility qualification. Linux integration does not run on macOS.
-Each new shared crate needs Ubuntu and macOS validation from its first PR.
+Each new shared crate needs Ubuntu (x64 and ARM64), macOS, and Windows (x64
+and ARM64) validation from its first PR.
 
 Core tests use temporary SQLite and CAS, fake renderer and server ports,
 provider fakes, and controllable clocks. Cover identity mismatch, rejection and
@@ -390,7 +392,10 @@ owner. `packages/player-contracts` contains only ownerless cross-player fixtures
 Browser, Tizen, and webOS may later share a browser-host family and Player Runtime
 where supported. They need no native appliance Core or WASM requirement.
 
-This project does not build macOS, Windows, browser, or smart-TV Players.
+This project does not build macOS, browser, or smart-TV Players.
+The Windows Player (`apps/player-windows`) is the second native host: it
+proves the extraction by composing the same shared crates with a WebView2
+renderer instead of a second Player implementation.
 It does not replace Runtime or Presentation Model, rewrite shipped migrations,
 create a universal updater or IPC framework, change Player API behavior,
 relax privilege boundaries, or decide macOS process topology.

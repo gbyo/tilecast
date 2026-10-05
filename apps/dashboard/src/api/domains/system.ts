@@ -10,7 +10,12 @@
  * exceptional transport.
  */
 import { apiDelete, apiGet, apiPatch, apiPost, apiPut } from "../transport";
+import { ApiError } from "../errors";
 import type { components } from "@tilecast/api-schema/generated/openapi";
+import {
+  normalizePlayerFamily,
+  normalizePlayerPlatform,
+} from "../../playerPlatform";
 import type {
   BackupJob,
   BackupList,
@@ -29,6 +34,8 @@ import type {
   NotificationStatus,
   NotificationWebhook,
   NotificationWebhookCreated,
+  PlayerRelease,
+  PlayerReleaseList,
   SettingsDocument,
   SettingsExportDocument,
   SystemIdentity,
@@ -46,8 +53,36 @@ export function getSystemIdentity(): Promise<SystemIdentity> {
   return apiGet("/api/v1/system/identity");
 }
 
-export function listPlayerReleases() {
-  return apiGet("/api/v1/player-releases");
+/** Wire shape of player releases; family and platform arrive as open strings. */
+export type WirePlayerRelease = components["schemas"]["PlayerRelease"];
+
+/**
+ * Narrow a wire release to the families Studio knows. Unknown values arrive
+ * as absent from the lists: Studio has no tab for a family it does not
+ * know, and must not show its releases under another family's tab.
+ */
+export function normalizePlayerRelease(
+  wire: WirePlayerRelease,
+): PlayerRelease | undefined {
+  const platform = normalizePlayerPlatform(wire.platform);
+  const playerFamily = normalizePlayerFamily(wire.playerFamily);
+  if (platform === undefined || playerFamily === undefined) return undefined;
+  return { ...wire, platform, playerFamily };
+}
+
+export async function listPlayerReleases(): Promise<PlayerReleaseList> {
+  const result = await apiGet("/api/v1/player-releases");
+  return {
+    repository: result.repository,
+    lastCheckedAt: result.lastCheckedAt ?? undefined,
+    providerError: result.providerError ?? undefined,
+    manifestKeyConfigured: result.manifestKeyConfigured,
+    githubAuth: result.githubAuth,
+    items: result.items.flatMap((item) => {
+      const release = normalizePlayerRelease(item);
+      return release === undefined ? [] : [release];
+    }),
+  };
 }
 
 export function checkPlayerReleases(csrfToken: string) {
@@ -101,9 +136,13 @@ export type WireUpdateDeploymentDetail =
 
 export function normalizeUpdateDeployment(
   wire: WireUpdateDeploymentSummary,
-): UpdateDeployment {
+): UpdateDeployment | undefined {
+  const platform = normalizePlayerPlatform(wire.platform);
+  if (platform === undefined) return undefined;
   return {
     ...wire,
+    platform,
+    playerFamily: normalizePlayerFamily(wire.playerFamily),
     pauseReason: wire.pauseReason ?? undefined,
     lastFailure: wire.lastFailure ?? undefined,
   };
@@ -111,9 +150,13 @@ export function normalizeUpdateDeployment(
 
 export function normalizeUpdateDeploymentDetail(
   wire: WireUpdateDeploymentDetail,
-): UpdateDeploymentDetail {
+): UpdateDeploymentDetail | undefined {
+  const platform = normalizePlayerPlatform(wire.platform);
+  if (platform === undefined) return undefined;
   return {
     ...wire,
+    platform,
+    playerFamily: normalizePlayerFamily(wire.playerFamily),
     completedAt: wire.completedAt ?? undefined,
     pauseReason: wire.pauseReason ?? undefined,
     screens: wire.screens.map((screen) => ({
@@ -133,17 +176,31 @@ export async function listUpdateDeployments(): Promise<{
   items: UpdateDeployment[];
 }> {
   const result = await apiGet("/api/v1/update-deployments");
-  return { ...result, items: result.items.map(normalizeUpdateDeployment) };
+  return {
+    ...result,
+    items: result.items.flatMap((item) => {
+      const deployment = normalizeUpdateDeployment(item);
+      return deployment === undefined ? [] : [deployment];
+    }),
+  };
 }
 
 export async function getUpdateDeployment(
   id: string,
 ): Promise<UpdateDeploymentDetail> {
-  return normalizeUpdateDeploymentDetail(
+  const detail = normalizeUpdateDeploymentDetail(
     await apiGet("/api/v1/update-deployments/{id}", {
       params: { path: { id } },
     }),
   );
+  if (detail === undefined) {
+    throw new ApiError(
+      "This deployment's player family is not supported by this Studio version.",
+      422,
+      "unknown_player_family",
+    );
+  }
+  return detail;
 }
 
 export function createUpdateDeployment(

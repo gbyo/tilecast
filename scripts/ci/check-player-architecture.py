@@ -15,6 +15,11 @@ SHARED = {
     "player-core": {"player-types", "player-state", "player-cas", "player-client"},
 }
 KINDS = ("dependencies", "dev-dependencies", "build-dependencies")
+# Anything only a Windows host can use stays in apps/player-windows; the
+# shared crates build and test on every host OS.
+PLATFORM_PREFIXES = ("windows", "webview2")
+WINDOWS_HOST = "tilecast-windows"
+WINDOWS_MANIFEST = Path("apps/player-windows/Cargo.toml")
 
 
 def read_manifest(path):
@@ -71,9 +76,33 @@ def registered_crates(root):
     return registered
 
 
-def violations(root):
+def classify_dependency(alias, original, base, workspace_path, workspace):
+    """Resolve one dependency to (kind, package, target).
+
+    kind is "registry" (a package name with no local target), "local" (a
+    package name with its resolved directory), "unresolved" (a workspace
+    alias without a workspace definition) or "missing" (a path without a
+    manifest).
+    """
+    dependency = original if isinstance(original, dict) else {}
+    if dependency.get("workspace"):
+        inherited = workspace.get("dependencies", {}).get(alias)
+        if inherited is None:
+            return ("unresolved", alias, None)
+        dependency = inherited if isinstance(inherited, dict) else {}
+        base = workspace_path.parent
+    package = dependency.get("package", alias)
+    if "path" not in dependency:
+        return ("registry", str(package), None)
+    target = (base / dependency["path"]).resolve()
+    if not (target / "Cargo.toml").is_file():
+        return ("missing", alias, target)
+    package = read_manifest(target / "Cargo.toml").get("package", {}).get("name")
+    return ("local", str(package), target)
+
+
+def shared_violations(root, registered):
     errors = []
-    registered = registered_crates(root)
     # Inspect every shared manifest, including a crate not yet registered as
     # a workspace member. Generated build directories are never inputs.
     manifests = sorted((root / "crates").glob("player-*/Cargo.toml"))
@@ -87,35 +116,58 @@ def violations(root):
             errors.append(f"{path.relative_to(root)}: not registered in the root Cargo workspace")
         workspace_path, workspace = workspace_for(path)
         for alias, original in dependency_tables(manifest):
-            dependency = original if isinstance(original, dict) else {}
-            base = path.parent
-            if dependency.get("workspace"):
-                inherited = workspace.get("dependencies", {}).get(alias)
-                if inherited is None:
-                    errors.append(f"{name}: unresolved workspace dependency {alias}")
-                    continue
-                dependency = inherited if isinstance(inherited, dict) else {}
-                base = workspace_path.parent
-            package = dependency.get("package", alias)
-            target = None
-            if "path" in dependency:
-                target = (base / dependency["path"]).resolve()
-                target_manifest = target / "Cargo.toml"
-                if not target_manifest.is_file():
-                    errors.append(f"{name}: missing local dependency {alias}")
-                    continue
-                package = read_manifest(target_manifest).get("package", {}).get("name")
+            kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
+            if kind == "unresolved":
+                errors.append(f"{name}: unresolved workspace dependency {alias}")
+                continue
+            if kind == "missing":
+                errors.append(f"{name}: missing local dependency {alias}")
+                continue
+            if kind == "local":
                 # Local shared dependencies must stay in the shared layer,
                 # even if an Edge package uses an innocent package name.
-                if target != (root / "crates" / str(package)).resolve():
+                if target != (root / "crates" / package).resolve():
                     errors.append(f"{name}: {alias} points outside the shared Player crates")
             if package in SHARED:
                 # Self dev-dependencies enable test features in Cargo.
                 if package != name and package not in SHARED[name]:
                     errors.append(f"{name}: forbidden shared dependency {package}")
-            elif target is not None or str(package).startswith(("edge-", "tilecast")):
+            elif kind == "local" or package.startswith(("edge-", "tilecast")):
                 errors.append(f"{name}: forbidden native host dependency {package}")
+            elif package.startswith(PLATFORM_PREFIXES):
+                errors.append(f"{name}: forbidden OS-specific dependency {package}")
     return errors
+
+
+def windows_violations(root):
+    """The Windows host builds on the shared crates, never on another host."""
+    path = root / WINDOWS_MANIFEST
+    if not path.is_file():
+        return []
+    manifest = read_manifest(path)
+    if manifest.get("package", {}).get("name") != WINDOWS_HOST:
+        return [f"{WINDOWS_MANIFEST}: the Windows host keeps its documented package name"]
+    errors = []
+    workspace_path, workspace = workspace_for(path)
+    hosts = ((root / "apps" / "edge").resolve(), "the Edge host"), ((root / "apps" / "player-linux").resolve(), "the Electron Player")
+    for alias, original in dependency_tables(manifest):
+        kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
+        if kind == "unresolved":
+            errors.append(f"{WINDOWS_HOST}: unresolved workspace dependency {alias}")
+        elif kind == "missing":
+            errors.append(f"{WINDOWS_HOST}: missing local dependency {alias}")
+        elif kind == "local":
+            for host, label in hosts:
+                if target == host or host in target.parents:
+                    errors.append(f"{WINDOWS_HOST}: {alias} depends on {label}")
+        elif package.startswith(("edge-", "tilecast")):
+            errors.append(f"{WINDOWS_HOST}: forbidden native host dependency {package}")
+    return errors
+
+
+def violations(root):
+    registered = registered_crates(root)
+    return shared_violations(root, registered) + windows_violations(root)
 
 
 def main():

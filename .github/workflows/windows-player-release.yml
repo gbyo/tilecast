@@ -1,0 +1,156 @@
+name: Tilecast Windows Player Release
+
+# Builds signed Tilecast Player for Windows releases, one MSIX per
+# architecture, each with its Tilecast-signed update envelope. Native
+# builds on native runners: x64 on windows-latest, ARM64 on
+# windows-11-arm. Emulation is never ARM64 support. It uploads the
+# artifacts and their build provenance attestation. Publishing a GitHub
+# release is a separate, human step.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Update channel in the signed envelope; beta for a GitHub prerelease
+        required: false
+        default: stable
+        type: choice
+        options:
+          - stable
+          - beta
+      release_notes:
+        description: Optional public release summary recorded in the envelope
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+          - arch: aarch64
+            runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
+
+      - name: Require signing secrets
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM }}
+          UPDATE_PUBLIC_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM }}
+          MSIX_PFX: ${{ secrets.TILECAST_MSIX_PFX_BASE64 }}
+          MSIX_PFX_PASSWORD: ${{ secrets.TILECAST_MSIX_PFX_PASSWORD }}
+          MSIX_PUBLISHER: ${{ secrets.TILECAST_MSIX_PUBLISHER }}
+        run: |
+          set -euo pipefail
+          for name in UPDATE_PRIVATE_KEY UPDATE_PUBLIC_KEY MSIX_PFX MSIX_PFX_PASSWORD MSIX_PUBLISHER; do
+            if [ -z "${!name}" ]; then
+              echo "Required signing secret for $name is missing." >&2
+              exit 1
+            fi
+          done
+
+      - name: Materialize ephemeral signing files
+        env:
+          UPDATE_PRIVATE_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM }}
+          UPDATE_PUBLIC_KEY: ${{ secrets.TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM }}
+          MSIX_PFX: ${{ secrets.TILECAST_MSIX_PFX_BASE64 }}
+          MSIX_PUBLISHER: ${{ secrets.TILECAST_MSIX_PUBLISHER }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$RUNNER_TEMP/tilecast-signing"
+          printf '%s' "$UPDATE_PRIVATE_KEY" > "$RUNNER_TEMP/tilecast-signing/update-private.pem"
+          printf '%s' "$UPDATE_PUBLIC_KEY" > "$RUNNER_TEMP/tilecast-signing/update-public.pem"
+          printf '%s' "$MSIX_PFX" | base64 -d > "$RUNNER_TEMP/tilecast-signing/signing.pfx"
+          chmod 600 "$RUNNER_TEMP/tilecast-signing/"*
+          # The public key the screens trust must be the one in the repository.
+          test "$(openssl pkey -pubin -in "$RUNNER_TEMP/tilecast-signing/update-public.pem" -outform DER | base64 -w0)" = \
+               "$(openssl pkey -pubin -in apps/edge/release/tilecast-update-key.pem -outform DER | base64 -w0)"
+          # The PFX subject must be the manifest publisher, or deployment
+          # would refuse every package this build signs.
+          subject="$(openssl pkcs12 -in "$RUNNER_TEMP/tilecast-signing/signing.pfx" -passin "pass:${{ secrets.TILECAST_MSIX_PFX_PASSWORD }}" -nokeys 2>/dev/null | openssl x509 -noout -subject -nameopt RFC2253 | sed 's/^subject=//')"
+          test "$subject" = "$MSIX_PUBLISHER"
+
+      - name: Build the player
+        run: |
+          set -euo pipefail
+          rustup target add ${{ matrix.target }}
+          cargo build --release --target ${{ matrix.target }} -p tilecast-windows \
+            --bin tilecast-windows --bin tilecast-msix-version
+
+      - name: Stage, package and sign
+        env:
+          MSIX_PUBLISHER: ${{ secrets.TILECAST_MSIX_PUBLISHER }}
+          MSIX_PFX_PASSWORD: ${{ secrets.TILECAST_MSIX_PFX_PASSWORD }}
+          CHANNEL: ${{ inputs.channel }}
+          NOTES: ${{ inputs.release_notes }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/windows-release"
+          python apps/player-windows/release/stage-windows-release.py \
+            --exe "target/${{ matrix.target }}/release/tilecast-windows.exe" \
+            --runtime-dir packages/player-runtime/dist/runtime \
+            --arch ${{ matrix.arch }} \
+            --channel "$CHANNEL" \
+            --publisher "$MSIX_PUBLISHER" \
+            --version-file apps/player-windows/release/VERSION \
+            --msix-version-bin "target/${{ matrix.target }}/release/tilecast-msix-version.exe" \
+            --template apps/player-windows/release/AppxManifest.xml.template \
+            --assets apps/player-windows/release/Assets \
+            --out "$RUNNER_TEMP/windows-release" \
+            --pfx "$RUNNER_TEMP/tilecast-signing/signing.pfx" \
+            --pfx-password "$MSIX_PFX_PASSWORD" \
+            --notes "$NOTES"
+
+      - name: Sign the update envelope
+        run: |
+          set -euo pipefail
+          envelope="$RUNNER_TEMP/windows-release/tilecast-windows-update-${{ matrix.arch }}.json"
+          openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/tilecast-signing/update-private.pem" -in "$envelope" |
+            openssl base64 -A > "$envelope.sig"
+          openssl pkeyutl -verify -rawin -pubin -inkey "$RUNNER_TEMP/tilecast-signing/update-public.pem" -in "$envelope" \
+            -sigfile <(openssl base64 -d -A -in "$envelope.sig")
+
+      - name: Remove ephemeral signing files
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/tilecast-signing"
+
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/windows-release/tilecast-windows-*.msix
+            ${{ runner.temp }}/windows-release/tilecast-windows-*.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tilecast-windows-release-${{ matrix.arch }}
+          path: |
+            ${{ runner.temp }}/windows-release/tilecast-windows-*
+          if-no-files-found: error

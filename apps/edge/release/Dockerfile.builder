@@ -8,7 +8,9 @@
 #
 # Every input is pinned: the base image by digest, the package archive by a
 # snapshot.debian.org timestamp, and the WPE WebKit source by SHA-256
-# (build-wpe.sh). The build configuration mirrors Debian's own wpewebkit
+# (build-wpe.sh). The pinned base digest is the multi-architecture manifest
+# list, so x64 and ARM64 builders resolve their native image from the same
+# pin. The build configuration mirrors Debian's own wpewebkit
 # 2.54.0-2 package (clang, PORT=WPE, Release, bubblewrap sandbox).
 #
 #   docker build -t tilecast-edge-release-builder -f apps/edge/release/Dockerfile.builder apps/edge/release

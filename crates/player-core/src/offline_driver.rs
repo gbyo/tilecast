@@ -345,6 +345,30 @@ mod tests {
         }
     }
 
+    #[derive(Debug, Default)]
+    struct TestOpener;
+    impl player_cas::SecureOpener for TestOpener {
+        fn open_regular(&self, path: &std::path::Path, max_bytes: u64) -> std::io::Result<player_cas::RegularOpen> {
+            use player_cas::RegularOpen;
+            let metadata = match std::fs::symlink_metadata(path) {
+                Ok(metadata) => metadata,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    return Ok(RegularOpen::Missing);
+                }
+                Err(error) => return Err(error),
+            };
+            if metadata.file_type().is_symlink() {
+                return Ok(RegularOpen::Refused);
+            }
+            let file = std::fs::File::open(path)?;
+            let metadata = file.metadata()?;
+            if !metadata.is_file() || metadata.len() > max_bytes {
+                return Ok(RegularOpen::Refused);
+            }
+            Ok(RegularOpen::Opened(file, metadata.len()))
+        }
+    }
+
     struct Host {
         current: Mutex<Option<(Sha256Digest, Value)>>,
         supported: AtomicBool,
@@ -480,6 +504,7 @@ mod tests {
             db.clone(),
             clock.clone(),
             Arc::new(Space),
+            Arc::new(TestOpener),
             player_cas::StorePolicy { limit_bytes: 1 << 30, reserved_free_bytes: 0 },
             Arc::new(player_cas::LruByDomain),
         )

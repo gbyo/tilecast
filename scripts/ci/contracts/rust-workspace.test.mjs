@@ -94,13 +94,16 @@ test("Edge CI caches the root lockfile, toolchain, and output directory", () => 
   );
 });
 
-test("shared Player validation runs portable packages on Ubuntu and macOS", () => {
+test("shared Player validation runs portable packages on every host OS and CPU", () => {
   const ci = parse(
     readFileSync(".github/workflows/validate-player-core.yml", "utf8"),
   );
   assert.deepEqual(ci.jobs.validate.strategy.matrix.os, [
     "ubuntu-latest",
+    "ubuntu-24.04-arm",
     "macos-latest",
+    "windows-latest",
+    "windows-11-arm",
   ]);
   const commands = ci.jobs.validate.steps.flatMap((step) => step.run ?? []);
   for (const command of [
