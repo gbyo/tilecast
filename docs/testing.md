@@ -52,6 +52,8 @@ On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no re
 
 Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
 
+Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`, compared with the PR base. It fails for new findings. The full scan reports existing findings for separate fixes. See [localization.md](localization.md) for focused and full scan commands.
+
 ## Fast local iteration
 
 Use changed tests while iterating, then use the full suite required by CI before merge. Fetch the comparison ref first:
