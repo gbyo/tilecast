@@ -216,6 +216,81 @@ describe("screen management", () => {
     expect(within(row).getByText(/1920×1080/)).toBeInTheDocument();
   });
 
+  it("archives a screen from the fleet action menu with explicit confirmation", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(min-width: 1024px)",
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }));
+    const revoke = vi.spyOn(api, "revokeScreen").mockResolvedValue();
+    const item = {
+      id: "screen-1",
+      name: "Lobby",
+      description: "",
+      location: "Main entrance",
+      platform: "android-tv",
+      deviceManufacturer: "Google",
+      deviceModel: "ADT-3",
+      playerVersion: "0.2.0",
+      screenWidth: 1920,
+      screenHeight: 1080,
+      enabled: true,
+      pairedAt: new Date().toISOString(),
+      lastContactAt: new Date().toISOString(),
+      status: "online",
+      hasActiveCredential: true,
+    } as Screen;
+
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <MemoryRouter>
+          <ScreenListContent
+            screens={[item]}
+            loading={false}
+            canManage
+            csrfToken="csrf"
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const interaction = userEvent.setup();
+    await interaction.click(
+      screen.getByRole("button", { name: "Actions for Lobby" }),
+    );
+    await interaction.click(
+      await screen.findByRole("menuitem", { name: "Archive screen…" }),
+    );
+
+    expect(
+      screen.getByRole("alertdialog", { name: "Archive Lobby?" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "This removes the screen from the active fleet, revokes its player pairing, and preserves its history. The player must be paired again to return.",
+      ),
+    ).toBeInTheDocument();
+
+    await interaction.click(
+      screen.getByRole("button", { name: "Archive screen" }),
+    );
+    await waitFor(() =>
+      expect(revoke).toHaveBeenCalledWith(
+        "screen-1",
+        "Archived in Tilecast Studio",
+        "csrf",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+    );
+  });
+
   it("states fleet health as labelled measures rather than a run-on sentence", () => {
     const item: Screen = {
       id: "screen-1",
