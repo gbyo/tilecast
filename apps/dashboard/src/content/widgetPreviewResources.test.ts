@@ -274,7 +274,7 @@ describe("previewToDataDocument", () => {
                 startsAt: "2026-09-29T17:00:00Z",
                 price: "4.25",
                 active: "true",
-                poster: "asset-123",
+                poster: "123E4567-E89B-12D3-A456-426614174000",
               },
             },
           ],
@@ -305,7 +305,7 @@ describe("previewToDataDocument", () => {
     });
     expect(values?.["poster"]).toEqual({
       kind: "asset",
-      assetId: "asset-123",
+      assetId: "123e4567-e89b-12d3-a456-426614174000",
     });
   });
 
