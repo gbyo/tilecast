@@ -350,7 +350,8 @@
     "inventorySummary_one": "{{count}} player across {{locationPart}}",
     "inventorySummary_other": "{{count}} players across {{locationPart}}",
     "locationPart_one": "{{count}} location",
-    "locationPart_other": "{{count}} locations"
+    "locationPart_other": "{{count}} locations",
+    "moreActions": "More screen actions"
   },
   "picker": {
     "locationLabel": "Location (optional)",
@@ -366,22 +367,15 @@
     "searchLabel": "Search screens",
     "searchPlaceholder": "Search screens…",
     "statusFilter": "Status",
-    "statusOptions": {
-      "all": "All statuses"
-    },
     "locationFilter": "Location",
     "allLocations": "All locations",
     "platformFilter": "Platform",
     "allPlatforms": "All platforms",
     "playingFilter": "Now playing",
     "playingOptions": {
-      "any": "Any content",
       "presentation": "Presentation",
       "playlist": "Playlist"
     },
-    "moreFilters": "More filters",
-    "moreFiltersLabel": "More screen filters",
-    "moreFiltersActive": "More screen filters, {{count}} active",
     "groupFilter": "Display Group",
     "syncOptions": {
       "all": "All screens",
@@ -392,13 +386,11 @@
     },
     "orientationFilter": "Orientation",
     "orientationOptions": {
-      "any": "Any orientation",
       "landscape": "Landscape",
       "portrait": "Portrait"
     },
     "updateFilter": "Software update",
     "updateOptions": {
-      "any": "Any update status",
       "current": "Current",
       "downloading": "Downloading"
     },
@@ -412,7 +404,6 @@
       "sync": "Display Group",
       "none": "No grouping"
     },
-    "sortLabel": "Sort screens",
     "sortOptions": {
       "nameAsc": "Name · A–Z",
       "nameDesc": "Name · Z–A",
@@ -444,12 +435,8 @@
     "selectGroup": "Select all screens in {{label}}",
     "allLabel": "All screens",
     "summaryGroup": "Fleet summary",
-    "summaryLine": "{{screens}} · {{locations}}",
     "screenCount_one": "{{count}} screen",
     "screenCount_other": "{{count}} screens",
-    "locationCount_one": "{{count}} location",
-    "locationCount_other": "{{count}} locations",
-    "healthFraction": "{{online}} of {{total}} online",
     "healthAttention_one": "{{count}} needs attention",
     "healthAttention_other": "{{count}} need attention",
     "mapView": "Map view",
@@ -461,7 +448,27 @@
     "mapOpenScreen": "Open screen",
     "mapNativeTitle": "Native map",
     "mapNativeBody": "Tilecast is showing these screens in the system map.",
-    "mapOpenNative": "Open map"
+    "mapOpenNative": "Open map",
+    "filters": "Filters",
+    "filtersActive": "Filters, {{count}} active",
+    "filtersTitle": "Filter screens",
+    "filtersDescription": "Narrow the fleet by status, location, or what is playing.",
+    "filtersReset": "Reset",
+    "filtersDone": "Done",
+    "filterAny": "Any",
+    "filterAnything": "Anything",
+    "noMatchingLocations": "No matching locations",
+    "noMatchingGroups": "No matching Display Groups",
+    "clearSearch": "Clear search",
+    "clearAll": "Clear all",
+    "activeFilters": "Active filters",
+    "organizeGroup": "Group and sort",
+    "groupPrefix": "Group:",
+    "groupSelectLabel": "Group screens by: {{value}}",
+    "sortButtonLabel": "Sort screens: {{value}}",
+    "sortMenuTitle": "Sort by",
+    "viewOptions": "View options",
+    "summaryOnline": "{{count}} online"
   },
   "grid": {
     "openScreen": "Open {{name}}",

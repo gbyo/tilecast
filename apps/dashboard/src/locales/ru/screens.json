@@ -362,7 +362,8 @@
     "locationPart_one": "в {{count}} месте",
     "locationPart_few": "в {{count}} местах",
     "locationPart_many": "в {{count}} местах",
-    "locationPart_other": "в {{count}} местах"
+    "locationPart_other": "в {{count}} местах",
+    "moreActions": "Другие действия с экранами"
   },
   "picker": {
     "locationLabel": "Место (необязательно)",
@@ -378,22 +379,15 @@
     "searchLabel": "Поиск экранов",
     "searchPlaceholder": "Поиск экранов…",
     "statusFilter": "Состояние",
-    "statusOptions": {
-      "all": "Все состояния"
-    },
     "locationFilter": "Место",
     "allLocations": "Все места",
     "platformFilter": "Платформа",
     "allPlatforms": "Все платформы",
     "playingFilter": "Сейчас воспроизводится",
     "playingOptions": {
-      "any": "Любой контент",
       "presentation": "Презентация",
       "playlist": "Плейлист"
     },
-    "moreFilters": "Ещё фильтры",
-    "moreFiltersLabel": "Дополнительные фильтры экранов",
-    "moreFiltersActive": "Дополнительные фильтры экранов, активно: {{count}}",
     "groupFilter": "Группа экранов",
     "syncOptions": {
       "all": "Все экраны",
@@ -404,13 +398,11 @@
     },
     "orientationFilter": "Ориентация",
     "orientationOptions": {
-      "any": "Любая ориентация",
       "landscape": "Альбомная",
       "portrait": "Портретная"
     },
     "updateFilter": "Обновление ПО",
     "updateOptions": {
-      "any": "Любое состояние обновления",
       "current": "Актуально",
       "downloading": "Загружается"
     },
@@ -424,7 +416,6 @@
       "sync": "Группа экранов",
       "none": "Без группировки"
     },
-    "sortLabel": "Сортировка экранов",
     "sortOptions": {
       "nameAsc": "Название · А–Я",
       "nameDesc": "Название · Я–А",
@@ -458,16 +449,10 @@
     "selectGroup": "Выбрать все экраны в {{label}}",
     "allLabel": "Все экраны",
     "summaryGroup": "Сводка флота",
-    "summaryLine": "{{screens}} · {{locations}}",
     "screenCount_one": "{{count}} экран",
     "screenCount_few": "{{count}} экрана",
     "screenCount_many": "{{count}} экранов",
     "screenCount_other": "{{count}} экрана",
-    "locationCount_one": "{{count}} место",
-    "locationCount_few": "{{count}} места",
-    "locationCount_many": "{{count}} мест",
-    "locationCount_other": "{{count}} места",
-    "healthFraction": "{{online}} из {{total}} в сети",
     "healthAttention_one": "Требует внимания: {{count}}",
     "healthAttention_few": "Требуют внимания: {{count}}",
     "healthAttention_many": "Требуют внимания: {{count}}",
@@ -481,7 +466,27 @@
     "mapOpenScreen": "Открыть экран",
     "mapNativeTitle": "Системная карта",
     "mapNativeBody": "Tilecast показывает эти экраны на системной карте.",
-    "mapOpenNative": "Открыть карту"
+    "mapOpenNative": "Открыть карту",
+    "filters": "Фильтры",
+    "filtersActive": "Фильтры, активно: {{count}}",
+    "filtersTitle": "Фильтр экранов",
+    "filtersDescription": "Сузьте парк по состоянию, месту или воспроизводимому контенту.",
+    "filtersReset": "Сбросить",
+    "filtersDone": "Готово",
+    "filterAny": "Любой",
+    "filterAnything": "Любой контент",
+    "noMatchingLocations": "Подходящих мест нет",
+    "noMatchingGroups": "Подходящих групп экранов нет",
+    "clearSearch": "Очистить поиск",
+    "clearAll": "Сбросить всё",
+    "activeFilters": "Активные фильтры",
+    "organizeGroup": "Группировка и сортировка",
+    "groupPrefix": "Группа:",
+    "groupSelectLabel": "Группировать экраны по: {{value}}",
+    "sortButtonLabel": "Сортировка экранов: {{value}}",
+    "sortMenuTitle": "Сортировать по",
+    "viewOptions": "Параметры вида",
+    "summaryOnline": "В сети: {{count}}"
   },
   "grid": {
     "openScreen": "Открыть {{name}}",
