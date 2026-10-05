@@ -18,11 +18,13 @@ import {
   recentLayoutLibraryItems,
 } from "./LayoutEditorPage";
 import {
+  availablePlaylistZoneItems,
   isPlaylistZoneMediaItem,
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
 import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
+import { nextAvailabilityTransition } from "@tilecast/presentation-model";
 
 const canvas = {
   width: 1920,
@@ -267,6 +269,67 @@ describe("Layout playlist previews", () => {
     expect(nextPlaylistPreviewIndex(0, 3, true)).toBe(1);
     expect(nextPlaylistPreviewIndex(2, 3, true)).toBe(0);
     expect(nextPlaylistPreviewIndex(2, 3, false)).toBe(2);
+  });
+
+  it("filters item and asset availability at the preview instant", () => {
+    const future = {
+      id: "future",
+      assetType: "image",
+      assetId: "future-asset",
+      assetStatus: "ready",
+      availableFrom: "2026-07-16T00:00:00Z",
+    } as PlaylistItem;
+    const expired = {
+      id: "expired",
+      assetType: "image",
+      assetId: "expired-asset",
+      assetStatus: "ready",
+      expiresAt: "2026-07-15T00:00:00Z",
+    } as PlaylistItem;
+    const unavailableAsset = {
+      id: "unavailable-asset",
+      assetType: "image",
+      assetId: "asset-starts-later",
+      assetStatus: "ready",
+    } as PlaylistItem;
+    const available = {
+      id: "available",
+      assetType: "image",
+      assetId: "available-asset",
+      assetStatus: "ready",
+    } as PlaylistItem;
+    const playlist = {
+      items: [future, expired, unavailableAsset, available],
+    } as Playlist;
+    const assets = new Map<string, Asset>([
+      ["future-asset", { availableFrom: future.availableFrom } as Asset],
+      ["expired-asset", { expiresAt: expired.expiresAt } as Asset],
+      [
+        "asset-starts-later",
+        { availableFrom: "2026-07-17T00:00:00Z" } as Asset,
+      ],
+      ["available-asset", {} as Asset],
+    ]);
+    const before = new Date("2026-07-15T12:00:00Z");
+
+    expect(
+      availablePlaylistZoneItems(playlist, assets, before).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["available"]);
+    expect(
+      nextAvailabilityTransition(
+        playlist.items.flatMap((item) => [item, assets.get(item.assetId)]),
+        before,
+      ),
+    ).toEqual(new Date("2026-07-16T00:00:00Z"));
+    expect(
+      availablePlaylistZoneItems(
+        playlist,
+        assets,
+        new Date("2026-07-16T00:00:00Z"),
+      ).map((item) => item.id),
+    ).toEqual(["future", "available"]);
   });
 });
 

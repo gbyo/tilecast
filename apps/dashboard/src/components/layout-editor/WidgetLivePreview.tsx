@@ -5,11 +5,13 @@ import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
-import { V2ZonePreview } from "./V2ZonePreview";
+import { layoutPreviewDateToMs, V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
 import {
+  isAvailableAt,
+  nextAvailabilityTransition,
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
   isPlaylistZoneMediaItem,
@@ -18,6 +20,7 @@ import {
   resolveZoneFallback,
 } from "@tilecast/presentation-model";
 import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import type {
   Asset,
   CalendarEvent,
@@ -115,6 +118,23 @@ export function nextPlaylistPreviewIndex(
   return resolvePlaylistAdvance(index, length, loop).nextIndex;
 }
 
+export function availablePlaylistZoneItems(
+  playlist: Playlist,
+  assetsById: Map<string, Asset>,
+  at: Date,
+): PlaylistItem[] {
+  return playlist.items.filter((item) => {
+    const asset = assetsById.get(item.assetId);
+    return (
+      item.assetStatus === "ready" &&
+      isPlaylistZoneMediaItem(item) &&
+      Boolean(asset) &&
+      isAvailableAt(item, at) &&
+      isAvailableAt(asset, at)
+    );
+  });
+}
+
 export interface ZoneCaptureTracking {
   /** Coordinator owned by the Layout editor canvas. */
   coordinator: LayoutCaptureCoordinator;
@@ -126,10 +146,13 @@ export function PlaylistZonePreview({
   placement,
   playlist,
   assetsById,
+  previewDate,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
+  /** Layout-selected instant interpreted in the organization timezone. */
+  previewDate?: string;
 }) {
   const { t } = useTranslation("layouts");
   const settingsQuery = useQuery({
@@ -140,8 +163,52 @@ export function PlaylistZonePreview({
     () => playbackDefaultsFromSettings(settingsQuery.data?.values),
     [settingsQuery.data?.values],
   );
-  const items = playlist.items.filter(
-    (item) => item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+  const regional = useOrganizationRegionalProfile();
+  const fixedAvailabilityAt = layoutPreviewDateToMs(
+    previewDate,
+    regional.timezone,
+  );
+  const [liveAvailabilityAt, setLiveAvailabilityAt] = useState(() =>
+    Date.now(),
+  );
+  const availabilityAtMs = fixedAvailabilityAt ?? liveAvailabilityAt;
+  const availabilityWindows = useMemo(
+    () =>
+      playlist.items.flatMap((item) => [item, assetsById.get(item.assetId)]),
+    [playlist.items, assetsById],
+  );
+  const nextTransition = useMemo(
+    () =>
+      fixedAvailabilityAt === null
+        ? nextAvailabilityTransition(
+            availabilityWindows,
+            new Date(availabilityAtMs),
+          )
+        : null,
+    [availabilityAtMs, availabilityWindows, fixedAvailabilityAt],
+  );
+  useEffect(() => {
+    if (fixedAvailabilityAt !== null || !nextTransition) return;
+    // Browsers clamp an overflowing timeout to almost zero. Wake in bounded
+    // steps for far-future windows and reevaluate at each step.
+    const delayMs = Math.min(
+      2_147_483_647,
+      Math.max(0, nextTransition.getTime() - Date.now()) + 1,
+    );
+    const timer = window.setTimeout(
+      () => setLiveAvailabilityAt(Date.now()),
+      delayMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [fixedAvailabilityAt, nextTransition]);
+  const items = useMemo(
+    () =>
+      availablePlaylistZoneItems(
+        playlist,
+        assetsById,
+        new Date(availabilityAtMs),
+      ),
+    [assetsById, availabilityAtMs, playlist],
   );
   const [index, setIndex] = useState(0);
   const [failedItemId, setFailedItemId] = useState<string | null>(null);
@@ -199,7 +266,11 @@ export function PlaylistZonePreview({
         <ListVideo size={22} />
         <strong>{playlist.name}</strong>
         <span>
-          {playlist.items.some((item) => item.assetStatus === "ready")
+          {playlist.items.some((item) => item.assetStatus === "ready") &&
+          !playlist.items.some(
+            (item) =>
+              item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+          )
             ? t("preview.zoneUnsupported")
             : t("preview.zoneEmpty")}
         </span>
