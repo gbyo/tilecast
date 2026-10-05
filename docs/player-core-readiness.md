@@ -31,6 +31,9 @@ The review found and corrected these ownership issues:
   It now runs through the same `PlayerCore` as other durable drivers.
 - An origin-source forwarding module had no remaining implementation role.
   Its consumers now use the Core origin adapter directly.
+- Recovery state, Server backoff state, and the evidence predicate had no
+  external consumers. These implementation details are now private to Core.
+  Hosts use the renderer coordinator and Server driver to apply those rules.
 - Ownership descriptions still claimed that shared crates were unimplemented
   or that Edge owned Activity delivery. The descriptions now match the code.
 
@@ -115,7 +118,7 @@ stage does not qualify a later changed head.
 
 ## Qualification status
 
-Stage 9 passed all selected CI at `f19a6b88` in PR #1268.
+Stage 9 passed all selected CI at its final head `a04ef59c` in PR #1268.
 Stage 10 passed shared Rust on Linux and macOS and all Edge qualification
 at `ca164bfb` in PR #1287. Its broader PR validation is red.
 Studio has one duplicate-locator failure and five visual mismatches that also
