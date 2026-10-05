@@ -1,3 +1,5 @@
+import { formatDurationClock } from "../../lib/formatDuration";
+import { formatBytes } from "../../lib/formatBytes";
 import {
   CircleCheck,
   Clock,
@@ -20,7 +22,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { Asset, AssetStatus } from "../../api/types";
-import { apiErrorMessage } from "../../i18n";
+import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { useNativeHaptic } from "../../native-host/useNativeSystem";
 import { useNativeMediaIntake } from "../../native-host/useNativeMediaIntake";
 import type { MediaIntakeCompletedPayload } from "../../native-host/protocol";
@@ -73,18 +75,6 @@ export function attachmentState(state: MediaUploadState) {
   )[state];
 }
 
-export function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let size = value / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unit]}`;
-}
-
 type UploadT = TFunction<["content", "common"]>;
 
 function processingLabel(t: UploadT, asset?: Asset) {
@@ -112,9 +102,7 @@ function readyLabel(t: UploadT, asset?: Asset) {
   if (asset.width && asset.height) parts.push(`${asset.width}×${asset.height}`);
   if (asset.durationSeconds != null) {
     const seconds = Math.round(asset.durationSeconds);
-    parts.push(
-      `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`,
-    );
+    parts.push(formatDurationClock(seconds));
   }
   return parts.join(" · ");
 }
@@ -370,6 +358,7 @@ function MediaUploadRow({
   onDismiss: () => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const percent = item.file.size
     ? Math.round((item.uploaded / item.file.size) * 100)
     : 100;
@@ -407,13 +396,13 @@ function MediaUploadRow({
         <AttachmentDescription role="status">
           {item.state === "waiting"
             ? t("picker.upload.rowWaiting", {
-                size: formatBytes(item.file.size),
+                size: formatBytes(item.file.size, locale),
               })
             : item.state === "uploading"
               ? t("picker.upload.rowUploading", {
                   percent,
-                  uploaded: formatBytes(item.uploaded),
-                  total: formatBytes(item.file.size),
+                  uploaded: formatBytes(item.uploaded, locale),
+                  total: formatBytes(item.file.size, locale),
                 })
               : item.state === "processing"
                 ? processingLabel(t, item.asset)

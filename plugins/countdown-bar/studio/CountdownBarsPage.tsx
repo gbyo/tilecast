@@ -18,6 +18,7 @@ import {
   toLocalInputValue,
   toast,
   useConfirm,
+  useNavigationWarning,
   useOrganizationRegionalProfile,
   usePluginTranslation,
   useStudioSession,
@@ -420,10 +421,24 @@ export function CountdownBarEditorPage() {
     reset,
     setValue,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
+  });
+  // The post-save redirect consumes a pass instead of racing the dirty reset.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty: isDirty,
+    title: ct("editor.leaveTitle"),
+    body: ct("editor.leaveBody"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
   });
   useEffect(() => {
     if (!editing && !timezoneTouched.current)
@@ -486,6 +501,7 @@ export function CountdownBarEditorPage() {
       });
       void queryClient.invalidateQueries({ queryKey: countdownBarsQueryKey });
       void queryClient.invalidateQueries({ queryKey: pluginsQueryKey });
+      departing.current = true;
       void navigate("/plugins/countdown-bar");
     },
   });
@@ -581,6 +597,7 @@ export function CountdownBarEditorPage() {
   };
   return (
     <main className="grid gap-4">
+      {navigationDialog}
       <header className="grid min-w-0 gap-1">
         <Link
           className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -704,7 +721,7 @@ export function CountdownBarEditorPage() {
                     <ToggleGroupItem
                       key={day.value}
                       value={String(day.value)}
-                      className="min-w-10 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                      className="min-w-10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-primary/90"
                     >
                       {weekdayShortLabel(day.value, t)}
                     </ToggleGroupItem>

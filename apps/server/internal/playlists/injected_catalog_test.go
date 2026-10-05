@@ -25,6 +25,9 @@ func customCatalog(t *testing.T) *contentdefs.Catalog {
 				{Key: "heading", Label: "Heading", Control: "text"},
 				{Key: "primarySource", Label: "Primary", Control: "data_source"},
 				{Key: "secondarySource", Label: "Secondary", Control: "data_source"},
+				{Key: "sourceRows", Label: "Source rows", Control: "repeating_group", MaximumItems: 6, ItemFields: []contentdefs.FieldDefinition{
+					{Key: "source", Label: "Source", Control: "data_source"},
+				}},
 			}},
 			DefaultConfiguration: map[string]any{},
 			PresentationTemplate: template,
@@ -62,14 +65,25 @@ func TestInjectedCatalogDrivesCompilationAndDiscovery(t *testing.T) {
 	}
 
 	// Dependency discovery uses the injected catalog and returns every data_source field.
-	primary, secondary := uuid.New(), uuid.New()
-	config, _ := json.Marshal(map[string]string{"heading": "Status", "primarySource": primary.String(), "secondarySource": secondary.String()})
+	primary, secondary, nestedFirst, nestedSecond := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	config, _ := json.Marshal(map[string]any{
+		"heading":         "Status",
+		"primarySource":   primary.String(),
+		"secondarySource": secondary.String(),
+		"sourceRows": []any{
+			map[string]any{"source": nestedFirst.String()},
+			map[string]any{"source": nestedSecond.String()},
+		},
+	})
 	ids := service.widgetDataSourceIDs("dual-source-banner", config)
-	if len(ids) != 2 {
-		t.Fatalf("expected two Data Source IDs, got %v", ids)
+	if len(ids) != 4 {
+		t.Fatalf("expected four Data Source IDs, got %v", ids)
 	}
-	found := map[uuid.UUID]bool{ids[0]: true, ids[1]: true}
-	if !found[primary] || !found[secondary] {
+	found := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		found[id] = true
+	}
+	if !found[primary] || !found[secondary] || !found[nestedFirst] || !found[nestedSecond] {
 		t.Fatalf("dependency discovery missed a selector: %v", ids)
 	}
 

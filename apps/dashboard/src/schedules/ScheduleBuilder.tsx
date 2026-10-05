@@ -1,3 +1,4 @@
+import { scheduleMutations, scheduleQueries } from "../data/schedules";
 import {
   useMutation,
   useQuery,
@@ -6,9 +7,9 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { CalendarDays, Clock3, X } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
@@ -28,6 +29,7 @@ import {
 } from "../settings/settingValues";
 import { PlaylistPicker } from "../components/content-picker";
 import { useConfirm } from "../components/ConfirmDialog";
+import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -128,11 +130,7 @@ export function ScheduleEditorPage() {
   const formatLocale = useFormatLocale();
   const csrf = auth.status?.csrfToken ?? "";
   const { confirm, dialog: confirmDialog } = useConfirm();
-  const existing = useQuery({
-    queryKey: ["schedules", id],
-    queryFn: () => api.schedule(id!),
-    enabled: Boolean(id),
-  });
+  const existing = useQuery(scheduleQueries.detail(id ?? ""));
   const playlists = useQuery({
     queryKey: ["playlists", "schedule"],
     queryFn: () => api.playlists(),
@@ -146,10 +144,7 @@ export function ScheduleEditorPage() {
     queryKey: ["screen-groups"],
     queryFn: () => api.screenGroups(),
   });
-  const defaults = useQuery({
-    queryKey: ["schedules", "defaults"],
-    queryFn: () => api.schedules(),
-  });
+  const defaults = useQuery(scheduleQueries.defaults());
   const [input, setInput] = useState<ScheduleInput>(initialSchedule);
   const [baseline, setBaseline] = useState<ScheduleInput>(initialSchedule);
   const [attempted, setAttempted] = useState(false);
@@ -158,6 +153,8 @@ export function ScheduleEditorPage() {
   const [targetSearch, setTargetSearch] = useState("");
   const [showDateRange, setShowDateRange] = useState(false);
   const [defaultTimezoneApplied, setDefaultTimezoneApplied] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [targetPrefillApplied, setTargetPrefillApplied] = useState(false);
 
   useEffect(() => {
     if (!existing.data) return;
@@ -176,17 +173,75 @@ export function ScheduleEditorPage() {
     });
     setDefaultTimezoneApplied(true);
   }, [baseline, defaultTimezoneApplied, defaults.data?.defaultTimezone, id]);
+  useEffect(() => {
+    // "Add schedule" from a Screen or Display Group preselects that target
+    // for a new schedule. One shot: the query parameter must never overwrite
+    // user edits on a later render.
+    if (id || targetPrefillApplied) return;
+    const screenId = searchParams.get("screen");
+    const groupId = searchParams.get("group");
+    if (!screenId && !groupId) {
+      setTargetPrefillApplied(true);
+      return;
+    }
+    if (scheduleIsDirty(input, baseline)) {
+      setTargetPrefillApplied(true);
+      return;
+    }
+    if (screens.isPending || groups.isPending) return;
+    const target = screenId
+      ? screens.data?.items?.find((screen) => screen.id === screenId)
+        ? {
+            type: "screen" as const,
+            id: screenId,
+            name: screens.data?.items?.find((screen) => screen.id === screenId)
+              ?.name,
+          }
+        : null
+      : groups.data?.items?.find((group) => group.id === groupId)
+        ? {
+            type: "group" as const,
+            id: groupId ?? "",
+            name: groups.data?.items?.find((group) => group.id === groupId)
+              ?.name,
+          }
+        : null;
+    if (target) {
+      const next = { ...input, targets: [target] };
+      setInput(next);
+      setBaseline(next);
+      setTargetTab(target.type === "group" ? "groups" : "screens");
+    }
+    setTargetPrefillApplied(true);
+  }, [
+    baseline,
+    groups.data?.items,
+    groups.isPending,
+    id,
+    input,
+    screens.data?.items,
+    screens.isPending,
+    searchParams,
+    targetPrefillApplied,
+  ]);
 
   const dirty = scheduleIsDirty(input, baseline);
   const errors = useMemo(() => validateScheduleInput(input, t), [input, t]);
   const valid = Object.keys(errors).length === 0;
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      if (dirty) event.preventDefault();
-    };
-    addEventListener("beforeunload", warn);
-    return () => removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  // A deleted schedule has nothing left to lose; the pass is consumed by the
+  // post-delete navigation so a later departure still warns when dirty.
+  const departing = useRef(false);
+  const navigationDialog = useNavigationWarning({
+    dirty,
+    title: t("editor.discardTitle"),
+    shouldBlock: () => {
+      if (departing.current) {
+        departing.current = false;
+        return false;
+      }
+      return true;
+    },
+  });
 
   const selectedPlaylist = playlists.data?.items?.find(
     (playlist) => playlist.id === input.playlistId,
@@ -216,14 +271,12 @@ export function ScheduleEditorPage() {
     input.targets.find((target) => target.type === "screen")?.id ??
     resolvedGroups[0]?.screens[0]?.id ??
     "";
+  const previewTimestamp = useMemo(
+    () => schedulePreviewTimestamp(input),
+    [input],
+  );
   const preview = useQuery({
-    queryKey: ["schedule-preview", input, previewScreenId],
-    queryFn: () =>
-      api.previewSchedule(
-        previewScreenId,
-        schedulePreviewTimestamp(input),
-        input,
-      ),
+    ...scheduleQueries.preview(previewScreenId, previewTimestamp, input),
     enabled: Boolean(
       previewScreenId &&
       (input.playlistId || input.layoutId || input.displayAction) &&
@@ -240,30 +293,8 @@ export function ScheduleEditorPage() {
     key: K,
     value: ScheduleInput[K],
   ) => setInput((current) => ({ ...current, [key]: value }));
-  const save = useMutation({
-    mutationFn: () =>
-      id
-        ? api.updateSchedule(id, input, csrf)
-        : api.createSchedule(input, csrf),
-    onSuccess: (schedule) => {
-      toast.add({
-        title: id ? t("notifications.updated") : t("notifications.created"),
-        type: "success",
-      });
-      const next = scheduleToInput(schedule);
-      setBaseline(next);
-      setInput(next);
-      void client.invalidateQueries({ queryKey: ["schedules"] });
-      void navigate(`/schedules/${schedule.id}`, { replace: true });
-    },
-  });
-  const remove = useMutation({
-    mutationFn: () => api.deleteSchedule(id!, csrf),
-    onSuccess: () => {
-      toast.add({ title: t("notifications.deleted"), type: "success" });
-      void navigate("/schedules");
-    },
-  });
+  const save = useMutation(scheduleMutations.save(client, csrf, id));
+  const remove = useMutation(scheduleMutations.remove(client, csrf, id ?? ""));
 
   if (id && existing.isLoading)
     return (
@@ -275,6 +306,7 @@ export function ScheduleEditorPage() {
   return (
     <>
       {confirmDialog}
+      {navigationDialog}
       <section className="schedule-builder-page">
         <header className="schedule-builder-heading">
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -289,7 +321,21 @@ export function ScheduleEditorPage() {
           onSubmit={(event) => {
             event.preventDefault();
             setAttempted(true);
-            if (valid) save.mutate();
+            if (valid)
+              save.mutate(input, {
+                onSuccess: (schedule) => {
+                  toast.add({
+                    title: id
+                      ? t("notifications.updated")
+                      : t("notifications.created"),
+                    type: "success",
+                  });
+                  const next = scheduleToInput(schedule);
+                  setBaseline(next);
+                  setInput(next);
+                  void navigate(`/schedules/${schedule.id}`, { replace: true });
+                },
+              });
           }}
         >
           <main className="schedule-builder__main">
@@ -522,7 +568,17 @@ export function ScheduleEditorPage() {
                     action: t("common:actions.delete"),
                     destructive: true,
                   }).then((ok) => {
-                    if (ok) remove.mutate();
+                    if (ok)
+                      remove.mutate(undefined, {
+                        onSuccess: () => {
+                          toast.add({
+                            title: t("notifications.deleted"),
+                            type: "success",
+                          });
+                          departing.current = true;
+                          void navigate("/schedules");
+                        },
+                      });
                   })
                 }
               >
@@ -532,19 +588,7 @@ export function ScheduleEditorPage() {
             <Button
               type="button"
               variant="ghost"
-              onClick={() => {
-                if (!dirty) {
-                  void navigate("/schedules");
-                  return;
-                }
-                void confirm({
-                  title: t("editor.discardTitle"),
-                  action: t("editor.discardAction"),
-                  destructive: true,
-                }).then((ok) => {
-                  if (ok) void navigate("/schedules");
-                });
-              }}
+              onClick={() => void navigate("/schedules")}
             >
               {t("common:actions.cancel")}
             </Button>

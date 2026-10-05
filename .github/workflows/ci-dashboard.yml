@@ -4,18 +4,28 @@ on:
   workflow_call:
 
 permissions:
+  actions: read
   contents: read
   checks: write
+  issues: write
+  pull-requests: write
 
 jobs:
   validate:
     name: Dashboard CI
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
+      issues: write
+      pull-requests: write
     steps:
+      # Full history lets React Doctor find the merge base and report only the
+      # findings a pull request adds.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -30,6 +40,32 @@ jobs:
             eslint-${{ runner.os }}-
       - run: npm run format:check
       - run: npm run lint
+      # Advisory for now (`blocking: none`): React Doctor comments on the pull
+      # request and never fails it. It scans only the dashboard code the pull
+      # request changes. A release run has no pull request, and the Action would
+      # scan the full project there, so the step runs on pull requests only.
+      #
+      # This runs under `pull_request`, never `pull_request_target`, so a fork's
+      # code gets a read-only token and no secrets. The comment inputs are off for
+      # forks, which cannot be commented on with that token; the findings still
+      # appear in the job summary. `REACT_DOCTOR_NO_TELEMETRY` turns off crash
+      # reporting, and `apps/dashboard/doctor.config.json` turns off scoring and
+      # the supply-chain check. Keep `version` equal to the react-doctor version
+      # in apps/dashboard/package.json.
+      - name: React Doctor
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        uses: millionco/react-doctor@v2
+        env:
+          REACT_DOCTOR_NO_TELEMETRY: "1"
+        with:
+          directory: apps/dashboard
+          scope: changed
+          blocking: none
+          comment: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          review-comments: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+          commit-status: false
+          version: 0.9.14
       - name: Test
         working-directory: apps/dashboard
         run: |
@@ -57,3 +93,9 @@ jobs:
         with:
           name: dashboard-coverage
           path: apps/dashboard/coverage
+      - name: Validation timing summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TILECAST_TIMING_JOB_NAME: Dashboard CI
+        run: node scripts/ci/timing-summary.mjs --junit apps/dashboard/test-results/vitest.xml

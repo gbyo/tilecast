@@ -2,6 +2,7 @@ package playlists
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ import (
 // TestReverseUsageReachesScreens covers the two reverse-dependency edges Studio needs to walk a
 // Data Source forward to the screens actually displaying it: an asset reports the playlists that
 // contain it, and a playlist reports the screens and schedules that play it. Both edges are
-// resolved by hand-written SQL, so they are only meaningfully exercised against a real database.
+// resolved from stored records and the injected catalog, so they need a real database.
 func TestReverseUsageReachesScreens(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -64,6 +65,9 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 		t.Fatal(err)
 	}
 	assetID := uuid.New()
+	for _, screen := range []uuid.UUID{directScreen, groupScreen} {
+		(&capabilityFixture{ctx: ctx, pool: pool, screen: screen}).reportV13Capabilities(t)
+	}
 	_, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,width,height,duration_seconds,processing_status,created_by)VALUES($1,$2,'Welcome','image','welcome.png','image/png',$3,100,1920,1080,NULL,'ready',$4)`, assetID, org, make([]byte, 32), owner.User.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -72,9 +76,8 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A Widget reading two Data Sources, so the playlist has sources to reach through its items.
-	// The second sits under a non-canonical key: the resolver matches any configured value, which
-	// is what covers release-defined Widgets exposing several Data Source selectors.
+	// A declarative Widget reads two Data Sources from separate repeating-group rows.
+	// Separate repeating-group rows catch traversals that stop after the first item.
 	sourceID, secondSourceID, widgetID := uuid.New(), uuid.New(), uuid.New()
 	if _, err = pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)VALUES($1,$3,'Lunch rows','csv','{}'::jsonb,$4),($2,$3,'Allergen notes','csv','{}'::jsonb,$4)`, sourceID, secondSourceID, org, owner.User.ID); err != nil {
 		t.Fatal(err)
@@ -82,11 +85,12 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 	if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)VALUES($1,$2,'Today''s Lunch','widget','','application/json',$3,0,'ready',$4)`, widgetID, org, make([]byte, 32), owner.User.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,'menu',1,jsonb_build_object('dataSourceId',$2::text,'allergenSource',$3::text,'fields',jsonb_build_array('title','price')))`, widgetID, sourceID.String(), secondSourceID.String()); err != nil {
+	if _, err = pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration)VALUES($1,'dual-source-banner',1,jsonb_build_object('heading','Lunch','sourceRows',jsonb_build_array(jsonb_build_object('source',$2::text),jsonb_build_object('source',$3::text))))`, widgetID, sourceID.String(), secondSourceID.String()); err != nil {
 		t.Fatal(err)
 	}
 
 	service := NewService(pool, &testNotifier{})
+	service.SetContentDefinitions(customCatalog(t))
 	playlist, err := service.Create(ctx, owner.User.ID, "Cafeteria loop", "", "static")
 	if err != nil {
 		t.Fatal(err)
@@ -159,6 +163,31 @@ func TestReverseUsageReachesScreens(t *testing.T) {
 	}
 	if len(detail.DataSourceIDs) != 2 || !reached[sourceID] || !reached[secondSourceID] {
 		t.Fatalf("dataSourceIds=%v, want %s and %s", detail.DataSourceIDs, sourceID, secondSourceID)
+	}
+
+	// Both nested selections protect their sources from deletion using the same catalog.
+	mediaService := media.NewService(pool, nil, media.Config{})
+	mediaService.SetContentDefinitions(customCatalog(t))
+	for _, source := range []uuid.UUID{sourceID, secondSourceID} {
+		var dependencyError *media.DependencyError
+		if err = mediaService.DeleteDataSource(ctx, source, owner.User.ID); !errors.As(err, &dependencyError) {
+			t.Fatalf("delete nested source %s: got %v, want dependency error", source, err)
+		}
+		if len(dependencyError.UsedBy) != 1 || dependencyError.UsedBy[0] != "widget Today's Lunch" {
+			t.Fatalf("nested source consumers = %v", dependencyError.UsedBy)
+		}
+	}
+
+	manifest, _, err := service.BuildManifest(ctx, directScreen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectedSources := map[uuid.UUID]bool{}
+	for _, source := range manifest.DataSources {
+		projectedSources[source.ID] = true
+	}
+	if len(projectedSources) != 2 || !projectedSources[sourceID] || !projectedSources[secondSourceID] {
+		t.Fatalf("manifest Data Sources = %v", projectedSources)
 	}
 
 	// A playlist nothing plays reports empty arrays, never null, so Studio can render it directly.

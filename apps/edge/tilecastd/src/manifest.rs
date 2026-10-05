@@ -22,38 +22,26 @@
 //!    renders them with the reference `renderWidget`/`renderLayout`, so no
 //!    render-tree logic is duplicated here.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::collections::BTreeMap;
 
-use edge_cas::{BlobSource, CasError, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta};
 use edge_protocol::bounded::{SafeText, ShortToken};
 use edge_protocol::ipc::event::{MediaAlias, ProjectionContext};
 use edge_protocol::ipc::presentation::{
     ContentRef, ItemKind, PresentationDocument, PresentationFeature, PresentationItem, StatusSurface, content_uri,
 };
 use edge_protocol::{ScreenId, Sha256Digest};
-use edge_server::AuthenticatedServer;
-use edge_server::origin::OriginBlobSource;
-use edge_state::repo::cas::{Domain, SourceKind};
-use serde::Deserialize;
 use serde_json::Value;
 
 use crate::daemon::DaemonContext;
 use crate::player_config::{self, PlayerConfig};
-use crate::schedule::{self, Selection, Source};
+use player_core::{Selection, Source};
 
 /// Player manifest schema versions the server compiler emits and this
 /// renderer understands (11 base, 12 data sources, 13 declarative widgets,
 /// 14 crossfade, 15 Span/website reload, 16 first-class Widget components).
-pub const MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=16;
+pub use player_core::{ManifestAsset as Asset, NATIVE_MANIFEST_SCHEMAS as MANIFEST_SCHEMAS};
+#[cfg(test)]
 const MAX_ASSETS: usize = 1024;
-const MAX_PLAYLISTS: usize = 128;
-const MAX_ITEMS: usize = 4096;
-const MAX_LAYOUTS: usize = 128;
-const MAX_WIDGETS: usize = 256;
-const MAX_DATA_SOURCES: usize = 256;
-const MAX_PLUGINS: usize = 64;
-const DEFAULT_ACTIVATION_GRACE_SECONDS: u64 = 30;
 const LAYOUT_ITEM_PREFIX: &str = "layout-";
 
 /// The installed WPE renderer profile. It is compiled into the daemon release
@@ -95,39 +83,16 @@ pub mod profile {
     /// Presentation schemas the runtime renders: 1 (declarative and web)
     /// and 2 (first-class Widget components, docs/widgets-v2.md).
     pub const PRESENTATION_SCHEMAS: &[u32] = &[1, crate::widget_capabilities::COMPONENT_PRESENTATION_SCHEMA];
-
-    /// Declarative capabilities and `widget.<type>` components, as reported.
-    pub fn native_capability(name: &str) -> u32 {
-        NATIVE_CAPABILITIES
-            .iter()
-            .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
-            .find(|(id, _)| *id == name)
-            .map_or(0, |(_, version)| *version)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Asset {
-    pub asset_id: uuid::Uuid,
-    pub variant_id: uuid::Uuid,
-    pub digest: Sha256Digest,
-    pub size_bytes: u64,
-    pub mime_type: String,
-    pub download_path: String,
 }
 
 #[derive(Debug, Clone)]
-pub struct Candidate {
-    /// SHA-256 of the manifest's stable encoding ([`manifest_digest`]).
-    pub digest: Sha256Digest,
-    pub document: Value,
-    pub version: i64,
-    pub screen_id: ScreenId,
-    pub assets: Vec<Asset>,
-    /// Every variant the presentation can reference. Edge has no verified
-    /// streaming path, so all of them are verified in the CAS before the
-    /// candidate may become pending.
-    pub required_downloads: Vec<Asset>,
+pub struct Candidate(player_core::NativeManifest);
+
+impl std::ops::Deref for Candidate {
+    type Target = player_core::NativeManifest;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 /// What the controller shows and why.
@@ -190,6 +155,21 @@ impl ManifestError {
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Incompatible(reason) => reason.code(),
+        }
+    }
+}
+
+impl From<player_core::NativeManifestError> for ManifestError {
+    fn from(error: player_core::NativeManifestError) -> Self {
+        match error {
+            player_core::NativeManifestError::Structure => Self::Structure,
+            player_core::NativeManifestError::Schema => Self::Schema,
+            player_core::NativeManifestError::Screen => Self::Screen,
+            player_core::NativeManifestError::Bound => Self::Bound,
+            player_core::NativeManifestError::Asset => Self::Asset,
+            player_core::NativeManifestError::Reference => Self::Reference,
+            player_core::NativeManifestError::DeliveryPolicy => Self::DeliveryPolicy,
+            player_core::NativeManifestError::Schedule => Self::Schedule,
         }
     }
 }
@@ -327,91 +307,6 @@ fn text<const N: usize>(value: &str) -> Result<SafeText<N>, ManifestError> {
     SafeText::new(value.to_owned()).map_err(|_| ManifestError::Structure)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WireManifest {
-    schema_version: u32,
-    manifest_version: i64,
-    screen_id: ScreenId,
-    mode: String,
-    assets: Vec<WireAsset>,
-    playlist: Option<WirePlaylist>,
-    direct_fallback_playlist: Option<WirePlaylist>,
-    playlists: Vec<WirePlaylist>,
-    #[serde(default)]
-    layouts: Vec<Value>,
-    #[serde(default)]
-    widgets: Vec<Value>,
-    #[serde(default)]
-    data_sources: Vec<Value>,
-    #[serde(default)]
-    plugins: Vec<Value>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WireAsset {
-    asset_id: uuid::Uuid,
-    variant_id: uuid::Uuid,
-    sha256: String,
-    file_size: i64,
-    mime_type: String,
-    download_path: String,
-}
-
-#[derive(Deserialize)]
-struct WirePlaylist {
-    items: Vec<WireItem>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WireItem {
-    asset_id: uuid::Uuid,
-    variant_id: Option<uuid::Uuid>,
-    asset_type: String,
-    layout_id: Option<uuid::Uuid>,
-    delivery_policy: String,
-}
-
-fn exact_asset(
-    value: &Value,
-    asset_key: &str,
-    variant_key: &str,
-    catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
-) -> Result<Option<usize>, ManifestError> {
-    let Some(asset) = value.get(asset_key).filter(|value| !value.is_null()) else { return Ok(None) };
-    let asset: uuid::Uuid =
-        asset.as_str().ok_or(ManifestError::Reference)?.parse().map_err(|_| ManifestError::Reference)?;
-    let variant: uuid::Uuid = value
-        .get(variant_key)
-        .and_then(Value::as_str)
-        .ok_or(ManifestError::Reference)?
-        .parse()
-        .map_err(|_| ManifestError::Reference)?;
-    catalog.get(&(asset, variant)).copied().map(Some).ok_or(ManifestError::Reference)
-}
-
-fn check_layout(layout: &Value, catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>) -> Result<(), ManifestError> {
-    let document = layout.get("document").ok_or(ManifestError::Structure)?;
-    layout.get("id").and_then(Value::as_str).ok_or(ManifestError::Structure)?;
-    if let Some(canvas) = document.get("canvas") {
-        exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog)?;
-    }
-    if let Some(placements) = document.get("placements") {
-        let placements = placements.as_array().ok_or(ManifestError::Structure)?;
-        if placements.len() > MAX_ITEMS {
-            return Err(ManifestError::Bound);
-        }
-        for placement in placements {
-            if placement.get("type").and_then(Value::as_str) == Some("asset") {
-                exact_asset(placement, "assetId", "variantId", catalog)?;
-            }
-        }
-    }
-    Ok(())
-}
-
 /// Everything in `document` this renderer cannot safely provide. An empty
 /// list means compatible.
 /// This screen's panel of a Span canvas, in the runtime's `RuntimeViewport`
@@ -449,6 +344,7 @@ pub fn span_viewport(document: &Value) -> Result<Option<Value>, Incompatibility>
 }
 
 pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibility> {
+    let packaged = crate::renderer_adapter::packaged_profile();
     let mut out = Vec::new();
     let mut push = |reason: Incompatibility| {
         if !out.contains(&reason) {
@@ -472,13 +368,19 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
             }
             if let Some(required) = presentation.get("requiredCapabilities").and_then(Value::as_object) {
                 for (name, version) in required {
-                    let version = version.as_u64().unwrap_or(u64::MAX);
-                    let supported = if name == "web.remote" {
-                        profile::WEB_RUNTIME_VERSION
-                    } else {
-                        profile::native_capability(name)
-                    };
-                    if version > u64::from(supported) {
+                    let requirement = version
+                        .as_u64()
+                        .and_then(|v| u32::try_from(v).ok())
+                        .filter(|v| *v > 0)
+                        .zip(ShortToken::new(name).ok())
+                        .map(|(version, name)| {
+                            if name.as_str().starts_with("widget.") {
+                                player_core::RendererRequirement::WidgetComponent { name, version }
+                            } else {
+                                player_core::RendererRequirement::Declarative { name, version }
+                            }
+                        });
+                    if requirement.as_ref().is_none_or(|required| packaged.check(required).is_err()) {
                         push(Incompatibility::WidgetCapability(name.chars().take(64).collect()));
                     }
                 }
@@ -538,6 +440,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
 }
 
 impl Candidate {
+    pub(crate) fn from_native(candidate: player_core::NativeManifest) -> Self {
+        Self(candidate)
+    }
     /// Validates a server manifest and its compatibility with this renderer.
     /// Nothing is fetched here.
     pub fn prepare_candidate(document: Value, expected_screen: ScreenId) -> Result<Self, ManifestError> {
@@ -549,129 +454,9 @@ impl Candidate {
         Ok(candidate)
     }
 
-    /// Re-validates a stored document (offline start, activation).
+    /// Native identity/resource validation is shared; Runtime fields stay opaque.
     pub fn parse(document: Value, expected_screen: ScreenId, digest: Sha256Digest) -> Result<Self, ManifestError> {
-        let wire: WireManifest = serde_json::from_value(document.clone()).map_err(|_| ManifestError::Structure)?;
-        if !MANIFEST_SCHEMAS.contains(&wire.schema_version) || wire.mode != "presentation" || wire.manifest_version < 0
-        {
-            return Err(ManifestError::Schema);
-        }
-        if wire.screen_id != expected_screen {
-            return Err(ManifestError::Screen);
-        }
-        if wire.assets.len() > MAX_ASSETS
-            || wire.playlists.len() > MAX_PLAYLISTS
-            || wire.layouts.len() > MAX_LAYOUTS
-            || wire.widgets.len() > MAX_WIDGETS
-            || wire.data_sources.len() > MAX_DATA_SOURCES
-            || wire.plugins.len() > MAX_PLUGINS
-        {
-            return Err(ManifestError::Bound);
-        }
-        let mut assets = Vec::with_capacity(wire.assets.len());
-        let mut by_variant = BTreeMap::new();
-        let mut by_digest = BTreeMap::new();
-        for source in wire.assets {
-            let digest =
-                Sha256Digest::parse_legacy_case_insensitive(&source.sha256).map_err(|_| ManifestError::Asset)?;
-            let size_bytes = u64::try_from(source.file_size).map_err(|_| ManifestError::Asset)?;
-            if size_bytes == 0
-                || source.mime_type.is_empty()
-                || source.mime_type.len() > 127
-                || !source.mime_type.is_ascii()
-                || source.mime_type.bytes().any(|byte| byte.is_ascii_control())
-                || OriginBlobSource::validate_path(&source.download_path).is_err()
-                || by_variant.insert((source.asset_id, source.variant_id), assets.len()).is_some()
-                || by_digest.insert(digest, size_bytes).is_some_and(|old| old != size_bytes)
-            {
-                return Err(ManifestError::Asset);
-            }
-            assets.push(Asset {
-                asset_id: source.asset_id,
-                variant_id: source.variant_id,
-                digest,
-                size_bytes,
-                mime_type: source.mime_type,
-                download_path: source.download_path,
-            });
-        }
-        let widget_ids: BTreeSet<uuid::Uuid> = wire
-            .widgets
-            .iter()
-            .filter_map(|widget| widget.get("assetId").and_then(Value::as_str).and_then(|id| id.parse().ok()))
-            .collect();
-        let layout_ids: BTreeSet<uuid::Uuid> = document
-            .get("layouts")
-            .and_then(Value::as_array)
-            .into_iter()
-            .flatten()
-            .chain(["layout", "directFallbackLayout"].into_iter().filter_map(|key| document.get(key)))
-            .filter_map(|layout| layout.get("id").and_then(Value::as_str).and_then(|id| id.parse().ok()))
-            .collect();
-        let mut item_count = 0;
-        for playlist in wire.playlist.into_iter().chain(wire.direct_fallback_playlist).chain(wire.playlists) {
-            item_count += playlist.items.len();
-            if item_count > MAX_ITEMS {
-                return Err(ManifestError::Bound);
-            }
-            for item in playlist.items {
-                if !matches!(item.delivery_policy.as_str(), "download" | "stream" | "automatic") {
-                    return Err(ManifestError::DeliveryPolicy);
-                }
-                if let Some(layout) = item.layout_id {
-                    if !layout_ids.contains(&layout) {
-                        return Err(ManifestError::Reference);
-                    }
-                    continue;
-                }
-                match item.asset_type.as_str() {
-                    "widget" => {
-                        if !widget_ids.contains(&item.asset_id) {
-                            return Err(ManifestError::Reference);
-                        }
-                        continue;
-                    }
-                    "website" => continue,
-                    _ => {}
-                }
-                let Some(variant) = item.variant_id else { return Err(ManifestError::Reference) };
-                by_variant.get(&(item.asset_id, variant)).ok_or(ManifestError::Reference)?;
-            }
-        }
-        if let Some(branding) = document.get("branding").filter(|value| !value.is_null()) {
-            exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant)?;
-        }
-        if let Some(websites) = document.get("websites") {
-            for website in websites.as_array().ok_or(ManifestError::Structure)? {
-                exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant)?;
-            }
-        }
-        for key in ["layout", "directFallbackLayout"] {
-            if let Some(layout) = document.get(key).filter(|value| !value.is_null()) {
-                check_layout(layout, &by_variant)?;
-            }
-        }
-        for layout in &wire.layouts {
-            check_layout(layout, &by_variant)?;
-        }
-        for plugin in &wire.plugins {
-            if plugin.get("type").and_then(Value::as_str) == Some("brand_bug")
-                && let Some(config) = plugin.get("config")
-            {
-                exact_asset(config, "imageAssetId", "imageVariantId", &by_variant)?;
-            }
-        }
-        schedule::resolve(&document, 0).map_err(|_| ManifestError::Schedule)?;
-        schedule::resolve_display_policy(&document, 0).map_err(|_| ManifestError::Schedule)?;
-        let required_downloads = assets.clone();
-        Ok(Self {
-            digest,
-            document,
-            version: wire.manifest_version,
-            screen_id: wire.screen_id,
-            assets,
-            required_downloads,
-        })
+        player_core::NativeManifest::parse(document, expected_screen, digest).map(Self).map_err(ManifestError::from)
     }
 
     fn asset(&self, asset_id: &str, variant_id: &str) -> Option<&Asset> {
@@ -720,7 +505,7 @@ impl Candidate {
             }
             None => None,
         };
-        let branding = &config.branding;
+        let branding = &config.runtime.branding;
         let surface = StatusSurface {
             title: SafeText::lossy(title),
             message: SafeText::lossy(message),
@@ -745,7 +530,7 @@ impl Candidate {
         now_ms: i64,
         config: &PlayerConfig,
     ) -> Result<(PresentationDocument, Vec<ContentRef>), ManifestError> {
-        let branding = &config.branding;
+        let branding = &config.runtime.branding;
         self.status(
             "disabled",
             branding.disabled_title.as_deref().unwrap_or("Screen disabled"),
@@ -817,7 +602,7 @@ impl Candidate {
         }
         let string = |key: &str| site.get(key).and_then(Value::as_str).unwrap_or("");
         let positive = |key: &str| site.get(key).and_then(Value::as_u64).filter(|value| *value > 0);
-        let website = &config.website;
+        let website = &config.runtime.website;
         let mut fallback_src = Value::Null;
         if let Some(fallback) = site.get("fallbackImageAssetId").and_then(Value::as_str) {
             let variant = site.get("fallbackVariantId").and_then(Value::as_str);
@@ -875,7 +660,7 @@ impl Candidate {
     /// Resolves the server-compiled manifest at one corrected server instant
     /// under the accepted player configuration.
     pub fn presentation_with(&self, now_ms: i64, config: &PlayerConfig) -> Result<ResolvedPresentation, ManifestError> {
-        let selection = schedule::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
+        let selection = player_core::resolve(&self.document, now_ms).map_err(|_| ManifestError::Schedule)?;
         let availability = next_availability_transition(&self.document, now_ms)?;
         let next_transition_ms = match (selection.next_transition_ms, availability) {
             (Some(schedule), Some(content)) => Some(schedule.min(content)),
@@ -938,7 +723,7 @@ impl Candidate {
         }
 
         let Some(playlist_id) = selection.playlist_id else {
-            let branding = &config.branding;
+            let branding = &config.runtime.branding;
             let (document, content) = self.status(
                 "idle",
                 branding.no_content_title.as_deref().unwrap_or("No content assigned"),
@@ -977,7 +762,7 @@ impl Candidate {
             };
             let settings = player_config::item_settings(
                 item.as_object().ok_or(ManifestError::Structure)?,
-                &config.playback,
+                &config.runtime.playback,
                 authored_duration,
             );
             let (duration_ms, fit_mode, transition, volume, audio_enabled) =
@@ -1189,7 +974,8 @@ impl Candidate {
             return Err(ManifestError::Bound);
         }
         let _ = now_ms;
-        let playback = (!config.playback.context.is_empty()).then(|| Value::Object(config.playback.context.clone()));
+        let playback = (!config.runtime.playback.context.is_empty())
+            .then(|| Value::Object(config.runtime.playback.context.clone()));
         Ok((ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback }, content))
     }
 
@@ -1234,163 +1020,32 @@ pub async fn verify_cached(
     context: &DaemonContext,
     candidate: &Candidate,
 ) -> Result<Vec<Sha256Digest>, PreparationError> {
-    let store = context.cas.clone().ok_or(PreparationError::StoreUnavailable)?;
-    let mut digests = BTreeSet::new();
-    for asset in &candidate.required_downloads {
-        let Some((_, record)) = store.open_verified(&asset.digest).await? else {
-            return Err(PreparationError::Missing);
-        };
-        if record.size_bytes != asset.size_bytes {
-            return Err(PreparationError::SizeMismatch);
-        }
-        digests.insert(asset.digest);
-    }
-    Ok(digests.into_iter().collect())
+    let store = context.cas.as_ref().ok_or(PreparationError::StoreUnavailable)?;
+    candidate.verify_content(store).await
 }
 
-/// CAS pin holder for one prepared manifest.
-pub fn pin_holder(manifest: &Sha256Digest) -> String {
-    format!("{PIN_PREFIX}{}", manifest.to_hex())
-}
-
-pub const PIN_PREFIX: &str = "manifest-";
+pub use player_core::{MANIFEST_PIN_PREFIX as PIN_PREFIX, manifest_pin_holder as pin_holder};
 
 /// The manifest's identity: SHA-256 of its encoding without the two
 /// per-request clock members, so an unchanged manifest keeps its identity and
 /// any other change produces a new one.
 pub fn manifest_digest(document: &Value) -> Sha256Digest {
-    let mut stable = document.clone();
-    if let Some(members) = stable.as_object_mut() {
-        members.remove("serverTime");
-        members.remove("generatedAt");
-    }
-    Sha256Digest::of(&serde_json::to_vec(&stable).unwrap_or_default())
+    player_core::manifest_digest(document)
 }
 
-pub fn activation_grace_ms(document: &Value) -> i64 {
-    let seconds = document
-        .get("activationGraceSeconds")
-        .and_then(Value::as_u64)
-        .filter(|seconds| *seconds > 0)
-        .unwrap_or(DEFAULT_ACTIVATION_GRACE_SECONDS)
-        .clamp(1, 3_600);
-    (seconds * 1_000) as i64
-}
+pub use player_core::activation_grace_ms;
 
-#[derive(Debug, thiserror::Error)]
-pub enum PreparationError {
-    #[error("the content store is unavailable")]
-    StoreUnavailable,
-    #[error("a manifest download path is invalid")]
-    InvalidDownloadPath,
-    #[error("the content store failed: {0}")]
-    Store(#[from] CasError),
-    #[error("a required object could not be fetched: {0}")]
-    Fetch(#[from] FetchError),
-    #[error("a cached object has the wrong size")]
-    SizeMismatch,
-    #[error("a required object is not in the content store")]
-    Missing,
-}
+pub use player_core::{
+    ManifestOriginSources as OriginSources, ManifestPreparationError as PreparationError,
+    ManifestSourcePlan as SourcePlan,
+};
 
-impl PreparationError {
-    pub fn reason_code(&self) -> &'static str {
-        match self {
-            Self::StoreUnavailable => "content_store_unavailable",
-            Self::InvalidDownloadPath => "download_path_invalid",
-            Self::Store(_) => "content_store_failed",
-            Self::Fetch(_) => "media_fetch_failed",
-            Self::SizeMismatch => "media_size_mismatch",
-            Self::Missing => "media_missing",
-        }
-    }
-}
-
-/// Where preparation obtains verified bytes. Production uses the
-/// authenticated origin (docs/tilecast-edge.md §9.2); tests substitute
-/// failing or corrupt sources. Every source feeds the same `Fetcher`, and the
-/// content store verifies every byte.
-pub trait SourcePlan: Send + Sync {
-    fn sources(
-        &self,
-        digest: Sha256Digest,
-        size: u64,
-        origin_path: &str,
-    ) -> impl std::future::Future<Output = Result<Vec<Arc<dyn BlobSource>>, PreparationError>> + Send;
-    fn observer(&self, digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>>;
-}
-
-/// The authenticated Tilecast Server origin.
-#[derive(Debug)]
-pub struct OriginSources<'a> {
-    pub server: &'a AuthenticatedServer,
-}
-
-impl SourcePlan for OriginSources<'_> {
-    async fn sources(
-        &self,
-        _digest: Sha256Digest,
-        _size: u64,
-        origin_path: &str,
-    ) -> Result<Vec<Arc<dyn BlobSource>>, PreparationError> {
-        let origin = OriginBlobSource::new(self.server.clone(), origin_path)
-            .map_err(|_| PreparationError::InvalidDownloadPath)?;
-        Ok(vec![Arc::new(origin) as Arc<dyn BlobSource>])
-    }
-
-    fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
-        None
-    }
-}
-
-/// Fetches one object into the CAS through the verified `Fetcher`.
-pub async fn fetch_object<P: SourcePlan>(
-    store: &edge_cas::ContentStore,
-    plan: &P,
-    digest: Sha256Digest,
-    size_bytes: u64,
-    origin_path: &str,
-    meta: IngestMeta,
-) -> Result<(), PreparationError> {
-    if let Some((_, record)) = store.open_verified(&digest).await? {
-        if record.size_bytes != size_bytes {
-            return Err(PreparationError::SizeMismatch);
-        }
-        return Ok(());
-    }
-    let request = FetchRequest { digest, size_bytes, meta };
-    let sources = plan.sources(digest, size_bytes, origin_path).await?;
-    let observer = plan.observer(digest);
-    let record = Fetcher::new(store.clone(), 2).fetch(&request, &sources, observer.as_deref()).await?;
-    if record.size_bytes != size_bytes {
-        return Err(PreparationError::SizeMismatch);
-    }
-    Ok(())
-}
-
-/// Fetches every variant the candidate needs. The caller persists and pins a
-/// candidate only after this succeeds.
 pub async fn prepare<P: SourcePlan>(
     store: &edge_cas::ContentStore,
     plan: &P,
     candidate: &Candidate,
 ) -> Result<Vec<Sha256Digest>, PreparationError> {
-    let mut digests = BTreeSet::new();
-    for asset in &candidate.required_downloads {
-        let meta = IngestMeta {
-            domain: Domain::Media,
-            content_type: Some(asset.mime_type.clone()),
-            source: SourceKind::Origin,
-        };
-        fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await?;
-        digests.insert(asset.digest);
-    }
-    for digest in &digests {
-        if store.verified_path(digest).await?.is_none() {
-            return Err(PreparationError::Missing);
-        }
-    }
-    Ok(digests.into_iter().collect())
+    candidate.prepare_content(store, plan).await
 }
 
 #[cfg(test)]
@@ -1487,7 +1142,7 @@ mod tests {
     #[test]
     fn rejects_wrong_target_missing_variant_and_invalid_references() {
         assert_eq!(
-            Candidate::parse(manifest(), ScreenId::new_random(), manifest_id()).unwrap_err(),
+            Candidate::parse(manifest(), ScreenId::from_uuid(uuid::Uuid::new_v4()), manifest_id()).unwrap_err(),
             ManifestError::Screen
         );
         let mut value = manifest();
@@ -1626,8 +1281,8 @@ mod tests {
         let candidate = parse(website_manifest(site())).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         let mut config = PlayerConfig::default();
-        config.website.cookie_policy = Some("disabled".to_owned());
-        config.website.default_zoom_percent = Some(125);
+        config.runtime.website.cookie_policy = Some("disabled".to_owned());
+        config.runtime.website.default_zoom_percent = Some(125);
         let resolved = candidate.presentation_with(1_000, &config).unwrap();
         let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(items[0].kind, ItemKind::Website);
@@ -1733,7 +1388,14 @@ mod tests {
             assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
         }
         // The daemon advertises exactly what the bundled runtime renders.
-        assert_eq!(profile::native_capability("widget.tilecast.clock"), 2);
+        assert!(
+            crate::renderer_adapter::packaged_profile()
+                .check(&player_core::RendererRequirement::WidgetComponent {
+                    name: ShortToken::new("widget.tilecast.clock").unwrap(),
+                    version: 2,
+                })
+                .is_ok()
+        );
         assert!(profile::PRESENTATION_SCHEMAS.contains(&2));
         for (kind, version) in [("tilecast.clock", 3), ("tilecast.hologram", 1)] {
             value["widgets"] = component(kind, version);
@@ -1869,7 +1531,14 @@ mod tests {
                     "format": "time:24:false:UTC"}}}}}]);
         let candidate = parse(value).unwrap();
         assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
-        assert_eq!(profile::native_capability("environment.time"), 1);
+        assert!(
+            crate::renderer_adapter::packaged_profile()
+                .check(&player_core::RendererRequirement::Declarative {
+                    name: ShortToken::new("environment.time").unwrap(),
+                    version: 1,
+                })
+                .is_ok()
+        );
     }
 
     #[test]

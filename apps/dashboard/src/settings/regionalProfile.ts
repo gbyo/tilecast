@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
+import { settingsQueries } from "../data/settings";
 import { canonicalizeLocale, isValidTimezone } from "./settingValues";
 
 const europeanAqiRegions = new Set([
@@ -113,7 +113,7 @@ export function organizationRegionalProfile(
 }
 
 export function useOrganizationRegionalProfile() {
-  const settings = useQuery({ queryKey: ["settings"], queryFn: api.settings });
+  const settings = useQuery(settingsQueries.organization());
   return {
     ...organizationRegionalProfile(settings.data?.values),
     ready: !settings.isLoading,
