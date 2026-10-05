@@ -258,6 +258,10 @@ const routes: RouteObject[] = [
         path: "account",
         element: <h1>Account page</h1>,
         handle: { breadcrumb: "My Account" },
+        children: [
+          { path: "preferences", element: <h2>Preferences page</h2> },
+          { path: "security", element: <h2>Security page</h2> },
+        ],
       },
     ],
   },
