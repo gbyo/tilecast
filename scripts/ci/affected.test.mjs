@@ -330,6 +330,7 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
   for (const path of [
     "packages/manifest-schema/schema-v16.json",
     "packages/manifest-schema/schedule-fixtures.json",
+    "packages/manifest-schema/data-document-value-fixtures.json",
     "packages/layout-schema/schema-v2.json",
     "packages/settings-schema/player-config-v1.json",
   ])

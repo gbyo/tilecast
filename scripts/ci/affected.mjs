@@ -106,7 +106,7 @@ const rules = [
   // These packages contain transport JSON, not shared application code.
   // README/metadata edits do not change the player wire contract.
   [
-    /^packages\/(layout-schema|manifest-schema|settings-schema)\/(schema-v\d+|schedule-fixtures|player-config-v\d+)\.json$/,
+    /^packages\/(layout-schema|manifest-schema|settings-schema)\/(schema-v\d+|schedule-fixtures|data-document-value-fixtures|player-config-v\d+)\.json$/,
     ["protocol", "dashboard"],
   ],
   [
