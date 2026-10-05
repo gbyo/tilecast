@@ -191,6 +191,7 @@ export function createProjector(
                   dataSources,
                   assets: manifest.assets,
                   regionalFormat,
+                  at,
                 })
               : renderWidget(widget, {
                   dataSources,

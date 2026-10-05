@@ -32,6 +32,14 @@ import {
 } from "../native-presentation/presentationContext";
 import { useOrganizationRegionalProfile } from "../settings/regionalProfile";
 import { isInteractiveShortcutTarget } from "../lib/keyboard";
+import { playbackDefaultsFromSettings } from "../content/playbackDefaults";
+import { useAvailabilityInstant } from "../content/useAvailabilityInstant";
+import {
+  defaultImageDurationMsForPlayback,
+  fallbackDurationMsFor,
+  isAvailableAt,
+  resolvePlaybackItemSettings,
+} from "@tilecast/presentation-model";
 
 export function nextPlaylistPreviewItem(
   index: number,
@@ -42,9 +50,27 @@ export function nextPlaylistPreviewItem(
   return (index + direction + length) % length;
 }
 
-export function playlistPreviewItemDuration(item: PlaylistItem) {
+export function resolvePlaylistPreviewItem(
+  item: PlaylistItem,
+  playback?: Record<string, unknown>,
+): PlaylistItem {
+  const resolved = resolvePlaybackItemSettings(
+    item,
+    playback,
+    fallbackDurationMsFor(
+      item.assetType,
+      defaultImageDurationMsForPlayback(playback),
+    ),
+  );
+  return { ...item, ...resolved, durationMs: resolved.durationMs ?? undefined };
+}
+
+export function playlistPreviewItemDuration(
+  item: PlaylistItem,
+  playback?: Record<string, unknown>,
+) {
   if (item.assetType === "video") return undefined;
-  return item.durationMs && item.durationMs > 0 ? item.durationMs : 10_000;
+  return resolvePlaylistPreviewItem(item, playback).durationMs;
 }
 
 export const PLAYLIST_PREVIEW_FADE_MS = 300;
@@ -191,6 +217,15 @@ export function PlaylistPreviewPage() {
     ...playlistQueries.detail(id),
     enabled: Boolean(id && auth.status?.authenticated),
   });
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: api.settings,
+    enabled: Boolean(id && auth.status?.authenticated),
+  });
+  const playback = useMemo(
+    () => playbackDefaultsFromSettings(settingsQuery.data?.values),
+    [settingsQuery.data?.values],
+  );
   // In a native presentation the sheet's header carries the name and Close.
   usePresentationChrome({
     header: query.data
@@ -202,12 +237,24 @@ export function PlaylistPreviewPage() {
       : undefined,
     size: "full",
   });
+  const availabilityWindows = useMemo(
+    () => query.data?.items ?? [],
+    [query.data?.items],
+  );
+  const availabilityAt = useAvailabilityInstant(availabilityWindows);
+  const resolvedItems = useMemo(
+    () =>
+      (query.data?.items ?? []).map((item) =>
+        resolvePlaylistPreviewItem(item, playback),
+      ),
+    [query.data?.items, playback],
+  );
   const items = useMemo(
     () =>
-      (query.data?.items ?? []).filter((item) =>
-        playlistPreviewItemAvailable(item),
+      resolvedItems.filter((item) =>
+        playlistPreviewItemAvailable(item, availabilityAt),
       ),
-    [query.data?.items],
+    [resolvedItems, availabilityAt],
   );
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -295,10 +342,10 @@ export function PlaylistPreviewPage() {
       return;
     const timer = window.setTimeout(
       advance,
-      playlistPreviewItemDuration(current),
+      playlistPreviewItemDuration(current, playback),
     );
     return () => window.clearTimeout(timer);
-  }, [advance, current, currentItemKey, paused, readyItemKey]);
+  }, [advance, current, currentItemKey, paused, readyItemKey, playback]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isInteractiveShortcutTarget(event.target))
@@ -333,19 +380,19 @@ export function PlaylistPreviewPage() {
       />
     );
   }
-  if (query.isLoading)
+  if (query.isLoading || settingsQuery.isLoading)
     return (
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] bg-[#05070a] text-[#f5f7fa]">
         {t("preview.loading")}
       </main>
     );
-  if (query.isError || !query.data)
+  if (query.isError || settingsQuery.isError || !query.data)
     return (
       <main className="fixed inset-0 z-[1000] grid min-h-screen min-w-[320px] grid-rows-[auto_minmax(0,1fr)_auto] place-content-center gap-2 bg-[#05070a] text-center text-[#f5f7fa]">
         <strong>{t("preview.unavailableTitle")}</strong>
         <span className="text-[#aab8c5]">
-          {query.error instanceof Error
-            ? apiErrorMessage(query.error)
+          {(query.error ?? settingsQuery.error) instanceof Error
+            ? apiErrorMessage(query.error ?? settingsQuery.error)
             : t("preview.loadError")}
         </span>
       </main>
@@ -486,9 +533,5 @@ export function playlistPreviewItemAvailable(
   item: PlaylistItem,
   now = Date.now(),
 ) {
-  return (
-    item.assetStatus === "ready" &&
-    (!item.availableFrom || Date.parse(item.availableFrom) <= now) &&
-    (!item.expiresAt || now < Date.parse(item.expiresAt))
-  );
+  return item.assetStatus === "ready" && isAvailableAt(item, new Date(now));
 }

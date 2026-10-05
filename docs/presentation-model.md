@@ -58,6 +58,13 @@ Studio tests exercise its zone filter. Runtime tests exercise Layout projection.
 An unsupported Widget remains valid as a direct Widget placement. The zone
 policy does not change the direct Widget renderer.
 
+The popup Playlist preview resolves its item settings with the same fixtures.
+It uses installation settings for generic preview. A specific Screen can have
+a different effective policy. Studio waits for settings before it shows media.
+The Studio availability clock reevaluates at window boundaries and on tab
+visibility changes. Long waits are bounded to the browser timer limit. A fixed
+preview instant does not follow the live clock. Unmount clears the timer.
+
 `fixtures/zone-policy.json` covers empty zones, single-item and multi-item
 loops, final-item holds, video trim offsets, and each fallback. Runtime tests
 exercise the zone actor and actual surface. Studio tests exercise its index

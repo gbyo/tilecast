@@ -369,7 +369,7 @@ go test ./...
 go build ./cmd/tilecast-server
 ```
 
-PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Test packages use a shared PostgreSQL advisory lock so package-level integration tests do not truncate each other's fixtures.
+PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Each integration-test package uses `apps/server/internal/testdb` to create a temporary PostgreSQL database, apply the embedded migrations, and drop the database when the package exits. The configured role must be able to create and drop databases. Advisory locks still serialize fixture resets inside a package; isolated databases let Go run packages concurrently.
 
 ```sh
 TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...

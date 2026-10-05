@@ -42,3 +42,4 @@ widgets/visual/playwright-report/
 
 # ESLint cache
 apps/dashboard/.cache/
+.tilecast-dev/

@@ -1,0 +1,24 @@
+# Local host development uses this isolated PostgreSQL service. It has its own
+# project and volume, binds only to loopback, and does not share production or
+# Demo Mode data.
+name: tilecast-local-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tilecast_dev
+      POSTGRES_USER: tilecast
+      POSTGRES_PASSWORD: tilecast-dev-only
+    ports:
+      - "127.0.0.1:${TILECAST_DEV_DB_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tilecast -d tilecast_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres_data:

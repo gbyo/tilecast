@@ -6,10 +6,12 @@ Spanish (`es`) and Russian (`ru`) ship alongside it.
 
 All sixteen Studio namespaces (`account`, `activity`, `alerts`, `auth`,
 `common`, `content`, `errors`, `forms`, `layouts`, `navigation`, `playlists`,
-`plugins`, `review`, `schedules`, `screens`, `settings`) are converted: no
-user-facing English remains outside the exclusions below. This document is the
-contract for keeping it that way — run `npm run i18n:scan` from
-`apps/dashboard` and fix every finding that is not an intentional exclusion.
+`plugins`, `review`, `schedules`, `screens`, `settings`) have locale files.
+The full-tree scan still reports existing untranslated strings. Dashboard CI
+scans changed `.ts` and `.tsx` files under `src/` against the PR base. It fails
+for new findings. Use the full scan to see existing findings. Use
+`--base origin/main` for the same incremental check on a focused file. Run the
+full scan to review all remaining findings.
 
 Tilecast Player and the server are out of scope. Player strings live in the
 Android, Linux, and Windows projects. Server error messages stay English and
@@ -72,7 +74,7 @@ Work through one file (or one small feature folder) at a time:
 5. **Verify.** Everything below must pass:
 
    ```sh
-   npm run i18n:scan -- --check src/pages/UsersPage.tsx
+   npm run i18n:scan -- --check --base origin/main src/pages/UsersPage.tsx
    npx tsc -b
    npm test
    npm run lint
