@@ -138,20 +138,37 @@ describe("Screens workspace tabs", () => {
     );
   });
 
-  it("renders Fleet page actions only once", async () => {
+  it("names the page in the Studio top bar, not a second visible heading", async () => {
+    renderFleetWorkspace();
+
+    const title = await screen.findByRole("heading", {
+      name: "Screens",
+      level: 1,
+    });
+    // The h1 stays for document structure; it is not drawn in the body.
+    expect(title).toHaveClass("sr-only");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
+  it("renders Fleet page actions once, with Takeover in the overflow menu", async () => {
+    const user = userEvent.setup();
     renderFleetWorkspace();
 
     expect(
-      await screen.findAllByRole("heading", { name: "Screens", level: 1 }),
-    ).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Takeover" })).toHaveLength(1);
-
-    const header = screen
-      .getByRole("heading", { name: "Screens", level: 1 })
-      .closest("header");
-    expect(header).not.toBeNull();
+      await screen.findByRole("link", { name: "Pair screen" }),
+    ).toBeInTheDocument();
+    // Takeover no longer competes with Pair screen as a second button.
     expect(
-      within(header as HTMLElement).getByRole("link", { name: "Pair screen" }),
+      screen.queryByRole("button", { name: "Takeover" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "More screen actions" }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: "Takeover" }));
+    expect(
+      await screen.findByRole("dialog", { name: "Takeover" }),
     ).toBeInTheDocument();
   });
 });

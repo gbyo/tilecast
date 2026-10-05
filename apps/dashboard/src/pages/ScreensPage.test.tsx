@@ -292,50 +292,46 @@ describe("screen management", () => {
     );
   });
 
-  it("states fleet health as labelled measures rather than a run-on sentence", () => {
-    const item: Screen = {
-      id: "screen-1",
-      name: "Lobby",
+  it("states group health as plain text and flags attention only when there is some", () => {
+    const base = {
       description: "",
       location: "Main entrance",
+      locationId: "loc-1",
       platform: "android-tv",
-      deviceManufacturer: "Google",
-      deviceModel: "ADT-3",
-      androidVersion: "14",
-      playerVersion: "0.2.0",
-      screenWidth: 1920,
-      screenHeight: 1080,
-      density: 2,
-      locale: "en-US",
-      timezone: "UTC",
       enabled: true,
-      pairedAt: new Date().toISOString(),
-      lastContactAt: new Date().toISOString(),
-      status: "online",
       hasActiveCredential: true,
     };
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MemoryRouter>
-          <ScreenListContent screens={[item]} loading={false} canManage />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    const summary = screen.getByRole("group", { name: "Fleet summary" });
-    // Each measure pairs its own count with its own label, so no reading of the
-    // summary produces "0 need attention".
-    const measure = (text: string) =>
-      within(summary).getByText(
-        (_, element) =>
-          element?.getAttribute("data-slot") === "badge" &&
-          element.textContent === text,
+    const healthy = {
+      ...base,
+      id: "screen-1",
+      name: "Lobby",
+      status: "online",
+    };
+    const lost = { ...base, id: "screen-2", name: "Hall", status: "offline" };
+    const renderList = (items: Screen[]) =>
+      render(
+        <QueryClientProvider
+          client={
+            new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }
+        >
+          <MemoryRouter>
+            <ScreenListContent screens={items} loading={false} canManage />
+          </MemoryRouter>
+        </QueryClientProvider>,
       );
-    expect(measure("0 Needs attention")).toBeInTheDocument();
-    expect(measure("1 Online")).toBeInTheDocument();
+    const { unmount } = renderList([healthy as Screen]);
+    const calm = screen.getByText("1 screen").closest("p");
+    expect(calm).toHaveTextContent(/^1 screen\s*·\s*1 online$/);
+    expect(calm).not.toHaveTextContent("attention");
+    // Normal metadata is text, not a pill.
+    expect(calm?.querySelector('[data-slot="badge"]')).toBeNull();
+    unmount();
+
+    renderList([healthy as Screen, lost as Screen]);
+    expect(screen.getByText("2 screens").closest("p")).toHaveTextContent(
+      /^2 screens\s*·\s*1 online\s*·\s*1 needs attention$/,
+    );
   });
 
   it("requests a fresh preview for a visible grid card and shows its age", async () => {

@@ -356,7 +356,8 @@
     "inventorySummary_many": "{{count}} de reproductores en {{locationPart}}",
     "locationPart_one": "{{count}} ubicación",
     "locationPart_other": "{{count}} ubicaciones",
-    "locationPart_many": "{{count}} de ubicaciones"
+    "locationPart_many": "{{count}} de ubicaciones",
+    "moreActions": "Más acciones de pantallas"
   },
   "picker": {
     "locationLabel": "Ubicación (opcional)",
@@ -372,22 +373,15 @@
     "searchLabel": "Buscar pantallas",
     "searchPlaceholder": "Buscar pantallas…",
     "statusFilter": "Estado",
-    "statusOptions": {
-      "all": "Todos los estados"
-    },
     "locationFilter": "Ubicación",
     "allLocations": "Todas las ubicaciones",
     "platformFilter": "Plataforma",
     "allPlatforms": "Todas las plataformas",
     "playingFilter": "Reproduciendo ahora",
     "playingOptions": {
-      "any": "Cualquier contenido",
       "presentation": "Presentación",
       "playlist": "Lista de reproducción"
     },
-    "moreFilters": "Más filtros",
-    "moreFiltersLabel": "Más filtros de pantallas",
-    "moreFiltersActive": "Más filtros de pantallas, {{count}} activos",
     "groupFilter": "Grupo de pantallas",
     "syncOptions": {
       "all": "Todas las pantallas",
@@ -398,13 +392,11 @@
     },
     "orientationFilter": "Orientación",
     "orientationOptions": {
-      "any": "Cualquier orientación",
       "landscape": "Horizontal",
       "portrait": "Vertical"
     },
     "updateFilter": "Actualización de software",
     "updateOptions": {
-      "any": "Cualquier estado de actualización",
       "current": "Actualizado",
       "downloading": "Descargando"
     },
@@ -418,7 +410,6 @@
       "sync": "Grupo de pantallas",
       "none": "Sin agrupar"
     },
-    "sortLabel": "Ordenar pantallas",
     "sortOptions": {
       "nameAsc": "Nombre · A–Z",
       "nameDesc": "Nombre · Z–A",
@@ -451,14 +442,9 @@
     "selectGroup": "Seleccionar todas las pantallas de {{label}}",
     "allLabel": "Todas las pantallas",
     "summaryGroup": "Resumen de la flota",
-    "summaryLine": "{{screens}} · {{locations}}",
     "screenCount_one": "{{count}} pantalla",
     "screenCount_other": "{{count}} pantallas",
     "screenCount_many": "{{count}} de pantallas",
-    "locationCount_one": "{{count}} ubicación",
-    "locationCount_other": "{{count}} ubicaciones",
-    "locationCount_many": "{{count}} de ubicaciones",
-    "healthFraction": "{{online}} de {{total}} en línea",
     "healthAttention_one": "{{count}} requiere atención",
     "healthAttention_other": "{{count}} requieren atención",
     "healthAttention_many": "{{count}} de requieren atención",
@@ -471,7 +457,27 @@
     "mapOpenScreen": "Abrir pantalla",
     "mapNativeTitle": "Mapa nativo",
     "mapNativeBody": "Tilecast muestra estas pantallas en el mapa del sistema.",
-    "mapOpenNative": "Abrir mapa"
+    "mapOpenNative": "Abrir mapa",
+    "filters": "Filtros",
+    "filtersActive": "Filtros, {{count}} activos",
+    "filtersTitle": "Filtrar pantallas",
+    "filtersDescription": "Reduce la flota por estado, ubicación o contenido en reproducción.",
+    "filtersReset": "Restablecer",
+    "filtersDone": "Listo",
+    "filterAny": "Cualquiera",
+    "filterAnything": "Cualquier contenido",
+    "noMatchingLocations": "No hay ubicaciones coincidentes",
+    "noMatchingGroups": "No hay grupos de pantallas coincidentes",
+    "clearSearch": "Borrar búsqueda",
+    "clearAll": "Borrar todo",
+    "activeFilters": "Filtros activos",
+    "organizeGroup": "Agrupar y ordenar",
+    "groupPrefix": "Agrupar:",
+    "groupSelectLabel": "Agrupar pantallas por: {{value}}",
+    "sortButtonLabel": "Ordenar pantallas: {{value}}",
+    "sortMenuTitle": "Ordenar por",
+    "viewOptions": "Opciones de vista",
+    "summaryOnline": "{{count}} en línea"
   },
   "grid": {
     "openScreen": "Abrir {{name}}",
