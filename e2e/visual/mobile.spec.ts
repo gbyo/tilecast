@@ -149,3 +149,40 @@ test("mobile dependency search popup stays inside the viewport", async ({
   expect(bounds!.x).toBeGreaterThanOrEqual(0);
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
 });
+
+
+test("mobile Account routes stay inside the viewport", async ({ page }) => {
+  await page.goto("/account/preferences");
+  await expect(
+    page.getByRole("heading", { name: "My Account" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Preferences" }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  const accountNav = page.getByRole("navigation", { name: "Account sections" });
+  const navBounds = await accountNav.boundingBox();
+  expect(navBounds).not.toBeNull();
+  expect(navBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(navBounds!.x + navBounds!.width).toBeLessThanOrEqual(375);
+
+  await page.getByRole("link", { name: "Sign-in security" }).click();
+  await expect(page).toHaveURL(/\/account\/security$/);
+  await expect(
+    page.getByRole("heading", { level: 2, name: "Sign-in security" }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  const tabs = page.getByRole("tablist", { name: "Sign-in security" });
+  const tabBounds = await tabs.boundingBox();
+  expect(tabBounds).not.toBeNull();
+  expect(tabBounds!.x).toBeGreaterThanOrEqual(0);
+  expect(tabBounds!.x + tabBounds!.width).toBeLessThanOrEqual(375);
+
+  await page.getByRole("tab", { name: "Personal access tokens" }).click();
+  await expect(
+    page.getByRole("heading", { level: 3, name: "Personal access tokens" }),
+  ).toBeVisible();
+  await expectNoPageOverflow(page);
+});
