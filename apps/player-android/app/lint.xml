@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- The pre-API-26 fallback is deliberately the same full-bleed square as
+         the adaptive icon's background layer, so it matches the installed icon. -->
+    <issue id="IconLauncherShape">
+        <ignore path="src/main/res/mipmap-*dpi/ic_launcher.png" />
+    </issue>
+</lint>

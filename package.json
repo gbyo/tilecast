@@ -23,6 +23,8 @@
     "helper:test": "python3 -m unittest discover -s apps/player-linux/helper",
     "player-contracts:generate": "node scripts/generate-player-contracts.mjs",
     "ios:icons:generate": "node apps/ios/scripts/generate-navigation-icons.mjs",
+    "android:branding:generate": "node apps/player-android/branding/generate-launcher-assets.mjs",
+    "android:branding:check": "node apps/player-android/branding/generate-launcher-assets.mjs --check",
     "player-contracts:check": "node scripts/generate-player-contracts.mjs --check",
     "player:linux:dist": "npm run dist --workspace @gibsonmb71/tilecast-player-linux",
     "format": "prettier --write .",
@@ -60,6 +62,7 @@
     "openapi-typescript": "7.13.0",
     "@vitest/coverage-v8": "^5.0.2",
     "prettier": "^3.9.9",
+    "sharp": "0.35.4",
     "yaml": "^2.9.1"
   },
   "allowScripts": {

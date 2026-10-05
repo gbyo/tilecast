@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive launcher icon. Android and OEM launchers own the mask and any
+     parallax. The mark is generated from branding/source/tilecast-mark.svg by
+     branding/generate-launcher-assets.mjs; the monochrome layer reuses it
+     because it is already a single-color shape with no background. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/tilecast_signal_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>

@@ -33,6 +33,7 @@ check:
 	cd packages/api-client && go vet ./... && go test ./...
 	cd data-sources && go vet ./... && go test ./...
 	$(MAKE) helper-check
+	npm run android:branding:check
 	cd apps/player-android && ./gradlew testDebugUnitTest lintDebug
 
 # Regenerate every generated file in dependency order: the extension

@@ -152,6 +152,56 @@ capture request carries its own byte budget. The background worker proves
 liveness through Core. A revoked credential drops at once, so the next
 launch re-pairs against the retained server URL.
 
+## Launcher branding
+
+The launcher artwork comes from two authoritative SVG files in
+`apps/player-android/branding/source/`:
+
+| File                    | Use                                           |
+| ----------------------- | --------------------------------------------- |
+| `tilecast-mark.svg`     | Standalone mark. Launcher icon and Play icon. |
+| `tilecast-wordmark.svg` | Full wordmark. Android TV banner.             |
+
+The generator reads path data from these files. It does not redraw the logo.
+It only moves and scales it. To change the artwork, replace the source SVG and
+run:
+
+```sh
+npm run android:branding:generate
+npm run android:branding:check   # fails when generated files are out of date
+```
+
+The generator writes these files. Do not edit them by hand.
+
+- `res/drawable/ic_launcher_foreground.xml`: the mark as a VectorDrawable.
+- `res/mipmap-*dpi/ic_launcher.png`: the fallback icon for Android 6.0 to 7.1.
+- `res/drawable-xhdpi/tilecast_banner.png` (320×180) and
+  `res/drawable-xxhdpi/tilecast_banner.png` (480×270): the TV banner.
+- `branding/play-store/tilecast-play-icon-512.png`: the Google Play icon. It is
+  not part of the APK.
+
+`res/mipmap-anydpi-v26/ic_launcher.xml` is the adaptive icon. It has a
+background layer (`tilecast_signal_background`) and a foreground layer. The
+same single-color foreground is also the `<monochrome>` layer. Android and OEM
+launchers apply the mask and any parallax. Tilecast does not change the logo
+for a launcher. Android TV does not use phone-style themed icons, so the
+monochrome layer has no effect on TV today.
+
+The mark stays inside a 52 dp circle at the center of the 108 dp layer. The
+Android safe zone is a 66 dp circle, so no launcher mask can crop the mark. The
+legacy icon and the Play icon show the central 72 dp of the same layers, so all
+three look the same.
+
+The default treatment is a white mark on the Tilecast dark background
+(`#0E141B`, the Player background in the design system). The banner is the
+white wordmark on the same background, with no tagline. The wordmark is a
+product name and is not translated, so there is one banner for all locales.
+
+To inspect the artwork under circle, squircle, and rounded-square masks, run
+`node apps/player-android/branding/generate-launcher-assets.mjs --preview <dir>`.
+`LauncherBrandingContractTest` fails if the manifest stops using the adaptive
+`@mipmap/ic_launcher` icon or if a required resource is missing.
+
 ## Commissioning and unattended-recovery checks
 
 Pairing a fresh installation enters the required commissioning wizard before playback. Emulator tests can exercise PIN storage, permission-state verification, unattended self-update policy selection, boot receiver registration, immersive/keep-awake reporting, cached-manifest checks, recovery escalation, and safe mode. They cannot prove firmware foreground-launch behavior, physical-TV wake/standby, or whether a vendor installer honors Android's unattended-update request.
