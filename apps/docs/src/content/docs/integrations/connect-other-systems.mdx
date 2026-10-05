@@ -1,0 +1,35 @@
+---
+title: Connect other systems
+description: Push data into Tilecast, read fleet health, or send Tilecast events to another service.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+These integrations don't act as a person. Each one has a narrow, fixed purpose.
+
+<CardGrid>
+  <LinkCard
+    title="Integration tokens"
+    description="Create an Owner-managed token that can only update Manual Tables or read fleet health."
+    href="../tokens/"
+  />
+  <LinkCard
+    title="Replace Manual Table rows"
+    description="Push rows from a system that owns the data, such as a room booking or menu system."
+    href="../manual-table/"
+  />
+  <LinkCard
+    title="Read fleet health"
+    description="Scrape screen and incident counts into an existing monitoring system."
+    href="../fleet-health/"
+  />
+  <LinkCard
+    title="Notifications and webhooks"
+    description="Send Tilecast alerts to people by email, or post signed events to your own service."
+    href="../notifications/"
+  />
+</CardGrid>
+
+## Show data from another service
+
+To show information that lives somewhere else, such as a calendar, a news feed, a spreadsheet, or a weather forecast, create a [Data Source](../../data-sources/). Tilecast Server fetches the data on a schedule, and a [Widget](../../widgets/) shows it on screen. You don't need a token for this.

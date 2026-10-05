@@ -1,17 +1,19 @@
 ---
-title: Tilecast Studio
-description: Create content, assign it to screens, and review what Tilecast Players display.
+title: Create and publish
+description: Create content in Tilecast Studio, then decide when and where it appears on your screens.
 ---
 
 import Screenshot from "../../components/Screenshot.astro";
 import screenshot from "../../assets/screenshots/fleet.png";
 import darkScreenshot from "../../assets/screenshots/fleet-dark.png";
 
-Tilecast Studio is the browser app for managing your installation. Open your Tilecast Server address in a browser and sign in.
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Tilecast Studio is the browser app for your installation. Open your Tilecast Server address in a browser and sign in. Use the guides here to create content and decide when and where it appears.
 
 ## Start with a display
 
-If you are setting up a new screen, first [install a Player](../players/) and [pair the display](../players/pair-a-display/). Use [Screens > Display Groups](../screens/display-groups/) when screens should share assignments or playback behavior.
+A screen needs a paired Player before it can show anything. If you are setting up a new screen, first [install and pair a Player](../players/install-and-pair/). Use [Display Groups](../screens/display-groups/) when screens should share assignments or playback behavior.
 
 <Screenshot
   src={screenshot}
@@ -21,20 +23,54 @@ If you are setting up a new screen, first [install a Player](../players/) and [p
 
 ## Create something to play
 
-- [Upload and organize media](../media/) for images and videos.
-- [Add website content](../website-content/) when a display needs a public website.
-- [Connect a Data Source](../data-sources/) when content needs values from a feed, file, calendar, or Manual Table.
-- [Create and reuse Widgets](../widgets/) to show clocks, notices, or data.
-- [Build a Playlist](../playlists/) to choose fullscreen content in order.
-- [Build a Layout](../layouts/) to arrange several areas on one screen.
-- [Coordinate a release with a Campaign](../campaigns/) to publish related schedule changes together.
-- [Review content before publication](./content-review/) when Playlists, Layouts, or Campaigns need approval.
-- [Use the content submission inbox](./content-submissions/) to review the exact snapshot an author submitted.
-- [Build Forms](./forms/) to collect structured submissions that can feed signage.
-- [Review Form records](./forms-approvals/) from the central Approvals inbox.
+<CardGrid>
+  <LinkCard
+    title="Media and websites"
+    description="Add images, videos, and public websites that a Playlist or Layout can show."
+    href="media-and-websites/"
+  />
+  <LinkCard
+    title="Widgets and data"
+    description="Show clocks, notices, or live values from a feed, file, calendar, or Manual Table."
+    href="widgets-and-data/"
+  />
+</CardGrid>
 
-## Assign, schedule, and monitor
+## Arrange and schedule
 
-Use [Schedules](../schedules/) for a recurring or one-time playback window. Use [Activity](../operations/activity/) to check playback the Player confirmed, screen health, and incidents. [Screen status](../operations/screen-status/) explains what Fleet's connection labels mean.
+<CardGrid>
+  <LinkCard
+    title="Playlists"
+    description="Choose fullscreen content and put it in order."
+    href="../playlists/"
+  />
+  <LinkCard
+    title="Layouts"
+    description="Arrange several areas on one screen."
+    href="../layouts/"
+  />
+  <LinkCard
+    title="Schedules"
+    description="Play a Playlist or Layout in a recurring or one-time window."
+    href="../schedules/"
+  />
+  <LinkCard
+    title="Campaigns"
+    description="Publish related schedule changes together as one reviewed release."
+    href="../campaigns/"
+  />
+</CardGrid>
 
-For account, security, backup, or Player policy settings, see [Administration](../administration/). To send notifications or connect another system, see [Integrations](../integrations/).
+## Review and collect
+
+<CardGrid>
+  <LinkCard
+    title="Review and forms"
+    description="Approve content before it is published, and collect structured submissions that can feed signage."
+    href="review-and-forms/"
+  />
+</CardGrid>
+
+## Check the result
+
+Use [Activity](../operations/activity/) to check playback the Player confirmed, screen health, and incidents. [Screen status](../operations/screen-status/) explains what Fleet's connection labels mean, and [Explain a Screen's playback selection](../screens/explain-playback/) shows why a screen plays what it does. For account, security, backup, or Player policy settings, see [Manage Tilecast](../manage/). To connect another system, see [Automate and extend](../integrations/).

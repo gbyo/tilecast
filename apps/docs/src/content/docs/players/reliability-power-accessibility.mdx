@@ -1,0 +1,33 @@
+---
+title: Reliability, power, and accessibility
+description: Set how a Player recovers, when it runs, how it uses power, and what Android accessibility control may do.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+These settings decide what a Player does when something goes wrong, when it shows normal signage, and what extra control it has over the device. Several are Player policies that you can set for the organization, a Display Group, or one screen.
+
+<CardGrid>
+  <LinkCard
+    title="Reliability and kiosk"
+    description="Configure Player recovery, safe mode, fullscreen behavior, and kiosk features."
+    href="../reliability-kiosk/"
+  />
+  <LinkCard
+    title="Active hours and power"
+    description="Choose when normal signage should run and configure supported power behavior."
+    href="../active-hours-power/"
+  />
+  <LinkCard
+    title="Accessibility control"
+    description="Configure Android Accessibility Control Assist and see exactly what it is allowed to do."
+    href="../accessibility/"
+  />
+  <LinkCard
+    title="Set Player policies"
+    description="Choose organization defaults and override them for a Display Group or an individual screen."
+    href="../../administration/player-policies/"
+  />
+</CardGrid>
+
+Before you leave displays unattended, work through [Verify before you leave the screens unattended](../../setup/production-readiness/).

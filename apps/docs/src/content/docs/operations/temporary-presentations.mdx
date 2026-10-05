@@ -1,0 +1,47 @@
+---
+title: Temporary presentations
+description: Choose between Quick Present, AirPlay, and Takeover, and see which presentation plays first when more than one is active.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Use a temporary presentation to change what a screen shows for a limited time without editing its schedule. When the presentation ends, Tilecast goes back to the schedule or the screen's fallback content.
+
+<CardGrid>
+  <LinkCard
+    title="Show content now"
+    description="Temporarily show a Playlist, Layout, or ready media on a screen or Display Group."
+    href="../quick-present/"
+  />
+  <LinkCard
+    title="Present with AirPlay"
+    description="Start a temporary AirPlay session on supported Linux Players."
+    href="../airplay-present/"
+  />
+  <LinkCard
+    title="Start a Takeover"
+    description="Temporarily replace scheduled and fallback content on selected screens."
+    href="../takeover/"
+  />
+  <LinkCard
+    title="Set up a Presentation Network"
+    description="Connect a Linux Player to Wi-Fi temporarily when it acts as an AirPlay gateway."
+    href="../../administration/presentation-networks/"
+  />
+</CardGrid>
+
+If an AirPlay sender can't find a Player, see [AirPlay and Presentation Networks](../../troubleshooting/airplay-networks/).
+
+## What plays first
+
+Tilecast selects the highest-priority presentation that is active for a screen:
+
+1. An active Takeover.
+2. On Linux, an active AirPlay session.
+3. A Quick Present session.
+4. The highest-priority active schedule.
+5. The screen's assigned content or its Display Group fallback.
+
+Android Players do not support AirPlay. Quick Present, AirPlay, and Takeover can continue outside normal active hours or while ordinary playback is disabled. Safe mode has separate platform behavior: Linux safe mode blocks Quick Present, while an active AirPlay session remains visible; Android can show Quick Present. A fullscreen Emergency Alerts presentation uses a Takeover. An Emergency Alerts ticker is an overlay and does not replace the current presentation. When a temporary session ends, Tilecast evaluates the schedule and fallback again instead of restoring an old playback snapshot.
+
+To see why a particular screen is showing what it shows, use [Explain a Screen's playback selection](../../screens/explain-playback/).

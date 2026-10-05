@@ -1,15 +1,13 @@
 ---
-title: Integrations
-description: Choose how to automate Tilecast, connect another system, or send Tilecast events to your own service.
+title: Automate and extend
+description: Choose how to automate Tilecast, connect another system, send Tilecast events to your own service, or add a plugin.
 ---
 
 import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
 Tilecast connects to other tools in several ways. Choose by who is acting and which direction the data moves.
 
-## Automate Tilecast as a user
-
-These tools act as your own Studio account. Your role and screen access apply to everything they do.
+## Choose a starting point
 
 <CardGrid>
   <LinkCard
@@ -23,47 +21,23 @@ These tools act as your own Studio account. Your role and screen access apply to
     href="./mcp/"
   />
   <LinkCard
-    title="Personal access tokens"
-    description="Give a script, CI job, or the CLI an expiring credential that acts as your account."
+    title="API access and tokens"
+    description="Give a script, CI job, or the CLI an expiring credential that acts as your account, then call the HTTP API."
     href="./personal-access-tokens/"
   />
   <LinkCard
-    title="HTTP API"
-    description="Call the same API that Studio and the CLI use, with a personal access token."
-    href="../reference/api/"
+    title="Connect other systems"
+    description="Push data into Tilecast, read fleet health, and send notifications or webhooks."
+    href="./connect-other-systems/"
+  />
+  <LinkCard
+    title="Plugins"
+    description="Add optional Tilecast features from the built-in plugin catalog."
+    href="../operations/plugins/"
   />
 </CardGrid>
 
-## Connect another system
-
-These integrations don't act as a person. Each one has a narrow, fixed purpose.
-
-<CardGrid>
-  <LinkCard
-    title="Integration tokens"
-    description="Create an Owner-managed token that can only update Manual Tables or read fleet health."
-    href="./tokens/"
-  />
-  <LinkCard
-    title="Replace Manual Table rows"
-    description="Push rows from a system that owns the data, such as a room booking or menu system."
-    href="./manual-table/"
-  />
-  <LinkCard
-    title="Read fleet health"
-    description="Scrape screen and incident counts into an existing monitoring system."
-    href="./fleet-health/"
-  />
-  <LinkCard
-    title="Notifications and webhooks"
-    description="Send Tilecast alerts to people by email, or post signed events to your own service."
-    href="./notifications/"
-  />
-</CardGrid>
-
-## Show data from another service
-
-To show information that lives somewhere else, such as a calendar, a news feed, a spreadsheet, or a weather forecast, create a [Data Source](../data-sources/). Tilecast Server fetches the data on a schedule, and a [Widget](../widgets/) shows it on screen. You don't need a token for this.
+The CLI, MCP, and personal access tokens act as your own Studio account, so your role and screen access apply to everything they do. Integration tokens, notifications, and webhooks don't act as a person. Each has a narrow, fixed purpose.
 
 ## Which one do I need?
 
