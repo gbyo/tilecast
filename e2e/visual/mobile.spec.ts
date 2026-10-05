@@ -150,7 +150,6 @@ test("mobile dependency search popup stays inside the viewport", async ({
   expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
 });
 
-
 test("mobile Account routes stay inside the viewport", async ({ page }) => {
   await page.goto("/account/preferences");
   await expect(
