@@ -49,7 +49,7 @@ Studio text is localized in the browser with react-i18next. English is bundled a
 
 The accepted native Player extraction contract is
 [`player-core.md`](player-core.md). It separates shared native behavior from
-Linux host integration. Presentation decisions and execution remain with
+host integration. Presentation decisions and execution remain with
 Presentation Model and Player Runtime. Generic native values are implemented in
 `crates/player-types`, and durable metadata in `crates/player-state`. Historical
 Edge repository APIs remain outside the shared crate. Verified storage lives in
@@ -57,12 +57,10 @@ Edge repository APIs remain outside the shared crate. Verified storage lives in
 its private file stores and Electron import. The Core foundation owns native
 selection, command idempotency, Activity sessions, and the CAS origin adapter.
 Core also owns renderer recovery decisions and meaningful-evidence rules.
-Edge executes renderer actions through its RendererPort adapter.
-Activation coordination and server reconciliation remain in Edge until their
-extraction stages. Edge retains
-its current process and security boundaries.
+Each native host executes renderer actions through its RendererPort adapter
+and keeps its current process and security boundaries.
 
-The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron and WPE hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below.
+The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron, WPE, and WebView2 hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below. The Windows Player is the second native host of the same shared crates; see the Windows section below.
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
@@ -77,6 +75,13 @@ Android Room stores pending, ready, active, failed, and superseded manifests plu
 Playback supports either a fullscreen playlist or a published Layout. Layouts render natively, scale landscape and portrait canvases without distortion, and run positioned playlist zones independently alongside Apps, Assets, and primitives. Publishing limits a Layout to one active video-capable placement or zone and one audio-emitting placement or zone. An invalid or incompletely prepared Layout never replaces the previous verified presentation.
 
 ## Scheduling and Display Groups
+
+`packages/presentation-model` owns deterministic availability and item-default
+decisions shared by Studio and Player Runtime. Runtime compatibility modules
+re-export those functions. Studio's settings adapter stays in Studio. The
+model has no mounting, storage, telemetry, or host APIs. See
+[Presentation Model](presentation-model.md) for the current boundary and
+shared fixtures.
 
 Display Groups own synchronized fallback content and schedule targeting. Existing
 groups migrate to `display_mode=mirror`, which is the current synchronized
@@ -122,13 +127,13 @@ The server validates URLs without fetching them, avoiding SSRF and network-topol
 
 Apps are reusable configured Content items backed by the closed Source/provider registry. The `sources` table remains the internal compatibility name and stores a built-in provider, provider configuration version, and validated JSON object; clients cannot invent provider names or arbitrary keys. Website and YouTube are Apps in Studio. Clock, Date, QR Code, and Ticker are native Apps. Calendar, RSS, Atom, JSON, and CSV may supply prepared data to a display App or render directly when their playback model supports it.
 
-Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and a small provider-approved override object; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
+Layouts place generic references to Widgets, Media, and playlists; custom text primitives may bind to a Data Source field. A placement owns bounds, layer, opacity, and visibility; it never copies or silently edits the shared Widget configuration. Playlist zones remain a separate region type. Static text, shapes, lines, decorative images, groups, and background properties are native layout primitives rather than Widgets. Data Sources are never placed as content. See [widgets-and-layouts.md](widgets-and-layouts.md).
 
 Manifest v12 introduces a renderer-neutral typed record boundary between Data Sources and native Widgets. Provider-specific acquisition and authoring configuration stays on the server; the Player receives only bounded fields, records, cache state, date policy, and attribution.
 
 Manifest v13 extends that boundary into a declarative presentation runtime. The Server-owned release catalog in `internal/contentdefs` is the runtime source of truth for Widget and Data Source metadata, form schemas, output schemas, adapter IDs, presentation templates, and exact capability requirements. `internal/media` validates release-defined configuration and dispatches trusted acquisition through adapter IDs; `internal/playlists` resolves trusted placeholders into a provider-neutral native node tree before the manifest is sent. Android validates capabilities and interprets final documents instead of selecting a renderer from the provider name.
 
-Widgets V2 (manifest v16) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends the component to a Player that reports its exact `widget.<type>` capability and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
+Widgets V2 (manifest v16 and v17) add first-class Widget components. A Widget module below `widgets/` carries its catalog entry and its component in one `tilecast.widget.json`; the Server embeds those files through the `widgets` Go module, and the Player Runtime and Studio discover the same modules when they are built. For each screen, `internal/playlists` sends schema 3 with the declared empty policy to a Player that reports schema 3 and the exact `widget.<type>` capability, schema 2 to an older component-capable Player, and the Widget's compatibility presentation to every other Player. See [widgets-v2.md](widgets-v2.md).
 
 Catalog Apps extend that boundary without collapsing it. An App recipe atomically provisions a Widget and an explicitly owned, hidden Data Source, then stores the source ID in the compiled Widget configuration so the existing relational usage, invalidation, readiness, and manifest paths remain authoritative. Release-defined Web Integrations compile a closed host policy and built-in URL normalization into the provider-neutral web descriptor; manifest v15 adds bounded periodic reload and requires web runtime 2. Players remain provider-agnostic. See [Adding a Tilecast App](adding-a-tilecast-app.md).
 
@@ -191,3 +196,11 @@ On each Linux player:
 - `tilecast-renderer-wpe` (C, WPE WebKit 2.54+ on WPEPlatform) shows what `tilecastd` sends over a versioned Unix socket. It holds no credential.
 
 The server stays the only authority, and Edge uses the ordinary player API: identity, pairing, heartbeat, the player WebSocket, manifests, commands and authenticated downloads. The server has no Edge-specific domain package or endpoint. A player keeps playing from its local state and verified content when the server is unreachable.
+
+## Tilecast Player for Windows
+
+The Windows Player (`apps/player-windows`) is the native Windows host of the same shared Player Core and Player Runtime: Player behavior is implemented once, not once per operating system. The platform contract is [`tilecast-windows.md`](tilecast-windows.md); physical qualification is tracked in [`tilecast-windows-qualification.md`](tilecast-windows-qualification.md).
+
+On each Windows player, one Rust process owns the server relationship, pairing, configuration, manifests, selection, scheduling, offline activation, commands, Activity, and telemetry through the shared crates. It hosts the exact `packages/player-runtime` artifact in an Evergreen WebView2 view over the trusted `tilecast://runtime/` origin, serves verified media through opaque `tcmedia://cap/` grants, and shows remote Websites and YouTube in isolated child views of a separate WebView2 environment. User-scoped Windows DPAPI protects the device credential. Updates arrive as signed per-architecture MSIX packages through the ordinary Player Updates deployment flow.
+
+The server has no Windows-specific domain package or endpoint: releases of the `windows` family (architecture `x86_64` or `aarch64`) travel the same signed-envelope, deployment, and heartbeat-settlement path as the other families.

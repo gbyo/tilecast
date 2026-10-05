@@ -10,7 +10,7 @@ root=Path.cwd()/"crates"
 for package in sorted(json.load(sys.stdin)["packages"], key=lambda p:p["name"]):
     if Path(package["manifest_path"]).parent.parent == root:
         print(package["name"])
-')
+' | tr -d '\r')
 selection=()
 while IFS= read -r name; do
   if [ -n "$name" ]; then selection+=(-p "$name"); fi

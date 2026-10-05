@@ -44,12 +44,14 @@ jobs:
             apps/cli/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
+      - name: Check Go formatting
+        run: make gofmt-check
       # go.work puts the bundled plugins and the plugin SDK in the same build.
       - working-directory: apps/server
         run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/...
       - name: Test
         working-directory: apps/server
-        run: go test ${{ inputs.race && '-race' || '' }} -json -coverprofile=coverage.out -p 1 ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/... > test-results.json
+        run: go test ${{ inputs.race && '-race' || '' }} -json -coverprofile=coverage.out ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/... > test-results.json
         env:
           TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
       - name: Test Reporter

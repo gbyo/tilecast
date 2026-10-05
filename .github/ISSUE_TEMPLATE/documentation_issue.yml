@@ -1,0 +1,75 @@
+name: "📚 Documentation issue"
+description: Report missing, incorrect, outdated, or confusing Tilecast documentation
+labels: ["documentation"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Documentation location
+      description: Link the page, file, or heading. If documentation is missing entirely, describe where you expected to find it.
+      placeholder: "Example: https://tilecast.org/docs/... or apps/docs/src/content/docs/..."
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong?
+      multiple: true
+      options:
+        - Incorrect information
+        - Outdated information
+        - Incomplete instructions
+        - Unclear wording
+        - Documented command fails
+        - Configuration option is undocumented
+        - API or integration behavior is undocumented
+        - Player behavior is undocumented
+        - Upgrade or migration guidance is missing
+        - A page or guide is missing
+        - Broken link
+        - Typo or formatting problem
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What needs to change?
+      description: Explain what is confusing, incorrect, missing, or no longer matches Tilecast.
+    validations:
+      required: true
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested correction
+      description: Optional. Describe the wording, example, or explanation you think would be clearer.
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is this documentation for?
+      multiple: true
+      options:
+        - First-time users
+        - Signage administrators
+        - Content editors
+        - Player installers
+        - Self-hosted operators
+        - Developers / API integrators
+        - Plugin or Widget authors
+        - Contributors
+        - Not sure
+  - type: input
+    id: version
+    attributes:
+      label: Relevant Tilecast version or configuration
+      description: Optional. Include a release, commit, deployment type, or configuration when the problem is version-specific.
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots or supporting files
+      description: Add screenshots or other files if they make the documentation problem clearer.
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add related issues, commands, external references, or anything else that would help verify the correction.

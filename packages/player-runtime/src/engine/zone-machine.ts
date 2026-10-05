@@ -10,6 +10,10 @@ import { assign, setup, type ActorRefFrom } from "xstate";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
 import { positiveDurationMs } from "../clock/duration";
+import {
+  resolveNativeVideoLoop,
+  resolvePlaylistAdvance,
+} from "@tilecast/presentation-model";
 
 /** A zone entry that failed to play is retried after this long. */
 export const ZONE_RETRY_MS = 2_000;
@@ -47,12 +51,20 @@ export function zoneEntry(
   const entry = context.items[(context.shown - 1) % context.items.length]!;
   return {
     entry,
-    loop:
-      entry.kind === "video" &&
-      !entry.videoStartOffsetMs &&
-      !entry.videoEndOffsetMs &&
-      (entry.loop || ((context.loop ?? true) && context.items.length === 1)),
+    loop: resolveNativeVideoLoop(
+      entry,
+      context.items.length,
+      context.loop ?? true,
+    ),
   };
+}
+
+function canAdvance(context: Pick<ZoneContext, "items" | "shown" | "loop">) {
+  return resolvePlaylistAdvance(
+    Math.max(0, context.shown - 1),
+    context.items.length,
+    context.loop,
+  ).canAdvance;
 }
 
 export const zoneMachine = setup({
@@ -64,8 +76,7 @@ export const zoneMachine = setup({
   guards: {
     current: ({ context, event }) => event.epoch === context.epoch,
     nonEmpty: ({ context }) => context.items.length > 0,
-    canAdvance: ({ context }) =>
-      context.loop || context.shown < context.items.length,
+    canAdvance: ({ context }) => canAdvance(context),
   },
   actions: {
     advance: assign(({ context }) => ({
@@ -78,7 +89,7 @@ export const zoneMachine = setup({
       context.timers.cancelAll();
       const current = zoneEntry(context);
       if (!current || current.entry.kind !== "image") return;
-      if (!(context.loop || context.shown < context.items.length)) return;
+      if (!canAdvance(context)) return;
       const epoch = context.epoch;
       context.timers.after(
         // Zero reads as unset, so two zero-length images do not swap at
@@ -118,8 +129,7 @@ export const zoneMachine = setup({
       on: {
         NEXT: {
           guard: ({ context, event }) =>
-            event.epoch === context.epoch &&
-            (context.loop || context.shown < context.items.length),
+            event.epoch === context.epoch && canAdvance(context),
           target: "showing",
           reenter: true,
         },
@@ -131,15 +141,14 @@ export const zoneMachine = setup({
           guard: ({ context, event }) =>
             event.epoch === context.epoch &&
             !zoneEntry(context)?.loop &&
-            (context.loop || context.shown < context.items.length),
+            canAdvance(context),
           target: "showing",
           reenter: true,
         },
         MEDIA_FAILED: [
           {
             guard: ({ context, event }) =>
-              event.epoch === context.epoch &&
-              (context.loop || context.shown < context.items.length),
+              event.epoch === context.epoch && canAdvance(context),
             target: "showing",
             reenter: true,
           },

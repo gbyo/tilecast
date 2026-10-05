@@ -11,22 +11,22 @@ Root default members are the Edge Rust packages. `--workspace` includes every
 member, including future native products. Use `make edge-check` and
 `make edge-test` for explicit Edge validation. Edge product version is
 `apps/edge/release/VERSION`, independently of Rust library versions.
+Use `make windows-check` and `make windows-test` for explicit Windows
+Player validation. Windows product version is
+`apps/player-windows/release/VERSION`. Windows unit tests run on any
+host; the renderer and conformance need Windows with WebView2.
 
 The production Docker builder images in `deploy/docker/Dockerfile` are a separate build environment. They can use newer, validated versions than `mise.toml`. Docker must not change the contributor baseline. To change any version, change it on purpose, and run the full checks for the affected areas.
 
 PostgreSQL is the only runtime dependency for Milestone 1.
 
-Run `make dev-server` and `make dev-dashboard` in separate terminals. Restart the server after a server change.
+Run `make dev` to start the local PostgreSQL service, the Go server with [Air](https://github.com/air-verse/air) reload, and the Vite dashboard. The first run downloads the pinned Go watcher. Press Ctrl-C to stop the processes. The database volume remains for the next run. Run `make dev-down` to stop and remove the local development container and network while keeping the database volume.
 
-Vite updates the dashboard automatically.
+The development database binds to `127.0.0.1:15432`. Set `TILECAST_DEV_DB_PORT` to use another port. Set `TILECAST_DATABASE_URL` to use an existing database and skip the local PostgreSQL service. The server uses port 8080 and Vite uses port 5173. Install FFmpeg and FFprobe, or run `make doctor AREA=media`, before you start the server.
 
-Run `make check` to do these checks:
+Run `make watch-dashboard` or `make watch-linux` for the Vitest watch mode in those workspaces. Run `make quick` to select tests related to changed dashboard, Linux Player, Player Runtime, Android, or Go packages. The default comparison is `origin/main`; set `TILECAST_DEV_BASE` to use another ref. Quick validation does not replace the full checks.
 
-- Dashboard format
-- Lint
-- Unit tests
-- Go vet
-- Go tests
+Run `make test` for the full dashboard, extension SDK, Player Runtime, Linux Player, Go, CLI, and helper unit suites. Android unit tests remain in `make check` and `make android-check` so other contributors do not need the Android SDK. Run `make check` for merge-grade validation. It checks documentation, extensions, generated files, formatting, lint, dashboard tests, Go packages, CLI, helper tools, and Android unit tests.
 
 Run `make build` to create the dashboard bundle and the server binary. The command copies the bundle into the server embed directory.
 

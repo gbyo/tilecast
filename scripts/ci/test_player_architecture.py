@@ -91,6 +91,51 @@ class ArchitectureTests(unittest.TestCase):
         self.assertEqual(architecture.registered_crates(self.root), set())
         self.assertIn("not registered in the root Cargo workspace", "\n".join(architecture.violations(self.root)))
 
+    def windows_host(self, dependencies=""):
+        self.crate(architecture.WINDOWS_HOST, dependencies, directory="apps/player-windows")
+
+    def test_shared_crate_must_not_depend_on_the_windows_host(self):
+        self.windows_host()
+        self.crate("player-core", '[dependencies]\nhost = {package = "tilecast-windows", path = "../../apps/player-windows"}')
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("outside the shared Player crates", errors)
+        self.assertIn("forbidden native host dependency tilecast-windows", errors)
+
+    def test_shared_crate_must_not_alias_the_windows_host(self):
+        self.crate("player-core", '[dependencies]\nhost = {package = "tilecast-windows", version = "1"}')
+        self.assertIn(
+            "forbidden native host dependency tilecast-windows", "\n".join(architecture.violations(self.root))
+        )
+
+    def test_shared_crate_must_not_take_os_specific_dependencies(self):
+        self.crate("player-core", '[dependencies]\nwindows = "0.62"\n[target.\'cfg(windows)\'.dependencies]\nwebview2-com = "0.39"')
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("forbidden OS-specific dependency windows", errors)
+        self.assertIn("forbidden OS-specific dependency webview2-com", errors)
+
+    def test_windows_host_must_not_depend_on_edge(self):
+        self.crate("edge-ipc", directory="apps/edge/crates/edge-ipc")
+        self.windows_host('[dependencies]\nedge-ipc = {path = "../edge/crates/edge-ipc"}\n[dev-dependencies]\nprotocol = {package = "edge-protocol", version = "1"}')
+        errors = "\n".join(architecture.violations(self.root))
+        self.assertIn("tilecast-windows: edge-ipc depends on the Edge host", errors)
+        self.assertIn("forbidden native host dependency edge-protocol", errors)
+
+    def test_windows_host_must_not_depend_on_the_electron_player(self):
+        self.write("apps/player-linux/Cargo.toml", '[package]\nname = "player-linux"\nversion = "0.1.0"\n')
+        self.windows_host('[dependencies]\nlinux = {package = "player-linux", path = "../player-linux"}')
+        self.assertIn(
+            "tilecast-windows: linux depends on the Electron Player", "\n".join(architecture.violations(self.root))
+        )
+
+    def test_windows_host_may_use_shared_and_external_crates(self):
+        self.crate("player-core")
+        self.windows_host(
+            '[dependencies]\nplayer-core = {path = "../../crates/player-core"}\nserde = "1"\n'
+            '[target.\'cfg(windows)\'.dependencies]\nwindows = "0.62"\n'
+            '[dev-dependencies]\ntilecast-windows = {path = "."}'
+        )
+        self.assertEqual(architecture.violations(self.root), [])
+
 
 if __name__ == "__main__":
     unittest.main()

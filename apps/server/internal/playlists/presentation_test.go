@@ -3,6 +3,8 @@ package playlists
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -16,14 +18,44 @@ func presentationTestService() *Service {
 	return &Service{definitions: contentdefs.MustLoad()}
 }
 
+func TestDocumentValuesAgreeWithSharedFixtures(t *testing.T) {
+	raw, err := os.ReadFile("../../../../packages/manifest-schema/data-document-value-fixtures.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixtures []struct {
+		Kind     string        `json:"kind"`
+		Raw      string        `json:"raw"`
+		Expected DocumentValue `json:"expected"`
+	}
+	if err := json.Unmarshal(raw, &fixtures); err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range fixtures {
+		t.Run(fixture.Kind+":"+fixture.Raw, func(t *testing.T) {
+			if got := coerceDocumentValue(fixture.Kind, fixture.Raw); !reflect.DeepEqual(got, fixture.Expected) {
+				t.Fatalf("value = %#v, want %#v", got, fixture.Expected)
+			}
+		})
+	}
+}
+
 func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 	raw := json.RawMessage(`{
 		"fields":[
 			{"key":"name","label":"Name","type":"text","role":"headline"},
+			{"key":"score","label":"Score","type":"number"},
+			{"key":"count","label":"Count","type":"integer"},
+			{"key":"completion","label":"Completion","type":"percent"},
 			{"key":"price","label":"Price","type":"currency","currency":"EUR"},
-			{"key":"active","label":"Active","type":"boolean"}
+			{"key":"active","label":"Active","type":"boolean"},
+			{"key":"day","label":"Day","type":"date"},
+			{"key":"updatedAt","label":"Updated","type":"datetime"},
+			{"key":"duration","label":"Duration","type":"duration"},
+			{"key":"link","label":"Link","type":"url"},
+			{"key":"image","label":"Image","type":"asset"}
 		],
-		"records":[{"id":"row-1","values":{"name":"Coffee","price":"3.50","active":"true"}}],
+		"records":[{"id":"row-1","values":{"name":"Coffee","score":"8.5","count":"3","completion":"0.75","price":"3.50","active":"true","day":"2026-09-28","updatedAt":"2026-09-28T14:00:00Z","duration":"5400","link":"https://example.org","image":"abcdefab-cdef-4abc-8def-abcdefabcdef"}}],
 		"usingCachedData":false,
 		"unavailable":false
 	}`)
@@ -35,14 +67,77 @@ func TestProjectDataDocumentCoercesTypedValues(t *testing.T) {
 		t.Fatalf("unexpected document: %#v", document)
 	}
 	values := document.Datasets[0].Records[0].Values
-	if document.Datasets[0].Fields[1].Currency != "EUR" {
-		t.Fatalf("currency metadata was dropped: %#v", document.Datasets[0].Fields[1])
+	priceField := DocumentField{}
+	for _, field := range document.Datasets[0].Fields {
+		if field.Key == "price" {
+			priceField = field
+			break
+		}
+	}
+	if priceField.Currency != "EUR" {
+		t.Fatalf("currency metadata was dropped: %#v", priceField)
 	}
 	if document.Datasets[0].Fields[0].Role != "headline" {
 		t.Fatalf("semantic role metadata was dropped: %#v", document.Datasets[0].Fields[0])
 	}
 	if values["name"].Kind != "text" || values["price"].Kind != "currency" || values["price"].Number == nil || *values["price"].Number != 3.5 || values["active"].Boolean == nil || !*values["active"].Boolean {
 		t.Fatalf("typed values were not coerced: %#v", values)
+	}
+	if values["score"].Kind != "number" || values["score"].Number == nil || *values["score"].Number != 8.5 || values["count"].Kind != "integer" || values["count"].Integer == nil || *values["count"].Integer != 3 {
+		t.Fatalf("numeric values were not coerced: %#v", values)
+	}
+	if values["completion"].Kind != "percent" || values["completion"].Number == nil || *values["completion"].Number != 0.75 {
+		t.Fatalf("percent was not coerced: %#v", values["completion"])
+	}
+	if values["day"].Kind != "date" || values["day"].Date == nil || *values["day"].Date != "2026-09-28" || values["updatedAt"].Kind != "datetime" || values["updatedAt"].DateTime == nil || *values["updatedAt"].DateTime != "2026-09-28T14:00:00Z" {
+		t.Fatalf("date values were not coerced: %#v", values)
+	}
+	if values["duration"].Kind != "duration" || values["duration"].Duration == nil || *values["duration"].Duration != 5400 {
+		t.Fatalf("duration was not projected as seconds: %#v", values["duration"])
+	}
+	if values["link"].Kind != "url" || values["link"].URL == nil || *values["link"].URL != "https://example.org" {
+		t.Fatalf("URL was not coerced: %#v", values["link"])
+	}
+	if values["image"].Kind != "asset" || values["image"].AssetID == nil || *values["image"].AssetID != "abcdefab-cdef-4abc-8def-abcdefabcdef" {
+		t.Fatalf("asset was not projected as a canonical ID: %#v", values["image"])
+	}
+}
+
+func TestCoerceDocumentValueFallsBackForInvalidValues(t *testing.T) {
+	for _, test := range []struct {
+		kind string
+		raw  string
+	}{
+		{kind: "number", raw: "NaN"},
+		{kind: "integer", raw: "3.5"},
+		{kind: "integer", raw: "9007199254740992"},
+		{kind: "percent", raw: "Infinity"},
+		{kind: "currency", raw: "not-money"},
+		{kind: "boolean", raw: "yes"},
+		{kind: "date", raw: "2026-02-30"},
+		{kind: "datetime", raw: "not-a-timestamp"},
+		{kind: "duration", raw: "90.5"},
+		{kind: "duration", raw: "1h30m"},
+		{kind: "duration", raw: "-1"},
+		{kind: "duration", raw: "9007199254740992"},
+		{kind: "url", raw: "/relative/path"},
+		{kind: "asset", raw: "not-a-uuid"},
+		{kind: "asset", raw: "00000000-0000-0000-0000-000000000000"},
+	} {
+		value := coerceDocumentValue(test.kind, test.raw)
+		if value.Kind != "text" || value.Text == nil || *value.Text != test.raw {
+			t.Errorf("coerceDocumentValue(%q, %q) = %#v, want text fallback", test.kind, test.raw, value)
+		}
+	}
+	for _, kind := range []string{"duration", "asset"} {
+		if value := coerceDocumentValue(kind, ""); value.Kind != "null" {
+			t.Errorf("empty %s = %#v, want null", kind, value)
+		}
+	}
+	uppercase := strings.ToUpper("abcdefab-cdef-4abc-8def-abcdefabcdef")
+	value := coerceDocumentValue("asset", uppercase)
+	if value.Kind != "asset" || value.AssetID == nil || *value.AssetID != "abcdefab-cdef-4abc-8def-abcdefabcdef" {
+		t.Fatalf("uppercase UUID was not normalized: %#v", value)
 	}
 }
 

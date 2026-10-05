@@ -19,6 +19,8 @@ set -- \
   packages/player-runtime/src/widgets/capabilities.gen.ts \
   packages/player-runtime/src/compat/projection/presentation-capabilities.gen.ts \
   apps/edge/tilecastd/src/presentation_capabilities.rs \
+  apps/player-android/native/src/presentation_capabilities.rs \
+  apps/player-android/native/src/widget_capabilities.rs \
   apps/player-android/app/src/main/java/org/tilecast/player/network/PresentationCapabilities.gen.kt \
   apps/server/internal/presentationcaps/capabilities.gen.go \
   packages/api-client/internal/generated \

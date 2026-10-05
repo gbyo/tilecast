@@ -10,8 +10,9 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { playlistQueries } from "../data/playlists";
 import type {
   Asset,
   ContentDefinitionField,
@@ -26,6 +27,153 @@ import {
 } from "../content/SourceEditors";
 import { PlaylistPreviewPage } from "./PlaylistPreviewPage";
 import { PLAYLIST_PREVIEW_FADE_MS } from "./PlaylistPreviewPage";
+
+beforeEach(() => {
+  vi.spyOn(api, "settings").mockResolvedValue({ values: {} } as never);
+});
+
+it("shows future content and removes expired content without refetching", async () => {
+  vi.useFakeTimers();
+  const start = Date.parse("2026-10-02T12:00:00Z");
+  vi.setSystemTime(start);
+  vi.spyOn(authModule, "useAuth").mockReturnValue({
+    status: {
+      authenticated: true,
+      setupRequired: false,
+      csrfToken: "test-csrf",
+      user: { id: "owner", name: "Owner", username: "owner", role: "owner" },
+    },
+    isLoading: false,
+  } as ReturnType<typeof authModule.useAuth>);
+  const fetchPlaylist = vi.spyOn(api, "playlist");
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity } },
+  });
+  client.setQueryData(["settings"], { values: {} });
+  client.setQueryData(playlistQueries.detail("p1").queryKey, {
+    id: "p1",
+    name: "Availability rotation",
+    description: "",
+    revision: 1,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    itemCount: 1,
+    warnings: [],
+    layoutUsage: [],
+    items: [
+      {
+        id: "image",
+        assetId: "image",
+        position: 0,
+        assetType: "image",
+        assetStatus: "ready",
+        assetName: "Future image",
+        deliveryPolicy: "download",
+        thumbnailUrl: "",
+        durationMs: 10000,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: false,
+        volume: 0,
+        availableFrom: new Date(start + 1000).toISOString(),
+        expiresAt: new Date(start + 2000).toISOString(),
+      },
+    ],
+  });
+  const router = createMemoryRouter(
+    [{ path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> }],
+    { initialEntries: ["/playlists/p1/preview"] },
+  );
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  expect(view.container.querySelector("img")).toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(1001));
+  expect(view.container.querySelector("img")).not.toBeNull();
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(view.container.querySelector("img")).toBeNull();
+  expect(fetchPlaylist).not.toHaveBeenCalled();
+  view.unmount();
+  client.clear();
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("waits for playback defaults and applies them to the displayed item", async () => {
+  vi.spyOn(authModule, "useAuth").mockReturnValue({
+    status: {
+      authenticated: true,
+      setupRequired: false,
+      csrfToken: "test-csrf",
+      user: { id: "owner", name: "Owner", username: "owner", role: "owner" },
+    },
+    isLoading: false,
+  } as ReturnType<typeof authModule.useAuth>);
+  vi.spyOn(api, "playlist").mockResolvedValue({
+    id: "p1",
+    name: "Default rotation",
+    revision: 1,
+    items: [
+      {
+        id: "image",
+        assetId: "image",
+        assetType: "image",
+        assetStatus: "ready",
+        durationMs: 1000,
+        usePlayerDefaults: true,
+        fitMode: "contain",
+        transition: "none",
+        audioEnabled: true,
+        volume: 1,
+      },
+    ],
+  } as never);
+  let resolveSettings!: (
+    value: Awaited<ReturnType<typeof api.settings>>,
+  ) => void;
+  vi.mocked(api.settings).mockReturnValue(
+    new Promise((resolve) => {
+      resolveSettings = resolve;
+    }),
+  );
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const router = createMemoryRouter(
+    [{ path: "/playlists/:id/preview", element: <PlaylistPreviewPage /> }],
+    { initialEntries: ["/playlists/p1/preview"] },
+  );
+  const view = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(api.settings).toHaveBeenCalled());
+  expect(view.container.querySelector("img")).toBeNull();
+  act(() =>
+    resolveSettings({
+      values: {
+        "player.playback.default_image_duration_seconds": 7,
+        "player.playback.default_fit_mode": "cover",
+        "player.playback.default_transition": "fade",
+        "player.playback.default_audio_enabled": false,
+        "player.playback.default_volume": 0.25,
+      },
+    } as never),
+  );
+  await waitFor(() =>
+    expect(view.container.querySelector("img")).not.toBeNull(),
+  );
+  const image = view.container.querySelector("img")!;
+  expect(image.style.objectFit).toBe("cover");
+  expect(image.className).toContain("--fade");
+  const timeout = vi.spyOn(window, "setTimeout");
+  fireEvent.load(image);
+  expect(timeout).toHaveBeenCalledWith(expect.any(Function), 7000);
+  view.unmount();
+  client.clear();
+});
 
 afterEach(() => {
   cleanup();

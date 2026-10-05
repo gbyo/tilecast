@@ -87,6 +87,20 @@ try {
   console.log(
     `Packaged Player Runtime:   ${runtimeManifest.version} (${runtimeManifest.files.length} files verified)`,
   );
+  // The Node projection entry points require the compiled pure model.
+  const modelRoot = "node_modules/@tilecast/presentation-model";
+  for (const file of [
+    "package.json",
+    "dist/index.js",
+    "dist/availability.js",
+    "dist/playback-defaults.js",
+    "dist/media-eligibility.js",
+    "dist/zone-policy.js",
+  ]) {
+    if (extractFile(asarPath, `${modelRoot}/${file}`).byteLength === 0) {
+      throw new Error(`Packaged Presentation Model is missing ${file}.`);
+    }
+  }
   const manifestVersion = String(manifest.versionName ?? "");
   const artifact = readFileSync(appImage);
   const artifactSha256 = createHash("sha256").update(artifact).digest("hex");

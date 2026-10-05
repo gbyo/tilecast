@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
+import type { WidgetDataDocument, WidgetRecord } from "@tilecast/widget-sdk";
 import { createWidgetResources } from "@tilecast/widget-sdk";
-import { previewToDataDocument } from "./widgetPreviewResources";
+import {
+  previewDataSourceMedia,
+  previewToDataDocument,
+} from "./widgetPreviewResources";
+import valueFixtures from "../../../../packages/manifest-schema/data-document-value-fixtures.json";
 import type {
   CalendarPreview,
   StructuredPreview,
@@ -17,6 +22,12 @@ function typedRecords(): TypedRecordData {
       { key: "live", label: "Live", type: "boolean" },
       { key: "playedAt", label: "Played", type: "datetime" },
       { key: "price", label: "Price", type: "currency", currency: "USD" },
+      { key: "winRate", label: "Win rate", type: "percent" },
+      { key: "playedOn", label: "Played on", type: "date" },
+      { key: "elapsed", label: "Elapsed", type: "duration" },
+      { key: "link", label: "Link", type: "url" },
+      { key: "cover", label: "Cover", type: "asset" },
+      { key: "blank", label: "Blank", type: "asset" },
     ],
     records: [
       {
@@ -28,21 +39,63 @@ function typedRecords(): TypedRecordData {
           live: "true",
           playedAt: "2026-09-28T14:00:00Z",
           price: "12.5",
+          winRate: "0.75",
+          playedOn: "2026-09-28",
+          elapsed: "5400",
+          link: "https://example.org/image.png",
+          cover: "ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF",
+          blank: "",
         },
       },
       {
         id: "r2",
-        values: { home: "Hilltop", goals: "many", live: "yes" },
+        values: {
+          home: "Hilltop",
+          goals: "9007199254740992",
+          live: "yes",
+          rating: "NaN",
+          price: "not-money",
+          winRate: "Infinity",
+          playedAt: "not-a-timestamp",
+          playedOn: "2026-02-30",
+          elapsed: "1h30m",
+          link: "/relative/path",
+          cover: "not-a-uuid",
+        },
       },
     ],
     cachedAt: "2026-09-28T15:00:00Z",
     usingCachedData: false,
     attribution: "League feed",
     unavailable: false,
+    dateField: "playedAt",
+    dateSelection: {
+      enabled: true,
+      dateFormat: "iso_date",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    },
   };
 }
 
 describe("previewToDataDocument", () => {
+  it.each(valueFixtures)(
+    "agrees with the shared $kind fixture for '$raw'",
+    ({ kind, raw, expected }) => {
+      const preview: TypedRecordData = {
+        fields: [{ key: "value", label: "Value", type: kind }],
+        records: [{ id: "record", values: { value: raw } }],
+        usingCachedData: false,
+        unavailable: false,
+      };
+      expect(
+        previewToDataDocument(preview)?.datasets[0]?.records?.[0]?.values.value,
+      ).toEqual(expected);
+    },
+  );
   it("projects typed records with typed values and attribution", () => {
     const document = previewToDataDocument(typedRecords());
     expect(document?.schemaVersion).toBe(1);
@@ -62,6 +115,21 @@ describe("previewToDataDocument", () => {
     // never in the value: formatWidgetValue renders value.text before any
     // numeric branch, so stamping it here would hide the amount.
     expect(first?.["price"]).toEqual({ kind: "currency", number: 12.5 });
+    expect(first?.["winRate"]).toEqual({ kind: "percent", number: 0.75 });
+    expect(first?.["playedOn"]).toEqual({ kind: "date", date: "2026-09-28" });
+    expect(first?.["elapsed"]).toEqual({
+      kind: "duration",
+      durationSeconds: 5400,
+    });
+    expect(first?.["cover"]).toEqual({
+      kind: "asset",
+      assetId: "abcdefab-cdef-4abc-8def-abcdefabcdef",
+    });
+    expect(first?.["link"]).toEqual({
+      kind: "url",
+      url: "https://example.org/image.png",
+    });
+    expect(first?.["blank"]).toEqual({ kind: "null" });
     expect(dataset?.fields?.find((field) => field.key === "price")).toEqual({
       key: "price",
       label: "Price",
@@ -76,9 +144,36 @@ describe("previewToDataDocument", () => {
     });
     // Unparseable values degrade to text instead of failing the preview.
     const second = dataset?.records?.[1]?.values;
-    expect(second?.["goals"]).toEqual({ kind: "text", text: "many" });
+    expect(second?.["goals"]).toEqual({
+      kind: "text",
+      text: "9007199254740992",
+    });
     expect(second?.["live"]).toEqual({ kind: "text", text: "yes" });
-    expect(document?.cache?.usingCachedData).toBe(false);
+    expect(second?.["rating"]).toEqual({ kind: "text", text: "NaN" });
+    expect(second?.["price"]).toEqual({ kind: "text", text: "not-money" });
+    expect(second?.["winRate"]).toEqual({ kind: "text", text: "Infinity" });
+    expect(second?.["playedAt"]).toEqual({
+      kind: "text",
+      text: "not-a-timestamp",
+    });
+    expect(second?.["playedOn"]).toEqual({ kind: "text", text: "2026-02-30" });
+    expect(second?.["link"]).toEqual({ kind: "text", text: "/relative/path" });
+    expect(second?.["elapsed"]).toEqual({ kind: "text", text: "1h30m" });
+    expect(second?.["cover"]).toEqual({ kind: "text", text: "not-a-uuid" });
+    expect(dataset?.cache).toEqual({
+      cachedAt: "2026-09-28T15:00:00Z",
+      usingCachedData: false,
+      unavailable: false,
+    });
+    expect(dataset?.timezone).toBe("America/New_York");
+    expect(dataset?.dateSelection).toEqual({
+      field: "playedAt",
+      timezone: "America/New_York",
+      mode: "today",
+      excludePast: true,
+      noMatchBehavior: "fallback_text",
+      fallbackText: "No games today",
+    });
   });
 
   it("projects time-series points, metadata, and object datasets", () => {
@@ -100,6 +195,10 @@ describe("previewToDataDocument", () => {
           fields: [{ key: "home", label: "Home", type: "text" }],
           records: [{ id: "r1", values: { home: "Riverside" } }],
           attribution: "League feed",
+          cachedAt: "2026-09-28T15:00:00Z",
+          staleAt: "2026-09-28T16:00:00Z",
+          timezone: "Europe/London",
+          units: { temperature: "C" },
           usingCachedData: false,
           unavailable: false,
         },
@@ -132,6 +231,17 @@ describe("previewToDataDocument", () => {
       kind: "text",
       text: "Riverside",
     });
+    expect(document?.datasets[1]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      attribution: "League feed",
+      timezone: "Europe/London",
+      units: { temperature: "C" },
+    });
     expect(document?.datasets[2]).toMatchObject({
       id: "current",
       kind: "object",
@@ -161,7 +271,9 @@ describe("previewToDataDocument", () => {
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: true,
         },
+        timezone: "America/New_York",
       },
     } as unknown as CalendarPreview;
     const document = previewToDataDocument(preview);
@@ -175,31 +287,103 @@ describe("previewToDataDocument", () => {
       kind: "text",
       text: "Stadium",
     });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: true,
+      },
+      timezone: "America/New_York",
+    });
   });
 
-  it("projects structured previews into text records", () => {
+  it("projects structured previews with typed fields and values", () => {
     const preview = {
+      fieldSchema: [
+        { key: "title", label: "Title", type: "text", role: "headline" },
+        { key: "amount", label: "Amount", type: "number" },
+        { key: "count", label: "Count", type: "integer" },
+        { key: "completion", label: "Completion", type: "percent" },
+        { key: "day", label: "Day", type: "date" },
+        { key: "startsAt", label: "Starts at", type: "datetime" },
+        { key: "price", label: "Price", type: "currency", currency: "USD" },
+        { key: "active", label: "Active", type: "boolean" },
+        { key: "link", label: "Link", type: "url", role: "link" },
+        { key: "poster", label: "Poster", type: "asset" },
+      ],
       configuration: {
         data: {
           records: [
             {
               id: "n1",
               title: "Win",
-              subtitle: "League",
-              values: { league: "Premier" },
+              link: "https://example.test/win",
+              values: {
+                amount: "12.5",
+                count: "4",
+                completion: "0.75",
+                day: "2026-09-29",
+                startsAt: "2026-09-29T17:00:00Z",
+                price: "4.25",
+                active: "true",
+                poster: "asset-123",
+              },
             },
           ],
           cachedAt: "2026-09-28T15:00:00Z",
           staleAt: "2026-09-28T16:00:00Z",
           usingCachedData: false,
+          unavailable: false,
+        },
+        dateSelection: {
+          enabled: true,
+          dateFormat: "iso_date",
+          timezone: "America/Los_Angeles",
+          mode: "current_week",
+          excludePast: true,
+          noMatchBehavior: "empty",
         },
       },
     } as unknown as StructuredPreview;
     const document = previewToDataDocument(preview);
-    const values = document?.datasets[0]?.records?.[0]?.values;
+    const dataset = document?.datasets[0];
+    const values = dataset?.records?.[0]?.values;
+    expect(dataset?.fields).toEqual(preview.fieldSchema);
     expect(values?.["title"]).toEqual({ kind: "text", text: "Win" });
-    expect(values?.["subtitle"]).toEqual({ kind: "text", text: "League" });
-    expect(values?.["league"]).toEqual({ kind: "text", text: "Premier" });
+    expect(values?.["amount"]).toEqual({ kind: "number", number: 12.5 });
+    expect(values?.["count"]).toEqual({ kind: "integer", integer: 4 });
+    expect(values?.["completion"]).toEqual({ kind: "percent", number: 0.75 });
+    expect(values?.["day"]).toEqual({ kind: "date", date: "2026-09-29" });
+    expect(values?.["startsAt"]).toEqual({
+      kind: "datetime",
+      datetime: "2026-09-29T17:00:00Z",
+    });
+    expect(values?.["price"]).toEqual({ kind: "currency", number: 4.25 });
+    expect(values?.["active"]).toEqual({ kind: "boolean", boolean: true });
+    expect(values?.["link"]).toEqual({
+      kind: "url",
+      url: "https://example.test/win",
+    });
+    // "asset-123" is not a UUID, so strict asset coercion degrades it to
+    // text instead of projecting an asset value.
+    expect(values?.["poster"]).toEqual({ kind: "text", text: "asset-123" });
+    expect(document?.datasets[0]).toMatchObject({
+      cache: {
+        cachedAt: "2026-09-28T15:00:00Z",
+        staleAt: "2026-09-28T16:00:00Z",
+        usingCachedData: false,
+        unavailable: false,
+      },
+      timezone: "America/Los_Angeles",
+      dateSelection: {
+        field: "date",
+        timezone: "America/Los_Angeles",
+        mode: "current_week",
+        excludePast: true,
+        noMatchBehavior: "empty",
+      },
+    });
   });
 
   it("returns null for unknown shapes instead of guessing", () => {
@@ -223,5 +407,122 @@ describe("previewToDataDocument", () => {
     // The document exists but the grant does not cover it.
     expect(narrowed.dataset("connected", "records")).toBeNull();
     expect(narrowed.dataDocument("connected")).toBeNull();
+  });
+});
+
+describe("previewDataSourceMedia", () => {
+  it("grants only typed assets in the selected field and record bound", () => {
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [
+            { key: "cover", label: "Cover", type: "asset" },
+            { key: "other", label: "Other", type: "asset" },
+          ],
+          records: [
+            {
+              id: "one",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "11111111-1111-1111-1111-111111111111",
+                },
+                other: {
+                  kind: "asset",
+                  assetId: "22222222-2222-4222-8222-222222222222",
+                },
+              },
+            },
+            {
+              id: "two",
+              values: {
+                cover: {
+                  kind: "asset",
+                  assetId: "33333333-3333-4333-8333-333333333333",
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "cover", maximumItems: 1 },
+      ]),
+    ).toEqual([
+      {
+        assetId: "11111111-1111-1111-1111-111111111111",
+        variantId: "preview",
+      },
+    ]);
+  });
+
+  it("does not grant assets from an untyped field", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "text" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("stops after the component media grant limit", () => {
+    const records: WidgetRecord[] = Array.from({ length: 20 }, (_, index) => {
+      const block = String(index + 1).padStart(8, "0");
+      return {
+        id: `row-${index}`,
+        values: {
+          image: {
+            kind: "asset",
+            assetId: `${block}-1111-4111-8111-111111111111`,
+          },
+        },
+      };
+    });
+    const document: WidgetDataDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "records",
+          kind: "records",
+          cache: { usingCachedData: false, unavailable: false },
+          fields: [{ key: "image", label: "Image", type: "asset" }],
+          records,
+        },
+      ],
+    };
+    expect(
+      previewDataSourceMedia(new Map([["source-a", document]]), [
+        { dataSourceId: "source-a", fieldKey: "image", maximumItems: 100 },
+      ]),
+    ).toHaveLength(16);
   });
 });

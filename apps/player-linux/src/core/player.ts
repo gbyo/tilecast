@@ -2208,14 +2208,14 @@ export class PlayerRuntime {
       const regionalFormat = resolveRegionalFormatting(
         this.config?.playback?.["regionalFormat"],
       );
-      // A first-class component renders itself in the runtime; its payload
-      // has no time-dependent value, so re-selection never restarts it.
+      // Apply Data Source date policy for this activation, as for legacy Widgets.
       const payload =
         widget.presentation?.kind === "component"
           ? projectWidgetComponent(widget, {
               dataSources: maps.dataSources,
               assets: manifest.assets,
               regionalFormat,
+              at,
             })
           : renderWidget(widget, {
               dataSources: maps.dataSources,
@@ -2729,8 +2729,9 @@ export class PlayerRuntime {
       screenHeight: size.height,
       playerVersion: this.options.playerVersion,
       playerVersionCode: parseVersionCode(this.options.playerVersion),
-      // 1: declarative presentations; 2: first-class Widget components.
-      presentationSchemaVersions: [1, 2],
+      // 1: declarative presentations; 2: first-class Widget components; 3:
+      // component empty-state policy for fullscreen playlist advancement.
+      presentationSchemaVersions: [1, 2, 3],
       nativePresentationCapabilities: {
         ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
         // widget.<type> stays generated from Widget manifests by widgetctl.

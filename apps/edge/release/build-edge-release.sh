@@ -21,9 +21,10 @@ export TILECAST_EDGE_VERSION="$version"
 arch=$(uname -m)
 wpe_prefix=/opt/tilecast-edge/current/lib/wpe
 
-# 1. WPE WebKit, cached per version and builder inputs.
+# 1. WPE WebKit, cached per version, builder inputs and architecture: a
+# cache entry for the other architecture is ignored, never extracted.
 key=$(cat "$release/Dockerfile.builder" "$release/build-wpe.sh" | sha256sum | cut -c1-16)
-cache="/cache/wpe-$wpe_version-$key.tar"
+cache="/cache/wpe-$wpe_version-$key-$arch.tar"
 if [ -f "$cache" ]; then
   tar -xf "$cache" -C /
 else

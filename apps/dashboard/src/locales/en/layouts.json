@@ -333,20 +333,15 @@
     "opacityLabel": "Opacity",
     "opacityAria": "Layer opacity",
     "widgetTitle": "Widget",
+    "widgetAppearanceShared": "This placement uses the shared Widget appearance. Edit the Widget to change it.",
     "fitLabel": "Fit",
-    "alignmentLabel": "Alignment",
     "alignLeft": "left",
     "alignCenter": "center",
     "alignRight": "right",
-    "foregroundLabel": "Foreground",
-    "whenUnavailable": "When unavailable",
-    "widgetMuted": "Muted in this Layout",
     "widgetEdit": "Edit shared Widget",
     "fitContain": "Fit",
     "fitCover": "Fill",
     "fitStretch": "Stretch",
-    "widgetFallbackShow": "Show App fallback",
-    "widgetFallbackHide": "Hide placement",
     "zoneTitle": "Playlist zone",
     "fallbackLabel": "Fallback",
     "zoneFallbackBackground": "Zone background",
@@ -403,6 +398,7 @@
   },
   "preview": {
     "zoneEmpty": "No ready items",
+    "zoneUnsupported": "Only images and videos can play in a Layout playlist zone.",
     "unknownProvider": "Widget"
   }
 }

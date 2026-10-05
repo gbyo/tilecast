@@ -1,7 +1,9 @@
+import { useId } from "react";
+
 /**
  * A quiet trend line for a metric cell: no axes, labels, or tooltip, drawn in
- * `currentColor` at low opacity so it stays behind the figure it supports.
- * Values are percentages on a fixed 0–100 scale, so a flat line means a
+ * `currentColor` with a soft vertical fade so it stays visually secondary
+ * to the figure it supports. Values are percentages on a fixed 0–100 scale, so a flat line means a
  * steady share, never an exaggerated wobble. A null value (an hour with no
  * measurement) breaks the line instead of being drawn as zero.
  */
@@ -12,6 +14,7 @@ export function Sparkline({
   values: (number | null)[];
   className?: string;
 }) {
+  const gradientId = useId().replaceAll(":", "");
   if (values.filter((value) => value !== null).length < 2) return null;
   const step = 100 / (values.length - 1);
   const y = (value: number) =>
@@ -37,6 +40,13 @@ export function Sparkline({
       preserveAspectRatio="none"
       className={`pointer-events-none ${className}`}
     >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.16} />
+          <stop offset="70%" stopColor="currentColor" stopOpacity={0.06} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+        </linearGradient>
+      </defs>
       {runs
         .filter((points) => points.length > 1)
         .map((points) => {
@@ -49,15 +59,16 @@ export function Sparkline({
             <g key={first.x}>
               <path
                 d={`${line} L${last.x},30 L${first.x},30 Z`}
-                fill="currentColor"
-                fillOpacity={0.1}
+                fill={`url(#${gradientId})`}
               />
               <path
                 d={line}
                 fill="none"
                 stroke="currentColor"
-                strokeOpacity={0.45}
-                strokeWidth={1}
+                strokeOpacity={0.7}
+                strokeWidth={1.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
               />
             </g>

@@ -159,7 +159,12 @@ export function selectByDate<T extends DatedRecord>(
 function resolveNoMatch<T extends DatedRecord>(
   matched: T[],
   all: T[],
-  opts: { timezone: string; at: Date; noMatchBehavior?: NoMatchBehavior },
+  opts: {
+    mode: SelectionMode;
+    timezone: string;
+    at: Date;
+    noMatchBehavior?: NoMatchBehavior;
+  },
 ): { records: T[]; usedFallback: boolean; hidden: boolean } {
   if (matched.length > 0) {
     return { records: matched, usedFallback: false, hidden: false };
@@ -167,8 +172,9 @@ function resolveNoMatch<T extends DatedRecord>(
   switch (opts.noMatchBehavior) {
     case "next_available": {
       const today = localDate(opts.timezone, opts.at);
+      const target = opts.mode === "tomorrow" ? addDays(today, 1) : today;
       const upcoming = all
-        .filter((r) => r.date && r.date.slice(0, 10) >= today)
+        .filter((r) => r.date && r.date.slice(0, 10) > target)
         .sort((a, b) => a.date.localeCompare(b.date));
       const firstDate = upcoming[0]?.date.slice(0, 10);
       const next = firstDate
@@ -176,10 +182,21 @@ function resolveNoMatch<T extends DatedRecord>(
         : [];
       return { records: next, usedFallback: false, hidden: false };
     }
-    case "last_known_good":
-      // Keep whatever the caller last showed; signal empty here and let the
-      // caller retain prior content.
-      return { records: [], usedFallback: false, hidden: false };
+    case "last_known_good": {
+      const today = localDate(opts.timezone, opts.at);
+      const target = opts.mode === "tomorrow" ? addDays(today, 1) : today;
+      const past = all
+        .filter((r) => r.date && r.date.slice(0, 10) < target)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const lastDate = past[0]?.date.slice(0, 10);
+      return {
+        records: lastDate
+          ? past.filter((r) => r.date.slice(0, 10) === lastDate)
+          : [],
+        usedFallback: false,
+        hidden: false,
+      };
+    }
     case "hide":
       return { records: [], usedFallback: false, hidden: true };
     case "fallback_text":

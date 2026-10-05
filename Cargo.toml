@@ -17,6 +17,8 @@ members = [
     "apps/edge/tilecastctl",
     "apps/edge/tilecast-edge-migrate",
     "apps/edge/tilecast-edge-update",
+    "apps/player-android/native",
+    "apps/player-windows",
 ]
 default-members = [
     "apps/edge/crates/edge-protocol",
@@ -66,17 +68,27 @@ futures-util = { version = "0.3", default-features = false, features = ["std", "
 http-body-util = "0.1"
 hyper = { version = "1", features = ["http1", "server", "client"] }
 hyper-util = { version = "0.1", features = ["tokio", "http1", "server", "client-legacy"] }
+# Android platform host only: the shared Player crates never depend on JNI.
+jni = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-manual-roots-no-provider", "stream", "json", "http2"] }
 rusqlite = { version = "0.37", features = ["bundled"] }
 rustix = { version = "1", features = ["fs"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 rustls-native-certs = "0.8"
+# Android target only: platform TrustManager decisions for Rust networking.
+rustls-platform-verifier = "0.7"
 # Release archives (M10): pure Rust readers, used only by the root tools.
 ruzstd = "0.9"
 tar = { version = "0.4", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+# Windows Player only: JPEG preview encode (no default codecs),
+# DNS-SD browsing for local server discovery, and MSIX package reads
+# (deflate only) for update verification.
+image = { version = "0.25", default-features = false, features = ["jpeg"] }
+mdns-sd = "0.21"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 tempfile = "3"
 thiserror = "2"
 time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"] }
@@ -89,6 +101,16 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter", "fmt"]
 uuid = { version = "1", features = ["serde"] }
 # Avahi over the system D-Bus for LAN discovery (docs/tilecast-edge.md §18.1 M5).
 zbus = { version = "5", default-features = false, features = ["tokio"] }
+# Rust for Windows, for the Windows Player host only. Every unsafe Windows
+# call lives in apps/player-windows/src/win32.rs, the UI thread module, or
+# streams.rs, each with its justification.
+windows = "0.62"
+# Re-exported by `windows`; imported directly so `#[implement]` expands.
+windows-core = "0.62"
+# WebView2 COM bindings, for the Windows Player renderer host only.
+webview2-com = "0.39"
+# Minimal HWND/message-loop hosting, for the Windows Player UI thread only.
+windows-window = "0.100"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

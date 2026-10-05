@@ -21,11 +21,12 @@ export type ConfirmedPlaying =
 
 /**
  * The fleet in one Card of three figures. Every figure has the same anatomy
- * (icon and label, value over its total, one short line), so they align
+ * (icon and label, value over its total, then its trend), so they align
  * whatever they hold. The figures overlap: a screen can be online, playing,
- * and on the attention list at once. The headline stays for assistive
- * technology, where the figures alone would lack a summary. Each cell has a
- * soft color identity and a faint 24-hour trend drawn from real uptime data.
+ * and on the attention list at once. The hidden heading is a stable region
+ * name: the recap above the card already says what the figures add up to.
+ * Each cell has a soft color identity and a quiet 24-hour trend below the
+ * figure, drawn from real uptime data.
  */
 export function FleetStatus({
   summary,
@@ -45,12 +46,6 @@ export function FleetStatus({
   const { t } = useTranslation("activity");
   const { total, online } = summary;
   const series = trendSeries(trend);
-  const headline =
-    attentionCount > 0
-      ? t("operations.fleet.needAttention", { count: attentionCount, total })
-      : online === total
-        ? t("operations.fleet.allOnline", { count: total })
-        : t("operations.fleet.someOnline", { online, total });
 
   return (
     <Card
@@ -62,7 +57,7 @@ export function FleetStatus({
       className="gap-0 py-0"
     >
       <h2 id="fleet-status-heading" className="sr-only">
-        {headline}
+        {t("operations.fleet.label")}
       </h2>
       <p id="fleet-status-scope" className="sr-only">
         {t("operations.fleet.scopeNote")}
@@ -76,7 +71,6 @@ export function FleetStatus({
           identity="online"
           trend={series.connected}
           label={t("operations.fleet.online")}
-          detail={t("operations.fleet.onlineDetail")}
           value={online}
           total={total}
         />
@@ -86,7 +80,6 @@ export function FleetStatus({
           identity="attention"
           trend={series.unhealthy}
           label={t("operations.fleet.attention")}
-          detail={t("operations.fleet.attentionDetail")}
           value={
             attentionPending && attentionCount === 0 ? null : attentionCount
           }
@@ -148,7 +141,6 @@ function StatusMetric({
   identity,
   trend = [],
   label,
-  detail,
   value,
   total,
   unavailable,
@@ -160,7 +152,6 @@ function StatusMetric({
   identity: Identity;
   trend?: (number | null)[];
   label: string;
-  detail: string;
   value: number | null;
   total?: number;
   unavailable?: string;
@@ -170,11 +161,7 @@ function StatusMetric({
 }) {
   const body = (
     <>
-      <Sparkline
-        values={trend}
-        className={`absolute inset-x-0 bottom-0 h-7 w-full ${identityClass[identity].line}`}
-      />
-      <span className="relative flex items-center gap-2 text-xs leading-4 font-medium text-muted-foreground">
+      <span className="flex items-center gap-2 text-xs leading-4 font-medium text-muted-foreground">
         <span
           className={`flex size-6 shrink-0 items-center justify-center rounded-md ${identityClass[identity].chip}`}
         >
@@ -182,11 +169,11 @@ function StatusMetric({
         </span>
         <span className="sm:truncate">{label}</span>
       </span>
-      <span className="relative flex min-h-8 items-baseline gap-0.5">
+      <span className="flex min-h-8 items-baseline gap-0.5">
         {unavailable ? (
-          <strong className="text-2xl leading-8 font-semibold text-muted-foreground">
-            —
-          </strong>
+          <span className="self-center text-sm font-medium text-muted-foreground">
+            {unavailable}
+          </span>
         ) : value === null ? (
           <span role="status" aria-label={loadingLabel} className="self-center">
             <Skeleton className="h-6 w-12" />
@@ -204,9 +191,10 @@ function StatusMetric({
           </>
         )}
       </span>
-      <span className="relative text-xs text-muted-foreground sm:truncate">
-        {unavailable ?? detail}
-      </span>
+      <Sparkline
+        values={trend}
+        className={`mt-1 h-7 w-full self-end ${identityClass[identity].line}`}
+      />
     </>
   );
   const cell =
@@ -241,7 +229,6 @@ function PlayingMetric({
     identity: "playing" as const,
     trend,
     label: t("operations.fleet.playing"),
-    detail: t("operations.fleet.playingDetail"),
   };
   if (confirmed.state === "loading") {
     return (

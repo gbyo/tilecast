@@ -23,6 +23,7 @@ import {
   ShieldOff,
   Search,
   SlidersHorizontal,
+  TriangleAlert,
   Wifi,
   WifiOff,
   X,
@@ -83,7 +84,12 @@ import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
 import { isAndroidScreen } from "../playerPlatform";
 
-import { previewAge } from "../components/livePreviewState";
+import {
+  livePreviewState,
+  previewAge,
+  previewRailState,
+} from "../components/livePreviewState";
+import { PreviewFreshnessRail } from "../components/PreviewFreshnessRail";
 import { screenRowActionGroups } from "../components/screenActions";
 import { ActionMenuButton } from "../components/studio/ActionMenu";
 import { ScreenFleetMap } from "../components/ScreenFleetMap";
@@ -1213,6 +1219,79 @@ function TakeoverAction({ screens }: { screens: Screen[] }) {
   );
 }
 
+function ArchiveScreenDialog({
+  screen,
+  csrfToken,
+  open,
+  onOpenChange,
+  onArchived,
+}: {
+  screen: Screen;
+  csrfToken: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onArchived?: () => void;
+}) {
+  const { t } = useTranslation(["screens", "common"]);
+  const queryClient = useQueryClient();
+  const archive = useMutation({
+    mutationFn: () =>
+      api.revokeScreen(screen.id, t("detail.archiveReason"), csrfToken),
+    onSuccess: async () => {
+      toast.add({
+        title: t("detail.archiveSuccess", { name: screen.name }),
+        type: "success",
+      });
+      onOpenChange(false);
+      onArchived?.();
+      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
+    },
+  });
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!archive.isPending) onOpenChange(nextOpen);
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("detail.archiveConfirmTitle", { name: screen.name })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("detail.archiveConfirmBody")}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {archive.error && (
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertDescription>
+              {apiErrorMessage(archive.error)}
+            </AlertDescription>
+          </Alert>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={archive.isPending}>
+            {t("common:actions.cancel")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            disabled={archive.isPending}
+            onClick={(event) => {
+              event.preventDefault();
+              archive.mutate();
+            }}
+          >
+            {t("detail.archiveAction")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function ScreenListContent({
   screens,
   loading,
@@ -1288,6 +1367,7 @@ export function ScreenListContent({
       ),
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [archiveTarget, setArchiveTarget] = useState<Screen | null>(null);
   const [bulkLocation, setBulkLocation] = useState("");
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -2069,6 +2149,7 @@ export function ScreenListContent({
                           else next.delete(id);
                           setSelected(next);
                         }}
+                        onArchive={setArchiveTarget}
                       />
                     </div>
                   )}
@@ -2088,6 +2169,7 @@ export function ScreenListContent({
                             else next.delete(screen.id);
                             setSelected(next);
                           }}
+                          onArchive={() => setArchiveTarget(screen)}
                         />
                       ))}
                     </div>
@@ -2097,6 +2179,16 @@ export function ScreenListContent({
             );
           })}
         </div>
+      )}
+      {archiveTarget && (
+        <ArchiveScreenDialog
+          screen={archiveTarget}
+          csrfToken={csrfToken}
+          open
+          onOpenChange={(open) => {
+            if (!open) setArchiveTarget(null);
+          }}
+        />
       )}
     </section>
   );
@@ -2382,6 +2474,7 @@ export function ScreenGridCard({
   canManage,
   showLocation,
   onSelect,
+  onArchive,
 }: {
   screen: Screen;
   csrfToken: string;
@@ -2389,6 +2482,7 @@ export function ScreenGridCard({
   canManage: boolean;
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
+  onArchive?: () => void;
 }) {
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
@@ -2454,58 +2548,79 @@ export function ScreenGridCard({
     );
     return () => window.clearInterval(interval);
   }, [preview.data?.capturedAt, visible]);
+  const previewState = livePreviewState(screen, preview.data, now);
+  const railState = previewRailState(
+    previewState,
+    preview.data?.capturedAt,
+    now,
+  );
+  const captureFailed = previewState === "capture-error";
   const portrait = screen.screenHeight > screen.screenWidth;
   return (
     <article
       ref={ref}
       className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
     >
-      <Link
-        to={detailHref}
-        aria-label={t("grid.openScreen", { name: screen.name })}
-        className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
-      >
-        <AspectRatio
-          ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
-          className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+      <div className="relative flow-root">
+        <Link
+          to={detailHref}
+          aria-label={t("grid.openScreen", { name: screen.name })}
+          className="block outline-none focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:ring-inset"
         >
-          {preview.isLoading && visible ? (
-            <Skeleton
-              className="absolute inset-0 min-h-32"
-              aria-label={t("grid.loadingPreview")}
-            />
-          ) : image ? (
-            <>
-              <img
-                className="h-full w-full object-contain"
-                src={image}
-                alt={t("grid.previewAlt", { name: screen.name })}
+          <AspectRatio
+            ratio={(screen.screenWidth || 16) / (screen.screenHeight || 9)}
+            className={`grid max-h-52 w-full place-items-center overflow-hidden bg-slate-950 ${portrait ? "mx-auto my-3 w-[min(45%,8rem)] rounded-xl" : ""}`}
+          >
+            {preview.isLoading && visible ? (
+              <Skeleton
+                className="absolute inset-0 min-h-32"
+                aria-label={t("grid.loadingPreview")}
               />
-              {age && (
-                <Badge
-                  variant="secondary"
-                  className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
-                  aria-label={t("grid.snapshotCaptured", { age: age.label })}
-                  title={t("grid.snapshotTitle", {
-                    date: new Date(
-                      preview.data?.capturedAt ?? "",
-                    ).toLocaleString(formatLocale),
-                  })}
-                >
-                  {age.label}
-                </Badge>
-              )}
-            </>
-          ) : (
-            <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
-              <Monitor className="size-6" aria-hidden="true" />
-              {screen.status === "offline"
-                ? t("grid.offline")
-                : t("grid.unavailable")}
-            </span>
-          )}
-        </AspectRatio>
-      </Link>
+            ) : image ? (
+              <>
+                <img
+                  className="h-full w-full object-contain"
+                  src={image}
+                  alt={t("grid.previewAlt", { name: screen.name })}
+                />
+                {age && (
+                  <Badge
+                    variant="secondary"
+                    className="pointer-events-none absolute right-2 bottom-2 border-white/10 bg-black/60 text-white"
+                    aria-label={t("grid.snapshotCaptured", { age: age.label })}
+                    title={t("grid.snapshotTitle", {
+                      date: new Date(
+                        preview.data?.capturedAt ?? "",
+                      ).toLocaleString(formatLocale),
+                    })}
+                  >
+                    {age.label}
+                  </Badge>
+                )}
+                {captureFailed && (
+                  <Badge
+                    variant="secondary"
+                    className="pointer-events-none absolute bottom-2 left-2 gap-1 border-white/10 bg-black/60 text-white"
+                  >
+                    <TriangleAlert aria-hidden="true" />
+                    {t("livePreview.states.captureError.label")}
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span className="grid min-h-32 place-items-center gap-1 text-center text-xs text-slate-300">
+                <Monitor className="size-6" aria-hidden="true" />
+                {captureFailed
+                  ? t("livePreview.states.captureError.label")
+                  : screen.status === "offline"
+                    ? t("grid.offline")
+                    : t("grid.unavailable")}
+              </span>
+            )}
+          </AspectRatio>
+        </Link>
+        <PreviewFreshnessRail state={railState} screenId={screen.id} />
+      </div>
       <div className="grid gap-3 p-3">
         <header className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
           {canManage && (
@@ -2537,6 +2652,7 @@ export function ScreenGridCard({
                 navigate,
                 csrfToken,
                 canManage,
+                onArchive,
               })}
               variant="ghost"
               size="icon-sm"
@@ -2577,12 +2693,13 @@ export function ScreensPairRoute() {
 
 export function ScreenDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation(["screens", "common"]);
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const queryClient = useQueryClient();
-  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [mapPositionOverride, setMapPositionOverride] = useState<
     MapCoordinates | undefined
@@ -2701,19 +2818,6 @@ export function ScreenDetailPage() {
         title: enabled ? "Screen enabled." : "Screen disabled.",
         type: "success",
       });
-      await queryClient.invalidateQueries({ queryKey: screenKeys.all });
-    },
-  });
-  const revoke = useMutation({
-    mutationFn: () =>
-      api.revokeScreen(
-        id,
-        "Revoked in Tilecast Studio",
-        auth.status?.csrfToken ?? "",
-      ),
-    onSuccess: async () => {
-      toast.add({ title: "Player credential revoked.", type: "success" });
-      setConfirmRevoke(false);
       await queryClient.invalidateQueries({ queryKey: screenKeys.all });
     },
   });
@@ -2998,6 +3102,19 @@ export function ScreenDetailPage() {
                       onSelect: viewContent,
                     },
                   ],
+                },
+                {
+                  actions: canManageScreens(auth.status?.user)
+                    ? [
+                        {
+                          id: "archive",
+                          label: t("detail.archiveMenuAction"),
+                          icon: "archive",
+                          role: "destructive",
+                          onSelect: () => setConfirmArchive(true),
+                        },
+                      ]
+                    : [],
                 },
               ]}
               variant="outline"
@@ -4515,18 +4632,17 @@ export function ScreenDetailPage() {
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
                       <div>
                         <p className="text-sm font-medium">
-                          {t("detail.revokeTitle")}
+                          {t("detail.archiveTitle")}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {t("detail.revokeBody")}
+                          {t("detail.archiveBody")}
                         </p>
                       </div>
                       <Button
                         variant="destructive"
-                        onClick={() => setConfirmRevoke(true)}
-                        disabled={!screen.hasActiveCredential}
+                        onClick={() => setConfirmArchive(true)}
                       >
-                        {t("detail.revokeAction")}
+                        {t("detail.archiveAction")}
                       </Button>
                     </div>
                   </section>
@@ -4631,30 +4747,13 @@ export function ScreenDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={confirmRevoke} onOpenChange={setConfirmRevoke}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("detail.revokeConfirmTitle", { name: screen.name })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("detail.revokeConfirmBody")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={revoke.isPending}>
-              {t("common:actions.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={revoke.isPending}
-              onClick={() => revoke.mutate()}
-            >
-              {t("detail.revokeAction")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ArchiveScreenDialog
+        screen={screen}
+        csrfToken={auth.status?.csrfToken ?? ""}
+        open={confirmArchive}
+        onOpenChange={setConfirmArchive}
+        onArchived={() => void navigate("/screens")}
+      />
       <AlertDialog
         open={screenCommandAction?.kind === "confirm"}
         onOpenChange={(open) => {

@@ -4,6 +4,13 @@
 
 `Pull request validation` runs on every PR base and on `main`. Each subsystem has one reusable workflow. The PR and `main` jobs call the same workflow.
 
+CI has two tiers. Use the tier to decide where a check belongs.
+
+- **Pull request checks** are fast and deterministic. They fail only because of the change under review. They are the lint, format, type, build, and unit-test checks, the Demo Mode functional suite, and the documentation build. Only these checks can block a merge.
+- **Extended validation** checks are slow, need a special runner, or depend on the environment more than on the change. They are the Studio screenshot comparison, iOS CI, Android emulator conformance, and WebView2 conformance. They run every night and on demand. They never block a PR.
+
+Add a check to the PR tier only when a contributor can reproduce a failure on an ordinary machine. A check that fails for reasons outside the change belongs in Extended validation.
+
 `scripts/ci/affected.mjs` defines the affected areas and their consumers. It compares the merge base of the actual base and head commits. This comparison supports stacked PRs. Deleted and renamed paths retain their affected areas.
 
 Run the classifier and its contract tests from the repository root:
@@ -18,7 +25,8 @@ The graph selects these contracts:
 
 | Change                  | Selected contracts                                                                     |
 | ----------------------- | -------------------------------------------------------------------------------------- |
-| Studio component        | Studio, production image, Demo Mode browser and visual tests                           |
+| Studio component        | Studio, production image, Demo Mode functional tests                                   |
+| Linux Player source     | Linux tests and TypeScript build; package contract only for release-sensitive inputs   |
 | CLI or MCP              | CLI and API client                                                                     |
 | Widget or Widget SDK    | Widget conformance and visuals, Studio, server catalog, runtime and renderer consumers |
 | Plugin Studio code      | Plugin conformance, Studio and Demo Mode                                               |
@@ -33,11 +41,29 @@ Unknown shared packages select all areas. Workflow, dependency, and classifier c
 
 Detection runs only the dependency-free affected-area graph tests before classification, so unrelated helper tests do not delay job fan-out. The doctor and aggregate helper tests run in `CI workflow contracts` when CI infrastructure changes. Workflow YAML tests run there after installation of the root tool dependencies. `Required PR validation` includes its result.
 
+Dashboard formatting and lint, the production build, and two coverage-enabled Vitest shards run as independent jobs. Each shard publishes its JUnit report. The coverage job merges the Vitest blob reports before it writes the coverage summary and artifact. The required Dashboard workflow does not pass if a selected job fails.
+
+Node CI jobs use the root `package-lock.json` with a workspace filter when one application is sufficient. Dashboard CI installs `@tilecast/dashboard` and the root tools used by formatting. Linux Player CI installs `@gibsonmb71/tilecast-player-linux` and its linked workspace dependencies, including Player Runtime. A full local workspace install still uses `npm ci`.
+
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.
 
 The Demo Mode browser job builds and starts the production server image. It also validates the production Compose file. This job satisfies container validation when browser tests are selected. A separate container job runs only when the browser job does not run.
+
+## Linux Player validation
+
+Every Linux Player change runs its unit tests and TypeScript build. Pull requests run the packaged release contract when a change can affect Electron packaging, release signing or verification, Player updates or installation, packaged assets, package metadata or dependencies, the shared Player Runtime, or the CI contract. Linux Player source and test changes outside those paths use the fast validation job.
+
+Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
+
+## Local iteration
+
+Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
+
+Run `make quick` to run tests selected from changed paths. It uses Vitest's changed-file mode for Studio, Linux Player, and Player Runtime tests. It runs Go tests for changed packages. It also checks Android unit tests, CI contracts, or documentation when those paths change. Set `TILECAST_DEV_BASE` when the comparison ref is not `origin/main`.
+
+Use `make test` for the full unit suites. Use `make check` for merge-grade validation. The quick command does not replace either command.
 
 ## Required checks
 
@@ -45,10 +71,29 @@ Require these stable check names in the branch ruleset:
 
 - `Required PR validation`
 - `Required Edge validation`
+- `Required Windows validation`
 
-Both workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
+All three workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
 
 On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
+
+The documentation formatting check on a PR covers the Markdown files that the PR changes. It does not fail a PR for formatting that was already wrong on `main`. The runs on `main` and the manual runs check every document.
+
+Server CI runs `make gofmt-check` before `go vet`, tests, and build. The local `make check` target calls the same formatting gate, so both paths cover the same Go source trees.
+
+Dashboard CI runs the localization scanner with `--check` on changed TypeScript and TSX files under `apps/dashboard/src`, compared with the PR base. It fails for new findings. The full scan reports existing findings for separate fixes. See [localization.md](localization.md) for focused and full scan commands.
+
+## Studio architecture checks
+
+Run `npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx` for a changed Studio file. Omit `--base` to see all findings. Dashboard CI uses the same file list and comparison ref as the localization check.
+
+The architecture mode uses the existing TypeScript AST scanner. It reports new local byte formatters and local `CancelledAction` classes. It reports raw error messages in JSX and toast feedback. Use `apiErrorMessage()` for localized API failures. The localization mode reports new English toast text.
+
+Query-key checks activate when a domain has a module in `src/data/`. Key factories belong in that directory. UI consumers use the factories. The check reports inline keys in query options and common query-client operations. Existing inline keys remain incremental migration work.
+
+The transport check reports generic `request<T>()` calls with static core paths. It also reports literal core API `fetch()` calls with JSON bodies or JSON reads. Dynamic plugin routes, typed transport, external requests, and binary reads retain their boundaries. The scanner is a structural check, not type-level data-flow analysis.
+
+A genuine transport exception can use `architecture-ignore: <reason>` on the finding's line or the previous line. State the reason, such as a specialized upload. Do not use an exception to bypass an ordinary core JSON route. Git-fixture tests verify baseline comparison, missing refs, and domain activation. Run `npm run test:ci` after changes to these checks.
 
 ## Fast local iteration
 
@@ -79,7 +124,7 @@ npm run test:e2e
 npm run test:visual
 ```
 
-Each test resets the demo. Run functional and Studio visual suites in sequence because they share the installation. Both suites refuse a server that does not report Demo Mode.
+Each test resets the demo. Run functional and Studio visual suites in sequence because they share the installation. Both suites refuse a server that does not report Demo Mode. PR validation runs the functional suite. The Studio visual suite runs in [Extended validation](#extended-validation).
 
 The functional journeys cover authoring, publication, previews, settings, plugin discovery, manifest delivery, commands, CSRF, and reset recovery. Component tests remain the source for individual control behavior.
 
@@ -87,7 +132,7 @@ The functional journeys cover authoring, publication, previews, settings, plugin
 
 Linux Chromium is the committed screenshot authority for Studio and Widgets. The lockfile pins Playwright and its browser revision. Visual jobs use Ubuntu 24.04. The suite fixes the viewport, scale, locale, timezone, theme, and reduced motion. It disables animations and hides the caret during comparison. It waits for fonts, decoded images, and Widget render completion.
 
-Studio fixes browser `Date` while timers and real server time continue. The tests mask server contact times, enrollment and sign-in dates, update ages, notification counts, and pairing expiry metadata. Screen details mask the effective assignment and next transition values because the server evaluates schedules with real time. Status labels and controls remain visible. The overview masks its live chart, health values, and measured-screen counts. The next schedule panel uses the fixed browser time and remains visible. Widget renderers have no masks. Widget editor snapshots select the 320 × 180 Small zone preset so the full frame is visible.
+Studio fixes browser `Date` while timers and real server time continue. The server evaluates schedules with real time, so a screenshot that is taken inside a seeded schedule window shows different content than the baselines. The seeded windows are weekdays 07:15 to 08:15 and 10:30 to 13:30, and Fridays 15:00 to 23:00, in `America/Chicago`. The visual jobs run `scripts/ci/demo-schedule-window.mjs` first. They skip the comparison and report a notice when the clock is inside a window or less than 20 minutes before one. A test in `scripts/ci/` keeps that script equal to the seeded schedules. The tests mask server contact times, enrollment and sign-in dates, update ages, notification counts, and pairing expiry metadata. Screen details mask the effective assignment and next transition values because the server evaluates schedules with real time. Status labels and controls remain visible. The overview masks its live chart, health values, and measured-screen counts. The next schedule panel uses the fixed browser time and remains visible. Widget renderers have no masks. Widget editor snapshots select the 320 × 180 Small zone preset so the full frame is visible.
 
 Simulated Players report unsupported captures through the player API. Screen detail tests wait for the real Live preview panel: a capture error for the online screen and offline states for screens without a connected Player or a cached image. The Activity snapshot covers the seeded empty Proof of Play state. Dialog captures hide volatile background labels in their own layer, so masks cannot cover the dialog. Fixed date controls remain visible. The Widget suite uses each fixture's manual clock and production mount. Both suites permit at most a 0.5% pixel difference. Do not increase this tolerance to make a failure pass.
 
@@ -122,7 +167,9 @@ bash scripts/ci/visual-linux.sh studio --update-snapshots
 bash scripts/ci/visual-linux.sh widgets --update-snapshots
 ```
 
-Inspect every changed image. Run the comparison again without `--update-snapshots`. Commit only the reviewed PNG files under each suite's `__screenshots__/linux/` directory. CI never accepts or commits changed screenshots. There is no second macOS golden set.
+Inspect every changed image. Run the comparison again without `--update-snapshots`. Commit only the reviewed PNG files under each suite's `__screenshots__/linux/` directory. There is no second macOS golden set.
+
+You do not need Docker or a Linux machine to refresh the Studio baselines. Open Actions, choose `Refresh Studio visual snapshots`, and run it on your branch. The workflow renders the changed screenshots on the CI runner and commits them to that branch. It refuses to run on `main` and when the demo clock is inside a schedule window. The commit uses the workflow token, so it does not start other workflows. Review every changed PNG, then push a commit or re-run the checks. Extended validation never changes a screenshot.
 
 Run `npm run test:visual:probe` on Linux, or `bash scripts/ci/visual-linux.sh probe` on macOS, to verify regression detection. The probe first compares the unchanged Widget editor. It then changes input styles and requires the comparison to fail. The probe cannot update baselines.
 
@@ -185,7 +232,7 @@ Coverage is diagnostic. There is no repository percentage gate.
 ```sh
 npm run coverage
 cd apps/server
-TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -p 1 -coverprofile=coverage.out ./...
+TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
 cd ../cli
 go test -coverprofile=coverage.out ./...
@@ -194,17 +241,31 @@ go tool cover -func=coverage.out
 
 Studio produces a terminal summary, JSON summary, LCOV data, and HTML. Server and CLI jobs produce Go profiles. Each CI job writes a summary to the Actions job summary and uploads the coverage files.
 
+Each server integration-test package creates a temporary PostgreSQL database from `TEST_DATABASE_URL` and drops it after the package exits, including after a test failure. The database role needs permission to create and drop databases. Existing advisory locks still serialize tests inside the same package database; separate packages no longer share fixture tables or locks. The CI command uses normal Go package parallelism. Reproduce the server race job with `TEST_DATABASE_URL` set and `go test -race ./...` from `apps/server`.
+
 ## Validation timing summaries
 
 Dashboard and Server CI jobs append a timing summary to the GitHub Actions job summary, including setup and validation step durations and total job elapsed time when the summary runs. Queue time is excluded. The Dashboard summary ranks the slowest test files and test cases from JUnit output. The Server summary ranks the slowest Go test packages and test cases from `go test -json` output. These measurements are informational; they do not set a test-time threshold or fail a job. Use `scripts/ci/timing.mjs` to compare completed workflow runs.
 
-Server integration tests share one PostgreSQL database. They use an advisory lock around destructive fixture resets. Some suites also run background services against those fixtures. Keep `-p 1` until all database users have isolated schemas or a verified connection-owned lock. Unit tests without PostgreSQL can use normal package parallelism.
-
 Android runtime conformance caches its API 34 Google APIs x86_64 Nexus 6 AVD snapshot. A cache miss creates a clean boot snapshot; the conformance launch uses `-no-snapshot-save` so timezone, display, and test mutations do not replace the cached boot baseline. Bump the version in the cache key when the AVD configuration changes incompatibly.
+
+## Extended validation
+
+`Extended validation` runs every night at 03:17 UTC and on demand. It is not part of PR validation, and it has no aggregate check. A failure appears on the run for `main`. It does not block a PR.
+
+| Job                   | What it runs                                   |
+| --------------------- | ---------------------------------------------- |
+| `studio_visual`       | The Studio screenshot comparison in Demo Mode  |
+| `ios_ci`              | The iOS build, unit, WebKit, and UI tests      |
+| `android_conformance` | The Android runtime conformance on an emulator |
+
+To run these checks on your branch, open Actions, choose `Extended validation`, and run it on that branch. Run `make demo` and `npm run test:visual` locally to reproduce the screenshot comparison. For iOS, use the commands in [the iOS README](../apps/ios/README.md). The WebView2 conformance check lives in `Windows Player CI`. It runs on `main`, every week, and on demand. It does not run on PRs.
 
 ## Deep platform validation
 
 Edge PRs select Rust, WPE, runtime, conformance, real-server, migration, and activity parity jobs from the same graph. Relevant changes on `main` run the full Edge suite. Dispatch and twice-weekly scheduled runs also run the full suite. Documentation-only changes do not start platform images.
+
+Windows PRs select the `windows` area: native Rust unit tests on Windows x64 and Windows ARM64 (including the MSIX, envelope, package-identity, and version-mapping contract tests), a Windows-only code cross-check on Linux, and, on `main`, the WebView2 conformance engine against the Electron reference. A weekly scheduled run exercises the current Evergreen WebView2. Shared Player crate changes also select Windows validation through the `player_core` graph edge. Run `make windows-check` and `make windows-test` locally; unit tests run on any host.
 
 The image dependency chain is in `scripts/ci/edge-images.hcl`. Bake uses explicit parent targets and separate GHA cache scopes. Run a selected image build locally:
 
@@ -214,7 +275,7 @@ docker buildx bake -f scripts/ci/edge-images.hcl wpe edge --load
 
 Run the existing scenario scripts from `apps/edge/ci/` and `apps/edge/renderer-wpe/ci/` with those images. The Rust, kernel CEC, PipeWire, WirePlumber, renderer, migration, power-loss, and activity assertions remain in their original suites.
 
-The scheduled Go race workflow runs the server integration contract with `-race`. Reproduce it with `TEST_DATABASE_URL` set and `go test -race -p 1 ./...` from `apps/server`. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
+The scheduled Go race workflow runs the server integration contract with `-race` and normal Go package parallelism. Investigate a failure in the package reported by Go. The repository has no Go fuzz entry points, so this change adds no scheduled fuzz job.
 
 ## Timing evidence
 

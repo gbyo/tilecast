@@ -7749,7 +7749,7 @@ paths:
       operationId: uploadPlayerRelease
       summary: Upload and verify a signed Tilecast Player release bundle
       description: >-
-        Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+        Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
       requestBody:
         required: true
         content:
@@ -7775,12 +7775,16 @@ paths:
                     type: object
                     properties:
                       id: { type: string, format: uuid }
-                      platform: { enum: [android, linux] }
+                      platform:
+                        {
+                          type: string,
+                          x-extensible-enum: [android, linux, windows],
+                        }
                       playerFamily:
                         { $ref: "#/components/schemas/PlayerFamily" }
                       architecture:
                         type: string
-                        description: "`x86_64` or `aarch64` for Tilecast Edge; empty for the other families."
+                        description: "`x86_64` or `aarch64` for Tilecast Edge and Windows Player; empty for the other families."
                       source: { enum: [upload, github] }
                       versionCode: { type: integer }
                       versionName: { type: string }
@@ -12018,12 +12022,15 @@ components:
         toId: { type: string, format: uuid }
         relationship: { type: string }
     PlayerFamily:
-      enum: [android, electron-linux, edge]
+      type: string
+      x-extensible-enum: [android, electron-linux, edge, windows]
       description: >-
-        The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+        The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
     PlayerPlatform:
       type: string
-      enum: [android, linux]
+      x-extensible-enum: [android, linux, windows]
+      description: >-
+        The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
     PlayerReleaseCacheStatus:
       type: string
       enum: [missing, downloading, cached, failed]
@@ -12374,31 +12381,32 @@ components:
       properties:
         releaseId: { type: string, format: uuid }
         artifactId: { type: string, description: The artifact's asset name. }
-        platform: { enum: [android, linux] }
+        platform: { type: string, x-extensible-enum: [android, linux, windows] }
         versionCode: { type: integer }
         versionName: { type: string }
         playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
         architecture:
           enum: [x86_64, aarch64]
-          description: Tilecast Edge only.
-        artifactSizeBytes: { type: integer, description: Linux families. }
+          description: Tilecast Edge and Windows Player only.
+        artifactSizeBytes:
+          { type: integer, description: Every family but Android. }
         artifactSha256:
           {
             type: string,
             pattern: "^[a-f0-9]{64}$",
-            description: Linux families.,
+            description: Every family but Android.,
           }
         artifactPath:
           type: string
-          description: "`/api/v1/player/updates/{releaseId}/artifact` for the Linux families."
+          description: "`/api/v1/player/updates/{releaseId}/artifact` for every family but Android."
         signedManifest:
           type: string
           format: byte
           description: >-
-            Tilecast Edge only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
+            Tilecast Edge and Windows Player only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
         manifestSignature:
           type: string
-          description: Tilecast Edge only. The envelope's base64 Ed25519 signature text.
+          description: Tilecast Edge and Windows Player only. The envelope's base64 Ed25519 signature text.
         stateSchemaVersion:
           type: integer
           description: Tilecast Edge only. The state database schema the release migrates to.
@@ -12416,11 +12424,11 @@ components:
         playerFamily:
           type: string
           description: >-
-            `android`, `electron-linux` or `edge`. The server keeps only these values; another value is recorded as absent.
+            `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent.
         playerArchitecture:
           type: string
           description: >-
-            `x86_64` or `aarch64`, kept only with `playerFamily: edge`. An Edge screen without a known architecture is `incompatible` for Edge deployments.
+            `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments.
     MultiFactorVerifyRequest:
       type: object
       additionalProperties: false
@@ -13374,8 +13382,9 @@ components:
     LayoutPlacementOverrides:
       type: object
       additionalProperties: false
+      deprecated: true
       description: >-
-        Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+        Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
       properties:
         fit: { type: string, enum: [contain, cover, stretch] }
         alignment: { type: string, enum: [left, center, right] }
@@ -14275,7 +14284,10 @@ components:
           assets,
         ]
       properties:
-        schemaVersion: { type: integer, enum: [11, 12, 13, 14, 15] }
+        schemaVersion:
+          type: integer
+          enum: [11, 12, 13, 14, 15, 16, 17]
+          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
         manifestVersion: { type: integer, format: int64, minimum: 1 }
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }
@@ -14881,6 +14893,11 @@ components:
       properties:
         configuration:
           { $ref: "#/components/schemas/StructuredPlayerPreviewConfig" }
+        fieldSchema:
+          type: array
+          description: >-
+            Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives.
+          items: { $ref: "#/components/schemas/DataSourceField" }
         diagnostics: { $ref: "#/components/schemas/DataSourceDiagnostics" }
     CalendarPreviewFields:
       type: object

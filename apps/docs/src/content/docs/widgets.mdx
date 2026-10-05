@@ -35,6 +35,8 @@ Choose by what you want people to see. The **Works with** column says what kind 
 
 A **records source** is any Data Source that provides rows of fields, such as a feed, a CSV file, a Google Sheet, a Manual Table, or a plugin source like Forms. See [Connect a Data Source](../data-sources/).
 
+Cards can show a managed image when **Image field** uses an asset field and the Player can use the image. Extra or unavailable images stay hidden. The [Widgets V2 contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md#6-manifest-v16-and-v17-component-presentations) defines the image grant limit.
+
 News shows text only. It doesn't show article images.
 
 Status has **Panel** and **Banner** styles. Agenda has **Agenda**, **Now and next**, and **Schedule board** styles. A **web App** shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes. For the exact saved-provider mappings, see the [Widgets V2 catalog contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-catalog.md).
@@ -122,7 +124,7 @@ In a Layout, the **Widgets** section opens the Apps picker. Add the Widget to th
 
 ## When a Widget has no current data
 
-Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**, which the screen shows when the source returns nothing to display. The Layout inspector also lets you choose whether an unavailable App placement is shown or hidden. Preview the result before publishing.
+Check the Data Source's status and refresh diagnostics in **Content** > **Data Sources**. Most data Widgets have an **Empty message** option under **Content**. A fullscreen Widget that declares an empty state as eligible may be skipped in a local Playlist when it has nothing to show. If every Widget in the Playlist is empty, the Player waits 30 seconds before trying again. Layout zones and synchronized playback keep their timeline. See the [Widgets V2 contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md) for the Player rules.
 
 ## Next steps
 

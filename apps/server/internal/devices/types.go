@@ -148,7 +148,8 @@ type Screen struct {
 	UpdateExpectedBytes       *int64             `json:"updateExpectedBytes,omitempty"`
 	UpdateError               *string            `json:"updateError,omitempty"`
 	// PlayerFamily is what the running player reported (`edge` for Tilecast
-	// Edge); absent for players that do not report it.
+	// Edge, `windows` for the Windows Player); absent for players that do
+	// not report it.
 	PlayerFamily          *string    `json:"playerFamily,omitempty"`
 	PlayerArchitecture    *string    `json:"playerArchitecture,omitempty"`
 	ScreenWidth           int        `json:"screenWidth"`
@@ -199,9 +200,10 @@ type Heartbeat struct {
 	PlayerVersion         string `json:"playerVersion"`
 	PlayerVersionCode     *int64 `json:"playerVersionCode,omitempty"`
 	// PlayerFamily and PlayerArchitecture say which Player release family
-	// the running player installs (`android`, `electron-linux`, `edge`) and,
-	// for Tilecast Edge, its architecture. A release reaches only screens of
-	// its family; older players omit both.
+	// the running player installs (`android`, `electron-linux`, `edge`,
+	// `windows`) and, for Tilecast Edge and Windows Player, its
+	// architecture. A release reaches only screens of its family; older
+	// players omit both.
 	PlayerFamily                      string            `json:"playerFamily,omitempty"`
 	PlayerArchitecture                string            `json:"playerArchitecture,omitempty"`
 	PresentationSchemaVersions        []int             `json:"presentationSchemaVersions,omitempty"`

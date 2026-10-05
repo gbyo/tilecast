@@ -108,6 +108,25 @@ impl ConnectedRendererProfile {
     pub fn check(&self, requirement: &RendererRequirement) -> Result<(), RendererProfileMismatch> {
         self.0.supports(requirement).then_some(()).ok_or(RendererProfileMismatch::Connected)
     }
+
+    /// The advertised presentation schemas, ascending. Hosts report
+    /// these so the server negotiates only what the live renderer
+    /// proved it can show.
+    pub fn presentation_schemas(&self) -> Vec<u32> {
+        self.0.presentation_schemas.iter().copied().collect()
+    }
+
+    /// The advertised declarative capabilities, by name. Hosts merge
+    /// these with [`Self::widget_components`] for the heartbeat's
+    /// single capability table.
+    pub fn declarative_capabilities(&self) -> Vec<(String, u32)> {
+        self.0.declarative.iter().map(|(name, version)| (name.as_str().to_owned(), *version)).collect()
+    }
+
+    /// The advertised Widget component capabilities, by name.
+    pub fn widget_components(&self) -> Vec<(String, u32)> {
+        self.0.widget_components.iter().map(|(name, version)| (name.as_str().to_owned(), *version)).collect()
+    }
 }
 
 #[cfg(test)]

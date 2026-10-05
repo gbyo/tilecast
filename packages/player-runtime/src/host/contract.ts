@@ -243,8 +243,8 @@ export interface RuntimeWidgetPayload {
 }
 
 /**
- * A first-class Widget component (docs/widgets-v2.md), as a manifest v16
- * `kind: "component"` presentation describes it after projection.
+ * A first-class Widget component (docs/widgets-v2.md), as a manifest v16 or
+ * v17 `kind: "component"` presentation describes it after projection.
  */
 export interface RuntimeWidgetComponentV1 {
   type: string;
@@ -255,18 +255,21 @@ export interface RuntimeWidgetComponentV1 {
   dataSources: string[];
   /** Media variants the component may display. */
   media: { assetId: string; variantId: string }[];
+  /** Whether an empty fullscreen component may skip its playlist occurrence. */
+  empty: "render" | "skip-eligible";
 }
 
 /**
  * A projected component: the reference plus the prepared resources it is
- * granted, and the regional formatting its context uses. It carries no
- * time-dependent value, so re-projection leaves it unchanged and a
- * ticking Widget keeps its own time from the corrected clock.
+ * granted, and the regional formatting its context uses. Date-aware datasets
+ * are selected for the Player instant and change when the local date changes.
  */
 export interface RuntimeWidgetComponentPayload {
   component: RuntimeWidgetComponentV1;
   /** Data Documents of `component.dataSources`, keyed by Data Source ID. */
   documents: Record<string, unknown>;
+  /** True when a date policy says to hide its component for this instant. */
+  hidden?: boolean;
   /** URIs of `component.media`, keyed by `${assetId}/${variantId}`. */
   media: Record<string, string>;
   regional: {

@@ -5,16 +5,22 @@ import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
-import { V2ZonePreview } from "./V2ZonePreview";
+import { layoutPreviewDateToMs, V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
 import { studioWidgetComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
 import {
+  isAvailableAt,
+  nextAvailabilityTransition,
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
-  playbackDefaultsFromSettings,
+  isPlaylistZoneMediaItem,
   resolvePlaybackItemSettings,
-} from "@tilecast/player-runtime/playback-settings";
+  resolvePlaylistAdvance,
+  resolveZoneFallback,
+} from "@tilecast/presentation-model";
+import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
+import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import type {
   Asset,
   CalendarEvent,
@@ -102,14 +108,31 @@ export function playlistPreviewDuration(
   return settings.durationMs ?? undefined;
 }
 
+export { isPlaylistZoneMediaItem } from "@tilecast/presentation-model";
+
 export function nextPlaylistPreviewIndex(
   index: number,
   length: number,
   loop: boolean,
 ) {
-  if (!length) return 0;
-  if (index + 1 >= length) return loop ? 0 : index;
-  return index + 1;
+  return resolvePlaylistAdvance(index, length, loop).nextIndex;
+}
+
+export function availablePlaylistZoneItems(
+  playlist: Playlist,
+  assetsById: Map<string, Asset>,
+  at: Date,
+): PlaylistItem[] {
+  return playlist.items.filter((item) => {
+    const asset = assetsById.get(item.assetId);
+    return (
+      item.assetStatus === "ready" &&
+      isPlaylistZoneMediaItem(item) &&
+      Boolean(asset) &&
+      isAvailableAt(item, at) &&
+      isAvailableAt(asset, at)
+    );
+  });
 }
 
 export interface ZoneCaptureTracking {
@@ -124,15 +147,12 @@ export function PlaylistZonePreview({
   playlist,
   assetsById,
   previewDate,
-  captureTracking,
 }: {
   placement: LayoutPlacement;
   playlist: Playlist;
   assetsById: Map<string, Asset>;
-  /** Layout-selected preview date, forwarded to V2 Widget zones. */
+  /** Layout-selected instant interpreted in the organization timezone. */
   previewDate?: string;
-  /** Present only on the editor canvas, which Layout thumbnails capture. */
-  captureTracking?: ZoneCaptureTracking;
 }) {
   const { t } = useTranslation("layouts");
   const settingsQuery = useQuery({
@@ -143,7 +163,53 @@ export function PlaylistZonePreview({
     () => playbackDefaultsFromSettings(settingsQuery.data?.values),
     [settingsQuery.data?.values],
   );
-  const items = playlist.items.filter((item) => item.assetStatus === "ready");
+  const regional = useOrganizationRegionalProfile();
+  const fixedAvailabilityAt = layoutPreviewDateToMs(
+    previewDate,
+    regional.timezone,
+  );
+  const [liveAvailabilityAt, setLiveAvailabilityAt] = useState(() =>
+    Date.now(),
+  );
+  const availabilityAtMs = fixedAvailabilityAt ?? liveAvailabilityAt;
+  const availabilityWindows = useMemo(
+    () =>
+      playlist.items.flatMap((item) => [item, assetsById.get(item.assetId)]),
+    [playlist.items, assetsById],
+  );
+  const nextTransition = useMemo(
+    () =>
+      fixedAvailabilityAt === null
+        ? nextAvailabilityTransition(
+            availabilityWindows,
+            new Date(availabilityAtMs),
+          )
+        : null,
+    [availabilityAtMs, availabilityWindows, fixedAvailabilityAt],
+  );
+  useEffect(() => {
+    if (fixedAvailabilityAt !== null || !nextTransition) return;
+    // Browsers clamp an overflowing timeout to almost zero. Wake in bounded
+    // steps for far-future windows and reevaluate at each step.
+    const delayMs = Math.min(
+      2_147_483_647,
+      Math.max(0, nextTransition.getTime() - Date.now()) + 1,
+    );
+    const timer = window.setTimeout(
+      () => setLiveAvailabilityAt(Date.now()),
+      delayMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [fixedAvailabilityAt, nextTransition]);
+  const items = useMemo(
+    () =>
+      availablePlaylistZoneItems(
+        playlist,
+        assetsById,
+        new Date(availabilityAtMs),
+      ),
+    [assetsById, availabilityAtMs, playlist],
+  );
   const [index, setIndex] = useState(0);
   const [failedItemId, setFailedItemId] = useState<string | null>(null);
   const [lastGoodItemId, setLastGoodItemId] = useState<string | null>(null);
@@ -177,7 +243,12 @@ export function PlaylistZonePreview({
   const previous = lastGoodItemId
     ? items.find((item) => item.id === lastGoodItemId)
     : undefined;
-  const shownItem = failed && fallback === "previous" ? previous : current;
+  const fallbackDecision = resolveZoneFallback(
+    failed,
+    fallback,
+    previous !== undefined,
+  );
+  const shownItem = fallbackDecision === "previous" ? previous : current;
   const asset = shownItem ? assetsById.get(shownItem.assetId) : undefined;
   const failCurrent = () => {
     if (current) setFailedItemId(current.id);
@@ -194,11 +265,19 @@ export function PlaylistZonePreview({
       <div className="layout-playlist-zone">
         <ListVideo size={22} />
         <strong>{playlist.name}</strong>
-        <span>{t("preview.zoneEmpty")}</span>
+        <span>
+          {playlist.items.some((item) => item.assetStatus === "ready") &&
+          !playlist.items.some(
+            (item) =>
+              item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+          )
+            ? t("preview.zoneUnsupported")
+            : t("preview.zoneEmpty")}
+        </span>
       </div>
     );
-  if (failed && fallback === "hide") return null;
-  if (failed && (fallback === "background" || !shownItem))
+  if (fallbackDecision === "hide") return null;
+  if (fallbackDecision === "background")
     return <div className="layout-playlist-preview" aria-hidden="true" />;
   if (!asset)
     return (
@@ -229,19 +308,11 @@ export function PlaylistZonePreview({
   const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${!failed && (itemPlayback.transition === "fade" || itemPlayback.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
-  if (asset.type === "widget")
+  if (asset.type !== "image" && asset.type !== "video")
     return (
-      <div className={className} key={`${playlist.id}-${shownItem!.id}`}>
-        {asset.widget ? (
-          <WidgetLivePreview
-            asset={asset}
-            item={placement}
-            previewDate={previewDate}
-            captureTracking={captureTracking}
-          />
-        ) : (
-          <AppPlacementPreview asset={asset} item={placement} />
-        )}
+      <div className="layout-placement-placeholder">
+        <ListVideo size={22} />
+        <span>{t("preview.zoneUnsupported")}</span>
       </div>
     );
   if (asset.type === "video")
@@ -314,25 +385,15 @@ export function AppPlacementPreview({
     unknown
   >;
   const background =
-    (item.overrides?.backgroundColor as string | undefined) ??
-    (config.backgroundColor as string | undefined) ??
-    "#18232D";
+    (config.backgroundColor as string | undefined) ?? "#18232D";
   const foreground =
-    (item.overrides?.foregroundColor as string | undefined) ??
-    (config.foregroundColor as string | undefined) ??
-    "#F5F7FA";
+    (config.foregroundColor as string | undefined) ?? "#F5F7FA";
   return (
     <div
       className={`layout-app-placement layout-app-placement--${provider ?? "unknown"}`}
       style={{
         background,
         color: foreground,
-        alignItems:
-          item.overrides?.alignment === "left"
-            ? "flex-start"
-            : item.overrides?.alignment === "right"
-              ? "flex-end"
-              : "center",
       }}
     >
       <span className="layout-app-placement__provider">
@@ -396,7 +457,6 @@ export function WidgetLivePreview({
         // the zone grow past 100% Studio zoom without underfilling.
         width={item.width}
         height={item.height}
-        overrides={item.overrides}
         fit="fill"
         previewDate={previewDate}
         onState={

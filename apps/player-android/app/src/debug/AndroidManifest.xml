@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug-only host for the Player Runtime conformance suite; never ships. -->
+<!-- Debug-only hosts for device tests; never ships. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
     <activity
       android:name="org.tilecast.player.conformance.ConformanceActivity"
+      android:exported="false"
+      android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+    <activity
+      android:name="org.tilecast.player.core.RendererHarnessActivity"
       android:exported="false"
       android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
   </application>

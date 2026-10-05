@@ -187,8 +187,6 @@ describe("Player update deployment history", () => {
     };
     vi.mocked(api.playerReleases).mockResolvedValue({
       repository: "Gibsonmb71/tilecast",
-      lastCheckedAt: null,
-      providerError: null,
       manifestKeyConfigured: true,
       githubAuth: {
         available: false,
@@ -284,8 +282,6 @@ describe("Player update deployment history", () => {
     };
     vi.mocked(api.playerReleases).mockResolvedValue({
       repository: "Gibsonmb71/tilecast",
-      lastCheckedAt: null,
-      providerError: null,
       manifestKeyConfigured: true,
       githubAuth: {
         available: false,
@@ -350,5 +346,89 @@ describe("Player update deployment history", () => {
     expect(screen.queryByText("0.2.0")).toBeNull();
     expect(await screen.findByText("Electron Lobby")).toBeTruthy();
     expect(screen.queryByText("Edge Lobby")).toBeNull();
+  });
+
+  it("keeps Windows releases and screens on their own tab", async () => {
+    const base = {
+      source: "upload",
+      channel: "stable",
+      minimumSdk: null,
+      releaseNotes: "",
+      publishedAt: "2026-09-25T11:00:00Z",
+      apkSizeBytes: 2048,
+      downloadedBytes: 2048,
+      apkSha256: "b".repeat(64),
+      signingCertificateSha256: "",
+      manifestSignature: "signature",
+      cacheStatus: "cached",
+      verificationStatus: "verified",
+      deploymentCount: 0,
+      activeDeploymentCount: 0,
+    } as const;
+    const windowsRelease: PlayerRelease = {
+      ...base,
+      id: "windows",
+      tag: "",
+      platform: "windows",
+      playerFamily: "windows",
+      architecture: "x86_64",
+      versionCode: 2000,
+      versionName: "0.2.0",
+    };
+    const edgeRelease: PlayerRelease = {
+      ...base,
+      id: "edge",
+      tag: "",
+      platform: "linux",
+      playerFamily: "edge",
+      architecture: "x86_64",
+      versionCode: 2000,
+      versionName: "0.2.0",
+    };
+    vi.mocked(api.playerReleases).mockResolvedValue({
+      repository: "Gibsonmb71/tilecast",
+      manifestKeyConfigured: true,
+      githubAuth: {
+        available: false,
+        connected: false,
+        source: "anonymous",
+        canDisconnect: false,
+      },
+      items: [windowsRelease, edgeRelease],
+    });
+    vi.mocked(api.screens).mockResolvedValue(
+      widen<Awaited<ReturnType<typeof api.screens>>>({
+        items: [
+          {
+            id: "w1",
+            name: "Windows Kiosk",
+            platform: "windows",
+            playerFamily: "windows",
+            playerArchitecture: "x86_64",
+            playerVersion: "0.1.0",
+            status: "online",
+          },
+          {
+            id: "e1",
+            name: "Edge Lobby",
+            platform: "linux",
+            playerFamily: "edge",
+            playerArchitecture: "x86_64",
+            playerVersion: "0.1.0",
+            status: "online",
+          },
+        ],
+        total: 2,
+      }),
+    );
+    renderPanel("/settings/player/updates?platform=windows");
+    expect(await screen.findByText("Available Windows releases")).toBeTruthy();
+    expect((await tableWith("x86_64")).getByText("x86_64")).toBeTruthy();
+    expect(await screen.findByText("Windows Kiosk")).toBeTruthy();
+    expect(screen.queryByText("Edge Lobby")).toBeNull();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Tilecast Edge" }));
+    expect(await screen.findByText("Edge Lobby")).toBeTruthy();
+    expect(screen.queryByText("Windows Kiosk")).toBeNull();
   });
 });

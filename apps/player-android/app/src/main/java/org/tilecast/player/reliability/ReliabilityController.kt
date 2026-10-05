@@ -12,7 +12,7 @@ import android.provider.Settings
 import android.util.Base64
 import android.view.WindowManager
 import org.tilecast.player.MainActivity
-import org.tilecast.player.network.PlayerConfig
+import org.tilecast.player.core.CorePlatformConfig
 import java.time.Instant
 
 data class ReliabilityStatus(
@@ -76,7 +76,7 @@ class ReliabilityController(private val context: Context) {
 
     fun applyWindow(
         activity: Activity,
-        config: PlayerConfig,
+        platform: CorePlatformConfig,
         activeHours: Boolean,
         takeover: Boolean = false,
     ): ReliabilityStatus {
@@ -84,8 +84,8 @@ class ReliabilityController(private val context: Context) {
         val fireTv = fireTvDevice()
         val keep = shouldKeepScreenAwake(
             active = active,
-            keepScreenOnDuringActiveHours = config.power.keepScreenOn,
-            sleepOutsideActiveHours = config.power.sleepOutsideActiveHours,
+            keepScreenOnDuringActiveHours = platform.power.keepScreenOn,
+            sleepOutsideActiveHours = platform.power.sleepOutsideActiveHours,
             fireTv = fireTv,
         )
         if (keep) {
@@ -93,7 +93,7 @@ class ReliabilityController(private val context: Context) {
         } else {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
-        if (config.reliability.immersiveMode && active) {
+        if (platform.reliability.immersiveMode && active) {
             activity.window.decorView.systemUiVisibility =
                 android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
@@ -103,25 +103,25 @@ class ReliabilityController(private val context: Context) {
         var effective = "standard"
         if (
             maintenanceUntil() == null &&
-            config.reliability.mode == "managed_kiosk" &&
-            config.managedKiosk.lockTaskEnabled &&
+            platform.reliability.mode == "managed_kiosk" &&
+            platform.managedKiosk.lockTaskEnabled &&
             dpm.isLockTaskPermitted(context.packageName)
         ) {
             runCatching { activity.startLockTask() }
             effective = if (activity.isInLockTask()) "managed_kiosk" else "standard"
         }
         store.edit()
-            .putString("configured-mode", config.reliability.mode)
+            .putString("configured-mode", platform.reliability.mode)
             .putString("effective-mode", effective)
             .putBoolean("keep-screen-on", keep)
-            .putBoolean("immersive", config.reliability.immersiveMode && active)
+            .putBoolean("immersive", platform.reliability.immersiveMode && active)
             .putBoolean("fire-tv-sleep-blocked", fireTv)
             .apply()
         return ReliabilityStatus(
-            config.reliability.mode,
+            platform.reliability.mode,
             effective,
             true,
-            config.reliability.immersiveMode && active,
+            platform.reliability.immersiveMode && active,
             keep,
             if (effective == "managed_kiosk") {
                 ManagedKioskCapability.LOCK_TASK_ACTIVE
@@ -220,6 +220,8 @@ class ReliabilityController(private val context: Context) {
         store.edit().putBoolean("safe-mode", value).apply()
     }
 
+    fun isSafeMode(): Boolean = store.getBoolean("safe-mode", false)
+
     fun hasAdminPin() = store.contains("admin-pin-hash")
 
     fun setAdminPin(pin: CharArray) {
@@ -293,3 +295,5 @@ class ActiveHoursReceiver : android.content.BroadcastReceiver() {
         ReliabilityController(context).requestWake()
     }
 }
+
+enum class ManagedKioskCapability { UNSUPPORTED, AVAILABLE_NOT_PROVISIONED, PROVISIONED, LOCK_TASK_ALLOWED, LOCK_TASK_ACTIVE, ERROR }

@@ -13,9 +13,12 @@ import { useCallback } from "react";
 import { useQueries, type UseQueryResult } from "@tanstack/react-query";
 import {
   createWidgetResources,
+  type WidgetCacheState,
   type WidgetDataDocument,
+  type WidgetDateSelection,
   type WidgetDataset,
   type WidgetField,
+  type WidgetMediaRef,
   type WidgetRecord,
   type WidgetResources,
   type WidgetValue,
@@ -28,15 +31,92 @@ import type {
   TypedDatasetPayload,
   TypedRecordData,
 } from "../api/types";
+import type { WidgetPreviewAssetField } from "./widgetPreviewSources";
 
 export type SavedSourcePreview =
   StructuredPreview | CalendarPreview | TypedRecordData | TypedDatasetPayload;
 
+function widgetCache(input: {
+  cachedAt?: string | null;
+  staleAt?: string | null;
+  usingCachedData?: boolean;
+  unavailable?: boolean;
+  lastModified?: string;
+  upstreamExpiry?: string | null;
+}): WidgetCacheState {
+  return {
+    ...(input.cachedAt ? { cachedAt: input.cachedAt } : null),
+    ...(input.staleAt ? { staleAt: input.staleAt } : null),
+    usingCachedData: input.usingCachedData ?? false,
+    unavailable: input.unavailable ?? false,
+    ...(input.lastModified ? { lastModified: input.lastModified } : null),
+    ...(input.upstreamExpiry ? { upstreamExpiry: input.upstreamExpiry } : null),
+  };
+}
+
+function widgetDateSelection(
+  field: string | undefined,
+  selection: NonNullable<TypedRecordData["dateSelection"]>,
+): WidgetDateSelection | undefined {
+  if (!selection.enabled || !field) return undefined;
+  return {
+    field,
+    timezone: selection.timezone,
+    mode: selection.mode,
+    ...(selection.customStartDate
+      ? { customStartDate: selection.customStartDate }
+      : null),
+    ...(selection.customEndDate
+      ? { customEndDate: selection.customEndDate }
+      : null),
+    excludePast: selection.excludePast,
+    noMatchBehavior: selection.noMatchBehavior,
+    ...(selection.fallbackText
+      ? { fallbackText: selection.fallbackText }
+      : null),
+  };
+}
+
+const DECIMAL_NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+const INTEGER = /^[+-]?\d+$/;
+const ASSET_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATETIME =
+  /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+
+function isValidDate(raw: string): boolean {
+  if (!DATE.test(raw)) return false;
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === raw
+  );
+}
+
+function isValidDateTime(raw: string): boolean {
+  const match = DATETIME.exec(raw);
+  return Boolean(
+    match && isValidDate(match[1]!) && Number.isFinite(Date.parse(raw)),
+  );
+}
+
+function isValidUrl(raw: string): boolean {
+  if (/\s/.test(raw)) return false;
+  try {
+    const parsed = new URL(raw);
+    return Boolean(parsed.protocol && parsed.host);
+  } catch {
+    return false;
+  }
+}
+
 function typedValue(fieldType: string, raw: string): WidgetValue {
+  if (raw === "") return { kind: "null" };
   switch (fieldType) {
     case "integer": {
-      const integer = Number.parseInt(raw, 10);
-      return Number.isFinite(integer)
+      const integer = Number(raw);
+      return INTEGER.test(raw) && Number.isSafeInteger(integer)
         ? { kind: "integer", integer }
         : { kind: "text", text: raw };
     }
@@ -44,7 +124,8 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
     case "percent":
     case "currency": {
       const number = Number(raw);
-      if (!Number.isFinite(number)) return { kind: "text", text: raw };
+      if (!DECIMAL_NUMBER.test(raw) || !Number.isFinite(number))
+        return { kind: "text", text: raw };
       // The currency code travels in the field metadata, never in the
       // value: formatWidgetValue renders value.text before any numeric
       // branch, so stamping it here would hide the amount.
@@ -53,21 +134,36 @@ function typedValue(fieldType: string, raw: string): WidgetValue {
       return { kind: "number", number };
     }
     case "boolean":
-      return raw === "true"
+      return ["1", "t", "T", "TRUE", "True", "true"].includes(raw)
         ? { kind: "boolean", boolean: true }
-        : raw === "false"
+        : ["0", "f", "F", "FALSE", "False", "false"].includes(raw)
           ? { kind: "boolean", boolean: false }
           : { kind: "text", text: raw };
     case "date":
-      return { kind: "date", date: raw };
+      return isValidDate(raw)
+        ? { kind: "date", date: raw }
+        : { kind: "text", text: raw };
     case "datetime":
-      return { kind: "datetime", datetime: raw };
-    case "duration":
-      return { kind: "duration", text: raw };
+      return isValidDateTime(raw)
+        ? { kind: "datetime", datetime: raw }
+        : { kind: "text", text: raw };
+    case "duration": {
+      const durationSeconds = Number(raw);
+      return /^[+-]?\d+$/.test(raw) &&
+        Number.isSafeInteger(durationSeconds) &&
+        durationSeconds >= 0
+        ? { kind: "duration", durationSeconds }
+        : { kind: "text", text: raw };
+    }
     case "url":
-      return { kind: "url", url: raw };
+      return isValidUrl(raw)
+        ? { kind: "url", url: raw }
+        : { kind: "text", text: raw };
     case "asset":
-      return { kind: "asset", assetId: raw };
+      return ASSET_ID.test(raw) &&
+        raw.toLowerCase() !== "00000000-0000-0000-0000-000000000000"
+        ? { kind: "asset", assetId: raw.toLowerCase() }
+        : { kind: "text", text: raw };
     default:
       return { kind: "text", text: raw };
   }
@@ -139,29 +235,42 @@ export function previewToDataDocument(
 ): WidgetDataDocument | null {
   if (!preview || typeof preview !== "object") return null;
   if (isTypedDatasetPayload(preview)) {
-    const datasets: WidgetDataset[] = preview.datasets.map((dataset) => ({
-      id: dataset.id,
-      kind: dataset.kind,
-      fields: widgetFields(dataset.fields),
-      records: dataset.records?.map((record) => ({
-        id: record.id,
-        values: recordValues(record.values, dataset.fields),
-      })),
-      points: dataset.points?.map((point) => ({
-        at: point.at,
-        values: recordValues(point.values, dataset.fields),
-      })),
-      value:
-        dataset.values !== undefined
-          ? {
-              kind: "object",
-              object: recordValues(dataset.values, dataset.fields),
-            }
-          : null,
-      attribution: dataset.attribution,
-      timezone: dataset.timezone,
-      units: dataset.units,
-    }));
+    const datasets: WidgetDataset[] = [];
+    for (const dataset of preview.datasets) {
+      if (
+        dataset.kind !== "scalar" &&
+        dataset.kind !== "records" &&
+        dataset.kind !== "time_series" &&
+        dataset.kind !== "list" &&
+        dataset.kind !== "object"
+      ) {
+        return null;
+      }
+      datasets.push({
+        id: dataset.id,
+        kind: dataset.kind,
+        fields: widgetFields(dataset.fields),
+        records: dataset.records?.map((record) => ({
+          id: record.id,
+          values: recordValues(record.values, dataset.fields),
+        })),
+        points: dataset.points?.map((point) => ({
+          at: point.at,
+          values: recordValues(point.values, dataset.fields),
+        })),
+        value:
+          dataset.values !== undefined
+            ? {
+                kind: "object",
+                object: recordValues(dataset.values, dataset.fields),
+              }
+            : null,
+        cache: widgetCache(dataset),
+        attribution: dataset.attribution,
+        timezone: dataset.timezone,
+        units: dataset.units,
+      });
+    }
     return { schemaVersion: 1, datasets };
   }
   if (isTypedRecordData(preview)) {
@@ -169,6 +278,9 @@ export function previewToDataDocument(
       id: record.id,
       values: recordValues(record.values, preview.fields),
     }));
+    const dateSelection = preview.dateSelection
+      ? widgetDateSelection(preview.dateField, preview.dateSelection)
+      : undefined;
     return {
       schemaVersion: 1,
       datasets: [
@@ -177,15 +289,15 @@ export function previewToDataDocument(
           kind: "records",
           fields: widgetFields(preview.fields),
           records,
+          cache: widgetCache(preview),
           attribution: preview.attribution,
+          ...(dateSelection
+            ? { timezone: dateSelection.timezone, dateSelection }
+            : preview.dateSelection
+              ? { timezone: preview.dateSelection.timezone }
+              : null),
         },
       ],
-      cache: {
-        cachedAt: preview.cachedAt ?? null,
-        staleAt: preview.staleAt ?? null,
-        usingCachedData: preview.usingCachedData,
-        unavailable: preview.unavailable,
-      },
     };
   }
   if (isCalendarPreview(preview)) {
@@ -222,52 +334,110 @@ export function previewToDataDocument(
                 : null),
             },
           })),
+          cache: widgetCache(data),
+          timezone: preview.configuration.timezone,
         },
       ],
-      cache: {
-        cachedAt: data.cachedAt,
-        staleAt: data.staleAt,
-        usingCachedData: data.usingCachedData,
-      },
     };
   }
   const data = preview.configuration?.data;
   if (!data || !Array.isArray(data.records)) return null;
+  const dateSelection = widgetDateSelection(
+    "date",
+    preview.configuration.dateSelection,
+  );
+  const fieldSchema = preview.fieldSchema;
   return {
     schemaVersion: 1,
     datasets: [
       {
         id: "records",
         kind: "records",
-        records: data.records.map((record) => ({
-          id: record.id,
-          values: {
-            title: { kind: "text", text: record.title },
-            ...(record.subtitle
-              ? { subtitle: { kind: "text", text: record.subtitle } }
-              : null),
-            ...(record.date
-              ? { date: { kind: "text", text: record.date } }
-              : null),
-            ...(record.author
-              ? { author: { kind: "text", text: record.author } }
-              : null),
+        fields: widgetFields(fieldSchema),
+        records: data.records.map((record) => {
+          const values: Record<string, string> = {
+            title: record.title,
+            ...(record.subtitle ? { subtitle: record.subtitle } : null),
+            ...(record.date ? { date: record.date } : null),
+            ...(record.author ? { author: record.author } : null),
             ...(record.description
-              ? {
-                  description: { kind: "text", text: record.description },
-                }
+              ? { description: record.description }
               : null),
-            ...recordValues(record.values ?? {}, undefined),
-          },
-        })),
+            ...(record.source ? { source: record.source } : null),
+            ...(record.imageUrl ? { imageUrl: record.imageUrl } : null),
+            ...(record.link ? { link: record.link } : null),
+            ...(record.values ?? {}),
+          };
+          const declared = fieldSchema
+            ? new Set(fieldSchema.map((field) => field.key))
+            : null;
+          const declaredValues = declared
+            ? Object.fromEntries(
+                Object.entries(values).filter(([key]) => declared.has(key)),
+              )
+            : values;
+          return {
+            id: record.id,
+            values: recordValues(declaredValues, fieldSchema),
+          };
+        }),
+        cache: widgetCache(data),
+        ...(dateSelection
+          ? { timezone: dateSelection.timezone, dateSelection }
+          : null),
       },
     ],
-    cache: {
-      cachedAt: data.cachedAt,
-      staleAt: data.staleAt,
-      usingCachedData: data.usingCachedData,
-    },
   };
+}
+
+const PREVIEW_MEDIA_VARIANT = "preview";
+const MAX_PREVIEW_MEDIA = 16;
+
+/**
+ * Resolve the bounded media references Cards can consume from declared,
+ * typed asset fields. Studio uses a preview alias because it loads thumbnails
+ * from the authenticated preview endpoint instead of Player manifest variants.
+ */
+export function previewDataSourceMedia(
+  documents: ReadonlyMap<string, WidgetDataDocument>,
+  fields: readonly WidgetPreviewAssetField[],
+  existing: readonly WidgetMediaRef[] = [],
+): WidgetMediaRef[] {
+  const media = existing.slice(0, MAX_PREVIEW_MEDIA);
+  const assets = new Set(existing.map((ref) => ref.assetId));
+  for (const field of fields) {
+    const dataset = documents
+      .get(field.dataSourceId)
+      ?.datasets.find((candidate) => candidate.kind === "records");
+    if (
+      !dataset?.fields?.some(
+        (candidate) =>
+          candidate.key === field.fieldKey && candidate.type === "asset",
+      )
+    ) {
+      continue;
+    }
+    const recordLimit = Number.isInteger(field.maximumItems)
+      ? Math.max(0, Math.min(100, field.maximumItems))
+      : 6;
+    for (const record of (dataset.records ?? []).slice(0, recordLimit)) {
+      const value = record.values[field.fieldKey];
+      const assetId = value?.assetId?.toLowerCase();
+      if (
+        value?.kind !== "asset" ||
+        !assetId ||
+        !ASSET_ID.test(assetId) ||
+        assetId === "00000000-0000-0000-0000-000000000000" ||
+        assets.has(assetId)
+      ) {
+        continue;
+      }
+      if (media.length >= MAX_PREVIEW_MEDIA) return media;
+      assets.add(assetId);
+      media.push({ assetId, variantId: PREVIEW_MEDIA_VARIANT });
+    }
+  }
+  return media;
 }
 
 export interface PreviewResources {
@@ -303,6 +473,7 @@ export function useWidgetPreviewResources(
    * live instant's documents.
    */
   previewDate?: string,
+  dataSourceAssetFields: readonly WidgetPreviewAssetField[] = [],
 ): PreviewResources {
   // Callers can build equivalent grant arrays on every render. TanStack's
   // combine memoization keeps resources stable until inputs or query results
@@ -311,6 +482,7 @@ export function useWidgetPreviewResources(
     dataSourceIds,
     declaredDataSources,
     declaredMedia,
+    dataSourceAssetFields,
   });
   const combine = useCallback(
     (
@@ -318,12 +490,16 @@ export function useWidgetPreviewResources(
         Awaited<ReturnType<typeof api.previewSavedDataSource>>
       >[],
     ): PreviewResources => {
-      const { dataSourceIds, declaredDataSources, declaredMedia } = JSON.parse(
-        inputKey,
-      ) as {
+      const {
+        dataSourceIds,
+        declaredDataSources,
+        declaredMedia,
+        dataSourceAssetFields,
+      } = JSON.parse(inputKey) as {
         dataSourceIds: string[];
         declaredDataSources: string[];
         declaredMedia: { assetId: string; variantId: string }[];
+        dataSourceAssetFields: WidgetPreviewAssetField[];
       };
       const documents = new Map<string, WidgetDataDocument>();
       const failedIds: string[] = [];
@@ -340,8 +516,15 @@ export function useWidgetPreviewResources(
         if (document) documents.set(id, document);
         else if (granted.has(id)) failedIds.push(id);
       });
+      const grantedMedia = previewDataSourceMedia(
+        documents,
+        dataSourceAssetFields.filter((field) =>
+          granted.has(field.dataSourceId),
+        ),
+        declaredMedia,
+      );
       const media = new Map(
-        declaredMedia.map((ref) => [
+        grantedMedia.map((ref) => [
           `${ref.assetId}/${ref.variantId}`,
           api.assetPreviewUrl(ref.assetId),
         ]),
@@ -349,7 +532,7 @@ export function useWidgetPreviewResources(
       return {
         resources: createWidgetResources(
           { documents, media },
-          { dataSources: declaredDataSources, media: declaredMedia },
+          { dataSources: declaredDataSources, media: grantedMedia },
         ),
         loading: previews.some((preview) => preview.isLoading),
         failedIds,

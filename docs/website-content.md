@@ -46,7 +46,22 @@ Tilecast enables Safe Browsing when the installed WebView supports it. A TLS err
 
 JavaScript and DOM storage settings apply to each asset. Cookies can be disabled, first-party, or first-party and third-party.
 
+## Website data on each Player
+
+Each Player keeps remote website data separate from the trusted presentation. The cookie policy means the same on each Player:
+
+- `disabled`: the surface keeps no persistent data. The Player discards the data when the surface closes.
+- `first_party`: the Player deletes cookies outside the approved hosts when the surface closes.
+- `first_and_third_party`: the Player uses the normal engine rules. Data can persist.
+- `domStorageEnabled: false`: DOM storage does not survive the surface. The Player clears it when the surface closes.
+
 Android WebView shares cookies and DOM storage in the Tilecast Player application. Tilecast does not supply separate browser profiles for each asset.
+
+The Edge Player shows remote pages in an isolated renderer process. See `tilecast-edge-remote-web-threat-review.md` for the isolation design.
+
+The Windows Player shows remote pages in child views of a separate WebView2 environment. The remote environment never registers the `tilecast` or `tcmedia` schemes. Surfaces with `disabled` cookies use a private profile for each surface. Surfaces without DOM storage use a separate profile for each surface. Other surfaces share one profile for each policy.
+
+WebView2 has no file-chooser event. The Windows Player cannot cancel a file dialog from a remote page. Do not assign pages with file inputs to Windows screens.
 
 Do not use cookies as credential storage. Tilecast does not support website authentication or administrator-supplied cookies.
 

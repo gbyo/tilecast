@@ -72,7 +72,10 @@ apps/player-android/         native Android TV application
   app/src/main/              Compose UI and production player code
   app/src/test/              JVM unit tests
   app/src/androidTest/       emulator/device tests
-packages/player-runtime/      shared Player Runtime hosted by Electron and WPE
+apps/player-windows/         native Windows Player Core host (see docs/tilecast-windows.md)
+  src/                       Rust host: UI thread, WebView2 renderer, services
+  release/                   MSIX manifest template, staging script, VERSION
+packages/player-runtime/      shared Player Runtime hosted by Electron, WPE, and WebView2
 packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
 packages/api-schema/         generated TypeScript contract for the composed OpenAPI
 packages/manifest-schema/    Player manifest schemas + declarative presentation capability registry
@@ -148,6 +151,8 @@ before the dedicated root Rust workspace migration is qualified. The workspace,
 lockfile, Rust toolchain, and formatter now live at the repository root. Use
 `make edge-check` and `make edge-test` for Edge-scoped Rust validation.
 Edge product version is `apps/edge/release/VERSION`.
+Use `make windows-check` and `make windows-test` for Windows-scoped Rust
+validation. Windows product version is `apps/player-windows/release/VERSION`.
 Use `make player-check` and `make player-test` for shared Rust validation.
 Shared values perform no I/O. Hosts supply clocks and generate random IDs.
 
@@ -369,7 +374,7 @@ go test ./...
 go build ./cmd/tilecast-server
 ```
 
-PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Test packages use a shared PostgreSQL advisory lock so package-level integration tests do not truncate each other's fixtures.
+PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Each integration-test package uses `apps/server/internal/testdb` to create a temporary PostgreSQL database, apply the embedded migrations, and drop the database when the package exits. The configured role must be able to create and drop databases. Advisory locks still serialize fixture resets inside a package; isolated databases let Go run packages concurrently.
 
 ```sh
 TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...

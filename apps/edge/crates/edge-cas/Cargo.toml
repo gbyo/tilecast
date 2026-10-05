@@ -10,6 +10,10 @@ rust-version.workspace = true
 [dependencies]
 player-cas.workspace = true
 edge-platform.workspace = true
+rustix.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

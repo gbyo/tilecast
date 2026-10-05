@@ -64,7 +64,7 @@ reject the full heartbeat.
 
 ### Release family
 
-A heartbeat may carry `playerFamily` (`android`, `electron-linux` or `edge`) and, for Tilecast Edge, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux` and every other platform is `android`.
+A heartbeat may carry `playerFamily` (`android`, `electron-linux`, `edge` or `windows`) and, for Tilecast Edge and Windows Player, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux`, `windows` is `windows`, and every other platform is `android`.
 
 `install_player_update` payloads carry `playerFamily` and `expectedArtifactSha256` beside `expectedVersionCode` and the Android field `expectedApkSha256`. A player refuses a payload of another family and never downloads it: Tilecast Edge answers the command with `update_wrong_family`, and the Electron Linux Player reports the deployment `failed`.
 

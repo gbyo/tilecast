@@ -1,0 +1,49 @@
+---
+title: Install Tilecast Player on Windows
+description: Install the signed Windows Player package, check the WebView2 Runtime, and pair the display.
+---
+
+:::note[Qualification status]
+The Windows Player runs on Windows 10 and Windows 11, x64 and ARM64. Physical qualification on both architectures is still in progress. Keep production screens on a qualified Player until a Tilecast release lists Windows as supported for your setup.
+:::
+
+Tilecast Player for Windows ships as a signed MSIX package, one for x64 and one for ARM64. Download the package that matches the PC: **Settings** > **System** > **About** shows the processor architecture. An x64 package does not install on an ARM64 PC, and Player updates always stay on the installed architecture.
+
+import { Steps } from "@astrojs/starlight/components";
+
+## Before you start
+
+- Use Windows 10 version 1809 or newer, or Windows 11, on x64 or ARM64.
+- Make sure the PC can reach Tilecast Server at the address in `TILECAST_PUBLIC_URL`.
+- Sign in to Studio as an Owner to prepare the Windows release.
+- Confirm the WebView2 Runtime is present. It ships with Microsoft Edge and with Windows 11. If the Player reports that WebView2 is missing, install the Evergreen Runtime from Microsoft before pairing: the Bootstrapper installer for a PC with internet access, or the Standalone installer for the matching architecture when you must prepare the PC offline.
+
+## Prepare a Windows release
+
+<Steps>
+
+1. In Studio, open **Settings** > **Player updates** and select **Windows**.
+2. If the release you want is not listed, select **Sync from GitHub**.
+3. Select **Download** beside the release and wait until Studio shows **Ready to deploy**.
+
+</Steps>
+
+## Install the Player
+
+<Steps>
+
+1. Download the MSIX package for the PC's architecture from the Tilecast release.
+2. Double-click the package. Windows verifies the publisher signature before it installs anything; installing from any other source is not supported.
+3. Launch **Tilecast Player** from the Start menu. The packaged install also starts the Player at logon. You can disable that in Task Manager under **Startup apps**.
+
+</Steps>
+
+In an enterprise deployment, provision the Tilecast publisher certificate on the PC before installing the package.
+
+The Player opens with a pairing code. Continue with [Pair a display](../pair-a-display/).
+
+## Host limits
+
+The Player shows signage fullscreen on the primary display and keeps the display awake while it presents. It does not control display power, CEC, or DDC, and it does not join Presentation Networks. Remote pages cannot open file dialogs: do not assign pages with file inputs to Windows screens.
+
+A local HTTP server address is not encrypted. Use it only on a trusted LAN. Public hostnames require HTTPS.

@@ -216,6 +216,20 @@ Every number Studio shows, stated exactly. Where a metric can be null, null mean
 
 Healthy + impaired + offline + unmeasured = measured fleet, exactly. Online is separate and overlaps them.
 
+### Overview recap (measured now)
+
+The Studio Overview starts with one sentence about the fleet. It uses no data beyond the figures the Fleet status card shows. The sentence has three inputs: the fleet summary (`online`, `total`), the count of screens on the Needs attention list, and the fleet health `healthy`, `impaired`, and `measured` counts.
+
+| Rule             | Condition                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Connection tier  | All: `online = total`. None: `online = 0`. Most: `online × 3 ≥ total × 2`. Only: `online × 3 < total`. Otherwise the sentence gives the exact count. Integer comparison only. |
+| Attention clause | Added when the count is above zero. It is exact when the incident list has loaded. It reads "at least" when the incident list failed. It is left out while the list loads.    |
+| Playback clause  | Only when `online = total`, the incident list has loaded, and the attention count is zero.                                                                                    |
+| Healthy playback | `measured = total` and `healthy = measured`.                                                                                                                                  |
+| No healthy       | `healthy = 0`, `measured > 0`, and `impaired > 0`. A fleet with nothing to play is unmeasured, not unhealthy, so it never reads as a fault.                                   |
+
+Unavailable fleet health is omitted and never treated as zero. A fleet with no screens has no sentence. The sentence is one paragraph. The page title stays a hidden `h1`, and the Fleet status card keeps a fixed hidden heading. Sentences are complete strings in the locale files with i18next plural forms. Code does not join fragments. The rules are in `apps/dashboard/src/components/overview/recap.ts`.
+
 ### Playback (measured over the selected range)
 
 | Metric                      | Exact definition                                                                                                                                                                                                                                                         |

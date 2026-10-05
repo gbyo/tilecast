@@ -52,28 +52,44 @@ export interface WidgetPoint {
 
 export interface WidgetDataset {
   readonly id: string;
-  readonly kind: string;
+  readonly kind: "scalar" | "records" | "time_series" | "list" | "object";
   readonly fields?: readonly WidgetField[];
   readonly scalar?: WidgetValue | null;
   readonly records?: readonly WidgetRecord[];
   readonly points?: readonly WidgetPoint[];
   readonly value?: WidgetValue | null;
+  readonly cache: WidgetCacheState;
   readonly attribution?: string;
   readonly timezone?: string;
+  readonly dateSelection?: WidgetDateSelection;
   readonly units?: Readonly<Record<string, string>>;
 }
 
 export interface WidgetCacheState {
-  readonly cachedAt?: string | null;
-  readonly staleAt?: string | null;
-  readonly usingCachedData?: boolean;
-  readonly unavailable?: boolean;
+  readonly cachedAt?: string;
+  readonly staleAt?: string;
+  readonly usingCachedData: boolean;
+  readonly unavailable: boolean;
+  readonly lastModified?: string;
+  readonly upstreamExpiry?: string;
+}
+
+/** Date policy attached to a manifest v16 dataset. Selection remains Player-owned. */
+export interface WidgetDateSelection {
+  readonly field: string;
+  readonly timezone: string;
+  readonly mode:
+    "today" | "tomorrow" | "next_available" | "current_week" | "custom_range";
+  readonly customStartDate?: string;
+  readonly customEndDate?: string;
+  readonly excludePast: boolean;
+  readonly noMatchBehavior?: string;
+  readonly fallbackText?: string;
 }
 
 export interface WidgetDataDocument {
-  readonly schemaVersion: number;
+  readonly schemaVersion: 1;
   readonly datasets: readonly WidgetDataset[];
-  readonly cache?: WidgetCacheState | null;
 }
 
 export interface WidgetMediaRef {
@@ -88,6 +104,8 @@ export interface WidgetResources {
   dataset(dataSourceId: string, datasetId: string): WidgetDataset | null;
   /** A host-authorized URI for a declared media variant, or null. */
   media(assetId: string, variantId: string): string | null;
+  /** A host-authorized URI when exactly one variant for this asset is declared. */
+  mediaForAsset(assetId: string): string | null;
   /** Attribution the Data Source requires, or null. */
   attribution(dataSourceId: string): string | null;
 }
@@ -146,6 +164,7 @@ const EMPTY_RESOURCES: WidgetResources = Object.freeze({
   dataDocument: () => null,
   dataset: () => null,
   media: () => null,
+  mediaForAsset: () => null,
   attribution: () => null,
 });
 
@@ -199,6 +218,15 @@ export function createWidgetResources(
     media(assetId: string, variantId: string) {
       const key = `${assetId}/${variantId}`;
       return media.has(key) ? (tables.media?.get(key) ?? null) : null;
+    },
+    mediaForAsset(assetId: string) {
+      let match: string | null = null;
+      for (const key of media) {
+        if (key.slice(0, key.lastIndexOf("/")) !== assetId) continue;
+        if (match !== null) return null;
+        match = key;
+      }
+      return match ? (tables.media?.get(match) ?? null) : null;
     },
     attribution(id: string) {
       const document = documentOf(id);

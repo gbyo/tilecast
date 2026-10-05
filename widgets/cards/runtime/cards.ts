@@ -158,11 +158,10 @@ function imageUri(
   value: WidgetValue | undefined,
   resources: WidgetResources,
 ): string {
-  // Only an asset the host granted to this Widget resolves; anything else
-  // stays hidden. Record assetIds carry no variant, so they resolve
-  // through the default variant grant when the Server declares one.
-  if (!value || value.kind !== "assetId" || !value.assetId) return "";
-  return resources.media(value.assetId, "") ?? "";
+  // Record asset values carry no variant. They resolve only when the host
+  // granted exactly one verified variant for that asset.
+  if (!value || value.kind !== "asset" || !value.assetId) return "";
+  return resources.mediaForAsset(value.assetId) ?? "";
 }
 
 /** A record carries something worth showing when a mapped slot holds data. */
@@ -184,7 +183,7 @@ function hasDisplayableValue(
       typeof value.date === "string" ||
       typeof value.datetime === "string" ||
       typeof value.durationSeconds === "number" ||
-      (value.kind === "assetId" && value.assetId)
+      (value.kind === "asset" && value.assetId)
     ) {
       return true;
     }

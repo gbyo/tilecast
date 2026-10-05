@@ -131,6 +131,27 @@ app.whenReady().then(async () => {
       ],
     },
   });
+  // Window chrome or the display can leave the content area smaller than the
+  // fixture viewport (a Windows frameless window is the known case), which
+  // changes every container-relative unit. Correct it before the page loads.
+  win.setResizable(true);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const [contentWidth, contentHeight] = win.getContentSize();
+    if (contentWidth === width && contentHeight === height) break;
+    const [outerWidth, outerHeight] = win.getSize();
+    win.setSize(
+      outerWidth + (width - contentWidth),
+      outerHeight + (height - contentHeight),
+    );
+  }
+  win.setResizable(false);
+  const [fitWidth, fitHeight] = win.getContentSize();
+  if (fitWidth !== width || fitHeight !== height) {
+    console.error(
+      `runner: the window content is ${fitWidth}x${fitHeight}, not ${width}x${height}; ` +
+        "the display may be smaller than the fixture viewport",
+    );
+  }
   ipcMain.handle("conformance-snapshot", async (_event, name) => {
     if (!/^[A-Za-z0-9_-]{1,64}$/.test(String(name))) {
       throw new Error("invalid checkpoint name");

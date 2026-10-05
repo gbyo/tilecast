@@ -528,7 +528,9 @@ export function PlayerUpdatesPanel({
   const [searchParams, setSearchParams] = useSearchParams();
   const platformParam = searchParams.get("platform");
   const platform: UpdateFamilyTab =
-    platformParam === "linux" || platformParam === "edge"
+    platformParam === "linux" ||
+    platformParam === "edge" ||
+    platformParam === "windows"
       ? platformParam
       : "android";
   const [releaseId, setReleaseId] = useState("");
@@ -803,6 +805,8 @@ export function PlayerUpdatesPanel({
           <TabsTrigger value="linux">Linux</TabsTrigger>
           {/* i18n-ignore: Tilecast Edge is a product name, not language text */}
           <TabsTrigger value="edge">Tilecast Edge</TabsTrigger>
+          {/* i18n-ignore: Windows is a platform name, not language text */}
+          <TabsTrigger value="windows">Windows</TabsTrigger>
         </TabsList>
         <TabsContent value={platform} className="grid gap-4">
           <section className="grid gap-3 rounded-xl border border-border p-4">
@@ -1669,7 +1673,7 @@ export function PlayerUpdatesPanel({
                           checked={screenIds.includes(screen.id)}
                           label={screen.name}
                           detail={
-                            platform === "edge"
+                            platform === "edge" || platform === "windows"
                               ? `${screen.playerVersion} · ${screen.playerArchitecture ?? t("updates.panel.architectureUnknown")} · ${screen.status}`
                               : `${screen.playerVersion} · ${screen.status}`
                           }
@@ -1829,7 +1833,9 @@ export function PlayerUpdatesPanel({
                         ? t("updates.panel.androidNote")
                         : platform === "edge"
                           ? t("updates.panel.edgeNote")
-                          : t("updates.panel.linuxNote")}
+                          : platform === "windows"
+                            ? t("updates.panel.windowsNote")
+                            : t("updates.panel.linuxNote")}
                     </p>
                     {offlineTargets > 0 && (
                       <p>
@@ -2243,11 +2249,14 @@ function updateTabLabel(tab: UpdateFamilyTab) {
     ? "Android"
     : tab === "edge"
       ? "Tilecast Edge"
-      : "Linux";
+      : tab === "windows"
+        ? "Windows"
+        : "Linux";
 }
 
 // The three signed files of a release. An Edge archive is named by version and
-// architecture (tilecast-edge-<version>-<arch>.tar.zst), so it is matched by
+// architecture (tilecast-edge-<version>-<arch>.tar.zst), as is a Windows
+// package (tilecast-windows-<version>-<arch>.msix), so both are matched by
 // pattern; the server checks that the signed envelope names it exactly.
 type ReleaseFileSlot = {
   label: string;
@@ -2306,6 +2315,25 @@ const RELEASE_FILES: Record<UpdateFamilyTab, readonly ReleaseFileSlot[]> = {
       maxBytes: 4 * 1024,
     },
   ],
+  windows: [
+    {
+      label: "tilecast-windows-<version>-<arch>.msix",
+      matches: (name) =>
+        /^tilecast-windows-\d{1,9}\.\d{1,9}\.\d{1,9}(-[0-9A-Za-z.]+)?-(x86_64|aarch64)\.msix$/.test(
+          name,
+        ),
+    },
+    {
+      label: "tilecast-windows-update.json",
+      matches: (name) => name === "tilecast-windows-update.json",
+      maxBytes: 16 * 1024,
+    },
+    {
+      label: "tilecast-windows-update.json.sig",
+      matches: (name) => name === "tilecast-windows-update.json.sig",
+      maxBytes: 4 * 1024,
+    },
+  ],
 };
 
 function PlayerReleaseUpload({
@@ -2326,7 +2354,9 @@ function PlayerReleaseUpload({
       : // i18n-ignore: file format names
         platform === "android"
         ? "APK"
-        : "AppImage";
+        : platform === "windows"
+          ? "MSIX"
+          : "AppImage";
   const [files, setFiles] = useState<Record<string, File>>({});
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState<
@@ -2455,7 +2485,9 @@ function PlayerReleaseUpload({
                     ? t("updates.panel.verifyingAndroid")
                     : platform === "edge"
                       ? t("updates.panel.verifyingEdge")
-                      : t("updates.panel.verifyingLinux")
+                      : platform === "windows"
+                        ? t("updates.panel.verifyingWindows")
+                        : t("updates.panel.verifyingLinux")
                   : t("updates.panel.uploadComplete")}
             </strong>
             {upload.data && (

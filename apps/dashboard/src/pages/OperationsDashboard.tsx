@@ -11,7 +11,6 @@ import {
 } from "../api/domains/activity";
 import { useAuth } from "../auth/AuthProvider";
 import { FleetUptimePanel } from "../components/FleetUptimePanel";
-import { PageHeader } from "../components/PageHeader";
 import {
   deriveAttention,
   summarizeFleet,
@@ -28,7 +27,16 @@ import {
 } from "../components/overview/LastDayCard";
 import { NeedsAttention } from "../components/overview/NeedsAttention";
 import { OnAirSection } from "../components/overview/OnAirSection";
+import {
+  OverviewRecap,
+  OverviewRecapSkeleton,
+} from "../components/overview/OverviewRecap";
 import { PlayerUpdatesSection } from "../components/overview/PlayerUpdatesSection";
+import {
+  deriveRecap,
+  type RecapIncidents,
+  type RecapPlayback,
+} from "../components/overview/recap";
 import { UpcomingSection } from "../components/overview/UpcomingSection";
 import { upcomingChanges } from "../components/overview/upcoming";
 import { summarizeUpdates } from "../components/overview/updates";
@@ -137,6 +145,26 @@ export function OperationsDashboard() {
     : overview.isError || !fleet
       ? { state: "unavailable" }
       : { state: "ready", playing: fleet.healthy, measured: fleet.measured };
+  const recapPlayback: RecapPlayback =
+    fleet && !overview.isError
+      ? {
+          state: "ready",
+          healthy: fleet.healthy,
+          impaired: fleet.impaired,
+          measured: fleet.measured,
+        }
+      : { state: "unavailable" };
+  const recapIncidents: RecapIncidents = incidents.isLoading
+    ? "loading"
+    : incidents.isError
+      ? "failed"
+      : "ready";
+  const recap = deriveRecap({
+    summary,
+    attentionCount: attention.length,
+    incidents: recapIncidents,
+    playback: recapPlayback,
+  });
 
   const canPair =
     auth.status?.user?.role === "owner" ||
@@ -146,10 +174,11 @@ export function OperationsDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-4">
-      <PageHeader
-        title={t("operations.title")}
-        description={t("operations.subtitle")}
-      />
+      <h1 className="sr-only">{t("operations.title")}</h1>
+      {screens.isLoading && <OverviewRecapSkeleton />}
+      {!screens.isLoading && !screens.isError && recap && (
+        <OverviewRecap recap={recap} />
+      )}
 
       {screens.isError && (
         <Alert variant="destructive">

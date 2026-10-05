@@ -1,9 +1,9 @@
 ---
 title: Update a Player
-description: Cache a verified release and deploy it to selected Android, Linux, or Tilecast Edge screens.
+description: Cache a verified release and deploy it to selected Android, Linux, Tilecast Edge, or Windows screens.
 ---
 
-Use **Settings** > **Player updates** to choose and deploy a verified Android, Linux, or Tilecast Edge release. Updating a release does not update Tilecast Server, Docker, or the host operating system.
+Use **Settings** > **Player updates** to choose and deploy a verified Android, Linux, Tilecast Edge, or Windows release. Updating a release does not update Tilecast Server, Docker, or the host operating system.
 
 import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
@@ -12,7 +12,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 <Steps>
 
 1. Open **Settings** > **Player updates** in Studio.
-2. Select **Android**, **Linux**, or **Tilecast Edge**.
+2. Select **Android**, **Linux**, **Tilecast Edge**, or **Windows**.
 3. If you need a GitHub release that is not listed yet, select **Sync from GitHub**. Only an Owner can synchronize releases.
 4. Select **Download** beside the release. Wait until its status is **Ready to deploy**. Only a cached and verified release can be deployed.
 
@@ -51,6 +51,12 @@ The managed AppImage downloads and verifies the release, replaces the running fi
 <TabItem label="Tilecast Edge">
 
 The screen downloads and verifies the release, installs it beside the current release, and restarts into it. It confirms the update after it reconnects and shows content for two minutes. If it can't, it returns to its previous release on its own and the deployment shows the screen as failed. See [Update Tilecast Edge](../../edge/updates/).
+
+</TabItem>
+
+<TabItem label="Windows">
+
+The Player downloads the signed package from its paired server, verifies the release signature and the Windows publisher identity, installs the package, and restarts into the new version. It stays on its own architecture: an ARM64 screen never installs an x64 package.
 
 </TabItem>
 

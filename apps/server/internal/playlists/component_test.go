@@ -50,11 +50,15 @@ func TestComponentOnlyWidgetCompilesWithoutFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if component.SchemaVersion != 2 || component.Kind != "component" || component.RequiredCapabilities["widget.tilecast.probe"] != 3 {
+	if component.SchemaVersion != 3 || component.Kind != "component" || component.RequiredCapabilities["widget.tilecast.probe"] != 3 {
 		t.Fatalf("unexpected component presentation: %+v", component)
 	}
-	if component.Component.Config["title"] != "Lobby" || len(component.Component.DataSources) != 1 {
+	if component.Component.Empty != "render" || component.Component.Config["title"] != "Lobby" || len(component.Component.DataSources) != 1 {
 		t.Fatalf("component did not compile its configuration and sources: %+v", component.Component)
+	}
+	legacy, err := service.compileWidgetComponentForSchema("probe", raw, componentPresentationSchemaLegacy)
+	if err != nil || legacy.SchemaVersion != componentPresentationSchemaLegacy || legacy.Component.Empty != "" {
+		t.Fatalf("schema 2 component changed: %+v, err %v", legacy, err)
 	}
 	// Only a well-formed Data Source ID becomes a grant.
 	component, _ = service.compileWidgetComponent("probe", json.RawMessage(`{"source":"../../etc"}`))
@@ -318,7 +322,7 @@ func TestLegacyDomainProvidersProjectIntoV2(t *testing.T) {
 	}
 }
 
-func TestAutoSkipWidgetsStayOnCompatibilityPresentations(t *testing.T) {
+func TestAutoSkipWidgetsUseComponentEmptyPolicyWhenSupported(t *testing.T) {
 	service := &Service{definitions: contentdefs.MustLoad()}
 	for _, test := range []struct {
 		provider string
@@ -346,8 +350,15 @@ func TestAutoSkipWidgetsStayOnCompatibilityPresentations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if component != nil {
-				t.Fatalf("auto-skip Widget selected component presentation: %+v", component)
+			if component == nil || component.SchemaVersion != 3 || component.Component.Empty != "skip-eligible" {
+				t.Fatalf("auto-skip Widget lost component empty policy: %+v", component)
+			}
+			legacyComponent, err := service.compileWidgetComponentForSchema(test.provider, raw, componentPresentationSchemaLegacy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if legacyComponent != nil {
+				t.Fatalf("schema 2 auto-skip Widget stopped using compatibility presentation: %+v", legacyComponent)
 			}
 			fallback, err := service.compileWidgetPresentation(test.provider, raw)
 			if err != nil {

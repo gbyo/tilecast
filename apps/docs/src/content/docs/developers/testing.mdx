@@ -18,6 +18,12 @@ npm run test:visual
 
 The functional suite exercises authoring, publishing, settings, previews, manifest delivery, and player commands. The visual suite compares 22 selected Studio states, including dark-mode editors and the shared Widget renderer in a Layout preview. Both use the real Studio bundle, server, and PostgreSQL schema.
 
+## Iterate locally
+
+Run `make dev` from the repository root to start local PostgreSQL, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. Run `make dev-down` to remove the stopped local database container and network; its volume remains. The first run downloads the pinned Go watcher. Install FFmpeg and FFprobe for media processing.
+
+Run `make quick` to test changed Studio, Player Runtime, Linux Player, Android, and Go packages. It also checks documentation and CI workflow contracts when those files change. The default comparison is `origin/main`; set `TILECAST_DEV_BASE` to compare another ref. `make watch-dashboard` and `make watch-linux` start Vitest watch mode. Run `make test` for the full dashboard, extension SDK, Player Runtime, Linux Player, Go, CLI, and helper unit suites. `make check` also runs Android unit tests and merge-grade checks.
+
 ## Review screenshot changes
 
 Linux Chromium is the committed baseline. On macOS, use the Linux Docker helper so you do not need a separate set of macOS screenshots:
@@ -27,7 +33,9 @@ bash scripts/ci/visual-linux.sh studio
 bash scripts/ci/visual-linux.sh widgets
 ```
 
-After an intentional design change, add `--update-snapshots` to the helper command. Inspect every changed PNG, then run the comparison again without that flag. Commit only reviewed baselines. CI compares screenshots and never accepts changes automatically.
+After an intentional design change, add `--update-snapshots` to the helper command. Inspect every changed PNG, then run the comparison again without that flag. Commit only reviewed baselines.
+
+No Docker? In GitHub, open **Actions**, choose **Refresh Studio visual snapshots**, and run it on your branch. It re-renders the changed Studio screenshots on the CI runner and commits them to the branch. Review the commit before you merge. It doesn't start your other checks, so push a commit or re-run them afterward.
 
 A failed visual job includes expected, actual, and diff images, an HTML report, and traces. Studio failures also include the demo server logs. Open a downloaded HTML report with `npx playwright show-report <report-directory>`. The Linux helper saves reports in `e2e/visual/test-results/linux-run/`.
 
@@ -46,6 +54,14 @@ npm run doctor:changed
 
 On a pull request, React Doctor comments on the code you changed: one summary comment and inline comments on the affected lines. It does not block pull requests yet, so a finding never fails CI. Pull requests from forks do not get comments, because GitHub gives them a read-only token. Their findings appear in the job summary instead. The [Testing and CI reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#react-doctor) has the settings.
 
+## Know what blocks your pull request
+
+Only fast, deterministic checks can block a pull request: lint, formatting, types, builds, unit tests, the Demo Mode functional suite, and the documentation build. If one of them fails, the change is almost always the cause, and you can reproduce it on your own machine.
+
+Slower checks that depend on the environment run separately, as **Extended validation**. They cover the Studio screenshot comparison, iOS, Android emulator conformance, and WebView2 conformance. They run every night against `main`, and they never block a pull request. To run them on your branch, open **Actions**, choose **Extended validation**, and run it on that branch.
+
+The screenshot comparison skips itself when the demo server's clock is inside one of its seeded schedules, because the server decides what is on air from real time. You'll see a notice on the run instead of a failure.
+
 ## Understand affected checks
 
 Run `npm run test:ci` to test the CI dependency graph. Inspect a branch's selected areas with:
@@ -58,7 +74,29 @@ The classifier follows package consumers. Studio changes select Studio and Demo 
 
 Ordinary settings, user, authentication, backup, and content administration HTTP changes select the server and production browser tests. Player endpoints and transport schemas select Player consumers; activity contracts also select parity tests. Change detection runs with Node alone. Workflow YAML assertions run in a separate CI contract job when CI infrastructure changes.
 
-The stable aggregate checks are **Required PR validation** and **Required Edge validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
+Server CI runs the same Go formatting gate as `make check` before vet, tests, and build.
+
+Dashboard CI scans changed Studio TypeScript files against the PR base and fails for new untranslated text. See the [localization guide](https://github.com/gbyo/tilecast/blob/main/docs/localization.md) for focused and full scan commands.
+
+Run `npm run test:ci` when you change the scanner or its CI integration. Its Git-fixture tests check baseline comparison, duplicate text, new files, ignore comments, and missing comparison refs.
+
+The architecture check uses the same comparison to flag new raw error feedback, local byte formatters, static generic API requests, and inline query keys in domains that have query contracts. Run it on a changed file with:
+
+```bash
+npm run architecture:scan --workspace @tilecast/dashboard -- --check --base origin/main src/pages/Example.tsx
+```
+
+Use the shared formatting, localized API-error, typed transport, and query factories when the check finds a regression. It leaves existing findings for deliberate migration. The [engineering test reference](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#studio-architecture-checks) describes its scope and genuine transport exceptions.
+
+Linux Player changes always run the Player tests and TypeScript build. Pull requests also build and verify an AppImage when package metadata, build inputs, release or update code, installation code, packaged assets, dependencies, the shared Player Runtime, or CI contract files change. Linux Player changes on `main` run the full package contract. See the [exact Linux Player validation contract](https://github.com/gbyo/tilecast/blob/main/docs/testing.md#linux-player-validation).
+
+Server integration-test packages use separate temporary PostgreSQL databases, so Go can run the packages concurrently. `TEST_DATABASE_URL` must point to a disposable database and its role must be able to create and drop databases. The test harness removes each temporary database after the package exits.
+
+Dashboard formatting and lint, the production build, and two Vitest test shards run as parallel CI jobs. Each shard publishes a test report. CI merges shard coverage before it publishes the coverage summary.
+
+Dashboard CI installs the Dashboard workspace and root tools such as Prettier. Linux Player CI installs the Player workspace and its linked workspace dependencies. Both installs use the root `package-lock.json`; local full-workspace setup still uses `npm ci`.
+
+The stable aggregate checks are **Required PR validation**, **Required Edge validation**, and **Required Windows validation**. Each requires every selected job to pass. Full Edge runs continue on relevant main-branch changes, manual dispatch, and a twice-weekly schedule. A separate scheduled workflow runs Go's race detector against the server integration suite.
 
 Dashboard and Server job summaries show each setup and validation step's duration and the job's elapsed time when the summary runs. Dashboard summaries list the slowest test files and test cases. Server summaries list the slowest Go test packages and test cases. These timings are informational and do not add a pass/fail threshold.
 
@@ -77,6 +115,18 @@ npm test --workspace @gibsonmb71/tilecast-player-linux -- --changed=origin/main 
 ```
 
 The merge-base check stops if `origin/main` is missing or has no common history with your branch. Fetch a usable base or run the full suite in that case. `--passWithNoTests` lets documentation-only changes finish when Vitest finds no related tests. For Go, run the affected package from `apps/server`, such as `go test ./internal/devices`. Run each package when a change spans packages. These commands support local iteration; CI still runs the complete selected test suites.
+
+## Shared presentation decisions
+
+Availability, item-default, and Layout zone media eligibility decisions live in the pure Presentation Model. Its expected-result fixtures run in the model, Studio, and Player Runtime suites. Media fixtures also exercise Studio's zone filter and the runtime's actual Layout projection. When changing those decisions, run:
+
+```bash
+npm test --workspace @tilecast/presentation-model
+npm test --workspace @tilecast/player-runtime
+npm test -- --run src/content/presentationModelConformance.test.ts
+```
+
+Shared zone-policy fixtures also exercise Runtime actors and surfaces, plus Studio preview fallback and progression. Keep host APIs, mounting, storage, and timers in the consumers. Layout preview tests cover selected dates, live availability changes, and long waits that exceed the browser timer limit. See the [Presentation Model contract](https://github.com/gbyo/tilecast/blob/main/docs/presentation-model.md) for ownership and build details.
 
 ## Reuse Studio query contracts
 
@@ -125,3 +175,7 @@ Schedule create, update, and delete use `mutationOptions()` factories in the sam
 ## Inspect coverage
 
 Run `npm run coverage` for Studio's terminal summary, HTML report, JSON summary, and LCOV file. Server and CLI CI jobs publish Go coverage profiles. Coverage is diagnostic and has no repository-wide percentage gate. Use uncovered paths to find missing behavior evidence, rather than adding assertions only to raise a percentage.
+
+## Android CI caches
+
+The Android workflow caches Gradle dependencies and task outputs. It also runs its unit tests, lint, and debug APK assembly twice to confirm the configuration cache can be reused. Check the Gradle logs for `FROM-CACHE` task results and `Reusing configuration cache` when reviewing a workflow change. See the [CI timing record](https://github.com/gbyo/tilecast/blob/main/docs/ci-timings.md) for observed cold and warm run durations and their limitations.

@@ -12,7 +12,13 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { affected, areas, changedPaths } from "./affected.mjs";
+import { fileURLToPath } from "node:url";
+import {
+  affected,
+  areas,
+  changedPaths,
+  linuxReleaseContractRequired,
+} from "./affected.mjs";
 
 const selected = (paths) =>
   Object.entries(affected(paths))
@@ -31,6 +37,7 @@ test("root Rust inputs and shared crates select portable and Edge validation", (
     const result = affected([path]);
     for (const area of [
       "player_core",
+      "android",
       "ci",
       "edge_rust",
       "edge_server",
@@ -38,10 +45,10 @@ test("root Rust inputs and shared crates select portable and Edge validation", (
       "edge_activity",
       "edge_wpe",
       "edge_conformance",
+      "windows",
     ])
       assert.equal(result[area], true, `${path}: ${area}`);
     assert.equal(result.ios, false, path);
-    assert.equal(result.android, false, path);
     assert.equal(result.server, false, path);
   }
   for (const path of [
@@ -155,6 +162,43 @@ test("runtime semantics select both renderers but no migration", () => {
     "edge_wpe",
     "linux",
     "runtime",
+    "windows",
+  ]);
+});
+test("the Windows host selects only Windows validation", () => {
+  for (const path of [
+    "apps/player-windows/src/main.rs",
+    "apps/player-windows/release/AppxManifest.xml.template",
+    "apps/player-windows/release/stage-windows-release.py",
+  ])
+    assert.deepEqual(selected([path]), ["windows"], path);
+  assert.equal(affected(["apps/player-windows/src/main.rs"]).edge_rust, false);
+});
+test("the Presentation Model selects Studio and production runtime consumers", () => {
+  assert.deepEqual(
+    selected(["packages/presentation-model/src/availability.ts"]),
+    [
+      "container",
+      "dashboard",
+      "e2e",
+      "edge_conformance",
+      "edge_runtime",
+      "edge_wpe",
+      "linux",
+      "runtime",
+      "windows",
+    ],
+  );
+  assert.deepEqual(selected(["packages/presentation-model/package.json"]), [
+    "container",
+    "dashboard",
+    "e2e",
+    "edge_conformance",
+    "edge_runtime",
+    "edge_wpe",
+    "linux",
+    "runtime",
+    "windows",
   ]);
 });
 test("Widgets reach the catalog, Studio and production hosts", () => {
@@ -305,6 +349,8 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
   for (const path of [
     "packages/manifest-schema/schema-v16.json",
     "packages/manifest-schema/schedule-fixtures.json",
+    "packages/manifest-schema/date-selection-fixtures.json",
+    "packages/manifest-schema/data-document-value-fixtures.json",
     "packages/layout-schema/schema-v2.json",
     "packages/settings-schema/player-config-v1.json",
   ])
@@ -361,6 +407,66 @@ test("full run and empty diff", () => {
     Object.fromEntries(areas.map((area) => [area, true])),
   );
   assert.deepEqual(selected([]), []);
+});
+test("Linux release contract is limited to package, update, and CI inputs", () => {
+  for (const path of [
+    "apps/player-linux/src/core/player.ts",
+    "apps/player-linux/src/core/player.test.ts",
+    "apps/player-linux/src/main/runtime-messages.ts",
+    "apps/player-linux/conformance/runner.cjs",
+    "apps/player-linux/README.md",
+    "packages/player-runtime/src/engine/player-machine.test.ts",
+    "packages/player-runtime/conformance/run.mjs",
+  ])
+    assert.equal(linuxReleaseContractRequired([path]), false, path);
+
+  for (const path of [
+    "apps/player-linux/package.json",
+    "apps/player-linux/electron-builder.config.cjs",
+    "apps/player-linux/src/assets/loading.png",
+    "apps/player-linux/src/core/self-update.ts",
+    "apps/player-linux/src/core/autostart.ts",
+    "apps/player-linux/src/core/identifiers.ts",
+    "packages/player-runtime/src/engine/player-machine.ts",
+    "scripts/build-linux-player-release.sh",
+    "scripts/verify-linux-player-release.mjs",
+    "package-lock.json",
+    ".github/workflows/validate-linux.yml",
+    "scripts/ci/affected.mjs",
+  ])
+    assert.equal(linuxReleaseContractRequired([path]), true, path);
+
+  assert.equal(linuxReleaseContractRequired([], { full: true }), true);
+  assert.equal(
+    linuxReleaseContractRequired(["packages/player-runtime/README.md"]),
+    false,
+  );
+});
+test("Linux release selection is exported for the workflow caller", () => {
+  const cwd = mkdtempSync(join(tmpdir(), "tilecast-linux-output-"));
+  const output = join(cwd, "github-output");
+  const run = (path) =>
+    execFileSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("./affected.mjs", import.meta.url)),
+        path,
+        "--github-output",
+      ],
+      { env: { ...process.env, GITHUB_OUTPUT: output }, encoding: "utf8" },
+    );
+  try {
+    run("apps/player-linux/src/core/player.ts");
+    assert.match(
+      readFileSync(output, "utf8"),
+      /linux_release_contract=false\n/,
+    );
+    writeFileSync(output, "");
+    run("apps/player-linux/package.json");
+    assert.match(readFileSync(output, "utf8"), /linux_release_contract=true\n/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
 });
 test("main expands relevant Edge changes, while docs stay inexpensive", () => {
   assert.equal(

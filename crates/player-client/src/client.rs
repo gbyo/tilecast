@@ -119,9 +119,33 @@ struct ErrorBody {
     message: String,
 }
 
+/// Android platform trust: validates with Android's TrustManager/system trust
+/// decisions, the same trust ordinary Android networking uses. The Android
+/// host initializes the verifier from the application bootstrap before any
+/// Core networking can occur; without that init the first handshake fails
+/// instead of silently trusting nothing or everything.
+#[cfg(target_os = "android")]
+fn android_tls_config() -> Result<rustls::ClientConfig, ServerError> {
+    use rustls_platform_verifier::BuilderVerifierExt as _;
+    let config = rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .map_err(|e| ServerError::Url(e.to_string()))?
+        .with_platform_verifier()
+        .map_err(|e| ServerError::Url(e.to_string()))?
+        .with_no_client_auth();
+    Ok(config)
+}
+
 fn tls_config(
     additional_roots: &[rustls::pki_types::CertificateDer<'static>],
 ) -> Result<rustls::ClientConfig, ServerError> {
+    // Operator-supplied CAs keep the static configuration on every platform:
+    // the platform verifier cannot take extra roots, and an operator CA must
+    // keep working (still hostname-checked) rather than being dropped.
+    #[cfg(target_os = "android")]
+    if additional_roots.is_empty() {
+        return android_tls_config();
+    }
     let mut roots = rustls::RootCertStore::empty();
     let loaded = rustls_native_certs::load_native_certs();
     for certificate in loaded.certs {
@@ -450,6 +474,20 @@ impl AuthenticatedServer {
         let response = self
             .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
             .json(heartbeat)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)?;
+        let _data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
+        Ok(())
+    }
+
+    /// The background liveness ping: proves the credential is still valid
+    /// without sending status. Background workers call this while the
+    /// player UI is dead; a rejection means the credential must go.
+    pub async fn player_liveness(&self) -> Result<(), ServerError> {
+        let response = self
+            .request(reqwest::Method::POST, "/api/v1/player/liveness")
+            .json(&serde_json::json!({}))
             .send()
             .await
             .map_err(|_| ServerError::Network)?;

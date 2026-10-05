@@ -31,7 +31,7 @@ use std::time::Duration;
 
 use anyhow::Context as _;
 use edge_cas::space::{SpaceProbe, StatvfsProbe};
-use edge_cas::{ContentStore, LruByDomain, StorePolicy};
+use edge_cas::{ContentStore, LruByDomain, StorePolicy, UnixSecureOpener};
 use edge_ipc::{IpcServer, PeerPolicy};
 use edge_platform::capabilities::CapabilityRegistry;
 use edge_platform::clock::system_clock;
@@ -317,6 +317,7 @@ impl Daemon {
                     db.clone(),
                     clock.clone(),
                     space.clone(),
+                    Arc::new(UnixSecureOpener),
                     policy,
                     Arc::new(LruByDomain),
                 )

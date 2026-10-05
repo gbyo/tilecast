@@ -74,7 +74,7 @@
       {
         "key": "imageField",
         "label": "Image field",
-        "description": "Only managed media the Widget can already resolve is shown; anything else stays hidden.",
+        "description": "Managed images in this field are shown when available; other values stay hidden.",
         "control": "data_source_field",
         "dataSourceFieldTypes": ["text", "url", "asset"],
         "default": "",

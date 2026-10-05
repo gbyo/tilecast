@@ -2175,7 +2175,8 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
-	components := make([]*WidgetPresentation, len(manifest.Widgets))
+	componentsV2 := make([]*WidgetPresentation, len(manifest.Widgets))
+	componentsV3 := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	organizationTimezone := s.orgTimezone(ctx)
@@ -2185,11 +2186,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, err)
 		}
 		compiled[index], _ = s.compileWidgetPresentationForPreset(widget.Provider, widget.PresetID, s.compatibilityConfiguration(widget.Provider, widget.Configuration, organizationTimezone), allowPrivateHTTP)
-		components[index], err = s.compileWidgetComponent(widget.Provider, widget.Configuration)
+		componentsV2[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, componentPresentationSchemaLegacy)
+		if err == nil {
+			componentsV3[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, contentdefs.ComponentPresentationSchemaVersion)
+		}
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
 		}
-		if compiled[index] == nil && components[index] == nil {
+		if compiled[index] == nil && componentsV2[index] == nil && componentsV3[index] == nil {
 			canCompileV13 = false
 			break
 		}
@@ -2200,19 +2204,32 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	useV13 := false
 	usesComponents := false
+	usesComponentEmptyPolicy := false
 	if playerCapabilities.Reported && canCompileV13 {
 		// Each Widget gets its first-class component when this Player renders
 		// that exact type and version, and its compatibility presentation
 		// otherwise (docs/widgets-v2.md §7). Persisted Widgets never change.
 		for index := range compiled {
-			if components[index] != nil {
-				if supported, _ := presentationSupported(components[index], playerCapabilities); supported {
-					compiled[index] = components[index]
+			if component := componentsV3[index]; component != nil {
+				if supported, _ := presentationSupported(component, playerCapabilities); supported {
+					compiled[index] = component
+					usesComponents = true
+					usesComponentEmptyPolicy = true
+					continue
+				}
+			}
+			if component := componentsV2[index]; component != nil {
+				if supported, _ := presentationSupported(component, playerCapabilities); supported {
+					compiled[index] = component
 					usesComponents = true
 					continue
 				}
-				if compiled[index] == nil {
-					compiled[index] = components[index]
+			}
+			if compiled[index] == nil {
+				if componentsV2[index] != nil {
+					compiled[index] = componentsV2[index]
+				} else {
+					compiled[index] = componentsV3[index]
 				}
 			}
 			if err = checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, compiled[index], playerCapabilities); err != nil {
@@ -2225,8 +2242,12 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	if !useV13 {
 		for index := range manifest.Widgets {
-			if index < len(components) && components[index] != nil && compiled[index] == nil {
-				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, components[index], playerCapabilities))
+			component := componentsV2[index]
+			if component == nil {
+				component = componentsV3[index]
+			}
+			if component != nil && compiled[index] == nil {
+				return Manifest{}, "", fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, s.db, screenID, manifest.Widgets[index].Name, component, playerCapabilities))
 			}
 		}
 	}
@@ -2250,12 +2271,26 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.DataSources[index].DataDocument = document
 			manifest.DataSources[index].Configuration = nil
 		}
+		for index := range compiled {
+			if compiled[index] == nil || compiled[index].Kind != "component" || compiled[index].Component == nil {
+				continue
+			}
+			if err = s.projectComponentDataSourceMedia(ctx, &manifest, manifest.Widgets[index], compiled[index], seen); err != nil {
+				return Manifest{}, "", err
+			}
+		}
 		for index := range manifest.Widgets {
 			manifest.Widgets[index].Presentation = compiled[index]
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if usesComponents {
+	if usesComponentEmptyPolicy {
+		// v17 adds the component empty policy to the v16 manifest contract.
+		manifest.SchemaVersion = ManifestSchemaComponentEmptyPolicy
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if usesComponents {
 		// v16 includes every v15 feature. Crossfade still depends on the
 		// Player's version, exactly as it does for v14.
 		manifest.SchemaVersion = ManifestSchemaComponents
@@ -2511,6 +2546,118 @@ func (s *Service) projectWidgetAssets(ctx context.Context, manifest *Manifest, w
 		}
 	}
 	widget.Configuration, _ = json.Marshal(configuration)
+	return nil
+}
+
+// projectComponentDataSourceMedia grants only managed image assets selected by
+// a component's declared asset-valued Data Source field. The grant is bounded
+// by the component media contract and by its configured record limit.
+func (s *Service) projectComponentDataSourceMedia(ctx context.Context, manifest *Manifest, widget ManifestWidget, presentation *WidgetPresentation, seen map[uuid.UUID]bool) error {
+	if presentation == nil || presentation.Component == nil {
+		return nil
+	}
+	var configuration map[string]any
+	if err := json.Unmarshal(widget.Configuration, &configuration); err != nil {
+		return fmt.Errorf("widget configuration is invalid")
+	}
+	definition, ok := s.definitions.Widget(widget.Provider)
+	if !ok {
+		return nil
+	}
+	dataSourceKeys := make([]string, 0, 1)
+	for _, field := range definition.ConfigurationSchema.Fields {
+		if field.Control == "data_source" {
+			dataSourceKeys = append(dataSourceKeys, field.Key)
+		}
+	}
+	limit := 6
+	if configured, ok := configuration["maximumItems"].(float64); ok && configured >= 1 {
+		limit = min(int(configured), 100)
+	}
+
+	for _, field := range definition.ConfigurationSchema.Fields {
+		if field.Control != "data_source_field" || !containsString(field.DataSourceFieldTypes, "asset") {
+			continue
+		}
+		selectedField, _ := configuration[field.Key].(string)
+		if selectedField == "" {
+			continue
+		}
+		sourceKey := field.DataSourceKey
+		if sourceKey == "" && len(dataSourceKeys) == 1 {
+			sourceKey = dataSourceKeys[0]
+		}
+		if sourceKey == "" {
+			continue
+		}
+		rawSourceID, _ := configuration[sourceKey].(string)
+		sourceID, parseErr := uuid.Parse(rawSourceID)
+		if parseErr != nil || sourceID == uuid.Nil || !containsString(presentation.Component.DataSources, sourceID.String()) {
+			continue
+		}
+		var source *ManifestDataSource
+		for index := range manifest.DataSources {
+			if manifest.DataSources[index].ID == sourceID {
+				source = &manifest.DataSources[index]
+				break
+			}
+		}
+		if source == nil || source.DataDocument == nil {
+			continue
+		}
+		var records []DocumentRecord
+		for _, dataset := range source.DataDocument.Datasets {
+			if dataset.Kind != "records" {
+				continue
+			}
+			assetField := false
+			for _, candidate := range dataset.Fields {
+				if candidate.Key == selectedField && candidate.Type == "asset" {
+					assetField = true
+					break
+				}
+			}
+			if assetField {
+				records = dataset.Records
+				break
+			}
+		}
+		if len(records) > limit {
+			records = records[:limit]
+		}
+		for _, record := range records {
+			value, exists := record.Values[selectedField]
+			if !exists || value.Kind != "asset" || value.AssetID == nil {
+				continue
+			}
+			assetID, assetErr := uuid.Parse(*value.AssetID)
+			if assetErr != nil || assetID == uuid.Nil {
+				continue
+			}
+			assetString := assetID.String()
+			assetRefs := 0
+			for _, ref := range presentation.Component.Media {
+				if ref.AssetID == assetString {
+					assetRefs++
+				}
+			}
+			// An existing exact grant already covers this asset. Multiple
+			// variants are ambiguous for an asset-valued Data Document and
+			// remain inaccessible through mediaForAsset.
+			if assetRefs > 0 || len(presentation.Component.Media) >= 16 {
+				continue
+			}
+			asset, resolveErr := s.resolveImageVariant(ctx, assetID)
+			if resolveErr != nil {
+				continue
+			}
+			presentation.Component.Media = append(presentation.Component.Media, ComponentMediaRef{AssetID: asset.AssetID.String(), VariantID: asset.VariantID.String()})
+			if !seen[asset.VariantID] {
+				manifest.Assets = append(manifest.Assets, asset)
+				seen[asset.VariantID] = true
+			}
+		}
+	}
 	return nil
 }
 

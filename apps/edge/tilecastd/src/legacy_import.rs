@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use anyhow::{Context as _, bail};
 use edge_cas::space::StatvfsProbe;
-use edge_cas::{ContentStore, LruByDomain, StorePolicy};
+use edge_cas::{ContentStore, LruByDomain, StorePolicy, UnixSecureOpener};
 use edge_platform::clock::system_clock;
 use edge_platform::paths::EdgePaths;
 use edge_server::legacy::{ImportMode, ImportOutcome, default_legacy_dir, import_legacy};
@@ -50,6 +50,7 @@ pub async fn run(config: &EdgeConfig, from: Option<PathBuf>, mode: ImportMode) -
         db.clone(),
         clock.clone(),
         Arc::new(StatvfsProbe),
+        Arc::new(UnixSecureOpener),
         StorePolicy { limit_bytes: config.cas.limit_bytes, reserved_free_bytes: config.cas.reserved_free_bytes },
         Arc::new(LruByDomain),
     )

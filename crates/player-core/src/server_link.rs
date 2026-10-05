@@ -20,7 +20,7 @@ pub enum ServerLinkState {
     Unbound,
     CredentialMissing,
     CredentialRejected,
-    IdentityMismatch,
+    IdentityMismatch { expected: String, actual: String },
     Connected,
     Retrying(&'static str),
 }
@@ -31,7 +31,7 @@ impl ServerLinkState {
             Self::Unbound => "unbound",
             Self::Connected => "connected",
             Self::Retrying(_) => "retrying",
-            Self::CredentialMissing | Self::CredentialRejected | Self::IdentityMismatch => "stopped",
+            Self::CredentialMissing | Self::CredentialRejected | Self::IdentityMismatch { .. } => "stopped",
         }
     }
 
@@ -40,15 +40,26 @@ impl ServerLinkState {
             Self::Unbound => Some("not_bound"),
             Self::CredentialMissing => Some("device_credential_missing"),
             Self::CredentialRejected => Some("device_credential_rejected"),
-            Self::IdentityMismatch => Some("installation_identity_mismatch"),
+            Self::IdentityMismatch { .. } => Some("installation_identity_mismatch"),
             Self::Connected => None,
             Self::Retrying(code) => Some(code),
         }
     }
 
+    /// The mismatched installation pair, when the link stopped for it.
+    /// Hosts show both so the operator can see what changed.
+    pub fn identity_mismatch(&self) -> Option<(&str, &str)> {
+        match self {
+            Self::IdentityMismatch { expected, actual } => Some((expected, actual)),
+            _ => None,
+        }
+    }
+
     pub fn from_error(error: &ServerError) -> Self {
         match error {
-            ServerError::IdentityMismatch { .. } => Self::IdentityMismatch,
+            ServerError::IdentityMismatch { expected, actual } => {
+                Self::IdentityMismatch { expected: expected.to_string(), actual: actual.to_string() }
+            }
             ServerError::CredentialRejected => Self::CredentialRejected,
             other => Self::Retrying(other.reason_code()),
         }

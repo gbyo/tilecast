@@ -1469,13 +1469,13 @@ func (e IncidentType) Valid() bool {
 
 // Defines values for InstallableLinuxPlayerReleasePlatform.
 const (
-	InstallableLinuxPlayerReleasePlatformLinux InstallableLinuxPlayerReleasePlatform = "linux"
+	Linux InstallableLinuxPlayerReleasePlatform = "linux"
 )
 
 // Valid indicates whether the value is a known member of the InstallableLinuxPlayerReleasePlatform enum.
 func (e InstallableLinuxPlayerReleasePlatform) Valid() bool {
 	switch e {
-	case InstallableLinuxPlayerReleasePlatformLinux:
+	case Linux:
 		return true
 	default:
 		return false
@@ -2803,6 +2803,8 @@ const (
 	PlayerManifestSchemaVersionN13 PlayerManifestSchemaVersion = 13
 	PlayerManifestSchemaVersionN14 PlayerManifestSchemaVersion = 14
 	PlayerManifestSchemaVersionN15 PlayerManifestSchemaVersion = 15
+	PlayerManifestSchemaVersionN16 PlayerManifestSchemaVersion = 16
+	PlayerManifestSchemaVersionN17 PlayerManifestSchemaVersion = 17
 )
 
 // Valid indicates whether the value is a known member of the PlayerManifestSchemaVersion enum.
@@ -2818,23 +2820,9 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 		return true
 	case PlayerManifestSchemaVersionN15:
 		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PlayerPlatform.
-const (
-	PlayerPlatformAndroid PlayerPlatform = "android"
-	PlayerPlatformLinux   PlayerPlatform = "linux"
-)
-
-// Valid indicates whether the value is a known member of the PlayerPlatform enum.
-func (e PlayerPlatform) Valid() bool {
-	switch e {
-	case PlayerPlatformAndroid:
+	case PlayerManifestSchemaVersionN16:
 		return true
-	case PlayerPlatformLinux:
+	case PlayerManifestSchemaVersionN17:
 		return true
 	default:
 		return false
@@ -7786,7 +7774,8 @@ type LayoutPlacement struct {
 	Name    string              `json:"name"`
 	Opacity float32             `json:"opacity"`
 
-	// Overrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+	// Overrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Overrides  *LayoutPlacementOverrides `json:"overrides,omitempty"`
 	Playback   *LayoutPlayback           `json:"playback,omitempty"`
 	PlaylistId *openapi_types.UUID       `json:"playlistId,omitempty"`
@@ -7803,7 +7792,9 @@ type LayoutPlacement struct {
 // LayoutPlacementType defines model for LayoutPlacement.Type.
 type LayoutPlacementType string
 
-// LayoutPlacementOverrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+// LayoutPlacementOverrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type LayoutPlacementOverrides struct {
 	Alignment          *LayoutPlacementOverridesAlignment          `json:"alignment,omitempty"`
 	BackgroundColor    *string                                     `json:"backgroundColor,omitempty"`
@@ -8684,15 +8675,15 @@ type PlayerEnrollmentRequest struct {
 	PairingSessionId openapi_types.UUID `json:"pairingSessionId"`
 }
 
-// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
-type PlayerFamily = interface{}
+// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
+type PlayerFamily = string
 
 // PlayerHeartbeat The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive.
 type PlayerHeartbeat struct {
-	// PlayerArchitecture `x86_64` or `aarch64`, kept only with `playerFamily: edge`. An Edge screen without a known architecture is `incompatible` for Edge deployments.
+	// PlayerArchitecture `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments.
 	PlayerArchitecture *string `json:"playerArchitecture,omitempty"`
 
-	// PlayerFamily `android`, `electron-linux` or `edge`. The server keeps only these values; another value is recorded as absent.
+	// PlayerFamily `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent.
 	PlayerFamily *string `json:"playerFamily,omitempty"`
 }
 
@@ -8730,18 +8721,20 @@ type PlayerManifest struct {
 		Height int `json:"height"`
 		Width  int `json:"width"`
 	} `json:"canvas,omitempty"`
-	DataSources          *[]map[string]interface{}   `json:"dataSources,omitempty"`
-	GeneratedAt          time.Time                   `json:"generatedAt"`
-	Layout               *map[string]interface{}     `json:"layout,omitempty"`
-	Layouts              *[]map[string]interface{}   `json:"layouts,omitempty"`
-	ManifestVersion      int64                       `json:"manifestVersion"`
-	Mode                 PlayerManifestMode          `json:"mode"`
-	Playlist             *map[string]interface{}     `json:"playlist"`
-	PresentationOverride *PresentationOverride       `json:"presentationOverride,omitempty"`
-	Schedules            *[]ManifestSchedule         `json:"schedules,omitempty"`
-	SchemaVersion        PlayerManifestSchemaVersion `json:"schemaVersion"`
-	ScreenId             openapi_types.UUID          `json:"screenId"`
-	Viewport             *struct {
+	DataSources          *[]map[string]interface{} `json:"dataSources,omitempty"`
+	GeneratedAt          time.Time                 `json:"generatedAt"`
+	Layout               *map[string]interface{}   `json:"layout,omitempty"`
+	Layouts              *[]map[string]interface{} `json:"layouts,omitempty"`
+	ManifestVersion      int64                     `json:"manifestVersion"`
+	Mode                 PlayerManifestMode        `json:"mode"`
+	Playlist             *map[string]interface{}   `json:"playlist"`
+	PresentationOverride *PresentationOverride     `json:"presentationOverride,omitempty"`
+	Schedules            *[]ManifestSchedule       `json:"schedules,omitempty"`
+
+	// SchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+	SchemaVersion PlayerManifestSchemaVersion `json:"schemaVersion"`
+	ScreenId      openapi_types.UUID          `json:"screenId"`
+	Viewport      *struct {
 		Height   int `json:"height"`
 		Order    int `json:"order"`
 		Rotation int `json:"rotation"`
@@ -8755,11 +8748,11 @@ type PlayerManifest struct {
 // PlayerManifestMode defines model for PlayerManifest.Mode.
 type PlayerManifestMode string
 
-// PlayerManifestSchemaVersion defines model for PlayerManifest.SchemaVersion.
+// PlayerManifestSchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
 type PlayerManifestSchemaVersion int
 
-// PlayerPlatform defines model for PlayerPlatform.
-type PlayerPlatform string
+// PlayerPlatform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
+type PlayerPlatform = string
 
 // PlayerRelease defines model for PlayerRelease.
 type PlayerRelease struct {
@@ -8774,9 +8767,11 @@ type PlayerRelease struct {
 	Id                    openapi_types.UUID       `json:"id"`
 	ManifestSignature     string                   `json:"manifestSignature"`
 	MinimumSdk            *int                     `json:"minimumSdk"`
-	Platform              PlayerPlatform           `json:"platform"`
 
-	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	// Platform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
+	Platform PlayerPlatform `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 	PlayerFamily             PlayerFamily                    `json:"playerFamily"`
 	PublishedAt              time.Time                       `json:"publishedAt"`
 	ReleaseNotes             string                          `json:"releaseNotes"`
@@ -8842,33 +8837,33 @@ type PlayerUpdateMetadata struct {
 	// ApplicationId Android only.
 	ApplicationId *string `json:"applicationId,omitempty"`
 
-	// Architecture Tilecast Edge only.
+	// Architecture Tilecast Edge and Windows Player only.
 	Architecture interface{} `json:"architecture,omitempty"`
 
 	// ArtifactId The artifact's asset name.
 	ArtifactId *string `json:"artifactId,omitempty"`
 
-	// ArtifactPath `/api/v1/player/updates/{releaseId}/artifact` for the Linux families.
+	// ArtifactPath `/api/v1/player/updates/{releaseId}/artifact` for every family but Android.
 	ArtifactPath *string `json:"artifactPath,omitempty"`
 
-	// ArtifactSha256 Linux families.
+	// ArtifactSha256 Every family but Android.
 	ArtifactSha256 *string `json:"artifactSha256,omitempty"`
 
-	// ArtifactSizeBytes Linux families.
+	// ArtifactSizeBytes Every family but Android.
 	ArtifactSizeBytes *int `json:"artifactSizeBytes,omitempty"`
 
-	// ManifestSignature Tilecast Edge only. The envelope's base64 Ed25519 signature text.
+	// ManifestSignature Tilecast Edge and Windows Player only. The envelope's base64 Ed25519 signature text.
 	ManifestSignature *string `json:"manifestSignature,omitempty"`
 
 	// MinimumSdk Android only.
-	MinimumSdk *int        `json:"minimumSdk,omitempty"`
-	Platform   interface{} `json:"platform"`
+	MinimumSdk *int   `json:"minimumSdk,omitempty"`
+	Platform   string `json:"platform"`
 
-	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 	PlayerFamily *PlayerFamily      `json:"playerFamily,omitempty"`
 	ReleaseId    openapi_types.UUID `json:"releaseId"`
 
-	// SignedManifest Tilecast Edge only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
+	// SignedManifest Tilecast Edge and Windows Player only: the exact bytes of the signed update envelope, base64. The screen verifies the signature and every field against this answer and its `install_player_update` command before it downloads.
 	SignedManifest *[]byte `json:"signedManifest,omitempty"`
 
 	// SigningCertificateSha256 Android only.
@@ -10390,6 +10385,9 @@ type StructuredPlayerPreviewConfig struct {
 type StructuredPreview struct {
 	Configuration StructuredPlayerPreviewConfig `json:"configuration"`
 	Diagnostics   DataSourceDiagnostics         `json:"diagnostics"`
+
+	// FieldSchema Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives.
+	FieldSchema *[]DataSourceField `json:"fieldSchema,omitempty"`
 }
 
 // StructuredPreviewData defines model for StructuredPreviewData.
@@ -10782,9 +10780,11 @@ type UpdateDeploymentDetail struct {
 	Mode              UpdateDeploymentMode `json:"mode"`
 	Name              string               `json:"name"`
 	PauseReason       *string              `json:"pauseReason"`
-	Platform          PlayerPlatform       `json:"platform"`
 
-	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	// Platform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
+	Platform PlayerPlatform `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 	PlayerFamily PlayerFamily             `json:"playerFamily"`
 	RolloutMode  UpdateRolloutMode        `json:"rolloutMode"`
 	RolloutPhase UpdateRolloutPhase       `json:"rolloutPhase"`
@@ -10848,9 +10848,11 @@ type UpdateDeploymentSummary struct {
 	Mode         UpdateDeploymentMode `json:"mode"`
 	Name         string               `json:"name"`
 	PauseReason  *string              `json:"pauseReason"`
-	Platform     PlayerPlatform       `json:"platform"`
 
-	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+	// Platform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
+	Platform PlayerPlatform `json:"platform"`
+
+	// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 	PlayerFamily        PlayerFamily           `json:"playerFamily"`
 	RolloutMode         UpdateRolloutMode      `json:"rolloutMode"`
 	RolloutPhase        UpdateRolloutPhase     `json:"rolloutPhase"`
@@ -15514,7 +15516,7 @@ type ClientInterface interface {
 
 	// UploadPlayerReleaseWithBody Upload and verify a signed Tilecast Player release bundle
 	//
-	// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+	// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -21171,7 +21173,7 @@ func (c *Client) PollGitHubDeviceFlow(ctx context.Context, body PollGitHubDevice
 
 // UploadPlayerReleaseWithBody Upload and verify a signed Tilecast Player release bundle
 //
-// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
 //
 // Takes any type of body and a specified content type.
 //
@@ -45167,7 +45169,7 @@ type ClientWithResponsesInterface interface {
 
 	// UploadPlayerReleaseWithBodyWithResponse Upload and verify a signed Tilecast Player release bundle
 	//
-	// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+	// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -55280,14 +55282,14 @@ type UploadPlayerReleaseResponse struct {
 			// ApkSizeBytes The artifact size, for every family.
 			ApkSizeBytes *int `json:"apkSizeBytes,omitempty"`
 
-			// Architecture `x86_64` or `aarch64` for Tilecast Edge; empty for the other families.
+			// Architecture `x86_64` or `aarch64` for Tilecast Edge and Windows Player; empty for the other families.
 			Architecture *string             `json:"architecture,omitempty"`
 			Channel      interface{}         `json:"channel,omitempty"`
 			Duplicate    *bool               `json:"duplicate,omitempty"`
 			Id           *openapi_types.UUID `json:"id,omitempty"`
-			Platform     interface{}         `json:"platform,omitempty"`
+			Platform     *string             `json:"platform,omitempty"`
 
-			// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+			// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 			PlayerFamily *PlayerFamily `json:"playerFamily,omitempty"`
 			Source       interface{}   `json:"source,omitempty"`
 			VersionCode  *int          `json:"versionCode,omitempty"`
@@ -55302,14 +55304,14 @@ func (r UploadPlayerReleaseResponse) GetJSON201() *struct {
 		// ApkSizeBytes The artifact size, for every family.
 		ApkSizeBytes *int `json:"apkSizeBytes,omitempty"`
 
-		// Architecture `x86_64` or `aarch64` for Tilecast Edge; empty for the other families.
+		// Architecture `x86_64` or `aarch64` for Tilecast Edge and Windows Player; empty for the other families.
 		Architecture *string             `json:"architecture,omitempty"`
 		Channel      interface{}         `json:"channel,omitempty"`
 		Duplicate    *bool               `json:"duplicate,omitempty"`
 		Id           *openapi_types.UUID `json:"id,omitempty"`
-		Platform     interface{}         `json:"platform,omitempty"`
+		Platform     *string             `json:"platform,omitempty"`
 
-		// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+		// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 		PlayerFamily *PlayerFamily `json:"playerFamily,omitempty"`
 		Source       interface{}   `json:"source,omitempty"`
 		VersionCode  *int          `json:"versionCode,omitempty"`
@@ -66778,7 +66780,7 @@ func (c *ClientWithResponses) PollGitHubDeviceFlowWithResponse(ctx context.Conte
 
 // UploadPlayerReleaseWithBodyWithResponse Upload and verify a signed Tilecast Player release bundle
 //
-// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge). Owner session plus CSRF or a configured release-publishing bearer token is required.
+// Accepts one release's three files as multipart files: the artifact, the signed update manifest and its signature. The file names select the family: `tilecast-player.apk` with `tilecast-player-update.json` (Android), `tilecast-player.AppImage` with `tilecast-player-update-linux.json` (Electron Linux), or `tilecast-edge-<version>-<arch>.tar.zst` with the signed envelope `tilecast-edge-update.json` (Tilecast Edge), or `tilecast-windows-<version>-<arch>.msix` with the signed envelope `tilecast-windows-update.json` (Windows Player). Owner session plus CSRF or a configured release-publishing bearer token is required.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -75530,14 +75532,14 @@ func ParseUploadPlayerReleaseResponse(rsp *http.Response) (*UploadPlayerReleaseR
 				// ApkSizeBytes The artifact size, for every family.
 				ApkSizeBytes *int `json:"apkSizeBytes,omitempty"`
 
-				// Architecture `x86_64` or `aarch64` for Tilecast Edge; empty for the other families.
+				// Architecture `x86_64` or `aarch64` for Tilecast Edge and Windows Player; empty for the other families.
 				Architecture *string             `json:"architecture,omitempty"`
 				Channel      interface{}         `json:"channel,omitempty"`
 				Duplicate    *bool               `json:"duplicate,omitempty"`
 				Id           *openapi_types.UUID `json:"id,omitempty"`
-				Platform     interface{}         `json:"platform,omitempty"`
+				Platform     *string             `json:"platform,omitempty"`
 
-				// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` only screens of its architecture.
+				// PlayerFamily The Player release family. A deployment reaches only screens of its release's family, and for `edge` and `windows` only screens of its architecture. The set grows with new players; clients must tolerate values they do not recognize.
 				PlayerFamily *PlayerFamily `json:"playerFamily,omitempty"`
 				Source       interface{}   `json:"source,omitempty"`
 				VersionCode  *int          `json:"versionCode,omitempty"`
