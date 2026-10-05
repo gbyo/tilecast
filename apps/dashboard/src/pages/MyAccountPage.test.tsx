@@ -6,7 +6,9 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MyAccountPage } from "./MyAccountPage";
+import { AccountIndexRedirect, MyAccountPage } from "./MyAccountPage";
+import { PreferencesPage } from "./PreferencesPage";
+import { SecurityPage } from "./SecurityPage";
 import { api } from "../api/client";
 import type { SecurityStatus, SettingDefinition } from "../api/types";
 
@@ -63,29 +65,41 @@ const preferenceResponse = {
 };
 
 function renderPage(
-  initialEntry = "/account",
+  initialEntry = "/account/preferences",
   loadPreferences: typeof api.preferences = () =>
     Promise.resolve(preferenceResponse),
 ) {
-  vi.spyOn(api, "preferences").mockImplementation(loadPreferences);
-  vi.spyOn(api, "security").mockResolvedValue(security);
+  const preferences = vi
+    .spyOn(api, "preferences")
+    .mockImplementation(loadPreferences);
+  const securityStatus = vi.spyOn(api, "security").mockResolvedValue(security);
+  vi.spyOn(api, "listOAuthGrants").mockResolvedValue({ grants: [] });
+  vi.spyOn(api, "listPersonalAccessTokens").mockResolvedValue({ pats: [] });
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  const router = createMemoryRouter(
+    [
+      {
+        path: "account",
+        element: <MyAccountPage />,
+        children: [
+          { index: true, element: <AccountIndexRedirect /> },
+          { path: "preferences", element: <PreferencesPage /> },
+          { path: "security", element: <SecurityPage /> },
+        ],
+      },
+    ],
+    { initialEntries: [initialEntry] },
+  );
+
+  const result = render(
     <QueryClientProvider client={client}>
-      {/* A data router, as in Studio: the preferences leave warning blocks
-          navigation with useBlocker. */}
-      <RouterProvider
-        router={createMemoryRouter(
-          [{ path: "*", element: <MyAccountPage /> }],
-          {
-            initialEntries: [initialEntry],
-          },
-        )}
-      />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return { ...result, router, preferences, securityStatus };
 }
 
 afterEach(() => {
@@ -94,6 +108,23 @@ afterEach(() => {
 });
 
 describe("MyAccountPage", () => {
+  it("redirects the Account root to the real Preferences route", async () => {
+    const { router } = renderPage("/account");
+    await screen.findByRole("heading", { name: "Preferences" });
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/account/preferences"),
+    );
+  });
+
+  it("preserves the retired security hash as a real route", async () => {
+    const { router } = renderPage("/account#security");
+    await screen.findByRole("heading", { name: "Sign-in security" });
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/account/security"),
+    );
+    expect(router.state.location.hash).toBe("");
+  });
+
   it("names the account being edited, with its role", async () => {
     renderPage();
     const identity = await screen.findByText("Ada Lovelace");
@@ -101,20 +132,35 @@ describe("MyAccountPage", () => {
     expect(identity.parentElement).toHaveTextContent("ada · Editor");
   });
 
-  it("keeps the anchors the retired /preferences and /security routes land on", async () => {
-    const { container } = renderPage();
-    await screen.findByRole("heading", { name: "Preferences" });
-    expect(container.querySelector("#preferences")).not.toBeNull();
-    expect(container.querySelector("#security")).not.toBeNull();
+  it("uses real account links and marks the current route", async () => {
+    renderPage("/account/security");
+    await screen.findByRole("heading", { name: "Sign-in security" });
+
+    const nav = screen.getByRole("navigation", { name: "Account sections" });
+    expect(
+      nav.querySelector('a[href="/account/security"]'),
+    ).toHaveAttribute("aria-current", "page");
+    expect(
+      nav.querySelector('a[href="/account/preferences"]'),
+    ).not.toHaveAttribute("aria-current");
   });
 
-  /**
-   * The security panels sit under a group heading of their own, so they are a
-   * level down. A flat run of h2s would read to a screen reader as six
-   * unrelated page sections rather than two groups.
-   */
-  it("nests the security panels under the group heading", async () => {
-    renderPage();
+  it("mounts only the selected account page", async () => {
+    const preferencesView = renderPage("/account/preferences");
+    await screen.findByRole("group", { name: "Appearance" });
+    expect(preferencesView.preferences).toHaveBeenCalledTimes(1);
+    expect(preferencesView.securityStatus).not.toHaveBeenCalled();
+    cleanup();
+    vi.restoreAllMocks();
+
+    const securityView = renderPage("/account/security");
+    await screen.findByRole("heading", { name: "Authenticator app" });
+    expect(securityView.securityStatus).toHaveBeenCalledTimes(1);
+    expect(securityView.preferences).not.toHaveBeenCalled();
+  });
+
+  it("nests the security panels under the route heading", async () => {
+    renderPage("/account/security");
     expect(
       await screen.findByRole("heading", {
         level: 2,
@@ -122,8 +168,6 @@ describe("MyAccountPage", () => {
       }),
     ).toBeInTheDocument();
     await screen.findByRole("heading", { name: "Authenticator app" });
-    // The sections share a tab strip and stay mounted, so the inactive ones
-    // are hidden but keep their place under the group heading.
     for (const name of ["Authenticator app", "Passkeys", "Recovery codes"]) {
       expect(
         screen.getByRole("heading", { level: 3, name, hidden: true }),
@@ -131,9 +175,8 @@ describe("MyAccountPage", () => {
     }
   });
 
-  // Panels inside panels are the thing this page was rebuilt to stop doing.
   it("does not put a panel inside a panel", async () => {
-    const { container } = renderPage();
+    const { container } = renderPage("/account/security");
     await screen.findByRole("heading", {
       name: "Recovery codes",
       hidden: true,
@@ -141,25 +184,27 @@ describe("MyAccountPage", () => {
     expect(container.querySelector(".panel .panel")).toBeNull();
   });
 
-  it("marks the section matching the deep-link hash current", async () => {
-    renderPage("/account#security");
-    await screen.findByRole("heading", { name: "Sign-in security" });
+  it("confirms before leaving an unsaved Preferences draft for Security", async () => {
+    const { router } = renderPage("/account/preferences");
+    await screen.findByRole("group", { name: "Appearance" });
 
-    const nav = screen.getByRole("navigation", { name: "Account sections" });
-    const security = nav.querySelector('a[href="#security"]');
-    const preferences = nav.querySelector('a[href="#preferences"]');
-    expect(security).toHaveAttribute("aria-current", "true");
-    expect(preferences).not.toHaveAttribute("aria-current");
-  });
+    await userEvent.click(screen.getByRole("button", { name: "Dark" }));
+    await userEvent.click(
+      screen.getByRole("link", { name: "Sign-in security" }),
+    );
 
-  it("defaults the section nav to Preferences without a hash", async () => {
-    renderPage();
-    await screen.findByRole("heading", { name: "Preferences" });
+    expect(router.state.location.pathname).toBe("/account/preferences");
+    expect(
+      await screen.findByText(
+        "Leave My Account with unsaved preference changes?",
+      ),
+    ).toBeInTheDocument();
 
-    const nav = screen.getByRole("navigation", { name: "Account sections" });
-    expect(nav.querySelector('a[href="#preferences"]')).toHaveAttribute(
-      "aria-current",
-      "true",
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard changes" }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/account/security"),
     );
   });
 
@@ -197,7 +242,7 @@ describe("MyAccountPage", () => {
         ? Promise.reject(new Error("network failure"))
         : Promise.resolve(preferenceResponse);
     });
-    renderPage("/account", loadPreferences);
+    renderPage("/account/preferences", loadPreferences);
 
     expect(
       await screen.findByText("Preferences could not be loaded."),
