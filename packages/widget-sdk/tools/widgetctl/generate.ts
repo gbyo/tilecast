@@ -57,8 +57,8 @@ export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
 ${entries}
   });
 
-/** Presentation schema of kind "component" presentations. */
-export const COMPONENT_PRESENTATION_SCHEMA_VERSION = 2;
+/** Latest component presentation schema supported by this runtime. */
+export const COMPONENT_PRESENTATION_SCHEMA_VERSION = 3;
 `;
 }
 
@@ -82,8 +82,8 @@ function edgeCapabilities(repo: Repo): string {
 //! ships with (docs/widgets-v2.md §7). The renderer runs the same runtime
 //! artifact, so the list is fixed at release build time.
 
-/// Presentation schema of kind "component" presentations.
-pub const COMPONENT_PRESENTATION_SCHEMA: u32 = 2;
+/// Latest component presentation schema supported by this runtime.
+pub const COMPONENT_PRESENTATION_SCHEMA: u32 = 3;
 
 /// \`widget.<type>\` capability and component version.
 ${list}

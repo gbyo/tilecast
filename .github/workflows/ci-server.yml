@@ -44,6 +44,8 @@ jobs:
             apps/cli/go.sum
             plugins/go.sum
             packages/plugin-sdk/go/go.sum
+      - name: Check Go formatting
+        run: make gofmt-check
       # go.work puts the bundled plugins and the plugin SDK in the same build.
       - working-directory: apps/server
         run: go vet ./... github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/... github.com/tilecast/tilecast/data-sources/...

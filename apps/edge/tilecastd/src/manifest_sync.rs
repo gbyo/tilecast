@@ -27,11 +27,7 @@ use crate::manifest::{Candidate, ManifestError, PreparationError, SourcePlan};
 pub use player_core::ManifestSyncError as SyncError;
 
 fn coordinator(context: &DaemonContext) -> Option<player_core::ManifestCoordinator> {
-    let db = context.db()?;
-    Some(
-        player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: context.clock.clone() })
-            .manifests(),
-    )
+    Some(context.core.as_ref()?.manifests())
 }
 
 /// Core records the latest validated manifest as the binding's target.

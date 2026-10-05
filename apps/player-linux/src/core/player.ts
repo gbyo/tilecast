@@ -2729,8 +2729,9 @@ export class PlayerRuntime {
       screenHeight: size.height,
       playerVersion: this.options.playerVersion,
       playerVersionCode: parseVersionCode(this.options.playerVersion),
-      // 1: declarative presentations; 2: first-class Widget components.
-      presentationSchemaVersions: [1, 2],
+      // 1: declarative presentations; 2: first-class Widget components; 3:
+      // component empty-state policy for fullscreen playlist advancement.
+      presentationSchemaVersions: [1, 2, 3],
       nativePresentationCapabilities: {
         ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
         // widget.<type> stays generated from Widget manifests by widgetctl.

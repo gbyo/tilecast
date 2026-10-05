@@ -3,9 +3,9 @@
 Tilecast Edge is the Linux player platform that replaces the Electron Linux
 Player. It has four processes:
 
-- `tilecastd` is the unprivileged daemon. It owns the server relationship,
-  the device credential, state, the content store, supervision and machine
-  integration.
+- `tilecastd` is the unprivileged Linux composition root. It constructs the
+  shared Player services and connects credentials, renderer hosting, machine
+  integration, and lifecycle to Player Core.
 - `tilecast-renderer-wpe` is the display engine: a small WPE WebKit host for
   the shared Tilecast Player Runtime (`packages/player-runtime`, the same
   runtime the Electron player hosts). It shows what `tilecastd` sends and
@@ -54,9 +54,9 @@ for this directory are in [`AGENTS.md`](AGENTS.md).
 | `edge-platform`         | Paths, systemd notify and watchdog, disk probes, capability providers, display control (kernel CEC and DDC/CI; `display/kernel.rs` is the one audited `unsafe` module). |
 | `edge-cas`              | Linux space providers and compatibility exports for the shared player-cas store.                                                                                        |
 | `edge-ipc`              | The versioned Unix socket server and client (length-prefixed frames, handshake, peer UID policy).                                                                       |
-| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client and origin adapter exports.                                                             |
+| `edge-server`           | Linux credential/pairing file stores, one-time legacy import, and shared client adapters.                                                                               |
 | `edge-release`          | Signed releases: the update envelope, the release manifest, the verified archive reader, and the one installer (stage, verify, activate) for migration and updates.     |
-| `tilecastd`             | The daemon: lifecycle, IPC handler, presentation engine, supervisor, server link, `import-legacy`.                                                                      |
+| `tilecastd`             | Linux composition, lifecycle, IPC, Runtime projection, renderer adapter, hardware providers, and `import-legacy`.                                                       |
 | `tilecastctl`           | The operator command line over IPC.                                                                                                                                     |
 | `tilecast-edge-migrate` | The root installer and the one-way migration from the Electron player (M7).                                                                                             |
 | `tilecast-edge-update`  | The root update helper: five fixed operations on its socket, the root transaction record, and the guard (M10).                                                          |
@@ -68,24 +68,28 @@ Shared types and durable state live in root `crates/player-types` and
 crates never depend on Edge. `player-state` owns the unchanged
 embedded migrations and Core-owned repositories. `edge-state::platform` owns
 historical Edge repositories; its temporary `repo` exports preserve Edge callers.
-`edge-protocol` depends on shared types. Only `tilecastd` combines the server
-client, content store, and state. `player-core` owns native selection, command
-idempotency, Activity session semantics, and the CAS origin adapter.
-Edge supplies fixed command handlers and its migration hold.
-Renderer signal adapters and outbox delivery remain in `tilecastd` in this stage.
+`edge-protocol` depends on shared types. `player-client` owns portable transport.
+`player-core` combines shared state, CAS, and client services. Core owns pairing,
+server reconciliation, manifest preparation, offline activation, native selection,
+commands, Activity delivery, telemetry policy, and renderer recovery.
+Edge supplies Runtime projection and signal adapters, private stores, fixed
+platform command handlers, and its migration hold.
 
 ```text
-edge-protocol
-├── edge-state
-├── edge-platform
-├── edge-ipc
-├── edge-cas          (protocol, state, platform)
-├── edge-server       (protocol, state, cas)
-├── edge-release      (protocol, platform)
-├── tilecastctl       (protocol, ipc, platform)
-├── tilecastd         (all of the above)
-├── tilecast-edge-migrate (protocol, ipc, platform, release)
-└── tilecast-edge-update  (protocol, ipc, platform, release)
+player-types
+├── player-state
+├── player-cas        (types, state)
+├── player-client     (types)
+└── player-core       (types, state, CAS, client)
+         ▲
+         │ native semantic services
+     tilecastd
+         ├── Edge IPC, renderer, media, and Runtime projection
+         ├── Linux stores, measurements, and hardware providers
+         └── Edge update and lifecycle integrations
+
+Edge privileged helpers -> edge-protocol, edge-platform, edge-release
+Shared Player crates -X-> Edge crates
 ```
 
 Rules that follow from the direction:
@@ -98,7 +102,7 @@ Rules that follow from the direction:
   `edge-state`. The update helper reads a content-store object only through
   a path that it makes from the digest, and copies it before it verifies it.
   They do not depend on shared state, CAS, the client, or Core either.
-- `edge-server`'s origin source and local files are `BlobSource`
+- Core's origin source and Edge legacy local files are `BlobSource`
   implementations. The content store verifies every byte from either. A new
   source is a new `BlobSource`, never a second write path.
 

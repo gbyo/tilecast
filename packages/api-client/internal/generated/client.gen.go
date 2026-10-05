@@ -2803,6 +2803,8 @@ const (
 	PlayerManifestSchemaVersionN13 PlayerManifestSchemaVersion = 13
 	PlayerManifestSchemaVersionN14 PlayerManifestSchemaVersion = 14
 	PlayerManifestSchemaVersionN15 PlayerManifestSchemaVersion = 15
+	PlayerManifestSchemaVersionN16 PlayerManifestSchemaVersion = 16
+	PlayerManifestSchemaVersionN17 PlayerManifestSchemaVersion = 17
 )
 
 // Valid indicates whether the value is a known member of the PlayerManifestSchemaVersion enum.
@@ -2817,6 +2819,10 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 	case PlayerManifestSchemaVersionN14:
 		return true
 	case PlayerManifestSchemaVersionN15:
+		return true
+	case PlayerManifestSchemaVersionN16:
+		return true
+	case PlayerManifestSchemaVersionN17:
 		return true
 	default:
 		return false
@@ -7786,7 +7792,8 @@ type LayoutPlacement struct {
 	Name    string              `json:"name"`
 	Opacity float32             `json:"opacity"`
 
-	// Overrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+	// Overrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	Overrides  *LayoutPlacementOverrides `json:"overrides,omitempty"`
 	Playback   *LayoutPlayback           `json:"playback,omitempty"`
 	PlaylistId *openapi_types.UUID       `json:"playlistId,omitempty"`
@@ -7803,7 +7810,9 @@ type LayoutPlacement struct {
 // LayoutPlacementType defines model for LayoutPlacement.Type.
 type LayoutPlacementType string
 
-// LayoutPlacementOverrides Widget placement override bag. Unknown keys are rejected, so only the keys below are accepted.
+// LayoutPlacementOverrides Legacy Widget placement override bag. The listed values are accepted for saved-document compatibility but are ignored by Studio and Player.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 type LayoutPlacementOverrides struct {
 	Alignment          *LayoutPlacementOverridesAlignment          `json:"alignment,omitempty"`
 	BackgroundColor    *string                                     `json:"backgroundColor,omitempty"`
@@ -8730,18 +8739,20 @@ type PlayerManifest struct {
 		Height int `json:"height"`
 		Width  int `json:"width"`
 	} `json:"canvas,omitempty"`
-	DataSources          *[]map[string]interface{}   `json:"dataSources,omitempty"`
-	GeneratedAt          time.Time                   `json:"generatedAt"`
-	Layout               *map[string]interface{}     `json:"layout,omitempty"`
-	Layouts              *[]map[string]interface{}   `json:"layouts,omitempty"`
-	ManifestVersion      int64                       `json:"manifestVersion"`
-	Mode                 PlayerManifestMode          `json:"mode"`
-	Playlist             *map[string]interface{}     `json:"playlist"`
-	PresentationOverride *PresentationOverride       `json:"presentationOverride,omitempty"`
-	Schedules            *[]ManifestSchedule         `json:"schedules,omitempty"`
-	SchemaVersion        PlayerManifestSchemaVersion `json:"schemaVersion"`
-	ScreenId             openapi_types.UUID          `json:"screenId"`
-	Viewport             *struct {
+	DataSources          *[]map[string]interface{} `json:"dataSources,omitempty"`
+	GeneratedAt          time.Time                 `json:"generatedAt"`
+	Layout               *map[string]interface{}   `json:"layout,omitempty"`
+	Layouts              *[]map[string]interface{} `json:"layouts,omitempty"`
+	ManifestVersion      int64                     `json:"manifestVersion"`
+	Mode                 PlayerManifestMode        `json:"mode"`
+	Playlist             *map[string]interface{}   `json:"playlist"`
+	PresentationOverride *PresentationOverride     `json:"presentationOverride,omitempty"`
+	Schedules            *[]ManifestSchedule       `json:"schedules,omitempty"`
+
+	// SchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+	SchemaVersion PlayerManifestSchemaVersion `json:"schemaVersion"`
+	ScreenId      openapi_types.UUID          `json:"screenId"`
+	Viewport      *struct {
 		Height   int `json:"height"`
 		Order    int `json:"order"`
 		Rotation int `json:"rotation"`
@@ -8755,7 +8766,7 @@ type PlayerManifest struct {
 // PlayerManifestMode defines model for PlayerManifest.Mode.
 type PlayerManifestMode string
 
-// PlayerManifestSchemaVersion defines model for PlayerManifest.SchemaVersion.
+// PlayerManifestSchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
 type PlayerManifestSchemaVersion int
 
 // PlayerPlatform defines model for PlayerPlatform.
@@ -10390,6 +10401,9 @@ type StructuredPlayerPreviewConfig struct {
 type StructuredPreview struct {
 	Configuration StructuredPlayerPreviewConfig `json:"configuration"`
 	Diagnostics   DataSourceDiagnostics         `json:"diagnostics"`
+
+	// FieldSchema Typed fields available to Widgets for these records. Studio uses this schema to build the same typed Data Document that playback receives.
+	FieldSchema *[]DataSourceField `json:"fieldSchema,omitempty"`
 }
 
 // StructuredPreviewData defines model for StructuredPreviewData.

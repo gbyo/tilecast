@@ -135,14 +135,13 @@ impl player_core::ServerLinkHost for Host {
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    let (Some(state), Some(relationship)) = (context.db(), context.server_relationship.as_ref()) else {
+    let (Some(core), Some(relationship)) = (context.core.as_ref(), context.server_relationship.as_ref()) else {
         context.shutdown.cancelled().await;
         return;
     };
     let host = Host(context.clone());
     let user_agent = format!("tilecastd/{}", edge_platform::RELEASE_VERSION);
-    player_core::drive_server_link(player_core::ServerLinkServices {
-        dependencies: player_core::Dependencies { state: state.clone(), clock: context.clock.clone() },
+    core.run_server_link(player_core::ServerLinkServices {
         relationship,
         host: &host,
         user_agent: &user_agent,

@@ -53,7 +53,6 @@ pub struct ServerLinkSignals<'a> {
 
 #[derive(Debug)]
 pub struct ServerLinkServices<'a, H> {
-    pub dependencies: Dependencies,
     pub relationship: &'a ServerRelationship,
     pub host: &'a H,
     pub signals: ServerLinkSignals<'a>,
@@ -117,9 +116,12 @@ impl Link {
     }
 }
 
-pub async fn drive_server_link<H: ServerLinkHost>(context: ServerLinkServices<'_, H>) {
+pub(crate) async fn drive_server_link<H: ServerLinkHost>(
+    dependencies: Dependencies,
+    context: ServerLinkServices<'_, H>,
+) {
     let preparation =
-        Some(ManifestPreparationCoordinator::new(context.dependencies.clone(), context.signals.preparation.clone()));
+        Some(ManifestPreparationCoordinator::new(dependencies.clone(), context.signals.preparation.clone()));
     let shutdown = context.shutdown;
     let mut link = Link { preparation, ..Link::default() };
     let mut live_frames = context.signals.live_frames.subscribe();
@@ -132,7 +134,7 @@ pub async fn drive_server_link<H: ServerLinkHost>(context: ServerLinkServices<'_
             link.manifest_dirty = true;
             link.config_dirty = true;
         }
-        let state = pass(&context, &mut link).await;
+        let state = pass(&dependencies, &context, &mut link).await;
         if requested > context.signals.sync_done.borrow().0 {
             context.signals.sync_done.send_replace((requested, state == LinkState::Connected));
         }
@@ -226,7 +228,7 @@ pub async fn drive_server_link<H: ServerLinkHost>(context: ServerLinkServices<'_
                             match event {
                                 PlayerSocketEvent::Ping(timestamp) => {
                                     context.relationship.sample_clock(&timestamp).await;
-                                    if socket.send_pong(&context.dependencies.clock.now().to_string()).await.is_err() {
+                                    if socket.send_pong(&dependencies.clock.now().to_string()).await.is_err() {
                                         socket_lost(&context, &mut link);
                                         break;
                                     }
@@ -291,12 +293,13 @@ async fn reject_credential<H: ServerLinkHost>(context: &ServerLinkServices<'_, H
 }
 
 async fn sync_manifest<H: ServerLinkHost>(
+    dependencies: &Dependencies,
     context: &ServerLinkServices<'_, H>,
     link: &mut Link,
     server: &AuthenticatedServer,
     binding: ManifestBinding,
 ) -> Result<(), LinkState> {
-    match ManifestCoordinator::new(context.dependencies.clone()).reconcile(server, &binding).await {
+    match ManifestCoordinator::new(dependencies.clone()).reconcile(server, &binding).await {
         Ok(target) => {
             ensure_preparation(context, link, server, target).await;
             context.signals.manifest_wake.notify_one();
@@ -313,14 +316,18 @@ async fn sync_manifest<H: ServerLinkHost>(
             if !matches!(error, ManifestSyncError::Server(_)) {
                 set_preparation(context, None, "invalid", Some(error.reason_code().to_owned()));
             }
-            let persisted = ManifestCoordinator::new(context.dependencies.clone()).persisted_target(&binding).await;
+            let persisted = ManifestCoordinator::new(dependencies.clone()).persisted_target(&binding).await;
             ensure_preparation(context, link, server, persisted).await;
             Ok(())
         }
     }
 }
 
-async fn pass<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>, link: &mut Link) -> LinkState {
+async fn pass<H: ServerLinkHost>(
+    dependencies: &Dependencies,
+    context: &ServerLinkServices<'_, H>,
+    link: &mut Link,
+) -> LinkState {
     let relationship = context.relationship;
     let (bound, server) = match relationship.verify(context.user_agent).await {
         Ok(verified) => verified,
@@ -378,7 +385,7 @@ async fn pass<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>, link: &mut
             Ok(()) => {
                 link.next_heartbeat = Some(Instant::now() + context.host.native_configuration().sync.status_report);
                 *context.signals.last_server_contact.lock().unwrap_or_else(|e| e.into_inner()) =
-                    Some(context.dependencies.clock.now());
+                    Some(dependencies.clock.now());
             }
             Err(ServerError::CredentialRejected) => {
                 reject_credential(context).await;
@@ -392,17 +399,14 @@ async fn pass<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>, link: &mut
         let binding =
             ManifestBinding { installation_id: bound.installation_id, screen_id, server_url: bound.server_url.clone() };
         if link.config_binding.as_ref() != Some(&binding) {
-            ConfigurationCoordinator::new(context.dependencies.clone()).load_cached(&binding, context.host).await;
+            ConfigurationCoordinator::new(dependencies.clone()).load_cached(&binding, context.host).await;
             link.config_binding = Some(binding.clone());
             link.config_dirty = true;
         }
         if link.config_dirty || link.next_config_sync.is_none_or(|next| Instant::now() >= next) {
             link.config_dirty = false;
             link.next_config_sync = Some(Instant::now() + reconcile_interval);
-            match ConfigurationCoordinator::new(context.dependencies.clone())
-                .reconcile(&server, &binding, context.host)
-                .await
-            {
+            match ConfigurationCoordinator::new(dependencies.clone()).reconcile(&server, &binding, context.host).await {
                 Err(ServerError::CredentialRejected) => {
                     reject_credential(context).await;
                     return LinkState::CredentialRejected;
@@ -420,7 +424,7 @@ async fn pass<H: ServerLinkHost>(context: &ServerLinkServices<'_, H>, link: &mut
         if link.manifest_dirty || link.next_manifest_sync.is_none_or(|next| Instant::now() >= next) {
             link.manifest_dirty = false;
             link.next_manifest_sync = Some(Instant::now() + reconcile_interval);
-            if let Err(state) = sync_manifest(context, link, &server, binding).await {
+            if let Err(state) = sync_manifest(dependencies, context, link, &server, binding).await {
                 return state;
             }
         }

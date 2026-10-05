@@ -20,8 +20,10 @@ type presentationWidgetRequirement struct {
 	PresetID      *string
 	Configuration json.RawMessage
 	Presentation  *WidgetPresentation
-	// Component is the first-class presentation, when the Widget has one.
+	// Component is presentation schema 3, which carries the empty policy.
 	Component *WidgetPresentation
+	// ComponentV2 preserves the released component contract for older Players.
+	ComponentV2 *WidgetPresentation
 }
 
 type playerPresentationCapabilities struct {
@@ -92,7 +94,7 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 			}
 			for _, requirement := range requirements {
 				if requirement.Presentation == nil {
-					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player))
+					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, componentRequirement(requirement), player))
 				}
 			}
 			continue
@@ -232,7 +234,11 @@ func (s *Service) presentationRequirementsForRoot(ctx context.Context, q present
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}
-		if requirement.Presentation == nil && requirement.Component == nil {
+		requirement.ComponentV2, err = s.compileWidgetComponentForSchema(requirement.Provider, requirement.Configuration, componentPresentationSchemaLegacy)
+		if err != nil {
+			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+		}
+		if requirement.Presentation == nil && requirement.Component == nil && requirement.ComponentV2 == nil {
 			continue
 		}
 		if v13Blocker == "" && s.widgetRequiresV13(requirement.Provider) {
@@ -400,17 +406,29 @@ func checkWidgetCompatibility(ctx context.Context, q presentationQuery, screenID
 	return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, presentation, player)
 }
 
-// Both validation and structured evidence choose the same renderer target.
+// Both validation and structured evidence choose the same renderer target: the
+// first supported component contract (current, then released), otherwise the
+// compatibility presentation. A Widget without one is reported against its
+// component.
 func widgetCompatibilityTarget(requirement presentationWidgetRequirement, player playerPresentationCapabilities) (*WidgetPresentation, string) {
-	if requirement.Component != nil {
-		if supported, _ := presentationSupported(requirement.Component, player); supported {
-			return requirement.Component, "component"
-		}
-		if requirement.Presentation == nil {
-			return requirement.Component, "component"
+	for _, component := range []*WidgetPresentation{requirement.Component, requirement.ComponentV2} {
+		if component != nil {
+			if supported, _ := presentationSupported(component, player); supported {
+				return component, "component"
+			}
 		}
 	}
+	if requirement.Presentation == nil {
+		return componentRequirement(requirement), "component"
+	}
 	return requirement.Presentation, "compatibility"
+}
+
+func componentRequirement(requirement presentationWidgetRequirement) *WidgetPresentation {
+	if requirement.Component != nil {
+		return requirement.Component
+	}
+	return requirement.ComponentV2
 }
 
 // widgetCapabilityError describes exactly why a screen cannot display a Widget:

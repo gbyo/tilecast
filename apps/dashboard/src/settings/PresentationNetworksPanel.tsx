@@ -194,6 +194,10 @@ export function PresentationNetworksPanel({
       if (editing === "new") {
         setEditing(network.id);
         setSecret("");
+        // A later assignment failure must not hide the row that was already
+        // created. Refresh the library immediately so closing the dialog does
+        // not make the partial success invisible.
+        void client.invalidateQueries({ queryKey: ["presentation-networks"] });
       }
       await api.replacePresentationNetworkAssignments(
         network.id,
