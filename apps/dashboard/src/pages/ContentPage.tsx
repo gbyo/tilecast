@@ -18,9 +18,7 @@ import {
   FileUp,
   Folder,
   FolderPlus,
-  Grid2X2,
   Library,
-  List,
   Pencil,
   RotateCcw,
   Tags,
@@ -36,7 +34,6 @@ import {
   useState,
   type ChangeEvent,
   type DragEvent,
-  type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -48,11 +45,13 @@ import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { rfc3339ToLocalDateTime } from "../lib/dateTime";
-import {
-  FilterBar,
-  type FilterDefinition,
-  type FilterValues,
-} from "../components/FilterBar";
+import { MediaToolbar } from "../components/content/MediaToolbar";
+import { SingleToggleGroup } from "../components/content/SingleToggleGroup";
+import type {
+  MediaFacetKey,
+  MediaFacetSources,
+  MediaFacetValues,
+} from "../components/content/mediaToolbarModel";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -262,46 +261,6 @@ export function nextExpirationDelay(assets: Asset[], now = Date.now()) {
   return next == null ? undefined : Math.max(0, next - now) + 100;
 }
 
-function SingleToggleGroup<Value extends string>({
-  label,
-  value,
-  onChange,
-  options,
-  variant,
-  spacing,
-}: {
-  label: string;
-  value: Value;
-  onChange: (value: Value) => void;
-  options: readonly { value: Value; label: ReactNode; text: string }[];
-  variant?: "default" | "outline";
-  spacing?: number;
-}) {
-  return (
-    <ToggleGroup
-      aria-label={label}
-      variant={variant}
-      spacing={spacing}
-      multiple={false}
-      value={[value]}
-      onValueChange={(next) => {
-        const first = next[0];
-        if (first !== undefined) onChange(first as Value);
-      }}
-    >
-      {options.map((option) => (
-        <ToggleGroupItem
-          key={option.value}
-          value={option.value}
-          aria-label={option.text}
-        >
-          {option.label}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
-  );
-}
-
 function FilterSelect({
   label,
   value,
@@ -492,86 +451,29 @@ export function ContentPage() {
   const tags = useQuery({
     ...contentQueries.tags(),
   });
-  const filterValues: FilterValues = {
-    search,
+  const facets: MediaFacetValues = {
     status,
     folder: folderFilter,
     collection: collectionFilter,
     tag: tagFilter,
   };
-  const filterDefinitions: FilterDefinition[] = [
-    {
-      key: "search",
-      kind: "search",
-      label: t("media.toolbar.search"),
-      placeholder: t("media.toolbar.search"),
-    },
-    {
-      key: "status",
-      kind: "select",
-      label: t("media.toolbar.filterByStatus"),
-      allLabel: t("media.toolbar.allStatuses"),
-      options: [
-        { value: "ready", label: t("media.status.ready") },
-        { value: "queued", label: t("media.status.waiting") },
-        { value: "inspecting", label: t("media.status.inspecting") },
-        { value: "processing", label: t("media.status.processing") },
-        { value: "failed", label: t("media.status.failed") },
-      ],
-    },
-    {
-      key: "folder",
-      kind: "select",
-      label: t("picker.toolbar.filterByFolder"),
-      allLabel: t("picker.toolbar.allFolders"),
-      options:
-        folders.data?.map((folder) => ({
-          value: folder.id,
-          label: t("media.toolbar.folderOption", {
-            name: folder.name,
-            count: folder.assetCount,
-          }),
-        })) ?? [],
-    },
-    {
-      key: "collection",
-      kind: "select",
-      label: t("picker.toolbar.filterByCollection"),
-      allLabel: t("picker.toolbar.allCollections"),
-      options:
-        collections.data?.map((collection) => ({
-          value: collection.id,
-          label: t("media.toolbar.collectionOption", {
-            name: collection.name,
-            count: collection.assetCount,
-          }),
-        })) ?? [],
-    },
-    {
-      key: "tag",
-      kind: "select",
-      label: t("picker.toolbar.filterByTag"),
-      allLabel: t("picker.toolbar.allTags"),
-      options:
-        tags.data?.map((tag) => ({
-          value: tag.id,
-          label: t("media.toolbar.tagOption", {
-            name: tag.name,
-            count: tag.assetCount ?? 0,
-          }),
-        })) ?? [],
-    },
-  ];
-  const setFilterValue = (key: string, value: string) => {
-    if (key === "search") setSearch(value);
-    else if (key === "status") setStatus(value);
+  const facetSources = useMemo<MediaFacetSources>(
+    () => ({
+      folders: folders.data ?? [],
+      collections: collections.data ?? [],
+      tags: tags.data ?? [],
+    }),
+    [folders.data, collections.data, tags.data],
+  );
+  const setFacet = (key: MediaFacetKey, value: string) => {
+    if (key === "status") setStatus(value);
     else if (key === "folder") setFolderFilter(value);
     else if (key === "collection") setCollectionFilter(value);
-    else if (key === "tag") setTagFilter(value);
+    else setTagFilter(value);
   };
-  const clearFilters = () => {
-    setSearch("");
-    setContentFilter("media");
+  // Clears only the facets behind Filters. Search, media type, sort, and view
+  // each own their control and are left alone.
+  const clearFacets = () => {
     setStatus("");
     setFolderFilter("");
     setCollectionFilter("");
@@ -971,66 +873,20 @@ export function ContentPage() {
         </section>
       )}
 
-      <FilterBar
-        definitions={filterDefinitions}
-        values={filterValues}
-        onChange={setFilterValue}
-        onClear={clearFilters}
-      >
-        <SingleToggleGroup
-          label={t("media.toolbar.typeFilters")}
-          value={contentFilter}
-          onChange={setContentFilter}
-          options={[
-            {
-              value: "media",
-              label: t("media.library.title"),
-              text: t("media.library.title"),
-            },
-            {
-              value: "image",
-              label: t("picker.toolbar.filterImages"),
-              text: t("picker.toolbar.filterImages"),
-            },
-            {
-              value: "video",
-              label: t("picker.toolbar.filterVideos"),
-              text: t("picker.toolbar.filterVideos"),
-            },
-          ]}
-        />
-        <FilterSelect
-          label={t("media.toolbar.sortMedia")}
-          className="w-44 max-sm:flex-1"
-          value={sort}
-          onChange={setSort}
-          options={[
-            { value: "updated", label: t("picker.toolbar.sortRecent") },
-            { value: "newest", label: t("picker.toolbar.sortNewest") },
-            { value: "oldest", label: t("picker.toolbar.sortOldest") },
-            { value: "name", label: t("picker.toolbar.sortName") },
-          ]}
-        />
-        <SingleToggleGroup
-          label={t("media.toolbar.viewLabel")}
-          variant="outline"
-          spacing={0}
-          value={view}
-          onChange={setView}
-          options={[
-            {
-              value: "grid",
-              label: <Grid2X2 size={16} aria-hidden="true" />,
-              text: t("picker.toolbar.gridView"),
-            },
-            {
-              value: "list",
-              label: <List size={16} aria-hidden="true" />,
-              text: t("picker.toolbar.listView"),
-            },
-          ]}
-        />
-      </FilterBar>
+      <MediaToolbar
+        search={search}
+        onSearchChange={setSearch}
+        facets={facets}
+        onFacetChange={setFacet}
+        onClearFacets={clearFacets}
+        sources={facetSources}
+        type={contentFilter}
+        onTypeChange={setContentFilter}
+        sort={sort}
+        onSortChange={setSort}
+        view={view}
+        onViewChange={setView}
+      />
 
       {confirmDialog}
 

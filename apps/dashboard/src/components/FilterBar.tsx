@@ -337,11 +337,14 @@ export function FilterChips({
   values,
   onChange,
   onClear,
+  clearLabel,
 }: {
   definitions: readonly FilterDefinition[];
   values: FilterValues;
   onChange: (key: string, value: string) => void;
   onClear: () => void;
+  /** Overrides "Clear all" where the clear action covers only some filters. */
+  clearLabel?: string;
 }) {
   const { t } = useTranslation("common");
   const active = definitions
@@ -356,6 +359,7 @@ export function FilterChips({
   return (
     <div
       className="flex flex-wrap items-center gap-1.5"
+      role="group"
       aria-label={t("filters.active")}
     >
       {active.map(({ definition, value }) => {
@@ -388,7 +392,7 @@ export function FilterChips({
         className="h-6 rounded-full px-2 text-xs font-medium"
         onClick={onClear}
       >
-        {t("actions.clearAll")}
+        {clearLabel ?? t("actions.clearAll")}
       </Button>
     </div>
   );

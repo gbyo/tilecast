@@ -38,8 +38,13 @@ for (const [name, route, ready] of [
     await page.goto(route);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
     if (name === "media-library") {
-      await page.getByRole("combobox", { name: "Sort media" }).click();
-      await page.getByRole("option", { name: "Name", exact: true }).click();
+      await page.getByRole("button", { name: /^Sort media/ }).click();
+      await page
+        .getByRole("menuitemradio", { name: "Name", exact: true })
+        .click();
+      await expect(page.getByRole("menu")).toBeHidden();
+      // The pointer would otherwise leave a hover state on the card beneath it.
+      await page.mouse.move(0, 0);
       await expect(page.getByRole("article")).toHaveCount(8);
       await expect(page.getByRole("article").first()).toContainText(
         "Booster Club",

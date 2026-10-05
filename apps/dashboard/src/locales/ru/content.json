@@ -207,15 +207,38 @@
       "waiting": "Ожидание"
     },
     "toolbar": {
-      "allStatuses": "Все статусы",
+      "clearFilters": "Сбросить фильтры",
       "collectionOption": "{{name}} ({{count}})",
-      "filterByStatus": "Фильтр по статусу",
+      "facets": {
+        "collection": "Коллекция",
+        "folder": "Папка",
+        "status": "Статус",
+        "tag": "Метка"
+      },
+      "filterAny": "Любой",
+      "filters": "Фильтры",
+      "filtersActive": "Фильтры, активно: {{count}}",
+      "filtersDescription": "Сузьте библиотеку по статусу, папке, коллекции или метке.",
+      "filtersDone": "Готово",
+      "filtersReset": "Сбросить",
+      "filtersTitle": "Фильтр медиа",
       "folderOption": "{{name}} ({{count}})",
+      "groupLabel": "Поиск и фильтры медиа",
+      "noCollections": "Коллекций пока нет",
+      "noFolders": "Папок пока нет",
+      "noMatchingCollections": "Подходящих коллекций нет",
+      "noMatchingFolders": "Подходящих папок нет",
+      "noMatchingTags": "Подходящих меток нет",
+      "noTags": "Меток пока нет",
       "search": "Поиск медиа",
-      "sortMedia": "Сортировка медиа",
+      "sortButtonLabel": "Сортировка медиа: {{value}}",
+      "sortMenuTitle": "Сортировать по",
       "tagOption": "{{name}} ({{count}})",
-      "typeFilters": "Фильтры по типу контента",
-      "viewLabel": "Вид"
+      "typeFilters": "Тип медиа",
+      "viewGrid": "Плитка",
+      "viewLabel": "Вид",
+      "viewList": "Список",
+      "viewOptions": "Параметры вида"
     },
     "type": {
       "image": "Изображение",

@@ -198,15 +198,38 @@
       "waiting": "En espera"
     },
     "toolbar": {
-      "allStatuses": "Todos los estados",
+      "clearFilters": "Borrar filtros",
       "collectionOption": "{{name}} ({{count}})",
-      "filterByStatus": "Filtrar por estado",
+      "facets": {
+        "collection": "Colección",
+        "folder": "Carpeta",
+        "status": "Estado",
+        "tag": "Etiqueta"
+      },
+      "filterAny": "Cualquiera",
+      "filters": "Filtros",
+      "filtersActive": "Filtros, {{count}} activos",
+      "filtersDescription": "Reduce la biblioteca por estado, carpeta, colección o etiqueta.",
+      "filtersDone": "Listo",
+      "filtersReset": "Restablecer",
+      "filtersTitle": "Filtrar multimedia",
       "folderOption": "{{name}} ({{count}})",
+      "groupLabel": "Buscar y filtrar multimedia",
+      "noCollections": "Aún no hay colecciones",
+      "noFolders": "Aún no hay carpetas",
+      "noMatchingCollections": "No hay colecciones coincidentes",
+      "noMatchingFolders": "No hay carpetas coincidentes",
+      "noMatchingTags": "No hay etiquetas coincidentes",
+      "noTags": "Aún no hay etiquetas",
       "search": "Buscar multimedia",
-      "sortMedia": "Ordenar multimedia",
+      "sortButtonLabel": "Ordenar multimedia: {{value}}",
+      "sortMenuTitle": "Ordenar por",
       "tagOption": "{{name}} ({{count}})",
-      "typeFilters": "Filtros por tipo de contenido",
-      "viewLabel": "Vista"
+      "typeFilters": "Tipo de multimedia",
+      "viewGrid": "Cuadrícula",
+      "viewLabel": "Vista",
+      "viewList": "Lista",
+      "viewOptions": "Opciones de vista"
     },
     "type": {
       "image": "Imagen",
