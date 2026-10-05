@@ -1,0 +1,109 @@
+name: "🎨 UI, UX, or accessibility issue"
+description: Report layout, interaction, responsiveness, accessibility, or visual-consistency problems
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Accessibility reports are welcome here. You do **not** need to disclose a disability or diagnosis. Describe the barrier and the task you were trying to complete.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - Studio (web)
+        - iPhone / iPad app
+        - Documentation site
+        - Player setup / maintenance UI
+        - Built-in Widget or plugin UI
+        - Something else / not sure
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where is the problem?
+      description: Give the page, screen, route, dialog, drawer, or component.
+      placeholder: "Example: Studio → Screens → Screen detail → Playback"
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of issue is this?
+      multiple: true
+      options:
+        - Alignment or spacing
+        - Typography
+        - Color or contrast
+        - Dark mode
+        - Responsive layout
+        - Overflow or clipping
+        - Form controls
+        - Navigation
+        - Empty, loading, or error state
+        - Keyboard or focus behavior
+        - Screen reader semantics
+        - Touch target or pointer interaction
+        - Motion / reduced motion
+        - Inconsistent component styling
+        - General usability
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: Describe the visual, interaction, usability, or accessibility barrier and how it affects the task.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What would you expect instead?
+      description: Describe the intended appearance or interaction.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Optional if the problem is immediately visible.
+      placeholder: |
+        1.
+        2.
+        3.
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include what matters for this issue.
+      value: |
+        - Tilecast version:
+        - Browser / app version:
+        - Operating system:
+        - Device:
+        - Viewport / screen size:
+        - Display scaling:
+        - Theme: light / dark / system
+        - Input method:
+  - type: textarea
+    id: accessibility-impact
+    attributes:
+      label: Accessibility details
+      description: Optional. Describe keyboard, focus, screen reader, contrast, motion, text sizing, or touch behavior that is relevant.
+  - type: input
+    id: assistive-technology
+    attributes:
+      label: Assistive technology
+      description: Optional. If relevant, name the screen reader, input method, browser setting, or other technology involved.
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots or recordings
+      description: A full-page screenshot is especially helpful for layout problems. Annotate the affected area when it may not be obvious.
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add a workaround, related issue, design-system reference, or anything else that helps explain the problem.

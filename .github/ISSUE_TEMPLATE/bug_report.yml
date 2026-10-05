@@ -1,30 +1,116 @@
-name: Bug report
-description: Report reproducible Tilecast behavior
-title: "[Bug]: "
-labels: [bug]
+name: "🐞 Bug report"
+description: Report reproducible Tilecast behavior that is not working as expected
+labels: ["bug"]
 body:
-  - type: textarea
-    id: description
+  - type: markdown
     attributes:
-      {
-        label: Description,
-        description: What happened and what did you expect?,
-      }
-    validations: { required: true }
-  - type: input
-    id: version
-    attributes: { label: Tilecast version }
-    validations: { required: true }
+      value: |
+        Thanks for helping improve Tilecast.
+
+        **Do not include passwords, API keys, pairing secrets, session cookies, device tokens, database credentials, private keys, or other sensitive information.** If you believe you found a security vulnerability, stop here and use [GitHub's private vulnerability reporting](https://github.com/gbyo/tilecast/security/advisories/new).
+
+        Player, deployment, and UI/accessibility problems also have dedicated forms in the issue chooser. Use whichever form best matches the problem.
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the existing issues and did not find an open report for the same problem.
+          required: true
+        - label: I have removed secrets, credentials, tokens, pairing codes, and other private information from this report.
+          required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does the problem happen?
+      options:
+        - Studio (web)
+        - Server / API
+        - iPhone / iPad app
+        - Android / Google TV / Fire TV Player
+        - Linux Player / Tilecast Edge
+        - Web Player
+        - Layouts / Widgets / plugins
+        - Playlists / schedules / publishing
+        - Media library
+        - Data Sources
+        - Authentication / users / OAuth
+        - CLI / MCP / integrations
+        - Installation / deployment
+        - Documentation
+        - Something else / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem and its effect on normal use.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: Describe what should have happened instead.
+    validations:
+      required: true
   - type: textarea
     id: steps
-    attributes: { label: Reproduction steps }
-    validations: { required: true }
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest reliable sequence that reproduces the problem.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Tilecast version
+      description: Release, tag, commit, or "main/latest" if that is what you are using.
+      placeholder: "Example: v1.0.0-beta.3 or 1a2b3c4"
+    validations:
+      required: true
   - type: textarea
     id: environment
     attributes:
-      {
-        label: Environment,
-        description: Host OS,
-        browser or device,
-        and deployment method,
-      }
+      label: Environment
+      description: Include only the details that affect this problem.
+      value: |
+        - Installation/deployment:
+        - Server OS:
+        - Browser and version:
+        - Player/app platform and version:
+        - Device model:
+        - Network/topology notes:
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Intermittently
+        - Happened once
+        - Not sure
+    validations:
+      required: true
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots or recordings
+      description: Add screenshots, screen recordings, or other files that make the problem easier to understand. Remove private information first.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste the smallest useful, redacted section of logs or console output.
+      render: text
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add workarounds, regressions, related issues, or recent changes that may be relevant.
