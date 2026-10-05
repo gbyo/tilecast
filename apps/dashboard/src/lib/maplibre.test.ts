@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("maplibre-gl", () => {
   class Map {
     addControl = vi.fn();
+    once = vi.fn();
+    getContainer = vi.fn(() => document.createElement("div"));
   }
   class NavigationControl {}
 
