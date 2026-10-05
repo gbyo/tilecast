@@ -276,6 +276,20 @@ Motion explains a state change. It does not decorate idle UI. Honor the system
 Loading indicators may rotate, but their accessible label must describe the
 work rather than the animation.
 
+A skeleton may fade into the data that replaces it. The skeleton fades out in
+`--tc-motion-fast`. The data fades in and settles 3 px in `--tc-motion-standard`.
+The one element that summarizes a page uses 5 px and `--tc-motion-slow`. Obey
+these rules:
+
+- Play the hand-off only when a section first resolves. A refetch or a change of
+  range keeps the current data on screen and plays nothing.
+- Let each section resolve when its own data arrives. Do not stagger sections.
+- Use opacity and a small vertical movement only.
+- When reduced motion is on, replace the skeleton at once and do not move
+  anything. Skeletons do not pulse.
+
+The Overview uses `LoadReveal` for this hand-off.
+
 ### Themes and density
 
 Studio supports light, dark, and system appearance through semantic tokens.

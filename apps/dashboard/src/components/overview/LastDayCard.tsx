@@ -12,6 +12,7 @@ import {
 } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
 import { HeaderLink } from "./HeaderLink";
+import { LoadReveal } from "./LoadReveal";
 import { tallTitleRow } from "./layout";
 
 type ActivityOverview = components["schemas"]["ActivityOverview"];
@@ -70,38 +71,40 @@ export function LastDayCard({
     to: string,
     absentHint?: string,
   ) {
-    if (status === "loading") {
-      return (
-        <li key={key} className="grid content-start gap-1">
-          <span className="text-sm font-medium">{label}</span>
-          <span role="status" aria-label={t("operations.lastDay.loading")}>
-            <Skeleton className="h-7 w-16" />
-          </span>
-        </li>
-      );
-    }
     const absent = status === "error" || value === undefined;
     return (
       <li key={key}>
-        <MetricTile
-          variant="plain"
-          label={label}
-          value={
-            absent ? (
-              <NoValue label={status === "error" ? unavailable : noData} />
-            ) : (
-              value
-            )
+        <LoadReveal
+          loading={status === "loading"}
+          skeleton={
+            <div className="grid content-start gap-1">
+              <span className="text-sm font-medium">{label}</span>
+              <span role="status" aria-label={t("operations.lastDay.loading")}>
+                <Skeleton className="h-7 w-16" />
+              </span>
+            </div>
           }
-          hint={
-            status === "error"
-              ? t("operations.lastDay.failed")
-              : absent
-                ? (absentHint ?? hint)
-                : hint
-          }
-          to={absent ? undefined : to}
-        />
+        >
+          <MetricTile
+            variant="plain"
+            label={label}
+            value={
+              absent ? (
+                <NoValue label={status === "error" ? unavailable : noData} />
+              ) : (
+                value
+              )
+            }
+            hint={
+              status === "error"
+                ? t("operations.lastDay.failed")
+                : absent
+                  ? (absentHint ?? hint)
+                  : hint
+            }
+            to={absent ? undefined : to}
+          />
+        </LoadReveal>
       </li>
     );
   }

@@ -2,7 +2,9 @@
 
 import "@testing-library/jest-dom/vitest";
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -878,5 +880,186 @@ describe("Overview layout order", () => {
       "Player updates",
       "Last 24 hours",
     ]);
+  });
+});
+
+describe("Overview load reveal", () => {
+  function renderWithClient() {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <OperationsDashboard />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    return client;
+  }
+
+  /** jsdom runs no CSS animations; this stands in for a running exit fade. */
+  function runExitAnimations() {
+    Object.defineProperty(Element.prototype, "getAnimations", {
+      configurable: true,
+      value: () => [{}],
+    });
+  }
+
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).getAnimations;
+    delete document.documentElement.dataset.reducedMotion;
+  });
+
+  it("gives the recap the deliberate reveal and the cards the standard one", async () => {
+    mockAll();
+    runExitAnimations();
+    let resolveScreens!: (
+      value: Awaited<ReturnType<typeof api.screens>>,
+    ) => void;
+    vi.spyOn(api, "screens").mockImplementation(
+      () => new Promise((resolve) => (resolveScreens = resolve)),
+    );
+    renderPage();
+    await screen.findByRole("status", { name: "Loading fleet status" });
+
+    act(() => {
+      resolveScreens({ items: [screenFixture()], total: 1 });
+    });
+
+    const recap = await screen.findByTestId("overview-recap");
+    expect(recap.closest("[data-load-reveal]")).toHaveAttribute(
+      "data-load-reveal",
+      "deliberate",
+    );
+    expect(
+      screen.getByTestId("fleet-status").closest("[data-load-reveal]"),
+    ).toHaveAttribute("data-load-reveal", "standard");
+    // The recap announces nothing just because it animated.
+    expect(recap.closest("[aria-live]")).toBeNull();
+    expect(recap).not.toHaveAttribute("aria-live");
+  });
+
+  it("takes the loading placeholders out of the accessibility tree once resolved", async () => {
+    mockAll();
+    runExitAnimations();
+    renderPage();
+
+    await screen.findByTestId("fleet-status");
+    await region("Content health");
+
+    // Outgoing layers are still fading but are neither announced nor focusable.
+    const outgoing = document.querySelectorAll("[data-load-reveal-exit]");
+    expect(outgoing.length).toBeGreaterThan(0);
+    for (const layer of outgoing) {
+      expect(layer).toHaveAttribute("aria-hidden", "true");
+      expect(layer).toHaveAttribute("inert");
+    }
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    for (const layer of outgoing) fireEvent.animationEnd(layer);
+    expect(document.querySelector("[data-load-reveal-exit]")).toBeNull();
+  });
+
+  it("settles each section when its own query resolves, in any order", async () => {
+    mockAll();
+    runExitAnimations();
+    let resolveContent!: (value: ContentHealthReport) => void;
+    vi.spyOn(api, "contentHealth").mockImplementation(
+      () => new Promise((resolve) => (resolveContent = resolve)),
+    );
+    renderPage();
+
+    await screen.findByTestId("fleet-status");
+    await screen.findByText(/No upcoming change/);
+    // Content health is still loading while its neighbors have settled.
+    expect(
+      screen.getByRole("status", { name: "Loading content health" }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      resolveContent(healthyContent);
+    });
+    expect(
+      await screen.findByText("Nothing needs attention."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("status", { name: "Loading content health" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not return to loading when the screens refetch in the background", async () => {
+    mockAll();
+    runExitAnimations();
+    const client = renderWithClient();
+    await screen.findByTestId("fleet-status");
+    for (const layer of document.querySelectorAll("[data-load-reveal-exit]"))
+      fireEvent.animationEnd(layer);
+    const fleetLayer = screen
+      .getByTestId("fleet-status")
+      .closest("[data-load-reveal]");
+
+    vi.spyOn(api, "screens").mockImplementation(never);
+    act(() => {
+      void client.invalidateQueries({ queryKey: ["screens"] });
+    });
+    await waitFor(() =>
+      expect(client.isFetching({ queryKey: ["screens"] })).toBe(1),
+    );
+
+    expect(screen.getByTestId("fleet-status")).toBeInTheDocument();
+    expect(screen.getByTestId("overview-recap")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("fleet-status").closest("[data-load-reveal]"),
+    ).toBe(fleetLayer);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-load-reveal-exit]")).toBeNull();
+    expect(document.querySelector('[data-state="loading"]')).toBeNull();
+  });
+
+  it("leaves nothing behind and no movement under reduced motion", async () => {
+    mockAll();
+    document.documentElement.dataset.reducedMotion = "true";
+    renderPage();
+
+    await screen.findByTestId("fleet-status");
+    await screen.findByTestId("overview-recap");
+
+    expect(document.querySelector("[data-load-reveal-exit]")).toBeNull();
+    expect(document.querySelector("[data-load-reveal]")).toBeNull();
+  });
+
+  it("lets the loading placeholder give way to a failed load", async () => {
+    mockAll();
+    runExitAnimations();
+    let rejectScreens!: (reason: Error) => void;
+    vi.spyOn(api, "screens").mockImplementation(
+      () => new Promise((_, reject) => (rejectScreens = reject)),
+    );
+    renderPage();
+    await screen.findByRole("status", { name: "Loading fleet status" });
+
+    act(() => {
+      rejectScreens(new Error("x"));
+    });
+
+    const alert = await screen.findByText("Player status could not be loaded");
+    expect(alert.closest("[data-load-reveal]")).not.toBeNull();
+    expect(screen.queryByTestId("fleet-status")).not.toBeInTheDocument();
+    // The Fleet slot has nothing to show, so its skeleton goes with no fade.
+    expect(
+      screen.queryByRole("status", { name: "Loading fleet status" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reveals the empty installation prompt in the fleet slot", async () => {
+    mockAll({ screens: [] });
+    runExitAnimations();
+    renderPage();
+
+    const title = await screen.findByText("No screens paired yet");
+    expect(title.closest("[data-load-reveal]")).toHaveAttribute(
+      "data-load-reveal",
+      "standard",
+    );
   });
 });

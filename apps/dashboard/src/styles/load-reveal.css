@@ -1,0 +1,51 @@
+/* The skeleton-to-content hand-off used by components/overview/LoadReveal.tsx.
+   Opacity and a few pixels of vertical travel only. The content layer uses a
+   backwards fill, so no transform or stacking context is left on it once the
+   animation ends. The component skips the hand-off entirely under reduced
+   motion; these rules cover the preference changing while one is in flight. */
+[data-load-reveal] {
+  --load-reveal-shift: 3px;
+  animation: load-reveal-in var(--tc-motion-standard) var(--tc-ease-standard)
+    backwards;
+}
+
+[data-load-reveal="deliberate"] {
+  --load-reveal-shift: 5px;
+  animation-duration: var(--tc-motion-slow);
+}
+
+[data-load-reveal-exit] {
+  animation: load-reveal-out var(--tc-motion-fast) var(--tc-ease-standard)
+    forwards;
+}
+
+@keyframes load-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--load-reveal-shift));
+  }
+}
+
+@keyframes load-reveal-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-load-reveal] {
+    animation: none;
+  }
+
+  [data-load-reveal-exit] {
+    display: none;
+  }
+}
+
+html[data-reduced-motion="true"] [data-load-reveal] {
+  animation: none;
+}
+
+html[data-reduced-motion="true"] [data-load-reveal-exit] {
+  display: none;
+}
