@@ -686,6 +686,7 @@ type StructuredPlayerConfig struct {
 
 type StructuredPreview struct {
 	Configuration StructuredPlayerConfig `json:"configuration"`
+	FieldSchema   []DataSourceField      `json:"fieldSchema,omitempty"`
 	Diagnostics   DataSourceDiagnostics  `json:"diagnostics"`
 }
 

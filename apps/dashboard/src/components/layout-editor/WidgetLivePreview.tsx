@@ -1,3 +1,4 @@
+import { contentQueries } from "../../data/content";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
@@ -13,6 +14,8 @@ import {
   fallbackDurationMsFor,
   isPlaylistZoneMediaItem,
   resolvePlaybackItemSettings,
+  resolvePlaylistAdvance,
+  resolveZoneFallback,
 } from "@tilecast/presentation-model";
 import { playbackDefaultsFromSettings } from "../../content/playbackDefaults";
 import type {
@@ -109,9 +112,7 @@ export function nextPlaylistPreviewIndex(
   length: number,
   loop: boolean,
 ) {
-  if (!length) return 0;
-  if (index + 1 >= length) return loop ? 0 : index;
-  return index + 1;
+  return resolvePlaylistAdvance(index, length, loop).nextIndex;
 }
 
 export interface ZoneCaptureTracking {
@@ -175,7 +176,12 @@ export function PlaylistZonePreview({
   const previous = lastGoodItemId
     ? items.find((item) => item.id === lastGoodItemId)
     : undefined;
-  const shownItem = failed && fallback === "previous" ? previous : current;
+  const fallbackDecision = resolveZoneFallback(
+    failed,
+    fallback,
+    previous !== undefined,
+  );
+  const shownItem = fallbackDecision === "previous" ? previous : current;
   const asset = shownItem ? assetsById.get(shownItem.assetId) : undefined;
   const failCurrent = () => {
     if (current) setFailedItemId(current.id);
@@ -199,8 +205,8 @@ export function PlaylistZonePreview({
         </span>
       </div>
     );
-  if (failed && fallback === "hide") return null;
-  if (failed && (fallback === "background" || !shownItem))
+  if (fallbackDecision === "hide") return null;
+  if (fallbackDecision === "background")
     return <div className="layout-playlist-preview" aria-hidden="true" />;
   if (!asset)
     return (
@@ -308,25 +314,15 @@ export function AppPlacementPreview({
     unknown
   >;
   const background =
-    (item.overrides?.backgroundColor as string | undefined) ??
-    (config.backgroundColor as string | undefined) ??
-    "#18232D";
+    (config.backgroundColor as string | undefined) ?? "#18232D";
   const foreground =
-    (item.overrides?.foregroundColor as string | undefined) ??
-    (config.foregroundColor as string | undefined) ??
-    "#F5F7FA";
+    (config.foregroundColor as string | undefined) ?? "#F5F7FA";
   return (
     <div
       className={`layout-app-placement layout-app-placement--${provider ?? "unknown"}`}
       style={{
         background,
         color: foreground,
-        alignItems:
-          item.overrides?.alignment === "left"
-            ? "flex-start"
-            : item.overrides?.alignment === "right"
-              ? "flex-end"
-              : "center",
       }}
     >
       <span className="layout-app-placement__provider">
@@ -358,8 +354,7 @@ export function WidgetLivePreview({
   captureTracking?: ZoneCaptureTracking;
 }) {
   const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: () => api.contentDefinitions(),
+    ...contentQueries.definitions(),
   });
   const provider = asset.widget!.provider;
   const v2 = studioWidgetComponent(definitions.data, provider);
@@ -391,7 +386,6 @@ export function WidgetLivePreview({
         // the zone grow past 100% Studio zoom without underfilling.
         width={item.width}
         height={item.height}
-        overrides={item.overrides}
         fit="fill"
         previewDate={previewDate}
         onState={

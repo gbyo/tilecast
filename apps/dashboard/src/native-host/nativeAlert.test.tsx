@@ -3,6 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useConfirm, type ConfirmRequest } from "@/components/ConfirmDialog";
 import { NativeHostProvider } from "./NativeHostProvider";
@@ -96,6 +97,158 @@ function renderDelete(onResult = vi.fn(), item: ConfirmRequest = request) {
 async function ready(host: ReturnType<typeof installNativeHost>) {
   await waitFor(() => expect(host.types()).toContain("frontend/ready"));
 }
+
+function renderQueue() {
+  let enqueue: ReturnType<typeof useConfirm>["confirm"] | undefined;
+  function Queue() {
+    const { confirm, dialog } = useConfirm();
+    useEffect(() => {
+      enqueue = confirm;
+    }, [confirm]);
+    return dialog;
+  }
+  const view = render(
+    <StrictMode>
+      <NativeHostProvider>
+        <Queue />
+      </NativeHostProvider>
+    </StrictMode>,
+  );
+  return {
+    ...view,
+    confirm(item: ConfirmRequest) {
+      if (!enqueue) throw new Error("confirmation hook is not mounted");
+      return enqueue(item);
+    },
+  };
+}
+
+describe("confirmation queue", () => {
+  it("settles simultaneous web requests in order without overwriting a caller", async () => {
+    const view = renderQueue();
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    const firstResult = vi.fn();
+    const secondResult = vi.fn();
+    act(() => {
+      first = view.confirm({ title: "First", action: "Proceed" });
+      second = view.confirm({ title: "Second", action: "Proceed" });
+      void first.then(firstResult);
+      void second.then(secondResult);
+    });
+    expect(
+      await screen.findByRole("alertdialog", { name: "First" }),
+    ).toBeVisible();
+    expect(secondResult).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Proceed" }));
+    expect(await first).toBe(true);
+    expect(
+      await screen.findByRole("alertdialog", { name: "Second" }),
+    ).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await second).toBe(false);
+    expect(firstResult).toHaveBeenCalledExactlyOnceWith(true);
+    expect(secondResult).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it("Escape cancels only the visible request", async () => {
+    const view = renderQueue();
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = view.confirm({ title: "First" });
+      second = view.confirm({ title: "Second" });
+    });
+    await screen.findByRole("alertdialog", { name: "First" });
+    await userEvent.keyboard("{Escape}");
+    expect(await first).toBe(false);
+    await screen.findByRole("alertdialog", { name: "Second" });
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await second).toBe(true);
+  });
+
+  it("unmount settles active and queued web requests, including retained callers", async () => {
+    const view = renderQueue();
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = view.confirm({ title: "First" });
+      second = view.confirm({ title: "Second" });
+    });
+    await screen.findByRole("alertdialog", { name: "First" });
+    view.unmount();
+    expect(await Promise.all([first, second])).toEqual([false, false]);
+    expect(await view.confirm({ title: "After unmount" })).toBe(false);
+  });
+
+  it("serializes native alerts and ignores duplicate responses", async () => {
+    const host = installNativeHost();
+    const view = renderQueue();
+    await ready(host);
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = view.confirm({ title: "First" });
+      second = view.confirm({ title: "Second" });
+    });
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(1));
+    const firstId = host.ofType("alert/present")[0]?.alertId;
+    host.deliver("alert/action", { alertId: firstId, actionId: "cancel" });
+    expect(await first).toBe(false);
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(2));
+    expect(
+      host.deliver("alert/action", { alertId: firstId, actionId: "confirm" }),
+    ).toBe(false);
+    host.deliver("alert/action", {
+      alertId: host.ofType("alert/present")[1]?.alertId,
+      actionId: "confirm",
+    });
+    expect(await second).toBe(true);
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("unmount withdraws the native alert and cancels requests still queued", async () => {
+    const host = installNativeHost();
+    const view = renderQueue();
+    await ready(host);
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = view.confirm({ title: "First" });
+      second = view.confirm({ title: "Second" });
+    });
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(1));
+    view.unmount();
+    expect(await Promise.all([first, second])).toEqual([false, false]);
+    expect(host.ofType("alert/cancel")).toHaveLength(1);
+    expect(host.ofType("alert/present")).toHaveLength(1);
+  });
+
+  it("keeps rich web confirmations ahead of queued native confirmations", async () => {
+    const host = installNativeHost();
+    const view = renderQueue();
+    await ready(host);
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => {
+      first = view.confirm({
+        title: "First",
+        body: <strong>Rich body</strong>,
+      });
+      second = view.confirm({ title: "Second" });
+    });
+    await screen.findByRole("alertdialog", { name: "First" });
+    expect(host.ofType("alert/present")).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(await first).toBe(false);
+    await waitFor(() => expect(host.ofType("alert/present")).toHaveLength(1));
+    host.deliver("alert/action", {
+      alertId: host.ofType("alert/present")[0]?.alertId,
+      actionId: "confirm",
+    });
+    expect(await second).toBe(true);
+  });
+});
 
 afterEach(() => {
   cleanup();

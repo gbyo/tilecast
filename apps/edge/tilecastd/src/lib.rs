@@ -10,23 +10,17 @@
 //! * [`config`] — operator configuration.
 //! * [`ipc_handler`] — what IPC events and requests do.
 //! * [`presentation`] — the current activation and renderer link.
-//! * [`supervisor`] — the renderer recovery ladder.
 //! * [`capabilities`] — daemon-owned capabilities and persistence.
 //! * [`fixture`] — development presentation source.
-//! * [`server_link`] — identity gate, player WebSocket and heartbeat, and
-//!   driving manifest and configuration reconciliation.
-//! * [`commands`], [`command_handlers`] — durable player commands and their
-//!   fixed handlers.
-//! * [`player_config`], [`config_sync`] — the player configuration document
-//!   and its reconciliation.
-//! * [`manifest_sync`] — the ordinary manifest endpoint, the target and its
-//!   verified preparation.
+//! * [`server_link`] — Core server-loop composition and Edge heartbeat projection.
+//! * [`commands`], [`command_handlers`] — Core command-loop composition and fixed Linux handlers.
+//! * [`player_config`], [`config_sync`] — Runtime/platform projections and installation of accepted configuration.
+//! * [`manifest_sync`] — Core manifest preparation with Edge compatibility checks.
 //! * [`manifest`] — the manifest boundary, renderer compatibility and
 //!   projection into the renderer contract.
-//! * [`schedule`] — offline schedule and availability selection.
-//! * [`activation`] — what the renderer shows, and evidence-gated promotion.
-//! * [`activity`], [`telemetry`] — proof of play and telemetry through the
-//!   bounded outbox; [`preview`] — the Studio live preview.
+//! * [`activation`] — Runtime projection and opaque comparison keys for Core offline activation.
+//! * [`activity`], [`telemetry`] — semantic signal projection and measured gauges for Core reporting.
+//!   [`preview`] connects capture and server services to Core preview policy.
 //! * [`capture`] — the renderer-capture broker shared by preview and Watch
 //!   Live; [`live_stream`] — the Studio Watch Live coordinator.
 //! * [`display_control`] — HDMI-CEC and DDC/CI display control, scheduled
@@ -68,10 +62,9 @@ pub mod presentation_capabilities;
 pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;
-pub mod schedule;
+mod renderer_adapter;
 pub mod self_test;
 pub mod server_link;
-pub mod supervisor;
 pub mod telemetry;
 pub mod update;
 pub mod widget_capabilities;

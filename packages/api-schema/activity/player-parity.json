@@ -1117,6 +1117,277 @@
           "manifestVersion": 3
         }
       ]
+    },
+    {
+      "name": "degenerate playback: a zero duration is not reported, a remounted item is one play, a loop is many",
+      "steps": [
+        {
+          "present": {
+            "state": "playing",
+            "selection": {
+              "source": "direct",
+              "playlistId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02"
+            },
+            "manifestVersion": 7,
+            "items": [
+              {
+                "id": "item-z",
+                "kind": "image",
+                "durationMs": 0
+              }
+            ]
+          }
+        },
+        {
+          "renderer": {
+            "kind": "item-started",
+            "itemId": "item-z"
+          }
+        },
+        {
+          "advanceMs": 5
+        },
+        {
+          "renderer": {
+            "kind": "item-started",
+            "itemId": "item-z"
+          }
+        },
+        {
+          "advanceMs": 10000
+        },
+        {
+          "renderer": {
+            "kind": "item-transition",
+            "itemId": "item-z"
+          }
+        },
+        {
+          "renderer": {
+            "kind": "item-started",
+            "itemId": "item-z"
+          }
+        },
+        {
+          "advanceMs": 10000
+        },
+        {
+          "renderer": {
+            "kind": "item-transition",
+            "itemId": "item-z"
+          }
+        },
+        {
+          "present": {
+            "state": "rest"
+          }
+        }
+      ],
+      "expected": [
+        {
+          "eventType": "presentation.started",
+          "category": "manifest",
+          "result": "playing",
+          "activitySessionId": "S1",
+          "sessionType": "presentation",
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "trigger": "direct",
+          "manifestVersion": 7,
+          "severity": "info"
+        },
+        {
+          "eventType": "content.started",
+          "category": "playback",
+          "result": "playing",
+          "activitySessionId": "S2",
+          "parentActivitySessionId": "S1",
+          "sessionType": "playlist_item",
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "contentType": "image",
+          "contentId": "item-z",
+          "playlistItemId": "item-z",
+          "trigger": "direct",
+          "manifestVersion": 7,
+          "severity": "info"
+        },
+        {
+          "eventType": "content.completed",
+          "category": "playback",
+          "severity": "info",
+          "result": "completed",
+          "activitySessionId": "S2",
+          "sessionType": "playlist_item",
+          "terminalReason": "expected_item_boundary",
+          "durationMs": 10005,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "contentType": "image",
+          "contentId": "item-z",
+          "playlistItemId": "item-z",
+          "manifestVersion": 7
+        },
+        {
+          "eventType": "content.started",
+          "category": "playback",
+          "result": "playing",
+          "activitySessionId": "S3",
+          "parentActivitySessionId": "S1",
+          "sessionType": "playlist_item",
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "contentType": "image",
+          "contentId": "item-z",
+          "playlistItemId": "item-z",
+          "trigger": "direct",
+          "manifestVersion": 7,
+          "severity": "info"
+        },
+        {
+          "eventType": "content.completed",
+          "category": "playback",
+          "severity": "info",
+          "result": "completed",
+          "activitySessionId": "S3",
+          "sessionType": "playlist_item",
+          "terminalReason": "expected_item_boundary",
+          "durationMs": 10000,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "contentType": "image",
+          "contentId": "item-z",
+          "playlistItemId": "item-z",
+          "manifestVersion": 7
+        },
+        {
+          "eventType": "presentation.stopped",
+          "category": "manifest",
+          "severity": "info",
+          "result": "partial",
+          "activitySessionId": "S1",
+          "sessionType": "presentation",
+          "terminalReason": "schedule_transition",
+          "durationMs": 20005,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e02",
+          "trigger": "direct",
+          "manifestVersion": 7
+        }
+      ]
+    },
+    {
+      "name": "a start for an item the player is not presenting is not a play",
+      "steps": [
+        {
+          "present": {
+            "state": "playing",
+            "selection": {
+              "source": "direct",
+              "playlistId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e03"
+            },
+            "manifestVersion": 9,
+            "items": [
+              {
+                "id": "item-a",
+                "kind": "image",
+                "durationMs": 4000
+              }
+            ]
+          }
+        },
+        {
+          "renderer": {
+            "kind": "item-started",
+            "itemId": "item-ghost"
+          }
+        },
+        {
+          "advanceMs": 200
+        },
+        {
+          "renderer": {
+            "kind": "item-started",
+            "itemId": "item-a"
+          }
+        },
+        {
+          "advanceMs": 4000
+        },
+        {
+          "renderer": {
+            "kind": "item-transition",
+            "itemId": "item-a"
+          }
+        },
+        {
+          "present": {
+            "state": "rest"
+          }
+        }
+      ],
+      "expected": [
+        {
+          "eventType": "presentation.started",
+          "category": "manifest",
+          "result": "playing",
+          "activitySessionId": "S1",
+          "sessionType": "presentation",
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e03",
+          "trigger": "direct",
+          "manifestVersion": 9,
+          "severity": "info"
+        },
+        {
+          "eventType": "content.started",
+          "category": "playback",
+          "result": "playing",
+          "activitySessionId": "S2",
+          "parentActivitySessionId": "S1",
+          "sessionType": "playlist_item",
+          "expectedDurationMs": 4000,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e03",
+          "contentType": "image",
+          "contentId": "item-a",
+          "playlistItemId": "item-a",
+          "trigger": "direct",
+          "manifestVersion": 9,
+          "severity": "info"
+        },
+        {
+          "eventType": "content.completed",
+          "category": "playback",
+          "severity": "info",
+          "result": "completed",
+          "activitySessionId": "S2",
+          "sessionType": "playlist_item",
+          "terminalReason": "expected_item_boundary",
+          "durationMs": 4000,
+          "expectedDurationMs": 4000,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e03",
+          "contentType": "image",
+          "contentId": "item-a",
+          "playlistItemId": "item-a",
+          "manifestVersion": 9
+        },
+        {
+          "eventType": "presentation.stopped",
+          "category": "manifest",
+          "severity": "info",
+          "result": "partial",
+          "activitySessionId": "S1",
+          "sessionType": "presentation",
+          "terminalReason": "schedule_transition",
+          "durationMs": 4200,
+          "presentationType": "playlist",
+          "presentationId": "0b6c1f3e-2d4a-4c5b-9e8f-1a2b3c4d5e03",
+          "trigger": "direct",
+          "manifestVersion": 9
+        }
+      ]
     }
   ]
 }

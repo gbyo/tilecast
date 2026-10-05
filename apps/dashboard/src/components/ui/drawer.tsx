@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
 import { cn } from "cn";
+import { tilecastNativeHandler } from "../../native-host/bridge";
 
 type DrawerContextProps = {
   hasSnapPoints: boolean;
@@ -19,6 +20,64 @@ function useDrawer() {
   }
 
   return context;
+}
+
+// Whether the app is wrapped in the page-behind-the-sheet treatment. It is
+// false in the Tilecast native host, which presents its own sheets, so the
+// web drawers keep their original look and timing there.
+const DrawerIndentContext = React.createContext(false);
+
+/**
+ * Wraps the whole app once, at the root. It lets every mobile drawer push the
+ * page back like a sheet without any per-feature code. Base UI writes the
+ * live swipe progress onto the indent element as `--drawer-swipe-progress`;
+ * `styles/drawer-indent.css` turns that into the page's scale, offset, and
+ * corner radius, so dragging never re-renders React.
+ */
+function DrawerIndentShell({ children }: { children: React.ReactNode }) {
+  const [enabled] = React.useState(() => tilecastNativeHandler() === null);
+  const indentRef = React.useRef<HTMLDivElement>(null);
+
+  // The page scrolls with the document. Scaling and clipping must be anchored
+  // to the visible window, not the top of the document, so remember how far
+  // the page is scrolled once when a drawer opens. Scroll is locked while a
+  // drawer is open, so one read per opening is enough.
+  React.useLayoutEffect(() => {
+    const element = indentRef.current;
+    if (!element) return;
+    const sync = () => {
+      if (!element.hasAttribute("data-active")) return;
+      const offset = Math.max(0, -element.getBoundingClientRect().top);
+      element.style.setProperty("--drawer-indent-offset", `${offset}px`);
+    };
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(element, {
+      attributes: true,
+      attributeFilter: ["data-active"],
+    });
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  if (!enabled) return <>{children}</>;
+
+  return (
+    <DrawerPrimitive.Provider>
+      <DrawerIndentContext.Provider value>
+        <DrawerPrimitive.IndentBackground
+          data-slot="drawer-indent-background"
+          className="drawer-indent-background"
+        />
+        <DrawerPrimitive.Indent
+          ref={indentRef}
+          data-slot="drawer-indent"
+          className="drawer-indent"
+        >
+          {children}
+        </DrawerPrimitive.Indent>
+      </DrawerIndentContext.Provider>
+    </DrawerPrimitive.Provider>
+  );
 }
 
 function Drawer({
@@ -65,11 +124,16 @@ function DrawerOverlay({
   className,
   ...props
 }: DrawerPrimitive.Backdrop.Props) {
+  const indent = React.useContext(DrawerIndentContext);
+
   return (
     <DrawerPrimitive.Backdrop
       data-slot="drawer-overlay"
+      data-indent={indent ? "" : undefined}
       className={cn(
-        "fixed inset-0 z-50 min-h-dvh bg-black/10 opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0 supports-backdrop-filter:backdrop-blur-xs supports-[-webkit-touch-callout:none]:absolute",
+        // With the indent the page itself recedes, so the scrim is a plain
+        // dim that follows the swipe; blurring a scaling page only smears it.
+        "fixed inset-0 z-50 min-h-dvh bg-black/10 opacity-[max(var(--drawer-overlay-min-opacity,0),calc(1-var(--drawer-swipe-progress)))] [--drawer-motion:450ms] transition-opacity duration-(--drawer-motion) ease-[cubic-bezier(0.32,0.72,0,1)] select-none data-indent:[--drawer-motion:500ms] data-indent:bg-black/25 data-indent:supports-backdrop-filter:backdrop-blur-none data-ending-style:pointer-events-none data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-snap-points:[--drawer-overlay-min-opacity:0.5] data-starting-style:opacity-0 data-swiping:duration-0 supports-backdrop-filter:backdrop-blur-xs supports-[-webkit-touch-callout:none]:absolute",
         className,
       )}
       {...props}
@@ -100,6 +164,7 @@ function DrawerContent({
   ...props
 }: DrawerPrimitive.Popup.Props) {
   const { hasSnapPoints, modal, showSwipeHandle, swipeDirection } = useDrawer();
+  const indent = React.useContext(DrawerIndentContext);
   const swipeAxis =
     swipeDirection === "down" || swipeDirection === "up" ? "y" : "x";
 
@@ -117,13 +182,17 @@ function DrawerContent({
           data-slot="drawer-popup"
           data-swipe-axis={swipeAxis}
           data-snap-points={hasSnapPoints ? "" : undefined}
+          data-indent={indent ? "" : undefined}
           className={cn(
             // Base.
-            "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-450 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-b",
+            "group/drawer-popup pointer-events-auto fixed z-50 m-(--drawer-inset,0px) flex h-(--drawer-content-height) max-h-(--drawer-content-max-height,none) min-h-0 w-(--drawer-content-width,auto) transform-[translate3d(var(--translate-x,0px),var(--translate-y,0px),0)_scale(var(--stack-scale))] flex-col bg-popover text-sm text-popover-foreground transition-[transform,height,opacity,filter] duration-(--drawer-motion) ease-(--drawer-ease) will-change-transform outline-none select-none [interpolate-size:allow-keywords] data-[swipe-direction=down]:rounded-t-xl data-[swipe-direction=down]:border-t data-[swipe-direction=left]:rounded-r-xl data-[swipe-direction=left]:border-r data-[swipe-direction=right]:rounded-l-xl data-[swipe-direction=right]:border-l data-[swipe-direction=up]:rounded-b-xl data-[swipe-direction=up]:border-b",
             // Nested.
             "data-nested-drawer-open:overflow-hidden data-nested-drawer-open:brightness-95",
             // Bleed.
             "after:pointer-events-none after:absolute after:bg-(--drawer-bleed-background,var(--color-popover)) data-[swipe-axis=x]:after:inset-y-0 data-[swipe-axis=x]:after:w-(--bleed) data-[swipe-axis=y]:after:inset-x-0 data-[swipe-axis=y]:after:h-(--bleed) data-[swipe-direction=down]:after:top-full data-[swipe-direction=left]:after:right-full data-[swipe-direction=right]:after:left-full data-[swipe-direction=up]:after:bottom-full",
+            // Motion. With the indent, the sheet and the page share one
+            // curve and length so they read as a single movement.
+            "[--drawer-ease:cubic-bezier(0.22,1,0.36,1)] [--drawer-motion:450ms] data-indent:[--drawer-ease:cubic-bezier(0.32,0.72,0,1)] data-indent:[--drawer-motion:500ms]",
             // Sizing.
             "[--drawer-content-height:var(--drawer-height,auto)] data-[swipe-axis=x]:[--drawer-content-width:75%] data-[swipe-axis=y]:[--drawer-content-max-height:calc(100dvh-6rem)] data-[swipe-axis=y]:data-snap-points:[--drawer-content-height:100dvh] data-[swipe-axis=x]:sm:[--drawer-content-width:24rem]",
             // Stack.
@@ -209,6 +278,7 @@ function DrawerDescription({
 
 export {
   Drawer,
+  DrawerIndentShell,
   DrawerPortal,
   DrawerOverlay,
   DrawerSwipeHandle,

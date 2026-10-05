@@ -14,13 +14,16 @@ import (
 )
 
 type presentationWidgetRequirement struct {
+	AssetID       uuid.UUID
 	Name          string
 	Provider      string
 	PresetID      *string
 	Configuration json.RawMessage
 	Presentation  *WidgetPresentation
-	// Component is the first-class presentation, when the Widget has one.
+	// Component is presentation schema 3, which carries the empty policy.
 	Component *WidgetPresentation
+	// ComponentV2 preserves the released component contract for older Players.
+	ComponentV2 *WidgetPresentation
 }
 
 type playerPresentationCapabilities struct {
@@ -91,7 +94,7 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 			}
 			for _, requirement := range requirements {
 				if requirement.Presentation == nil {
-					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player))
+					return fmt.Errorf("%w: %v", ErrConflict, checkPresentationCompatibility(ctx, q, screenID, requirement.Name, componentRequirement(requirement), player))
 				}
 			}
 			continue
@@ -132,8 +135,12 @@ func (s *Service) orgTimezone(ctx context.Context) string {
 }
 
 func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
+	return orgPrivateHTTPFrom(ctx, s.db)
+}
+
+func orgPrivateHTTPFrom(ctx context.Context, q presentationQuery) bool {
 	var values []byte
-	if err := s.db.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
+	if err := q.QueryRow(ctx, `SELECT settings FROM organization_runtime_settings`).Scan(&values); err != nil {
 		return false
 	}
 	var v map[string]any
@@ -145,7 +152,11 @@ func (s *Service) orgPrivateHTTP(ctx context.Context) bool {
 }
 
 func (s *Service) presentationRequirements(ctx context.Context, q presentationQuery, playlistID, layoutID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
-	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
+	return s.presentationRequirementsForRoot(ctx, q, playlistID, layoutID, nil)
+}
+
+func (s *Service) presentationRequirementsForRoot(ctx context.Context, q presentationQuery, playlistID, layoutID, assetID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
+	allowPrivateHTTP := orgPrivateHTTPFrom(ctx, q)
 	// Effective availability is evaluated once per requirements pass: a
 	// plugin-owned provider whose plugin is not installed cannot be
 	// assigned or projected, while preserved rows stay in the database.
@@ -188,13 +199,15 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 			  ON dependency.revision_id=layout.published_revision_id
 			 AND dependency.dependency_type='widget'
 			WHERE layout.id IN (SELECT id FROM refs WHERE kind='layout')
+			UNION
+			SELECT $3::uuid WHERE $3::uuid IS NOT NULL
 		)
-		SELECT asset.name,widget.provider,widget.preset_id,widget.configuration
+		SELECT asset.id,asset.name,widget.provider,widget.preset_id,widget.configuration
 		FROM selected_widgets selected
 		JOIN widgets widget ON widget.asset_id=selected.asset_id
 		JOIN assets asset ON asset.id=widget.asset_id
 		WHERE asset.deleted_at IS NULL
-		ORDER BY asset.name,widget.asset_id`, playlistID, layoutID)
+		ORDER BY asset.name,widget.asset_id`, playlistID, layoutID, assetID)
 	if err != nil {
 		return nil, "", err
 	}
@@ -204,7 +217,7 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 	sourceIDs := []uuid.UUID{}
 	for rows.Next() {
 		var requirement presentationWidgetRequirement
-		if err = rows.Scan(&requirement.Name, &requirement.Provider, &requirement.PresetID, &requirement.Configuration); err != nil {
+		if err = rows.Scan(&requirement.AssetID, &requirement.Name, &requirement.Provider, &requirement.PresetID, &requirement.Configuration); err != nil {
 			return nil, "", err
 		}
 		if err = s.requireWidgetSourceUsable(installed, requirement.Name, requirement.Provider); err != nil {
@@ -221,7 +234,11 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
 		}
-		if requirement.Presentation == nil && requirement.Component == nil {
+		requirement.ComponentV2, err = s.compileWidgetComponentForSchema(requirement.Provider, requirement.Configuration, componentPresentationSchemaLegacy)
+		if err != nil {
+			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+		}
+		if requirement.Presentation == nil && requirement.Component == nil && requirement.ComponentV2 == nil {
 			continue
 		}
 		if v13Blocker == "" && s.widgetRequiresV13(requirement.Provider) {
@@ -385,15 +402,33 @@ func checkPresentationCompatibility(ctx context.Context, q presentationQuery, sc
 // component or, failing that, its compatibility presentation. A Widget without
 // a compatibility presentation is reported against its component.
 func checkWidgetCompatibility(ctx context.Context, q presentationQuery, screenID uuid.UUID, requirement presentationWidgetRequirement, player playerPresentationCapabilities) error {
-	if requirement.Component != nil {
-		if supported, _ := presentationSupported(requirement.Component, player); supported {
-			return nil
-		}
-		if requirement.Presentation == nil {
-			return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Component, player)
+	presentation, _ := widgetCompatibilityTarget(requirement, player)
+	return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, presentation, player)
+}
+
+// Both validation and structured evidence choose the same renderer target: the
+// first supported component contract (current, then released), otherwise the
+// compatibility presentation. A Widget without one is reported against its
+// component.
+func widgetCompatibilityTarget(requirement presentationWidgetRequirement, player playerPresentationCapabilities) (*WidgetPresentation, string) {
+	for _, component := range []*WidgetPresentation{requirement.Component, requirement.ComponentV2} {
+		if component != nil {
+			if supported, _ := presentationSupported(component, player); supported {
+				return component, "component"
+			}
 		}
 	}
-	return checkPresentationCompatibility(ctx, q, screenID, requirement.Name, requirement.Presentation, player)
+	if requirement.Presentation == nil {
+		return componentRequirement(requirement), "component"
+	}
+	return requirement.Presentation, "compatibility"
+}
+
+func componentRequirement(requirement presentationWidgetRequirement) *WidgetPresentation {
+	if requirement.Component != nil {
+		return requirement.Component
+	}
+	return requirement.ComponentV2
 }
 
 // widgetCapabilityError describes exactly why a screen cannot display a Widget:

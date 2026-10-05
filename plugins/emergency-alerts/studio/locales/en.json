@@ -141,5 +141,7 @@
     "description": "Alerts currently matched to a rule and displaying content.",
     "emptyTitle": "No active alerts",
     "emptyBody": "No NWS alerts are currently active."
-  }
+  },
+  "leaveTitle": "Leave without saving?",
+  "leaveBody": "The monitor settings or alert rules have unsaved changes."
 }

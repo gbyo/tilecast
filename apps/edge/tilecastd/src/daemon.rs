@@ -30,17 +30,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context as _;
+use edge_cas::space::{SpaceProbe, StatvfsProbe};
 use edge_cas::{ContentStore, LruByDomain, StorePolicy};
 use edge_ipc::{IpcServer, PeerPolicy};
 use edge_platform::capabilities::CapabilityRegistry;
-use edge_platform::disk::{SpaceProbe, StatvfsProbe};
+use edge_platform::clock::system_clock;
 use edge_platform::paths::EdgePaths;
 use edge_platform::providers::{HostTimeSyncProvider, SystemdProvider, WpePlatformProvider};
 use edge_platform::systemd::Notifier;
 use edge_protocol::bounded::SafeText;
 use edge_protocol::ipc::event::KioskPolicy;
 use edge_protocol::ipc::presentation::{PresentationDocument, StatusSurface};
-use edge_protocol::time::{SharedClock, system_clock};
+use edge_protocol::time::SharedClock;
 use edge_protocol::{PlayerId, Timestamp};
 use edge_state::repo::{binding, cas, daemon as daemon_repo};
 use edge_state::{OpenOptions, StateDb, StateError};
@@ -53,15 +54,12 @@ use crate::media::MediaRegistry;
 use crate::media_channel::{self, MediaChannel, ProcLineage};
 use crate::presentation::{ActivationSource, PresentationEngine};
 use crate::server_link::{self, LinkState};
-use crate::supervisor::SupervisorConfig;
+use player_core::SupervisorConfig;
 
 /// The release version. `TILECAST_EDGE_VERSION` at build time overrides the
-/// crate version; only the update integration test uses it, to build a
+/// Edge release VERSION; only the update integration test uses it, to build a
 /// candidate that reports another version from the same source.
-pub const VERSION: &str = match option_env!("TILECAST_EDGE_VERSION") {
-    Some(version) => version,
-    None => env!("CARGO_PKG_VERSION"),
-};
+pub const VERSION: &str = edge_platform::RELEASE_VERSION;
 pub const SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(10);
 const SUPERVISION_INTERVAL: Duration = Duration::from_secs(15);
 const CAPABILITY_INTERVAL: Duration = Duration::from_secs(300);
@@ -77,6 +75,8 @@ pub enum StateMode {
 /// Shared daemon state. Subsystems hold an `Arc<DaemonContext>`.
 #[derive(Debug)]
 pub struct DaemonContext {
+    /// Shared native behavior, absent when durable state is in recovery.
+    pub core: Option<player_core::PlayerCore>,
     pub config: EdgeConfig,
     pub paths: EdgePaths,
     pub clock: SharedClock,
@@ -117,8 +117,8 @@ pub struct DaemonContext {
     /// Pairing of a fresh installation (`pairing`).
     pub pairing: std::sync::Mutex<crate::pairing::PairingView>,
     pub pairing_wake: tokio::sync::Notify,
-    pub pairing_suppressed: std::sync::atomic::AtomicBool,
-    pub pairing_renewal: std::sync::Mutex<Option<String>>,
+    pub pairing_coordinator: Option<player_core::PairingCoordinator>,
+    pub server_relationship: Option<player_core::ServerRelationship>,
     /// Set by `restart_player_process` before it cancels the daemon.
     pub restart_requested: std::sync::atomic::AtomicBool,
     pub shutdown: CancellationToken,
@@ -287,6 +287,7 @@ impl Daemon {
             media_registry.clone(),
             kiosk,
             supervisor,
+            clock.clone(),
             now.unix_millis(),
         );
         presentation.set_activity(activity.clone());
@@ -341,7 +342,20 @@ impl Daemon {
             StateMode::Normal(db) => Some(db.clone()),
             StateMode::Recovery { .. } => None,
         };
+        let core = network_db.as_ref().map(|db| {
+            player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() })
+        });
+        let pairing_coordinator = core.as_ref().map(|core| {
+            core.pairing(
+                Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())),
+                Arc::new(edge_server::FilePairingStore::new(paths.identity_dir())),
+            )
+        });
+        let server_relationship = core.as_ref().map(|core| {
+            core.server_relationship(Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())))
+        });
         let context = Arc::new(DaemonContext {
+            core,
             config,
             paths,
             clock,
@@ -368,8 +382,8 @@ impl Daemon {
             sync_done: tokio::sync::watch::Sender::new((0, false)),
             pairing: std::sync::Mutex::new(Default::default()),
             pairing_wake: tokio::sync::Notify::new(),
-            pairing_suppressed: std::sync::atomic::AtomicBool::new(false),
-            pairing_renewal: std::sync::Mutex::new(None),
+            pairing_coordinator,
+            server_relationship,
             restart_requested: std::sync::atomic::AtomicBool::new(false),
             shutdown: CancellationToken::new(),
             activity,

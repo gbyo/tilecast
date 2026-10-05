@@ -86,6 +86,10 @@ public final class StudioPage {
     public let presentations: PresentationCoordinator
     /// The alert Studio asked for, in either of its pages.
     public let alerts = NativeAlertCenter()
+    /// The QR scan Studio asked for, in either of its pages.
+    public let scanners = QRScanCenter()
+    /// The generic system map the main Studio page asked for.
+    public let maps = SystemMapCenter()
     public private(set) var phase: Phase = .loading
     public private(set) var signInRequired = false
     public private(set) var isClosed = false
@@ -96,6 +100,8 @@ public final class StudioPage {
     public private(set) var pendingEvents: [StudioPageEvent] = []
 
     @ObservationIgnored private var monitor: Task<Void, Never>?
+    @ObservationIgnored private var revealTask: Task<Void, Never>?
+    @ObservationIgnored private var navigationFinished = false
     @ObservationIgnored private var recentTerminations: [Date] = []
     @ObservationIgnored private let initialURL: URL
     @ObservationIgnored private let applicationName: String
@@ -117,6 +123,9 @@ public final class StudioPage {
 
         let bridge = StudioBridge(origin: profile.address.origin)
         bridge.alerts = alerts
+        bridge.scanners = scanners
+        bridge.maps = maps
+        scanners.system = system
         var configuration = Self.configuration(dataStore: dataStore, applicationName: applicationName)
         bridge.install(into: &configuration)
         system.install(on: bridge)
@@ -133,11 +142,12 @@ public final class StudioPage {
             dialogPresenter: StudioDialogPresenter(origin: profile.address.origin, system: system)
         )
         let address = profile.address
-        presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts) {
+        presentations = PresentationCoordinator(mainBridge: bridge, alerts: alerts, scanners: scanners) {
             PresentationPage(address: address, dataStore: dataStore, applicationName: applicationName, policy: policy, system: system)
         }
         bridge.attach(to: webPage)
         sink.handler = { [weak self] in self?.handle($0) }
+        bridge.onReadinessChange = { [weak self] in self?.nativeReadinessChanged() }
     }
 
     /// Settings every page for this server shares. Each call returns a new
@@ -165,7 +175,7 @@ public final class StudioPage {
 
     /// Retries after a failure, or reloads the current Studio page.
     public func reload() {
-        phase = .loading
+        prepareForLoad()
         if currentStudioPath != nil {
             webPage.reload()
         } else {
@@ -176,7 +186,7 @@ public final class StudioPage {
     public func resumeAfterSignIn() {
         presentations.discard()
         signInRequired = false
-        phase = .loading
+        prepareForLoad()
         webPage.load(initialURL)
     }
 
@@ -195,6 +205,8 @@ public final class StudioPage {
         isClosed = true
         monitor?.cancel()
         monitor = nil
+        revealTask?.cancel()
+        revealTask = nil
         webPage.stopLoading()
         closeAuxiliaryPage()
         presentations.close()
@@ -258,12 +270,15 @@ public final class StudioPage {
                 for try await event in webPage.navigations {
                     switch event {
                     case .startedProvisionalNavigation:
+                        navigationFinished = false
+                        revealTask?.cancel()
+                        revealTask = nil
                         bridge.mainFrameNavigationStarted()
                     case .committed:
                         bridge.mainFrameCommitted()
-                        phase = .ready
                     case .finished:
-                        phase = .ready
+                        navigationFinished = true
+                        settleLoadingCover()
                     default:
                         break
                     }
@@ -274,6 +289,39 @@ public final class StudioPage {
                 handle(navigationError: error)
             }
         }
+    }
+
+    private func prepareForLoad() {
+        revealTask?.cancel()
+        revealTask = nil
+        navigationFinished = false
+        phase = .loading
+    }
+
+    /// WebKit finishing and React publishing native navigation are separate
+    /// asynchronous events. Give the catalog a brief chance to land so the
+    /// first visible frame already has its final tabs/sidebar. Older Studio
+    /// falls back after the bounded grace period.
+    private func settleLoadingCover() {
+        guard phase == .loading, navigationFinished else { return }
+        if bridge.navigation.isAvailable {
+            revealTask?.cancel()
+            revealTask = nil
+            phase = .ready
+            return
+        }
+        revealTask?.cancel()
+        revealTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, let self, self.phase == .loading, self.navigationFinished else { return }
+            self.phase = .ready
+            self.revealTask = nil
+        }
+    }
+
+    private func nativeReadinessChanged() {
+        guard bridge.navigation.isAvailable else { return }
+        settleLoadingCover()
     }
 
     func handle(navigationError error: any Error) {
@@ -288,9 +336,11 @@ public final class StudioPage {
             let now = Date.now
             recentTerminations = recentTerminations.filter { now.timeIntervalSince($0) < 30 } + [now]
             if recentTerminations.count > 2 {
+                revealTask?.cancel()
+                revealTask = nil
                 phase = .failed(.contentProcessEnded)
             } else {
-                phase = .loading
+                prepareForLoad()
                 webPage.reload()
             }
         case .failedProvisionalNavigation(let underlying):

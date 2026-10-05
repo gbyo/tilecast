@@ -1,6 +1,9 @@
 // ScreenContentChain walks the dependency graph downward from a screen so the operator can see
 // which assigned presentation, widgets, and data sources contribute to its current content.
 import { useQuery } from "@tanstack/react-query";
+import { layoutQueries } from "../data/layouts";
+
+import { playlistQueries } from "../data/playlists";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -50,24 +53,31 @@ function sourceStatus(status: string, recordCount: number, t: WidgetsT) {
   };
 }
 
-export function ScreenContentChain({
-  assignment,
+export type ChainPresentation =
+  | { type: "playlist"; id: string; name?: string }
+  | { type: "layout"; id: string; name?: string };
+
+/**
+ * Traces the dependency graph of one explicit presentation. Playback
+ * explanation passes the playback plan's selected presentation so the chain
+ * describes what the screen is expected to show, not just its default.
+ */
+export function PresentationContentChain({
+  presentation,
 }: {
-  assignment?: PlaylistAssignment;
+  presentation?: ChainPresentation | null;
 }) {
   const { t } = useTranslation(["content", "common"]);
-  const layoutId = assignment?.layoutId;
-  const playlistId = assignment?.playlistId;
-  const layout = useQuery({
-    queryKey: ["layouts", layoutId],
-    queryFn: () => api.layout(layoutId!),
-    enabled: Boolean(layoutId),
-  });
-  const playlist = useQuery({
-    queryKey: ["playlists", playlistId],
-    queryFn: () => api.playlist(playlistId!),
-    enabled: Boolean(playlistId),
-  });
+  const layoutId =
+    presentation?.type === "layout" ? presentation.id : undefined;
+  const playlistId =
+    presentation?.type === "playlist" ? presentation.id : undefined;
+  const layoutName =
+    presentation?.type === "layout" ? presentation.name : undefined;
+  const playlistName =
+    presentation?.type === "playlist" ? presentation.name : undefined;
+  const layout = useQuery(layoutQueries.detail(layoutId ?? ""));
+  const playlist = useQuery(playlistQueries.detail(playlistId ?? ""));
   // Dependency IDs are known up front, so resolve them directly instead of
   // intersecting against a catalog page. A 404 means the source is gone;
   // anything else fails the whole lookup like before.
@@ -144,9 +154,7 @@ export function ScreenContentChain({
               <ItemTitle>
                 <ResourcePreviewLink
                   to={`/layouts/${layoutId}`}
-                  title={
-                    assignment?.layoutName ?? t("widgets.chain.assignedLayout")
-                  }
+                  title={layoutName ?? t("widgets.chain.assignedLayout")}
                   metadata={
                     layout.data
                       ? `${layout.data.canvasWidth} × ${layout.data.canvasHeight} px · ${t("widgets.chain.layoutDataSources", { count: layoutDataSourceCount })}`
@@ -192,10 +200,7 @@ export function ScreenContentChain({
               <ItemTitle>
                 <ResourcePreviewLink
                   to={`/playlists/${playlistId}`}
-                  title={
-                    assignment?.playlistName ??
-                    t("widgets.chain.assignedPlaylist")
-                  }
+                  title={playlistName ?? t("widgets.chain.assignedPlaylist")}
                   metadata={`${t("widgets.chain.playlistItemCount", { count: playlist.data?.itemCount ?? 0 })}${playlist.data?.revision ? ` · ${t("widgets.chain.playlistRevision", { revision: playlist.data.revision })}` : ""}`}
                   imageUrl={playlist.data?.items[0]?.thumbnailUrl}
                   fallback={<ListVideo aria-hidden="true" />}
@@ -257,6 +262,32 @@ export function ScreenContentChain({
       )}
     </section>
   );
+}
+
+/**
+ * Assignment-based compatibility wrapper: traces the screen's default
+ * presentation. Prefer PresentationContentChain with the playback plan's
+ * selected presentation when explaining expected playback.
+ */
+export function ScreenContentChain({
+  assignment,
+}: {
+  assignment?: PlaylistAssignment;
+}) {
+  const presentation: ChainPresentation | undefined = assignment?.layoutId
+    ? {
+        type: "layout",
+        id: assignment.layoutId,
+        name: assignment.layoutName,
+      }
+    : assignment?.playlistId
+      ? {
+          type: "playlist",
+          id: assignment.playlistId,
+          name: assignment.playlistName,
+        }
+      : undefined;
+  return <PresentationContentChain presentation={presentation} />;
 }
 
 function ResourcePreviewLink({

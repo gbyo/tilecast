@@ -11,7 +11,11 @@
 import type { WidgetMount, WidgetMountState } from "@tilecast/widget-sdk/mount";
 import type { RuntimeItem } from "../host/contract";
 import { widgetComponent } from "../engine/model";
-import type { MediaSurface, SurfaceEnvironment } from "./surface";
+import type {
+  MediaSurface,
+  SurfaceEnvironment,
+  SurfaceReadiness,
+} from "./surface";
 
 export class ComponentWidgetSurface implements MediaSurface {
   readonly element: HTMLDivElement;
@@ -34,22 +38,28 @@ export class ComponentWidgetSurface implements MediaSurface {
     this.element = container;
   }
 
-  prepare(): Promise<void> {
+  prepare(): Promise<SurfaceReadiness> {
     return new Promise((resolve, reject) => {
       const onState = (state: WidgetMountState) => {
         if (this.disposed) return;
         if (!this.settled) {
-          if (state.state === "ready" || state.state === "empty") {
+          if (state.state === "ready") {
             this.settled = true;
-            resolve();
+            resolve({});
+          } else if (state.state === "empty") {
+            this.settled = true;
+            resolve({ empty: true });
           } else if (state.state === "error") {
             this.settled = true;
             reject(new Error(`widget ${state.code}`));
           }
           return;
         }
-        if (state.state === "error")
+        if (state.state === "error") {
           this.env.sink.failed(`widget ${state.code}`);
+        } else if (state.state === "empty") {
+          this.env.sink.widgetEmpty();
+        }
       };
       this.mount = this.env.widgets!.mount(
         this.element,

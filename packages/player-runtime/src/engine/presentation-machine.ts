@@ -20,6 +20,7 @@
 import { and, assign, enqueueActions, setup, type ActorRefFrom } from "xstate";
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
+import { MIN_ITEM_DWELL_MS, positiveDurationMs } from "../clock/duration";
 import {
   ItemCompletion,
   playbackAuthorityOf,
@@ -65,6 +66,8 @@ export interface PresentationContext {
   consecutiveFailures: number;
   consecutiveEmptySkips: number;
   nextMount: number;
+  /** Monotonic time the current occurrence mounted, for the dwell floor. */
+  mountedAtMs: number;
   previousItemId: string | null;
   stage: StageEntry | null;
   completion: ItemCompletion;
@@ -77,7 +80,8 @@ type OnMount<T extends string, E = object> = { type: T; mount: number } & E;
 
 /** Events a surface sends about the occurrence it renders. */
 export type SurfaceEvent =
-  | OnMount<"SURFACE_READY">
+  | OnMount<"SURFACE_READY", { empty?: boolean }>
+  | OnMount<"WIDGET_EMPTY">
   | OnMount<"SURFACE_ENDED", { source: "ended" | "end-offset" }>
   | OnMount<"SURFACE_FAILED", { message: string }>
   | OnMount<"SURFACE_RESUMED">
@@ -165,6 +169,18 @@ export const presentationMachine = setup({
       const item = currentItem(context);
       return item !== null && isAutoSkipWidget(item, context.authority);
     },
+    skipEmptyComponent: ({ context, event }) => {
+      const item = currentItem(context);
+      const empty =
+        (event.type === "SURFACE_READY" && event.empty === true) ||
+        event.type === "WIDGET_EMPTY";
+      return (
+        empty &&
+        context.authority === "local" &&
+        item?.kind === "widget" &&
+        widgetComponent(item)?.component.empty === "skip-eligible"
+      );
+    },
     canSkip: ({ context }) =>
       context.stage !== null && context.authority === "local",
     advances: ({ event }) =>
@@ -192,15 +208,20 @@ export const presentationMachine = setup({
       return {
         stage,
         nextMount: context.nextMount + 1,
+        mountedAtMs: context.clock.monotonicNow(),
         // Exactly one completion may act per occurrence. Only a single-video
         // local playlist restarts in place; everything else advances.
         completion: new ItemCompletion(
           context.authority,
           context.items.length === 1 && item.kind === "video",
         ),
-        consecutiveEmptySkips: isAutoSkipWidget(item, context.authority)
-          ? context.consecutiveEmptySkips
-          : 0,
+        consecutiveEmptySkips:
+          isAutoSkipWidget(item, context.authority) ||
+          (context.authority === "local" &&
+            item.kind === "widget" &&
+            widgetComponent(item)?.component.empty === "skip-eligible")
+            ? context.consecutiveEmptySkips
+            : 0,
       };
     }),
     /** Evidence and deadlines that start with the occurrence itself. */
@@ -215,16 +236,17 @@ export const presentationMachine = setup({
         context.timers.after(delayMs, () =>
           self.send({ type: "DURATION_DUE", mount: stage.mount }),
         );
-      if (item.kind === "video" && item.durationMs) {
+      const authored = positiveDurationMs(item.durationMs);
+      if (item.kind === "video" && authored) {
         // A fixed duration (rare for video) also bounds the item.
-        due(item.durationMs);
+        due(authored);
       } else if (item.kind === "website" || item.kind === "youtube") {
         // YouTube "play until the video ends" completes on the player's own
         // end signal (SURFACE_ENDED), not on a timer.
         const untilEnd =
-          item.durationMs == null &&
+          authored == null &&
           remoteWebSpecOf(item)?.presentation.playUntilEnd === true;
-        if (!untilEnd) due(item.durationMs ?? WEBSITE_DEFAULT_MS);
+        if (!untilEnd) due(authored ?? WEBSITE_DEFAULT_MS);
       }
     },
     nextIndex: assign(({ context }) => ({
@@ -235,6 +257,12 @@ export const presentationMachine = setup({
         ? { ...context.stage, phase: "shown" as const }
         : null,
       consecutiveFailures: 0,
+      consecutiveEmptySkips: 0,
+    })),
+    markStageSkipping: assign(({ context }) => ({
+      stage: context.stage
+        ? { ...context.stage, phase: "skipping" as const }
+        : null,
     })),
     /** Evidence, heartbeats and completion once an occurrence is visible. */
     onShown: ({ context, self }) => {
@@ -245,6 +273,7 @@ export const presentationMachine = setup({
         context.timers.every(ALIVE_INTERVAL_MS, () =>
           report.evidence(kind, item.id),
         );
+      const authored = positiveDurationMs(item.durationMs);
       const complete = (delayMs: number | null) => {
         if (context.authority !== "local" || !delayMs) return;
         context.timers.after(delayMs, () =>
@@ -255,17 +284,19 @@ export const presentationMachine = setup({
         case "image":
           report.evidence("image-shown", item.id);
           alive("image-shown");
-          complete(item.durationMs ?? IMAGE_DEFAULT_MS);
+          // Zero is not a duration. It reads as "unset", so an image stored
+          // with 0 gets the default instead of holding the playlist forever.
+          complete(authored ?? IMAGE_DEFAULT_MS);
           break;
         case "widget":
           report.evidence("widget-shown", item.id);
           alive("widget-alive");
-          complete(item.durationMs);
+          complete(authored);
           break;
         case "layout":
           report.evidence("layout-shown", item.id);
           alive("layout-alive");
-          complete(item.durationMs);
+          complete(authored);
           break;
         case "website":
         case "youtube":
@@ -277,9 +308,25 @@ export const presentationMachine = setup({
       }
     },
     /** Ask the arbiter what a completion signal means for this occurrence. */
-    finish: enqueueActions(({ context, event, enqueue }) => {
+    finish: enqueueActions(({ context, event, enqueue, self }) => {
       const source = completionSource(event);
       if (!source || !context.stage) return;
+      // A duration timer never completes an occurrence before it has been on
+      // screen for the dwell floor. A zero or one-millisecond duration would
+      // otherwise advance, remount the same item and repeat as fast as the
+      // renderer can paint. The completion is not dropped: it is delivered
+      // again once the floor has passed, before the arbiter settles, so
+      // exactly one path still wins the occurrence. Completions the surface
+      // reports itself (media ended, end offset) come from the media's own
+      // clock, not from a number in the manifest, and are not delayed.
+      const remainingDwellMs =
+        MIN_ITEM_DWELL_MS -
+        (context.clock.monotonicNow() - context.mountedAtMs);
+      if (source === "duration-timer" && remainingDwellMs > 0) {
+        const timers = context.timers;
+        enqueue(() => timers.after(remainingDwellMs, () => self.send(event)));
+        return;
+      }
       // The arbiter is settled here, while the transition is computed, so a
       // second signal in the same macrostep already sees it settled.
       const outcome = context.completion.complete(source);
@@ -342,6 +389,7 @@ export const presentationMachine = setup({
       );
     },
     startEmptySkip: enqueueActions(({ context, enqueue, self }) => {
+      context.timers.cancelAll();
       const skips = context.consecutiveEmptySkips + 1;
       enqueue.assign({ consecutiveEmptySkips: skips });
       const stage = context.stage!;
@@ -394,8 +442,9 @@ export const presentationMachine = setup({
       const stage = context.stage!;
       context.reporter.evidence("image-shown", stage.item.id);
       if (context.authority !== "local") return;
-      context.timers.after(stage.item.durationMs ?? WEBSITE_DEFAULT_MS, () =>
-        self.send({ type: "DURATION_DUE", mount: stage.mount }),
+      context.timers.after(
+        positiveDurationMs(stage.item.durationMs) ?? WEBSITE_DEFAULT_MS,
+        () => self.send({ type: "DURATION_DUE", mount: stage.mount }),
       );
     },
     stopTimers: ({ context }) => context.timers.cancelAll(),
@@ -412,6 +461,7 @@ export const presentationMachine = setup({
       consecutiveFailures: 0,
       consecutiveEmptySkips: 0,
       nextMount: input.firstMount,
+      mountedAtMs: input.clock.monotonicNow(),
       previousItemId: input.previousItemId,
       stage: null,
       completion: new ItemCompletion(authority, false),
@@ -452,10 +502,20 @@ export const presentationMachine = setup({
     /** Staged on the hidden layer; the surface is loading. */
     preparing: {
       on: {
-        SURFACE_READY: {
-          guard: "isCurrent",
-          target: "showing",
-          actions: ["showStage", "onShown"],
+        SURFACE_READY: [
+          {
+            guard: and(["isCurrent", "skipEmptyComponent"]),
+            target: "skipping",
+          },
+          {
+            guard: "isCurrent",
+            target: "showing",
+            actions: ["showStage", "onShown"],
+          },
+        ],
+        WIDGET_EMPTY: {
+          guard: and(["isCurrent", "skipEmptyComponent"]),
+          target: "skipping",
         },
         FALLBACK_SHOWN: {
           guard: "isCurrent",
@@ -477,6 +537,10 @@ export const presentationMachine = setup({
     /** On screen. */
     showing: {
       on: {
+        WIDGET_EMPTY: {
+          guard: and(["isCurrent", "skipEmptyComponent"]),
+          target: "skipping",
+        },
         SURFACE_ENDED: { guard: "isCurrent", actions: "finish" },
         DURATION_DUE: { guard: "isCurrent", actions: "finish" },
         SURFACE_RESUMED: { guard: "isCurrent", actions: "occurrenceStarted" },
@@ -519,7 +583,7 @@ export const presentationMachine = setup({
       },
     },
     skipping: {
-      entry: "startEmptySkip",
+      entry: ["markStageSkipping", "startEmptySkip"],
       on: {
         EMPTY_SKIP_DUE: {
           guard: "isCurrent",

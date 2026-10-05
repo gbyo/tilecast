@@ -140,8 +140,21 @@ export default defineConfig({
       // the reader's work rather than the filesystem or Studio's own menu.
       sidebar: [
         { label: "Home", slug: "index" },
+        { label: "Setup Advisor", slug: "setup" },
         { slug: "getting-started" },
         { slug: "installation" },
+        {
+          label: "Hosting and networking",
+          collapsed: true,
+          items: [
+            { slug: "setup/choose-a-server" },
+            { slug: "setup/local-network" },
+            { slug: "setup/cloudflare-tunnel" },
+            { slug: "setup/local-players-remote-studio" },
+            { slug: "setup/network-readiness" },
+            { slug: "setup/production-readiness" },
+          ],
+        },
         {
           label: "Tilecast Studio",
           collapsed: true,
@@ -199,6 +212,7 @@ export default defineConfig({
               label: "Manage screens",
               collapsed: true,
               items: [
+                { slug: "screens/explain-playback" },
                 { slug: "screens/archive" },
                 { slug: "screens/bulk-changes" },
               ],
@@ -222,6 +236,7 @@ export default defineConfig({
             },
             { slug: "players/update-a-player" },
             { slug: "players/capabilities" },
+            { slug: "players/apple-tv" },
           ],
         },
         {
@@ -404,6 +419,7 @@ export default defineConfig({
             { slug: "developers" },
             { slug: "developers/demo-mode" },
             { slug: "developers/testing" },
+            { slug: "developers/player-ownership" },
             { slug: "developers/ios-app" },
             {
               label: "Plugin development",
