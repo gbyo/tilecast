@@ -1,0 +1,131 @@
+name: "🛠️ Installation or deployment issue"
+description: Get help with installation, configuration, upgrades, proxies, containers, or startup failures
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste complete `.env` files or unredacted configuration.** Remove passwords, cookies, API keys, OAuth secrets, PostgreSQL credentials, tunnel credentials, private keys, and other sensitive values.
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the documentation and existing issues for this problem.
+          required: true
+        - label: I have removed credentials, tokens, secrets, and other private information from this report.
+          required: true
+  - type: dropdown
+    id: method
+    attributes:
+      label: Installation method
+      options:
+        - Docker Compose
+        - Prebuilt container image
+        - Built from source
+        - Development environment
+        - Upgrade from an earlier Tilecast version
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is failing?
+      description: Describe the installation, startup, upgrade, networking, or deployment problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Tilecast version
+      description: Release, tag, commit, or "main/latest".
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Host and deployment environment
+      description: Include the details that are relevant to the failure.
+      value: |
+        - Host operating system:
+        - CPU architecture:
+        - Docker version:
+        - Docker Compose version:
+        - PostgreSQL version:
+        - Reverse proxy:
+        - Tunnel / remote-access service:
+        - Browser:
+    validations:
+      required: true
+  - type: textarea
+    id: topology
+    attributes:
+      label: Deployment topology
+      description: Optional. Briefly describe how requests reach Tilecast.
+      placeholder: "Example: Browser → Cloudflare Tunnel → Caddy → Tilecast Server → PostgreSQL"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command that failed
+      description: Optional. Paste the exact command if a command triggered the failure.
+      render: shell
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Include the error or failure you observed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: dropdown
+    id: upgrade
+    attributes:
+      label: Did this start during an upgrade?
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: previous-version
+    attributes:
+      label: Previous version
+      description: If this began during an upgrade, what version were you upgrading from?
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste only the smallest useful, redacted log section.
+      render: text
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Relevant redacted configuration
+      description: Optional. Include only configuration needed to understand the problem and replace secret values with REDACTED.
+      render: yaml
+  - type: textarea
+    id: troubleshooting
+    attributes:
+      label: What have you already tried?
+      description: Include restarts, configuration changes, commands, rollbacks, or other troubleshooting.
+  - type: upload
+    id: attachments
+    attributes:
+      label: Screenshots or files
+      description: Add screenshots or other diagnostic files if useful. Remove private information first.
