@@ -2,8 +2,8 @@ import { useId } from "react";
 
 /**
  * A quiet trend line for a metric cell: no axes, labels, or tooltip, drawn in
- * `currentColor` with a soft vertical fade so it stays behind the figure it
- * supports. Values are percentages on a fixed 0–100 scale, so a flat line means a
+ * `currentColor` with a soft vertical fade so it stays visually secondary
+ * to the figure it supports. Values are percentages on a fixed 0–100 scale, so a flat line means a
  * steady share, never an exaggerated wobble. A null value (an hour with no
  * measurement) breaks the line instead of being drawn as zero.
  */
@@ -42,8 +42,9 @@ export function Sparkline({
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity={0.18} />
-          <stop offset="100%" stopColor="currentColor" stopOpacity={0.02} />
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.16} />
+          <stop offset="70%" stopColor="currentColor" stopOpacity={0.06} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
         </linearGradient>
       </defs>
       {runs
@@ -64,8 +65,8 @@ export function Sparkline({
                 d={line}
                 fill="none"
                 stroke="currentColor"
-                strokeOpacity={0.6}
-                strokeWidth={1.25}
+                strokeOpacity={0.7}
+                strokeWidth={1.4}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
