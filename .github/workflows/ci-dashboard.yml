@@ -30,7 +30,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # Include the Dashboard workspace and root tools such as Prettier.
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - name: Scan changed Studio files for untranslated strings
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         working-directory: apps/dashboard
@@ -101,7 +102,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - name: Run coverage-enabled Vitest shard
         working-directory: apps/dashboard
         run: |
@@ -147,7 +148,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - uses: actions/download-artifact@v7
         with:
           pattern: dashboard-vitest-shard-*
@@ -174,5 +175,5 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
       - run: npm run build

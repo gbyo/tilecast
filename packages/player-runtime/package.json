@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@tilecast/presentation-model": "*",
+    "@tilecast/plugin-sdk": "*",
     "qrcode-generator": "^2.0.4",
     "@tilecast/widget-sdk": "*",
     "@tilecast/widget-kit": "*"

@@ -23,7 +23,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # The selected workspace pulls its Player Runtime dependency from the root lockfile.
+      - run: npm ci --workspace @gibsonmb71/tilecast-player-linux
       # The Linux Player imports the runtime's compiled Node entry points.
       - run: npm run build:node --workspace @tilecast/player-runtime
       - run: npm run player:linux:test
@@ -40,7 +41,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --workspace @gibsonmb71/tilecast-player-linux
       - run: npm run build:node --workspace @tilecast/player-runtime
       - name: Create test-only release signing keys
         run: |

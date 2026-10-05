@@ -25,6 +25,7 @@
     "@tanstack/react-table": "^9.2.4",
     "@tilecast/api-schema": "*",
     "@tilecast/design-tokens": "*",
+    "@tilecast/plugin-sdk": "*",
     "@tilecast/widget-kit": "*",
     "@tilecast/widget-sdk": "*",
     "class-variance-authority": "^0.7.1",

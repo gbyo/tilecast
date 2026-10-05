@@ -36,6 +36,8 @@ Detection runs only the dependency-free affected-area graph tests before classif
 
 Dashboard formatting and lint, the production build, and two coverage-enabled Vitest shards run as independent jobs. Each shard publishes its JUnit report. The coverage job merges the Vitest blob reports before it writes the coverage summary and artifact. The required Dashboard workflow does not pass if a selected job fails.
 
+Node CI jobs use the root `package-lock.json` with a workspace filter when one application is sufficient. Dashboard CI installs `@tilecast/dashboard` and the root tools used by formatting. Linux Player CI installs `@gibsonmb71/tilecast-player-linux` and its linked workspace dependencies, including Player Runtime. A full local workspace install still uses `npm ci`.
+
 HTTP rules identify files with Player endpoints and shared routing or authentication. The Player configuration, manifest, and media delivery handlers have separate files. Settings, users, dashboard authentication, backups, notifications, and content administration select server and production browser validation. They do not select Players. A source contract test requires each Player handler to retain its consumer mapping.
 
 Manifest, layout, and Player configuration JSON schemas select Player consumers. The activity fixtures select activity parity. Reserved schema package metadata selects server, Studio, and CLI contracts. Schema package README files select documentation only. New API schema files and unknown shared packages select all areas until their consumers have a rule.

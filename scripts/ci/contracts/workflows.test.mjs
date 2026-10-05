@@ -192,6 +192,36 @@ test("Dashboard validation runs independently and keeps coverage across shards",
   );
 });
 
+test("Dashboard and Linux Player install only their npm workspace graphs", () => {
+  const dashboard = parse(
+    readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
+  );
+  for (const name of ["lint", "tests", "build", "coverage"]) {
+    const dashboardInstall = dashboard.jobs[name].steps.find((step) =>
+      /^npm ci/.test(step.run ?? ""),
+    );
+    assert.equal(
+      dashboardInstall?.run,
+      "npm ci --workspace @tilecast/dashboard --include-workspace-root",
+      `Dashboard CI ${name} needs its workspace and root tooling, but not every workspace`,
+    );
+  }
+
+  const linux = parse(
+    readFileSync(".github/workflows/validate-linux.yml", "utf8"),
+  );
+  for (const name of ["validate", "release_contract"]) {
+    const linuxInstall = linux.jobs[name].steps.find((step) =>
+      /^npm ci/.test(step.run ?? ""),
+    );
+    assert.equal(
+      linuxInstall?.run,
+      "npm ci --workspace @gibsonmb71/tilecast-player-linux",
+      `Linux Player CI ${name} should use its lockfile-resolved workspace graph`,
+    );
+  }
+});
+
 test("Dashboard and Server jobs publish timing summaries with read-only Actions access", () => {
   // Dashboard CI measures each Vitest shard; Server CI is one job.
   for (const [file, jobName, reportArg] of [

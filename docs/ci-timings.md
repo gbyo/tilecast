@@ -75,3 +75,7 @@ On 2026-09-30, the full server CI test command ran locally against PostgreSQL 18
 | `-p 8` repeat   |    2.67 s | 54 packages passed |
 
 These local runs show that package-level parallelism reduced elapsed time on this host. They do not predict GitHub runner timing. Each measured run executed the tests with result caching disabled.
+
+## Workspace-scoped Node installs
+
+On 2026-09-30, npm 10.9.4 resolved the root lockfile in dry-run mode on macOS. The full workspace selected 1,653 packages. Dashboard plus root tooling selected 888 packages, and Linux Player plus its workspace dependency graph selected 626 packages. These are reductions of 46% and 62% in selected packages. The dry run does not download or extract packages, so it does not measure install time. Record GitHub install-step timings after CI runs with the scoped commands before treating this as a time saving.
