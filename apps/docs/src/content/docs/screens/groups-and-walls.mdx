@@ -1,0 +1,28 @@
+---
+title: Groups and walls
+description: Group screens that share content and schedules, or arrange them as one video wall.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+Use a **Display Group** when several screens should share fallback content, schedules, and synchronized playback. Use a Span video wall when the screens in a group should act as panels of one picture.
+
+<CardGrid>
+  <LinkCard
+    title="Manage Display Groups"
+    description="Group screens that should share fallback content, schedules, and synchronized playback."
+    href="../display-groups/"
+  />
+  <LinkCard
+    title="Build a Span video wall"
+    description="Arrange a Display Group as panels of one shared canvas and prepare content for each screen."
+    href="../span-video-walls/"
+  />
+  <LinkCard
+    title="Set Player policies"
+    description="Choose organization defaults and override them for a Display Group or an individual screen."
+    href="../../administration/player-policies/"
+  />
+</CardGrid>
+
+To apply one supported change to several screens at once, see [Bulk screen changes](../bulk-changes/).

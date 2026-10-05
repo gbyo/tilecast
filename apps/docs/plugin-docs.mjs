@@ -49,7 +49,9 @@ export function pluginDocPages() {
 }
 
 /**
- * Starlight sidebar items for one group.
+ * Starlight sidebar items for one group. The sidebar in astro.config.mjs does
+ * not use this today: plugin pages are linked from the plugin catalog page
+ * instead. Use it to list a group by hand.
  * @param {string} group
  */
 export function pluginSidebarItems(group) {

@@ -56,7 +56,7 @@ impl Default for SupervisorConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SupervisorState {
+pub(crate) struct SupervisorState {
     pub last_progress_at_ms: i64,
     pub healthy_since_ms: Option<i64>,
     pub escalation_step: usize,
@@ -146,7 +146,7 @@ pub enum Expectation {
 /// (`*_alive`) count only for indefinite content, frame changes only where
 /// motion is expected, and an empty widget is not progress. This is the
 /// guard that keeps a player from reporting healthy over a frozen display.
-pub fn is_meaningful(kind: ProgressEvidence, expectation: Expectation) -> bool {
+pub(crate) fn is_meaningful(kind: ProgressEvidence, expectation: Expectation) -> bool {
     match kind {
         ProgressEvidence::ItemStarted
         | ProgressEvidence::ItemTransition

@@ -6,12 +6,12 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "check": "node scripts/generate-content-reference.mjs --check && node --test plugin-docs.test.mjs src/setup-advisor/model.test.ts && astro check",
-    "build": "node scripts/generate-content-reference.mjs --check && astro build && node scripts/check-links.mjs",
+    "check": "node scripts/generate-content-reference.mjs --check && node scripts/check-redirects.mjs && node --test plugin-docs.test.mjs scripts/redirect-rules.test.mjs src/setup-advisor/model.test.ts && astro check",
+    "build": "node scripts/generate-content-reference.mjs --check && node scripts/check-redirects.mjs && astro build && node scripts/check-links.mjs && node scripts/check-redirects.mjs --dist && node scripts/check-navigation.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "generate:content-reference": "node scripts/generate-content-reference.mjs",
-    "test": "node --test plugin-docs.test.mjs src/setup-advisor/model.test.ts"
+    "test": "node --test plugin-docs.test.mjs scripts/redirect-rules.test.mjs src/setup-advisor/model.test.ts"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",

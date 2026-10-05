@@ -1,0 +1,63 @@
+---
+title: Manage Tilecast
+description: Monitor your screens, manage accounts and settings, and look after the server after setup.
+---
+
+Use these pages after Tilecast is running. They cover checking on screens, deciding who can sign in, changing installation settings, and protecting the server. Most settings are under **Settings** in Studio. Some pages need the **Owner** or **Administrator** role, and each page says so.
+
+## Fleet health and Activity
+
+Check what your screens are doing now and what happened earlier.
+
+- [Read the Overview](../operations/overview/) to see which screens need attention and what happens next.
+- [Read Activity reports](../operations/activity/) to review Player-confirmed playback, compliance, and incidents.
+- [Understand a screen's status](../operations/screen-status/) when a display looks offline or needs attention.
+- [Send a Player command](../operations/player-commands/) to request a sync, playback reload, cache clear, or restart.
+
+If something is not working, start with [Troubleshooting](../troubleshooting/).
+
+## Live preview
+
+- [View a live preview or stream](../operations/live-preview/) to check what a connected Player is showing.
+- [Review Snapshot history](../operations/snapshot-history/) to look back at earlier screenshots from a screen.
+
+## Temporary presentations
+
+Show something now without editing a schedule.
+
+- [Temporary presentations](../operations/temporary-presentations/) explains Quick Present, AirPlay, and Takeover, and what plays first when more than one is active.
+
+## Users and access
+
+- [Manage users and roles](../administration/users-and-roles/) to create accounts, limit screen access, or suspend an account.
+- [Protect Studio accounts](../administration/sign-in-security/) to enroll a second factor or require one for some or all accounts.
+- [My Account and preferences](../administration/account/) for each person's language, appearance, and sign-in factors.
+
+## Organization settings
+
+- [Organization settings](../administration/organization/) for your organization name and regional formatting.
+- [Language and regional settings](../administration/language-regional/) to separate personal Studio language from shared signage formatting.
+- [Branding](../administration/branding/) for the screens Tilecast itself draws on a Player.
+- [Locations](../administration/locations/) for reusable place metadata and targeting.
+- [Content and playback settings](../administration/content-settings/) for organization defaults.
+- [Set Player policies](../administration/player-policies/) to set organization defaults or override them for a Display Group or screen.
+- [Import and export settings](../administration/import-export/) to move supported settings between installations without secrets.
+- [System settings and health](../administration/system/) to check installation status and run the maintenance actions Studio offers.
+- [Dependency Graph](../administration/dependency-graph/) to trace where content is used before you change it.
+
+## Networking and remote access
+
+- [Networking and remote access](../administration/networking/) covers server addresses, HTTPS, proxies, tunnels, mDNS, and VLAN boundaries.
+- [Set up a Presentation Network](../administration/presentation-networks/) prepares a Linux Player for AirPlay when the sender cannot reach it over Ethernet.
+- [Check that Players can reach the server](../setup/network-readiness/) tests the route from a Player's network to Tilecast Server.
+
+## Backups and server updates
+
+- [Back up and restore Tilecast](../administration/backups/) to protect the database, media, and cached Player releases.
+- [Update Tilecast Server](../administration/server-updates/) to update a Docker Compose installation and keep a way back.
+- [Update Tilecast Player](../administration/player-updates/) to verify signed Player releases and deploy them to selected screens. This does not update the server.
+
+## Data and retention
+
+- [Data retention](../operations/data-retention/) sets how long Tilecast keeps Activity, audit, diagnostic, and telemetry history.
+- [Snapshot history](../operations/snapshot-history/) has its own capture interval and retention settings.
