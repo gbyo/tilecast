@@ -107,14 +107,13 @@
       "bulkArchiveFailed": "No se pudieron archivar los elementos seleccionados."
     },
     "library": {
-      "descriptionActive": "Imágenes y videos subidos disponibles para listas de reproducción y diseños.",
       "descriptionArchived": "El contenido archivado y vencido permanece aquí hasta que lo restaures o lo elimines de forma permanente.",
       "loadError": "No se pudo cargar la biblioteca multimedia",
       "loading": "Cargando multimedia…",
       "title": "Multimedia",
-      "totalAssets_one": "{{count}} archivo multimedia.",
-      "totalAssets_other": "{{count}} archivos multimedia.",
-      "totalAssets_many": "{{count}} archivos multimedia.",
+      "totalAssets_one": "{{count}} archivo multimedia",
+      "totalAssets_other": "{{count}} archivos multimedia",
+      "totalAssets_many": "{{count}} archivos multimedia",
       "uploadAssets": "Subir archivos",
       "viewArchive": "Archivo",
       "viewLabel": "Vista de la biblioteca",

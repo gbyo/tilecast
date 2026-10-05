@@ -162,7 +162,6 @@ import type {
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { PageHeader } from "../components/PageHeader";
 import { FallbackImagePicker } from "../content/FallbackImagePicker";
 import { EditorHeaderActions } from "../content/EditorHeaderActions";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
@@ -478,6 +477,10 @@ export function ContentPage() {
     [assets.data],
   );
   const libraryTotal = assets.data?.pages[0]?.total;
+  // The empty state already explains the archive, so the lifecycle note is
+  // only shown while there is something to act on.
+  const archiveIsEmpty =
+    !assets.isLoading && !!assets.data && libraryItems.length === 0;
   const folders = useQuery({
     ...contentQueries.folders(),
   });
@@ -769,49 +772,46 @@ export function ContentPage() {
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
-      <PageHeader
-        title={t("media.library.title")}
-        description={
-          <>
-            {libraryView === "active"
-              ? t("media.library.descriptionActive")
-              : t("media.library.descriptionArchived")}
+      <h1 className="sr-only">{t("media.library.title")}</h1>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <SingleToggleGroup
+              label={t("media.library.viewLabel")}
+              value={libraryView}
+              onChange={setLibraryView}
+              options={[
+                {
+                  value: "active",
+                  label: t("media.library.viewLibrary"),
+                  text: t("media.library.viewLibrary"),
+                },
+                {
+                  value: "archive",
+                  label: t("media.library.viewArchive"),
+                  text: t("media.library.viewArchive"),
+                },
+              ]}
+            />
             {typeof libraryTotal === "number" && (
-              <>
-                {" "}
-                {t("media.library.totalAssets", {
-                  count: libraryTotal,
-                })}
-              </>
+              <p className="text-sm text-muted-foreground tabular-nums">
+                {t("media.library.totalAssets", { count: libraryTotal })}
+              </p>
             )}
-          </>
-        }
-        actions={
-          canManage && libraryView === "active" ? (
+          </div>
+          {canManage && libraryView === "active" && (
             <Button type="button" onClick={() => fileInput.current?.click()}>
               <Upload size={16} aria-hidden="true" />{" "}
               {t("media.library.uploadAssets")}
             </Button>
-          ) : undefined
-        }
-      />
-      <SingleToggleGroup
-        label={t("media.library.viewLabel")}
-        value={libraryView}
-        onChange={setLibraryView}
-        options={[
-          {
-            value: "active",
-            label: t("media.library.viewLibrary"),
-            text: t("media.library.viewLibrary"),
-          },
-          {
-            value: "archive",
-            label: t("media.library.viewArchive"),
-            text: t("media.library.viewArchive"),
-          },
-        ]}
-      />
+          )}
+        </div>
+        {libraryView === "archive" && !archiveIsEmpty && (
+          <p className="max-w-prose text-sm text-muted-foreground">
+            {t("media.library.descriptionArchived")}
+          </p>
+        )}
+      </div>
       <input
         ref={fileInput}
         className="visually-hidden"

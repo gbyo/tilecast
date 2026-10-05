@@ -101,13 +101,12 @@
       "bulkArchiveFailed": "Could not archive the selected items."
     },
     "library": {
-      "descriptionActive": "Uploaded images and videos available to playlists and Layouts.",
       "descriptionArchived": "Archived and expired content stays here until you restore or permanently delete it.",
       "loadError": "The media library could not be loaded",
       "loading": "Loading media…",
       "title": "Media",
-      "totalAssets_one": "{{count}} asset.",
-      "totalAssets_other": "{{count}} assets.",
+      "totalAssets_one": "{{count}} asset",
+      "totalAssets_other": "{{count}} assets",
       "uploadAssets": "Upload assets",
       "viewArchive": "Archive",
       "viewLabel": "Library view",
