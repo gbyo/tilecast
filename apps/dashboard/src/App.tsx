@@ -528,7 +528,7 @@ export const studioRoutes: RouteObject[] = [
                   breadcrumb: "Explore",
                   search: search(
                     "Plugins: Explore",
-                    "Browse plugins included with this Tilecast release",
+                    "Browse optional Tilecast plugins and integrations",
                     "/plugins/store",
                     ["add plugin", "plugin store", "integrations"],
                   ),
