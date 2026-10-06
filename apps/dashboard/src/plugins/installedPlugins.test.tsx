@@ -288,23 +288,25 @@ describe("Installed plugins list", () => {
 });
 
 describe("Plugin store", () => {
-  it("explores uninstalled plugins with search and category filters", async () => {
+  it("explores all plugins with installed state, search, and category filters", async () => {
     const user = userEvent.setup();
     renderStore();
     expect(await screen.findByText("Countdown Bar")).toBeVisible();
     expect(screen.getByText("Emergency Alerts")).toBeVisible();
-    expect(screen.queryByText("Transit Alerts")).toBeNull();
+    expect(screen.getByText("Transit Alerts")).toBeVisible();
+    expect(screen.getAllByText("Installed")).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Automation" }));
     expect(screen.getByText("Emergency Alerts")).toBeVisible();
+    expect(screen.getByText("Transit Alerts")).toBeVisible();
     expect(screen.queryByText("Countdown Bar")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "All" }));
+    await user.clear(screen.getByRole("textbox", { name: "Search plugins" }));
     await user.type(
       screen.getByRole("textbox", { name: "Search plugins" }),
       "transit",
     );
-    // An installed plugin reappears when a search matches it, marked.
     expect(screen.getByText("Transit Alerts")).toBeVisible();
     expect(screen.getByText("Installed")).toBeVisible();
     expect(screen.queryByText("Countdown Bar")).toBeNull();
@@ -351,6 +353,14 @@ describe("Plugin store", () => {
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
   });
 
+  it("shows a load error instead of not-found for a failed store request", async () => {
+    override = () =>
+      json(500, { error: { code: "internal_error", message: "Offline." } });
+    renderStore("/plugins/store/emergency_alerts");
+    expect(await screen.findByText("This plugin could not be loaded.")).toBeVisible();
+    expect(screen.queryByText("Plugin not found")).toBeNull();
+  });
+
   it("redirects legacy ?add= addresses to the store", async () => {
     renderStore("/plugins?add=emergency_alerts");
     await waitFor(() =>
@@ -384,7 +394,13 @@ describe("Plugin store", () => {
     const entries = catalog.map(storeEntry);
     expect(
       filterStoreEntries(entries, "", "All").map((entry) => entry.packageId),
-    ).toEqual(["countdown_bar", "emergency_alerts", "lobby_signs"]);
+    ).toEqual([
+      "forms",
+      "transit_alerts",
+      "countdown_bar",
+      "emergency_alerts",
+      "lobby_signs",
+    ]);
     expect(
       filterStoreEntries(entries, "", "Display").map(
         (entry) => entry.packageId,
@@ -399,7 +415,13 @@ describe("Plugin store", () => {
       filterStoreEntries(entries, "", "All", "included").map(
         (entry) => entry.packageId,
       ),
-    ).toEqual(["countdown_bar", "emergency_alerts", "lobby_signs"]);
+    ).toEqual([
+      "forms",
+      "transit_alerts",
+      "countdown_bar",
+      "emergency_alerts",
+      "lobby_signs",
+    ]);
     expect(filterStoreEntries(entries, "", "All", "marketplace")).toEqual([]);
   });
 });
