@@ -2665,6 +2665,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugin-store/marketplace/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails. */
+    post: operations["refreshMarketplaceCatalog"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/screens/pairing/{id}/reject": {
     parameters: {
       query?: never;
@@ -7286,20 +7303,55 @@ export interface components {
         installedAt: string;
       }[];
     };
-    /** @description Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository. */
+    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know. */
     PluginStoreSource: {
       kind: string;
       catalogId?: string;
       repository?: string;
     };
-    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes. */
+    /** @description One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry. */
+    PluginStoreMarketplace: {
+      version: string;
+      name: string;
+      description?: string;
+      publisherId: string;
+      publisherName: string;
+      license?: string;
+      tilecastRange: string;
+      /** @description Pinned artifact digest as sha256 colon hex. */
+      digest: string;
+      /**
+       * Format: uri
+       * @description Public source repository as an https URL with a host and path.
+       */
+      repository: string;
+      /** Format: uri */
+      documentation?: string;
+      /** Format: uri */
+      issues?: string;
+      compatible: boolean;
+      installed: boolean;
+      installedVersion?: string;
+      updateAvailable: boolean;
+    };
+    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here. */
+    PluginMarketplaceStatus: {
+      configured: boolean;
+      /** Format: date-time */
+      fetchedAt?: string;
+      stale: boolean;
+      error?: string;
+    };
+    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present. */
     PluginStoreEntry: {
       packageId: string;
       source: components["schemas"]["PluginStoreSource"];
-      plugin: components["schemas"]["CatalogPlugin"];
+      plugin?: components["schemas"]["CatalogPlugin"];
+      marketplace?: components["schemas"]["PluginStoreMarketplace"];
     };
     PluginStore: {
       items: components["schemas"]["PluginStoreEntry"][];
+      marketplace: components["schemas"]["PluginMarketplaceStatus"];
       /** @description Installation rows naming plugins this release does not know. Preserved and inert. */
       unsupportedInstallations: {
         pluginId: string;
@@ -18621,6 +18673,58 @@ export interface operations {
       };
       /** @description plugin_not_found — no store entry carries this package ID */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  refreshMarketplaceCatalog: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Marketplace cache status */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              marketplace: components["schemas"]["PluginMarketplaceStatus"];
+            };
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_not_configured — no catalog URL is configured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_refresh_failed — the catalog fetch or signature check failed */
+      502: {
         headers: {
           [name: string]: unknown;
         };
