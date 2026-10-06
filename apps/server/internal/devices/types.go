@@ -103,9 +103,10 @@ type PollResult struct {
 }
 
 type EnrollmentResult struct {
-	ScreenID         uuid.UUID `json:"screenId"`
-	ScreenName       string    `json:"screenName"`
-	DeviceCredential string    `json:"deviceCredential"`
+	ScreenID         uuid.UUID       `json:"screenId"`
+	ScreenName       string          `json:"screenName"`
+	DeviceCredential string          `json:"deviceCredential"`
+	BrowserSession   *BrowserSession `json:"-"`
 }
 
 type MapCoordinates struct {
@@ -177,12 +178,13 @@ type Screen struct {
 type Status string
 
 const (
-	StatusOnline   Status = "online"
-	StatusRecent   Status = "recent"
-	StatusStale    Status = "stale"
-	StatusOffline  Status = "offline"
-	StatusDisabled Status = "disabled"
-	StatusRevoked  Status = "revoked"
+	StatusOnline         Status = "online"
+	StatusRecent         Status = "recent"
+	StatusStale          Status = "stale"
+	StatusOffline        Status = "offline"
+	StatusDisabled       Status = "disabled"
+	StatusRevoked        Status = "revoked"
+	StatusAwaitingPlayer Status = "awaiting_player"
 )
 
 type DevicePrincipal struct {

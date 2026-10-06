@@ -17,6 +17,7 @@
 export * from "./types";
 export * from "./content-types";
 export * from "./render-tree";
+export { projectManifestItems } from "./items";
 export { renderLayout, spanViewport } from "./layout-render";
 export { renderWidget } from "./widget-render";
 export { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";

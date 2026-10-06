@@ -94,6 +94,7 @@ func (s *server) routes() chi.Router {
 		api.With(s.pairingRateLimit).Post("/player/pairing-sessions", s.createPairingSession)
 		api.Get("/player/pairing-sessions/{id}", s.pollPairingSession)
 		api.With(s.pairingRateLimit).Post("/player/enroll", s.enrollPlayer)
+		s.mountBrowserPlayer(api)
 		api.With(s.requireDevice).Post("/player/heartbeat", s.playerHeartbeat)
 		api.With(s.requireDevice).Get("/player/socket", s.playerSocket)
 		api.With(s.requireDevice).Get("/player/live-stream-session", s.playerLiveStreamSession)
@@ -406,6 +407,9 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles(contentAuthors...), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Delete("/uploads/{id}", s.cancelUpload)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("read")).Get("/system/media-diagnostics", s.mediaDiagnostics)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("read")).Get("/screens/pairing/pending", s.listPendingPairings)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write"), s.browserBoundary).Post("/screens/browser", s.createBrowserSlot)
+			dashboard.With(s.requireScreenScope, s.requireRoles("owner", "administrator"), s.requireScope("read")).Get("/screens/{id}/browser", s.getBrowserSlot)
+			dashboard.With(s.requireScreenScope, s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin"), s.browserBoundary).Put("/screens/{id}/browser/recovery", s.setBrowserRecovery)
 			dashboard.With(s.codeRateLimit, s.requireScope("write")).Post("/screens/pairing/resolve", s.resolvePairing)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/screens/pairing/{id}/approve", s.approvePairing)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/screens/pairing/{id}/reject", s.rejectPairing)
@@ -422,6 +426,8 @@ func (s *server) routes() chi.Router {
 		// the core routes already registered above.
 		s.mountPluginRoutes(api)
 	})
+	r.Handle("/player", web.PlayerHandler())
+	r.Handle("/player/*", web.PlayerHandler())
 	r.Handle("/*", web.Handler())
 	return r
 }

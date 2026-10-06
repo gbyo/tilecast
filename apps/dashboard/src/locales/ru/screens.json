@@ -421,12 +421,14 @@
     "offline": "Не в сети",
     "disabled": "Отключён",
     "revoked": "Подключение отозвано",
+    "awaiting_player": "Ожидание плеера",
     "unknown": "Неизвестно",
     "attention": "Требует внимания",
     "updating": "Обновляется",
     "syncing": "Синхронизируется"
   },
   "platform": {
+    "browser": "Browser Player",
     "linux": "Linux",
     "fireTv": "Fire TV",
     "googleTv": "Google TV",

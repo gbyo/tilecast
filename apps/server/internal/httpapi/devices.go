@@ -86,6 +86,15 @@ func (s *server) enrollPlayer(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) requireDevice(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, browserCookieErr := browserCookieOf(r)
+		if r.Header.Get("Authorization") == "" && browserCookieErr == nil {
+			principal, ok := s.authenticateBrowserRequest(w, r)
+			if !ok {
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(withContext(r.Context(), deviceContextKey, principal)))
+			return
+		}
 		credential, ok := parseAuthorization(r.Header.Get("Authorization"), "Bearer")
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "device_credential_required", "A device credential is required.")

@@ -7,10 +7,11 @@
     "apps/dashboard",
     "apps/docs",
     "apps/player-linux",
+    "apps/player-web",
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @tilecast/dashboard",
+    "build": "npm run build --workspace @tilecast/dashboard && npm run build --workspace @tilecast/player-web",
     "dev": "npm run dev --workspace @tilecast/dashboard",
     "docs:dev": "npm run dev --workspace @tilecast/docs --",
     "docs:check": "npm run check --workspace @tilecast/docs",

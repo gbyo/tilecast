@@ -738,7 +738,8 @@
     "stale": "Obsoleta",
     "offline": "Sin conexión",
     "disabled": "Deshabilitada",
-    "revoked": "Vinculación revocada"
+    "revoked": "Vinculación revocada",
+    "awaiting_player": "Esperando al reproductor"
   },
   "contentHealth": {
     "loading": "Revisando la salud del contenido…",

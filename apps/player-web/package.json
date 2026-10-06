@@ -1,0 +1,23 @@
+{
+  "name": "@tilecast/player-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "build": "npm run build:node --workspace @tilecast/player-runtime && npm run build:runtime --workspace @tilecast/player-runtime && node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.2.0",
+    "@tilecast/player-runtime": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "fake-indexeddb": "^6.2.4",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.2",
+    "vitest": "^5.0.2"
+  }
+}

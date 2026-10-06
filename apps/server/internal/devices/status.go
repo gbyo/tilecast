@@ -2,6 +2,13 @@ package devices
 
 import "time"
 
+func computeScreenStatus(now time.Time, socketConnected, enabled, activeCredential, awaitingPlayer bool, lastContact *time.Time) Status {
+	if enabled && !activeCredential && awaitingPlayer {
+		return StatusAwaitingPlayer
+	}
+	return ComputeStatus(now, socketConnected, enabled, activeCredential, lastContact)
+}
+
 func ComputeStatus(now time.Time, socketConnected, enabled, activeCredential bool, lastContact *time.Time) Status {
 	if !enabled {
 		return StatusDisabled

@@ -76,6 +76,12 @@ const host: TilecastRuntimeHostV1 = {
     setup: true,
     discovery: true,
   },
+  media: {
+    resolve(assetId, variantId) {
+      // The main process validates each request against active manifest media.
+      return `tcmedia://variant/${encodeURIComponent(assetId)}/${encodeURIComponent(variantId)}`;
+    },
+  },
   subscribe(listener) {
     listeners.add(listener);
     if (lastPresentation) listener(lastPresentation);

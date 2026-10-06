@@ -128,6 +128,30 @@ const playing = (items: RuntimeItem[]): RuntimePresentation => ({
 });
 
 describe("projection of widget and layout references", () => {
+  it("uses explicit browser media bindings through the same layout projector", () => {
+    const uri = "/player/media/3/opaque-capability";
+    const projector = createProjector({
+      ...projection,
+      media: [{ assetId: ASSET, variantId: VARIANT, uri }],
+    })!;
+    const projected = projector.project(
+      playing([item("layout-1", "layout", { layout: { layoutId: LAYOUT } })]),
+      Date.UTC(2026, 8, 1),
+    );
+    expect(JSON.stringify(projected)).toContain(uri);
+    expect(JSON.stringify(projected)).not.toContain("tcmedia:");
+  });
+
+  it("rejects missing media grants instead of inventing a native scheme URL", () => {
+    const projector = createProjector({ ...projection, media: [] })!;
+    expect(() =>
+      projector.project(
+        playing([item("layout-1", "layout", { layout: { layoutId: LAYOUT } })]),
+        Date.UTC(2026, 8, 1),
+      ),
+    ).toThrow("not authorized");
+  });
+
   it("projects with the reference code and capability media", () => {
     const projector = createProjector(projection)!;
     const projected = projector.project(

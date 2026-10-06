@@ -454,7 +454,8 @@ const statusContent: Record<
       | "status.stale"
       | "status.offline"
       | "status.disabled"
-      | "status.revoked";
+      | "status.revoked"
+      | "status.awaiting_player";
     Icon: typeof Wifi;
   }
 > = {
@@ -464,6 +465,7 @@ const statusContent: Record<
   offline: { labelKey: "status.offline", Icon: WifiOff },
   disabled: { labelKey: "status.disabled", Icon: ShieldOff },
   revoked: { labelKey: "status.revoked", Icon: ShieldOff },
+  awaiting_player: { labelKey: "status.awaiting_player", Icon: WifiOff },
 };
 
 export function ScreensWorkspacePage() {
@@ -2080,6 +2082,7 @@ function updateLabel(value: string, t: ScreensT) {
 
 export function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
+  if (normalized === "browser") return t("platform.browser");
   if (normalized === "linux") return t("platform.linux");
   if (normalized.includes("fire")) return t("platform.fireTv");
   if (normalized.includes("google")) return t("platform.googleTv");

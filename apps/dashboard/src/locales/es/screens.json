@@ -413,12 +413,14 @@
     "offline": "Sin conexión",
     "disabled": "Deshabilitada",
     "revoked": "Emparejamiento revocado",
+    "awaiting_player": "Esperando al reproductor",
     "unknown": "Desconocido",
     "attention": "Requiere atención",
     "updating": "Actualizando",
     "syncing": "Sincronizando"
   },
   "platform": {
+    "browser": "Browser Player",
     "linux": "Linux",
     "fireTv": "Fire TV",
     "googleTv": "Google TV",

@@ -25,6 +25,25 @@ selection includes schedule reasoning, manifest synchronization, and Widget
 capability assessment. These reports do not prove actual playback. See
 [Playback Plan evidence](playback-plan.md) for the contract and limits.
 
+## Browser Player authentication
+
+Browser Player is under implementation. It is not available for deployment.
+The `/api/v1/player/browser/` endpoints provide recovery, enrollment,
+single-use key challenges, session renewal, session metadata, and current Server selection.
+They require same-origin HTTPS requests.
+The session cookie is independent from Studio authentication.
+Shared Player endpoints accept this cookie only for the Browser Player route allowlist.
+Native platform administration and update endpoints do not accept it.
+See [Browser Player architecture](browser-player.md) and the OpenAPI contract.
+
+An Owner or Administrator can create a Browser Player slot through
+`POST /api/v1/screens/browser`.
+The Screen remains `awaiting_player` until enrollment or recovery completes.
+Recovery credentials authorize only that slot.
+Creation and regeneration return the recovery secret once.
+The Server stores only its SHA-256 digest.
+Revoking the Screen also disables recovery and revokes its bindings.
+
 ## System
 
 - `GET /healthz` — process liveness; does not depend on PostgreSQL.

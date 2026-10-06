@@ -121,6 +121,7 @@ export function formatPairingExpiry(expiresAt: string, locale: string): string {
 
 export function platformLabel(value: string, t: PairingT): string {
   const normalized = value.toLowerCase();
+  if (normalized === "browser") return t("platform.browser");
   if (normalized === "linux") return t("platform.linux");
   if (normalized.includes("fire")) return t("platform.fireTv");
   if (normalized.includes("google")) return t("platform.googleTv");

@@ -541,7 +541,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 
 // screenFamilySQL is the Player release family of screen s (joined with its
 // status as ps): what the player reported, or what its platform always meant.
-const screenFamilySQL = `COALESCE(ps.player_family,CASE WHEN s.platform='linux' THEN 'electron-linux' WHEN s.platform='windows' THEN 'windows' ELSE 'android' END)`
+const screenFamilySQL = `CASE WHEN s.platform='browser' THEN 'browser' ELSE COALESCE(ps.player_family,CASE WHEN s.platform='linux' THEN 'electron-linux' WHEN s.platform='windows' THEN 'windows' ELSE 'android' END) END`
 
 func familyLabel(family string) string {
 	switch family {

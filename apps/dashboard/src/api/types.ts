@@ -165,7 +165,13 @@ export type SetupInput = {
 export type LoginInput = { username: string; password: string };
 
 export type ScreenStatus =
-  "online" | "recent" | "stale" | "offline" | "disabled" | "revoked";
+  | "online"
+  | "recent"
+  | "stale"
+  | "offline"
+  | "disabled"
+  | "revoked"
+  | "awaiting_player";
 
 export type Location = {
   id: string;
@@ -1361,7 +1367,8 @@ export type PlayerPlatform = "android" | "linux" | "windows";
  * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`);
  * a deployment reaches only screens of its release's family.
  */
-export type PlayerFamily = "android" | "electron-linux" | "edge" | "windows";
+export type PlayerFamily =
+  "android" | "electron-linux" | "edge" | "windows" | "browser";
 export type PlayerRelease = {
   id: string;
   tag: string;

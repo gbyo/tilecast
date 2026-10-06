@@ -185,8 +185,7 @@ func (s *Service) ListScreensForUser(ctx context.Context, user uuid.UUID, role s
 	}
 	rows, err := s.db.Query(ctx, screenSelect+`
 		WHERE s.archived_at IS NULL
-		  AND EXISTS (SELECT 1 FROM device_credentials c
-		              WHERE c.screen_id=s.id AND c.revoked_at IS NULL)
+		  AND `+liveScreenSQL+`
 		  AND `+InScopeSQL("s", "$1")+`
 		ORDER BY s.name ASC LIMIT 500`, user)
 	if err != nil {

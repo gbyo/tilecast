@@ -682,5 +682,11 @@
     "file": "00115_alert_banner_v2.sql",
     "owner": "core",
     "sha256": "a5d997f023d32016f8adea211a6f069c80afb566cec224ea285bb3f587a2de1f"
+  },
+  {
+    "version": 116,
+    "file": "00116_browser_player_identity.sql",
+    "owner": "core",
+    "sha256": "85597ce22dcd068a3474396cc7c62c186ebd8d2094376b7130bd6e984101493d"
   }
 ]

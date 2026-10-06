@@ -36,6 +36,7 @@ const statusLabelKeys = {
   offline: "status.offline",
   disabled: "status.disabled",
   revoked: "status.revoked",
+  awaiting_player: "status.awaiting_player",
 } as const satisfies Record<ScreenStatus, string>;
 
 export function ScreenFleetTable({
@@ -377,6 +378,7 @@ function StatusBadge({ status }: { status: ScreenStatus }) {
 
 function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
+  if (normalized === "browser") return t("platform.browser");
   if (normalized === "linux") return t("platform.linux");
   if (normalized.includes("fire")) return t("platform.fireTv");
   if (normalized.includes("google")) return t("platform.googleTv");

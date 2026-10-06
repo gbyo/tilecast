@@ -60,6 +60,7 @@ export const screenStatusKeys = {
   offline: "status.offline",
   disabled: "status.disabled",
   revoked: "status.revoked",
+  awaiting_player: "status.awaiting_player",
 } as const satisfies Record<ScreenStatus, string>;
 
 /** Fleet's vocabulary: anything Fleet flags reads "Needs attention". */

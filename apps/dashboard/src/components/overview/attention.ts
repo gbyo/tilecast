@@ -125,6 +125,7 @@ export function summarizeFleet(screens: Screen[]): FleetSummary {
     offline: 0,
     disabled: 0,
     revoked: 0,
+    awaiting_player: 0,
   };
   for (const screen of screens) byStatus[screen.status] += 1;
   return { total: screens.length, online: byStatus.online, byStatus };

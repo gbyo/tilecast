@@ -29,6 +29,27 @@ var (
 const maxPresentationCapabilities = 128
 
 func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentToken string) (EnrollmentResult, error) {
+	return s.enroll(ctx, sessionID, enrollmentToken, nil)
+}
+
+func (s *Service) EnrollBrowser(ctx context.Context, sessionID uuid.UUID, enrollmentToken string, registration BrowserRegistration) (BrowserSession, error) {
+	if registration.InstallationID == uuid.Nil {
+		return BrowserSession{}, ErrInvalidCredential
+	}
+	if _, err := registration.PublicKey.parse(); err != nil {
+		return BrowserSession{}, err
+	}
+	result, err := s.enroll(ctx, sessionID, enrollmentToken, &registration)
+	if err != nil {
+		return BrowserSession{}, err
+	}
+	if result.BrowserSession == nil {
+		return BrowserSession{}, ErrInvalidCredential
+	}
+	return *result.BrowserSession, nil
+}
+
+func (s *Service) enroll(ctx context.Context, sessionID uuid.UUID, enrollmentToken string, browser *BrowserRegistration) (EnrollmentResult, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return EnrollmentResult{}, fmt.Errorf("begin enrollment: %w", err)
@@ -59,6 +80,9 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	var metadata DeviceMetadata
 	if err := json.Unmarshal(encodedMetadata, &metadata); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("decode enrollment metadata: %w", err)
+	}
+	if (metadata.Platform == "browser") != (browser != nil) || browser != nil && metadata.PlayerInstallationID != browser.InstallationID.String() {
+		return EnrollmentResult{}, ErrInvalidCredential
 	}
 	publicID, secret, credential, err := newDeviceCredential()
 	if err != nil {
@@ -127,13 +151,30 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	if _, err := tx.Exec(ctx, `UPDATE device_pairing_sessions SET enrolled_at=now(),enrollment_token_hash=NULL WHERE id=$1`, sessionID); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("complete enrollment: %w", err)
 	}
+	var browserSession *BrowserSession
+	if browser != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO browser_player_slots(id,screen_id,recovery_enabled) VALUES($1,$2,FALSE) ON CONFLICT(screen_id) DO NOTHING`, uuid.New(), screenID); err != nil {
+			return EnrollmentResult{}, err
+		}
+		var slotID uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM browser_player_slots WHERE screen_id=$1 FOR UPDATE`, screenID).Scan(&slotID); err != nil {
+			return EnrollmentResult{}, err
+		}
+		bound, err := s.bindBrowser(ctx, tx, BrowserSession{SlotID: slotID, ScreenID: screenID, ScreenName: screenName}, credentialID, *browser)
+		if err != nil {
+			return EnrollmentResult{}, err
+		}
+		browserSession = &bound
+		// Permanent bearer material never leaves the server for Browser Player.
+		credential = ""
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("commit enrollment: %w", err)
 	}
-	if pairingMode == "hardware_replacement" {
+	if pairingMode == "hardware_replacement" || browser != nil {
 		s.presence.Disconnect(screenID)
 	}
-	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential}, nil
+	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential, BrowserSession: browserSession}, nil
 }
 
 func (s *Service) AuthenticateDevice(ctx context.Context, credential string) (DevicePrincipal, error) {
@@ -220,7 +261,7 @@ func knownPlayerFamily(family, architecture string) (string, string) {
 			architecture = ""
 		}
 		return family, architecture
-	case "android", "electron-linux":
+	case "android", "electron-linux", "browser":
 		return family, ""
 	default:
 		return "", ""

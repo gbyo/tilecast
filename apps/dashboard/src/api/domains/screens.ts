@@ -41,6 +41,7 @@ export function normalizeScreen(
       family === "android" ||
       family === "electron-linux" ||
       family === "edge" ||
+      family === "browser" ||
       family === "windows"
         ? family
         : undefined,

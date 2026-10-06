@@ -13,6 +13,7 @@ build:
 	rm -rf apps/server/internal/web/static
 	mkdir -p apps/server/internal/web/static
 	cp -R apps/dashboard/dist/. apps/server/internal/web/static/
+	cp -R apps/player-web/dist/. apps/server/internal/web/player-static/
 	cd apps/server && go build ./cmd/tilecast-server
 	cd apps/cli && go build ./cmd/tilecast
 	cd apps/player-android && ./gradlew assembleDebug
