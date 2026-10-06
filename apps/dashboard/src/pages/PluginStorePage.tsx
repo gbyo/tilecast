@@ -136,9 +136,7 @@ export function PluginStorePage() {
       <StoreResults
         loading={store.isLoading}
         results={results}
-        filtered={Boolean(
-          query || category !== "All" || source !== "all",
-        )}
+        filtered={Boolean(query || category !== "All" || source !== "all")}
       />
     </main>
   );
