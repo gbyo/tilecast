@@ -3231,21 +3231,6 @@ func (e PluginRequirementKind) Valid() bool {
 	}
 }
 
-// Defines values for PluginStoreSourceKind.
-const (
-	Included PluginStoreSourceKind = "included"
-)
-
-// Valid indicates whether the value is a known member of the PluginStoreSourceKind enum.
-func (e PluginStoreSourceKind) Valid() bool {
-	switch e {
-	case Included:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PowerAssistResult.
 const (
 	PowerAssistResultConfirmedWorking PowerAssistResult = "confirmed_working"
@@ -9274,13 +9259,10 @@ type PluginStoreEntry struct {
 
 // PluginStoreSource Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
 type PluginStoreSource struct {
-	CatalogId  *string               `json:"catalogId,omitempty"`
-	Kind       PluginStoreSourceKind `json:"kind"`
-	Repository *string               `json:"repository,omitempty"`
+	CatalogId  *string `json:"catalogId,omitempty"`
+	Kind       string  `json:"kind"`
+	Repository *string `json:"repository,omitempty"`
 }
-
-// PluginStoreSourceKind defines model for PluginStoreSource.Kind.
-type PluginStoreSourceKind string
 
 // PolicyDocument defines model for PolicyDocument.
 type PolicyDocument struct {
