@@ -246,6 +246,20 @@ describe("Display Groups index", () => {
     renderPage();
     await screen.findByRole("link", { name: "Cafeteria Displays" });
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    const list = screen.getByRole("list");
+    expect(list.tagName).toBe("UL");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    // The name navigates and the menu is its own control, never nested.
+    const first = rows[0] as HTMLElement;
+    const link = within(first).getByRole("link", {
+      name: "Cafeteria Displays",
+    });
+    const menu = within(first).getByRole("button", {
+      name: /Actions for/,
+    });
+    expect(link.contains(menu)).toBe(false);
+    expect(menu.closest("a")).toBeNull();
     expect(screen.getByText("2 screens · all online")).toBeInTheDocument();
     expect(
       screen.getByText("Mirror · Playlist: Lunch rotation"),

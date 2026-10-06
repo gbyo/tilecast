@@ -47,6 +47,30 @@ afterEach(() => {
 });
 
 describe("DisplayGroupDetailPage request states", () => {
+  it("treats any 404 as not found, whatever its code", async () => {
+    stubRelatedQueries();
+    vi.spyOn(api, "screenGroup").mockRejectedValue(
+      new ApiError("Not found", 404, "display_group_not_found"),
+    );
+    renderGroupDetail();
+    expect(
+      await screen.findByRole("heading", { name: "Display Group not found" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not report a server error as not found", async () => {
+    stubRelatedQueries();
+    vi.spyOn(api, "screenGroup").mockRejectedValue(
+      new ApiError("Boom", 500, "internal_error"),
+    );
+    renderGroupDetail();
+    expect(
+      await screen.findByRole("heading", {
+        name: "Display Group could not be loaded",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("keeps the skeleton while loading and offers retry after a failure", async () => {
     stubRelatedQueries();
     let rejectPending!: (reason: Error) => void;

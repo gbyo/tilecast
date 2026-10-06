@@ -47,7 +47,7 @@ Failures produce traces and diagnostic screenshots under `test-results/`.
 | campaign-editor          | `/campaigns/de300008-0000-4000-8000-000000000001`, Homecoming Week draft                                           | Campaigns                                  |
 | schedule-editor          | `/schedules/de300007-0000-4000-8000-000000000003`, Morning Broadcast weekly editor                                 | Schedules                                  |
 | pair-screen              | `/screens` → pending request Review, approval dialog crop                                                          | Pair a display                             |
-| display-group            | `/groups/de300004-0000-4000-8000-000000000001`, Cafeteria Displays Members tab                                     | Display Groups                             |
+| display-group            | `/groups/de300004-0000-4000-8000-000000000001`, Cafeteria Displays Screens tab                                     | Display Groups                             |
 | bulk-change-review       | `/screens/bulk`, select Cafeteria East and Front Office, preview General Information assignment; stop before Apply | Bulk changes                               |
 | live-preview-unavailable | `/screens/de300003-0000-4000-8000-000000000001`, actual Capture error panel crop                                   | Live preview / When preview is unavailable |
 | plugins                  | `/plugins`, installed Countdown Bar                                                                                | Plugins                                    |

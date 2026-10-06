@@ -281,7 +281,9 @@
       "layoutsGroup": "Diseños",
       "fallbackSearch": "Buscar listas de reproducción y diseños…",
       "fallbackNoMatch": "Ninguna presentación coincide",
-      "fallbackHint": "Elige «Sin presentación alternativa» para quitar la asignación."
+      "fallbackHint": "Elige «Sin presentación alternativa» para quitar la asignación.",
+      "discardWallTitle": "¿Descartar los cambios sin guardar del muro?",
+      "discardWallBody": "La configuración del muro de este grupo de pantallas tiene cambios que no se han guardado."
     },
     "createShort": "Crear grupo",
     "updated": "Grupo de pantallas actualizado.",
@@ -376,7 +378,8 @@
       "added_one": "{{count}} pantalla añadida.",
       "added_many": "{{count}} de pantallas añadidas.",
       "added_other": "{{count}} pantallas añadidas.",
-      "addNone": "Añadir pantallas"
+      "addNone": "Añadir pantallas",
+      "selectScreen": "Seleccionar {{name}}"
     },
     "display": {
       "modeTitle": "Modo de pantalla",

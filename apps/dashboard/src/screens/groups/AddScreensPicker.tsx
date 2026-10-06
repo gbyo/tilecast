@@ -43,7 +43,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { toast } from "../../components/ui/toast";
 import { screenKeys, screenQueries } from "../../data/screens";
 import { useCompactLayout } from "../../hooks/use-compact-layout";
-import { screenStatusText } from "./DisplayGroupHealth";
+import { screenStatusText } from "./groupHealthModel";
 import {
   addScreensInBatch,
   groupPath,
@@ -270,6 +270,7 @@ function PickerBody({
 
         {available.length > 0 && (
           <ItemGroup
+            render={<ul />}
             aria-label={t("groups.picker.availableLabel")}
             className="gap-1"
           >
@@ -290,7 +291,7 @@ function PickerBody({
             <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               {t("groups.picker.elsewhereTitle")}
             </h3>
-            <ItemGroup className="gap-1">
+            <ItemGroup render={<ul />} className="gap-1">
               {elsewhere.map((screen) => (
                 <ElsewhereRow key={screen.id} screen={screen} />
               ))}
@@ -316,17 +317,22 @@ function AvailableRow({
 }) {
   const { t } = useTranslation("screens");
   return (
-    <div role="listitem">
+    <li>
+      {/* The checkbox is the control. The row is a larger target that
+          toggles it; the checkbox stops its own click so it counts once. */}
       <Item
         size="sm"
         variant={checked ? "muted" : "default"}
-        render={<label />}
-        className="cursor-pointer"
+        className={disabled ? undefined : "cursor-pointer"}
+        onClick={() => {
+          if (!disabled) onCheckedChange(!checked);
+        }}
       >
         <Checkbox
-          aria-label={screen.name}
+          aria-label={t("groups.picker.selectScreen", { name: screen.name })}
           checked={checked}
           disabled={disabled}
+          onClick={(event) => event.stopPropagation()}
           onCheckedChange={(next) => onCheckedChange(next === true)}
         />
         <ItemContent>
@@ -337,16 +343,20 @@ function AvailableRow({
           </ItemDescription>
         </ItemContent>
       </Item>
-    </div>
+    </li>
   );
 }
 
 function ElsewhereRow({ screen }: { screen: Screen }) {
   const { t } = useTranslation("screens");
   return (
-    <div role="listitem">
+    <li>
       <Item size="sm" className="opacity-80">
-        <Checkbox aria-label={screen.name} checked={false} disabled />
+        <Checkbox
+          aria-label={t("groups.picker.selectScreen", { name: screen.name })}
+          checked={false}
+          disabled
+        />
         <ItemContent>
           <ItemTitle>{screen.name}</ItemTitle>
           <ItemDescription>
@@ -366,6 +376,6 @@ function ElsewhereRow({ screen }: { screen: Screen }) {
           </ItemActions>
         )}
       </Item>
-    </div>
+    </li>
   );
 }

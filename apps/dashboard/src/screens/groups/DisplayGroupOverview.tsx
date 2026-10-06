@@ -20,7 +20,7 @@ import {
   ItemSeparator,
   ItemTitle,
 } from "../../components/ui/item";
-import { healthSentence } from "./DisplayGroupHealth";
+import { healthSentence } from "./groupHealthModel";
 import type { GroupDetailTab, GroupHealth } from "./displayGroupModel";
 import { groupFallback } from "./displayGroupModel";
 
@@ -109,9 +109,9 @@ export function DisplayGroupOverview({
   ];
 
   return (
-    <ItemGroup>
+    <ItemGroup render={<ul />}>
       {rows.map((row, index) => (
-        <div key={row.tab} role="listitem">
+        <li key={row.tab}>
           {index > 0 && <ItemSeparator className="my-0" />}
           <Item
             size="sm"
@@ -133,7 +133,7 @@ export function DisplayGroupOverview({
               />
             </ItemActions>
           </Item>
-        </div>
+        </li>
       ))}
     </ItemGroup>
   );

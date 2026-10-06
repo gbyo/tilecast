@@ -36,7 +36,8 @@ import {
 } from "../../components/ui/table";
 import { toast } from "../../components/ui/toast";
 import { useCompactLayout } from "../../hooks/use-compact-layout";
-import { ScreenHealthStatus, screenStatusText } from "./DisplayGroupHealth";
+import { screenStatusText } from "./groupHealthModel";
+import { ScreenHealthStatus } from "./DisplayGroupHealth";
 import { screenKeys } from "../../data/screens";
 
 type Member = ScreenGroup["screens"][number];
@@ -159,9 +160,9 @@ export function DisplayGroupScreens({
               {t("groups.detail.noMemberMatch")}
             </p>
           ) : compact ? (
-            <ItemGroup>
+            <ItemGroup render={<ul />}>
               {members.map((member, index) => (
-                <div key={member.id} role="listitem">
+                <li key={member.id}>
                   {index > 0 && <ItemSeparator className="my-0" />}
                   <Item size="sm" className="px-0">
                     <ItemContent>
@@ -184,7 +185,7 @@ export function DisplayGroupScreens({
                       />
                     </ItemActions>
                   </Item>
-                </div>
+                </li>
               ))}
             </ItemGroup>
           ) : (

@@ -1,3 +1,4 @@
+import { ApiError } from "../../api/errors";
 import type { Screen, ScreenGroup } from "../../api/types";
 import { screenNeedsAttention } from "../fleet/fleetModel";
 
@@ -29,6 +30,14 @@ export function groupPath(id: string, tab?: GroupDetailTab) {
   return tab && tab !== "overview"
     ? `/groups/${id}?tab=${tab}`
     : `/groups/${id}`;
+}
+
+/**
+ * A 404 means the group is gone. The server answers this lookup with the
+ * scheduling domain's `schedule_not_found` code, so the status alone decides.
+ */
+export function isGroupNotFound(error: unknown) {
+  return error instanceof ApiError && error.status === 404;
 }
 
 export type GroupFallback = { kind: "layout" | "playlist"; name: string };
@@ -138,22 +147,52 @@ export type BatchOutcome = {
 };
 
 /**
- * Adds screens one at a time and reports each outcome. The API has no bulk
- * membership endpoint, so a failure part-way leaves earlier additions in
- * place; the caller decides what to show instead of assuming all or nothing.
+ * How many membership adds may be in flight at once. The API has no bulk
+ * endpoint and adds change a group's playback membership, so Studio adds one
+ * screen at a time. Raise this only after confirming the server tolerates
+ * concurrent membership writes.
  */
-export async function addScreensInBatch(
+export const ADD_SCREENS_CONCURRENCY = 1;
+
+/**
+ * Adds screens with bounded concurrency and reports each outcome. A failure
+ * never stops the remaining adds, and earlier additions stay in place, so
+ * the caller can show exactly what changed instead of assuming all or
+ * nothing. Outcomes are reported in input order whatever order they finish.
+ */
+export function addScreensInBatch(
   ids: readonly string[],
   add: (id: string) => Promise<unknown>,
+  concurrency = ADD_SCREENS_CONCURRENCY,
 ): Promise<BatchOutcome> {
-  const outcome: BatchOutcome = { added: [], failed: [] };
-  for (const id of ids) {
-    try {
-      await add(id);
-      outcome.added.push(id);
-    } catch (error) {
-      outcome.failed.push({ id, error });
-    }
-  }
-  return outcome;
+  const results: ({ ok: true } | { ok: false; error: unknown })[] = [];
+  let cursor = 0;
+  // Each lane starts the next screen when its current one settles. Chaining
+  // keeps the lane count bounded without awaiting inside a loop.
+  const lane = (): Promise<void> => {
+    const index = cursor++;
+    const id = ids[index];
+    if (id === undefined) return Promise.resolve();
+    return Promise.resolve()
+      .then(() => add(id))
+      .then(
+        () => {
+          results[index] = { ok: true };
+        },
+        (error: unknown) => {
+          results[index] = { ok: false, error };
+        },
+      )
+      .then(lane);
+  };
+  const lanes = Math.max(1, Math.min(concurrency, ids.length));
+  return Promise.all(Array.from({ length: lanes }, lane)).then(() => {
+    const outcome: BatchOutcome = { added: [], failed: [] };
+    ids.forEach((id, index) => {
+      const result = results[index];
+      if (result?.ok) outcome.added.push(id);
+      else outcome.failed.push({ id, error: result?.error });
+    });
+    return outcome;
+  });
 }

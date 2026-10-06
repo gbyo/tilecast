@@ -201,9 +201,12 @@ function CommandDialog({
                 {t("groupctl.unsupported", { count: data.unsupportedCount })}
               </p>
             )}
-            <ItemGroup className="max-h-64 gap-1 overflow-y-auto">
+            <ItemGroup
+              render={<ul />}
+              className="max-h-64 gap-1 overflow-y-auto"
+            >
               {data.screens.map((screen) => (
-                <div key={screen.screenId} role="listitem">
+                <li key={screen.screenId}>
                   <Item size="xs" variant="outline">
                     <ItemContent>
                       <ItemTitle>{screen.name}</ItemTitle>
@@ -217,7 +220,7 @@ function CommandDialog({
                             : t("groupctl.dialog.notSupported")))}
                     </ItemDescription>
                   </Item>
-                </div>
+                </li>
               ))}
             </ItemGroup>
           </>
