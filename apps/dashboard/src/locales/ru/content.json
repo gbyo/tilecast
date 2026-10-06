@@ -457,17 +457,64 @@
     "list": {
       "title": "Виджеты",
       "create": "Создать виджет",
-      "subtitle": "Многоразовый визуальный контент для плейлистов и макетов.",
+      "createShort": "Создать",
+      "count_one": "{{count}} виджет",
+      "count_few": "{{count}} виджета",
+      "count_many": "{{count}} виджетов",
+      "count_other": "{{count}} виджета",
       "search": "Поиск виджетов",
-      "filterProvider": "Фильтр по провайдеру виджета",
+      "filterProvider": "Фильтр по типу виджета",
       "allTypes": "Все типы виджетов",
+      "noMatchingTypes": "Подходящих типов виджетов нет.",
       "view": "Вид",
       "gridView": "Плитка",
       "listView": "Список",
+      "viewGrid": "Плитка",
+      "viewList": "Список",
+      "toolbar": {
+        "groupLabel": "Управление библиотекой виджетов",
+        "viewOptions": "Параметры вида"
+      },
+      "sort": {
+        "menuTitle": "Сортировка",
+        "buttonLabel": "Сортировка виджетов: {{value}}",
+        "updated": "Недавно обновлённые",
+        "newest": "Сначала новые",
+        "oldest": "Сначала старые",
+        "name": "По названию"
+      },
+      "typeUnknown": "Виджет",
+      "playlistUsage_one": "{{count}} плейлист",
+      "playlistUsage_few": "{{count}} плейлиста",
+      "playlistUsage_many": "{{count}} плейлистов",
+      "playlistUsage_other": "{{count}} плейлиста",
+      "layoutUsage_one": "{{count}} макет",
+      "layoutUsage_few": "{{count}} макета",
+      "layoutUsage_many": "{{count}} макетов",
+      "layoutUsage_other": "{{count}} макета",
+      "usageBoth": "{{playlists}} · {{layouts}}",
+      "unused": "Пока не используется",
+      "itemMeta": "{{usage}} · Обновлён {{updated}}",
+      "columns": {
+        "widget": "Виджет",
+        "type": "Тип",
+        "usedBy": "Используется",
+        "updated": "Обновлён",
+        "actions": "Действия"
+      },
+      "actionsFor": "Действия для «{{name}}»",
+      "actions": {
+        "open": "Открыть виджет",
+        "edit": "Изменить виджет",
+        "duplicate": "Дублировать"
+      },
       "loadError": "Не удалось загрузить виджеты.",
       "loading": "Загрузка виджетов…",
       "emptyTitle": "Виджетов пока нет",
-      "emptyHint": "Создайте многоразовый виджет для контента."
+      "emptyHint": "Создайте многоразовый визуальный контент для плейлистов и макетов.",
+      "filteredEmptyTitle": "Виджеты по вашему запросу не найдены",
+      "filteredEmptyHint": "Измените поиск или выберите другой тип виджета.",
+      "clearFilters": "Сбросить поиск и тип"
     },
     "detail": {
       "loadingWidget": "Загрузка виджета…",

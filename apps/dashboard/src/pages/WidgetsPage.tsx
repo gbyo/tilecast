@@ -4,11 +4,11 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { Grid2X2, List, Plus } from "lucide-react";
-import { useState } from "react";
+import { Blocks, Plus, SearchX } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
-import { apiErrorMessage } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button, buttonVariants } from "../components/ui/button";
 import {
@@ -19,15 +19,26 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
-import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { api, ApiError } from "../api/client";
 import type { Asset } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { FilterBar, type FilterDefinition } from "../components/FilterBar";
-import { PageHeader } from "../components/PageHeader";
+import { contentKeys, contentQueries } from "../data/content";
+import {
+  WidgetLibrary,
+  WidgetLibrarySkeleton,
+} from "../components/content/widgets/WidgetLibrary";
+import {
+  defaultWidgetSort,
+  widgetAssetParams,
+  widgetTypeGroups,
+  type WidgetSort,
+  type WidgetView,
+} from "../components/content/widgets/widgetLibraryModel";
+import { WidgetsToolbar } from "../components/content/widgets/WidgetsToolbar";
 import {
   WidgetProviderGallery,
   YouTubeSourceEditor,
@@ -36,127 +47,104 @@ import { GenericWidgetEditor } from "../content/GenericDefinitionEditors";
 import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
+import { useCompactLayout } from "../hooks/use-compact-layout";
 import { inAppPath, withParam } from "../navigation/returnPaths";
-import {
-  AssetCollection,
-  WebsiteEditor,
-  canManageContent,
-} from "./ContentPage";
+import { WebsiteEditor, canManageContent } from "./ContentPage";
 
 export function WidgetsPage() {
   const { t } = useTranslation(["content", "common"]);
+  const locale = useFormatLocale();
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const compact = useCompactLayout();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = canManageContent(auth.status?.user);
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
-  const [view, setView] = useState<"grid" | "list">("grid");
-  const paramsKey = `${search}|${provider}`;
-  const widgets = useInfiniteQuery({
-    queryKey: ["assets", "widgets", paramsKey],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => {
-      const params = new URLSearchParams({
-        page: String(pageParam),
-        pageSize: "100",
-        type: "widget",
-      });
-      if (search) params.set("search", search);
-      if (provider) params.set("provider", provider);
-      return api.assets(params);
-    },
-    getNextPageParam: (last) =>
-      last.page * last.pageSize < last.total ? last.page + 1 : undefined,
-  });
-  const items = widgets.data?.pages.flatMap((page) => page.items) ?? [];
-  const definitions = useQuery({
-    queryKey: ["content-definitions"],
-    queryFn: api.contentDefinitions,
-  });
-  const filterProviders = definitions.data?.widgets ?? [];
-  const providerOptions = filterProviders.map((item) => ({
-    value: item.id,
-    label: item.name,
-  }));
-  const filterDefinitions: FilterDefinition[] = [
-    {
-      key: "search",
-      kind: "search",
-      label: t("widgets.list.search"),
-      placeholder: t("widgets.list.search"),
-    },
-    {
-      key: "provider",
-      kind: "select",
-      label: t("widgets.list.filterProvider"),
-      allLabel: t("widgets.list.allTypes"),
-      options: providerOptions,
-    },
-  ];
+  const [sort, setSort] = useState<WidgetSort>(defaultWidgetSort);
+  const [view, setView] = useState<WidgetView>("grid");
+  // Search, type, and sort all restart paging. The view is presentation only,
+  // so it stays out of the query.
+  const widgets = useInfiniteQuery(
+    contentQueries.assetPages(widgetAssetParams({ search, provider, sort }, 1)),
+  );
+  const items = useMemo(
+    () => widgets.data?.pages.flatMap((page) => page.items) ?? [],
+    [widgets.data],
+  );
+  // The server total, not the loaded count: paging may have fetched only part.
+  const total = widgets.data?.pages.at(-1)?.total;
+  // The catalog only names and groups types. The library must keep working
+  // without it, so a failed catalog never hides saved Widgets.
+  const definitions = useQuery(contentQueries.definitions());
+  const definitionsById = useMemo(
+    () =>
+      new Map((definitions.data?.widgets ?? []).map((item) => [item.id, item])),
+    [definitions.data],
+  );
+  const typeGroups = useMemo(
+    () => widgetTypeGroups(definitions.data?.widgets ?? [], t, locale),
+    [definitions.data, t, locale],
+  );
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateWidget(id, csrf),
     onSuccess: (widget) => {
       toast.add({ title: t("widgets.duplicateSuccess"), type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["assets"] });
+      void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
       void navigate(`/widgets/${widget.id}`);
     },
+    onError: (error) => {
+      toast.add({
+        title: t("widgets.duplicateFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+    },
   });
+  const filtered = search !== "" || provider !== "";
+  const createLabel = t("widgets.list.create");
+
   return (
     <section className="w-full min-w-0 space-y-5">
-      <PageHeader
-        title={t("widgets.list.title")}
-        description={t("widgets.list.subtitle")}
-        actions={
-          canManage ? (
+      <h1 className="sr-only">{t("widgets.list.title")}</h1>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {typeof total === "number" ? (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {t("widgets.list.count", { count: total })}
+            </p>
+          ) : widgets.isLoading ? (
+            <Skeleton className="h-5 w-24" />
+          ) : null}
+          {canManage && (
             <Link
-              className={buttonVariants({ variant: "default" })}
+              className={buttonVariants({
+                variant: "default",
+                className: "ml-auto",
+              })}
               to="/widgets/new"
+              aria-label={compact ? createLabel : undefined}
             >
-              <Plus size={16} aria-hidden="true" /> {t("widgets.list.create")}
+              <Plus aria-hidden="true" />
+              {compact ? t("widgets.list.createShort") : createLabel}
             </Link>
-          ) : undefined
-        }
-      />
-      <FilterBar
-        definitions={filterDefinitions}
-        values={{ search, provider }}
-        onChange={(key, value) => {
-          if (key === "search") setSearch(value);
-          if (key === "provider") setProvider(value);
-        }}
-        onClear={() => {
-          setSearch("");
-          setProvider("");
-        }}
-      >
-        <ToggleGroup
-          aria-label={t("widgets.list.view")}
-          variant="outline"
-          spacing={0}
-          multiple={false}
-          value={[view]}
-          onValueChange={(next) => {
-            const first = next[0];
-            if (first === "grid" || first === "list") setView(first);
-          }}
-        >
-          <ToggleGroupItem value="grid" aria-label={t("widgets.list.gridView")}>
-            <Grid2X2 size={16} aria-hidden="true" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label={t("widgets.list.listView")}>
-            <List size={16} aria-hidden="true" />
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </FilterBar>
-      {widgets.isLoading ? (
-        <div className="grid gap-2" aria-label={t("widgets.list.loading")}>
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
+          )}
         </div>
-      ) : widgets.isError ? (
+        <Separator />
+      </div>
+      <WidgetsToolbar
+        search={search}
+        onSearchChange={setSearch}
+        provider={provider}
+        onProviderChange={setProvider}
+        typeGroups={typeGroups}
+        sort={sort}
+        onSortChange={setSort}
+        view={view}
+        onViewChange={setView}
+      />
+      {widgets.isError && (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>
@@ -175,11 +163,65 @@ export function WidgetsPage() {
             </Button>
           </AlertDescription>
         </Alert>
-      ) : items.length === 0 ? (
+      )}
+      {widgets.isLoading ? (
+        <WidgetLibrarySkeleton view={view} />
+      ) : items.length > 0 ? (
+        <>
+          <WidgetLibrary
+            items={items}
+            definitions={definitionsById}
+            view={view}
+            canManage={canManage}
+            duplicating={duplicate.isPending}
+            onDuplicate={(asset: Asset) => duplicate.mutate(asset.id)}
+          />
+          {widgets.hasNextPage && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={widgets.isFetchingNextPage}
+                onClick={() => void widgets.fetchNextPage()}
+              >
+                {widgets.isFetchingNextPage && <Spinner aria-hidden="true" />}
+                {t("common:actions.loadMore")}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : widgets.isError ? null : filtered ? (
+        // A search or type that matches nothing is not an empty library, so it
+        // offers a way back instead of the create prompt. Sort and view are
+        // preferences, not filters, and survive the reset.
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <Plus size={24} aria-hidden="true" />
+              <SearchX aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>{t("widgets.list.filteredEmptyTitle")}</EmptyTitle>
+            <EmptyDescription>
+              {t("widgets.list.filteredEmptyHint")}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSearch("");
+                setProvider("");
+              }}
+            >
+              {t("widgets.list.clearFilters")}
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Blocks aria-hidden="true" />
             </EmptyMedia>
             <EmptyTitle>{t("widgets.list.emptyTitle")}</EmptyTitle>
             <EmptyDescription>{t("widgets.list.emptyHint")}</EmptyDescription>
@@ -190,33 +232,11 @@ export function WidgetsPage() {
                 className={buttonVariants({ variant: "default" })}
                 to="/widgets/new"
               >
-                {t("widgets.list.create")}
+                {createLabel}
               </Link>
             </EmptyContent>
           )}
         </Empty>
-      ) : (
-        <>
-          <AssetCollection
-            items={items}
-            view={view}
-            onSelect={(widget) => void navigate(`/widgets/${widget.id}`)}
-            canManage={canManage}
-            onDuplicate={(widget) => duplicate.mutate(widget.id)}
-          />
-          {widgets.hasNextPage && (
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-self-center"
-              disabled={widgets.isFetchingNextPage}
-              onClick={() => void widgets.fetchNextPage()}
-            >
-              {widgets.isFetchingNextPage && <Spinner aria-hidden="true" />}
-              {t("common:actions.loadMore")}
-            </Button>
-          )}
-        </>
       )}
       {/* Discovery runs independently of visible search and provider filters, including while the
           filtered library is empty or still loading. Only content managers can upload captures. */}

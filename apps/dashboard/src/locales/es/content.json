@@ -444,17 +444,61 @@
     "list": {
       "title": "Widgets",
       "create": "Crear widget",
-      "subtitle": "Contenido visual reutilizable para listas de reproducción y diseños.",
+      "createShort": "Crear",
+      "count_one": "{{count}} widget",
+      "count_many": "{{count}} de widgets",
+      "count_other": "{{count}} widgets",
       "search": "Buscar widgets",
-      "filterProvider": "Filtrar por proveedor del widget",
+      "filterProvider": "Filtrar por tipo de widget",
       "allTypes": "Todos los tipos de widgets",
+      "noMatchingTypes": "Ningún tipo de widget coincide.",
       "view": "Vista",
       "gridView": "Vista de cuadrícula",
       "listView": "Vista de lista",
+      "viewGrid": "Cuadrícula",
+      "viewList": "Lista",
+      "toolbar": {
+        "groupLabel": "Controles de la biblioteca de widgets",
+        "viewOptions": "Opciones de vista"
+      },
+      "sort": {
+        "menuTitle": "Ordenar por",
+        "buttonLabel": "Ordenar widgets: {{value}}",
+        "updated": "Actualizados recientemente",
+        "newest": "Más recientes",
+        "oldest": "Más antiguos",
+        "name": "Nombre"
+      },
+      "typeUnknown": "Widget",
+      "playlistUsage_one": "{{count}} lista de reproducción",
+      "playlistUsage_many": "{{count}} de listas de reproducción",
+      "playlistUsage_other": "{{count}} listas de reproducción",
+      "layoutUsage_one": "{{count}} diseño",
+      "layoutUsage_many": "{{count}} de diseños",
+      "layoutUsage_other": "{{count}} diseños",
+      "usageBoth": "{{playlists}} · {{layouts}}",
+      "unused": "Aún sin usar",
+      "itemMeta": "{{usage}} · Actualizado {{updated}}",
+      "columns": {
+        "widget": "Widget",
+        "type": "Tipo",
+        "usedBy": "Usado en",
+        "updated": "Actualizado",
+        "actions": "Acciones"
+      },
+      "actionsFor": "Acciones de {{name}}",
+      "actions": {
+        "open": "Abrir widget",
+        "edit": "Editar widget",
+        "duplicate": "Duplicar"
+      },
       "loadError": "No se pudieron cargar los widgets.",
       "loading": "Cargando widgets…",
       "emptyTitle": "Aún no hay widgets",
-      "emptyHint": "Crea un widget reutilizable para el contenido."
+      "emptyHint": "Crea contenido visual reutilizable para listas de reproducción y diseños.",
+      "filteredEmptyTitle": "Ningún widget coincide con tu búsqueda",
+      "filteredEmptyHint": "Prueba otra búsqueda o elige otro tipo de widget.",
+      "clearFilters": "Borrar búsqueda y tipo"
     },
     "detail": {
       "loadingWidget": "Cargando widget…",
