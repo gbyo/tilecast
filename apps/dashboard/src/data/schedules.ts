@@ -6,12 +6,24 @@ import {
 } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { hasNextPage } from "../api/pagination";
-import type { ScheduleInput } from "../api/types";
+import type { ScheduleInput, ScheduleListParams } from "../api/types";
+
+/** The unfiltered library in its default order. */
+export const defaultScheduleListParams: ScheduleListParams = {
+  search: "",
+  enabled: "",
+  type: "",
+  presentationType: "",
+  sort: "updated",
+};
 
 export const scheduleKeys = {
   all: ["schedules"] as const,
   list: (search = "") => [...scheduleKeys.all, "list", { search }] as const,
-  pages: (search = "") => [...scheduleKeys.all, "pages", { search }] as const,
+  // Search, every facet, and the sort all shape the server result, so all of
+  // them are part of the key. View state is presentation only and is not.
+  pages: (params: ScheduleListParams = defaultScheduleListParams) =>
+    [...scheduleKeys.all, "pages", params] as const,
   detail: (id: string) => [...scheduleKeys.all, id] as const,
   defaults: () => [...scheduleKeys.all, "defaults"] as const,
   previews: ["schedule-preview"] as const,
@@ -25,11 +37,11 @@ export const scheduleQueries = {
       queryKey: scheduleKeys.list(search),
       queryFn: () => api.schedules(search),
     }),
-  pages: (search = "") =>
+  pages: (params: ScheduleListParams = defaultScheduleListParams) =>
     infiniteQueryOptions({
-      queryKey: scheduleKeys.pages(search),
+      queryKey: scheduleKeys.pages(params),
       initialPageParam: 1,
-      queryFn: ({ pageParam }) => api.schedulePage(search, pageParam),
+      queryFn: ({ pageParam }) => api.schedulePage(params, pageParam),
       getNextPageParam: (page) =>
         hasNextPage(page) ? page.page + 1 : undefined,
     }),
@@ -64,6 +76,12 @@ export const scheduleMutations = {
         id
           ? api.updateSchedule(id, input, csrf)
           : api.createSchedule(input, csrf),
+      onSuccess: () => invalidateSchedules(client),
+    }),
+  // The library deletes any row, so the id is the variable, not the factory's.
+  removeById: (client: QueryClient, csrf: string) =>
+    mutationOptions({
+      mutationFn: (id: string) => api.deleteSchedule(id, csrf),
       onSuccess: () => invalidateSchedules(client),
     }),
   remove: (client: QueryClient, csrf: string, id: string) =>

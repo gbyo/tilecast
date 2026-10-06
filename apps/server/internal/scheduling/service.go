@@ -832,7 +832,7 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 	return s.Get(ctx, id)
 }
 
-const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,CASE WHEN s.display_action IS NOT NULL THEN 'display_control' WHEN s.layout_id IS NOT NULL THEN 'layout' ELSE 'playlist' END,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,to_char(s.daily_start,'HH24:MI'),to_char(s.daily_end,'HH24:MI'),s.days_of_week,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id`
+const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,` + presentationTypeExpr + `,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,to_char(s.daily_start,'HH24:MI'),to_char(s.daily_end,'HH24:MI'),s.days_of_week,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id`
 
 func scanRecord(row pgx.Row) (Record, error) {
 	var r Record
@@ -870,7 +870,88 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (Record, error) {
 	r.Targets, err = s.targets(ctx, id)
 	return r, err
 }
-func (s *Service) List(ctx context.Context, search string, page, size int) (List, error) {
+
+// Library sort orders. Updated is the default and matches the original,
+// unfiltered listing.
+const (
+	SortUpdated  = "updated"
+	SortName     = "name"
+	SortPriority = "priority"
+)
+
+// Presentation kinds a schedule can have. They match the derived
+// presentationType in recordSelect.
+const (
+	PresentationPlaylist       = "playlist"
+	PresentationLayout         = "layout"
+	PresentationDisplayControl = "display_control"
+)
+
+// ErrInvalidFilter reports a list filter or sort value outside its closed set.
+var ErrInvalidFilter = errors.New("invalid schedule list filter")
+
+// ListFilter narrows and orders the schedule library. The zero value is the
+// whole library, most recently updated first.
+type ListFilter struct {
+	Search           string
+	Enabled          *bool
+	Type             Kind
+	PresentationType string
+	Sort             string
+}
+
+// Validate rejects values outside the closed sets so a typo is an error, not a
+// silently unfiltered library.
+func (f ListFilter) Validate() error {
+	switch f.Type {
+	case "", Weekly, OneTime:
+	default:
+		return fmt.Errorf("%w: type must be weekly or one_time", ErrInvalidFilter)
+	}
+	switch f.PresentationType {
+	case "", PresentationPlaylist, PresentationLayout, PresentationDisplayControl:
+	default:
+		return fmt.Errorf("%w: presentationType must be playlist, layout, or display_control", ErrInvalidFilter)
+	}
+	switch f.Sort {
+	case "", SortUpdated, SortName, SortPriority:
+	default:
+		return fmt.Errorf("%w: sort must be updated, name, or priority", ErrInvalidFilter)
+	}
+	return nil
+}
+
+// presentationTypeExpr is the single derivation of a schedule's presentation
+// kind. recordSelect and the presentation filter both use it, so the value a
+// client sees is the value it can filter on.
+const presentationTypeExpr = `CASE WHEN s.display_action IS NOT NULL THEN 'display_control' WHEN s.layout_id IS NOT NULL THEN 'layout' ELSE 'playlist' END`
+
+// listWhere is the one predicate shared by the count and the page query, with
+// arguments $1..$4 in a fixed order. Keeping a single copy is what guarantees
+// the reported total always describes the rows paged through.
+const listWhere = ` WHERE s.deleted_at IS NULL AND ($1='' OR s.name ILIKE '%'||$1||'%') AND ($2::boolean IS NULL OR s.enabled=$2) AND ($3='' OR s.type=$3) AND ($4='' OR ` + presentationTypeExpr + `=$4)`
+
+// listOrder maps a validated sort to a deterministic ORDER BY. User input is
+// never interpolated; every order ends in the id as a final tie-breaker.
+func listOrder(sort string) string {
+	switch sort {
+	case SortName:
+		return ` ORDER BY lower(s.name),s.id`
+	case SortPriority:
+		return ` ORDER BY s.priority DESC,s.updated_at DESC,s.id`
+	default:
+		return ` ORDER BY s.updated_at DESC,s.id`
+	}
+}
+
+func (f ListFilter) args() []any {
+	return []any{strings.TrimSpace(f.Search), f.Enabled, string(f.Type), f.PresentationType}
+}
+
+func (s *Service) List(ctx context.Context, filter ListFilter, page, size int) (List, error) {
+	if err := filter.Validate(); err != nil {
+		return List{}, err
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -882,10 +963,11 @@ func (s *Service) List(ctx context.Context, search string, page, size int) (List
 	if err := s.db.QueryRow(ctx, `SELECT default_timezone FROM organization_settings WHERE singleton`).Scan(&out.DefaultTimezone); err != nil {
 		return out, err
 	}
-	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM schedules WHERE deleted_at IS NULL AND ($1='' OR name ILIKE '%'||$1||'%')`, strings.TrimSpace(search)).Scan(&out.Total); err != nil {
+	args := filter.args()
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM schedules s`+listWhere, args...).Scan(&out.Total); err != nil {
 		return out, err
 	}
-	rows, err := s.db.Query(ctx, recordSelect+` WHERE s.deleted_at IS NULL AND ($1='' OR s.name ILIKE '%'||$1||'%') ORDER BY s.updated_at DESC,s.id LIMIT $2 OFFSET $3`, strings.TrimSpace(search), size, (page-1)*size)
+	rows, err := s.db.Query(ctx, recordSelect+listWhere+listOrder(filter.Sort)+` LIMIT $5 OFFSET $6`, append(args, size, (page-1)*size)...)
 	if err != nil {
 		return out, err
 	}

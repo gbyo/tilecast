@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import type {
+  DisplayControlAction,
   ScheduleInput,
   ScheduleTarget,
   Screen,
@@ -243,4 +244,34 @@ export function schedulePreviewTimestamp(input: ScheduleInput) {
     if (candidate >= now || offset > 0) return candidate.toISOString();
   }
   return now.toISOString();
+}
+
+/** The localized sentence for a Display Control action, shared by the editor and the library. */
+export function displayActionLabel(
+  action: DisplayControlAction,
+  t: SchedulesT,
+) {
+  const unset = t("displayAction.notSet");
+  switch (action.type) {
+    case "display_power_on":
+      return t("displayAction.summary.powerOn");
+    case "display_power_off":
+      return t("displayAction.summary.powerOff");
+    case "display_set_input":
+      return t("displayAction.summary.setInput", {
+        value: action.input ?? unset,
+      });
+    case "display_set_volume":
+      return t("displayAction.summary.setVolume", {
+        value: action.volume ?? unset,
+      });
+    case "display_mute":
+      return t("displayAction.summary.mute");
+    case "display_unmute":
+      return t("displayAction.summary.unmute");
+    case "display_set_brightness":
+      return t("displayAction.summary.setBrightness", {
+        value: action.brightness ?? unset,
+      });
+  }
 }
