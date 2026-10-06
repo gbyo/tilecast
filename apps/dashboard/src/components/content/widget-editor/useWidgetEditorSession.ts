@@ -11,8 +11,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
-  useEffect,
-  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -23,6 +21,7 @@ import { useNavigate } from "react-router";
 import { api } from "@/api/client";
 import type { Asset, WidgetDefinition } from "@/api/types";
 import { toast } from "@/components/ui/toast";
+import { recommendedFrameOf } from "@/content/widgetGeometry";
 import { contentKeys } from "@/data/content";
 import { apiErrorMessage } from "@/i18n";
 import { withParam } from "@/navigation/returnPaths";
@@ -36,7 +35,11 @@ import {
   type WidgetConfiguration,
   type WidgetDraft,
 } from "./widgetEditorModel";
-import { validateWidgetDraft } from "./widgetEditorValidation";
+import { useSaveShortcut } from "./useSaveShortcut";
+import {
+  firstProblemFocus,
+  validateWidgetDraft,
+} from "./widgetEditorValidation";
 import { enqueueWidgetSnapshot } from "./snapshotQueue";
 
 export type WidgetSaveState = "saved" | "unsaved" | "saving" | "error";
@@ -61,13 +64,6 @@ export type WidgetEditorSessionOptions = {
   /** This Widget was created in the current trip from returnTo. */
   createdHere: boolean;
 };
-
-function isShortcutTargetInDialog(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    Boolean(target.closest('[role="dialog"],[role="alertdialog"]'))
-  );
-}
 
 export function useWidgetEditorSession({
   definition,
@@ -173,6 +169,7 @@ export function useWidgetEditorSession({
       if (authoring.kind === "component")
         enqueueWidgetSnapshot({
           asset: saved,
+          renderFrame: recommendedFrameOf(definition) ?? undefined,
           onFailed: () =>
             toast.add({
               title: t("widgets.editor.toast.thumbnailFailed"),
@@ -204,44 +201,15 @@ export function useWidgetEditorSession({
     if (readOnly || save.isPending || !dirty) return;
     if (!validation.valid) {
       setRevealed(true);
-      const first = validation.issues[0];
-      if (validation.name || validation.description) {
-        setDetailsOpen(true);
-        setFocusRequest({ target: "details", nonce: Date.now() });
-      } else if (first) {
-        setFocusRequest({
-          target: "field",
-          path: first.path,
-          section: first.section,
-          nonce: Date.now(),
-        });
-      }
+      const request = firstProblemFocus(validation);
+      if (request?.target === "details") setDetailsOpen(true);
+      if (request) setFocusRequest({ ...request, nonce: Date.now() });
       return;
     }
     save.mutate(draft);
   }, [readOnly, save, dirty, validation, draft]);
 
-  // Ctrl/Command+S saves from anywhere in the editor except an open
-  // dialog, which owns its own keys. The browser's own Save Page never runs.
-  const saveFromShortcut = useEffectEvent(requestSave);
-  useEffect(() => {
-    if (readOnly) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== "s" ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.shiftKey ||
-        event.isComposing
-      )
-        return;
-      if (isShortcutTargetInDialog(event.target)) return;
-      event.preventDefault();
-      saveFromShortcut();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [readOnly]);
+  useSaveShortcut(requestSave, readOnly);
 
   const discard = useCallback(() => {
     setDraft(baseline);

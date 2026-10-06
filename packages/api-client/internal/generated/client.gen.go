@@ -696,72 +696,6 @@ func (e ContentDefinitionFetchSpecFormat) Valid() bool {
 	}
 }
 
-// Defines values for ContentDefinitionFieldControl.
-const (
-	ContentDefinitionFieldControlBoolean         ContentDefinitionFieldControl = "boolean"
-	ContentDefinitionFieldControlColor           ContentDefinitionFieldControl = "color"
-	ContentDefinitionFieldControlCurrencyCode    ContentDefinitionFieldControl = "currency_code"
-	ContentDefinitionFieldControlDataSource      ContentDefinitionFieldControl = "data_source"
-	ContentDefinitionFieldControlDataSourceField ContentDefinitionFieldControl = "data_source_field"
-	ContentDefinitionFieldControlDate            ContentDefinitionFieldControl = "date"
-	ContentDefinitionFieldControlDatetime        ContentDefinitionFieldControl = "datetime"
-	ContentDefinitionFieldControlInteger         ContentDefinitionFieldControl = "integer"
-	ContentDefinitionFieldControlLocalDatetime   ContentDefinitionFieldControl = "local_datetime"
-	ContentDefinitionFieldControlMediaAsset      ContentDefinitionFieldControl = "media_asset"
-	ContentDefinitionFieldControlMultilineText   ContentDefinitionFieldControl = "multiline_text"
-	ContentDefinitionFieldControlNumber          ContentDefinitionFieldControl = "number"
-	ContentDefinitionFieldControlRepeatingGroup  ContentDefinitionFieldControl = "repeating_group"
-	ContentDefinitionFieldControlSelect          ContentDefinitionFieldControl = "select"
-	ContentDefinitionFieldControlStringList      ContentDefinitionFieldControl = "string_list"
-	ContentDefinitionFieldControlText            ContentDefinitionFieldControl = "text"
-	ContentDefinitionFieldControlTimezone        ContentDefinitionFieldControl = "timezone"
-	ContentDefinitionFieldControlUrl             ContentDefinitionFieldControl = "url"
-)
-
-// Valid indicates whether the value is a known member of the ContentDefinitionFieldControl enum.
-func (e ContentDefinitionFieldControl) Valid() bool {
-	switch e {
-	case ContentDefinitionFieldControlBoolean:
-		return true
-	case ContentDefinitionFieldControlColor:
-		return true
-	case ContentDefinitionFieldControlCurrencyCode:
-		return true
-	case ContentDefinitionFieldControlDataSource:
-		return true
-	case ContentDefinitionFieldControlDataSourceField:
-		return true
-	case ContentDefinitionFieldControlDate:
-		return true
-	case ContentDefinitionFieldControlDatetime:
-		return true
-	case ContentDefinitionFieldControlInteger:
-		return true
-	case ContentDefinitionFieldControlLocalDatetime:
-		return true
-	case ContentDefinitionFieldControlMediaAsset:
-		return true
-	case ContentDefinitionFieldControlMultilineText:
-		return true
-	case ContentDefinitionFieldControlNumber:
-		return true
-	case ContentDefinitionFieldControlRepeatingGroup:
-		return true
-	case ContentDefinitionFieldControlSelect:
-		return true
-	case ContentDefinitionFieldControlStringList:
-		return true
-	case ContentDefinitionFieldControlText:
-		return true
-	case ContentDefinitionFieldControlTimezone:
-		return true
-	case ContentDefinitionFieldControlUrl:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ContentDefinitionOutputSchemaKind.
 const (
 	List       ContentDefinitionOutputSchemaKind = "list"
@@ -6697,9 +6631,11 @@ type ContentDefinitionFetchSpecFormat string
 
 // ContentDefinitionField defines model for ContentDefinitionField.
 type ContentDefinitionField struct {
-	AcceptedDataSourceKinds *[]string                     `json:"acceptedDataSourceKinds,omitempty"`
-	Control                 ContentDefinitionFieldControl `json:"control"`
-	DataSourceFieldTypes    *[]string                     `json:"dataSourceFieldTypes,omitempty"`
+	AcceptedDataSourceKinds *[]string `json:"acceptedDataSourceKinds,omitempty"`
+
+	// Control The authoring control. New definitions and plugins can introduce control types, so clients must tolerate values they do not know.
+	Control              string    `json:"control"`
+	DataSourceFieldTypes *[]string `json:"dataSourceFieldTypes,omitempty"`
 
 	// Default Release-owned default value of any JSON type.
 	Default        interface{}                      `json:"default,omitempty"`
@@ -6720,9 +6656,6 @@ type ContentDefinitionField struct {
 	// Ui Release-owned authoring hints of any JSON shape.
 	Ui *map[string]interface{} `json:"ui,omitempty"`
 }
-
-// ContentDefinitionFieldControl defines model for ContentDefinitionField.Control.
-type ContentDefinitionFieldControl string
 
 // ContentDefinitionOutputField defines model for ContentDefinitionOutputField.
 type ContentDefinitionOutputField struct {

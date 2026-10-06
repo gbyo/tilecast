@@ -4,22 +4,13 @@
  * however large the library is; the selection resolves by ID for display.
  */
 import { useQuery } from "@tanstack/react-query";
-import { ImageIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { Asset } from "@/api/types";
 import { ContentPicker } from "@/components/content-picker";
-import { Button } from "@/components/ui/button";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@/components/ui/item";
 import { InspectorFieldFrame } from "./InspectorFieldFrame";
+import { MediaSelection } from "./MediaSelection";
 import {
   fieldDomId,
   fieldText,
@@ -63,68 +54,20 @@ export function WidgetMediaField({
 
   return (
     <InspectorFieldFrame path={path} field={field} error={error}>
-      <Item variant={assetId ? "outline" : "muted"} size="sm">
-        <ItemMedia variant={current.data ? "image" : "icon"}>
-          {current.data && current.data.type === "image" ? (
-            <img src={api.assetPreviewUrl(current.data.id)} alt="" />
-          ) : (
-            <ImageIcon aria-hidden="true" />
-          )}
-        </ItemMedia>
-        <ItemContent className="min-w-0">
-          <ItemTitle className="truncate">
-            {assetId
-              ? (name ?? t("widgets.editor.media.loading"))
-              : t("widgets.editor.media.none")}
-          </ItemTitle>
-          {current.data && (
-            <ItemDescription>
-              {t(`widgets.editor.media.types.${current.data.type}`)}
-            </ItemDescription>
-          )}
-        </ItemContent>
-        {!readOnly && (
-          <ItemActions>
-            <Button
-              id={id}
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={
-                assetId
-                  ? t("widgets.editor.media.changeLabel", {
-                      label: field.label,
-                    })
-                  : t("widgets.editor.media.chooseLabel", {
-                      label: field.label,
-                    })
-              }
-              aria-describedby={describedBy}
-              aria-invalid={error ? true : undefined}
-              onClick={() => setPicking(true)}
-            >
-              {assetId
-                ? t("widgets.editor.media.change")
-                : t("widgets.editor.media.choose")}
-            </Button>
-            {assetId && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={t("widgets.editor.media.removeLabel", {
-                  label: field.label,
-                })}
-                // Absent, not "", so optional media leaves the
-                // configuration the same way it was before one was chosen.
-                onClick={() => onChange(undefined)}
-              >
-                {t("common:actions.remove")}
-              </Button>
-            )}
-          </ItemActions>
-        )}
-      </Item>
+      <MediaSelection
+        assetId={assetId}
+        asset={current.data}
+        name={name}
+        label={field.label}
+        buttonId={id}
+        describedBy={describedBy}
+        invalid={Boolean(error)}
+        readOnly={readOnly}
+        onChoose={() => setPicking(true)}
+        // Absent, not "", so optional media leaves the configuration the
+        // way it was before one was chosen.
+        onRemove={() => onChange(undefined)}
+      />
       <ContentPicker
         open={picking}
         mode="single"

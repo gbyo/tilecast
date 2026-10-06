@@ -43,13 +43,17 @@ describe("Widget authoring architecture", () => {
   });
 
   it("routes every Widget type to the one workspace", () => {
-    const page = Object.entries(sources).find(([path]) =>
-      path.endsWith("/pages/WidgetEditorPage.tsx"),
-    )?.[1];
+    const source = (suffix: string) =>
+      Object.entries(sources).find(([path]) => path.endsWith(suffix))?.[1];
+    const page = source("/pages/WidgetEditorPage.tsx");
+    const route = source("/pages/widgetEditorRoute.ts");
+    const host = source("WidgetEditorSessionHost.tsx");
     expect(page).toBeDefined();
-    expect(page).toContain("<WidgetEditorWorkspace");
+    expect(page).toContain("<WidgetEditorSessionHost");
+    expect(host).toContain("<WidgetEditorWorkspace");
     // The route never chooses an editor by provider.
-    expect(page).not.toMatch(/provider\s*===|definition\.id\s*===/);
+    for (const text of [page, route])
+      expect(text).not.toMatch(/provider\s*===|definition\.id\s*===/);
     const workspace = Object.entries(sources).filter(([path]) =>
       path.includes("/widget-editor/"),
     );

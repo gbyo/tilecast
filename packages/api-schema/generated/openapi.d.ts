@@ -7322,26 +7322,8 @@ export interface components {
       key: string;
       label: string;
       description?: string;
-      /** @enum {string} */
-      control:
-        | "text"
-        | "multiline_text"
-        | "number"
-        | "integer"
-        | "boolean"
-        | "select"
-        | "color"
-        | "date"
-        | "datetime"
-        | "local_datetime"
-        | "timezone"
-        | "currency_code"
-        | "url"
-        | "data_source"
-        | "data_source_field"
-        | "media_asset"
-        | "repeating_group"
-        | "string_list";
+      /** @description The authoring control. New definitions and plugins can introduce control types, so clients must tolerate values they do not know. */
+      control: string;
       required?: boolean;
       /** @description Release-owned default value of any JSON type. */
       default?: unknown;
