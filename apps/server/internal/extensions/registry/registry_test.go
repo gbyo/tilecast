@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/opencontainers/go-digest"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 )
 
@@ -85,6 +86,40 @@ func (f *fakeRegistry) serveBlob(w http.ResponseWriter, r *http.Request, referen
 	_, _ = w.Write(data)
 }
 
+func rewriteServedManifest(
+	t *testing.T,
+	source, originalDigest string,
+	mutate func(map[string]any),
+) string {
+	t.Helper()
+	encoded := strings.TrimPrefix(originalDigest, "sha256:")
+	manifestPath := filepath.Join(source, "blobs", "sha256", encoded)
+	manifestJSON, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestJSON, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	mutate(manifest)
+	rewritten, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rewrittenDigest := digest.FromBytes(rewritten).String()
+	rewrittenPath := filepath.Join(
+		source,
+		"blobs",
+		"sha256",
+		strings.TrimPrefix(rewrittenDigest, "sha256:"),
+	)
+	if err := os.WriteFile(rewrittenPath, rewritten, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return rewrittenDigest
+}
+
 func TestPullRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	source := t.TempDir()
@@ -135,49 +170,105 @@ func TestPullUnknownDigest(t *testing.T) {
 func TestPullRefusesOversizedLayersBeforeCopying(t *testing.T) {
 	ctx := t.Context()
 	source := t.TempDir()
-	digest, err := packages.WriteLayout(source, []byte(registryManifest), registryContent)
+	rootDigest, err := packages.WriteLayout(source, []byte(registryManifest), registryContent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Rewrite the served manifest to declare a hostile layer size.
-	// Rewriting breaks the manifest digest, so the hostile document is
-	// served under the original digest name: the pre-copy size check must
-	// fire before any digest comparison of the pulled copy.
-	encoded := strings.TrimPrefix(digest, "sha256:")
-	manifestPath := filepath.Join(source, "blobs", "sha256", encoded)
-	manifestJSON, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var manifest map[string]any
-	if err := json.Unmarshal(manifestJSON, &manifest); err != nil {
-		t.Fatal(err)
-	}
-	layers, ok := manifest["layers"].([]any)
-	if !ok || len(layers) != 1 {
-		t.Fatalf("fixture manifest = %s", manifestJSON)
-	}
-	layer, ok := layers[0].(map[string]any)
-	if !ok {
-		t.Fatalf("fixture layer = %v", layers[0])
-	}
-	layer["size"] = float64(999999999999)
-	hostile, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(manifestPath, hostile, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	hostileDigest := rewriteServedManifest(t, source, rootDigest, func(manifest map[string]any) {
+		layers, ok := manifest["layers"].([]any)
+		if !ok || len(layers) != 1 {
+			t.Fatalf("fixture layers = %v", manifest["layers"])
+		}
+		layer, ok := layers[0].(map[string]any)
+		if !ok {
+			t.Fatalf("fixture layer = %v", layers[0])
+		}
+		layer["size"] = float64(packages.MaxContentBytes + 1)
+	})
+
 	fake := &fakeRegistry{t: t, layout: source}
 	server := httptest.NewServer(fake.handler())
 	defer server.Close()
 	host := strings.TrimPrefix(server.URL, "http://")
 
 	repository := NewRepository(WithPlainHTTP())
-	err = repository.Pull(ctx, host+"/acme/tilecast-athletics", digest, t.TempDir())
+	err = repository.Pull(ctx, host+"/acme/tilecast-athletics", hostileDigest, t.TempDir())
 	if err == nil || !strings.Contains(err.Error(), "declares") {
 		t.Fatalf("err = %v, want a declared-size refusal", err)
+	}
+	if fake.blobGets != 0 {
+		t.Fatalf("blob gets = %d, want 0: refusal must precede copying", fake.blobGets)
+	}
+}
+
+func TestPullRefusesSubjectBeforeCopying(t *testing.T) {
+	ctx := t.Context()
+	source := t.TempDir()
+	rootDigest, err := packages.WriteLayout(source, []byte(registryManifest), registryContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostileDigest := rewriteServedManifest(t, source, rootDigest, func(manifest map[string]any) {
+		layers, ok := manifest["layers"].([]any)
+		if !ok || len(layers) != 1 {
+			t.Fatalf("fixture layers = %v", manifest["layers"])
+		}
+		manifest["subject"] = layers[0]
+	})
+
+	fake := &fakeRegistry{t: t, layout: source}
+	server := httptest.NewServer(fake.handler())
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	repository := NewRepository(WithPlainHTTP())
+	err = repository.Pull(ctx, host+"/acme/tilecast-athletics", hostileDigest, t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "subject") {
+		t.Fatalf("err = %v, want a subject refusal", err)
+	}
+	if fake.blobGets != 0 {
+		t.Fatalf("blob gets = %d, want 0: refusal must precede copying", fake.blobGets)
+	}
+}
+
+func TestPullRefusesAggregateSizeBeforeCopying(t *testing.T) {
+	ctx := t.Context()
+	source := t.TempDir()
+	rootDigest, err := packages.WriteLayout(source, []byte(registryManifest), registryContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostileDigest := rewriteServedManifest(t, source, rootDigest, func(manifest map[string]any) {
+		layers, ok := manifest["layers"].([]any)
+		if !ok || len(layers) != 1 {
+			t.Fatalf("fixture layers = %v", manifest["layers"])
+		}
+		template, ok := layers[0].(map[string]any)
+		if !ok {
+			t.Fatalf("fixture layer = %v", layers[0])
+		}
+		const declared = 200 << 20
+		many := make([]any, 3)
+		for i := range many {
+			copy := map[string]any{}
+			for key, value := range template {
+				copy[key] = value
+			}
+			copy["size"] = float64(declared)
+			many[i] = copy
+		}
+		manifest["layers"] = many
+	})
+
+	fake := &fakeRegistry{t: t, layout: source}
+	server := httptest.NewServer(fake.handler())
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	repository := NewRepository(WithPlainHTTP())
+	err = repository.Pull(ctx, host+"/acme/tilecast-athletics", hostileDigest, t.TempDir())
+	if err == nil || !strings.Contains(err.Error(), "package declares more than") {
+		t.Fatalf("err = %v, want an aggregate-size refusal", err)
 	}
 	if fake.blobGets != 0 {
 		t.Fatalf("blob gets = %d, want 0: refusal must precede copying", fake.blobGets)
