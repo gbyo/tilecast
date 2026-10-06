@@ -5,8 +5,9 @@
  * editor queues the saved Widget here and this host, mounted once in the
  * Studio shell, renders the real component at its recommended authoring frame
  * (or the canonical 960x540 frame when none is declared), contains that render
- * in the canonical library artwork, captures it, and uploads it. Living in the shell keeps a capture alive
- * when the editor route changes right after saving (a new Widget's route
+ * in the canonical library artwork, captures it, and uploads it. Living in the
+ * shell keeps a capture alive when the editor route changes right after saving
+ * (a new Widget's route
  * becomes /widgets/<id>, or the author goes back).
  */
 import { useQuery, useQueryClient } from "@tanstack/react-query";

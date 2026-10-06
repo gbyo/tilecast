@@ -74,16 +74,16 @@ The fates are:
 
 ### 3.2 Information
 
-| Provider               | Name                 | Fate     | Component          | Notes                                                                       |
-| ---------------------- | -------------------- | -------- | ------------------ | --------------------------------------------------------------------------- |
-| `news`                 | News                 | V2       | `tilecast.news`    | Shipped in #731.                                                            |
-| `weather`              | Weather              | V2       | `tilecast.weather` | Shipped in #730.                                                            |
+| Provider               | Name                 | Fate     | Component               | Notes                                                                       |
+| ---------------------- | -------------------- | -------- | ----------------------- | --------------------------------------------------------------------------- |
+| `news`                 | News                 | V2       | `tilecast.news`         | Shipped in #731.                                                            |
+| `weather`              | Weather              | V2       | `tilecast.weather`      | Shipped in #730.                                                            |
 | `status`               | Status               | V2       | `tilecast.status`       | Current-status panel.                                                       |
 | `school-status-banner` | School Status Banner | Collapse | `tilecast.status`       | Panel style.                                                                |
-| `alert-banner`         | Alert Banner         | V2       | `tilecast.alert-banner` | Strip-native urgent message; recommended frame 1920×160.                   |
-| `agenda`               | Agenda               | V2       | `tilecast.agenda`  | Styles: agenda, now and next, schedule board.                               |
-| `now-and-next`         | Now and Next         | Collapse | `tilecast.agenda`  | Now and next style.                                                         |
-| `schedule-board`       | School Schedule      | Collapse | `tilecast.agenda`  | Schedule board style; old sizing and column keys stay in the fallback only. |
+| `alert-banner`         | Alert Banner         | V2       | `tilecast.alert-banner` | Strip-native urgent message; recommended frame 1920×160.                    |
+| `agenda`               | Agenda               | V2       | `tilecast.agenda`       | Styles: agenda, now and next, schedule board.                               |
+| `now-and-next`         | Now and Next         | Collapse | `tilecast.agenda`       | Now and next style.                                                         |
+| `schedule-board`       | School Schedule      | Collapse | `tilecast.agenda`       | Schedule board style; old sizing and column keys stay in the fallback only. |
 
 Status reads any prepared object Data Source through explicit status,
 message, severity, and time-field mappings and is the current-status panel.

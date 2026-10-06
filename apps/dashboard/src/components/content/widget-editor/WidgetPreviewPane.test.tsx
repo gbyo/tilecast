@@ -106,9 +106,9 @@ describe("Widget preview", () => {
     renderEditorRoute("/widgets/widget-1");
     await screen.findByRole("button", { name: /Save changes/ });
     const bar = toolbar();
-    expect(within(bar).getByRole("combobox", { name: "Preview frame" })).toHaveTextContent(
-      "Custom size",
-    );
+    expect(
+      within(bar).getByRole("combobox", { name: "Preview frame" }),
+    ).toHaveTextContent("Custom size");
     expect(
       within(bar).getByRole("button", {
         name: "Custom size, 1920 by 160 pixels",

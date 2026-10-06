@@ -275,7 +275,7 @@ describe("Widget provider gallery", () => {
     expect(opener).toHaveFocus();
   });
 
-  it("shows canonical Status once and hides superseded catalog aliases", async () => {
+  it("shows Status and Alert Banner while hiding superseded aliases", async () => {
     vi.spyOn(api, "contentDefinitions").mockResolvedValue({
       revision: "1",
       compilerVersion: "1",

@@ -198,7 +198,7 @@
       "fate": "v2",
       "component": "tilecast.alert-banner",
       "creation": true,
-      "pr": "alert-banner-v2",
+      "pr": "#1333",
       "status": "done"
     },
     {
