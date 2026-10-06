@@ -178,6 +178,46 @@ export async function check(repo: Repo): Promise<Problem[]> {
   problems.push(...checkFragmentOperationIds(fragments));
   problems.push(...checkAutomationFiles(repo, fragments));
 
+  // Temporary PR diagnostic: print only the two generated OpenAPI regions
+  // and migration-lock tail that are stale after the stacked rebase.
+  if (
+    composed !== undefined &&
+    existsSync(join(repo.root, COMPOSED_OPENAPI)) &&
+    readFileSync(join(repo.root, COMPOSED_OPENAPI), "utf8") !== composed
+  ) {
+    for (const [startMarker, endMarker] of [
+      ["/api/v1/plugin-store:", "  /api/v1/screens/pairing/"],
+      ["    PluginStoreSource:", "    PluginInUseError:"],
+    ]) {
+      const start = composed.indexOf(startMarker);
+      const end = composed.indexOf(endMarker, start + startMarker.length);
+      if (start >= 0 && end > start) {
+        console.error(
+          "\nPR1341_GENERATED_OPENAPI_REGION\n" +
+            composed.slice(start, end) +
+            "PR1341_END_REGION\n",
+        );
+      }
+    }
+  }
+  const generatedMigrations = generated.files.get(
+    "apps/server/internal/database/migrations.lock.json",
+  );
+  if (
+    generatedMigrations !== undefined &&
+    existsSync(join(repo.root, "apps/server/internal/database/migrations.lock.json")) &&
+    readFileSync(
+      join(repo.root, "apps/server/internal/database/migrations.lock.json"),
+      "utf8",
+    ) !== generatedMigrations
+  ) {
+    console.error(
+      "\nPR1341_GENERATED_MIGRATIONS_TAIL\n" +
+        generatedMigrations.slice(-1200) +
+        "\nPR1341_END_MIGRATIONS_TAIL\n",
+    );
+  }
+
   for (const path of stale(repo, generated.files)) {
     problems.push({
       file: path,
