@@ -9,7 +9,7 @@ import darkScreenshot from "../../../assets/screenshots/display-group-dark.png";
 
 A Display Group is a set of screens that share fallback content, schedules, and playback position. Use one for displays that should stay synchronized, such as several screens in a lobby.
 
-The Display Groups page loads up to 100 groups at a time. Select **Load more** to browse later results. Group selectors in Studio can also reach groups beyond the first page.
+The Display Groups page lists each group with its screen count, health, mode, and fallback content. Search by name or description to narrow the list. The page loads up to 100 groups at a time, so select **Load more** to browse later results. Group selectors in Studio can also reach groups beyond the first page.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -17,29 +17,33 @@ import { Steps } from "@astrojs/starlight/components";
 
 <Steps>
 
-1. In Studio, open **Screens** > **Display Groups** and select **Create Display Group**.
-2. Enter a group name and optional description, then create the group.
-3. Open the group and add screens under **Screens**. Search by screen name or location, choose an available screen, and add it.
+1. In Studio, open **Screens** > **Display Groups** and select **Create group**.
+2. Enter a group name and optional description, then select **Create group**. Tilecast opens the new group on its **Screens** tab.
+3. Select **Add screens**. Search by screen name or location, check every screen to add, and select **Add**.
 
 </Steps>
 
-Only screens that aren't already assigned to another Display Group appear as available. A screen can belong to one Display Group at a time. To move a screen, remove it from its current group before adding it to another.
+A screen can belong to one Display Group at a time. Screens that another group already owns appear under **Already in another Display Group**. You can't select them, but each row names the group and links to it. To move a screen, remove it from its current group before adding it to another.
+
+If some screens can't be added, Tilecast adds the others, names the ones that failed, and keeps them selected so you can try again.
+
+Each group page has an **Overview**, **Screens**, **Playback**, **Display**, and **Player policy** tab. The group's header has **Show now** and **AirPlay**. The more-actions menu has **Edit details** and **Delete Display Group**.
 
 <Screenshot
   src={screenshot}
   darkSrc={darkScreenshot}
-  alt="Cafeteria Displays Members tab listing Cafeteria East, Cafeteria West, and Middle School Cafeteria with their locations, beside Content and Policy tabs."
+  alt="Cafeteria Displays group page listing Cafeteria East, Cafeteria West, and Middle School Cafeteria with their locations."
 />
 
 ## Choose fallback content
 
-Under **Fallback content**, select a Playlist or a published Layout, then select **Apply to Display Group**. Choose **No fallback presentation** if the group should have no fallback. The fallback plays whenever no higher-priority schedule or Takeover is active. Schedules can target the group so its member screens follow the same schedule.
+On the **Playback** tab, under **Fallback content**, search for a Playlist or a published Layout in **Presentation**, then select **Save changes**. Choose **No fallback presentation** if the group should have no fallback. The fallback plays whenever no higher-priority schedule or Takeover is active. Schedules can target the group so its member screens follow the same schedule.
 
 **Mirror** is the default mode. It preserves synchronized group playback: members use the same fallback and schedule and keep the same playback position.
 
 ## Make a video wall
 
-Set **Wall mode** to **Span** when the screens form one logical canvas. See [Build a Span video wall](../span-video-walls/) for panel setup, Player requirements, and video preparation.
+On the **Display** tab, choose **Span** under **Display mode** when the screens form one logical canvas. Choosing Span only starts a draft. Nothing changes until you save the wall. See [Build a Span video wall](../span-video-walls/) for panel setup, Player requirements, and video preparation.
 
 ## Change or delete a group
 

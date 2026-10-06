@@ -285,18 +285,11 @@
     "zoomPresets": "Zoom presets"
   },
   "spanWall": {
-    "modeTitle": "Wall mode",
-    "modeDescription": "Mirror keeps the existing synchronized group behavior. Switch to Span when the screens form one logical canvas.",
-    "switchBusy": "Switching…",
-    "switchAction": "Switch to Span",
-    "title": "Span wall editor",
-    "description": "Arrange each panel on one logical canvas. Video is prepared into normal-resolution H.264 panel files on the server before playback.",
     "canvasWidth": "Canvas width",
     "canvasHeight": "Canvas height",
     "presetsLabel": "Wall presets",
     "presetsTitle": "Presets",
     "saveAction": "Save wall",
-    "returnAction": "Return to Mirror",
     "saveFailed": "The wall geometry could not be saved. Check that panels do not overlap and fit inside the canvas.",
     "previewLabel": "Span wall preview",
     "unknownScreen": "Screen",
@@ -307,7 +300,28 @@
     "preparationQueued": "queued",
     "preparationProcessing": "processing",
     "preparationReady": "ready",
-    "preparationFailed": "failed"
+    "preparationFailed": "failed",
+    "canvasTitle": "Wall canvas",
+    "panelsTitle": "Panel settings",
+    "panelFields": {
+      "x": "X",
+      "y": "Y",
+      "width": "Width",
+      "height": "Height"
+    },
+    "bezelTitle": "Bezel compensation",
+    "bezelFields": {
+      "bezelLeft": "Left",
+      "bezelTop": "Top",
+      "bezelRight": "Right",
+      "bezelBottom": "Bottom"
+    },
+    "bezelHint": "Applied to Span video only. Images and Layouts ignore bezel values.",
+    "unsavedChanges": "You have unsaved wall changes.",
+    "unsavedWall": "This wall has not been saved yet.",
+    "discardAction": "Discard",
+    "preparationProgress": "Preparation progress for {{name}}",
+    "unitPx": "px"
   },
   "canvas": {
     "sizeTitle": "Canvas size",

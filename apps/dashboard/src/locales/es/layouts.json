@@ -292,18 +292,11 @@
     "zoomPresets": "Niveles de zoom"
   },
   "spanWall": {
-    "modeTitle": "Modo de muro",
-    "modeDescription": "Espejado mantiene el comportamiento sincronizado actual del grupo. Cambia a Extendido cuando las pantallas forman un lienzo lógico.",
-    "switchBusy": "Cambiando…",
-    "switchAction": "Cambiar a Extendido",
-    "title": "Editor de muro extendido",
-    "description": "Organiza cada panel en un lienzo lógico. El video se prepara en el servidor como archivos H.264 de resolución normal antes de reproducirse.",
     "canvasWidth": "Ancho del lienzo",
     "canvasHeight": "Alto del lienzo",
     "presetsLabel": "Preajustes de muro",
     "presetsTitle": "Preajustes",
     "saveAction": "Guardar muro",
-    "returnAction": "Volver a Espejado",
     "saveFailed": "No se pudo guardar la geometría del muro. Comprueba que los paneles no se superpongan y quepan en el lienzo.",
     "previewLabel": "Vista previa del muro extendido",
     "unknownScreen": "Pantalla",
@@ -314,7 +307,28 @@
     "preparationQueued": "en cola",
     "preparationProcessing": "procesando",
     "preparationReady": "listo",
-    "preparationFailed": "fallido"
+    "preparationFailed": "fallido",
+    "canvasTitle": "Lienzo del muro",
+    "panelsTitle": "Ajustes de panel",
+    "panelFields": {
+      "x": "X",
+      "y": "Y",
+      "width": "Ancho",
+      "height": "Alto"
+    },
+    "bezelTitle": "Compensación de bisel",
+    "bezelFields": {
+      "bezelLeft": "Izquierda",
+      "bezelTop": "Superior",
+      "bezelRight": "Derecha",
+      "bezelBottom": "Inferior"
+    },
+    "bezelHint": "Solo se aplica al video Extendido. Las imágenes y los diseños ignoran los valores de bisel.",
+    "unsavedChanges": "Hay cambios sin guardar en el muro.",
+    "unsavedWall": "Este muro aún no se ha guardado.",
+    "discardAction": "Descartar",
+    "preparationProgress": "Progreso de preparación de {{name}}",
+    "unitPx": "px"
   },
   "canvas": {
     "sizeTitle": "Tamaño del lienzo",

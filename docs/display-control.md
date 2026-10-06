@@ -92,8 +92,9 @@ operator can turn either provider off in `/etc/tilecast-edge/edge.toml`
 
 ## Display Group actions
 
-Studio can preview and send **Power on all**, **Power off all**, **Mute all**,
-and **Unmute all** for a Display Group. The preview is based on each current
+Studio can preview and send **Power on**, **Power off**, **Mute**, and
+**Unmute** for a Display Group. Each command opens a confirmation dialog that
+shows the preview. The preview is based on each current
 Player heartbeat and reports the selected count, capability-supported count,
 unsupported displays, and displays that cannot currently receive a command.
 Only supported displays receive a persistent Player command; unsupported or

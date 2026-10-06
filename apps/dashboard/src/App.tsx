@@ -31,12 +31,9 @@ import { PairScreenPresentation } from "./pairing/PairScreenPresentation";
 import { UpdateDeploymentPresentation } from "./settings/UpdateDeploymentPresentation";
 import { MediaAssetPresentation } from "./pages/MediaAssetPresentation";
 import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
-import {
-  GroupsPage,
-  GroupDetailPage,
-  SchedulesPage,
-  ScheduleEditorPage,
-} from "./pages/SchedulesPage";
+import { SchedulesPage, ScheduleEditorPage } from "./pages/SchedulesPage";
+import { DisplayGroupsPage } from "./screens/groups/DisplayGroupsPage";
+import { DisplayGroupDetailPage } from "./screens/groups/DisplayGroupDetailPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
 import { AccountIndexRedirect, MyAccountPage } from "./pages/MyAccountPage";
@@ -246,10 +243,10 @@ export const studioRoutes: RouteObject[] = [
           ),
         },
         children: [
-          { index: true, element: <GroupsPage /> },
+          { index: true, element: <DisplayGroupsPage /> },
           {
             path: ":id",
-            element: <GroupDetailPage />,
+            element: <DisplayGroupDetailPage />,
             handle: { breadcrumb: "Display Group", resource: "screen-group" },
           },
         ],
