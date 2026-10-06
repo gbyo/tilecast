@@ -142,7 +142,7 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
 > {
   static override styles = [
     ...(TilecastWidgetElement.styles as never[]),
-    css\`
+    css`
       .alert-banner {
         position: absolute;
         inset: 0;
@@ -263,7 +263,7 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
           font-size: clamp(10px, 42cqh, 20px);
         }
       }
-    \`,
+    `,
   ];
 
   protected override themeOverrides(config: AlertBannerConfig) {
@@ -286,15 +286,15 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
 
   protected override renderEmpty(_reason: string): TemplateResult {
     const title = this.config?.emptyText || "No active alerts";
-    return html\`<div class="alert-banner alert-banner--empty">
-      <span class="empty-message">\${title}</span>
-    </div>\`;
+    return html`<div class="alert-banner alert-banner--empty">
+      <span class="empty-message">${title}</span>
+    </div>`;
   }
 
   protected override renderContent(
     data: AlertBannerData | null,
   ): TemplateResult {
-    if (!data) return html\`\`;
+    if (!data) return html``;
     const message = this.text(data, this.config.messageField, 1600);
     const rawLabel = this.text(data, this.config.labelField, 120);
     const severity = this.text(data, this.config.severityField, 80);
@@ -306,23 +306,23 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
         : "";
     const bannerText = message || rawLabel;
     if (!bannerText) return this.renderEmpty("no_message");
-    return html\`<div class="alert-banner">
-      \${
+    return html`<div class="alert-banner">
+      ${
         this.config.showSeverity && severity
-          ? html\`<span class="severity">\${badge(
+          ? html`<span class="severity">${badge(
               severity,
               alertSeverityTone(severity),
-            )}</span>\`
+            )}</span>`
           : nothing
       }
-      \${label ? html\`<span class="label">\${label}</span>\` : nothing}
+      ${label ? html`<span class="label">${label}</span>` : nothing}
       <div class="message-viewport">
-        <div class="message-track" data-speed=\${this.config.speed}>
-          <span class="message-copy">\${bannerText}</span>
-          <span class="message-copy" aria-hidden="true">\${bannerText}</span>
+        <div class="message-track" data-speed=${this.config.speed}>
+          <span class="message-copy">${bannerText}</span>
+          <span class="message-copy" aria-hidden="true">${bannerText}</span>
         </div>
       </div>
-    </div>\`;
+    </div>`;
   }
 
   private text(
