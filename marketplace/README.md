@@ -41,3 +41,7 @@ digest and the package's source repository.
 
 The runtime catalog adds only publication metadata and signatures; it does not
 invent or rewrite listing metadata.
+
+Keep listings sorted by `packageId`. Server CI reads this source file with the
+same listing validator used for signed runtime catalogs, so an invalid or
+duplicate listing cannot merge silently.
