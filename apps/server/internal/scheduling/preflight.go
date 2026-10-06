@@ -265,6 +265,10 @@ func specificityOf(direct bool) int {
 	return 0
 }
 
+// unsavedDraftID stands in for the ID of a draft that has none yet. It sorts
+// after every real ID, so the stable-ID tie-break never favors the draft.
+var unsavedDraftID = uuid.MustParse("ffffffff-ffff-ffff-ffff-ffffffffffff")
+
 // Preflight evaluates a proposed schedule at its next occurrence across every
 // screen it targets. editing is the saved schedule being changed, if any; its
 // stored copy is left out of the comparison so a schedule never competes with
@@ -312,8 +316,10 @@ func (s *Service) preflightAt(ctx context.Context, now time.Time, editing *uuid.
 	if err != nil {
 		return PreflightResult{}, err
 	}
-	// Nil stands in for the saved ID of a schedule that does not exist yet.
-	draftID := uuid.Nil
+	// A schedule that is not saved has no stable ID, so a full tie with another
+	// schedule cannot be called a win. The highest possible ID makes the draft
+	// lose such ties, which keeps the check from promising what it cannot know.
+	draftID := unsavedDraftID
 	if editing != nil {
 		draftID = *editing
 	}

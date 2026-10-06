@@ -91,7 +91,11 @@ export function ScheduleTimezoneField({
           className="sm:max-w-md"
           placeholder={t("timing.timezoneSearch")}
           aria-invalid={error ? true : undefined}
-          aria-describedby="schedule-timezone-hint"
+          aria-describedby={
+            error
+              ? "schedule-timezone-hint schedule-timezone-error"
+              : "schedule-timezone-hint"
+          }
         />
         <ComboboxContent>
           <ComboboxEmpty>{t("timing.timezoneEmpty")}</ComboboxEmpty>

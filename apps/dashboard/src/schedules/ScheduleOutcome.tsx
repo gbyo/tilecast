@@ -311,7 +311,9 @@ function PreflightResult({
                   size="sm"
                 >
                   <ItemContent>
-                    <ItemTitle>{competitor.name}</ItemTitle>
+                    <ItemTitle>
+                      {competitor.name || t("outcome.hiddenSchedule")}
+                    </ItemTitle>
                     <ItemDescription>
                       {competitorLine(competitor, t)}
                     </ItemDescription>
@@ -381,9 +383,11 @@ function LosingScreens({ result }: { result: SchedulePreflight }) {
         {losing.slice(0, SHOWN_SCREENS).map((screen) => (
           <li key={screen.screenId} className="grid">
             <span className="truncate">{screen.name}</span>
-            {screen.winnerName && (
+            {(screen.winnerName || screen.winnerScheduleId) && (
               <span className="truncate text-xs text-muted-foreground">
-                {t("outcome.showsInstead", { name: screen.winnerName })}
+                {screen.winnerName
+                  ? t("outcome.showsInstead", { name: screen.winnerName })
+                  : t("outcome.showsOther")}
               </span>
             )}
           </li>

@@ -5525,7 +5525,7 @@ paths:
       operationId: preflightSchedule
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+        Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
       requestBody:
         required: true
         content:
@@ -5547,8 +5547,16 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/SchedulePreflight" }
+        "400": { description: Malformed body or an unknown field }
         "401": { description: Authentication required }
         "403": { description: Scope or target scope requirement not met }
+        "404":
+          {
+            description: A referenced Playlist,
+            Layout,
+            or target was not found,
+          }
+        "409": { description: The presentation conflicts with a target }
         "422": { description: Schedule or target validation failed }
   /api/v1/assets/websites:
     post:

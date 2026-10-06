@@ -241,6 +241,43 @@ describe("Schedule outcome: the next-run check", () => {
     ).toBeInTheDocument();
   });
 
+  it("labels a schedule the account may not see without its name", () => {
+    show(
+      draft(),
+      ready(
+        preflightResult({
+          winningScreenCount: 7,
+          losingScreenCount: 1,
+          competitors: [
+            {
+              scheduleId: "x",
+              name: "",
+              priority: 500,
+              presentationType: "playlist",
+              affectedScreenCount: 1,
+              outranksDraftScreenCount: 1,
+              reason: "schedule_lower_priority",
+            },
+          ],
+          screens: [
+            {
+              screenId: "a",
+              name: "Lobby",
+              outcome: "superseded",
+              reason: "schedule_lower_priority",
+              winnerScheduleId: "x",
+              winnerName: "",
+            },
+          ],
+        }),
+      ),
+    );
+    expect(screen.getByText("Another schedule")).toBeInTheDocument();
+    expect(
+      screen.getByText("Shows another schedule instead"),
+    ).toBeInTheDocument();
+  });
+
   it("says plainly when the draft loses everywhere", () => {
     show(
       draft(),

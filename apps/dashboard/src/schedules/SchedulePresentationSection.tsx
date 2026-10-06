@@ -295,8 +295,10 @@ export function playlistDuration(playlist: Playlist, t: SchedulesT) {
     0,
   );
   if (!seconds) return t("editor.presentation.durationVaries");
-  const minutes = Math.floor(seconds / 60);
-  const remainder = Math.round(seconds % 60);
+  // Round first, so 59.6 seconds is a minute and not "0 min 60 sec".
+  const total = Math.round(seconds);
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
   return minutes
     ? `${t("duration.minutes", { count: minutes })}${remainder ? ` ${t("duration.seconds", { count: remainder })}` : ""}`
     : t("duration.seconds", { count: remainder });

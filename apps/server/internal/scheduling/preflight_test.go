@@ -184,12 +184,23 @@ func TestPreflightDirectTargetBeatsGroupTargetAtEqualPriority(t *testing.T) {
 
 func TestPreflightEqualPriorityTiesFollowTheEngine(t *testing.T) {
 	screens := screensNamed(1, false)
-	draft := weekly("UTC", "09:00", "10:00", 2)
 	rival := competitorOn("Same", 0, weekly("UTC", "09:00", "10:00", 2), screens, false)
 	rival.Schedule.ID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
-	got := evaluatePreflight(mustTime(t, "2026-10-05T12:00:00Z"), draft, true, screens, []preflightCompetitor{rival})
-	// A draft with no saved ID sorts first, so a full tie keeps the draft.
-	if got.WinningScreenCount != 1 || got.Competitors[0].Reason != ReasonStableID {
+	now := mustTime(t, "2026-10-05T12:00:00Z")
+
+	// An unsaved draft has no stable ID, so a full tie is not reported as a win.
+	unsaved := weekly("UTC", "09:00", "10:00", 2)
+	unsaved.ID = unsavedDraftID
+	got := evaluatePreflight(now, unsaved, true, screens, []preflightCompetitor{rival})
+	if got.WinningScreenCount != 0 || got.LosingScreenCount != 1 || got.Competitors[0].Reason != ReasonStableID || got.Competitors[0].OutranksDraftScreenCount != 1 {
+		t.Fatalf("%+v", got)
+	}
+
+	// A saved schedule keeps the engine's comparison with its real ID.
+	saved := weekly("UTC", "09:00", "10:00", 2)
+	saved.ID = uuid.MustParse("00000000-0000-0000-0000-000000000000")
+	got = evaluatePreflight(now, saved, true, screens, []preflightCompetitor{rival})
+	if got.WinningScreenCount != 1 || got.Competitors[0].Reason != ReasonStableID || got.Competitors[0].OutranksDraftScreenCount != 0 {
 		t.Fatalf("%+v", got)
 	}
 }

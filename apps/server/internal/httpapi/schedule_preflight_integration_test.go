@@ -74,6 +74,77 @@ func TestSchedulePreflightHTTPBoundary(t *testing.T) {
 		if unknown := post("/api/v1/schedules/preflight", token, `{"proposedSchedule":{},"surprise":true}`); unknown.Code != http.StatusBadRequest {
 			t.Fatalf("an unknown field status=%d body=%s", unknown.Code, unknown.Body.String())
 		}
+		// A scoped account sees a competing schedule only when all of its targets
+		// are inside the scope; otherwise the name and ID are withheld.
+		var org uuid.UUID
+		if err = env.pool.QueryRow(ctx, `SELECT id FROM organization_settings`).Scan(&org); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = env.pool.Exec(ctx, `UPDATE screens SET platform='linux' WHERE id=$1`, inScope); err != nil {
+			t.Fatal(err)
+		}
+		playlist, secret, shared := uuid.New(), uuid.New(), uuid.New()
+		if _, err = env.pool.Exec(ctx, `INSERT INTO playlists(id,organization_id,name) VALUES($1,$2,'Rival content')`, playlist, org); err != nil {
+			t.Fatal(err)
+		}
+		for _, rival := range []struct {
+			id       uuid.UUID
+			name     string
+			priority int
+			outside  bool
+		}{{secret, "Secret rival", 800, true}, {shared, "Visible rival", 700, false}} {
+			if _, err = env.pool.Exec(ctx, `INSERT INTO schedules(id,organization_id,name,playlist_id,type,timezone,priority,daily_start,daily_end,days_of_week) VALUES($1,$2,$3,$4,'weekly','UTC',$5,'00:00','23:59','{0,1,2,3,4,5,6}')`, rival.id, org, rival.name, playlist, rival.priority); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = env.pool.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id) VALUES($1,'screen',$2)`, rival.id, inScope); err != nil {
+				t.Fatal(err)
+			}
+			if rival.outside {
+				if _, err = env.pool.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id) VALUES($1,'screen',$2)`, rival.id, outOfScope); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		rivals := post("/api/v1/schedules/preflight", token, draft(inScope))
+		if rivals.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", rivals.Code, rivals.Body.String())
+		}
+		var seen struct {
+			Data struct {
+				Competitors []struct {
+					ScheduleID          uuid.UUID `json:"scheduleId"`
+					Name                string    `json:"name"`
+					AffectedScreenCount int       `json:"affectedScreenCount"`
+				} `json:"competitors"`
+				Screens []struct {
+					WinnerScheduleID *uuid.UUID `json:"winnerScheduleId"`
+					WinnerName       string     `json:"winnerName"`
+				} `json:"screens"`
+			} `json:"data"`
+		}
+		if err = json.Unmarshal(rivals.Body.Bytes(), &seen); err != nil {
+			t.Fatal(err)
+		}
+		names := map[string]uuid.UUID{}
+		for _, c := range seen.Data.Competitors {
+			if c.AffectedScreenCount != 1 {
+				t.Fatalf("counts must survive redaction: %+v", c)
+			}
+			names[c.Name] = c.ScheduleID
+		}
+		if _, ok := names["Visible rival"]; !ok || len(names) != 2 {
+			t.Fatalf("competitors=%+v", seen.Data.Competitors)
+		}
+		if hidden, ok := names[""]; !ok || hidden == secret {
+			t.Fatalf("the hidden competitor kept its name or ID: %+v", seen.Data.Competitors)
+		}
+		if strings.Contains(rivals.Body.String(), "Secret rival") || strings.Contains(rivals.Body.String(), secret.String()) {
+			t.Fatalf("a hidden schedule leaked: %s", rivals.Body.String())
+		}
+		// Winners are redacted the same way; the top-priority rival wins here.
+		if len(seen.Data.Screens) != 1 || seen.Data.Screens[0].WinnerName != "" || seen.Data.Screens[0].WinnerScheduleID == nil || *seen.Data.Screens[0].WinnerScheduleID == secret {
+			t.Fatalf("screens=%+v", seen.Data.Screens)
+		}
 		// The exact-screen preview keeps its stricter rule for the same account.
 		if preview := post("/api/v1/schedules/preview", token, `{"screenId":"`+inScope.String()+`"}`); preview.Code != http.StatusForbidden {
 			t.Fatalf("a viewer's preview status=%d", preview.Code)

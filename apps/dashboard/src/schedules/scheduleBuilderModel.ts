@@ -60,6 +60,20 @@ export function priorityLabel(priority: number, t: SchedulesT) {
   return t("priority.customValue", { priority });
 }
 
+/** Wall-clock time of day ("HH:mm") in the reader's language. */
+export function formatClock(
+  value: string | undefined,
+  t: SchedulesT,
+  locale: string,
+) {
+  if (!value) return t("timing.clockNotSet");
+  const [hour, minute] = value.split(":").map(Number);
+  return new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(2020, 0, 1, hour, minute));
+}
+
 /** "7:15 – 8:15 AM": one range so the meridiem is not repeated. */
 export function formatClockRange(
   start: string | undefined,

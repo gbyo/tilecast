@@ -76,7 +76,10 @@
     }
   },
   "options": {
-    "type": { "weekly": "Semanal", "oneTime": "Única vez" },
+    "type": {
+      "weekly": "Semanal",
+      "oneTime": "Única vez"
+    },
     "presentation": {
       "playlist": "Lista de reproducción",
       "layout": "Diseño",
@@ -161,7 +164,8 @@
     "loadFailed": {
       "title": "No se pudo cargar la programación",
       "retry": "Intentar de nuevo"
-    }
+    },
+    "deleteTitle": "¿Eliminar {{name}}?"
   },
   "displayAction": {
     "actionLabel": "Acción",
@@ -447,6 +451,8 @@
         "tie_many": "Pierde un empate total · {{count}} de pantallas",
         "tie_other": "Pierde un empate total · {{count}} pantallas"
       }
-    }
+    },
+    "hiddenSchedule": "Otra programación",
+    "showsOther": "Muestra otra programación en su lugar"
   }
 }

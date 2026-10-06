@@ -3206,7 +3206,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time. */
+    /** @description Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time. */
     post: operations["preflightSchedule"];
     delete?: never;
     options?: never;
@@ -19924,6 +19924,13 @@ export interface operations {
           };
         };
       };
+      /** @description Malformed body or an unknown field */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Authentication required */
       401: {
         headers: {
@@ -19933,6 +19940,20 @@ export interface operations {
       };
       /** @description Scope or target scope requirement not met */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A referenced Playlist */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The presentation conflicts with a target */
+      409: {
         headers: {
           [name: string]: unknown;
         };

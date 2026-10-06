@@ -290,11 +290,11 @@ export function schedulePresentation(
       label:
         schedule.layoutName ||
         schedule.playlistName ||
-        t("editor.presentationLayoutFallback"),
+        t("editor.presentation.layoutKind"),
     };
   return {
     kind: "playlist",
-    label: schedule.playlistName || t("editor.presentationPlaylistFallback"),
+    label: schedule.playlistName || t("editor.presentation.playlistKind"),
   };
 }
 
@@ -312,9 +312,7 @@ export function scheduleTargetSummary(
   targets: readonly ScheduleTarget[],
   t: SchedulesT,
 ): ScheduleTargetSummary {
-  const names = targets.map(
-    (target) => target.name || t("targets.unknownTarget"),
-  );
+  const names = targets.map((target) => target.name || t("targets.unknown"));
   if (names.length === 0)
     return { text: t("page.noTargets"), names, hidden: 0 };
   const shown = names.slice(0, visibleTargets);

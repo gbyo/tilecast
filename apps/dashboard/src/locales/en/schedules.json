@@ -75,7 +75,10 @@
     }
   },
   "options": {
-    "type": { "weekly": "Weekly", "oneTime": "One-time" },
+    "type": {
+      "weekly": "Weekly",
+      "oneTime": "One-time"
+    },
     "presentation": {
       "playlist": "Playlist",
       "layout": "Layout",
@@ -158,7 +161,8 @@
     "loadFailed": {
       "title": "The schedule could not be loaded",
       "retry": "Try again"
-    }
+    },
+    "deleteTitle": "Delete {{name}}?"
   },
   "displayAction": {
     "actionLabel": "Action",
@@ -422,6 +426,8 @@
         "tie_one": "Loses a full tie · {{count}} screen",
         "tie_other": "Loses a full tie · {{count}} screens"
       }
-    }
+    },
+    "hiddenSchedule": "Another schedule",
+    "showsOther": "Shows another schedule instead"
   }
 }

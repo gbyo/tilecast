@@ -5,7 +5,7 @@
  * underneath the person using it.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -78,6 +78,7 @@ function ExistingSchedule({ id }: { id: string }) {
       <SessionHost
         schedule={schedule}
         initial={carried ?? draftFromSchedule(schedule)}
+        carried={Boolean(carried)}
         csrf={csrf}
         canManage={canManage}
       />
@@ -215,11 +216,14 @@ function NewSchedule() {
 function SessionHost({
   schedule,
   initial,
+  carried = false,
   csrf,
   canManage,
 }: {
   schedule?: Schedule;
   initial: ScheduleDraft;
+  /** The initial draft came from the route state of a create. */
+  carried?: boolean;
   csrf: string;
   canManage: boolean;
 }) {
@@ -229,6 +233,21 @@ function SessionHost({
     csrf,
     readOnly: !canManage,
   });
+  // The carried draft is spent once the session holds it. Left in the history
+  // entry, a reload would bring the old draft back over what was saved since.
+  // The replace is the editor's own departure, so the unsaved-change blocker
+  // does not intercept it.
+  const { leave } = session;
+  const location = useLocation();
+  const spent = useRef(false);
+  useEffect(() => {
+    if (!carried || spent.current) return;
+    spent.current = true;
+    leave(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [carried, leave, location.pathname, location.search]);
   return (
     <ScheduleEditorWorkspace
       session={session}

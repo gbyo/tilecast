@@ -528,6 +528,9 @@ describe("Creating a schedule", () => {
       await screen.findByDisplayValue("Weekdays Edited"),
     ).toBeInTheDocument();
     expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    // The carried draft is spent: a reload must not bring it back.
+    await waitFor(() => expect(router.state.location.state).toBeNull());
+    expect(screen.getByDisplayValue("Weekdays Edited")).toBeInTheDocument();
   });
 });
 

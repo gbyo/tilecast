@@ -5809,6 +5809,9 @@ paths:
         real state. Counts describe the whole target set; the screens and
         competitors lists are bounded. Pass scheduleId when editing a saved
         schedule so its stored copy does not compete with the draft.
+        A scoped account sees a competing schedule's name and ID only when all
+        of that schedule's targets are inside its scope; other competitors keep
+        their counts and reasons but carry no name and a placeholder ID.
         The result describes the next occurrence only, never every future
         occurrence. Use previewSchedule to inspect one exact screen at an
         exact time.
@@ -5833,8 +5836,16 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/SchedulePreflight" }
+        "400": { description: Malformed body or an unknown field }
         "401": { description: Authentication required }
         "403": { description: Scope or target scope requirement not met }
+        "404":
+          {
+            description: A referenced Playlist,
+            Layout,
+            or target was not found,
+          }
+        "409": { description: The presentation conflicts with a target }
         "422": { description: Schedule or target validation failed }
   /api/v1/assets/websites:
     post:

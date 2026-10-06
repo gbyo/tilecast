@@ -88,10 +88,11 @@ describe("Schedule outcome surfaces", () => {
     expect(
       await within(dialog).findByText("Next-run check"),
     ).toBeInTheDocument();
+    // A Drawer, not the tablet's Sheet.
     expect(
-      dialog.closest("[data-slot=drawer-content], [data-slot=drawer-popup]") ??
-        dialog,
-    ).toBeTruthy();
+      dialog.closest("[data-slot=drawer-content], [data-slot=drawer-popup]"),
+    ).not.toBeNull();
+    expect(dialog.closest("[data-slot=sheet-content]")).toBeNull();
     expect(outcomeCopies()).toHaveLength(1);
   });
 
