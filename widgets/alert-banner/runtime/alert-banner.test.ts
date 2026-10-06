@@ -88,10 +88,7 @@ describe("Alert Banner configuration", () => {
 
   it("treats missing and incompatible sources distinctly", () => {
     expect(
-      resolveAlertBannerData(
-        { ...base, dataSourceId: "" },
-        fixtureResources(),
-      ),
+      resolveAlertBannerData({ ...base, dataSourceId: "" }, fixtureResources()),
     ).toMatchObject({ state: "empty" });
     const records: Record<string, WidgetDataDocument> = {
       [SOURCE]: {
