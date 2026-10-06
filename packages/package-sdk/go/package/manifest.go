@@ -178,7 +178,7 @@ func Validate(m Manifest) error {
 		if !packagePathPattern.MatchString(contribution.Path) {
 			return fmt.Errorf("package manifest: contribution path must be a ./relative path inside the package")
 		}
-		key := contribution.Type + ":" + contribution.Path
+		key := contribution.Path
 		if seen[key] {
 			return fmt.Errorf("package manifest: contribution paths must be unique")
 		}
