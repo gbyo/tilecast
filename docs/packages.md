@@ -34,7 +34,8 @@ runtime exists) plugin behavior. The contribution contracts themselves
 Optional fields are `documentation` and `issues` (https URLs). Unknown
 fields are rejected: a manifest cannot grant itself capabilities, declare
 a source, or name code to download. Contribution paths point inside the
-package and cannot escape it.
+package and cannot escape it. Each contribution root is unique across the
+package, even when the contribution types differ.
 
 Two validators enforce the same rules: the TypeScript validator in
 `@tilecast/package-sdk` for authoring time, and the server-authoritative Go
@@ -65,9 +66,14 @@ A package travels as a standard OCI image, version 1:
 `VerifyLayout` in `internal/extensions/packages` opens an OCI image layout,
 verifies every digest it follows, and returns the validated manifest with
 the artifact digest the installer pins. A missing file, digest mismatch,
-wrong media type, invalid manifest, or oversized blob fails closed with no
-partial result. Limits are 1 MiB for layout documents and the manifest,
-256 MiB per content blob.
+wrong media type, invalid manifest, oversized blob, or write failure fails
+closed with no partial result. Limits are 1 MiB for layout documents and
+the manifest, 256 MiB per content blob.
+
+At this stage, content blobs are integrity-checked opaque bytes after their
+Tilecast tar+gzip media type is verified. Safe gzip/tar parsing and
+extraction arrive with the external-runtime delivery stage; Stage 2 does
+not extract or execute package content.
 
 Remote registry transport arrives with the marketplace and
 custom-repository stages and feeds this same verifier, so local layouts,
@@ -83,16 +89,21 @@ and contribution ownership in `installed_package_contributions`
 
 1. The manifest parses against the package contract.
 2. The digest is a `sha256:` digest, never a tag.
-3. The source kind, references, and trust state are well formed.
+3. The source kind, references, signer identity, and trust state are
+   internally consistent. Verified packages require a signer identity;
+   unsigned development packages cannot carry one.
 4. Unsigned installs are refused unless the service allows development
    installs. That allowance is a constructor choice, never a request flag.
 5. The Tilecast compatibility range holds for the running release.
-6. Every contribution sits inside the package namespace.
+6. Every derived contribution exactly matches one declared manifest
+   `(type, path)`, sits inside the package namespace, and every declared
+   contribution is accounted for.
 7. Nothing else supplies the same contribution identity.
 
-An update snapshots the replaced activation — digest, version, manifest
-document, and contribution rows — as the rollback target. Rollback
-restores from that snapshot and revalidates it like a fresh activation, so
+An update snapshots the replaced activation — digest, version, source,
+registry, signer/trust provenance, manifest document, and contribution rows —
+as the rollback target. Rollback restores the complete prior activation and
+revalidates it like a fresh activation, so
 a server upgrade that moved past its compatibility range refuses rather
 than reviving an incompatible package. Rollback is single-level and clears
 the snapshot. Removal deletes the row; contribution rows cascade.
