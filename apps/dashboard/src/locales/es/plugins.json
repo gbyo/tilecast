@@ -37,7 +37,7 @@
     "sourceLabel": "Origen",
     "loadError": "No se pudo cargar este complemento.",
     "emptyTitle": "No hay complementos disponibles",
-    "emptyDescription": "No hay complementos disponibles en los orígenes configurados."
+    "emptyDescription": "No hay complementos disponibles en los orígenes configurados.",
     "sources": {
       "all": "Todos los orígenes",
       "included": "Incluido con Tilecast"
