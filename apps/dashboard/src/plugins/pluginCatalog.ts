@@ -4,6 +4,7 @@ import { api, ApiError } from "../api/client";
 import type {
   PluginInUseResource,
   PluginStoreEntry,
+  PluginStoreMarketplace,
   PluginSummary,
 } from "../api/types";
 import { toast } from "../components/ui/toast";
@@ -110,10 +111,10 @@ export type StoreCategoryFilter = "All" | (typeof pluginCategories)[number];
 export type StoreSourceFilter = string;
 
 /**
- * The Explore list: category and source narrow the list, while a search
- * matches names, descriptions, categories, and capabilities. Installed
- * entries remain browseable so their store detail, provenance, and future
- * version/update information never disappear after installation.
+ * The Explore list: category and source narrow the list, while search matches
+ * source-specific metadata. Marketplace listings do not have a plugin
+ * category yet, so category filters intentionally show release-owned plugins.
+ * Installed entries remain browseable for details, versions, and updates.
  */
 export function filterStoreEntries(
   entries: PluginStoreEntry[],
@@ -123,19 +124,43 @@ export function filterStoreEntries(
 ) {
   const needle = query.trim().toLocaleLowerCase();
   return entries.filter((entry) => {
-    const plugin = entry.plugin;
-    if (category !== "All" && plugin.category !== category) return false;
     if (source !== "all" && entry.source.kind !== source) return false;
+
+    const plugin = entry.plugin;
+    const listing = entry.marketplace;
+    if (!plugin && !listing) return false;
+    if (category !== "All" && plugin?.category !== category) return false;
     if (!needle) return true;
-    return [
-      plugin.name,
-      plugin.description,
-      plugin.category,
-      ...plugin.capabilities,
-    ]
-      .join(" ")
-      .toLocaleLowerCase()
-      .includes(needle);
+
+    const haystack = plugin
+      ? [
+          plugin.name,
+          plugin.description,
+          plugin.category,
+          ...plugin.capabilities,
+        ]
+      : marketplaceHaystack(listing as PluginStoreMarketplace);
+
+    return haystack.join(" ").toLocaleLowerCase().includes(needle);
+  });
+}
+
+function marketplaceHaystack(listing: PluginStoreMarketplace) {
+  return [
+    listing.name,
+    listing.description ?? "",
+    listing.publisherName,
+    listing.publisherId,
+  ];
+}
+
+/** Refresh the signed marketplace catalog and invalidate the store cache. */
+export function useRefreshMarketplaceCatalog(csrfToken: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.refreshMarketplaceCatalog(csrfToken),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: pluginStoreQueryKey }),
   });
 }
 
