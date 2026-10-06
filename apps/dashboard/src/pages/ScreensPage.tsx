@@ -63,6 +63,10 @@ import {
   makeApprovalSchema,
 } from "../pairing/PairingDetailsForm";
 import { PairScreenDialog } from "../pairing/PairScreenDialog";
+import {
+  AddBrowserPlayer,
+  BrowserRecoveryPanel,
+} from "../screens/browser/BrowserPlayerControls";
 import { PendingPairings } from "../pairing/PendingPairings";
 import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
@@ -531,6 +535,7 @@ export function ScreensWorkspacePage() {
                 <Plus aria-hidden="true" /> {t("page.pairScreen")}
               </Link>
             )}
+            {manageable && !archive && <AddBrowserPlayer />}
             <ActionMenuButton
               label={t("page.moreActions")}
               actions={takeoverActions}
@@ -3026,10 +3031,21 @@ export function ScreenDetailPage() {
                 )}
 
               <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
-                <LivePreviewPanel
-                  screenId={id}
-                  onOpenHistory={() => setDetailPanel("snapshots", true)}
-                />
+                {screen.platform === "browser" ? (
+                  <Card size="sm">
+                    <CardHeader>
+                      <CardTitle>{t("browser.monitorTitle")}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground">
+                      {t("browser.captureUnsupported")}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <LivePreviewPanel
+                    screenId={id}
+                    onOpenHistory={() => setDetailPanel("snapshots", true)}
+                  />
+                )}
                 <Card size="sm" className="min-w-0">
                   <CardHeader>
                     <CardTitle>{t("detail.factConnectionTitle")}</CardTitle>
@@ -3106,6 +3122,13 @@ export function ScreenDetailPage() {
                 </Card>
               </div>
 
+              {screen.platform === "browser" &&
+                canManageScreens(auth.status?.user) && (
+                  <BrowserRecoveryPanel
+                    screenId={id}
+                    csrfToken={auth.status?.csrfToken ?? ""}
+                  />
+                )}
               <ScreenPlaybackCard
                 screenId={id}
                 screenName={screen.name}

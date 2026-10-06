@@ -1,6 +1,11 @@
 import type { ScreenScope, ScreenScopes, PlayerReleaseImport } from "./types";
 import { ApiError } from "./errors";
 import {
+  createBrowserPlayer,
+  browserPlayerSlot,
+  setBrowserRecovery,
+} from "./domains/browser";
+import {
   approvePairing,
   cancelScreenCommand,
   confirmPowerAssist,
@@ -368,6 +373,9 @@ export function playerReleaseContentType(name: string): string {
 }
 
 export const api = {
+  createBrowserPlayer,
+  browserPlayerSlot,
+  setBrowserRecovery,
   providerCatalog: getProviderCatalog,
   contentDefinitions: getContentDefinitions,
   compileWidgetPreview,

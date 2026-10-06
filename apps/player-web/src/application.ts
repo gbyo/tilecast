@@ -14,7 +14,12 @@ import {
 import { missingCapabilities } from "./compatibility";
 import { runtimeHost } from "./host";
 import { loadIdentity } from "./identity";
-import { authenticate, pause, type BrowserSession } from "./authentication";
+import {
+  authenticate,
+  IdentityMismatch,
+  pause,
+  type BrowserSession,
+} from "./authentication";
 import { PlayerAPI, PlayerAPIError } from "./api";
 import {
   clockDiscontinuity,
@@ -393,7 +398,7 @@ export async function start(recovery: string | null): Promise<void> {
             message:
               error instanceof PlayerAPIError
                 ? "Check the server connection and managed launch link, then reload."
-                : error instanceof Error
+                : error instanceof IdentityMismatch
                   ? error.message
                   : "Reload this Browser Player to reconnect.",
           },
@@ -457,7 +462,7 @@ function metadata(installationId: string): DeviceMetadata {
     platform: "browser",
     manufacturer: "Browser",
     model: "Chromium",
-    androidVersion: "",
+    androidVersion: "Not applicable",
     playerVersion: __HOST_VERSION__,
     screenWidth: Math.max(1, innerWidth),
     screenHeight: Math.max(1, innerHeight),

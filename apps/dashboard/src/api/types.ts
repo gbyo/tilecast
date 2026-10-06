@@ -1,5 +1,10 @@
 import type { components } from "@tilecast/api-schema/generated/openapi";
 
+export type BrowserSlot = components["schemas"]["BrowserSlot"];
+export type BrowserLaunch =
+  components["schemas"]["BrowserLaunchResponse"]["data"];
+export type BrowserScreenInput = components["schemas"]["BrowserScreenRequest"];
+
 export type User = {
   id: string;
   name: string;

@@ -10,7 +10,10 @@ export class PlayerAPIError extends Error {
 
 export class PlayerAPI {
   slotId?: string;
-  constructor(private readonly transport: typeof fetch = fetch) {}
+  constructor(
+    private readonly transport: typeof fetch = (input, init) =>
+      globalThis.fetch(input, init),
+  ) {}
 
   async request<T>(
     path: string,

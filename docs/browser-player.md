@@ -93,6 +93,9 @@ The Server serves an independent Player shell with a restricted policy.
 The service worker stages versioned assets and serves authorized local media.
 The Host uses cookie and device-key recovery before managed recovery or pairing.
 Atomic activation coordination prepares all manifest media before publication.
-Studio management controls, command and Activity integration, lifecycle diagnostics,
-and browser integration qualification remain incomplete.
+Studio provides Browser Player creation and one-time launch link controls.
+It confirms regeneration and recovery disable operations.
+Browser Screen details state that capture is unsupported.
+Command and Activity integration, lifecycle diagnostics,
+offline restart recovery, and full browser integration qualification remain incomplete.
 These foundations do not establish Browser Player support.
