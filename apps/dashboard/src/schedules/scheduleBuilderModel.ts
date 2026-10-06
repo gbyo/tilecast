@@ -1,10 +1,11 @@
+/**
+ * Pure scheduling vocabulary shared by the Schedule editor, the Screen
+ * schedule card, and plugins: weekdays, priority presets, and the wording of
+ * a schedule's timing. Nothing here resolves precedence or recurrence; the
+ * server is the only authority for that.
+ */
 import type { TFunction } from "i18next";
-import type {
-  ScheduleInput,
-  ScheduleTarget,
-  Screen,
-  ScreenGroup,
-} from "../api/types";
+import type { DisplayControlAction } from "../api/types";
 
 export type SchedulesT = TFunction<"schedules", undefined>;
 
@@ -37,10 +38,17 @@ export function scheduleWeekdayLabels(value: number, t: SchedulesT) {
 
 export type PriorityPreset = "normal" | "important" | "special" | "custom";
 
+/** The stored value each named preset writes. Custom has no fixed value. */
+export const priorityPresetValues = {
+  normal: 0,
+  important: 100,
+  special: 500,
+} as const;
+
 export function priorityPreset(priority: number): PriorityPreset {
-  if (priority === 0) return "normal";
-  if (priority === 100) return "important";
-  if (priority === 500) return "special";
+  if (priority === priorityPresetValues.normal) return "normal";
+  if (priority === priorityPresetValues.important) return "important";
+  if (priority === priorityPresetValues.special) return "special";
   return "custom";
 }
 
@@ -52,103 +60,205 @@ export function priorityLabel(priority: number, t: SchedulesT) {
   return t("priority.customValue", { priority });
 }
 
-export function scheduleIsDirty(
-  current: ScheduleInput,
-  baseline: ScheduleInput,
-) {
-  return JSON.stringify(current) !== JSON.stringify(baseline);
-}
-
-export function setTargetSelected(
-  targets: ScheduleTarget[],
-  target: ScheduleTarget,
-  selected: boolean,
-) {
-  const matches = (current: ScheduleTarget) =>
-    current.type === target.type && current.id === target.id;
-  if (!selected) return targets.filter((current) => !matches(current));
-  return targets.some(matches) ? targets : [...targets, target];
-}
-
-export function conflictWinnerReason(
-  winner: { priority: number; specificity: number },
-  proposedPriority: number,
-  t: SchedulesT,
-) {
-  if (winner.priority !== proposedPriority) return t("summary.reasonHighest");
-  if (winner.specificity > 0) return t("summary.reasonDirect");
-  return t("summary.reasonLater");
-}
-
-export function formatClock(
-  value: string | undefined,
+/** "7:15 – 8:15 AM": one range so the meridiem is not repeated. */
+export function formatClockRange(
+  start: string | undefined,
+  end: string | undefined,
   t: SchedulesT,
   locale: string,
 ) {
-  if (!value) return t("timing.clockNotSet");
-  const [hour, minute] = value.split(":").map(Number);
-  return new Intl.DateTimeFormat(locale, {
+  if (!start || !end) return t("timing.clockNotSet");
+  const [startHour, startMinute] = start.split(":").map(Number);
+  const [endHour, endMinute] = end.split(":").map(Number);
+  const format = new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(2020, 0, 1, hour, minute));
+  });
+  const first = new Date(2020, 0, 1, startHour, startMinute);
+  // An overnight window ends the next day; the range still reads start-end.
+  const second = new Date(2020, 0, 1, endHour, endMinute);
+  return typeof format.formatRange === "function"
+    ? format.formatRange(first, second)
+    : `${format.format(first)} – ${format.format(second)}`;
 }
 
-export function describeWeekdays(days: number[], t: SchedulesT) {
+/**
+ * "Mon–Fri", "Mon, Wed, Fri", "Every day". Runs of three or more consecutive
+ * days collapse to a range; Sunday closes the week, as the editor shows it.
+ */
+export function describeDaysCompact(days: number[], t: SchedulesT) {
   const ordered = scheduleWeekdays.filter((day) => days.includes(day.value));
-  const weekdayValues = [1, 2, 3, 4, 5];
-  if (weekdayValues.every((day) => days.includes(day)) && days.length === 5)
-    return t("timing.daysSummary.weekdays");
-  if (days.length === 7) return t("timing.daysSummary.everyDay");
-  if (ordered.length === 1)
-    return t("timing.daysSummary.single", {
-      day: t(weekdayLabelKeys[ordered[0]!.value].long),
-    });
   if (ordered.length === 0) return t("timing.daysSummary.none");
-  return ordered.map((day) => t(weekdayLabelKeys[day.value].short)).join(", ");
+  if (ordered.length === 7) return t("timing.daysSummary.everyDayShort");
+  const runs: (typeof ordered)[number][][] = [];
+  for (const day of ordered) {
+    const run = runs.at(-1);
+    const previous = run?.at(-1);
+    const position = (value: number) => (value === 0 ? 7 : value);
+    if (run && previous && position(day.value) === position(previous.value) + 1)
+      run.push(day);
+    else runs.push([day]);
+  }
+  return runs
+    .map((run) => {
+      const first = t(weekdayLabelKeys[run[0]!.value].short);
+      if (run.length < 3) {
+        return run
+          .map((day) => t(weekdayLabelKeys[day.value].short))
+          .join(", ");
+      }
+      return `${first}–${t(weekdayLabelKeys[run.at(-1)!.value].short)}`;
+    })
+    .join(", ");
 }
 
+/** A date or instant in the schedule's own timezone, never the browser's. */
+export function formatInTimezone(
+  value: string,
+  timezone: string,
+  locale: string,
+  options: Intl.DateTimeFormatOptions = {
+    dateStyle: "medium",
+    timeStyle: "short",
+  },
+) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: timezone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(locale, options).format(date);
+  }
+}
+
+function formatDateOnly(value: string, locale: string) {
+  // A calendar date has no instant: format it as UTC so no timezone shifts it.
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00Z`));
+}
+
+/**
+ * "Oct 31, 2026, 7:00 PM – Nov 1, 2026, 1:00 AM" in the schedule's zone. One
+ * range lets the language drop what the two ends share.
+ */
+export function formatRangeInTimezone(
+  start: string,
+  end: string,
+  timezone: string,
+  locale: string,
+) {
+  const from = new Date(start);
+  const to = new Date(end);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return "";
+  const options: Intl.DateTimeFormatOptions = {
+    dateStyle: "medium",
+    timeStyle: "short",
+  };
+  try {
+    const format = new Intl.DateTimeFormat(locale, {
+      ...options,
+      timeZone: timezone,
+    });
+    return typeof format.formatRange === "function"
+      ? format.formatRange(from, to)
+      : `${format.format(from)} – ${format.format(to)}`;
+  } catch {
+    const format = new Intl.DateTimeFormat(locale, options);
+    return `${format.format(from)} – ${format.format(to)}`;
+  }
+}
+
+/** The timing fields every description reads. A draft and a saved schedule both fit. */
+export type ScheduleTimingFields = {
+  type: "weekly" | "one_time";
+  timezone: string;
+  daysOfWeek: number[];
+  dailyStart?: string;
+  dailyEnd?: string;
+  startDate?: string;
+  endDate?: string;
+  oneTimeStart?: string;
+  oneTimeEnd?: string;
+};
+
+export type ScheduleWhenLines = {
+  /** The days and times (or the event window). Absent until chosen. */
+  lines: string[];
+  timezone: string;
+};
+
+/**
+ * What the schedule says about when it runs, as separate lines so the outcome
+ * pane can stack them and the Timing section can join them. The timezone is
+ * the schedule's, so a one-time event reads the same from any browser.
+ */
+export function describeScheduleWhen(
+  input: ScheduleTimingFields,
+  t: SchedulesT,
+  locale: string,
+): ScheduleWhenLines {
+  if (input.type === "one_time") {
+    if (!input.oneTimeStart || !input.oneTimeEnd)
+      return { lines: [t("timing.summary.chooseOneTime")], timezone: "" };
+    return {
+      lines: [
+        formatRangeInTimezone(
+          input.oneTimeStart,
+          input.oneTimeEnd,
+          input.timezone,
+          locale,
+        ),
+      ],
+      timezone: input.timezone,
+    };
+  }
+  const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
+  const lines = [
+    describeDaysCompact(input.daysOfWeek, t),
+    formatClockRange(input.dailyStart, input.dailyEnd, t, locale) +
+      (overnight ? t("timing.summary.nextDaySuffix") : ""),
+  ];
+  if (input.startDate && input.endDate)
+    lines.push(
+      t("timing.summary.rangeBetween", {
+        start: formatDateOnly(input.startDate, locale),
+        end: formatDateOnly(input.endDate, locale),
+      }),
+    );
+  else if (input.startDate)
+    lines.push(
+      t("timing.summary.rangeFrom", {
+        start: formatDateOnly(input.startDate, locale),
+      }),
+    );
+  else if (input.endDate)
+    lines.push(
+      t("timing.summary.rangeUntil", {
+        end: formatDateOnly(input.endDate, locale),
+      }),
+    );
+  return { lines, timezone: input.timezone };
+}
+
+/** One quiet line: "Mon–Fri · 7:15 – 8:15 AM · America/Chicago". */
 export function describeScheduleTiming(
-  input: ScheduleInput,
+  input: ScheduleTimingFields,
   t: SchedulesT,
   locale: string,
 ) {
-  if (input.type === "one_time") {
-    if (!input.oneTimeStart || !input.oneTimeEnd)
-      return t("timing.summary.chooseOneTime");
-    const start = new Date(input.oneTimeStart);
-    const end = new Date(input.oneTimeEnd);
-    return t("timing.summary.oneTimeRange", {
-      start: start.toLocaleString(locale),
-      end: end.toLocaleString(locale),
-    });
-  }
-  const overnight = (input.dailyEnd ?? "") <= (input.dailyStart ?? "");
-  const range = input.startDate
-    ? t("timing.summary.rangeStart", {
-        start: new Date(`${input.startDate}T00:00:00`).toLocaleDateString(
-          locale,
-        ),
-      }) +
-      (input.endDate
-        ? t("timing.summary.rangeThrough", {
-            end: new Date(`${input.endDate}T00:00:00`).toLocaleDateString(
-              locale,
-            ),
-          })
-        : "")
-    : "";
-  return (
-    t("timing.summary.weeklyRange", {
-      days: describeWeekdays(input.daysOfWeek, t),
-      start: formatClock(input.dailyStart, t, locale),
-      end: formatClock(input.dailyEnd, t, locale),
-    }) +
-    (overnight ? t("timing.summary.overnightSuffix") : "") +
-    range
-  );
+  const { lines, timezone } = describeScheduleWhen(input, t, locale);
+  return [...lines, timezone].filter(Boolean).join(" · ");
 }
 
-export function oneTimeDuration(input: ScheduleInput, t: SchedulesT) {
+export function oneTimeDuration(
+  input: Pick<ScheduleTimingFields, "oneTimeStart" | "oneTimeEnd">,
+  t: SchedulesT,
+) {
   if (!input.oneTimeStart || !input.oneTimeEnd)
     return t("duration.unavailable");
   const milliseconds =
@@ -168,79 +278,55 @@ export function oneTimeDuration(input: ScheduleInput, t: SchedulesT) {
     .join(" ");
 }
 
-export function validateScheduleInput(input: ScheduleInput, t: SchedulesT) {
-  const errors: Record<string, string> = {};
-  if (!input.name.trim()) errors.name = t("validation.nameRequired");
-  if (!input.playlistId && !input.layoutId && !input.displayAction)
-    errors.playlistId = t("validation.contentRequired");
-  if (
-    input.displayAction?.type === "display_set_input" &&
-    !input.displayAction.input?.trim()
-  )
-    errors.playlistId = t("validation.inputRequired");
-  if (
-    input.displayAction?.type === "display_set_volume" &&
-    (input.displayAction.volume == null ||
-      input.displayAction.volume < 0 ||
-      input.displayAction.volume > 100)
-  )
-    errors.playlistId = t("validation.volumeRange");
-  if (
-    input.displayAction?.type === "display_set_brightness" &&
-    (input.displayAction.brightness == null ||
-      input.displayAction.brightness < 0 ||
-      input.displayAction.brightness > 100)
-  )
-    errors.playlistId = t("validation.brightnessRange");
-  if (!input.timezone) errors.timezone = t("validation.timezoneRequired");
-  if (!input.targets.length) errors.targets = t("validation.targetsRequired");
-  if (input.priority < -999 || input.priority > 999)
-    errors.priority = t("validation.priorityRange");
-  if (input.type === "weekly") {
-    if (!input.daysOfWeek.length)
-      errors.daysOfWeek = t("validation.daysRequired");
-    if (!input.dailyStart || !input.dailyEnd)
-      errors.time = t("validation.timeRequired");
-    if (input.startDate && input.endDate && input.endDate < input.startDate)
-      errors.dateRange = t("validation.dateRangeInvalid");
-  } else if (!input.oneTimeStart || !input.oneTimeEnd) {
-    errors.oneTime = t("validation.oneTimeRequired");
-  } else if (new Date(input.oneTimeEnd) <= new Date(input.oneTimeStart)) {
-    errors.oneTime = t("validation.oneTimeOrder");
-  }
-  return errors;
-}
+export const displayActionOptions: {
+  value: DisplayControlAction["type"];
+  labelKey:
+    | "displayAction.options.powerOn"
+    | "displayAction.options.powerOff"
+    | "displayAction.options.setInput"
+    | "displayAction.options.setVolume"
+    | "displayAction.options.mute"
+    | "displayAction.options.unmute"
+    | "displayAction.options.setBrightness";
+}[] = [
+  { value: "display_power_on", labelKey: "displayAction.options.powerOn" },
+  { value: "display_power_off", labelKey: "displayAction.options.powerOff" },
+  { value: "display_set_input", labelKey: "displayAction.options.setInput" },
+  { value: "display_set_volume", labelKey: "displayAction.options.setVolume" },
+  { value: "display_mute", labelKey: "displayAction.options.mute" },
+  { value: "display_unmute", labelKey: "displayAction.options.unmute" },
+  {
+    value: "display_set_brightness",
+    labelKey: "displayAction.options.setBrightness",
+  },
+];
 
-export function countTargetScreens(
-  targets: ScheduleTarget[],
-  screens: Screen[],
-  groups: ScreenGroup[],
+/** "Set display volume to 40": one sentence per action, shared by every surface. */
+export function displayActionLabel(
+  action: DisplayControlAction,
+  t: SchedulesT,
 ) {
-  const ids = new Set<string>();
-  for (const target of targets) {
-    if (target.type === "screen") ids.add(target.id);
-    else
-      for (const screen of groups.find((group) => group.id === target.id)
-        ?.screens ?? [])
-        ids.add(screen.id);
+  const unset = t("displayAction.notSet");
+  switch (action.type) {
+    case "display_power_on":
+      return t("displayAction.summary.powerOn");
+    case "display_power_off":
+      return t("displayAction.summary.powerOff");
+    case "display_set_input":
+      return t("displayAction.summary.setInput", {
+        value: action.input?.trim() || unset,
+      });
+    case "display_set_volume":
+      return t("displayAction.summary.setVolume", {
+        value: action.volume ?? unset,
+      });
+    case "display_mute":
+      return t("displayAction.summary.mute");
+    case "display_unmute":
+      return t("displayAction.summary.unmute");
+    case "display_set_brightness":
+      return t("displayAction.summary.setBrightness", {
+        value: action.brightness ?? unset,
+      });
   }
-  return (
-    ids.size || targets.filter((target) => target.type === "screen").length
-  );
-}
-
-export function schedulePreviewTimestamp(input: ScheduleInput) {
-  if (input.type === "one_time" && input.oneTimeStart)
-    return input.oneTimeStart;
-  const start = input.dailyStart ?? "09:00";
-  const now = new Date();
-  for (let offset = 0; offset < 8; offset += 1) {
-    const candidate = new Date(now);
-    candidate.setDate(now.getDate() + offset);
-    if (!input.daysOfWeek.includes(candidate.getDay())) continue;
-    const [hour = 9, minute = 0] = start.split(":").map(Number);
-    candidate.setHours(hour, minute, 0, 0);
-    if (candidate >= now || offset > 0) return candidate.toISOString();
-  }
-  return now.toISOString();
 }

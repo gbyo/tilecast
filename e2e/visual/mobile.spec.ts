@@ -202,3 +202,22 @@ test("mobile Widget editor keeps the preview first and every control reachable",
   ).toBeVisible();
   await snapshot(page, "widget-editor-mobile");
 });
+
+test("mobile schedule editor stays inside the viewport and opens its outcome in a drawer", async ({
+  page,
+}) => {
+  await page.goto("/schedules/de300007-0000-4000-8000-000000000003");
+  await expect(
+    page.getByRole("heading", { name: /Schedule editor: Morning Broadcast/ }),
+  ).toBeAttached();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Morning Broadcast",
+  );
+  await expectNoPageOverflow(page);
+  await page.getByRole("button", { name: /^Review/ }).click();
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText("Next-run check")).toBeVisible();
+  await expect(drawer.getByText(/wins on/)).toBeVisible();
+  await expect(drawer.getByText("Checking…")).toBeHidden();
+  await snapshot(page, "schedule-editor-mobile");
+});

@@ -37,6 +37,7 @@ function populate(client: QueryClient) {
     scheduleKeys.detail("morning"),
     scheduleKeys.defaults(),
     scheduleKeys.preview("lobby", "2026-10-05T09:00:00Z", input),
+    scheduleKeys.preflight("morning", "signature"),
   ];
   for (const key of keys) client.setQueryData(key, {});
   client.setQueryData(["playlists"], {});
@@ -97,7 +98,14 @@ describe("Schedule mutation contracts", () => {
         expect(client.getQueryState(key)?.isInvalidated).toBe(false);
       reject = false;
       await client.getMutationCache().build(client, options).execute(undefined);
-      for (const key of keys)
+      // The deleted schedule's own detail is dropped, not refetched into a 404;
+      // everything else that could mention it is invalidated.
+      expect(
+        client.getQueryState(scheduleKeys.detail("morning")),
+      ).toBeUndefined();
+      for (const key of keys.filter(
+        (key) => key !== keys[3], // the detail entry
+      ))
         expect(client.getQueryState(key)?.isInvalidated).toBe(true);
     } finally {
       client.clear();

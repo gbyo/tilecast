@@ -1324,6 +1324,14 @@ export type ScheduleList = {
   pageSize: number;
   defaultTimezone: string;
 };
+/** The server's next-occurrence check of a draft schedule, from the contract. */
+export type SchedulePreflight = components["schemas"]["SchedulePreflight"];
+export type SchedulePreflightIssue =
+  components["schemas"]["SchedulePreflightIssue"];
+export type SchedulePreflightCompetitor =
+  components["schemas"]["SchedulePreflightCompetitor"];
+export type SchedulePreflightScreen =
+  components["schemas"]["SchedulePreflightScreen"];
 export type SchedulePreview = {
   screenId: string;
   at: string;

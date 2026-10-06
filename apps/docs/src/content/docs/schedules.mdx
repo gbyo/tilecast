@@ -9,52 +9,64 @@ import darkScreenshot from "../../assets/screenshots/schedule-editor-dark.png";
 
 Create a weekly schedule to show a Playlist or Layout at the same local time on selected days. For example, use one to play a lunch menu from Monday through Friday, 10:30 to 13:00.
 
-The Schedules library loads up to 100 schedules at a time. Select **Load more** to browse later results. The presentation chooser supports server search and **Load more**, and target selectors include screens and Display Groups beyond the first page.
+The Schedules library loads up to 100 schedules at a time. Select **Load more** to browse later results.
 
 import { Steps } from "@astrojs/starlight/components";
 
 ## Before you start
 
-- An **Owner** or **Administrator** account is needed to create or change schedules.
+- An **Owner** or **Administrator** account is needed to create or change schedules. Other roles can open a schedule and read its outcome, but not change it.
 - Prepare a Playlist with content that is **Ready**, or publish the Layout you want to schedule. Tilecast won't save a schedule that references an empty Playlist, unready media, or an unpublished Layout.
 
 <Screenshot
   src={screenshot}
   darkSrc={darkScreenshot}
-  alt="Morning Broadcast schedule editor with weekly timing, weekday selections, timezone, targets, and schedule summary."
+  alt="Morning Broadcast schedule editor with the schedule form on the left and the Schedule outcome pane, including the next-run check, on the right."
 />
 
 ## Create the schedule
 
+The editor is one page that reads from top to bottom: what the schedule is, what it plays, when it runs, and where. A **Schedule outcome** pane beside it shows what your draft will do. Nothing is saved until you select **Create schedule**.
+
 <Steps>
 
 1. Open **Operations** > **Schedules**, then select **Create schedule**.
-2. Under **Content**, enter a **Schedule name** and select **Choose presentation**. Choose a Playlist or published Layout, then select **Use this presentation**.
-3. Under **Timing**, choose **Weekly recurring**. Select Monday through Friday under **Active weekdays**, then enter the **Start time** and **End time**.
-4. Choose the **Timezone** for the schedule. Search by city or region and select the matching IANA timezone, such as `America/Chicago`.
-5. Under **Targets**, choose **Screens** or **Display Groups**, then search for and select one or more targets.
-6. Under **Advanced options**, leave **Enabled** on. Choose **Normal** priority unless another schedule for the same targets should take precedence.
-7. Review the **Schedule summary** and **Conflict preview**, then select **Save schedule**.
+2. Enter a **Name**. Leave **Enabled** on. The switch takes effect when you save, not before.
+3. Under **Presentation**, choose **Content**, then select **Choose a Playlist or Layout**. Pick one and select **Use this presentation**.
+4. Under **Timing**, choose **Weekly**. Select the days, then enter the **Starts** and **Ends** times.
+5. Check the **Timezone**. It starts as your organization's default. Search by city or region to choose another.
+6. Under **Targets**, select **Add targets**. Search for screens and Display Groups, and choose one or more. Each target appears as a row you can remove.
+7. Select **Create schedule**. You stay in the editor, now showing the saved schedule.
 
 </Steps>
 
-Add a **Date range** if the weekday rule should start or stop on specific dates. Without one, the rule repeats every selected weekday.
+Select **Limit to a date range** under **Timing** if the rule should start or stop on specific dates. Without one, the rule repeats every selected weekday.
 
-## Check overlaps and targets
+Choose **One-time** instead of **Weekly** for a single event. Enter the start and end in the schedule's timezone, not your browser's.
 
-The higher-priority schedule wins when active schedules overlap for a screen. Use **Important** or **Special event** when that schedule should take precedence; **Custom** lets you enter a value from -999 to 999. When priorities are equal, the conflict preview explains whether a more specific target or a later start wins.
+## Read the outcome
 
-The **Conflict preview** checks one screen at an upcoming occurrence: the first selected screen, or the first screen in the first selected Display Group. A **No conflicts** result doesn't check every target. Review other screens separately if they have different schedules.
+The **Schedule outcome** pane answers four questions about your draft: what it shows, when it runs, where it applies, and at which priority. On a tablet or phone, select **Review** in the header to open the same pane. A number on **Review** counts things that need your attention.
 
-In the **Screens** picker, a screen that belongs to a Display Group is offered as that group. Selecting the group schedules all its members together. Outside an active schedule window, the screen's assigned fallback content continues to play.
+Below those answers, the **Next-run check** asks the server what would happen at the schedule's next run. It looks at every screen you targeted, including every screen in a Display Group, and tells you on how many screens this schedule would play. If another schedule would win on some screens, the check names it and says why, for example that it has a higher priority.
+
+The check covers the next run only. A later run can differ if another schedule applies at a different time. Treat it as a way to catch problems, not as a promise.
+
+While you edit, the pane keeps the last answer and marks it **Checking…** until a new one arrives. If the check fails, you can still save. If it finds screens that can't run display control, fix that first: those screens block saving.
+
+## Control which schedule wins
+
+Open **Conflict handling** only when this schedule shares screens with another one. A higher priority is preferred when active schedules overlap on a screen. Choose **Important** or **Special event** when this schedule should take precedence, or **Custom** to enter a number from -999 to 999. When priorities match, the schedule that targets a screen directly wins, then the one that started later. The next-run check shows the result.
+
+In the target picker, a screen that belongs to a Display Group is offered as that group. Choosing the group schedules all its members together. Outside an active schedule window, the assigned fallback content continues to play.
 
 ## Time and playback behavior
 
-Weekly times use the selected timezone, including daylight-saving changes. If the **End time** is earlier than the **Start time**, playback ends the following day. Equal start and end times make a 24-hour window.
+Weekly times use the selected timezone, including daylight-saving changes. If the **Ends** time is earlier than the **Starts** time, playback ends the following day. Equal start and end times make a 24-hour window.
 
 Players evaluate timing locally from the last schedule manifest they received. During a server or network outage, they can continue switching at schedule boundaries already in that manifest, but they can't receive schedule or content changes until they reconnect. Playback during an outage still depends on the needed content being available on the Player; content set to stream or not yet downloaded needs a network connection.
 
-Turning **Enabled** off keeps the schedule saved but stops it from affecting playback. Outside active windows, fallback content resumes.
+To remove a schedule, open **More actions** in the header and choose **Delete schedule**. Its screens then use another applicable schedule, or their assigned fallback content.
 
 ## Next steps
 

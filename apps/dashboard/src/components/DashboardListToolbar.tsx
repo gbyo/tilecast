@@ -31,6 +31,7 @@ export function DashboardSearch({
   placeholder,
   clearLabel,
   autoFocus = false,
+  inputRef,
   className,
 }: {
   value: string;
@@ -40,6 +41,12 @@ export function DashboardSearch({
   /** Localized clear-button name; falls back to Clear <label> when omitted. */
   clearLabel?: string;
   autoFocus?: boolean;
+  /**
+   * The input element. A dialog that opens on this field names it in the
+   * dialog's `initialFocus` instead of using `autoFocus`, which stops Base UI
+   * from returning focus to what opened the dialog.
+   */
+  inputRef?: React.Ref<HTMLInputElement>;
   className?: string;
 }) {
   return (
@@ -51,6 +58,7 @@ export function DashboardSearch({
         type="search"
         className="[&::-webkit-search-cancel-button]:hidden"
         autoFocus={autoFocus}
+        ref={inputRef}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
         placeholder={placeholder}

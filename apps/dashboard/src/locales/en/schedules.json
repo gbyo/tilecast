@@ -21,62 +21,84 @@
     "emptyDescription": "Direct screen assignments will continue to play until a schedule is created."
   },
   "editor": {
-    "createTitle": "Create schedule",
-    "editTitle": "Edit schedule",
-    "subtitle": "Build the playback rule, then review its effect before saving.",
+    "heading": "Schedule editor: {{name}}",
+    "formLabel": "Schedule settings",
+    "newName": "New schedule",
     "loading": "Loading schedule",
-    "content": "Content",
-    "contentTypeLabel": "Schedule content type",
-    "displayControl": "Display Control",
-    "scheduleTypeLabel": "Schedule type",
-    "typeWeekly": "Weekly recurring",
-    "typeOneTime": "One-time event",
-    "nameLabel": "Schedule name",
-    "namePlaceholder": "Morning announcements",
-    "enabledLabel": "Enabled",
-    "enabledHint": "Disabled schedules remain saved but do not affect playback.",
-    "descriptionLabel": "Description",
-    "descriptionHint": "Optional internal note shown in Studio.",
-    "save": "Save schedule",
-    "deleteTitle": "Delete {{name}}?",
-    "discardTitle": "Discard unsaved schedule changes?",
-    "presentationLabel": "Presentation",
-    "presentationLayoutFallback": "Layout",
-    "presentationPlaylistFallback": "Playlist",
-    "presentationLayoutMeta": "{{width}} × {{height}} · revision {{revision}}",
-    "presentationPlaylistMeta_one": "{{count}} item · {{duration}}",
-    "presentationPlaylistMeta_other": "{{count}} items · {{duration}}",
-    "choosePresentation": "Choose presentation",
-    "change": "Change",
-    "useSelected": "Use this presentation",
-    "noSelection": "No presentation selected",
-    "durationVaries": "Duration varies",
-    "emptyPlaylist": "Empty playlist",
-    "sections": {
-      "content": {
-        "description": "Name this schedule and choose what it should play."
-      },
-      "timing": {
-        "title": "Timing",
-        "description": "Choose when this content takes precedence."
-      },
-      "targets": {
-        "title": "Targets",
-        "description": "Select independent screens or synchronized groups. Grouped screens are scheduled together."
-      },
-      "advanced": {
-        "title": "Advanced options",
-        "description": "Control availability, precedence, and administrator notes."
-      }
+    "discard": {
+      "title": "Discard unsaved changes?",
+      "body": "Your changes to “{{name}}” haven't been saved.",
+      "keepEditing": "Keep editing"
+    },
+    "details": {
+      "title": "Schedule",
+      "name": "Name",
+      "namePlaceholder": "Morning announcements",
+      "enabled": "Enabled",
+      "enabledHint": "When saved, this schedule can affect playback during its scheduled times.",
+      "description": "Description (optional)",
+      "descriptionHint": "An internal note, visible only in Studio."
+    },
+    "presentation": {
+      "title": "Presentation",
+      "description": "What should happen when this schedule wins?",
+      "modeLabel": "Presentation type",
+      "content": "Content",
+      "contentHint": "Play a Playlist or published Layout.",
+      "displayControl": "Display control",
+      "displayControlHint": "Change power, input, volume, mute, or brightness.",
+      "choose": "Choose a Playlist or Layout",
+      "change": "Change",
+      "use": "Use this presentation",
+      "playlistKind": "Playlist",
+      "layoutKind": "Layout",
+      "playlistMeta_one": "Playlist · {{count}} item · {{duration}}",
+      "playlistMeta_other": "Playlist · {{count}} items · {{duration}}",
+      "playlistEmpty": "Playlist · No items yet",
+      "layoutMeta": "Layout · Published revision {{revision}}",
+      "durationVaries": "duration varies"
+    },
+    "header": {
+      "back": "Back to Schedules",
+      "save": "Save changes",
+      "create": "Create schedule",
+      "saveShort": "Save",
+      "review": "Review",
+      "reviewIssues_one": "Review, {{count}} item needs attention",
+      "reviewIssues_other": "Review, {{count}} items need attention",
+      "discard": "Discard unsaved changes",
+      "delete": "Delete schedule",
+      "more": "More actions"
     },
     "status": {
-      "unsaved": "Unsaved changes",
-      "saved": "All changes saved",
-      "incomplete": "Complete the required fields"
+      "saved": "Saved",
+      "unsaved": "Unsaved",
+      "saving": "Saving…",
+      "failed": "Save failed",
+      "viewOnly": "View only"
+    },
+    "delete": {
+      "title": "Delete “{{name}}”?",
+      "body": "This schedule will stop playing. Its screens will use another applicable schedule, or their normal fallback content.",
+      "keep": "Keep schedule",
+      "confirm": "Delete schedule",
+      "failed": "The schedule could not be deleted."
+    },
+    "notFound": {
+      "title": "Schedule not found",
+      "body": "It may have been deleted, or you may not have access to it.",
+      "back": "Back to Schedules"
+    },
+    "cannotCreate": {
+      "title": "You can't create schedules",
+      "body": "Owners and Administrators manage schedules. You can still open the ones that exist."
+    },
+    "loadFailed": {
+      "title": "The schedule could not be loaded",
+      "retry": "Try again"
     }
   },
   "displayAction": {
-    "label": "Display action",
     "actionLabel": "Action",
     "inputLabel": "Input identifier",
     "inputHint": "For HDMI-CEC, use a physical address such as 1.0.0.0.",
@@ -104,13 +126,34 @@
     }
   },
   "weekdays": {
-    "monday": { "short": "Mon", "long": "Monday" },
-    "tuesday": { "short": "Tue", "long": "Tuesday" },
-    "wednesday": { "short": "Wed", "long": "Wednesday" },
-    "thursday": { "short": "Thu", "long": "Thursday" },
-    "friday": { "short": "Fri", "long": "Friday" },
-    "saturday": { "short": "Sat", "long": "Saturday" },
-    "sunday": { "short": "Sun", "long": "Sunday" }
+    "monday": {
+      "short": "Mon",
+      "long": "Monday"
+    },
+    "tuesday": {
+      "short": "Tue",
+      "long": "Tuesday"
+    },
+    "wednesday": {
+      "short": "Wed",
+      "long": "Wednesday"
+    },
+    "thursday": {
+      "short": "Thu",
+      "long": "Thursday"
+    },
+    "friday": {
+      "short": "Fri",
+      "long": "Friday"
+    },
+    "saturday": {
+      "short": "Sat",
+      "long": "Saturday"
+    },
+    "sunday": {
+      "short": "Sun",
+      "long": "Sunday"
+    }
   },
   "timing": {
     "weekdaysLabel": "Active weekdays",
@@ -118,31 +161,38 @@
     "ends": "Ends",
     "startsTimeLabel": "Start time",
     "endsTimeLabel": "End time",
-    "overnight24h": "24-hour window",
-    "overnightTitle": "Overnight schedule",
-    "overnightHint": "Playback ends the following day.",
-    "addDateRange": "Add date range",
-    "firstDate": "First active date",
-    "lastDate": "Last active date",
     "removeDateRange": "Remove date range",
     "timezoneLabel": "Timezone",
     "timezoneSearch": "Search city or region",
     "timezoneEmpty": "No timezones match this search.",
     "clockNotSet": "Not set",
     "daysSummary": {
-      "weekdays": "Monday through Friday",
-      "everyDay": "every day",
       "none": "no days selected",
-      "single": "every {{day}}"
+      "everyDayShort": "Every day"
     },
     "summary": {
-      "weeklyRange": "{{days}} from {{start}} to {{end}}",
-      "overnightSuffix": " the following day",
-      "rangeStart": ", beginning {{start}}",
-      "rangeThrough": " through {{end}}",
-      "oneTimeRange": "{{start}} to {{end}}",
-      "chooseOneTime": "Choose a start and end time"
-    }
+      "oneTimeRange": "{{start}} – {{end}}",
+      "chooseOneTime": "Choose a start and end time",
+      "nextDaySuffix": " (next day)",
+      "rangeBetween": "{{start}} – {{end}}",
+      "rangeFrom": "from {{start}}",
+      "rangeUntil": "until {{end}}"
+    },
+    "title": "Timing",
+    "description": "When this schedule runs, in its own timezone.",
+    "typeLabel": "Schedule type",
+    "typeWeekly": "Weekly",
+    "typeWeeklyHint": "Repeat on selected days and times.",
+    "typeOneTime": "One-time",
+    "typeOneTimeHint": "Run once between two dates and times.",
+    "overnightNote": "Ends the next day.",
+    "fullDayNote": "Runs for 24 hours.",
+    "limitDateRange": "Limit to a date range",
+    "startsOn": "Starts on",
+    "endsOn": "Ends on",
+    "organizationDefault": "Organization default",
+    "timezoneHint": "Times use this timezone, wherever you are editing from.",
+    "timezoneHintOther": "Times use this timezone, wherever you are editing from. Your organization's default is {{timezone}}."
   },
   "duration": {
     "days_one": "{{count}} day",
@@ -154,28 +204,30 @@
     "invalidOrder": "End must be after start"
   },
   "targets": {
-    "tabLabel": "Target type",
-    "screensTab": "Screens",
-    "groupsTab": "Display Groups",
-    "searchScreens": "Search screens",
-    "searchGroups": "Search Display Groups",
-    "selectedLabel": "Selected targets",
-    "removeOption": "Remove {{name}}",
-    "selectedMark": "Selected",
-    "addMark": "Add",
-    "emptyScreens": "No screens match this search.",
-    "emptyGroups": "No groups match this search.",
-    "groupDetail": "Display Group: {{name}}",
-    "noLocation": "No location",
-    "unknownTarget": "Selected target",
-    "groupCount_one": "{{count}} screen",
-    "groupCount_other": "{{count}} screens"
+    "title": "Targets",
+    "description": "Where this schedule applies.",
+    "add": "Add targets",
+    "search": "Search screens and Display Groups",
+    "loading": "Loading screens and groups…",
+    "loadError": "Screens and Display Groups could not be loaded.",
+    "retry": "Try again",
+    "empty": "No screens or Display Groups match.",
+    "groupedHint": "A screen in a Display Group is added through its group.",
+    "selectedLabel_one": "{{count}} selected target",
+    "selectedLabel_other": "{{count}} selected targets",
+    "remove": "Remove {{name}}",
+    "groups": "Display Groups",
+    "screens": "Screens",
+    "groupDetail_one": "Display Group · {{count}} screen",
+    "groupDetail_other": "Display Group · {{count}} screens",
+    "screenDetail": "Screen · {{location}}",
+    "kindGroup": "Display Group",
+    "kindScreen": "Screen",
+    "none": "No targets yet.",
+    "sharedNote": "Screens in a Display Group always share one schedule and its fallback content.",
+    "unknown": "Selected target"
   },
   "priority": {
-    "label": "Priority",
-    "hint": "Higher-priority schedules win when times and targets overlap.",
-    "controlLabel": "Schedule priority",
-    "customLabel": "Custom priority",
     "customValue": "Custom ({{priority}})",
     "presets": {
       "normal": "Normal",
@@ -183,31 +235,6 @@
       "special": "Special event",
       "custom": "Custom"
     }
-  },
-  "summary": {
-    "title": "Schedule summary",
-    "when": "When",
-    "showsLayout": "Shows Layout {{name}}",
-    "playsPlaylist": "Plays {{name}}",
-    "targetCount_one": "On {{count}} screen",
-    "targetCount_other": "On {{count}} screens",
-    "noTargets": "No targets selected",
-    "conflictTitle": "Conflict preview",
-    "conflictHint": "Choose content and targets to check conflicts.",
-    "checking": "Checking applicable schedules…",
-    "unavailable": "Conflict check unavailable",
-    "noConflicts": "No conflicts",
-    "noOverlap": "No other schedule overlaps this preview time.",
-    "overlapCount_one": "{{count}} overlapping schedule",
-    "overlapCount_other": "{{count}} overlapping schedules",
-    "winner": "{{name}} wins because {{reason}}.",
-    "reasonHighest": "it has the highest priority",
-    "reasonDirect": "it targets the screen directly",
-    "reasonLater": "it starts later under the precedence rules",
-    "fallbackNote": "Direct fallback content plays when no schedule is active.",
-    "directTarget": "Direct screen target",
-    "groupTarget": "Group target",
-    "note": "Direct screen assignments remain fallback content when no schedule is active."
   },
   "validation": {
     "nameRequired": "Enter a schedule name.",
@@ -217,7 +244,7 @@
     "brightnessRange": "Brightness must be between 0 and 100.",
     "timezoneRequired": "Choose a timezone.",
     "targetsRequired": "Select at least one screen or group.",
-    "priorityRange": "Priority must be between -999 and 999.",
+    "priorityRange": "Priority must be a whole number between -999 and 999.",
     "daysRequired": "Select at least one weekday.",
     "timeRequired": "Choose start and end times.",
     "dateRangeInvalid": "The end date must not be before the start date.",
@@ -243,5 +270,96 @@
     "previewTime": "Preview time of day",
     "fromTime": "From time",
     "toTime": "To time"
+  },
+  "conflict": {
+    "title": "Conflict handling",
+    "hint": "Higher priority is preferred when schedules compete for a screen. The next-run check shows the result.",
+    "groupLabel": "Priority",
+    "presets": {
+      "normal": "Standard precedence.",
+      "important": "Preferred over normal schedules.",
+      "special": "For exceptional content that should take over.",
+      "custom": "Choose an exact priority from −999 to 999."
+    },
+    "customLabel": "Priority value",
+    "customHint": "A whole number from −999 to 999. Higher is preferred.",
+    "overlapBadge_one": "{{count}} overlap",
+    "overlapBadge_other": "{{count}} overlaps"
+  },
+  "outcome": {
+    "title": "Schedule outcome",
+    "description": "What this draft will do once saved.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "viewOnly": "View only",
+    "what": "What",
+    "when": "When",
+    "where": "Where",
+    "priority": "Priority",
+    "priorityInvalid": "Not set",
+    "noPresentation": "Nothing chosen yet",
+    "noTargets": "No targets yet",
+    "targetCount_one": "{{count}} target",
+    "targetCount_other": "{{count}} targets",
+    "screenCount_one": "{{count}} screen",
+    "screenCount_other": "{{count}} screens",
+    "viaTargets_one": "via {{count}} target",
+    "viaTargets_other": "via {{count}} targets",
+    "checkTitle": "Next-run check",
+    "checking": "Checking…",
+    "checkFailed": "The check could not run",
+    "checkFailedSave": "You can still save this schedule.",
+    "retry": "Try again",
+    "incompleteBoth": "Choose a presentation and at least one target to check this schedule.",
+    "incompletePresentation": "Choose a presentation to check this schedule.",
+    "incompleteTargets": "Choose at least one target to check this schedule.",
+    "incompleteTiming": "Finish the timing to check this schedule.",
+    "simulatedEnabled": "The check below simulates this schedule as enabled.",
+    "unsupportedTitle_one": "{{count}} targeted screen can't run display control",
+    "unsupportedTitle_other": "{{count}} targeted screens can't run display control",
+    "unsupportedBody": "Only Linux Players run display control. Remove those screens or choose content instead.",
+    "noRunTitle": "No upcoming run",
+    "noRunBody": "This schedule won't run again as set, so there is nothing to check.",
+    "checkedAt": "Checked for {{when}}",
+    "checkedNow": "Running now · checked as of {{when}}",
+    "winsAll_one": "This schedule wins on the targeted screen.",
+    "winsAll_other": "This schedule wins on all {{count}} targeted screens.",
+    "winsNone_one": "This schedule loses on the targeted screen.",
+    "winsNone_other": "This schedule loses on all {{count}} targeted screens.",
+    "winsAllRunnable_one": "This schedule wins on the screen that can run it.",
+    "winsAllRunnable_other": "This schedule wins on all {{count}} screens that can run it.",
+    "winsSome_one": "This schedule wins on {{wins}} of {{count}} screen.",
+    "winsSome_other": "This schedule wins on {{wins}} of {{count}} screens.",
+    "competitors": "Overlapping schedules",
+    "moreCompetitors": "More overlapping schedules are not listed.",
+    "otherScreens": "Screens that show something else",
+    "showsInstead": "Shows {{name}} instead",
+    "andMore_one": "and {{count}} more screen",
+    "andMore_other": "and {{count}} more screens",
+    "scopeNote": "Checks the next run only. Later runs can differ.",
+    "competitor": {
+      "mixed_one": "Outranks this schedule on {{outranks}} of {{count}} screen",
+      "mixed_other": "Outranks this schedule on {{outranks}} of {{count}} screens",
+      "outranks": {
+        "priority_one": "Higher priority · {{count}} screen",
+        "priority_other": "Higher priority · {{count}} screens",
+        "specific_one": "Targets the screen directly · {{count}} screen",
+        "specific_other": "Targets the screens directly · {{count}} screens",
+        "start_one": "Started later · {{count}} screen",
+        "start_other": "Started later · {{count}} screens",
+        "tie_one": "Wins a full tie · {{count}} screen",
+        "tie_other": "Wins a full tie · {{count}} screens"
+      },
+      "yields": {
+        "priority_one": "Lower priority · this schedule wins on {{count}} screen",
+        "priority_other": "Lower priority · this schedule wins on {{count}} screens",
+        "specific_one": "Less specific · this schedule wins on {{count}} screen",
+        "specific_other": "Less specific · this schedule wins on {{count}} screens",
+        "start_one": "Started earlier · this schedule wins on {{count}} screen",
+        "start_other": "Started earlier · this schedule wins on {{count}} screens",
+        "tie_one": "Loses a full tie · {{count}} screen",
+        "tie_other": "Loses a full tie · {{count}} screens"
+      }
+    }
   }
 }

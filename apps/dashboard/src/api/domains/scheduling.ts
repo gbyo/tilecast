@@ -30,6 +30,17 @@ export function listSchedulesPage(search = "", page = 1) {
   });
 }
 
+/**
+ * The organization's default timezone, from a one-row list read. A new
+ * schedule starts in it, so the editor needs the value but not the schedules.
+ */
+export async function getScheduleDefaults() {
+  const result = await apiGet("/api/v1/schedules", {
+    params: { query: { page: 1, pageSize: 1 } },
+  });
+  return { defaultTimezone: result.defaultTimezone };
+}
+
 export function listSchedules(search = "") {
   return fetchAllPages((page) => listSchedulesPage(search, page));
 }
@@ -84,6 +95,22 @@ export function previewSchedule(
 ): Promise<SchedulePreview> {
   return apiPost("/api/v1/schedules/preview", {
     body: { screenId, timestamp, proposedSchedule },
+  });
+}
+
+/**
+ * Asks the server how a draft behaves at its next occurrence across every
+ * targeted screen. Read-only; scheduleId leaves the saved copy of the draft
+ * out of the comparison.
+ */
+export function preflightSchedule(
+  proposedSchedule: ScheduleInput,
+  scheduleId?: string,
+  signal?: AbortSignal,
+) {
+  return apiPost("/api/v1/schedules/preflight", {
+    body: { proposedSchedule, scheduleId },
+    signal,
   });
 }
 

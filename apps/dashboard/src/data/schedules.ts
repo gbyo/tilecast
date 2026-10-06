@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { hasNextPage } from "../api/pagination";
-import type { ScheduleInput } from "../api/types";
+import type { Schedule, ScheduleInput } from "../api/types";
 
 export const scheduleKeys = {
   all: ["schedules"] as const,
@@ -15,6 +15,9 @@ export const scheduleKeys = {
   detail: (id: string) => [...scheduleKeys.all, id] as const,
   defaults: () => [...scheduleKeys.all, "defaults"] as const,
   previews: ["schedule-preview"] as const,
+  preflights: ["schedule-preflight"] as const,
+  preflight: (scheduleId: string, signature: string) =>
+    [...scheduleKeys.preflights, scheduleId, signature] as const,
   preview: (screenId: string, timestamp: string, proposed?: ScheduleInput) =>
     [...scheduleKeys.previews, screenId, timestamp, proposed] as const,
 };
@@ -42,7 +45,20 @@ export const scheduleQueries = {
   defaults: () =>
     queryOptions({
       queryKey: scheduleKeys.defaults(),
-      queryFn: () => api.schedules(),
+      queryFn: () => api.scheduleDefaults(),
+      staleTime: 5 * 60_000,
+    }),
+  /**
+   * One aggregated server check of a draft. The key is the scheduling-relevant
+   * draft, so a name or description edit never asks again.
+   */
+  preflight: (scheduleId: string, signature: string, body: ScheduleInput) =>
+    queryOptions({
+      queryKey: scheduleKeys.preflight(scheduleId, signature),
+      queryFn: ({ signal }) =>
+        api.preflightSchedule(body, scheduleId || undefined, signal),
+      staleTime: 30_000,
+      retry: false,
     }),
   preview: (screenId: string, timestamp: string, proposed?: ScheduleInput) =>
     queryOptions({
@@ -55,6 +71,13 @@ export const scheduleQueries = {
 function invalidateSchedules(client: QueryClient) {
   void client.invalidateQueries({ queryKey: scheduleKeys.all });
   void client.invalidateQueries({ queryKey: scheduleKeys.previews });
+  void client.invalidateQueries({ queryKey: scheduleKeys.preflights });
+}
+
+/** A saved schedule is the new detail, so opening it after a create does not wait for another read. */
+export function rememberSavedSchedule(client: QueryClient, saved: Schedule) {
+  client.setQueryData(scheduleKeys.detail(saved.id), saved);
+  invalidateSchedules(client);
 }
 
 export const scheduleMutations = {
@@ -64,11 +87,18 @@ export const scheduleMutations = {
         id
           ? api.updateSchedule(id, input, csrf)
           : api.createSchedule(input, csrf),
-      onSuccess: () => invalidateSchedules(client),
+      onSuccess: (saved) => rememberSavedSchedule(client, saved),
     }),
   remove: (client: QueryClient, csrf: string, id: string) =>
     mutationOptions({
       mutationFn: () => api.deleteSchedule(id, csrf),
-      onSuccess: () => invalidateSchedules(client),
+      onSuccess: () => {
+        // A deleted schedule has no detail to refetch; asking would only fail.
+        client.removeQueries({
+          queryKey: scheduleKeys.detail(id),
+          exact: true,
+        });
+        invalidateSchedules(client);
+      },
     }),
 };

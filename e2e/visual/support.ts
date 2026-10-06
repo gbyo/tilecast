@@ -16,6 +16,9 @@ function volatileRegions(scope: Page | Locator) {
       .locator("+ dd"),
     scope.locator("table time"),
     scope.getByText(/^(just now|\d+ (min|hr) ago)$/i),
+    // The schedule editor's next-run check names the server's next occurrence,
+    // which moves with the real clock.
+    scope.getByText(/^(Checked for|Running now ·)/),
     scope
       .locator("dt")
       .filter({ hasText: /^Next schedule change$/ })
